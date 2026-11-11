@@ -195,21 +195,50 @@ route("POST", "/api/cloud/desktop/interest", async (ctx) => {
   json(ctx.res, 200, { ok: true });
 });
 
+function ownCloud(ctx, session, id = null) {
+  if (id) {
+    if (!isCloudId(id)) return null;
+    const cloud = ctx.store.cloud(id);
+    return cloud && cloud.account_id === session.account_id && cloud.status !== "ended" ? cloud : null;
+  }
+  return ctx.store.cloudsFor(session.account_id).find((cloud) => cloud.role === "owner" && !cloud.team_id && cloud.status !== "ended") ?? null;
+}
+
 route("POST", "/api/cloud/desktop/wake", async (ctx) => {
-  sessions(ctx);
-  json(ctx.res, 200, { state: "awake" });
+  const session = sessions(ctx);
+  const cloud = ownCloud(ctx, session);
+  if (!cloud) throw new HttpError(404, "not_found");
+  if (cloud.status === "ready") return json(ctx.res, 200, { state: "awake" });
+  void ctx.provisioner.start(cloud).catch((error) => ctx.log(`wake ${cloud.id} failed: ${error?.message ?? error}`));
+  json(ctx.res, 200, { state: "waking" });
 });
 
 route("POST", "/api/cloud/desktop/disk", async (ctx) => {
-  sessions(ctx);
+  const session = sessions(ctx);
+  const cloud = ownCloud(ctx, session);
+  if (!cloud) throw new HttpError(404, "not_found");
+  const maxGb = Number(cloud.max_disk_gb || ctx.config.cloudMaxDiskGb);
+  const current = Number(cloud.disk_gb || ctx.config.cloudDiskGb);
   const requested = Number(ctx.body.sizeGb);
-  const gb = Number.isSafeInteger(requested) && requested >= 1 && requested <= 100 ? requested : 20;
-  json(ctx.res, 200, { disk: { gb, maxGb: 100 } });
+  if (Number.isSafeInteger(requested) && requested >= current && requested <= maxGb) {
+    ctx.store.updateCloud(cloud.id, { disk_gb: requested });
+    return json(ctx.res, 200, { disk: { gb: requested, maxGb } });
+  }
+  json(ctx.res, 200, { disk: { gb: current, maxGb } });
 });
 
 route("POST", "/api/cloud/desktop/pairing", async (ctx) => {
-  sessions(ctx);
-  throw new HttpError(404, "not_found");
+  const session = sessions(ctx);
+  const cloud = ownCloud(ctx, session, typeof ctx.body.cloudId === "string" ? ctx.body.cloudId : null);
+  if (!cloud) throw new HttpError(404, "not_found");
+  try {
+    const grant = await ctx.provisioner.pairing(cloud);
+    json(ctx.res, 200, { cloudContractVersion: 1, ...grant });
+  } catch (error) {
+    if (error?.code === "not_running") throw new HttpError(409, "not_running");
+    ctx.log(`pairing ${cloud.id} failed: ${error?.message ?? error}`);
+    throw new HttpError(502, "pairing_failed");
+  }
 });
 
 route("POST", /^\/api\/cloud\/desktop\/teams\/[A-Za-z0-9._-]{1,128}\/pairing$/, async (ctx) => {
@@ -276,9 +305,36 @@ route("POST", "/api/updates-consent", async () => {
   throw new HttpError(404, "unknown_receipt");
 });
 
+const CLOUD_COLORS = new Set(["blue", "green", "amber", "rose", "violet", "slate"]);
+
+function cleanCloudName(value) {
+  if (typeof value !== "string") return null;
+  const name = value.replace(/\s+/g, " ").trim();
+  return name && [...name].length <= 40 && !/[\p{Cc}<>]/u.test(name) ? name : null;
+}
+
 route("POST", "/api/cloud/desktop/clouds", async (ctx) => {
-  sessions(ctx);
-  throw new HttpError(409, "signups_closed", { addBlocked: "signups_closed" });
+  const session = sessions(ctx);
+  if (session.plan_status !== "active" || Number(session.plan_expires_at) <= Date.now()) {
+    throw new HttpError(403, "signup_closed", { addBlocked: "signups_closed" });
+  }
+  const tier = ctx.body.tier;
+  const name = cleanCloudName(ctx.body.name);
+  const color = ctx.body.color === null || ctx.body.color === undefined ? null : ctx.body.color;
+  if (!validPlan(tier) || !name || (color !== null && !CLOUD_COLORS.has(color))) throw new HttpError(400, "invalid_request");
+  rateLimit(ctx, ctx.limits.checkoutIp, `checkout:${ctx.ip}`);
+  let cloud;
+  try {
+    cloud = await ctx.provisioner.create({ accountId: session.account_id, tier, name, color });
+  } catch (error) {
+    if (error?.code === "cloud_cap") throw new HttpError(409, "cap", { addBlocked: "cap" });
+    throw error;
+  }
+  json(ctx.res, 200, {
+    cloudContractVersion: 1,
+    cloudId: cloud.id,
+    checkoutUrl: `${ctx.config.origin}/provision?cloud=${encodeURIComponent(cloud.id)}`,
+  });
 });
 
 route("POST", "/api/cloud/desktop/organizations", async (ctx) => {
@@ -287,14 +343,25 @@ route("POST", "/api/cloud/desktop/organizations", async (ctx) => {
 });
 
 route("PATCH", /^\/api\/cloud\/desktop\/clouds\/[A-Za-z0-9_-]{1,64}$/, async (ctx) => {
-  sessions(ctx);
-  if (!isCloudId(ctx.path.split("/").at(-1))) throw new HttpError(400, "invalid_request");
-  throw new HttpError(404, "not_found");
+  const session = sessions(ctx);
+  const id = ctx.path.split("/").at(-1);
+  if (!isCloudId(id)) throw new HttpError(400, "invalid_request");
+  const cloud = ownCloud(ctx, session, id);
+  if (!cloud) throw new HttpError(404, "not_found");
+  const color = ctx.body.color;
+  if (!(color === null || CLOUD_COLORS.has(color))) throw new HttpError(400, "invalid_request");
+  ctx.store.updateCloud(id, { color });
+  json(ctx.res, 200, {});
 });
 
 route("POST", /^\/api\/cloud\/desktop\/clouds\/[A-Za-z0-9_-]{1,64}\/hide$/, async (ctx) => {
-  sessions(ctx);
-  throw new HttpError(404, "not_found");
+  const session = sessions(ctx);
+  const id = ctx.path.split("/").at(-1);
+  if (!isCloudId(id)) throw new HttpError(400, "invalid_request");
+  const cloud = ownCloud(ctx, session, id);
+  if (!cloud) throw new HttpError(404, "not_found");
+  ctx.store.hideCloud(id);
+  json(ctx.res, 200, {});
 });
 
 route("POST", /^\/api\/cloud\/desktop\/clouds\/[A-Za-z0-9_-]{1,64}\/cancel$/, async (ctx) => {

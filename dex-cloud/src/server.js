@@ -6,7 +6,7 @@ import { handleControl } from "./control.js";
 import { EmailUnavailable } from "./email.js";
 import { PLANS } from "./helpers.js";
 import { HttpError, RateLimiter, fail, html, json, methodNotAllowed, readJson, setCors, text } from "./http.js";
-import { approvalPage, buyPage, downloadPage, errorPage, plansPage } from "./pages.js";
+import { approvalPage, buyPage, downloadPage, errorPage, plansPage, provisionPage } from "./pages.js";
 import { newUuid } from "./crypto.js";
 
 const STATIC = { ".apk": "application/vnd.android.package-archive", ".json": "application/json; charset=utf-8", ".html": "text/html; charset=utf-8" };
@@ -57,7 +57,7 @@ function planFromCheckout(store, checkoutId) {
   return { checkout, plan: PLANS.find((plan) => plan.tier === checkout.plan) ?? null };
 }
 
-export function createApp({ config, store, emailer, relayKey, log = console.log }) {
+export function createApp({ config, store, emailer, relayKey, provisioner, log = console.log }) {
   const limits = {
     authorizeIp: new RateLimiter({ windowMs: 60 * 60_000, limit: 120 }),
     tokenIp: new RateLimiter({ windowMs: 60 * 60_000, limit: 2000 }),
@@ -95,10 +95,20 @@ export function createApp({ config, store, emailer, relayKey, log = console.log 
     const method = req.method ?? "GET";
 
     try {
+      if (path === "/internal/tls-ask") {
+        const domain = String(url.searchParams.get("domain") ?? "").toLowerCase();
+        const cloud = domain ? store.cloudByHostname(domain) : null;
+        if (cloud && cloud.status !== "ended") {
+          res.writeHead(200);
+          return res.end("ok");
+        }
+        res.writeHead(404);
+        return res.end("unknown");
+      }
       if (path.startsWith("/api/") || path.startsWith("/v1/") || path === "/healthz") {
         const body = method === "GET" || method === "HEAD" ? {} : await readJson(req);
         const ctx = {
-          req, res, method, path, url, body, config, store, emailer, relayKey, log, limits,
+          req, res, method, path, url, body, config, store, emailer, relayKey, provisioner, log, limits,
           ip: req.socket.remoteAddress ?? "0.0.0.0",
         };
         if (path.startsWith("/api/")) {
@@ -127,6 +137,11 @@ export function createApp({ config, store, emailer, relayKey, log = console.log 
         return html(res, 200, buyPage(found.checkout.id, found.plan, config));
       }
       if (path === "/cloud/return") return html(res, 200, errorPage("已收到。回到 DEX BOT 即可看到最新的账号状态。"));
+      if (path === "/provision") {
+        const cloud = store.cloud(String(url.searchParams.get("cloud") ?? ""));
+        if (!cloud) return html(res, 404, errorPage("云电脑不存在或已被移除。"));
+        return html(res, 200, provisionPage(cloud));
+      }
       if (path === "/download/dexbot.apk") {
         if (staticResponse(res, config.apkPath, { downloadName: "dexbot.apk", immutable: true })) return;
         return html(res, 404, errorPage("APK 还没有上传到这个服务器。"));

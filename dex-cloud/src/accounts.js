@@ -63,7 +63,15 @@ export function readSession(store, token) {
 }
 
 export function sessionPayload(store, config, session) {
-  const clouds = store.cloudsFor(session.account_id).slice(0, 20).map((cloud) => ({
+  const entitlement = entitlementFor({
+    plan_tier: session.plan_tier,
+    plan_status: session.plan_status,
+    plan_expires_at: session.plan_expires_at,
+    plan_version: 1,
+  });
+  const rows = store.cloudsFor(session.account_id).filter((cloud) => cloud.status !== "ended").slice(0, 20);
+  const primary = rows.find((cloud) => cloud.role === "owner" && !cloud.team_id) ?? null;
+  const clouds = rows.map((cloud) => ({
     id: cloud.id,
     name: cloud.name,
     ...(cloud.color ? { color: cloud.color } : {}),
@@ -73,12 +81,13 @@ export function sessionPayload(store, config, session) {
     status: cloud.status,
     ...(cloud.origin ? { origin: cloud.origin } : {}),
     ...(cloud.team_id ? { teamId: cloud.team_id } : {}),
-    primary: cloud.role === "owner",
+    primary: cloud.id === primary?.id,
     managed: true,
-    setup: Boolean(cloud.setup),
-    lastSeenAt: Number(cloud.updated_at),
-    removable: Boolean(cloud.removable),
-    power: { state: cloud.power_state, since: Number(cloud.updated_at), sleeps: false },
+    ...(cloud.status === "setting_up" ? { setup: { step: cloud.setup_step || "reserving", ...(typeof cloud.setup_progress === "number" ? { progress: cloud.setup_progress } : {}) } } : {}),
+    ...(Number(cloud.last_seen_at) > 0 ? { lastSeenAt: Number(cloud.last_seen_at) } : {}),
+    ...(cloud.version ? { version: cloud.version } : {}),
+    removable: false,
+    ...(cloud.status === "ready" ? { power: { state: cloud.power_state || "awake", since: Number(cloud.updated_at), sleeps: false } } : {}),
   }));
   const teams = store.teamsFor(session.account_id).slice(0, 50).map((team) => ({
     id: team.id,
@@ -86,20 +95,26 @@ export function sessionPayload(store, config, session) {
     role: team.role,
     machine: null,
   }));
+  const canAdd = entitlement.plan === "pro" && rows.length < config.cloudMaxPerAccount;
+  const machineState = primary?.status === "ready" ? "ready" : primary?.status === "setting_up" ? "setting_up" : primary ? "stopped" : null;
   return {
     cloudContractVersion: 1,
     expiresAt: Number(session.expires_at),
     device: { id: session.device_id },
     account: { id: session.account_id, email: session.account_email },
-    entitlement: entitlementFor({
-      plan_tier: session.plan_tier,
-      plan_status: session.plan_status,
-      plan_expires_at: session.plan_expires_at,
-      plan_version: 1,
-    }),
+    entitlement,
+    ...(primary && machineState ? {
+      cloud: {
+        state: machineState,
+        ...(primary.origin ? { origin: primary.origin } : {}),
+        ...(machineState === "setting_up" ? { setup: { step: primary.setup_step || "reserving" } } : {}),
+        ...(primary.disk_gb ? { disk: { gb: Number(primary.disk_gb), maxGb: Number(primary.max_disk_gb || config.cloudMaxDiskGb) } } : {}),
+        ...(machineState === "ready" ? { power: { state: primary.power_state || "awake", since: Number(primary.updated_at), sleeps: false } } : {}),
+      },
+    } : {}),
     clouds,
-    canAdd: false,
-    addBlocked: "signups_closed",
+    canAdd,
+    ...(canAdd ? {} : { addBlocked: rows.length >= config.cloudMaxPerAccount ? "cap" : "signups_closed" }),
     teams,
     organizations: { planCloudId: null, canAdd: false, addBlocked: "off", count: 0, max: 0 },
     latestVersion: config.latestVersion,

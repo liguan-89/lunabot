@@ -13,7 +13,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS control_sessions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS installations (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, client_instance_id TEXT NOT NULL, name TEXT NOT NULL, platform TEXT, app_version TEXT, kind TEXT NOT NULL DEFAULT 'desktop', created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS installation_credentials (id TEXT PRIMARY KEY, installation_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER)",
-  "CREATE TABLE IF NOT EXISTS clouds (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, team_id TEXT, name TEXT NOT NULL, color TEXT, tier TEXT, status TEXT NOT NULL, origin TEXT, role TEXT NOT NULL, power_state TEXT NOT NULL DEFAULT 'awake', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER, cancelled_at INTEGER, kept INTEGER NOT NULL DEFAULT 0, removable INTEGER NOT NULL DEFAULT 1, setup INTEGER NOT NULL DEFAULT 0)",
+  "CREATE TABLE IF NOT EXISTS clouds (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, team_id TEXT, name TEXT NOT NULL, color TEXT, tier TEXT, status TEXT NOT NULL, origin TEXT, role TEXT NOT NULL, power_state TEXT NOT NULL DEFAULT 'awake', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER, cancelled_at INTEGER, kept INTEGER NOT NULL DEFAULT 0, removable INTEGER NOT NULL DEFAULT 1, setup INTEGER NOT NULL DEFAULT 0, hostname TEXT, machine_id TEXT, bootstrap_secret TEXT, setup_step TEXT, setup_progress REAL, last_seen_at INTEGER, version TEXT, disk_gb INTEGER, max_disk_gb INTEGER, container_id TEXT)",
   "CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_account_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS team_members (team_id TEXT NOT NULL, account_id TEXT NOT NULL, role TEXT NOT NULL, joined_at INTEGER NOT NULL, PRIMARY KEY (team_id, account_id))",
   "CREATE TABLE IF NOT EXISTS checkouts (id TEXT PRIMARY KEY, account_id TEXT, plan TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, completed_at INTEGER)",
@@ -50,6 +50,19 @@ const TEAMS_FOR = [
   "WHERE m.account_id = ? ORDER BY t.created_at ASC",
 ].join(" ");
 
+const CLOUD_MIGRATIONS = [
+  "ALTER TABLE clouds ADD COLUMN hostname TEXT",
+  "ALTER TABLE clouds ADD COLUMN machine_id TEXT",
+  "ALTER TABLE clouds ADD COLUMN bootstrap_secret TEXT",
+  "ALTER TABLE clouds ADD COLUMN setup_step TEXT",
+  "ALTER TABLE clouds ADD COLUMN setup_progress REAL",
+  "ALTER TABLE clouds ADD COLUMN last_seen_at INTEGER",
+  "ALTER TABLE clouds ADD COLUMN version TEXT",
+  "ALTER TABLE clouds ADD COLUMN disk_gb INTEGER",
+  "ALTER TABLE clouds ADD COLUMN max_disk_gb INTEGER",
+  "ALTER TABLE clouds ADD COLUMN container_id TEXT",
+];
+
 const CLOUD_UPDATES = {
   name: "UPDATE clouds SET name = ?, updated_at = ? WHERE id = ?",
   color: "UPDATE clouds SET color = ?, updated_at = ? WHERE id = ?",
@@ -62,6 +75,16 @@ const CLOUD_UPDATES = {
   kept: "UPDATE clouds SET kept = ?, updated_at = ? WHERE id = ?",
   removable: "UPDATE clouds SET removable = ?, updated_at = ? WHERE id = ?",
   setup: "UPDATE clouds SET setup = ?, updated_at = ? WHERE id = ?",
+  hostname: "UPDATE clouds SET hostname = ?, updated_at = ? WHERE id = ?",
+  machine_id: "UPDATE clouds SET machine_id = ?, updated_at = ? WHERE id = ?",
+  bootstrap_secret: "UPDATE clouds SET bootstrap_secret = ?, updated_at = ? WHERE id = ?",
+  setup_step: "UPDATE clouds SET setup_step = ?, updated_at = ? WHERE id = ?",
+  setup_progress: "UPDATE clouds SET setup_progress = ?, updated_at = ? WHERE id = ?",
+  last_seen_at: "UPDATE clouds SET last_seen_at = ?, updated_at = ? WHERE id = ?",
+  version: "UPDATE clouds SET version = ?, updated_at = ? WHERE id = ?",
+  disk_gb: "UPDATE clouds SET disk_gb = ?, updated_at = ? WHERE id = ?",
+  max_disk_gb: "UPDATE clouds SET max_disk_gb = ?, updated_at = ? WHERE id = ?",
+  container_id: "UPDATE clouds SET container_id = ?, updated_at = ? WHERE id = ?",
 };
 
 export function openStore(path) {
@@ -71,6 +94,13 @@ export function openStore(path) {
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA busy_timeout = 5000");
   for (const statement of TABLES) db.prepare(statement).run();
+  for (const statement of CLOUD_MIGRATIONS) {
+    try {
+      db.prepare(statement).run();
+    } catch (error) {
+      if (!/duplicate column name/i.test(String(error?.message ?? ""))) throw error;
+    }
+  }
   return new Store(db);
 }
 
@@ -273,12 +303,24 @@ export class Store {
     return this.db.prepare("SELECT * FROM clouds WHERE id = ?").get(id) ?? null;
   }
 
-  insertCloud({ id, accountId, teamId = null, name, color = null, tier = null, status, origin = null, role }) {
+  cloudByHostname(hostname) {
+    return this.db.prepare("SELECT * FROM clouds WHERE hostname = ?").get(String(hostname).toLowerCase()) ?? null;
+  }
+
+  liveClouds() {
+    return this.db.prepare("SELECT * FROM clouds WHERE status IN ('setting_up','ready','offline')").all();
+  }
+
+  deleteCloud(id) {
+    this.db.prepare("DELETE FROM clouds WHERE id = ?").run(id);
+  }
+
+  insertCloud({ id, accountId, teamId = null, name, color = null, tier = null, status, origin = null, role, hostname = null, machineId = null, bootstrapSecret = null, diskGb = null, maxDiskGb = null }) {
     const created = now();
     this.db.prepare([
-      "INSERT INTO clouds (id, account_id, team_id, name, color, tier, status, origin, role, created_at, updated_at, removable, setup)",
-      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0)",
-    ].join(" ")).run(id, accountId, teamId, name, color, tier, status, origin, role, created, created);
+      "INSERT INTO clouds (id, account_id, team_id, name, color, tier, status, origin, role, created_at, updated_at, removable, setup, hostname, machine_id, bootstrap_secret, disk_gb, max_disk_gb)",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?, ?, ?, ?)",
+    ].join(" ")).run(id, accountId, teamId, name, color, tier, status, origin, role, created, created, hostname, machineId, bootstrapSecret, diskGb, maxDiskGb);
     return this.cloud(id);
   }
 

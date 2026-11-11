@@ -135,6 +135,19 @@ export function downloadPage(_config) {
   return layout("下载", body);
 }
 
+export function provisionPage(cloud) {
+  const status = cloud.status === "ready" ? "已经就绪" : cloud.status === "offline" ? "暂时离线" : "正在创建";
+  const body = `<h1>${escapeHtml(cloud.name)}</h1>
+<p class="lead">DEX Cloud 正在为你准备这台云电脑。当前状态：<strong>${escapeHtml(status)}</strong>。</p>
+<div class="card">
+  <h3>接下来</h3>
+  <p class="note">回到 DEX BOT 的“服务器”列表，云电脑就绪后会自动出现。首次打开时用同一账号登录即可。</p>
+  <p class="note">地址：<code>${escapeHtml(cloud.origin || cloud.hostname || "")}</code></p>
+</div>
+<p><a href="/cloud">返回 DEX Cloud</a></p>`;
+  return layout("创建云电脑", body);
+}
+
 export function errorPage(message) {
   return layout("出错了", `<h1>出错了</h1><p class="lead">${escapeHtml(message)}</p><p><a href="/cloud">返回 DEX Cloud</a></p>`);
 }

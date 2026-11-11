@@ -63,6 +63,17 @@ export function loadConfig(env = process.env) {
     apkPath: trim(env.DEXCLOUD_APK_PATH) || "/data/downloads/dexbot.apk",
     updatePath: trim(env.DEXCLOUD_UPDATE_PATH) || "/data/downloads/update.json",
     landingPath: trim(env.DEXCLOUD_LANDING_PATH) || "/data/downloads/landing.html",
+    dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",
+    cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "dexbot-cloud-home:local",
+    cloudNetwork: trim(env.DEXCLOUD_CLOUD_NETWORK) || "dexcloud",
+    cloudHostSuffix: trim(env.DEXCLOUD_CLOUD_HOST_SUFFIX) || "cloud.dexai.vip",
+    cloudMemoryMb: int(env.DEXCLOUD_CLOUD_MEMORY_MB, 1536, { min: 512, max: 8192 }),
+    cloudNanoCpus: int(env.DEXCLOUD_CLOUD_NANO_CPUS, 1_500_000_000, { min: 0, max: 8_000_000_000 }),
+    cloudDiskGb: int(env.DEXCLOUD_CLOUD_DISK_GB, 10, { min: 1, max: 100 }),
+    cloudMaxDiskGb: int(env.DEXCLOUD_CLOUD_MAX_DISK_GB, 20, { min: 1, max: 200 }),
+    cloudMaxPerAccount: int(env.DEXCLOUD_CLOUD_MAX_PER_ACCOUNT, 1, { min: 0, max: 20 }),
+    cloudProvisionTimeoutMs: int(env.DEXCLOUD_CLOUD_PROVISION_TIMEOUT_MS, 180_000, { min: 30_000, max: 600_000 }),
+    routerPort: int(env.DEXCLOUD_ROUTER_PORT, 8792, { min: 1, max: 65535 }),
   };
 }
 
