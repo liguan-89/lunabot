@@ -22,6 +22,20 @@ data class E2eDescriptor(
 ) {
     val transportKey: ByteArray get() = E2eBase64.decodeOrThrow(k, "transport_key")
     val hostId: ByteArray? get() = h?.let { E2eBase64.decodeOrThrow(it, "host_id") }
+
+    /** The `e2e=` text for a link or a stored connection: the same shape the desktop emits. */
+    fun encode(): String {
+        val fields = buildString {
+            append("{\"v\":1,\"k\":").append(JsonPrimitive(k))
+            if (h != null && relays.isNotEmpty()) {
+                append(",\"h\":").append(JsonPrimitive(h))
+                append(",\"r\":[").append(relays.joinToString(",") { JsonPrimitive(it).toString() }).append(']')
+            }
+            if (routes != null) append(",\"routes\":").append(JsonPrimitive(routes))
+            append('}')
+        }
+        return E2eBase64.encode(fields.toByteArray(Charsets.UTF_8))
+    }
 }
 
 sealed class DescriptorParse {

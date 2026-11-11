@@ -29,8 +29,32 @@ data class Connection(
     val allowedLocalRouteURLs: Set<String>? = null,
     val serverEnvironmentId: String? = null,
     val serverScopes: List<String>? = null,
+    /**
+     * The QR's `e2e` descriptor, kept verbatim so the transport key stays
+     * pinned to what the owner showed. Null means a plain (unencrypted)
+     * connection, which is what a computer without the relay still serves.
+     */
+    val e2e: String? = null,
 ) {
     val pairedWithServer: Boolean get() = serverEnvironmentId != null
+
+    /** The pinned descriptor, or null for a plain connection or an unreadable value. */
+    val e2eDescriptor: com.openmausbot.companion.core.e2e.E2eDescriptor?
+        get() = e2e?.let { raw ->
+            (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parse(raw)
+                as? com.openmausbot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
+        }
+
+    /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints. */
+    val e2eDirectUrl: String?
+        get() {
+            val candidates = buildList {
+                activeEndpoint?.let(::add)
+                endpoints?.let(::addAll)
+            }
+            val endpoint = candidates.firstOrNull { it.kind != CompanionEndpointKind.HOSTED } ?: return null
+            return "ws://${endpoint.host.trim('[', ']')}:${endpoint.port}/v1/e2e"
+        }
 
     val baseUrl: URI?
         get() {
@@ -403,6 +427,16 @@ data class PairingInvite(val connection: Connection, val credential: String) {
             values["endpoints"]?.let { encoded ->
                 val endpoints = decodeEndpoints(encoded) ?: return null
                 connection = connection.copy(endpoints = endpoints).dialing(endpoints.first())
+            }
+
+            values["e2e"]?.let { raw ->
+                // A malformed descriptor, or one from a newer app, refuses the
+                // whole invite: a phone must never fall back to plain pairing
+                // when the owner asked for the encrypted connection.
+                when (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parse(raw)) {
+                    is com.openmausbot.companion.core.e2e.DescriptorParse.Ok -> connection = connection.copy(e2e = raw)
+                    else -> return null
+                }
             }
 
             return PairingInvite(connection.establishingRoutePolicyFromInvite(), credential)

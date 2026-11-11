@@ -126,13 +126,51 @@ class CompanionClient(
     val connection: Connection,
     private val token: String?,
     baseClient: OkHttpClient = OkHttpClient(),
+    appLabel: String = "mausbot-android",
 ) {
-    private val endpoint = connection.httpEndpoint(baseClient.dns)
+    /**
+     * When the pairing carried an e2e descriptor, every request and stream runs
+     * inside that encrypted session: OkHttp is pointed at a synthetic host whose
+     * SocketFactory is the tunnel, so nothing else in this class changes.
+     */
+    private val e2e: com.openmausbot.companion.core.e2e.E2eTransport? =
+        connection.e2eDescriptor?.let { descriptor ->
+            token?.let {
+                com.openmausbot.companion.core.e2e.E2eTransport(
+                    descriptor = descriptor,
+                    token = it,
+                    app = appLabel,
+                    directUrl = connection.e2eDirectUrl,
+                )
+            }
+        }
 
-    private val actionClient = baseClient.newBuilder()
+    private val transportClient: OkHttpClient = run {
+        val tunnel = e2e ?: return@run baseClient
+        baseClient.newBuilder()
+            .socketFactory(tunnel.socketFactory)
+            .dns(tunnel.dns)
+            .build()
+    }
+
+    private val endpoint = run {
+        val tunnel = e2e
+        if (tunnel == null) {
+            connection.httpEndpoint(baseClient.dns)
+        } else {
+            runCatching {
+                ConnectionEndpoint(
+                    HttpUrl.Builder().scheme("http").host(tunnel.httpHost).port(80).build(),
+                    tunnel.dns,
+                )
+            }.getOrNull()
+        }
+    }
+
+    private val actionClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
-        .dns(endpoint?.dns ?: baseClient.dns)
+        .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -144,30 +182,30 @@ class CompanionClient(
      * steady transfer; iOS uses an idle `timeoutInterval` that resets on bytes.
      * Connect/read/write idle limits, no overall call deadline.
      */
-    private val uploadClient = baseClient.newBuilder()
+    private val uploadClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
-        .dns(endpoint?.dns ?: baseClient.dns)
+        .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
-    private val streamingClient = baseClient.newBuilder()
+    private val streamingClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
-        .dns(endpoint?.dns ?: baseClient.dns)
+        .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(STREAM_IDLE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
-    private val avatarGenerationClient = baseClient.newBuilder()
+    private val avatarGenerationClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
-        .dns(endpoint?.dns ?: baseClient.dns)
+        .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -178,10 +216,10 @@ class CompanionClient(
      * Claude Code's own updater can take minutes on the computer, so this
      * route gets its own deadline instead of the twenty-second action one.
      */
-    private val claudeUpdateClient = baseClient.newBuilder()
+    private val claudeUpdateClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
-        .dns(endpoint?.dns ?: baseClient.dns)
+        .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(CLAUDE_UPDATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .readTimeout(CLAUDE_UPDATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)

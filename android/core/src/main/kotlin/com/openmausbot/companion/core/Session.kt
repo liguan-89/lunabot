@@ -311,6 +311,35 @@ class Session(
         deviceName: String,
         requestId: String,
     ): Pair<Connection, String> {
+        // A pairing link that carries the e2e descriptor is redeemed inside the
+        // encrypted tunnel: the credential is the pre-shared key, so the relay
+        // never sees it and there is no plain fallback (spec §3).
+        val e2eDescriptor = invited.e2eDescriptor
+        if (e2eDescriptor != null) {
+            val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                com.openmausbot.companion.core.e2e.E2ePairing.pair(
+                    connector = com.openmausbot.companion.core.e2e.OkHttpE2eConnector(httpClient),
+                    descriptor = e2eDescriptor,
+                    credential = credential,
+                    deviceName = deviceName,
+                    app = "mausbot-android",
+                    directWsUrl = invited.e2eDirectUrl,
+                    pairRequestId = requestId,
+                )
+            }
+            var stored = invited.copy(
+                name = result.serverName?.takeIf { it.isNotEmpty() } ?: invited.name,
+                allowedRouteKinds = invited.allowedRouteKinds,
+                allowedLocalRouteURLs = invited.allowedLocalRouteURLs,
+                hosts = result.hosts.takeIf { it.isNotEmpty() } ?: invited.hosts,
+                // The computer's own descriptor wins; the pinned QR value stays otherwise.
+                e2e = result.descriptor?.encode() ?: invited.e2e,
+            )
+            if (result.deviceId != null) {
+                stored = stored.copy(name = stored.name)
+            }
+            return stored to result.token
+        }
         val serverCode = PairingInvite.normalizedServerCode(credential)
         if (serverCode != null) {
             val descriptor: ServerEnvironment
