@@ -239,6 +239,10 @@ data class Connection(
             hosts = metadata.hosts?.let(::advertisedHostsAllowedByRoutePolicy) ?: hosts,
             activeEndpoint = active,
             endpoints = routes,
+            // Trust on first use: a phone paired before the encrypted connection
+            // existed adopts the pinned key once, from the computer it already
+            // trusts, and keeps it from then on.
+            e2e = e2e ?: metadata.e2e?.encode(),
         )
     }
 

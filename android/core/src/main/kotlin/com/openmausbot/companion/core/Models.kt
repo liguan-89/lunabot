@@ -15,6 +15,7 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonEncoder
@@ -788,6 +789,12 @@ data class CompanionConnectionMetadata(
     val serverName: String,
     val hosts: List<String>? = null,
     val endpoints: List<CompanionEndpoint>,
+    /**
+     * Present when the computer offers the encrypted connection. A phone paired
+     * before this feature adopts it once from here — trust on first use — and
+     * pins it from then on (spec §3).
+     */
+    val e2e: com.openmausbot.companion.core.e2e.E2eDescriptor? = null,
 )
 
 /**
@@ -824,7 +831,11 @@ object CompanionConnectionMetadataSerializer : KSerializer<CompanionConnectionMe
                 "Companion endpoint metadata must contain at least one valid route.",
             )
         }
-        return CompanionConnectionMetadata(serverName, hosts, endpoints)
+        val e2e = (value["e2e"] as? JsonObject)?.let { element ->
+            (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parseObject(element)
+                as? com.openmausbot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
+        }
+        return CompanionConnectionMetadata(serverName, hosts, endpoints, e2e)
     }
 
     override fun serialize(encoder: Encoder, value: CompanionConnectionMetadata) {
@@ -834,6 +845,17 @@ object CompanionConnectionMetadataSerializer : KSerializer<CompanionConnectionMe
             put("serverName", value.serverName)
             value.hosts?.let { put("hosts", output.json.encodeToJsonElement(it)) }
             put("endpoints", output.json.encodeToJsonElement(value.endpoints))
+            value.e2e?.let { descriptor ->
+                put("e2e", buildJsonObject {
+                    put("v", 1)
+                    put("k", descriptor.k)
+                    descriptor.h?.let { put("h", it) }
+                    if (descriptor.relays.isNotEmpty()) {
+                        put("r", buildJsonArray { descriptor.relays.forEach { add(JsonPrimitive(it)) } })
+                    }
+                    descriptor.routes?.let { put("routes", it) }
+                })
+            }
         })
     }
 }

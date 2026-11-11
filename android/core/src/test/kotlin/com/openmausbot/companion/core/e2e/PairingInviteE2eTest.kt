@@ -1,5 +1,8 @@
 package com.openmausbot.companion.core.e2e
 
+import com.openmausbot.companion.core.CompanionConnectionMetadata
+import com.openmausbot.companion.core.CompanionEndpoint
+import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.PairingInvite
 import java.security.SecureRandom
 import kotlin.test.Test
@@ -55,5 +58,22 @@ class PairingInviteE2eTest {
         )
         assertNotNull(invite)
         assertEquals("ws://192.168.1.20:8810/v1/e2e", invite.connection.e2eDirectUrl)
+    }
+
+    @Test
+    fun `a paired phone adopts the descriptor once from the endpoint snapshot`() {
+        val connection = Connection(name = "Mac", host = "192.168.1.20", port = 8810)
+        val metadata = CompanionConnectionMetadata(
+            serverName = "Mac",
+            endpoints = listOf(CompanionEndpoint.direct("192.168.1.20", 8810, priority = 0)!!),
+            e2e = descriptor,
+        )
+        val upgraded = connection.reconciling(metadata)
+        assertEquals(descriptor.encode(), upgraded.e2e)
+
+        // A later, different descriptor never replaces the pinned one.
+        val other = descriptor.copy(k = E2eBase64.encode(P256.generateKeyPair(SecureRandom()).publicKey))
+        val again = upgraded.reconciling(metadata.copy(e2e = other))
+        assertEquals(descriptor.encode(), again.e2e)
     }
 }
