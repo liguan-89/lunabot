@@ -33,8 +33,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.openmausbot.companion.core.Connection
@@ -231,15 +234,28 @@ fun CompanionRoot(
                 // screen, so this observes the Initial pass and consumes
                 // nothing — every gesture below still arrives untouched.
                 val faceClock = rememberFaceClock()
+                // The observer's own origin, so a local touch can be handed to
+                // the face in window pixels — the same space the portrait
+                // measures itself in.
+                val observerOrigin = remember { mutableStateOf(Offset.Zero) }
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .onGloballyPositioned { observerOrigin.value = it.positionInWindow() }
                         .pointerInput(faceClock) {
                             val clock = faceClock ?: return@pointerInput
                             awaitPointerEventScope {
                                 while (true) {
-                                    awaitPointerEvent(PointerEventPass.Initial)
-                                    clock.touch()
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.pressed }
+                                    if (change != null) {
+                                        clock.touched(
+                                            observerOrigin.value.x + change.position.x,
+                                            observerOrigin.value.y + change.position.y,
+                                        )
+                                    } else {
+                                        clock.touch()
+                                    }
                                 }
                             }
                         },

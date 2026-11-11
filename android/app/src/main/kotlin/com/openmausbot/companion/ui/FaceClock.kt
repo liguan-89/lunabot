@@ -50,6 +50,11 @@ internal class FaceClock(private val scope: CoroutineScope) {
     /** The [millis] of the last pointer event, for the idle faces. */
     val interactedAt: State<Long> get() = interacted
 
+    private val pointer = mutableStateOf<FacePointer?>(null)
+
+    /** Where the last finger went, in window pixels, and when it was there. */
+    val lastPointer: State<FacePointer?> get() = pointer
+
     private var readers = 0
     private var loop: Job? = null
 
@@ -79,9 +84,22 @@ internal class FaceClock(private val scope: CoroutineScope) {
         interacted.longValue = elapsed.longValue
     }
 
+    /**
+     * A finger touched the screen at [x], [y] (window pixels). Unlike [touch],
+     * this also gives the large portrait somewhere to look: a face that follows
+     * the finger reads as present in a way no idle animation does.
+     */
+    fun touched(x: Float, y: Float) {
+        interacted.longValue = elapsed.longValue
+        pointer.value = FacePointer(x, y, elapsed.longValue)
+    }
+
     /** How long since the last touch, in milliseconds. */
     fun idleMillis(): Long = elapsed.longValue - interacted.longValue
 }
+
+/** One finger position, in window pixels, stamped with the clock's time. */
+internal data class FacePointer(val x: Float, val y: Float, val at: Long)
 
 /**
  * Null where no provider was installed — a test that mounts a face on its own,

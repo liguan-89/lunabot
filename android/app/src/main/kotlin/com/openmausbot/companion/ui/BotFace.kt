@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeJoin
@@ -20,6 +23,10 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -30,6 +37,7 @@ import kotlin.math.cos
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /**
  * How much of a life a face is given.
@@ -59,8 +67,16 @@ internal data class FacePose(
     val gazeX: Float = 0f,
     val gazeY: Float = 0f,
     val scale: Float = 1f,
+    /** Width against height: a breath that inflates one squashes the other. */
+    val squash: Float = 0f,
     /** Degrees the whole face tips, added to its resting tilt. */
     val roll: Float = 0f,
+    /**
+     * Where a finger asked the eyes to look, in screen axes and face radii.
+     * Added after the face's own tilt, because the finger is not tilted.
+     */
+    val lookX: Float = 0f,
+    val lookY: Float = 0f,
 )
 
 /**
@@ -104,13 +120,14 @@ internal object BotFaceGeometry {
     const val EYE_OFFSET = 0.342f
 
     /**
-     * How far the pair sits below the circle's centre, in radii.
+     * How far the pair sits from the circle's centre, in radii.
      *
-     * The reference measures 0.100, and at a metre it is right — but on a
-     * phone the pair sat low enough to read as cheeks. Lifted, at the same
-     * tilt and the same size, it reads as eyes again.
+     * Negative is above the centre. The reference measures 0.100 *below*, which
+     * on a phone read as cheeks; lifting the pair to just above the middle
+     * leaves the lower half of the disc as a chin, which is what makes a circle
+     * read as a head rather than a face pasted in the middle of a token.
      */
-    const val EYE_DROP = 0.052f
+    const val EYE_DROP = -0.150f
 
     /** The tilt of the whole face, in degrees, clockwise on screen. */
     const val FACE_TILT_DEG = -19.1f
@@ -131,6 +148,11 @@ internal object BotFaceGeometry {
  */
 internal object BotFaceRig {
     private const val BLINK_MILLIS = 320
+    private const val WINK_MILLIS = 620
+    /** How long a finger's direction holds before the eyes drift back. */
+    private const val LOOK_MILLIS = 1_500L
+    /** The farthest a glance can move an eye, in radii. */
+    private const val LOOK_STRENGTH = 0.13f
 
     fun pose(now: Long, seed: Int, mood: FaceMood, life: FaceLife): FacePose {
         if (life == FaceLife.STILL) return FacePose()
@@ -198,6 +220,19 @@ internal object BotFaceRig {
                 openRight *= squint
             }
         }
+        // A resting sway, much slower than the gestures: even a face doing
+        // nothing is holding its head up. Only an idle large portrait gets it —
+        // a working face holds still, and a row of heads all swaying would pull
+        // the eye off the names.
+        if (life == FaceLife.ALIVE && mood == FaceMood.IDLE) roll += 0.8f * sin(t / 7_300f)
+
+        // A single-eye wink now and then: the cheapest way for a flat face to
+        // look like it has a sense of humour. Rare enough not to become a tic.
+        if (life != FaceLife.STILL && mood == FaceMood.IDLE) {
+            val winkPeriod = 13_000L + (mix(seed + 71) ushr 8) % 9_000
+            val closed = winkPulse(t % winkPeriod)
+            if (closed > 0f) openRight *= 1f - 0.88f * closed
+        }
         when (mood) {
             // Eyes up and slightly narrowed: the look of working something out.
             FaceMood.THINKING -> {
@@ -223,6 +258,9 @@ internal object BotFaceRig {
             }
             FaceMood.DROWSY -> {
                 gazeY += 0.045f
+                // A head that is falling asleep nods on a slow cycle; the eyes
+                // stay half-lidded over it.
+                roll += 2.2f * sin(t / 4_100f)
                 val lid = 0.55f + 0.30f * (0.5f + 0.5f * sin(t / 2_600f))
                 openLeft *= lid
                 openRight *= lid
@@ -230,15 +268,65 @@ internal object BotFaceRig {
             FaceMood.IDLE -> Unit
         }
 
-        val scale = if (life == FaceLife.ALIVE) 1f + 0.012f * sin(t / 3_400f) else 1f
+        // The breath: the disc grows a little while narrowing a little, which
+        // is what makes it read as breathing rather than pulsing.
+        val breath = if (life == FaceLife.ALIVE) sin(t / 3_400f) else 0f
+        // A sleeping body breathes deeper and slower than a waking one.
+        val depth = if (mood == FaceMood.DROWSY) 1.5f else 1f
         return FacePose(
             openLeft = openLeft.coerceAtLeast(0.04f),
             openRight = openRight.coerceAtLeast(0.04f),
             gazeX = gazeX,
             gazeY = gazeY,
-            scale = scale,
+            scale = 1f + 0.012f * depth * breath,
+            squash = 0.009f * depth * sin(t / 3_400f - 0.7f),
             roll = roll,
         )
+    }
+
+    /**
+     * How shut one eye is during a wink, [since] milliseconds into it.
+     *
+     * Quicker than a blink and held a moment longer: a wink is a deliberate
+     * gesture, not a lid falling.
+     */
+    fun winkPulse(since: Long): Float = when {
+        since < 0 || since > WINK_MILLIS -> 0f
+        since < 70 -> since / 70f
+        since < 230 -> 1f
+        else -> {
+            val u = (since - 230) / (WINK_MILLIS - 230f)
+            1f - u * u * (3f - 2f * u)
+        }
+    }
+
+    /**
+     * Where a finger asks the eyes to look.
+     *
+     * The direction is a unit vector from the face's own centre to the touch,
+     * kept inside the disc and faded over [LOOK_MILLIS]: the eyes arrive on the
+     * finger at once and drift back, which is how a glance works. A touch
+     * almost on top of the face has no meaningful direction, so its strength
+     * fades in with distance instead of jittering.
+     */
+    fun look(
+        centerX: Float,
+        centerY: Float,
+        pointerX: Float,
+        pointerY: Float,
+        ageMillis: Long,
+    ): Pair<Float, Float> {
+        if (ageMillis < 0 || ageMillis > LOOK_MILLIS) return 0f to 0f
+        val dx = pointerX - centerX
+        val dy = pointerY - centerY
+        val distance = sqrt(dx * dx + dy * dy)
+        // A finger almost on top of the face has no direction worth following.
+        if (distance < 24f) return 0f to 0f
+        val left = 1f - ageMillis / LOOK_MILLIS.toFloat()
+        val weight = left * left
+        val reach = (distance / 160f).coerceAtMost(1f)
+        val amount = LOOK_STRENGTH * weight * reach
+        return dx / distance * amount to dy / distance * amount
     }
 
     /** How closed one blink is at [since] milliseconds after it started. */
@@ -355,14 +443,39 @@ internal fun BotFace(
     // and a Canvas cannot paint past its own node. Wearing one buys the room
     // for it, pushing the head down inside a slightly taller box.
     val headroom = if (crown) size * CROWN_HEADROOM else 0.dp
-    Box(modifier = named.size(width = size, height = size + headroom)) {
+    // Where the disc is on screen, so a touch elsewhere can be turned into a
+    // direction. Null until the first layout pass.
+    val density = LocalDensity.current
+    var faceCentre by remember { mutableStateOf<Offset?>(null) }
+    Box(
+        modifier = named
+            .size(width = size, height = size + headroom)
+            .onGloballyPositioned { coordinates ->
+                val bounds = coordinates.boundsInWindow()
+                val head = with(density) { headroom.toPx() }
+                faceCentre = Offset(
+                    x = bounds.center.x,
+                    y = bounds.top + (bounds.height + head) / 2f,
+                )
+            },
+    ) {
         Canvas(Modifier.fillMaxSize()) {
             val now = time?.value
+            // Read inside the draw: a finger arriving repaints the face without
+            // recomposing it, the same way the clock does.
+            val finger = clock?.lastPointer?.value
+            val centre = faceCentre
+            val look = if (now != null && finger != null && centre != null && life == FaceLife.ALIVE) {
+                BotFaceRig.look(centre.x, centre.y, finger.x, finger.y, now - finger.at)
+            } else {
+                0f to 0f
+            }
             val pose = if (now == null) {
                 FacePose()
             } else {
                 val effective = if (asleep.value) FaceMood.DROWSY else mood
                 BotFaceRig.pose(now, faceSeed, effective, life)
+                    .copy(lookX = look.first, lookY = look.second)
             }
             val top = headroom.toPx()
             drawFace(
@@ -415,57 +528,80 @@ private fun DrawScope.drawFace(
     diameter: Float,
     middle: Offset,
 ) {
-    val radius = diameter / 2f * pose.scale
+    val radius = diameter / 2f
+    // The breath squashes as it stretches: the disc is a soft body, not a
+    // balloon, so it never grows in both directions at once.
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
 
-    drawCircle(palette.body, radius, middle)
-    val disc = Path().apply {
-        addOval(Rect(middle.x - radius, middle.y - radius, middle.x + radius, middle.y + radius))
-    }
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        // A light from the upper left, so the flat disc has a near side and a
+        // far side instead of reading as a sticker cut out of one colour.
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(
+                    lerp(palette.body, Color.White, 0.13f),
+                    palette.body,
+                    lerp(palette.body, Color.Black, 0.15f),
+                ),
+                center = middle + Offset(-radius * 0.38f, -radius * 0.42f),
+                radius = radius * 1.55f,
+            ),
+            radius = radius,
+            center = middle,
+        )
+        val disc = Path().apply {
+            addOval(Rect(middle.x - radius, middle.y - radius, middle.x + radius, middle.y + radius))
+        }
 
-    val tilt = BotFaceGeometry.FACE_TILT_DEG * (PI.toFloat() / 180f)
-    val cosTilt = cos(tilt)
-    val sinTilt = sin(tilt)
+        val tilt = BotFaceGeometry.FACE_TILT_DEG * (PI.toFloat() / 180f)
+        val cosTilt = cos(tilt)
+        val sinTilt = sin(tilt)
 
-    // The gaze moves along the face's own tilted axes, not the screen's.
-    val gazeX = pose.gazeX * radius * cosTilt - pose.gazeY * radius * sinTilt
-    val gazeY = pose.gazeX * radius * sinTilt + pose.gazeY * radius * cosTilt
+        // The gaze moves along the face's own tilted axes, not the screen's.
+        // A finger's look is in screen axes, so it is added after the tilt.
+        val gazeX = pose.gazeX * radius * cosTilt - pose.gazeY * radius * sinTilt +
+            pose.lookX * radius
+        val gazeY = pose.gazeX * radius * sinTilt + pose.gazeY * radius * cosTilt +
+            pose.lookY * radius
 
-    // A gesture tips the whole face, so the pair swings around the circle's
-    // centre rather than each eye turning in place.
-    val roll = pose.roll * (PI.toFloat() / 180f)
-    val cosRoll = cos(roll)
-    val sinRoll = sin(roll)
+        // A gesture tips the whole face, so the pair swings around the circle's
+        // centre rather than each eye turning in place.
+        val roll = pose.roll * (PI.toFloat() / 180f)
+        val cosRoll = cos(roll)
+        val sinRoll = sin(roll)
 
-    clipPath(disc) {
-        for (index in 0..1) {
-            val side = if (index == 0) -1f else 1f
-            val open = if (index == 0) pose.openLeft else pose.openRight
-            val offsetX = side * BotFaceGeometry.EYE_OFFSET * radius * cosTilt + gazeX
-            val offsetY = BotFaceGeometry.EYE_DROP * radius + side * BotFaceGeometry.EYE_OFFSET * radius * sinTilt + gazeY
-            val eyeX = offsetX * cosRoll - offsetY * sinRoll
-            val eyeY = offsetX * sinRoll + offsetY * cosRoll
-            val width = BotFaceGeometry.EYE_WIDTH * diameter
-            // A closed eye is a slit, not nothing: the reference's pills have a
-            // visible lid line, and a hole in the face would read as a glitch.
-            val height = max(BotFaceGeometry.EYE_LENGTH * diameter * open, width * 0.34f)
-            withTransform({
-                rotate(
-                    BotFaceGeometry.FACE_TILT_DEG + BotFaceGeometry.EYE_TILT_DEG + pose.roll,
-                    middle + Offset(eyeX, eyeY),
-                )
-            }) {
-                drawRoundRect(
-                    color = palette.eye,
-                    topLeft = Offset(middle.x + eyeX - width / 2f, middle.y + eyeY - height / 2f),
-                    size = Size(width, height),
-                    cornerRadius = CornerRadius(width / 2f, width / 2f),
-                )
+        clipPath(disc) {
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val offsetX = side * BotFaceGeometry.EYE_OFFSET * radius * cosTilt + gazeX
+                val offsetY = BotFaceGeometry.EYE_DROP * radius + side * BotFaceGeometry.EYE_OFFSET * radius * sinTilt + gazeY
+                val eyeX = offsetX * cosRoll - offsetY * sinRoll
+                val eyeY = offsetX * sinRoll + offsetY * cosRoll
+                val width = BotFaceGeometry.EYE_WIDTH * diameter
+                // A closed eye is a slit, not nothing: the reference's pills have a
+                // visible lid line, and a hole in the face would read as a glitch.
+                val height = max(BotFaceGeometry.EYE_LENGTH * diameter * open, width * 0.34f)
+                withTransform({
+                    rotate(
+                        BotFaceGeometry.FACE_TILT_DEG + BotFaceGeometry.EYE_TILT_DEG + pose.roll,
+                        middle + Offset(eyeX, eyeY),
+                    )
+                }) {
+                    drawRoundRect(
+                        color = palette.eye,
+                        topLeft = Offset(middle.x + eyeX - width / 2f, middle.y + eyeY - height / 2f),
+                        size = Size(width, height),
+                        cornerRadius = CornerRadius(width / 2f, width / 2f),
+                    )
+                }
             }
         }
-    }
 
-    drawCircle(rim, radius, middle, style = Stroke(0.5.dp.toPx()))
-    if (crown) drawCrown(pose, radius, middle)
+        drawCircle(rim, radius, middle, style = Stroke(0.5.dp.toPx()))
+        if (crown) drawCrown(pose, radius, middle)
+    }
 }
 
 /**

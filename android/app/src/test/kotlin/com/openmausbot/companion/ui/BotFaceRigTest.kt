@@ -124,4 +124,30 @@ class BotFaceRigTest {
         }
         assertTrue("expected different faces, got $differing of 30 samples", differing > 20)
     }
+
+    /** A touch asks the eyes to look at it, then the glance fades. */
+    @Test
+    fun `a finger to the right turns the eyes right and the glance fades`() {
+        val fresh = BotFaceRig.look(
+            centerX = 500f,
+            centerY = 500f,
+            pointerX = 900f,
+            pointerY = 500f,
+            ageMillis = 0,
+        )
+        assertTrue("eyes should move right: $fresh", fresh.first > 0.05f)
+        assertEquals(0f, fresh.second, 1e-6f)
+
+        val fading = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 1_200)
+        assertTrue("the glance should be smaller as it fades", fading.first < fresh.first)
+
+        val over = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 1_500)
+        assertEquals(0f to 0f, over)
+
+        // A finger on the face itself has no direction to give.
+        assertEquals(0f to 0f, BotFaceRig.look(500f, 500f, 502f, 500f, ageMillis = 0))
+
+        val up = BotFaceRig.look(500f, 500f, 500f, 100f, ageMillis = 0)
+        assertTrue("eyes should move up: $up", up.second < -0.05f)
+    }
 }
