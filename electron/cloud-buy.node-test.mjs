@@ -112,7 +112,7 @@ test("{name} is ready once per checkout from here: not while the sheet is open i
   assert.equal(watched(paid({ status: "ready", origin })), false, "once");
 });
 
-test("openmausbot://cloud shows the sheet while a purchase from here is under way, whether or not its checkout is still watched", () => {
+test("dexbot://cloud shows the sheet while a purchase from here is under way, whether or not its checkout is still watched", () => {
   assert.equal(cloudLinkOpensSheet({ status: "connected", checkout: { plan: "pro", startedAt: 1 } }), true);
   assert.equal(cloudLinkOpensSheet({ status: "connected", purchase: { state: "confirming" } }), true);
   assert.equal(cloudLinkOpensSheet({ status: "connected", machine: { status: "provisioning" } }), true);
@@ -142,7 +142,7 @@ function installed({ link = null, offered = true } = {}) {
 }
 
 test("each sheet channel is behind main's guard, takes only text, and never answers with the checkout page or a token", async () => {
-  const h = installed({ link: "https://checkout.dodopayments.com/session/cks_1" });
+  const h = installed({ link: "https://cloud.dexai.vip/session/cks_1" });
   const call = (method, ...args) => h.handlers.get(`cloud-account:${method}`)({}, ...args);
   assert.deepEqual([...h.handlers.keys()].sort(), ["copyCheckoutLink", "interest", "look", "readySeen", "reopenCheckout", "setLook", "sheet", "signInCancel", "signInStart", "signInVerify"].map(method => `cloud-account:${method}`).sort());
   await call("readySeen", "anything"); assert.deepEqual(h.calls.splice(-1), [["checkoutDone"]], "the sheet showed ready: the purchase is over");
@@ -150,7 +150,7 @@ test("each sheet channel is behind main's guard, takes only text, and never answ
   await call("signInVerify", 48201937); await call("signInVerify", "48201937");
   await call("signInCancel", "anything");
   assert.equal(await call("copyCheckoutLink", "https://evil.example.test"), true, "copied, and only yes or no comes back");
-  assert.deepEqual(h.clipboard, ["https://checkout.dodopayments.com/session/cks_1"]);
+  assert.deepEqual(h.clipboard, ["https://cloud.dexai.vip/session/cks_1"]);
   assert.deepEqual(await call("reopenCheckout", "team", "elsewhere"), { outcome: "opened", state: { status: "connected" } });
   await call("interest", "another_cloud", "extra"); await call("setLook", { name: "x" }, "teal"); await call("setLook", "Studio", "teal");
   assert.equal(h.buy.sheetOpen(), false); await call("sheet", "yes"); assert.equal(h.buy.sheetOpen(), false); await call("sheet", true); assert.equal(h.buy.sheetOpen(), true);

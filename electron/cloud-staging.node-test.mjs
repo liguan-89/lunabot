@@ -7,34 +7,35 @@ const accessToken = `omc_${"S".repeat(43)}`;
 
 test("OMB_CLOUD_STAGING=1, and only that, points the app at the fixed staging Admin with its own token file", () => {
   assert.deepEqual(cloudTarget({}), { origin: CLOUD_ORIGIN, staging: false, file: "cloud-account.bin", saved: "cloud-accounts.bin", places: "account-places.json", environments: "environments.json", sync: "cloud-sync", look: "cloud-home-look.json" });
-  assert.deepEqual(cloudTarget({ OMB_CLOUD_STAGING: "1" }), { origin: "https://omb-cloud-staging.fly.dev", staging: true, file: "cloud-account-staging.bin", saved: "cloud-accounts-staging.bin", places: "account-places-staging.json",
+  assert.deepEqual(cloudTarget({ OMB_CLOUD_STAGING: "1" }), { origin: "https://staging.cloud.dexai.vip", staging: true, file: "cloud-account-staging.bin", saved: "cloud-accounts-staging.bin", places: "account-places-staging.json",
     environments: "environments-staging.json", sync: "cloud-sync-staging", look: "cloud-home-look-staging.json" });
   const production = Object.values(cloudTarget({})), staging = Object.values(cloudTarget({ OMB_CLOUD_STAGING: "1" }));
   assert.ok(staging.filter(value => typeof value === "string").every(name => !production.includes(name)), "no file or address shared with production");
-  assert.equal(STAGING_CLOUD_ORIGIN, "https://omb-cloud-staging.fly.dev");
-  for (const value of ["0", "true", "yes", " 1", "1 ", "01", "2", "", "https://evil.example.test", "https://omb-cloud-staging.fly.dev"]) {
+  assert.equal(STAGING_CLOUD_ORIGIN, "https://staging.cloud.dexai.vip");
+  for (const value of ["0", "true", "yes", " 1", "1 ", "01", "2", "", "https://evil.example.test", "https://cloud.dexai.vip"]) {
     assert.deepEqual(cloudTarget({ OMB_CLOUD_STAGING: value }), cloudTarget({}), JSON.stringify(value));
   }
   assert.deepEqual(cloudTarget({ OMB_CLOUD_ORIGIN: "https://evil.example.test", OMB_CLOUD_STAGING_URL: "https://evil.example.test" }), cloudTarget({}), "no address is ever read from the environment");
   assert.deepEqual(cloudTarget(undefined).origin, process.env.OMB_CLOUD_STAGING === "1" ? STAGING_CLOUD_ORIGIN : CLOUD_ORIGIN);
 });
 
-test("the staging address is the one exact https origin; staging checkouts are only Dodo's test page", () => {
+test("the staging address is the one exact https origin; each mode opens only its own checkout page", () => {
   assert.equal(cloudOrigin(STAGING_CLOUD_ORIGIN), STAGING_CLOUD_ORIGIN);
-  for (const value of ["http://omb-cloud-staging.fly.dev", `${STAGING_CLOUD_ORIGIN}/`, `${STAGING_CLOUD_ORIGIN}:8443`, "https://omb-cloud-staging.fly.dev.evil.test", "https://evil.fly.dev"]) {
-    assert.throws(() => cloudOrigin(value), /Invalid MausBot Cloud address/, value);
+  for (const value of ["http://omb-cloud-staging.fly.dev", `${STAGING_CLOUD_ORIGIN}/`, `${STAGING_CLOUD_ORIGIN}:8443`, "https://cloud.dexai.vip.evil.test", "https://evil.fly.dev"]) {
+    assert.throws(() => cloudOrigin(value), /Invalid DEX Cloud address/, value);
   }
-  const test = "https://test.checkout.dodopayments.com/session/cks_1", live = "https://checkout.dodopayments.com/session/cks_1";
-  assert.equal(checkoutDestination(test, { staging: true }), test);
-  assert.equal(checkoutDestination(live, { staging: true }), null, "staging never opens a live checkout");
-  assert.equal(checkoutDestination(test), null, "production never opens a test checkout");
-  assert.equal(checkoutDestination(live), live);
-  assert.equal(checkoutDestination(`${test}#x`, { staging: true }), null);
+  const stagingPage = "https://staging.cloud.dexai.vip/pro/buy?checkout=cks_1";
+  const livePage = "https://cloud.dexai.vip/pro/buy?checkout=cks_1";
+  assert.equal(checkoutDestination(stagingPage, { staging: true }), stagingPage);
+  assert.equal(checkoutDestination(livePage, { staging: true }), null, "staging never opens a live checkout");
+  assert.equal(checkoutDestination(stagingPage), null, "production never opens a staging checkout");
+  assert.equal(checkoutDestination(livePage), livePage);
+  assert.equal(checkoutDestination(`${stagingPage}#x`, { staging: true }), null);
 });
 
-test("a staging client talks only to the staging Admin, says it is staging, and opens only test checkouts", async () => {
+test("a staging client talks only to the configured Admin, says it is staging, and keeps its own files", async () => {
   const requests = [], browsers = [], states = [];
-  let checkoutUrl = "https://test.checkout.dodopayments.com/session/cks_staging", saved = null;
+  let checkoutUrl = "https://staging.cloud.dexai.vip/pro/buy?checkout=cks_staging", saved = null;
   const identity = { cloudContractVersion: 1, expiresAt: Date.now() + 86400_000, device: { id: "staging-device" }, account: { id: "staging-account", email: "tester@example.test" } };
   const answer = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
   const fetch = async (url, init) => {
@@ -56,8 +57,8 @@ test("a staging client talks only to the staging Admin, says it is staging, and 
     assert.equal(signedIn.outcome, "signed-in"); assert.equal(signedIn.state.staging, true);
     assert.equal(saved.origin, STAGING_CLOUD_ORIGIN, "the stored sign-in names the staging Admin, so production never takes it");
     assert.equal((await client.checkout("pro", "app_menu")).outcome, "opened");
-    assert.deepEqual(browsers, ["https://test.checkout.dodopayments.com/session/cks_staging"]);
-    checkoutUrl = "https://checkout.dodopayments.com/session/cks_live";
+    assert.deepEqual(browsers, ["https://staging.cloud.dexai.vip/pro/buy?checkout=cks_staging"]);
+    checkoutUrl = "https://cloud.dexai.vip/pro/buy?checkout=cks_live";
     assert.equal((await client.checkout("pro", "app_menu")).outcome, "failed");
     assert.equal(browsers.length, 1);
     assert.ok(requests.every(url => url.startsWith(`${STAGING_CLOUD_ORIGIN}/`)), "every request went to staging");

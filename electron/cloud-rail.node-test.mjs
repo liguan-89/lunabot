@@ -112,7 +112,7 @@ function rail(over = {}) {
     organization: { outcome: "added", cloudId: "c-new" } };
   const account = { state: () => w.state, offer: async () => w.offer, addCloud: async (input) => { w.added.push(input); return { outcome: "opened", state: w.state }; },
     addOrganization: async (input) => { w.organized.push(input); return w.organization; },
-    reopenAdd: async () => true, addLink: () => "https://test.checkout.dodopayments.com/x", addDone: () => { w.done = true; }, interest: async () => {} };
+    reopenAdd: async () => true, addLink: () => "https://cloud.dexai.vip/x", addDone: () => { w.done = true; }, interest: async () => {} };
   const installed = installCloudRail({ ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) }, guard: handler => handler, trusted: () => w.trusted,
     lists: () => w.lists, beside: () => w.beside,
     places: () => railPlaces({ saved: saved(), home: HOME, mine: HOME, state: w.state }), open: id => opened.push(id), account: () => account,
@@ -199,7 +199,7 @@ test("buying another Cloud from a page: the plan must be on sale, the name is ch
   assert.deepEqual(r.w.added.slice(1), [{ tier: "pro", interval: "month", name: "Client C", color: "rose", source: "app_whats_new_team" },
     { tier: "pro", interval: "month", name: "Client D", color: "rose" }], "the app's own source goes with it; anything else is left out");
   assert.equal(await r.call("cloud-add:copy-link"), true);
-  assert.deepEqual(r.sent, ["https://test.checkout.dodopayments.com/x"]);
+  assert.deepEqual(r.sent, ["https://cloud.dexai.vip/x"]);
   r.w.state = session({ adding: { cloudId: "c-a", name: "Client A", color: "green", tier: "pro", startedAt: 1, link: true } });
   await r.call("cloud-add:open");
   assert.deepEqual(r.opened, ["cloud:c-a"]);

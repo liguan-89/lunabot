@@ -7,7 +7,7 @@ import { createCloudAccountClient } from "./cloud-account.mjs";
 const accessToken = `omc_${"T".repeat(43)}`;
 const NOW = 1_800_000_000_000;
 const HOME = "https://omb-u-1a2b3c4d5e6f.fly.dev", CLIENT_A = "https://omb-c-a.fly.dev", TEAM = "https://omb-t-acme.fly.dev";
-const CHECKOUT = "https://test.checkout.dodopayments.com/session/cks_new";
+const CHECKOUT = "https://cloud.dexai.vip/session/cks_new";
 const entry = (over = {}) => ({ id: "c-a", name: "Client A", color: "green", role: "owner", tier: "pro", runsOn: "cloud", status: "ready", origin: CLIENT_A,
   teamId: null, seats: null, renewsAt: null, cancelAtPeriodEnd: false, primary: false, ...over });
 const PRIMARY = entry({ id: "c-home", name: "My Cloud", color: null, origin: HOME, primary: true });

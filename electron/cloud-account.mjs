@@ -9,7 +9,7 @@ const { englishText } = nativeText;
 
 export const CLOUD_ORIGIN = "https://cloud.dexai.vip";
 /** The staging Admin: a fixed address, on only with OMB_CLOUD_STAGING=1. */
-export const STAGING_CLOUD_ORIGIN = "https://cloud.dexai.vip";
+export const STAGING_CLOUD_ORIGIN = "https://staging.cloud.dexai.vip";
 /** Which Admin this app signs in to, and the files that depend on it (the sign-in, saved servers with the Cloud's
  * entry, Files' state, the Cloud's chosen name): staging never reads or writes production's. */
 export function cloudTarget(env = process.env) {
@@ -58,7 +58,7 @@ export function cancelSurvey(input) {
 /** Why the Admin won't open another Cloud's checkout now (POST clouds, 409 `addBlocked`; contract v1). */
 export const ADD_BLOCKS = Object.freeze(["cap", "checkout_open", "rate", "signups_closed"]);
 const ADD_INTERVALS = Object.freeze(["month", "year"]);
-const CHECKOUT_ORIGIN = CLOUD_ORIGIN, TEST_CHECKOUT_ORIGIN = CLOUD_ORIGIN;
+const CHECKOUT_ORIGIN = CLOUD_ORIGIN, TEST_CHECKOUT_ORIGIN = STAGING_CLOUD_ORIGIN;
 /** Only DEX Cloud's own HTTPS checkout origin, with no credentials and no fragment; anything else is never opened. */
 export function checkoutDestination(value, { fixture = false, staging = false } = {}) {
   if (typeof value !== "string" || value.length > 2048) return null;

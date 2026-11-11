@@ -9,10 +9,10 @@ const LIGHT = "color-scheme:light;--panel:#f7f7f7f5;--border:#0000001a;--ink:#0d
 
 export const TALK_LABELS = Object.freeze({
   listening: "Listening…",
-  sending: "Sending to MausBot…",
-  thinking: "MausBot is thinking…",
-  reply: "MausBot",
-  "needs-you": "MausBot needs you · Open chat",
+  sending: "Sending to DexBot…",
+  thinking: "DexBot is thinking…",
+  reply: "DexBot",
+  "needs-you": "DexBot needs you · Open chat",
   "still-working": "Still working · Open chat",
   error: "",
 });

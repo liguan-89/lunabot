@@ -160,6 +160,53 @@ class BotHandsRigTest {
         assertTrue("hands typed in unison", apart > 20)
     }
 
+    /**
+     * The thumb and the index have to be neighbours: with the fingers laid out
+     * in the other order, a hand reads as a mirror image at best. This is the
+     * relationship that got swapped once, so it is pinned.
+     */
+    @Test
+    fun `the index is the finger next to the thumb on both hands`() {
+        for (left in listOf(false, true)) {
+            val index = BotHandShape.baseX(0, left)
+            val middle = BotHandShape.baseX(1, left)
+            val ring = BotHandShape.baseX(2, left)
+            val pinky = BotHandShape.baseX(3, left)
+            val thumb = BotHandShape.baseX(4, left)
+            assertTrue("left=$left thumb and index are on opposite sides", index * thumb > 0f)
+            assertTrue("left=$left index is inboard of the middle", abs(index) > abs(middle))
+            assertTrue("left=$left middle and ring share a side", middle * ring < 0f)
+            assertTrue("left=$left ring and pinky share a side", ring * pinky > 0f)
+            assertTrue("left=$left pinky is outboard of the ring", abs(pinky) > abs(ring))
+            assertTrue("left=$left index and pinky are on opposite sides", index * pinky < 0f)
+        }
+    }
+
+    /**
+     * A palm facing the viewer is the same hand seen from the other side: the
+     * thumb has to move to the other edge, or a waving hand shows its back.
+     */
+    @Test
+    fun `a palm facing the viewer flips the thumb to the other edge`() {
+        assertFalse("right hand from the back is unmirrored", handIsMirrored(leftHand = false, palmOut = false))
+        assertTrue("right palm must be mirrored", handIsMirrored(leftHand = false, palmOut = true))
+        assertTrue("left hand from the back must be mirrored", handIsMirrored(leftHand = true, palmOut = false))
+        assertFalse("left palm is unmirrored", handIsMirrored(leftHand = true, palmOut = true))
+    }
+
+    @Test
+    fun `palms face out to wave and in to hold a chin`() {
+        simulate(1_200, mood = FaceMood.SPEAKING) { _, pose ->
+            assertTrue("a speaking hand should show its palm", pose.right.palmOut)
+        }
+        simulate(1_200, mood = FaceMood.THINKING) { _, pose ->
+            assertFalse("a chin-resting hand should show its back", pose.right.palmOut)
+        }
+        simulate(1_200, mood = FaceMood.DROWSY) { _, pose ->
+            assertFalse("a cheek-supporting hand should show its back", pose.right.palmOut)
+        }
+    }
+
     @Test
     fun `the same seed and time draw the same hands`() {
         val first = mutableListOf<FloatArray>()

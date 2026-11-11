@@ -9,7 +9,7 @@ import { DEVS_REPORT_LIMITS, withoutContact, type DevsReportPayload } from "./de
 
 export const BUG_REPORT_PATH = "/api/bug-reports";
 export const PRODUCTION_CLOUD_ORIGIN = "https://cloud.dexai.vip";
-export const STAGING_CLOUD_ORIGIN = "https://cloud.dexai.vip";
+export const STAGING_CLOUD_ORIGIN = "https://staging.cloud.dexai.vip";
 const SEND_TIMEOUT_MS = 20_000;
 const ANSWER_MAX_BYTES = 16 * 1024;
 

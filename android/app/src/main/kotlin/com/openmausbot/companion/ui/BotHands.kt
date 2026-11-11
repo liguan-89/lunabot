@@ -54,6 +54,16 @@ internal class BotHand {
     var scale: Float = 1f
     var alpha: Float = 0f
 
+    /**
+     * Whether the palm faces the viewer rather than the face.
+     *
+     * A flat hand is the same blob either way; what changes is which side the
+     * thumb is on. Waving or shrugging shows the palm, holding a chin shows the
+     * back — and the thumb has to be on the correct side for the hand to read
+     * as an anatomically right or left hand rather than a mirrored sticker.
+     */
+    var palmOut: Boolean = false
+
     /** Per-finger bend in degrees, positive clockwise, in the right hand's terms. */
     val curls: FloatArray = FloatArray(CURLS)
 
@@ -76,12 +86,14 @@ internal class BotHand {
         angle: Float,
         scale: Float = 1f,
         visible: Boolean = true,
+        palmOut: Boolean = false,
     ) {
         targetX = x
         targetY = y + HAND_RISE * (1f - alpha)
         targetAngle = angle
         targetScale = scale
         targetAlpha = if (visible) 1f else 0f
+        this.palmOut = palmOut
     }
 
     internal fun aimHidden() {
@@ -153,6 +165,7 @@ internal class BotHand {
         angle = 0f
         scale = 1f
         alpha = 0f
+        palmOut = false
         curls.fill(0f)
         targetCurls.fill(0f)
         velocityX = 0f
@@ -265,7 +278,7 @@ internal object BotHandRig {
             }
             FaceMood.SPEAKING -> {
                 val beat = sin(now / 1000f * TWO_PI * 1.3f)
-                out.right.aim(0.72f, 0.30f + 0.02f * beat, -12f + 8f * beat)
+                out.right.aim(0.72f, 0.30f + 0.02f * beat, -12f + 8f * beat, palmOut = true)
                 wiggle(out.right, now, amplitude = 4f, speed = 110f)
                 out.left.aimHidden()
             }
@@ -334,6 +347,7 @@ internal object BotHandRig {
             y = -0.02f,
             angle = 15f * sin(local / 1000f * TWO_PI * 2.05f),
             scale = 1.04f,
+            palmOut = true,
         )
         wiggle(out.right, local + now, amplitude = 9f, speed = 95f)
     }
@@ -342,8 +356,8 @@ internal object BotHandRig {
     private fun shrug(local: Long, now: Long, out: BotHandsPose) {
         if (!active(local, 2_500)) return
         val lift = 0.03f * sin(local / 1000f * TWO_PI * 1.4f)
-        out.left.aim(-0.88f, 0.32f + lift, -34f)
-        out.right.aim(0.88f, 0.32f + lift, 34f)
+        out.left.aim(-0.88f, 0.32f + lift, -34f, palmOut = true)
+        out.right.aim(0.88f, 0.32f + lift, 34f, palmOut = true)
         wiggle(out.left, now, amplitude = 3f, speed = 130f)
         wiggle(out.right, now, amplitude = 3f, speed = 130f)
     }
@@ -352,8 +366,8 @@ internal object BotHandRig {
     private fun cheer(local: Long, now: Long, out: BotHandsPose) {
         if (!active(local, 3_000)) return
         val sway = 0.02f * sin(local / 800f)
-        out.left.aim(-0.72f + sway, -0.42f, -10f)
-        out.right.aim(0.72f - sway, -0.42f, 10f)
+        out.left.aim(-0.72f + sway, -0.42f, -10f, palmOut = true)
+        out.right.aim(0.72f - sway, -0.42f, 10f, palmOut = true)
         wiggle(out.left, now, amplitude = 6f, speed = 85f)
         wiggle(out.right, now, amplitude = 6f, speed = 85f)
     }
@@ -421,25 +435,53 @@ internal object BotHandRig {
 internal class BotHandPiece(val path: Path, val pivotX: Float, val pivotY: Float)
 
 internal object BotHandShape {
-    val right: Array<BotHandPiece> by lazy(LazyThreadSafetyMode.NONE) { hand(thumbX = -1f) }
-    val left: Array<BotHandPiece> by lazy(LazyThreadSafetyMode.NONE) { hand(thumbX = 1f) }
+    val right: Array<BotHandPiece> by lazy(LazyThreadSafetyMode.NONE) { hand(left = false) }
+    val left: Array<BotHandPiece> by lazy(LazyThreadSafetyMode.NONE) { hand(left = true) }
+
+    /**
+     * The right hand's layout, in unit space: base x, tip x, base y, tip y and
+     * radius for index, middle, ring, pinky, thumb.
+     *
+     * The thumb sits on the viewer's left and the index must be the finger next
+     * to it — with the fingers in the other order, the hand reads as a mirrored
+     * right hand at best and a left hand with a thumb on the wrong side at
+     * worst. The left hand is this table with x negated, which mirrors the
+     * whole hand: the thumb moves to the right and the index follows it.
+     *
+     * The four fingers fan by a hair and are of different lengths, so the
+     * silhouette is a hand rather than a comb.
+     */
+    private val BASE_X = floatArrayOf(-0.70f, -0.24f, 0.24f, 0.70f, -0.72f)
+    private val TIP_X = floatArrayOf(-0.74f, -0.26f, 0.28f, 0.78f, -1.42f)
+    private val BASE_Y = floatArrayOf(-0.52f, -0.58f, -0.56f, -0.46f, 0.16f)
+    private val TIP_Y = floatArrayOf(-1.56f, -1.78f, -1.64f, -1.30f, -0.62f)
+    private val RADIUS = floatArrayOf(0.155f, 0.160f, 0.155f, 0.145f, 0.175f)
+
+    /**
+     * Where one finger's root sits, in the portrait's units. Exposed so the
+     * thumb/index relationship can be asserted without building a Path.
+     */
+    internal fun baseX(finger: Int, left: Boolean): Float =
+        BASE_X[finger] * if (left) -1f else 1f
 
     /** Index, middle, ring, pinky, thumb, palm — the order [BotHand.curls] uses. */
-    private fun hand(thumbX: Float): Array<BotHandPiece> = arrayOf(
-        // Index, middle, ring, pinky: spread enough that the gaps survive at
-        // 84 dp, of different lengths so the outline is not a comb.
-        finger(0.70f, -0.52f, 0.74f, -1.56f, 0.155f),
-        finger(0.24f, -0.58f, 0.26f, -1.78f, 0.160f),
-        finger(-0.24f, -0.56f, -0.28f, -1.64f, 0.155f),
-        finger(-0.70f, -0.46f, -0.78f, -1.30f, 0.145f),
-        // The thumb leaves the palm low and points up and out.
-        finger(thumbX * 0.72f, 0.16f, thumbX * 1.42f, -0.62f, 0.175f),
-        BotHandPiece(
+    private fun hand(left: Boolean): Array<BotHandPiece> {
+        val mirror = if (left) -1f else 1f
+        val fingers = Array(BotHand.CURLS) { index ->
+            finger(
+                BASE_X[index] * mirror,
+                BASE_Y[index],
+                TIP_X[index] * mirror,
+                TIP_Y[index],
+                RADIUS[index],
+            )
+        }
+        return fingers + BotHandPiece(
             path = Path().apply { addOval(Rect(-1f, -1f, 1f, 1f)) },
             pivotX = 0f,
             pivotY = 0f,
-        ),
-    )
+        )
+    }
 
     private fun finger(x1: Float, y1: Float, x2: Float, y2: Float, radius: Float): BotHandPiece =
         BotHandPiece(capsule(x1, y1, x2, y2, radius), pivotX = x1, pivotY = y1)
@@ -522,6 +564,17 @@ private const val ALPHA_RATE = 9f
 private const val CURL_RATE = 16f
 
 /**
+ * Whether this hand is drawn with the mirrored table.
+ *
+ * A right hand seen from the back has its thumb on the viewer's left; the same
+ * hand palm-forward is its mirror image. So the anatomical side and the facing
+ * together decide: mirrored = left hand seen from the back, or right hand seen
+ * from the palm. Exposed because it is the whole of the left/right correctness
+ * and is worth pinning without a Path.
+ */
+internal fun handIsMirrored(leftHand: Boolean, palmOut: Boolean): Boolean = leftHand != palmOut
+
+/**
  * The hands, over the face and touching its edge.
  *
  * Call this after the disc and the eyes, before the crown. The breath transform
@@ -559,10 +612,14 @@ private fun DrawScope.drawBotHand(
         // hand translated to the face's edge clear across the portrait.
         scale(palm, palm, Offset.Zero)
     }) {
-        val pieces = if (left) BotHandShape.left else BotHandShape.right
-        // A bend set for the right hand reads reversed on the left, because the
-        // two are separate paths rather than one mirrored at draw time.
-        val curlSign = if (left) -1f else 1f
+        // A palm facing the viewer is the same hand seen from the other side:
+        // its thumb moves to the opposite edge, so it is drawn with the mirrored
+        // table. The anatomical side and the facing together decide which table
+        // that is — and the finger bends flip with it, or a curling index would
+        // bend backwards.
+        val useLeftShape = handIsMirrored(left, hand.palmOut)
+        val pieces = if (useLeftShape) BotHandShape.left else BotHandShape.right
+        val curlSign = if (useLeftShape) -1f else 1f
         // Stroke the pieces first, fill them after: every seam inside the hand
         // is buried by a fill, so what is left is the contour of their union.
         // The transform scales strokes too, hence the double width divided back
