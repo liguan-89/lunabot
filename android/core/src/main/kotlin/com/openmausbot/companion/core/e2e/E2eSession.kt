@@ -78,6 +78,9 @@ class E2eSession(
     private var pingTimer: java.util.Timer? = null
     private val lastPong = AtomicLong(System.currentTimeMillis())
 
+    /** Invoked once when this session stops carrying records, whichever way it ends. */
+    var onClosed: (() -> Unit)? = null
+
     @Volatile
     var closeCode: Int = 0
         private set
@@ -296,6 +299,7 @@ class E2eSession(
 
     fun close(code: Int = IF_NORMAL) {
         if (!closed.compareAndSet(false, true)) return
+        runCatching { onClosed?.invoke() }
         pingTimer?.cancel()
         pingTimer = null
         for (stream in streams.values) stream.remoteReset()

@@ -81,16 +81,24 @@ fun eventStream(
                 val frame = runCatching {
                     CompanionJson.decodeFromString<StreamFrame>(event.data)
                 }.getOrNull() ?: continue
-                send(frame)
+                // The collector can go away between the read and this send
+                // (a reconnect, a sign-out). Sending into a closed channel
+                // throws "Unbalanced enter/exit" from inside the flow and
+                // leaves the retry loop wedged, so stop reading instead.
+                try {
+                    send(frame)
+                } catch (_: Throwable) {
+                    break
+                }
             }
             parser.reset()
             close()
         } catch (_: CancellationException) {
             // A collector leaving the flow deliberately tears down the call.
         } catch (error: APIError) {
-            close(error)
+            runCatching { close(error) }
         } catch (error: IOException) {
-            close(APIError.Transport(error.message ?: "Could not reach the computer.", error))
+            runCatching { close(APIError.Transport(error.message ?: "Could not reach the computer.", error)) }
         } finally {
             responseRef.getAndSet(null)?.close()
         }

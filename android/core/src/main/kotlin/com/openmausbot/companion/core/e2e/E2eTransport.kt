@@ -26,6 +26,11 @@ class E2eTransport(
 ) {
     private val lock = Any()
     private var session: E2eSession? = null
+    /** Called when the tunnel dies or is replaced, so the HTTP stack drops the
+     * connections it pooled against it. Without this the pool keeps handing
+     * back the dead socket, every request times out, and nothing ever dials
+     * again. */
+    var onTunnelLost: (() -> Unit)? = null
 
     /** The synthetic host OkHttp dials; [dns] resolves it to a placeholder. */
     val httpHost: String = "h-${(descriptor.hostId ?: ByteArray(16)).hex()}.e2e.invalid"
@@ -84,6 +89,7 @@ class E2eTransport(
                 app = app,
             )
             try {
+                candidate.onClosed = { onTunnelLost?.invoke() }
                 candidate.connect()
                 session = candidate
                 if (candidate.failure == "removed") throw E2eRemovedException()
@@ -121,8 +127,17 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
             if (transport.failureReason() == "removed") throw E2eRemovedException()
             val active = stream ?: return -1
             while (true) {
-                val read = active.read(buffer, offset, length, timeoutMs.toLong())
-                if (read < 0) return -1
+                val read = try {
+                    active.read(buffer, offset, length, timeoutMs.toLong())
+                } catch (error: java.io.IOException) {
+                    // A dead tunnel must not look healthy to the connection pool.
+                    closed = true
+                    throw error
+                }
+                if (read < 0) {
+                    closed = true
+                    return -1
+                }
                 if (read > 0) return read
                 if (timeoutMs > 0) throw SocketTimeoutException("read timed out")
             }
@@ -141,7 +156,10 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
         override fun write(buffer: ByteArray, offset: Int, length: Int) {
             if (transport.failureReason() == "removed") throw E2eRemovedException()
             val active = stream ?: throw IOException("e2e: socket not connected")
-            if (!active.write(buffer, offset, length)) throw IOException("e2e: stream reset")
+            if (!active.write(buffer, offset, length)) {
+                closed = true
+                throw IOException("e2e: stream reset")
+            }
         }
 
         override fun close() {

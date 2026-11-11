@@ -171,6 +171,17 @@ class CompanionClient(
         com.openmausbot.companion.core.e2e.E2eLog.line(
             "client e2e=${e2e != null} base=${endpoint?.baseUrl}",
         )
+        // A tunnel that had to be rebuilt invalidates every connection the
+        // pool still holds against the old one; otherwise OkHttp keeps
+        // reusing a dead socket and each request times out without ever
+        // reaching the socket factory again.
+        e2e?.onTunnelLost = {
+            for (client in listOf(
+                actionClient, uploadClient, streamingClient, avatarGenerationClient, claudeUpdateClient,
+            )) {
+                client.connectionPool.evictAll()
+            }
+        }
     }
 
     private val actionClient = transportClient.newBuilder()
