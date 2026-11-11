@@ -39,7 +39,7 @@ export const LiveReplyBubble = memo(function LiveReplyBubble({ text }: { text: s
     <div className="flex w-full flex-col items-start" data-live-reply="true">
       <div className="flex w-full items-center justify-start">
         <div className="w-fit max-w-[min(42rem,78%)] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink">
-          <ChatMarkdown text={shown} streaming />
+          <ChatMarkdown text={shown} />
           <span
             aria-hidden="true"
             className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] animate-pulse rounded-full bg-ink-secondary/50 align-baseline"

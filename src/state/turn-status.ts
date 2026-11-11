@@ -15,6 +15,9 @@ export interface TurnLive {
   /** The newest turn this thread showed has completed, failed or stopped. */
   ended: boolean;
   status: LiveStatus | null;
+  /** The reply as it streams, so the chat can show the words before the turn
+   * settles and the message is persisted. Cleared when the turn ends. */
+  reply?: string;
 }
 
 const UNKNOWN: TurnLive = { ended: false, status: null };
@@ -30,7 +33,13 @@ function sameStatus(a: LiveStatus | null, b: LiveStatus | null): boolean {
 
 function put(threadId: string, next: TurnLive): void {
   const current = threads.get(threadId);
-  if (current && current.turnId === next.turnId && current.ended === next.ended && sameStatus(current.status, next.status)) return;
+  if (
+    current &&
+    current.turnId === next.turnId &&
+    current.ended === next.ended &&
+    current.reply === next.reply &&
+    sameStatus(current.status, next.status)
+  ) return;
   threads.delete(threadId);
   threads.set(threadId, next);
   if (threads.size > MAX_THREADS) threads.delete(threads.keys().next().value!);
@@ -59,8 +68,15 @@ export function noteTurnEvent(event: RuntimeEvent): void {
         ...(target ? { target } : {}), ...(detail ? { detail } : {}), ...(quiet ? { quiet } : {}), ...(tail?.length ? { tail } : {}),
       } });
     }
-    case "content.delta":
-      return put(threadId, { turnId, ended: false, status: { activity: event.streamKind === "reasoning_text" ? "thinking" : "reply" } });
+    case "content.delta": {
+      const reply = event.streamKind === "assistant_text" ? (live.reply ?? "") + event.delta : live.reply;
+      return put(threadId, {
+        turnId,
+        ended: false,
+        ...(reply ? { reply } : {}),
+        status: { activity: event.streamKind === "reasoning_text" ? "thinking" : "reply" },
+      });
+    }
     case "item.started":
       return put(threadId, { ...live, ended: false, status: live.status?.itemId && live.status.itemId === event.itemId ? live.status : null });
     case "item.completed":
@@ -92,6 +108,12 @@ export function useTurnLive(threadId: string | null | undefined): TurnLive {
     () => turnLive(threadId),
     () => turnLive(threadId),
   );
+}
+
+/** The reply as it streams. Empty before the first token and once the turn
+ * ends (the persisted message takes over then). */
+export function useStreamedReply(threadId: string | null | undefined): string {
+  return useTurnLive(threadId).reply ?? "";
 }
 
 /** Tests only. */

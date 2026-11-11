@@ -64,11 +64,17 @@ describe("a thread's live turn", () => {
     expect(turnLive("t").status, "a token count says nothing about the call").toMatchObject({ target: "scrape.py" });
   });
 
-  it("keeps threads apart and returns the same snapshot until something shown changes", () => {
+  it("accumulates the streaming reply and drops it when the turn ends", () => {
     note({ type: "content.delta", streamKind: "assistant_text", delta: "a" } as Partial<RuntimeEvent>, "x");
     const first = turnLive("x");
+    note({ type: "content.delta", streamKind: "reasoning_text", delta: "hmm" } as Partial<RuntimeEvent>, "x");
+    expect(turnLive("x").reply, "reasoning is not reply text").toBe("a");
     note({ type: "content.delta", streamKind: "assistant_text", delta: "b" } as Partial<RuntimeEvent>, "x");
-    expect(turnLive("x")).toBe(first);
+    expect(turnLive("x").reply).toBe("ab");
+    expect(turnLive("x"), "a changed reply is a changed snapshot").not.toBe(first);
+    note({ type: "turn.completed" } as Partial<RuntimeEvent>, "x");
+    expect(turnLive("x")).toMatchObject({ ended: true, status: null });
+    expect(turnLive("x").reply, "the persisted message takes over").toBeUndefined();
     expect(turnLive("y")).toEqual({ ended: false, status: null });
   });
 });

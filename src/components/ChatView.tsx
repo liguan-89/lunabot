@@ -53,6 +53,7 @@ import { stopNoticeDue, useStoppedAt } from "@/lib/stop-turn";
 import { THIS_COMPUTER_NOT_READY } from "../../shared/your-computer";
 import { BotAvatar } from "./Avatar";
 import { TurnPresence } from "./TurnPresence";
+import { LiveReplyBubble } from "./LiveReplyBubble";
 import { showToolCallsEnabled, skillAuthoringEnabled } from "@/lib/feature-flags";
 import { normalizeState, stateForBot } from "@/lib/mascot";
 import { peerLine, peerRequest, type PeerLine } from "@/lib/peer-message";
@@ -1226,6 +1227,10 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               </div>
             </div>
           )}
+          {/* The reply growing above the mascot: the words arrive long before
+              the turn settles and the message is persisted, and a person
+              waiting on a slow engine needs to see the model is writing. */}
+          {live.reply ? <LiveReplyBubble text={live.reply} /> : null}
           <TurnPresence
             avatar={
               <BotAvatar
