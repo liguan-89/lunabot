@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A handset outline for "call this bot". One continuous path with round joins,
+  the line weight the rest of the custom set uses.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M21.3,16.7v2.6a1.7,1.7 0 0,1 -1.9,1.7 17.8,17.8 0 0,1 -7.7,-2.7 17.5,17.5 0 0,1 -5.4,-5.4 17.8,17.8 0 0,1 -2.7,-7.8 1.7,1.7 0 0,1 1.7,-1.9h2.6a1.7,1.7 0 0,1 1.7,1.5 11.5,11.5 0 0,0 0.6,2.5 1.7,1.7 0 0,1 -0.4,1.9l-1.1,1.1a14.4,14.4 0 0,0 5.4,5.4l1.1,-1.1a1.7,1.7 0 0,1 1.9,-0.4 11.5,11.5 0 0,0 2.5,0.6 1.7,1.7 0 0,1 1.5,1.7z" />
+</vector>

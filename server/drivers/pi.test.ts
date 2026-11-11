@@ -477,6 +477,99 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(secondSession?.sessionId).toBe(firstSession?.sessionId);
   });
 
+  it("keeps one child for a follow-up turn instead of paying pi's boot again", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-pool-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    // create() probes the catalog in its own short-lived child; the dump is
+    // about the turn children only.
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row).length;
+    const threadId = "t-pi-pool-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first", model: "ollama-cloud/glm-5.2" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const firstSession = recorder.events.find((e) => e.type === "session.started" && e.turnId === first.turnId) as {
+      sessionId: string;
+    };
+    expect(spawns()).toBe(1);
+    expect(rows().filter((row) => row.newSession)).toHaveLength(1);
+
+    const second = await instance.adapter.sendTurn({
+      threadId,
+      text: "second",
+      model: "ollama-cloud/glm-5.2",
+      resumeCursor: firstSession.sessionId,
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+
+    // One process, one handshake: the session was already open in the child.
+    expect(spawns()).toBe(1);
+    expect(rows().filter((row) => row.newSession)).toHaveLength(1);
+    expect(rows().filter((row) => row.switchSession)).toHaveLength(0);
+    // The pool path still announces the session, so the harness cursor stays
+    // authoritative for the next turn.
+    const secondSession = recorder.events.find((e) => e.type === "session.started" && e.turnId === second.turnId) as {
+      sessionId: string;
+    };
+    expect(secondSession.sessionId).toBe(firstSession.sessionId);
+  });
+
+  it("respawns the child when the spawn contract changes", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-respawn-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    // create() probes the catalog in its own short-lived child; the dump is
+    // about the turn children only.
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const threadId = "t-pi-respawn-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first", model: "ollama-cloud/glm-5.2" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const firstSession = recorder.events.find((e) => e.type === "session.started" && e.turnId === first.turnId) as {
+      sessionId: string;
+    };
+
+    // A different model changes the inject file the child booted with, so the
+    // old process must not be reused — and the new one resumes by cursor.
+    const second = await instance.adapter.sendTurn({
+      threadId,
+      text: "second",
+      model: "openai/gpt-4o",
+      resumeCursor: firstSession.sessionId,
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+
+    expect(rows().filter((row) => "argv" in row)).toHaveLength(2);
+    expect(rows().filter((row) => row.switchSession)).toEqual([{ switchSession: firstSession.sessionId }]);
+  });
+
+  it("respawns after an explicit session reset", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-reset-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    // create() probes the catalog in its own short-lived child; the dump is
+    // about the turn children only.
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const threadId = "t-pi-reset-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const second = await instance.adapter.sendTurn({ threadId, text: "second", sessionReset: true });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+
+    expect(rows().filter((row) => "argv" in row)).toHaveLength(2);
+    // A reset starts a new session rather than resuming the old one.
+    expect(rows().filter((row) => row.newSession)).toHaveLength(2);
+    expect(rows().filter((row) => row.switchSession)).toHaveLength(0);
+  });
+
   it("delivers the full prompt once per session and rides volatile changes as notes", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-split-"));
     const dump = join(dir, "dump.jsonl");

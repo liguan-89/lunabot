@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The adaptive-icon tile: the light grey canvas the app itself uses, so the
+  black glass portrait in front has the same contrast it has in the roster.
+  The ramp spans the band the mask shows; the flat `launcher_background`
+  colour in colors.xml stays as the fallback value.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <path android:pathData="M 0 0 L 1024 0 L 1024 1024 L 0 1024 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="512"
+                android:startY="170"
+                android:endX="512"
+                android:endY="854">
+                <item android:offset="0" android:color="#FFF7F7F8" />
+                <item android:offset="1" android:color="#FFE7E7E9" />
+            </gradient>
+        </aapt:attr>
+    </path>
+</vector>

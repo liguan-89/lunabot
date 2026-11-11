@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The launcher tile base: the app's light canvas, so the black glass ball
+      in `ic_launcher_foreground.xml` reads the way Grok Bot's portrait does
+      on its grey page. The adaptive layers use `ic_launcher_background.xml`,
+      a subtle vertical ramp ending on exactly this grey.
+    -->
+    <color name="launcher_background">#FFF4F4F5</color>
+</resources>

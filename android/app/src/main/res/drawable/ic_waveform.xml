@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Five rounded bars — the voice entry Grok Bot puts in a black circle beside
+  the composer. Drawn as fills rather than a polyline so it survives being
+  tinted onto ink at 20 dp.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+    <path
+        android:fillColor="@android:color/white"
+        android:pathData="M3,10h2a1,1 0 0 1 1,1v2a1,1 0 0 1 -1,1H3a1,1 0 0 1 -1,-1v-2a1,1 0 0 1 1,-1zM8,6h2a1,1 0 0 1 1,1v10a1,1 0 0 1 -1,1H8a1,1 0 0 1 -1,-1V7a1,1 0 0 1 1,-1zM13,3h2a1,1 0 0 1 1,1v16a1,1 0 0 1 -1,1h-2a1,1 0 0 1 -1,-1V4a1,1 0 0 1 1,-1zM18,7h2a1,1 0 0 1 1,1v8a1,1 0 0 1 -1,1h-2a1,1 0 0 1 -1,-1V8a1,1 0 0 1 1,-1z" />
+</vector>

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Grok Bot's portrait, as the launcher icon: a black glass ball with a
+  top-left specular, two tilted white pill eyes, on the light canvas tile
+  behind it (ic_launcher_background.xml). It is the same object the roster
+  and the chat header draw — one circle, two pill eyes — but the black ball
+  and the gloss are the reference's, not our older flat chrome disc.
+
+  Geometry is unchanged from the adaptive-icon contract: 108dp / 1024
+  viewport, a 622px body centred at (512,512) inside the 66dp safe circle
+  (626px), so a circular mask never clips the art.
+
+  The eyes are where the reference actually puts them, measured off the
+  screenshot rather than eyeballed: each pill is 77.8 × 152.4 (a quarter of
+  the diameter long, an eighth wide), the pair sits a tenth of the radius
+  below the centre, and — the part that makes the face look like Grok's —
+  the two eyes are not level. Their connecting line runs at -19°, so the
+  left eye sits lower than the right. Rotating each pill around its own
+  centre by the same angle keeps them parallel; rotating the pair around the
+  ball (an earlier attempt) moved one eye up and the other down and read as
+  a wink.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <!-- The black glass body: lighter at the top-left, black at the bottom. -->
+    <path android:pathData="M 201 512 A 311 311 0 1 1 823 512 A 311 311 0 1 1 201 512 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="260"
+                android:startY="220"
+                android:endX="780"
+                android:endY="820">
+                <item android:offset="0" android:color="#FF4A4A4C" />
+                <item android:offset="0.42" android:color="#FF1A1A1C" />
+                <item android:offset="1" android:color="#FF000000" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- The two specular blobs that make it read as glass, not as a flat dot. -->
+    <path
+        android:fillColor="#26FFFFFF"
+        android:pathData="M 300 335 A 92 92 0 1 1 484 335 A 92 92 0 1 1 300 335 Z" />
+    <path
+        android:fillColor="#33FFFFFF"
+        android:pathData="M 330 310 A 42 42 0 1 1 414 310 A 42 42 0 1 1 330 310 Z" />
+    <!-- A thin rim so the ball keeps an edge on a dark launcher. -->
+    <path
+        android:pathData="M 203 512 A 309 309 0 1 1 821 512 A 309 309 0 1 1 203 512 Z"
+        android:strokeColor="#33FFFFFF"
+        android:strokeWidth="4" />
+    <!--
+      The left eye, 16.7° off vertical, sitting lower than its partner.
+      Written upright and rotated around its own centre, which is the only
+      rotation that keeps the two pills parallel.
+    -->
+    <group
+        android:rotation="-16.7"
+        android:pivotX="411.5"
+        android:pivotY="563.0">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 372.6 525.7 A 38.9 38.9 0 0 1 450.4 525.7 L 450.4 600.3 A 38.9 38.9 0 0 1 372.6 600.3 Z" />
+    </group>
+    <!-- The right eye: the higher of the two. -->
+    <group
+        android:rotation="-16.7"
+        android:pivotX="612.5"
+        android:pivotY="493.4">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M 573.6 456.0 A 38.9 38.9 0 0 1 651.4 456.0 L 651.4 530.7 A 38.9 38.9 0 0 1 573.6 530.7 Z" />
+    </group>
+</vector>

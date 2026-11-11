@@ -42,3 +42,11 @@ deploy/podman/.env
 deploy/podman/.env.*
 !deploy/podman/.env.example
 /.env
+.zcode-site/
+.zcode-site.json
+
+# Local build output published through the update channel, not source.
+/*.apk
+
+# Tooling scratch state that lands wherever a session happened to run.
+.mimosa/

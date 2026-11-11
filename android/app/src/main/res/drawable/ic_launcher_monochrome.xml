@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  API 33 themed icon: the same black glass ball, eyes cut out as holes. A
+  single evenOdd path — the system tints the whole layer, so white sub-shapes
+  for the eyes would flatten away, and a hole is the only way to draw them.
+
+  The pills are written pre-rotated. A rotated group would rotate the circle
+  too, which is harmless, but the pair's placement carries a downward offset
+  that must not rotate with it — so the coordinates are the already-rotated
+  ones, from the same numbers as ic_launcher_foreground.xml: 38.9 × 152.4
+  capsules, -16.7° off vertical, the left one lower than the right.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <path
+        android:fillColor="#FF000000"
+        android:fillType="evenOdd"
+        android:pathData="M 201 512 A 311 311 0 1 1 823 512 A 311 311 0 1 1 201 512 Z M 362.5 540.4 A 38.9 38.9 0 0 1 436.0 515.0 L 460.4 585.5 A 38.9 38.9 0 0 1 387.0 611.0 Z M 563.6 470.8 A 38.9 38.9 0 0 1 637.0 445.4 L 661.5 515.9 A 38.9 38.9 0 0 1 588.0 541.4 Z" />
+</vector>
