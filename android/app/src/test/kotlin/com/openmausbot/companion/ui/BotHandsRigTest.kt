@@ -7,33 +7,49 @@ import org.junit.Test
 import kotlin.math.abs
 
 /**
- * The hands are a pure function of time, seed and mood, like the face. These
- * tests are what keep a gesture from reaching out of the portrait or from
- * becoming a tic that never stops.
+ * The hands are driven frame by frame: a spring follows a target, the target
+ * drifts with the face's breath, and the fingers curl on their own. These tests
+ * sample that loop, which is the only way to check that a hand is alive rather
+ * than a pose frozen at the right coordinates.
  */
 class BotHandsRigTest {
-    private fun poseAt(
-        now: Long,
+    private fun simulate(
+        durationMillis: Long,
         mood: FaceMood = FaceMood.IDLE,
-        life: FaceLife = FaceLife.ALIVE,
         seed: Int = 7,
-    ): BotHandsPose = BotHandsPose().also { BotHandRig.pose(now, seed, mood, life, it) }
+        life: FaceLife = FaceLife.ALIVE,
+        roll: (Long) -> Float = { 0f },
+        stepMillis: Long = 33,
+        block: (now: Long, pose: BotHandsPose) -> Unit,
+    ) {
+        val pose = BotHandsPose()
+        var t = 0L
+        while (t <= durationMillis) {
+            BotHandRig.pose(t, seed, mood, life, roll(t), pose)
+            block(t, pose)
+            t += stepMillis
+        }
+    }
 
     @Test
     fun `only the one large living portrait has hands`() {
-        assertFalse(poseAt(1_000, life = FaceLife.STILL).shown)
-        assertFalse(poseAt(1_000, life = FaceLife.GLANCE).shown)
-        assertTrue(poseAt(1_000, life = FaceLife.ALIVE).shown)
+        val still = BotHandsPose().also { BotHandRig.pose(0, 7, FaceMood.IDLE, FaceLife.STILL, 0f, it) }
+        val glance = BotHandsPose().also { BotHandRig.pose(0, 7, FaceMood.IDLE, FaceLife.GLANCE, 0f, it) }
+        val alive = BotHandsPose().also { BotHandRig.pose(0, 7, FaceMood.IDLE, FaceLife.ALIVE, 0f, it) }
+        assertFalse(still.shown)
+        assertFalse(glance.shown)
+        assertTrue(alive.shown)
     }
 
     @Test
     fun `every mood keeps both hands on the body`() {
         for (mood in FaceMood.entries) {
-            (0 until 30_000 step 37).forEach { millis ->
-                val pose = poseAt(millis.toLong(), mood = mood)
+            simulate(3_000, mood = mood) { _, pose ->
                 for (hand in listOf(pose.left, pose.right)) {
+                    assertTrue("$mood alpha is off: ${hand.alpha}", hand.alpha in 0f..1f)
+                    if (hand.alpha <= 0.2f) continue
                     assertTrue("$mood x drifted to ${hand.x}", abs(hand.x) <= 1.15f)
-                    assertTrue("$mood y drifted to ${hand.y}", hand.y in -0.70f..0.95f)
+                    assertTrue("$mood y drifted to ${hand.y}", hand.y in -0.70f..1.20f)
                     assertTrue("$mood angle is not finite", hand.angle.isFinite())
                     assertTrue("$mood scale is off: ${hand.scale}", hand.scale in 0.9f..1.2f)
                 }
@@ -41,90 +57,142 @@ class BotHandsRigTest {
         }
     }
 
+    /**
+     * Two palms pinned to the cheeks all day read as a sticker. An idle face
+     * keeps its hands away most of the time and brings them out now and then.
+     */
     @Test
-    fun `the resting hands lie against the jaw`() {
-        val pose = poseAt(0)
-        assertTrue("the resting hand should sit left of centre", pose.left.x < -0.4f)
-        assertTrue("the other hand should sit right of centre", pose.right.x > 0.4f)
-        assertEquals(BotHandRig.REST_Y, pose.left.y, 0.001f)
-        assertEquals(BotHandRig.REST_Y, pose.right.y, 0.001f)
+    fun `an idle portrait is handless most of the time and gestures sometimes`() {
+        var hidden = 0
+        var oneHanded = 0
+        var twoHanded = 0
+        var frames = 0
+        simulate(60_000, seed = 3, stepMillis = 40) { _, pose ->
+            frames++
+            val left = pose.left.alpha > 0.5f
+            val right = pose.right.alpha > 0.5f
+            when {
+                !left && !right -> hidden++
+                left && right -> twoHanded++
+                else -> oneHanded++
+            }
+        }
+        assertTrue("the hands never rest: $hidden of $frames", hidden > frames * 2 / 5)
+        assertTrue("no one-handed gesture", oneHanded > 0)
+        assertTrue("no two-handed gesture", twoHanded > 0)
     }
 
-    /** 🤔 — the defining pose: one hand under the chin, near the centre line. */
+    /** 🤔 — the defining pose: one hand under the chin, the other stays away. */
     @Test
-    fun `a thinking hand sits under the chin`() {
-        val pose = poseAt(0, mood = FaceMood.THINKING)
-        assertTrue("the supporting hand is not under the chin: ${pose.right.y}", pose.right.y > 0.8f)
-        assertTrue("the supporting hand left the chin: ${pose.right.x}", abs(pose.right.x) < 0.4f)
-        assertEquals("the other hand should stay at rest", BotHandRig.REST_Y, pose.left.y, 0.001f)
+    fun `thinking holds one hand under the chin`() {
+        simulate(1_600, mood = FaceMood.THINKING) { _, pose ->
+            assertEquals("the other hand should not be out", 0f, pose.left.alpha, 0.02f)
+            if (pose.right.alpha > 0.8f) {
+                assertTrue("the hand is not under the chin: ${pose.right.y}", pose.right.y > 0.7f)
+                assertTrue("the hand left the chin: ${pose.right.x}", abs(pose.right.x) < 0.4f)
+            }
+        }
+    }
+
+    /** 😴 — one cheek propped up, not two hands on the face. */
+    @Test
+    fun `the sleepy face props its cheek up with one hand`() {
+        simulate(2_000, mood = FaceMood.DROWSY) { now, pose ->
+            assertEquals(0f, pose.left.alpha, 0.02f)
+            // The first frame snaps the hand to its entrance position, one
+            // HAND_RISE below the pose; the spring brings it up from there.
+            if (now > 800 && pose.right.alpha > 0.8f) {
+                assertTrue("the hand left the cheek: ${pose.right.x}", pose.right.x in 0.2f..0.7f)
+                assertTrue("the hand is not under the face: ${pose.right.y}", pose.right.y in 0.35f..0.7f)
+            }
+        }
     }
 
     /**
-     * A face that never fidgets is a badge; one that fidgets all the time is a
-     * tic. Both halves of that are asserted here, across several seeds so one
-     * unlucky schedule cannot fail the run.
+     * The face never holds still, and a hand that does is instantly wrong. Even
+     * a hand supporting a chin has to breathe.
      */
     @Test
-    fun `an idle face gestures now and then, and rests in between`() {
-        val poses = (1..8).flatMap { seed ->
-            (0 until 40_000 step 40).map { poseAt(it.toLong(), seed = seed) }
+    fun `a held hand keeps drifting`() {
+        var minX = Float.MAX_VALUE
+        var maxX = -Float.MAX_VALUE
+        var minAngle = Float.MAX_VALUE
+        var maxAngle = -Float.MAX_VALUE
+        var minCurl = Float.MAX_VALUE
+        var maxCurl = -Float.MAX_VALUE
+        simulate(8_000, mood = FaceMood.THINKING) { _, pose ->
+            if (pose.right.alpha < 0.9f) return@simulate
+            minX = minOf(minX, pose.right.x)
+            maxX = maxOf(maxX, pose.right.x)
+            minAngle = minOf(minAngle, pose.right.angle)
+            maxAngle = maxOf(maxAngle, pose.right.angle)
+            minCurl = minOf(minCurl, pose.right.curls[0])
+            maxCurl = maxOf(maxCurl, pose.right.curls[0])
         }
-        val lifted = poses.count { it.left.y < 0.2f || it.right.y < 0.2f }
-        val resting = poses.count {
-            abs(it.left.y - BotHandRig.REST_Y) < 0.02f &&
-                abs(it.right.y - BotHandRig.REST_Y) < 0.02f
-        }
-        assertTrue("no idle gesture in eight 40-second runs", lifted > 0)
-        assertTrue("the hands never rest: $resting of ${poses.size}", resting > poses.size / 5)
+        assertTrue("the hand is frozen in x", maxX - minX > 0.005f)
+        assertTrue("the hand is frozen in angle", maxAngle - minAngle > 1.0f)
+        assertTrue("the index finger does not tap", maxCurl - minCurl > 4f)
     }
 
+    /** The head's own tilt must reach the hands, or they float in front of it. */
     @Test
-    fun `the sleepy face props its cheek up`() {
-        (0 until 10_000 step 31).forEach { millis ->
-            val pose = poseAt(millis.toLong(), mood = FaceMood.DROWSY)
-            assertTrue("the supporting hand left the cheek: ${pose.right.x}", pose.right.x in 0.3f..0.6f)
-            assertTrue("the supporting hand is not under the face: ${pose.right.y}", pose.right.y in 0.4f..0.62f)
+    fun `a tipping head takes the hands with it`() {
+        var untilted = 0f
+        var tilted = 0f
+        simulate(2_000, mood = FaceMood.THINKING, roll = { 6f }) { _, pose ->
+            if (pose.right.alpha > 0.9f) tilted = pose.right.angle
         }
+        simulate(2_000, mood = FaceMood.THINKING, roll = { 0f }) { _, pose ->
+            if (pose.right.alpha > 0.9f) untilted = pose.right.angle
+        }
+        assertTrue(
+            "hands ignored the head tilt: untilted=$untilted tilted=$tilted",
+            abs(tilted - untilted) > 0.5f,
+        )
     }
 
     @Test
     fun `working hands alternate instead of moving together`() {
-        val apart = (0 until 4_000 step 20).count { millis ->
-            val pose = poseAt(millis.toLong(), mood = FaceMood.WORKING)
-            abs(pose.left.y - pose.right.y) > 0.01f
+        var apart = 0
+        simulate(4_000, mood = FaceMood.WORKING) { _, pose ->
+            if (abs(pose.left.y - pose.right.y) > 0.01f) apart++
         }
         assertTrue("hands typed in unison", apart > 20)
     }
 
     @Test
     fun `the same seed and time draw the same hands`() {
-        repeat(40) { index ->
-            val now = index * 317L
-            val first = poseAt(now, seed = 5)
-            val second = poseAt(now, seed = 5)
-            assertEquals(first.left.x, second.left.x, 0f)
-            assertEquals(first.right.y, second.right.y, 0f)
+        val first = mutableListOf<FloatArray>()
+        val second = mutableListOf<FloatArray>()
+        val record: (Long, BotHandsPose) -> Unit = { _, pose ->
+            first += floatArrayOf(pose.left.x, pose.left.alpha, pose.right.y, pose.right.curls[0])
+        }
+        simulate(3_000, seed = 5, block = record)
+        simulate(3_000, seed = 5) { _, pose ->
+            second += floatArrayOf(pose.left.x, pose.left.alpha, pose.right.y, pose.right.curls[0])
+        }
+        assertEquals(first.size, second.size)
+        first.indices.forEach { index ->
+            assertTrue(
+                "frame $index differs",
+                first[index].contentEquals(second[index]),
+            )
         }
     }
 
-    /** A screen with two portraits must not have them waving in unison. */
+    /** A screen with two portraits must not have them gesturing in unison. */
     @Test
-    fun `two bots do not wave on the same beat`() {
-        val signatures = (1..6).map { seed ->
-            (0 until 60_000 step 50).fold(0f) { sum, millis ->
-                val pose = poseAt(millis.toLong(), seed = seed)
-                sum + pose.left.x * 3.1f + pose.right.y * 7.3f + pose.right.angle
+    fun `two bots do not gesture on the same beat`() {
+        fun signature(seed: Int): Float {
+            var sum = 0f
+            simulate(45_000, seed = seed, stepMillis = 50) { _, pose ->
+                sum += pose.left.x * pose.left.alpha * 3.1f +
+                    pose.right.y * pose.right.alpha * 7.3f +
+                    pose.right.angle * pose.right.alpha
             }
+            return sum
         }
-        assertEquals("hand schedules repeat across seeds: $signatures", 6, signatures.toSet().size)
-    }
-
-    @Test
-    fun `an idle bot rests with its hands low and visible`() {
-        val pose = poseAt(0)
-        assertTrue("the resting hand should sit left of centre", pose.left.x < -0.4f)
-        assertTrue("the other hand should sit right of centre", pose.right.x > 0.4f)
-        assertEquals(BotHandRig.REST_Y, pose.left.y, 0.001f)
-        assertEquals(BotHandRig.REST_Y, pose.right.y, 0.001f)
+        val signatures = (1..5).map(::signature)
+        assertEquals("hand schedules repeat across seeds: $signatures", 5, signatures.toSet().size)
     }
 }

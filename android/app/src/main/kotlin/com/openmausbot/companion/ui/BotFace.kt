@@ -498,7 +498,9 @@ internal fun BotFace(
                 hands.start(false)
             } else {
                 val effective = if (asleep.value) FaceMood.DROWSY else mood
-                BotHandRig.pose(now, faceSeed, effective, life, hands)
+                // The head's tilt goes with the hands: they lean after it with
+                // the spring's lag, so they belong to the same head.
+                BotHandRig.pose(now, faceSeed, effective, life, pose.roll, hands)
             }
             val top = headroom.toPx()
             drawFace(

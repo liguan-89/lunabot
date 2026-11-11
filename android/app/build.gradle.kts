@@ -98,7 +98,7 @@ android {
         // DEX BOT's own install identity, so it sits beside the upstream app on
         // one phone. The namespace stays the source package until the Kotlin
         // package migration lands.
-        applicationId = "com.openmausbot.companion"
+        applicationId = "com.dexbot.companion"
         minSdk = 26
         targetSdk = 37
         versionCode = appVersionCode
