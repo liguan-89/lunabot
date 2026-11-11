@@ -193,20 +193,20 @@ test("what this person may buy: the session's own offer when signed in, else the
   assert.deepEqual(fallback.plans.map(plan => plan.trialDays ?? null), [null, null]); assert.equal(fallback.refundDays, 14);
 });
 
-test("Dodo's own checkout page is the only checkout address ever opened", () => {
-  assert.equal(checkoutDestination("https://checkout.dodopayments.com/session/cks_123?x=1"), "https://checkout.dodopayments.com/session/cks_123?x=1");
-  for (const url of ["https://test.checkout.dodopayments.com/session/cks_123", "http://checkout.dodopayments.com/session/1", "https://checkout.dodopayments.com.evil.test/session/1",
-    "https://user:pw@checkout.dodopayments.com/session/1", "https://checkout.dodopayments.com/session/1#x", "https://checkout.dodopayments.com/session/1#",
-    "javascript:alert(1)", "file:///etc/passwd", "openmausbot://cloud", "https://evil.example.test/", "", 42, null, `https://checkout.dodopayments.com/${"x".repeat(2100)}`]) {
+test("DEX Cloud's own checkout page is the only checkout address ever opened", () => {
+  assert.equal(checkoutDestination("https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1"), "https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1");
+  for (const url of ["https://test.checkout.dodopayments.com/session/cks_123", "http://cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip.evil.test/pro/buy?checkout=1",
+    "https://user:pw@cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip/pro/buy?checkout=1#x", "https://cloud.dexai.vip/pro/buy?checkout=1#",
+    "javascript:alert(1)", "file:///etc/passwd", "openmausbot://cloud", "https://evil.example.test/", "", 42, null, `https://cloud.dexai.vip/pro/buy?checkout=${"x".repeat(2100)}`]) {
     assert.equal(checkoutDestination(url), null, String(url));
   }
-  assert.equal(checkoutDestination("https://test.checkout.dodopayments.com/session/cks_123", { fixture: true }), "https://test.checkout.dodopayments.com/session/cks_123");
+  assert.equal(checkoutDestination("https://cloud.dexai.vip/pro/buy?checkout=cks_123", { fixture: true }), "https://cloud.dexai.vip/pro/buy?checkout=cks_123");
   assert.deepEqual([...CHECKOUT_SOURCES], ["app_card", "app_howto", "app_menu", "app_settings", "app_routines", "app_pages", "app_whats_new_pro", "app_whats_new_team", "app_onboarding"]);
 });
 
-test("signed in, a checkout is the Admin's for this account, opened in the browser only when it is Dodo's; then the session is asked every 3 seconds for 30 minutes", async t => {
+test("signed in, a checkout is the Admin's for this account, opened in the browser only on DEX Cloud's own page; then the session is asked every 3 seconds for 30 minutes", async t => {
   const f = await fixture(t); await f.connect(); f.browsers = [];
-  const DODO = "https://test.checkout.dodopayments.com/session/cks_fixture";
+  const DODO = "https://cloud.dexai.vip/pro/buy?checkout=cks_fixture";
   f.checkout = { status: 200, body: { cloudContractVersion: 1, url: DODO } };
   await assert.rejects(f.client.checkout("pro", "app_website"), /Invalid Cloud checkout/);
   await assert.rejects(f.client.checkout("Pro <b>", "app_menu"), /Invalid Cloud checkout/);
@@ -260,7 +260,7 @@ test("signed in, a checkout is the Admin's for this account, opened in the brows
 
 test("the purchase is over once its Cloud was opened, announced or shown ready: the checkout says done, once", async t => {
   const f = await fixture(t); await f.connect();
-  f.checkout = { status: 200, body: { cloudContractVersion: 1, url: "https://test.checkout.dodopayments.com/session/cks_done" } };
+  f.checkout = { status: 200, body: { cloudContractVersion: 1, url: "https://cloud.dexai.vip/pro/buy?checkout=cks_done" } };
   await f.client.checkout("pro", "app_menu");
   const published = f.states.length;
   f.client.checkoutDone();
@@ -281,7 +281,7 @@ test("after a restart mid-checkout, the checkout the Admin still holds is watche
   assert.equal(f.client.state().checkout.startedAt, f.now - 10 * 60_000, "first sight, not every sight");
   f.now += 20 * 60_000; await f.client.refresh();
   assert.equal(f.client.checkoutPending(), false, "30 minutes at most"); assert.equal(f.delay, 60_000);
-  f.browsers = []; const DODO = "https://test.checkout.dodopayments.com/session/cks_held";
+  f.browsers = []; const DODO = "https://cloud.dexai.vip/pro/buy?checkout=cks_held";
   f.checkout = { status: 200, body: { cloudContractVersion: 1, url: DODO } };
   assert.equal((await f.client.reopenCheckout("pro", "app_card")).outcome, "opened");
   assert.deepEqual(JSON.parse(f.requests.findLast(row => row.route === "/api/cloud/desktop/checkout").body), { plan: "starter", source: "app_card" },
@@ -295,7 +295,7 @@ test("after a restart mid-checkout, the checkout the Admin still holds is watche
 
 test("Reopen checkout with no page kept (the browser sign-in led to checkout) asks the Admin once, then keeps its page", async t => {
   const f = await fixture(t);
-  const DODO = "https://test.checkout.dodopayments.com/session/cks_reopened";
+  const DODO = "https://cloud.dexai.vip/pro/buy?checkout=cks_reopened";
   f.checkout = { status: 200, body: { cloudContractVersion: 1, url: DODO } }; f.offer = { plans: plans(), recommended: "pro", trialDays: 7 };
   await f.client.checkout("pro", "app_card");
   f.approved = true; f.tick(); await until(() => f.client.state().status === "connected");
