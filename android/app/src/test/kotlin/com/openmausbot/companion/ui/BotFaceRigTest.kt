@@ -69,7 +69,9 @@ class BotFaceRigTest {
     @Test
     fun `the eye geometry matches the reference portrait`() {
         assertEquals(0.342f, BotFaceGeometry.EYE_OFFSET, 0.002f)
-        assertEquals(0.052f, BotFaceGeometry.EYE_DROP, 0.002f)
+        // Above the middle: the lower half of the disc is the chin, which is
+        // what keeps the pair from reading as centred on a token.
+        assertTrue("eyes should sit above the centre", BotFaceGeometry.EYE_DROP < -0.1f)
         assertEquals(-19.1f, BotFaceGeometry.FACE_TILT_DEG, 0.05f)
         // A quarter of the diameter long, an eighth wide.
         assertEquals(2f, BotFaceGeometry.EYE_LENGTH / BotFaceGeometry.EYE_WIDTH, 0.05f)
@@ -138,10 +140,13 @@ class BotFaceRigTest {
         assertTrue("eyes should move right: $fresh", fresh.first > 0.05f)
         assertEquals(0f, fresh.second, 1e-6f)
 
+        val held = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 200)
+        assertEquals(fresh, held)
+
         val fading = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 1_200)
         assertTrue("the glance should be smaller as it fades", fading.first < fresh.first)
 
-        val over = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 1_500)
+        val over = BotFaceRig.look(500f, 500f, 900f, 500f, ageMillis = 1_800)
         assertEquals(0f to 0f, over)
 
         // A finger on the face itself has no direction to give.

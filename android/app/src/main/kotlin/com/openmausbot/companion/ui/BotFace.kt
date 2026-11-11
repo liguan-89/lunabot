@@ -150,7 +150,9 @@ internal object BotFaceRig {
     private const val BLINK_MILLIS = 320
     private const val WINK_MILLIS = 620
     /** How long a finger's direction holds before the eyes drift back. */
-    private const val LOOK_MILLIS = 1_500L
+    private const val LOOK_MILLIS = 1_800L
+    /** The eyes arrive on the finger and stay there for this long before fading. */
+    private const val LOOK_HOLD_MILLIS = 260L
     /** The farthest a glance can move an eye, in radii. */
     private const val LOOK_STRENGTH = 0.13f
 
@@ -322,8 +324,15 @@ internal object BotFaceRig {
         val distance = sqrt(dx * dx + dy * dy)
         // A finger almost on top of the face has no direction worth following.
         if (distance < 24f) return 0f to 0f
-        val left = 1f - ageMillis / LOOK_MILLIS.toFloat()
-        val weight = left * left
+        // Arrive at once, hold for a moment, then drift home. The hold is what
+        // makes the glance legible on a screenshot and in the corner of an eye.
+        val weight = if (ageMillis <= LOOK_HOLD_MILLIS) {
+            1f
+        } else {
+            val left = (LOOK_MILLIS - ageMillis).toFloat() /
+                (LOOK_MILLIS - LOOK_HOLD_MILLIS).toFloat()
+            left * left
+        }
         val reach = (distance / 160f).coerceAtMost(1f)
         val amount = LOOK_STRENGTH * weight * reach
         return dx / distance * amount to dy / distance * amount
