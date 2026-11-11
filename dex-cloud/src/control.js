@@ -114,6 +114,23 @@ route("GET", "/v1/clouds", async (ctx) => {
   json(ctx.res, 200, { clouds });
 });
 
+/** A one-time pairing code for this account's own Cloud, so a signed-in phone
+ * can pair to it directly instead of opening it in a browser. */
+route("POST", /^\/v1\/clouds\/[A-Za-z0-9_-]{1,64}\/pairing$/, async (ctx) => {
+  const session = controlSession(ctx);
+  const id = ctx.path.split("/")[3];
+  const cloud = ctx.store.cloud(id);
+  if (!cloud || cloud.account_id !== session.account_id || cloud.status === "ended") throw new HttpError(404, "not_found");
+  try {
+    const grant = await ctx.provisioner.pairing(cloud);
+    json(ctx.res, 200, grant);
+  } catch (error) {
+    if (error?.code === "not_running") throw new HttpError(409, "not_running");
+    ctx.log(`control pairing ${cloud.id} failed: ${error?.message ?? error}`);
+    throw new HttpError(502, "pairing_failed");
+  }
+});
+
 route("POST", "/v1/installations", async (ctx) => {
   const session = controlSession(ctx);
   const clientInstanceId = cleanInstallationClientId(ctx.body.clientInstanceId);
