@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
@@ -27,6 +28,8 @@ import com.openmausbot.companion.avatar.AvatarImageRules
 import com.openmausbot.companion.core.AvatarCrop
 import com.openmausbot.companion.core.Bot
 import com.openmausbot.companion.core.Chat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * What a bot without an uploaded identity image wears.
@@ -72,6 +75,7 @@ internal fun BotAvatar(
     val crop = bot.avatarCrop ?: AvatarCrop.MASCOT
     val path = bot.avatarUrl
     val store = LocalCompanion.current.avatars
+    val context = LocalContext.current
 
     // `BotAvatarView` keys its fetch on the attachment and the crop together, and
     // clears the rendered image whenever either changes. Keying the state itself
@@ -79,6 +83,9 @@ internal fun BotAvatar(
     val identity = remember(path, crop) { BotAvatarRules.identity(path, crop) }
     var image by remember(identity) { mutableStateOf<Bitmap?>(null) }
     var failed by remember(identity) { mutableStateOf(false) }
+    // The library face this image *is*, if the attachment is a preset PNG: a
+    // bot wearing one of ours should keep blinking, not become a photograph.
+    var presetKey by remember(identity) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(identity) {
         if (crop == AvatarCrop.MASCOT || path == null) return@LaunchedEffect
@@ -88,6 +95,9 @@ internal fun BotAvatar(
             return@LaunchedEffect
         }
         image = decoded
+        presetKey = withContext(Dispatchers.Default) {
+            PresetAvatars.match(context.resources, decoded)?.key
+        }
     }
 
     // `BotAvatarView` puts its accessibility outside the image/mascot branch, so
@@ -100,7 +110,12 @@ internal fun BotAvatar(
     }
 
     val painted = image
-    if (painted != null && AvatarImageRules.usesImage(crop, path, failed)) {
+    // A preset uploaded as a PNG is still a preset: draw the live face so the
+    // eyes keep moving, and let the crown ride the drawn head.
+    val libraryFace = presetKey?.takeIf {
+        crop == AvatarCrop.CIRCLE && fallback == AvatarFallback.PRESET
+    }
+    if (painted != null && AvatarImageRules.usesImage(crop, path, failed) && libraryFace == null) {
         val bitmap = remember(painted) { painted.asImageBitmap() }
         // A photograph cannot wear the crown the way the drawn face does; it is
         // laid over the picture here, with the room above it the crown needs.
@@ -138,7 +153,7 @@ internal fun BotAvatar(
     } else {
         when (fallback) {
             AvatarFallback.PRESET -> PresetBotAvatar(
-                color = bot.color,
+                color = libraryFace ?: bot.color,
                 size = size,
                 modifier = named,
                 contentDescription = null,

@@ -1,8 +1,12 @@
 package com.openmausbot.companion.ui
 
+import android.content.res.Resources
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import com.openmausbot.companion.R
+import kotlin.math.abs
 
 /**
  * The circular portrait library.
@@ -53,4 +57,68 @@ internal object PresetAvatars {
     }
 
     private fun byKey(key: String): PresetAvatar = all.first { it.key == key }
+
+    /**
+     * The library face an uploaded picture is, if it is one of ours.
+     *
+     * Choosing a preset uploads the PNG, and a bot is then an image like any
+     * other — which would freeze its eyes: a bitmap cannot blink. Recognising
+     * the picture lets the app draw the live face again while the computer
+     * keeps the same image for every other client. The comparison is on a
+     * 16×16 signature rather than exact pixels, because the bundled PNGs were
+     * regenerated once (the eyes moved) and older uploads are still the same
+     * face with the eyes a couple of pixels lower.
+     */
+    fun match(resources: Resources, bitmap: Bitmap): PresetAvatar? {
+        if (bitmap.width < SIGNATURE_EDGE || bitmap.height < SIGNATURE_EDGE) return null
+        val signature = signatureOf(bitmap)
+        return all
+            .mapNotNull { preset ->
+                signatureOf(resources, preset)?.let { known -> preset to distance(signature, known) }
+            }
+            .filter { it.second <= MAX_SIGNATURE_DISTANCE }
+            .minByOrNull { it.second }
+            ?.first
+    }
+
+    private const val SIGNATURE_EDGE = 16
+
+    /** Total channel difference over the 16×16 grid that still counts as ours. */
+    private const val MAX_SIGNATURE_DISTANCE = 20_000
+
+    /** One 16×16 RGB grid, packed as ARGB ints, which is enough to recognise a face. */
+    private fun signatureOf(bitmap: Bitmap): IntArray {
+        val scaled = Bitmap.createScaledBitmap(bitmap, SIGNATURE_EDGE, SIGNATURE_EDGE, true)
+        val pixels = IntArray(SIGNATURE_EDGE * SIGNATURE_EDGE)
+        scaled.getPixels(pixels, 0, SIGNATURE_EDGE, 0, 0, SIGNATURE_EDGE, SIGNATURE_EDGE)
+        if (scaled !== bitmap) scaled.recycle()
+        return pixels
+    }
+
+    private val bundled = HashMap<String, IntArray?>()
+
+    private fun signatureOf(resources: Resources, preset: PresetAvatar): IntArray? =
+        synchronized(bundled) {
+            if (bundled.containsKey(preset.key)) {
+                bundled[preset.key]
+            } else {
+                val signature = runCatching {
+                    BitmapFactory.decodeResource(resources, preset.res)?.let(::signatureOf)
+                }.getOrNull()
+                bundled[preset.key] = signature
+                signature
+            }
+        }
+
+    private fun distance(a: IntArray, b: IntArray): Int {
+        var total = 0
+        for (index in a.indices) {
+            val left = a[index]
+            val right = b[index]
+            total += abs(((left shr 16) and 0xFF) - ((right shr 16) and 0xFF))
+            total += abs(((left shr 8) and 0xFF) - ((right shr 8) and 0xFF))
+            total += abs((left and 0xFF) - (right and 0xFF))
+        }
+        return total
+    }
 }
