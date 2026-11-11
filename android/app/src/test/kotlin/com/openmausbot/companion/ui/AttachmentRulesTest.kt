@@ -57,7 +57,7 @@ class AttachmentRulesTest {
         assertEquals("512 bytes", AttachmentImportRules.formatBytes(512))
         assertEquals("48 KB", AttachmentImportRules.formatBytes(48_000))
         assertEquals("1.2 MB", AttachmentImportRules.formatBytes(1_200_000))
-        assertEquals("a.txt is larger than the 25.0 MB remaining attachment limit.", AttachmentImportRules.tooLarge("a.txt", 25_000_000))
+        assertEquals("a.txt 超出了剩余附件大小上限（25.0 MB）。", AttachmentImportRules.tooLarge("a.txt", 25_000_000))
     }
 
     @Test

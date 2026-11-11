@@ -130,6 +130,7 @@ private fun CompanionState.lastLine(threadId: String): String {
         Message.Kind.SECRET -> last.secret?.label.orEmpty()
         Message.Kind.ROUTINE_RUN -> last.routineRun?.routineName.orEmpty()
         Message.Kind.GOAL_RUN -> last.goalRun?.goal.orEmpty()
+        Message.Kind.SIGNIN -> last.signIn?.site?.let { "需要登录 $it" }.orEmpty()
         Message.Kind.DIGEST -> ""
         Message.Kind.COMPACTION -> last.compaction?.chipText ?: last.text.orEmpty()
     }

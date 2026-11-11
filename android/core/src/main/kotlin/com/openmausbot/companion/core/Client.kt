@@ -38,6 +38,8 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.WebSocket
+import okhttp3.WebSocketListener
 
 internal data class ConnectionEndpoint(val baseUrl: HttpUrl, val dns: Dns)
 
@@ -177,7 +179,8 @@ class CompanionClient(
         // reaching the socket factory again.
         e2e?.onTunnelLost = {
             for (client in listOf(
-                actionClient, uploadClient, streamingClient, avatarGenerationClient, claudeUpdateClient,
+                actionClient, uploadClient, streamingClient, phoneJobClient,
+                avatarGenerationClient, claudeUpdateClient,
             )) {
                 client.connectionPool.evictAll()
             }
@@ -185,8 +188,8 @@ class CompanionClient(
     }
 
     private val actionClient = transportClient.newBuilder()
-        .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
-        .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
         .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -200,8 +203,8 @@ class CompanionClient(
      * Connect/read/write idle limits, no overall call deadline.
      */
     private val uploadClient = transportClient.newBuilder()
-        .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
-        .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
         .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -210,8 +213,8 @@ class CompanionClient(
         .build()
 
     private val streamingClient = transportClient.newBuilder()
-        .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
-        .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
         .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(0, TimeUnit.MILLISECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -219,9 +222,23 @@ class CompanionClient(
         .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * The job poll is held open by the server for 20 s on purpose; an ordinary
+     * action's 20 s deadline would abandon it at the same moment it answers.
+     */
+    private val phoneJobClient = transportClient.newBuilder()
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
+        .dns(endpoint?.dns ?: transportClient.dns)
+        .callTimeout(PHONE_JOB_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(PHONE_JOB_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
     private val avatarGenerationClient = transportClient.newBuilder()
-        .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
-        .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
         .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -234,8 +251,8 @@ class CompanionClient(
      * route gets its own deadline instead of the twenty-second action one.
      */
     private val claudeUpdateClient = transportClient.newBuilder()
-        .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
-        .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
         .dns(endpoint?.dns ?: transportClient.dns)
         .callTimeout(CLAUDE_UPDATE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
@@ -395,6 +412,14 @@ class CompanionClient(
 
     suspend fun overview(botId: String): BotOverview =
         send(makeRequest("GET", "/api/bots/${segment(botId)}/overview"))
+
+    /**
+     * The bot's MCP servers: names and switches only. Like the overview this
+     * needs the admin scope, so a Team Cloud member's session is refused — and
+     * a plain refusal is the whole answer to show them.
+     */
+    suspend fun mcpServers(botId: String): McpServersResponse =
+        send(makeRequest("GET", "/api/bots/${segment(botId)}/mcp-servers"))
 
     suspend fun createBot(): Bot = send<CreatedBot>(makeRequest("POST", "/api/bots")).bot
 
@@ -798,6 +823,24 @@ class CompanionClient(
     }
 
     /**
+     * Answer a sign-in request: the person signed in themselves, or gave up.
+     * No credential passes through here — the body carries the thread, and the
+     * password stays in the page the computer is working in.
+     */
+    suspend fun signInCardAction(
+        botId: String,
+        messageId: String,
+        threadId: String,
+        action: SignInCardAction,
+    ) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/sign-in-cards/${segment(messageId)}/${action.wire}",
+            body = jsonBody("threadId" to threadId),
+        ))
+    }
+
+    /**
      * Fork the conversation at a user message. Returns the computer's new
      * message when the response carries one. [sendId] makes a retry of the same
      * edit answer with the existing fork instead of forking twice.
@@ -958,6 +1001,65 @@ class CompanionClient(
     suspend fun localComputerScreenshot(botId: String, threadId: String?): ScreenFrame =
         screenshot("/api/bots/${segment(botId)}/local-computer/screenshot", threadId)
 
+    /**
+     * Take the bot's Local VM under a lease this phone names. The same lease is
+     * what the sidecar checks every few seconds; without it the viewer is never
+     * handed out.
+     */
+    suspend fun takeLocalComputer(botId: String, leaseId: String): ComputerControl =
+        send(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/computer/control",
+            body = buildJsonObject {
+                put("action", "take")
+                put("controlLeaseId", leaseId)
+            },
+        ))
+
+    suspend fun releaseLocalComputer(botId: String, leaseId: String): ComputerControl =
+        send(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/computer/control",
+            body = buildJsonObject {
+                put("action", "release")
+                put("controlLeaseId", leaseId)
+            },
+        ))
+
+    /** The viewer path, bound to [leaseId]; the sidecar closes it when the lease lapses. */
+    suspend fun joinLocalComputer(botId: String, leaseId: String): LocalComputerJoin =
+        send(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/local-computer/join",
+            query = listOf("controlLeaseId" to leaseId),
+        ))
+
+    /** Hand the computer back: closes the viewer session before the lease is released. */
+    suspend fun closeComputerViewer(botId: String) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/computer/viewer-close",
+        ))
+    }
+
+    /**
+     * A WebSocket to a companion path, carrying this device's bearer. The
+     * viewer relay speaks raw RFB on the other end, so the caller writes and
+     * reads bytes, not frames.
+     */
+    fun openViewerSocket(path: String, listener: WebSocketListener): WebSocket {
+        val base = endpoint?.baseUrl ?: throw APIError.BadUrl
+        val url = base.newBuilder()
+            .scheme(if (base.isHttps) "wss" else "ws")
+            .encodedPath(path)
+            .build()
+        val request = Request.Builder()
+            .url(url)
+            .apply { token?.let { header("Authorization", "Bearer $it") } }
+            .build()
+        return actionClient.newWebSocket(request, listener)
+    }
+
     private suspend fun screenshot(path: String, threadId: String?): ScreenFrame {
         val response: ScreenshotResponse = send(
             makeRequest(
@@ -1001,6 +1103,46 @@ class CompanionClient(
             .header("Accept", "text/event-stream")
             .build()
         return eventStream(request, streamingClient)
+    }
+
+    // MARK: - Phone apps as bot tools
+
+    /** Tell the computer what this phone allows. The key is the paired device, never the body. */
+    suspend fun registerPhone(registration: PhoneRegistration) {
+        sendUnit(makeRequest(
+            "PUT",
+            "/api/phones/self",
+            body = CompanionJson.encodeToJsonElement(PhoneRegistration.serializer(), registration).jsonObject,
+        ))
+    }
+
+    /** Forget this phone's apps; the computer stops offering them to bots. */
+    suspend fun unregisterPhone() {
+        sendUnit(makeRequest("DELETE", "/api/phones/self"))
+    }
+
+    /** Whether the computer has a registration for this phone. */
+    suspend fun myPhone(): Boolean =
+        send<PhoneSelfResponse>(makeRequest("GET", "/api/phones/self")).phone != null
+
+    /** One long poll: null when no job arrived inside the server's window. */
+    suspend fun pollPhoneJob(): PhoneJob? =
+        send<PhoneJobPoll>(makeRequest("GET", "/api/phones/self/jobs"), phoneJobClient).job
+
+    /** Take the job before running it; false when the asking turn already ended. */
+    suspend fun leasePhoneJob(jobId: String): Boolean =
+        send<PhoneLease>(
+            makeRequest("POST", "/api/phones/self/jobs/${segment(jobId)}/lease"),
+            phoneJobClient,
+        ).active
+
+    /** Answer a leased job: `{ ok: true, result }` or `{ ok: false, error, code }`. */
+    suspend fun completePhoneJob(jobId: String, outcome: JsonObject) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/phones/self/jobs/${segment(jobId)}/result",
+            body = outcome,
+        ))
     }
 
     private fun makeRequest(
@@ -1133,6 +1275,8 @@ class CompanionClient(
         const val ALREADY_DRAINED = "no such queued message"
 
         private const val ACTION_TIMEOUT_SECONDS = 20L
+        /** The server holds a job poll for 20 s; this leaves it room to answer. */
+        private const val PHONE_JOB_TIMEOUT_SECONDS = 35L
         private const val AVATAR_GENERATION_TIMEOUT_SECONDS = 150L
         /** The harness allows the updater three minutes; leave room to hear back. */
         private const val CLAUDE_UPDATE_TIMEOUT_SECONDS = 200L

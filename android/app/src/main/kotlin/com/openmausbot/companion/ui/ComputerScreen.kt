@@ -44,7 +44,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import androidx.activity.compose.BackHandler
 import com.openmausbot.companion.core.Message
+import com.openmausbot.companion.vnc.LocalVmViewerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -70,6 +72,16 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
     val bot = remember(state, botId) { state.bot(botId) }
     if (bot == null) {
         LaunchedEffect(botId) { onBack() }
+        return
+    }
+
+    // A Local VM has a real desktop behind the still; taking it over replaces
+    // this screen (and stops the still watcher below from running at all).
+    var takingOver by remember(botId) { mutableStateOf(false) }
+    var confirmingTakeover by remember(botId) { mutableStateOf(false) }
+    if (takingOver) {
+        BackHandler { takingOver = false }
+        LocalVmViewerScreen(botId = botId, title = bot.name, onExit = { takingOver = false })
         return
     }
 
@@ -211,6 +223,11 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
+            if (bot.computer == "vm") {
+                TextButton(onClick = { confirmingTakeover = true }) {
+                    Text(ComputerPolicy.LOCAL_TAKEOVER, color = Color.White, fontSize = 14.sp)
+                }
+            }
             Text(
                 text = ComputerPolicy.statusLabel(bot, stale = stale, snapshot = snapshot),
                 fontSize = 13.sp,
@@ -307,6 +324,25 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
             },
             dismissButton = {
                 TextButton(onClick = { confirming = false }) { Text("取消") }
+            },
+        )
+    }
+
+    if (confirmingTakeover) {
+        AlertDialog(
+            onDismissRequest = { confirmingTakeover = false },
+            title = { Text(ComputerPolicy.LOCAL_TAKEOVER_TITLE) },
+            text = { Text(ComputerPolicy.LOCAL_TAKEOVER_MESSAGE) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmingTakeover = false
+                        takingOver = true
+                    },
+                ) { Text(ComputerPolicy.LOCAL_TAKEOVER) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingTakeover = false }) { Text("取消") }
             },
         )
     }

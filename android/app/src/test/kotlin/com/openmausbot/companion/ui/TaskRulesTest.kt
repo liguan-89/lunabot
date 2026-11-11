@@ -27,7 +27,7 @@ class TaskRulesTest {
 
     @Test
     fun `an empty title reads as untitled rather than blank`() {
-        assertEquals("Untitled thread", TaskRules.title(task("t1", "")))
+        assertEquals("未命名会话", TaskRules.title(task("t1", "")))
         assertEquals("Research", TaskRules.title(task("t1", "Research")))
     }
 
@@ -232,7 +232,7 @@ class TaskRulesTest {
         assertTrue(TaskRules.isCurrent(task("t1"), room))
         assertTrue(TaskRules.canSwitch(task("t2"), room))
         assertTrue(TaskRules.canDelete(task("t2"), room))
-        assertEquals("Group threads", TaskRules.subtitle(room))
+        assertEquals("群组会话", TaskRules.subtitle(room))
     }
 }
 

@@ -553,6 +553,9 @@ sealed class APIError(message: String, cause: Throwable? = null) : IOException(m
 
     val isUnauthorized: Boolean get() = this is Status && code == 401
 
+    /** Refused by policy rather than by argument — 0.1.104+ answers this for `/api/config` writes. */
+    val isForbidden: Boolean get() = this is Status && code == 403
+
     companion object {
         private fun defaultMessage(code: Int): String = when (code) {
             401 -> "此手机尚未与该电脑配对。"

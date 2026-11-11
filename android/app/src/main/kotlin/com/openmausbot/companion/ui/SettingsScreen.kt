@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,6 +34,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -94,9 +97,30 @@ fun SettingsScreen(
     val notifications by environment.notifications.access.collectAsState()
     val activityDetail by environment.chatPreferences.activityDetail.collectAsState()
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
+    val phoneCalendar by environment.chatPreferences.phoneCalendar.collectAsState()
+    val phoneContacts by environment.chatPreferences.phoneContacts.collectAsState()
+    val phoneReminders by environment.chatPreferences.phoneReminders.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val haptics = rememberHaptics()
+
+    // The switch is the consent: Android asks only after the person turns it
+    // on, and a refused dialog leaves the switch off rather than claiming an
+    // access the app does not have.
+    val calendarPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        environment.chatPreferences.setPhoneCalendar(
+            granted[android.Manifest.permission.READ_CALENDAR] == true,
+        )
+    }
+    val contactsPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        environment.chatPreferences.setPhoneContacts(
+            granted[android.Manifest.permission.READ_CONTACTS] == true,
+        )
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -109,6 +133,7 @@ fun SettingsScreen(
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
+    val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         // A large title, the way iOS settings reads: the page is the title,
@@ -281,6 +306,77 @@ fun SettingsScreen(
                     "一加 / OPPO / realme：设置 → 电池 → 应用电池管理 → OpenMausBot → 允许后台运行。" +
                         "小米：设置 → 应用设置 → 应用管理 → OpenMausBot → 自启动、省电策略 → 无限制。" +
                         "华为：设置 → 应用 → 应用启动管理 → OpenMausBot → 手动管理，三项全部允许。",
+                )
+            }
+
+            SettingsSection("手机工具") {
+                SettingsSwitchRow(
+                    text = "允许机器人读取日历",
+                    checked = phoneCalendar,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            calendarPermissions.launch(
+                                arrayOf(
+                                    android.Manifest.permission.READ_CALENDAR,
+                                    android.Manifest.permission.WRITE_CALENDAR,
+                                ),
+                            )
+                        } else {
+                            environment.chatPreferences.setPhoneCalendar(false)
+                        }
+                    },
+                )
+                SettingsSwitchRow(
+                    text = "允许机器人读取联系人",
+                    checked = phoneContacts,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            contactsPermissions.launch(
+                                arrayOf(
+                                    android.Manifest.permission.READ_CONTACTS,
+                                    android.Manifest.permission.WRITE_CONTACTS,
+                                ),
+                            )
+                        } else {
+                            environment.chatPreferences.setPhoneContacts(false)
+                        }
+                    },
+                )
+                // Reminders are this app's own list, not an OS permission: the
+                // switch is the whole grant.
+                SettingsSwitchRow(
+                    text = "允许机器人创建提醒",
+                    checked = phoneReminders,
+                    onCheckedChange = { enabled ->
+                        environment.chatPreferences.setPhoneReminders(enabled)
+                    },
+                )
+                if (phoneCalendar || phoneContacts || phoneReminders) {
+                    SettingsRow(
+                        "电脑登记",
+                        when (phoneToolsStatus) {
+                            Session.PhoneToolsStatus.Registered -> "已登记"
+                            is Session.PhoneToolsStatus.Failed -> "登记失败"
+                            Session.PhoneToolsStatus.Idle -> "未登记"
+                        },
+                    )
+                    (phoneToolsStatus as? Session.PhoneToolsStatus.Failed)?.let { failure ->
+                        Footnote(failure.message)
+                    }
+                }
+                val enabledApps = buildList {
+                    if (phoneCalendar) add("日历")
+                    if (phoneContacts) add("联系人")
+                    if (phoneReminders) add("提醒")
+                }
+                Footnote(
+                    if (enabledApps.isEmpty()) {
+                        "开启后，电脑上的智能体才能使用对应的手机应用。手机只在本应用运行时应答；" +
+                            "关闭开关或撤销系统权限后立即停止。"
+                    } else {
+                        "已开启${enabledApps.joinToString("、")}。被授权的智能体可以按各自范围读取或修改；" +
+                            "读到的内容只会发送给你已配对的电脑。提醒保存在本应用里，不会写进系统日历。"
+                    },
                 )
             }
 
@@ -664,7 +760,7 @@ private fun AddressRow(
             // Selectable, because the reason to show it in full is to take it away.
             SelectionContainer {
                 Text(
-                    text = address,
+                    text = wrapAddress(address),
                     fontSize = 12.sp,
                     fontFamily = FontFamily.Monospace,
                     color = minisSecondary,
@@ -830,7 +926,10 @@ internal fun troubleshootingText(status: Session.Status): String = when (status)
     Session.Status.Unauthorized -> "此手机已从电脑移除，请重新配对以恢复连接。"
     Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 MausBot 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
-    is Session.Status.Offline -> status.message
+    is Session.Status.Offline ->
+        // The status row above is one line and ellipsized; a failure that has
+        // a next step says it here, where there is room for it.
+        listOfNotNull(status.message, status.hint).joinToString("\n")
 }
 
 /**
@@ -842,3 +941,35 @@ internal fun shortenedAddress(address: String): String {
     val leading = minOf(20, maxOf(8, address.length - 8))
     return address.take(leading) + "…" + address.takeLast(6)
 }
+
+/**
+ * The full address with zero-width break opportunities inside runs the line
+ * breaker will not split by itself.
+ *
+ * ICU finds a break after "/" and around ".", and none inside the 32-character
+ * relay label between them. That made the expanded row draw "https://c" on a
+ * line of its own and the label overflowing to the next two — three lines that
+ * read as a layout accident rather than one address. The invisible breaks cost
+ * nothing to look at, and 复制 still copies [address] itself.
+ */
+internal fun wrapAddress(address: String): String {
+    if (address.length <= ADDRESS_WRAP_RUN) return address
+    val out = StringBuilder(address.length + address.length / ADDRESS_WRAP_RUN)
+    var run = 0
+    for (char in address) {
+        out.append(char)
+        if (char in "/.-:_") {
+            run = 0
+            continue
+        }
+        run++
+        if (run == ADDRESS_WRAP_RUN) {
+            out.append('\u200B')
+            run = 0
+        }
+    }
+    return out.toString()
+}
+
+/** Long enough to keep a host readable, short enough to fit a phone line. */
+private const val ADDRESS_WRAP_RUN = 16

@@ -240,7 +240,7 @@ object SharePolicy {
             return localizedShareTransport(api.detail)
         }
         if (api != null && isAmbiguousTransport(api)) {
-            return computerName?.let(::offline) ?: "无法连接到你的电脑。请保持 OpenMausBot 打开并开启手机访问权限，然后重试。"
+            return computerName?.let(::offline) ?: "无法连接到你的电脑。请保持 OpenMausBot 打开并开启远程访问，然后重试。"
         }
         // Mirror ShareViewModel: raw exception text never reaches the sheet.
         return generic()
@@ -261,7 +261,7 @@ object SharePolicy {
             val name = detail
                 .removePrefix("Couldn't reach ")
                 .removeSuffix(". Keep OpenMausBot open and Phone access on, then try again.")
-            "无法连接到 $name。请保持 OpenMausBot 打开并开启手机访问权限，然后重试。"
+            "无法连接到 $name。请保持 OpenMausBot 打开并开启远程访问，然后重试。"
         }
         else -> detail
     }
@@ -277,7 +277,7 @@ object SharePolicy {
                 ) ||
             (
                 detail.startsWith("无法连接到 ") &&
-                    detail.endsWith("。请保持 OpenMausBot 打开并开启手机访问权限，然后重试。")
+                    detail.endsWith("。请保持 OpenMausBot 打开并开启远程访问，然后重试。")
                 )
 
     private fun isAmbiguousTransport(error: APIError): Boolean = when (error) {
@@ -296,7 +296,7 @@ object SharePolicy {
         "请先更新此电脑上的 OpenMausBot，然后再分享图片。"
 
     fun offline(name: String): String =
-        "无法连接到 $name。请保持 OpenMausBot 打开并开启手机访问权限，然后重试。"
+        "无法连接到 $name。请保持 OpenMausBot 打开并开启远程访问，然后重试。"
 
     fun nothingSupported(): String =
         "没有可发送的文本、链接、图片或受支持的文档。"

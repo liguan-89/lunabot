@@ -54,7 +54,7 @@ class ComputerPolicyTest {
     @Test
     fun `the VNC note names the desktop section that exists`() {
         assertEquals(
-            "交互式 VNC 会话。必须在电脑端的“手机设置”中为此手机启用访问权限。",
+            "交互式 VNC 会话。必须在电脑端的「手机和设备」中为此手机启用访问权限。",
             ComputerPolicy.VNC_NOTE,
         )
     }

@@ -63,6 +63,47 @@ class DecodingTest {
     }
 
     @Test
+    fun aSignInRequestDecodesAsItsOwnKind() {
+        val message = CompanionJson.decodeFromString<Message>(
+            """
+            {"id":"si","role":"bot","kind":"signin","at":1,
+             "signIn":{"url":"https://github.com/login","site":"github.com",
+                       "reason":"I need the deployment page","place":"browser"}}
+            """,
+        )
+
+        assertEquals(Message.Kind.SIGNIN, message.kind)
+        assertEquals("github.com", message.signIn?.site)
+        assertEquals("browser", message.signIn?.place)
+        assertTrue(message.signIn?.isPending == true)
+    }
+
+    @Test
+    fun aLocalJoinRewritesIntoTheSocketPath() {
+        assertEquals(
+            "/vps-viewer/a/websockify",
+            LocalComputerJoin("/vps-viewer/a#path=vps-viewer%2Fa%2Fwebsockify").socketPath,
+        )
+        assertEquals(
+            "/vps-viewer/a/websockify",
+            LocalComputerJoin("/vps-viewer/a/websockify").socketPath,
+        )
+        // A join that is not a companion-relative path is not a viewer this
+        // client can dial; the caller reports it instead of guessing.
+        assertNull(LocalComputerJoin("https://example.test/x").socketPath)
+        assertNull(LocalComputerJoin("").socketPath)
+        assertNull(LocalComputerJoin(null).socketPath)
+
+        // The VNC password, when the viewer URL carries one.
+        assertEquals(
+            "s3cret!",
+            LocalComputerJoin("/vps-viewer/a#password=s3cret%21&path=vps-viewer%2Fa%2Fwebsockify").password,
+        )
+        assertNull(LocalComputerJoin("/vps-viewer/a#path=x").password)
+        assertNull(LocalComputerJoin(null).password)
+    }
+
+    @Test
     fun oldAndNewAvatarProfilesDecodeTogether() {
         val oldBot = decodeFixture<Fleet>("bots-full").bots.first()
         assertNull(oldBot.avatarUrl)

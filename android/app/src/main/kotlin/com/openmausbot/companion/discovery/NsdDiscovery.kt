@@ -285,7 +285,7 @@ internal fun browseDiscoveryFlow(
             started = false
             // The framework's own message is English and describes internals;
             // the person needs the one action that works instead.
-            terminal("当前无法自动发现电脑。请在下方输入电脑「手机访问」中显示的地址。")
+            terminal("当前无法自动发现电脑。请在下方输入电脑「手机和设备」中显示的地址。")
         }
     }
     startAttempt.invoke()
@@ -433,7 +433,7 @@ class NsdDiscovery(
                     DiscoveryState.Active(
                         browsing = false,
                         found = emptyList(),
-                        failure = "当前无法自动发现电脑。请在下方输入电脑「手机访问」中显示的地址。",
+                        failure = "当前无法自动发现电脑。请在下方输入电脑「手机和设备」中显示的地址。",
                     ),
                 )
             }
@@ -516,10 +516,10 @@ class NsdDiscovery(
 
     private fun failureMessage(errorCode: Int): String = when (errorCode) {
         NsdManager.FAILURE_INTERNAL_ERROR ->
-            "当前无法自动发现电脑。请在下方输入电脑「手机访问」中显示的地址。"
+            "当前无法自动发现电脑。请在下方输入电脑「手机和设备」中显示的地址。"
         NsdManager.FAILURE_MAX_LIMIT ->
             // Only reached once the retries are spent — nothing is retrying now.
-            "此手机的本地发现反复被中断。请在下方输入电脑「手机访问」中显示的地址。"
+            "此手机的本地发现反复被中断。请在下方输入电脑「手机和设备」中显示的地址。"
         else ->
             "本地网络访问已关闭。请开启「附近的设备」权限，或在下方输入 Tailscale 地址。"
     }

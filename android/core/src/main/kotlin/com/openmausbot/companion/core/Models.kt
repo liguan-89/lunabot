@@ -242,6 +242,8 @@ data class Message(
     val routineRun: RoutineRunCardData? = null,
     /** `kind == GOAL_RUN`: the terminal receipt of a channel goal. */
     val goalRun: GroupGoalRunCardData? = null,
+    /** `kind == SIGNIN`: the bot needs the person to sign in to a site themselves. */
+    val signIn: SignInCardData? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {
@@ -251,6 +253,7 @@ data class Message(
         SCREEN,
         CONNECTOR,
         SECRET,
+        SIGNIN,
         ROUTINE_RUN,
         GOAL_RUN,
         DIGEST,
@@ -322,6 +325,47 @@ data class SecretRequestCardData(
     val isPending: Boolean get() = provided != true && dismissed != true && superseded != true
 }
 
+/** The two answers a sign-in request takes from a phone. */
+enum class SignInCardAction(val wire: String) {
+    DONE("done"),
+    CANCEL("cancel"),
+}
+
+/**
+ * The bot asked the person to sign in to a site themselves.
+ *
+ * The password never travels through this client; the person types it into the
+ * page the bot works in. The phone carries the request and its two answers so
+ * that a card waiting on the computer is not invisible in the transcript.
+ */
+@Serializable
+data class SignInCardData(
+    /** The page to sign in at, an http(s) address. */
+    val url: String = "",
+    /** Its host — the card's headline. */
+    val site: String = "",
+    /** The bot's own words: why it needs the sign-in. */
+    val reason: String? = null,
+    /** Where the login has to happen: browser | vm | cloud | local | host. */
+    val place: String? = null,
+    val done: Boolean? = null,
+    val cancelled: Boolean? = null,
+    /** A newer request for the same site replaced this card. */
+    val superseded: Boolean? = null,
+    /** Answered by saving a login the computer fills for the bot. */
+    val savedLogin: String? = null,
+    val resumed: Boolean? = null,
+    val error: String? = null,
+    /** Stop ended the turn this card paused. */
+    val stopped: Boolean? = null,
+    /** The person answered in the conversation instead of pressing a button. */
+    val answeredInChat: Boolean? = null,
+) {
+    val isPending: Boolean
+        get() = done != true && cancelled != true && superseded != true &&
+            stopped != true && answeredInChat != true
+}
+
 /** The status card a scheduled run keeps updating in place. */
 @Serializable
 data class RoutineRunCardData(
@@ -370,6 +414,7 @@ object MessageKindSerializer : KSerializer<Message.Kind> {
         "screen" -> Message.Kind.SCREEN
         "connector" -> Message.Kind.CONNECTOR
         "secret" -> Message.Kind.SECRET
+        "signin" -> Message.Kind.SIGNIN
         "routine.run" -> Message.Kind.ROUTINE_RUN
         "goal.run" -> Message.Kind.GOAL_RUN
         "digest" -> Message.Kind.DIGEST
@@ -863,6 +908,41 @@ object CompanionConnectionMetadataSerializer : KSerializer<CompanionConnectionMe
 @Serializable(with = CloudDesktopSessionSerializer::class)
 data class CloudDesktopSession(val url: URI)
 
+/** `POST /api/bots/:id/computer/control`: whether the computer is held, and by this lease. */
+@Serializable
+data class ComputerControl(val held: Boolean = false, val owned: Boolean = false)
+
+/**
+ * `POST /api/bots/:id/local-computer/join`: the sidecar rewrites the viewer into
+ * a device-scoped relay path, so this is relative to the paired origin (unlike
+ * the cloud viewer's absolute HTTPS URL).
+ */
+@Serializable
+data class LocalComputerJoin(val joinUrl: String? = null) {
+    /** The WebSocket path a noVNC `websockify` endpoint answers on. */
+    val socketPath: String?
+        get() {
+            val path = joinUrl?.substringBefore('#')?.takeIf { it.startsWith("/") } ?: return null
+            return if (path.endsWith("/websockify")) path else "$path/websockify"
+        }
+
+    /**
+     * The VM's VNC password, when the viewer URL carries one in its fragment:
+     * a direct server pairing is told the password out of band, and noVNC
+     * reads it from the same query string this parses.
+     */
+    val password: String?
+        get() {
+            val fragment = joinUrl?.substringAfter('#', "") ?: return null
+            if (fragment.isEmpty()) return null
+            return fragment.split('&')
+                .firstOrNull { it.startsWith("password=") }
+                ?.substringAfter('=')
+                ?.let { runCatching { java.net.URLDecoder.decode(it, "UTF-8") }.getOrNull() }
+                ?.takeIf { it.isNotEmpty() }
+        }
+}
+
 object CloudDesktopSessionSerializer : KSerializer<CloudDesktopSession> {
     @Serializable
     private data class Wire(@SerialName("joinUrl") val joinUrl: String)
@@ -953,7 +1033,14 @@ enum class VoiceProvider(val wire: String) {
     ELEVENLABS("elevenlabs"),
     FISH("fish"),
     SYSTEM("system"),
-    CHATTERBOX("chatterbox");
+    CHATTERBOX("chatterbox"),
+    // The desktop's `tts.provider` enum grew past the four the phone first
+    // shipped with. Without these three an xAI, Gemini or OpenAI workspace
+    // read as ElevenLabs: wrong label, wrong missing-key sentence, and a
+    // picker that could not name the engine it was already on.
+    XAI("xai"),
+    GEMINI("gemini"),
+    OPENAI("openai");
 
     companion object {
         fun fromWire(value: String?): VoiceProvider = entries.firstOrNull { it.wire == value } ?: ELEVENLABS
@@ -1428,6 +1515,26 @@ data class BotOverview(
     val wont: List<String> = emptyList(),
     val recent: List<BotOverviewRecent> = emptyList(),
 )
+
+/**
+ * One MCP server as `GET /api/bots/:id/mcp-servers` reports it — names and
+ * switches only, never the command, arguments or address, which is why that
+ * route is open to phones while `/api/mcp/servers` is not.
+ *
+ * [enabled] is the server's switch in MCP settings; [on] is this bot's. A bot
+ * with no `mcpServers` list takes every enabled server.
+ */
+@Serializable
+data class McpServerEntry(
+    val name: String,
+    val enabled: Boolean = false,
+    val on: Boolean = false,
+    /** True when the server is explicitly off for this bot. */
+    val offFor: Boolean? = null,
+)
+
+@Serializable
+data class McpServersResponse(val servers: List<McpServerEntry> = emptyList())
 
 /** Native server sessions returned by POST /api/auth/pair. */
 @Serializable

@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
@@ -164,18 +166,23 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TouchTarget(onClick = onBack, modifier = Modifier, size = 44.dp, contentDescription = "关闭") {
+                // A pushed screen, so it leaves the way every other pushed
+                // screen does: the bordered back circle, not a bare X that
+                // read as "discard".
+                TouchTarget(onClick = onBack, modifier = Modifier, size = 44.dp, contentDescription = "返回") {
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .background(minisCard, CircleShape),
+                            .clip(CircleShape)
+                            .background(minisCard)
+                            .border(0.5.dp, minisSeparator, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Filled.Close,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
                             tint = minisInk,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
                 }

@@ -139,6 +139,33 @@ object ProfileRules {
     private const val CHATTERBOX_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用 Chatterbox 服务器。"
 
+    // The desktop's own `tts.provider` enum also carries these three. A phone
+    // that mapped them to ElevenLabs explained an xAI key that does not exist,
+    // so each gets the sentence its own credential deserves.
+    private const val XAI_TTS_UNCONFIGURED: String = "xAI 语音尚未配置"
+
+    private const val XAI_VOICE_UNCONFIGURED_FOOTER: String =
+        "请在电脑端 OpenMausBot 中添加共享 xAI 密钥。密钥绝不会发送到本手机。"
+
+    private const val XAI_VOICE_NO_DEFAULT_FOOTER: String =
+        "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 xAI 语音。"
+
+    private const val GEMINI_TTS_UNCONFIGURED: String = "Gemini 语音尚未配置"
+
+    private const val GEMINI_VOICE_UNCONFIGURED_FOOTER: String =
+        "请在电脑端 OpenMausBot 中添加共享 Gemini 密钥。密钥绝不会发送到本手机。"
+
+    private const val GEMINI_VOICE_NO_DEFAULT_FOOTER: String =
+        "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 Gemini 语音。"
+
+    private const val OPENAI_TTS_UNCONFIGURED: String = "OpenAI 语音尚未配置"
+
+    private const val OPENAI_VOICE_UNCONFIGURED_FOOTER: String =
+        "请在电脑端 OpenMausBot 中添加共享 OpenAI 密钥。密钥绝不会发送到本手机。"
+
+    private const val OPENAI_VOICE_NO_DEFAULT_FOOTER: String =
+        "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 OpenAI 语音。"
+
     // The two below name no engine and no credential. They are true word for
     // word under both providers, so they have no twin to choose between — and
     // that is exactly why they stay public: there is no wrong arm to draw.
@@ -240,6 +267,9 @@ object ProfileRules {
         VoiceProvider.FISH -> FISH_TTS_UNCONFIGURED
         VoiceProvider.SYSTEM -> SYSTEM_TTS_UNCONFIGURED
         VoiceProvider.CHATTERBOX -> CHATTERBOX_TTS_UNCONFIGURED
+        VoiceProvider.XAI -> XAI_TTS_UNCONFIGURED
+        VoiceProvider.GEMINI -> GEMINI_TTS_UNCONFIGURED
+        VoiceProvider.OPENAI -> OPENAI_TTS_UNCONFIGURED
     }
 
     private fun voiceFooter(config: ConfigStatus?): String = when {
@@ -248,12 +278,18 @@ object ProfileRules {
             VoiceProvider.FISH -> FISH_VOICE_UNCONFIGURED_FOOTER
             VoiceProvider.SYSTEM -> SYSTEM_VOICE_UNCONFIGURED_FOOTER
             VoiceProvider.CHATTERBOX -> CHATTERBOX_VOICE_UNCONFIGURED_FOOTER
+            VoiceProvider.XAI -> XAI_VOICE_UNCONFIGURED_FOOTER
+            VoiceProvider.GEMINI -> GEMINI_VOICE_UNCONFIGURED_FOOTER
+            VoiceProvider.OPENAI -> OPENAI_VOICE_UNCONFIGURED_FOOTER
         }
         config?.hasWorkspaceDefaultVoice != true -> when (provider(config)) {
             VoiceProvider.ELEVENLABS -> VOICE_NO_DEFAULT_FOOTER
             VoiceProvider.FISH -> FISH_VOICE_NO_DEFAULT_FOOTER
             VoiceProvider.SYSTEM -> SYSTEM_VOICE_NO_DEFAULT_FOOTER
             VoiceProvider.CHATTERBOX -> CHATTERBOX_VOICE_NO_DEFAULT_FOOTER
+            VoiceProvider.XAI -> XAI_VOICE_NO_DEFAULT_FOOTER
+            VoiceProvider.GEMINI -> GEMINI_VOICE_NO_DEFAULT_FOOTER
+            VoiceProvider.OPENAI -> OPENAI_VOICE_NO_DEFAULT_FOOTER
         }
         else -> VOICE_READY_FOOTER
     }
@@ -331,6 +367,9 @@ object ProfileRules {
         VoiceChoice(VoiceProvider.FISH.wire, "Fish Audio", null, enabled = true),
         VoiceChoice(VoiceProvider.SYSTEM.wire, "Mac 内置语音", null, enabled = true),
         VoiceChoice(VoiceProvider.CHATTERBOX.wire, "Chatterbox（本地）", null, enabled = true),
+        VoiceChoice(VoiceProvider.XAI.wire, "xAI（Grok）", null, enabled = true),
+        VoiceChoice(VoiceProvider.GEMINI.wire, "Gemini", null, enabled = true),
+        VoiceChoice(VoiceProvider.OPENAI.wire, "OpenAI", null, enabled = true),
     )
 
     /**

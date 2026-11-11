@@ -12,6 +12,7 @@ import com.openmausbot.companion.core.PendingApproval
 import com.openmausbot.companion.core.Reaction
 import com.openmausbot.companion.core.Room
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.core.SignInCardData
 import com.openmausbot.companion.core.chat
 import com.openmausbot.companion.core.TranscriptRow
 import com.openmausbot.companion.core.webhookContent
@@ -502,6 +503,11 @@ object MessageActions {
             ?.takeIf { it.isNotEmpty() }
             ?.joinToString("\n\n")
         Message.Kind.GOAL_RUN -> message.goalRun?.goal?.takeIf { it.isNotBlank() }
+        // A sign-in request is worth copying for the site and the reason.
+        Message.Kind.SIGNIN -> message.signIn
+            ?.let { card -> listOfNotNull(card.site, card.reason).filter { it.isNotBlank() } }
+            ?.takeIf { it.isNotEmpty() }
+            ?.joinToString("\n\n")
     }
 
     /**
@@ -714,5 +720,33 @@ object ComposerAccessories {
         hudOpen -> ComposerAccessory.HUD
         draft.isEmpty() && !hasAttachments && !busy && !pendingApproval && hasQuickReplies -> ComposerAccessory.CHIPS
         else -> ComposerAccessory.NONE
+    }
+}
+
+/**
+ * What a sign-in card says. Copy follows the desktop's `signIn.*` strings, with
+ * one deliberate change: the phone is not where the bot's browser lives, so
+ * every "where" sentence ends by saying what to do here — press 完成 once the
+ * login is done in the place named.
+ */
+object SignInCardRules {
+    fun whereText(place: String?, botName: String): String = when (place) {
+        "browser" -> "请在 $botName 的内置浏览器中登录，然后回到这里点「完成」。"
+        "vm" -> "请在 $botName 工作的私有桌面上登录，然后点「完成」。"
+        "cloud" -> "请在 $botName 工作的云端桌面上登录，然后点「完成」。"
+        "local" -> "在这台电脑上登录，使用 $botName 所用的浏览器，然后点「完成」。"
+        "host" -> "在运行 OpenMausBot 的那台电脑上登录，使用 $botName 所用的浏览器，然后点「完成」。"
+        else -> "请在 $botName 所在的电脑上完成登录，然后点「完成」。"
+    }
+
+    /** A card that has settled says how, in the desktop's own words. */
+    fun statusLabel(data: SignInCardData, site: String): String = when {
+        data.superseded == true -> "已被更新的请求取代"
+        data.answeredInChat == true -> "你已在聊天中回复"
+        data.stopped == true -> "这一轮已停止"
+        data.savedLogin != null -> "已保存 $site 的登录信息"
+        data.done == true -> "已登录 $site"
+        data.cancelled == true -> "已取消登录 $site"
+        else -> "等待你在电脑上登录"
     }
 }

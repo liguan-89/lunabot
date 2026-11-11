@@ -49,6 +49,7 @@ import com.openmausbot.companion.R
 import com.openmausbot.companion.core.Bot
 import com.openmausbot.companion.core.BotOverview
 import com.openmausbot.companion.core.Chat
+import com.openmausbot.companion.core.McpServerEntry
 import com.openmausbot.companion.core.Routine
 import kotlinx.coroutines.launch
 
@@ -88,6 +89,12 @@ fun BotOverviewScreen(
     // keys routines by botId, so "定时任务" can show an honest count and next
     // run, and the computer row can show the state the roster already knows.
     var routines by remember(botId, connectionId) { mutableStateOf<List<Routine>>(emptyList()) }
+    // MCP servers are a second read: the overview says what the bot does in
+    // prose, this says which tool servers it can actually start. Null means the
+    // computer refused (a member's session has no admin scope) or did not
+    // answer; the card says so with one line instead of hiding itself.
+    var mcpServers by remember(botId, connectionId) { mutableStateOf<List<McpServerEntry>?>(null) }
+    var mcpLoaded by remember(botId, connectionId) { mutableStateOf(false) }
 
     suspend fun refresh(showProgress: Boolean = false) {
         if (showProgress) refreshing = true
@@ -95,6 +102,8 @@ fun BotOverviewScreen(
             val loaded = session.loadOverview(botId)
             failed = loaded == null
             if (loaded != null) overview = loaded
+            mcpServers = session.loadMcpServers(botId)
+            mcpLoaded = true
         } finally {
             if (showProgress) refreshing = false
         }
@@ -199,6 +208,10 @@ fun BotOverviewScreen(
                     }
                 }
 
+                if (mcpLoaded) {
+                    McpServersCard(mcpServers)
+                }
+
                 val current = overview
                 when {
                     loading -> Row(
@@ -219,6 +232,73 @@ fun BotOverviewScreen(
                 }
             }
         }
+    }
+}
+
+/**
+ * Which tool servers this bot can start, and which switch is holding each one.
+ * Read-only on purpose: the switches live in the computer's MCP settings, and
+ * the phone does not carry `/api/mcp/servers` (commands and arguments) at all —
+ * this route answers names and states only.
+ */
+@Composable
+private fun McpServersCard(servers: List<McpServerEntry>?) {
+    OverviewCard(label = "MCP 服务器") {
+        when {
+            servers == null -> OverviewRow {
+                Text(
+                    McpServerRules.UNAVAILABLE,
+                    fontSize = 15.sp,
+                    color = secondaryTint,
+                )
+            }
+            servers.isEmpty() -> OverviewRow {
+                Text(
+                    McpServerRules.EMPTY,
+                    fontSize = 15.sp,
+                    color = secondaryTint,
+                )
+            }
+            else -> servers.forEachIndexed { index, server ->
+                if (index > 0) MinisDivider()
+                OverviewRow {
+                    Text(
+                        text = server.name,
+                        fontSize = 17.sp,
+                        color = minisInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = McpServerRules.stateText(server),
+                        fontSize = 14.sp,
+                        color = if (server.enabled && server.on && server.offFor != true) {
+                            minisSuccess
+                        } else {
+                            secondaryTint
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+internal object McpServerRules {
+    const val UNAVAILABLE = "读不到 MCP 服务器：这台电脑未允许此手机查看。"
+    const val EMPTY = "此智能体没有可启用的 MCP 服务器。"
+
+    /**
+     * The three switches that decide whether a server runs for this bot, in the
+     * order the person can fix them: the server itself, an explicit refusal for
+     * this bot, then the bot's own switch.
+     */
+    fun stateText(server: McpServerEntry): String = when {
+        !server.enabled -> "已在电脑上停用"
+        server.offFor == true -> "不为此智能体启动"
+        !server.on -> "此智能体已关闭"
+        else -> "已启用"
     }
 }
 

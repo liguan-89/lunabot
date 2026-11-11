@@ -67,11 +67,11 @@ class ServerPairingScreenTest {
     @Test
     fun scannedServerLinkRequiresConfirmationAndPairsThroughServerApi() {
         acceptScan()
-        compose.onNodeWithText("Pair with this computer").assertIsDisplayed()
+        compose.onNodeWithText("与此电脑配对").assertIsDisplayed()
         compose.onNodeWithText(server.url("/").toString().trimEnd('/')).assertIsDisplayed()
         screenshot("server-confirmation")
         assertTrue(requests.isEmpty(), "scanning must not redeem or probe before confirmation")
-        compose.onNodeWithText("Pair with this computer").performClick()
+        compose.onNodeWithText("与此电脑配对").performClick()
         awaitPairing()
         val request = requests.single { it.path == "/api/auth/pair" }
         assertNull(request.getHeader("Authorization"))
@@ -84,16 +84,16 @@ class ServerPairingScreenTest {
 
     @Test
     fun manualEntryAcceptsServerCodesAndRetainsSixDigitCompanionCodes() {
-        compose.onNodeWithText("Other ways to connect").performClick()
+        compose.onNodeWithText("其他连接方式").performClick()
         compose.onAllNodes(hasSetTextAction())[0].performTextInput(server.url("/").toString().trimEnd('/'))
-        compose.onNodeWithText("Continue").performScrollTo().performClick()
-        compose.onNodeWithText("Connect").assertIsNotEnabled()
+        compose.onNodeWithText("继续").performScrollTo().performClick()
+        compose.onNodeWithText("连接").assertIsNotEnabled()
         screenshot("manual-code")
         val code = compose.onNode(hasSetTextAction())
         code.performTextInput("123456")
-        compose.onNodeWithText("Connect").assertIsEnabled()
+        compose.onNodeWithText("连接").assertIsEnabled()
         code.performTextReplacement("abcd-efgh-jklm")
-        compose.onNodeWithText("Connect").assertIsEnabled().performClick()
+        compose.onNodeWithText("连接").assertIsEnabled().performClick()
         awaitPairing()
     }
 
@@ -101,10 +101,10 @@ class ServerPairingScreenTest {
     fun temporaryServerFailureRetainsTheScannedCodeAndAttemptIdForRetry() {
         failFirstPair = true
         acceptScan()
-        compose.onNodeWithText("Pair with this computer").performClick()
+        compose.onNodeWithText("与此电脑配对").performClick()
         compose.waitUntil(5_000) { scene.session.actionError == null && requests.any { it.path == "/api/auth/pair" } }
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Could not finish connecting to the server. Try again with the same code.").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText("Pair with this computer").performScrollTo().performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("无法完成与服务器的连接。请使用相同的配对码重试。").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("与此电脑配对").performScrollTo().performClick()
         awaitPairing()
         val posts = requests.filter { it.path == "/api/auth/pair" }.map { it.body.readUtf8() }
         assertEquals(2, posts.size)
@@ -126,14 +126,14 @@ class ServerPairingScreenTest {
     private fun retryAfterRateLimit(manual: Boolean) {
         failFirstPair = true
         val button = if (manual) {
-            compose.onNodeWithText("Other ways to connect").performClick()
+            compose.onNodeWithText("其他连接方式").performClick()
             compose.onAllNodes(hasSetTextAction())[0].performTextInput(server.url("/").toString().trimEnd('/'))
-            compose.onNodeWithText("Continue").performScrollTo().performClick()
+            compose.onNodeWithText("继续").performScrollTo().performClick()
             compose.onNode(hasSetTextAction()).performTextInput("abcd-efgh-jklm")
-            "Connect"
+            "连接"
         } else {
             acceptScan()
-            "Pair with this computer"
+            "与此电脑配对"
         }
         compose.onNodeWithText(button).performScrollTo().performClick()
         compose.waitUntil(5_000) {

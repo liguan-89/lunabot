@@ -6,6 +6,7 @@ import com.openmausbot.companion.core.ConfigFlag
 import com.openmausbot.companion.core.ConfigStatus
 import com.openmausbot.companion.core.ModelSelection
 import com.openmausbot.companion.core.Voice
+import com.openmausbot.companion.core.VoiceProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -162,13 +163,11 @@ class ProfileRulesTest {
     @Test
     fun `the generate footer says which computer holds the provider key`() {
         assertEquals(
-            "Generation uses the shared image provider configured on your computer. " +
-                "No provider key is sent to or stored on this phone.",
+            "头像生成将使用电脑上配置的共享图像生成服务，不会向本手机发送或存储任何 API 密钥。",
             ProfileRules.generateFooter(ConfigStatus(imageGen = ConfigFlag(configured = true))),
         )
         assertEquals(
-            "To generate images, configure the shared image provider in OpenMausBot on your " +
-                "computer. Provider keys cannot be added from a phone.",
+            "如需生成头像，请先在电脑端的 OpenMausBot 中配置共享图像生成服务。手机端不支持添加服务商密钥。",
             ProfileRules.generateFooter(null),
         )
     }
@@ -195,11 +194,11 @@ class ProfileRulesTest {
     @Test
     fun `the empty tag is only selectable when a workspace default exists`() {
         val withDefault = ProfileRules.voiceChoices(speaking(), voices(), voice = "")
-        assertEquals("Workspace default", withDefault.first().label)
+        assertEquals("工作区默认", withDefault.first().label)
         assertTrue(withDefault.first().enabled)
 
         val without = ProfileRules.voiceChoices(configuredWithoutDefault(), voices(), voice = "")
-        assertEquals("Choose an agent voice", without.first().label)
+        assertEquals("选择智能体音色", without.first().label)
         assertFalse(without.first().enabled)
     }
 
@@ -211,7 +210,7 @@ class ProfileRulesTest {
             listOf("", "retired-voice", "voice-1", "voice-2"),
             choices.map { it.id },
         )
-        assertEquals("Current agent voice", choices[1].label)
+        assertEquals("当前智能体音色", choices[1].label)
         assertEquals("Warm", choices[2].detail)
         assertNull(choices[3].detail)
     }
@@ -250,7 +249,7 @@ class ProfileRulesTest {
     @Test
     fun `the hint appears exactly when nothing can speak yet`() {
         assertEquals(
-            "Pick a voice for this agent before enabling speech.",
+            "请先为此智能体选择一个音色，再开启语音朗读。",
             ProfileRules.pickAVoiceHint(configuredWithoutDefault(), ""),
         )
         assertNull(ProfileRules.pickAVoiceHint(configuredWithoutDefault(), "voice-1"))
@@ -260,18 +259,15 @@ class ProfileRulesTest {
     @Test
     fun `each voice footer answers the state it belongs to`() {
         assertEquals(
-            "Add the shared ElevenLabs key in this agent's profile on the computer. " +
-                "The key is never returned to this phone.",
+            "请在电脑端该智能体的资料中添加共享 ElevenLabs 密钥。密钥绝不会发送到本手机。",
             ProfileRules.voiceCopy(null).footer,
         )
         assertEquals(
-            "No workspace default voice is selected. Choose an agent-specific voice above; " +
-                "synthesis still uses the shared ElevenLabs key on your computer.",
+            "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的共享 ElevenLabs 密钥。",
             ProfileRules.voiceCopy(configuredWithoutDefault()).footer,
         )
         assertEquals(
-            "The voice choice belongs to this agent. Workspace default uses the shared voice " +
-                "selected on your computer.",
+            "音色设置仅对此智能体生效。“工作区默认”将使用电脑上所选的共享音色。",
             ProfileRules.voiceCopy(speaking()).footer,
         )
     }
@@ -284,26 +280,24 @@ class ProfileRulesTest {
         val unconfigured = ConfigStatus(tts = ConfigFlag(configured = false))
 
         assertEquals(
-            "ElevenLabs is not configured",
+            "ElevenLabs 尚未配置",
             ProfileRules.voiceCopy(unconfigured).unconfiguredNotice,
         )
         assertEquals(
-            "Add the shared ElevenLabs key in this agent's profile on the computer. " +
-                "The key is never returned to this phone.",
+            "请在电脑端该智能体的资料中添加共享 ElevenLabs 密钥。密钥绝不会发送到本手机。",
             ProfileRules.voiceCopy(unconfigured).footer,
         )
         assertEquals(
-            "No workspace default voice is selected. Choose an agent-specific voice above; " +
-                "synthesis still uses the shared ElevenLabs key on your computer.",
+            "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的共享 ElevenLabs 密钥。",
             ProfileRules.voiceCopy(configuredWithoutDefault()).footer,
         )
         assertEquals(
-            "ElevenLabs is not configured",
+            "ElevenLabs 尚未配置",
             ProfileRules.voiceCopy(null).unconfiguredNotice,
             "an unloaded status says what it said before the field existed",
         )
         assertEquals(
-            "ElevenLabs is not configured",
+            "ElevenLabs 尚未配置",
             ProfileRules.voiceCopy(
                 ConfigStatus(tts = ConfigFlag(configured = false, provider = "azure")),
             ).unconfiguredNotice,
@@ -315,20 +309,18 @@ class ProfileRulesTest {
     fun `the built-in provider is never explained as a missing key`() {
         val noVoices = ConfigStatus(tts = ConfigFlag(configured = false, provider = "system"))
         assertEquals(
-            "Your computer's built-in voices are unavailable",
+            "电脑内置语音不可用",
             ProfileRules.voiceCopy(noVoices).unconfiguredNotice,
         )
         assertEquals(
-            "Your computer's built-in voices need no key, and it reports none it can use. " +
-                "Switch the voice engine in OpenMausBot on the computer to turn speech back on.",
+            "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 OpenMausBot 中切换语音引擎以启用语音朗读。",
             ProfileRules.voiceCopy(noVoices).footer,
         )
 
         val noDefault =
             ConfigStatus(tts = ConfigFlag(configured = true, voice = "   ", provider = "system"))
         assertEquals(
-            "No workspace default voice is selected. Choose an agent-specific voice above; " +
-                "synthesis still uses your computer's built-in voices.",
+            "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑内置语音。",
             ProfileRules.voiceCopy(noDefault).footer,
         )
 
@@ -379,11 +371,19 @@ class ProfileRulesTest {
         val choices = ProfileRules.providerChoices()
 
         assertEquals(
-            listOf("ElevenLabs", "Fish Audio", "Built-in Mac voices", "Chatterbox (local)"),
+            listOf(
+                "ElevenLabs",
+                "Fish Audio",
+                "Mac 内置语音",
+                "Chatterbox（本地）",
+                "xAI（Grok）",
+                "Gemini",
+                "OpenAI",
+            ),
             choices.map { it.label },
         )
         assertEquals(
-            listOf("elevenlabs", "fish", "system", "chatterbox"),
+            listOf("elevenlabs", "fish", "system", "chatterbox", "xai", "gemini", "openai"),
             choices.map { it.id },
             "the ids are the wire strings, so the selection round-trips through the config write",
         )
@@ -391,22 +391,30 @@ class ProfileRulesTest {
     }
 
     @Test
+    fun `an engine newer than this build keeps its own name`() {
+        // Before these three existed, fromWire mapped them to ElevenLabs and
+        // the Voice section explained a key that was not the one on file.
+        assertEquals(VoiceProvider.XAI, VoiceProvider.fromWire("xai"))
+        assertEquals(VoiceProvider.GEMINI, VoiceProvider.fromWire("gemini"))
+        assertEquals(VoiceProvider.OPENAI, VoiceProvider.fromWire("openai"))
+        assertEquals(VoiceProvider.ELEVENLABS, VoiceProvider.fromWire("something-new"))
+    }
+
+    @Test
     fun `fish audio setup stays on the computer`() {
         val unconfigured = ConfigStatus(tts = ConfigFlag(configured = false, provider = "fish"))
         assertEquals(
-            "Fish Audio is not configured",
+            "Fish Audio 尚未配置",
             ProfileRules.voiceCopy(unconfigured).unconfiguredNotice,
         )
         assertEquals(
-            "Add the shared Fish Audio API key in OpenMausBot on the computer. " +
-                "The key is never returned to this phone.",
+            "请在电脑端 OpenMausBot 中添加共享 Fish Audio API 密钥。密钥绝不会发送到本手机。",
             ProfileRules.voiceCopy(unconfigured).footer,
         )
 
         val noDefault = ConfigStatus(tts = ConfigFlag(configured = true, voice = "", provider = "fish"))
         assertEquals(
-            "No workspace default voice is selected. Choose an agent-specific voice above; " +
-                "synthesis still uses Fish Audio on your computer.",
+            "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 Fish Audio。",
             ProfileRules.voiceCopy(noDefault).footer,
         )
     }
@@ -415,20 +423,18 @@ class ProfileRulesTest {
     fun `chatterbox is never explained as a missing key`() {
         val noServer = ConfigStatus(tts = ConfigFlag(configured = false, provider = "chatterbox"))
         assertEquals(
-            "The Chatterbox server is not connected",
+            "Chatterbox 服务器未连接",
             ProfileRules.voiceCopy(noServer).unconfiguredNotice,
         )
         assertEquals(
-            "Add the address of your Chatterbox server in OpenMausBot on the computer to turn " +
-                "speech back on.",
+            "请在电脑端 OpenMausBot 中添加 Chatterbox 服务器地址以启用语音朗读。",
             ProfileRules.voiceCopy(noServer).footer,
         )
 
         val noDefault =
             ConfigStatus(tts = ConfigFlag(configured = true, voice = "", provider = "chatterbox"))
         assertEquals(
-            "No workspace default voice is selected. Choose an agent-specific voice above; " +
-                "synthesis still uses your Chatterbox server.",
+            "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用 Chatterbox 服务器。",
             ProfileRules.voiceCopy(noDefault).footer,
         )
     }
@@ -436,7 +442,7 @@ class ProfileRulesTest {
     @Test
     fun `the shape selector offers the four crops in the Swift's order`() {
         assertEquals(
-            listOf("Mascot", "Circle", "Rounded", "Square"),
+            listOf("吉祥物", "圆形", "圆角", "方形"),
             AvatarCrop.entries.map(ProfileRules::cropLabel),
         )
     }

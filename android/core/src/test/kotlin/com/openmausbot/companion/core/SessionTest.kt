@@ -21,6 +21,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -384,8 +385,70 @@ class SessionTest {
     }
 
     @Test
-    fun aTunnelGatewayFailureWalksToTheNextProtectedRouteAndSaysSo() = runTest {
-        val hosted = assertNotNull(
+    fun aSavedRouteThatStoppedServingTheCompanionExplainsItselfAndOffersTheFix() = runTest {
+        // The relay address was paired once and its tunnel is gone: Cloudflare
+        // answers 404 for the deployment. The generic 404 text ("该内容已不存在。")
+        // used to land in 连接状态, where it described content, not a connection.
+        val connection = Connection(
+            id = "c1",
+            name = "Mac",
+            host = "c-520e.openmausbot.com",
+            port = 443,
+        )
+        val session = session(
+            connectionStore = FakeConnectionStore(connection),
+            tokenStore = FakeTokenStore().apply { saved["c1"] = "device-token" },
+            events = { _, _ -> flow { throw APIError.Status(404) } },
+        )
+        session.awaitRestored()
+
+        session.connect()
+        runCurrent()
+
+        val offline = assertIs<Session.Status.Offline>(session.status.value)
+        assertEquals(ConnectionAdvice.MISSING_ROUTE_MESSAGE, offline.message)
+        assertNotNull(offline.hint)
+    }
+
+    @Test
+    fun aRetryDoesNotFlipTheNoticeBackToConnecting() = runTest {
+        // Each attempt used to publish Connecting first, so the roster notice
+        // cross-faded with itself on every backoff step — every 15 s, for as
+        // long as the computer stayed away.
+        // One buffered emission: the first attempt takes it and fails, the
+        // retry finds the buffer empty and hangs mid-attempt, which is where
+        // the notice used to blink back to "connecting".
+        val gate = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val session = session(
+            connectionStore = FakeConnectionStore(
+                Connection(id = "c1", name = "Mac", host = "192.168.1.2", port = 8810),
+            ),
+            tokenStore = FakeTokenStore().apply { saved["c1"] = "device-token" },
+            events = { _, _ ->
+                flow {
+                    gate.first()
+                    throw ConnectException("refused")
+                }
+            },
+        )
+        session.awaitRestored()
+        session.connect()
+        runCurrent()
+        assertEquals(Session.Status.Connecting, session.status.value)
+
+        gate.tryEmit(Unit)
+        runCurrent()
+        assertIs<Session.Status.Offline>(session.status.value)
+
+        // The retry is now in flight and will fail like the first. While it
+        // does, the notice keeps saying what the person last read.
+        advanceTimeBy(1_100)
+        runCurrent()
+        assertIs<Session.Status.Offline>(session.status.value)
+    }
+
+    @Test
+    fun aTunnelGatewayFailureWalksToTheNextProtectedRouteAndSaysSo() = runTest {        val hosted = assertNotNull(
             CompanionEndpoint.create("https://mac.example", CompanionEndpointKind.HOSTED, 0),
         )
         val tailnet = assertNotNull(

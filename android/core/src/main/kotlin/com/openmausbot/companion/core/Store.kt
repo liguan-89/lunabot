@@ -318,6 +318,7 @@ data class CompanionState(
 
         is Frame.Bot -> applyBot(frame.bot)
         is Frame.BotDeleted -> deleteBot(frame.botId)
+        is Frame.BotsOrder -> copy(bots = reorderBots(frame.botIds))
         is Frame.BotQueued -> replaceBotQueues(frame.queues)
         is Frame.Room -> applyRoom(frame.room)
         is Frame.RoomDeleted -> deleteRoom(frame.groupId)
@@ -328,8 +329,9 @@ data class CompanionState(
         is Frame.Runtime -> applyRuntime(frame.event)
         is Frame.Screen -> copy(screens = screens + (frame.botId to ScreenFrame(frame.png, frame.mime)))
 
-        is Frame.Computer, Frame.Config, is Frame.CompanionEndpoints -> this
- is Frame.Unknown -> this
+        // The job nudge is a signal, not state: Session wakes the phone runner
+        // from the frame itself, and nothing in the fold changes.
+        is Frame.Computer, is Frame.DeviceJob, Frame.Config, is Frame.CompanionEndpoints, is Frame.Unknown -> this
     }
 
     fun clearScreen(botId: String): CompanionState = copy(screens = screens - botId)
@@ -523,8 +525,22 @@ data class CompanionState(
         return (settled + legacy).fold(this) { state, thread -> state.clearStream(thread) }
     }
 
-    private fun deleteBot(botId: String): CompanionState {
-        val bot = bots.firstOrNull { it.id == botId } ?: return this
+    /**
+     * The desktop's sidebar order, applied to the bots this phone already has.
+     * An id the phone has not seen is skipped rather than invented — the frame
+     * carries names, not records — and a bot the order does not name keeps its
+     * relative place after the named ones, so a bot created between the order
+     * and this frame is not lost from the bottom of the list.
+     */
+    private fun reorderBots(order: List<String>): List<Bot> {
+        if (order.isEmpty()) return bots
+        val byId = bots.associateBy { it.id }
+        val named = order.mapNotNull { byId[it] }
+        val placed = named.mapTo(HashSet()) { it.id }
+        return named + bots.filterNot { it.id in placed }
+    }
+
+    private fun deleteBot(botId: String): CompanionState {        val bot = bots.firstOrNull { it.id == botId } ?: return this
         val threads = bot.tasks.orEmpty().map(BotTask::threadId) + bot.threadId
         return copy(
             bots = bots.filterNot { it.id == botId },

@@ -90,7 +90,7 @@ class GeneratedImageWiringTest {
         }
         compose.runOnIdle { wiring.session.connect() }
         compose.waitUntil(5_000) { wiring.session.state.value.bot(fixture.id) != null }
-        val imageNode = compose.onNodeWithContentDescription("Image attachment: screenshot.png. Tap to preview.")
+        val imageNode = compose.onNodeWithContentDescription("图片附件：screenshot.png。点击预览。")
         imageNode.assertDoesNotExist()
         compose.runOnIdle {
             // Same message ID and text, as in the server's late message patch.
@@ -100,8 +100,8 @@ class GeneratedImageWiringTest {
         if (failFirst) {
             compose.waitUntil(5_000) { requests.size == 1 }
             compose.waitForIdle()
-            compose.onNodeWithText("Image unavailable").assertIsDisplayed()
-            compose.onNodeWithText("Retry").performClick()
+            compose.onNodeWithText("图片不可用").assertIsDisplayed()
+            compose.onNodeWithText("重试").performClick()
         }
         compose.waitUntil(10_000) {
             imageNode.performClick()

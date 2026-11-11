@@ -242,7 +242,7 @@ class NsdDiscoveryTest {
         assertTrue(collectJob.isCompleted)
         val last = assertIs<DiscoveryState.Active>(states.last())
         assertFalse(last.browsing)
-        assertTrue(last.failure!!.contains("Local Network"))
+        assertTrue(last.failure!!.contains("本地网络"))
     }
 
     @Test

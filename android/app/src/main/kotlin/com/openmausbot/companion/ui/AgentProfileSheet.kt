@@ -182,6 +182,10 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
     var pendingUpload by remember { mutableStateOf<Pair<ByteArray, String>?>(null) }
     // Set when "Done" is pressed on a creation page with nothing to save.
     var nameHint by remember { mutableStateOf(false) }
+    // A failed save used to close the page, so the form vanished looking
+    // saved. The sentence stays here, in the sheet's own window, where the
+    // activity-level notice cannot be seen.
+    var saveError by remember { mutableStateOf<String?>(null) }
 
     // The Model section. The draft survives rotation; the catalog is reloaded.
     var instances by remember { mutableStateOf<List<Instance>>(emptyList()) }
@@ -220,22 +224,31 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
         if (busy) return
         scope.launch {
             busy = true
+            saveError = null
             try {
                 // Creating is the one place a bot is made: the name must be
                 // typed and this button pressed. Nothing before it touches the
                 // fleet.
                 val target = created ?: liveBot() ?: session.createBot()
-                if (target == null) return@launch
+                if (target == null) {
+                    saveError = session.actionError ?: "无法创建智能体，请检查连接后重试。"
+                    return@launch
+                }
                 created = target
                 // A face picked before the bot existed is uploaded now, when
                 // there is finally an id to attach it to.
                 pendingUpload?.let { (bytes, mime) ->
-                    session.uploadAvatar(
+                    val uploaded = session.uploadAvatar(
                         data = bytes,
                         mime = mime,
                         forBot = target,
                         crop = AvatarCrop.CIRCLE,
                     )
+                    if (uploaded == null) {
+                        // The rest of the form is still worth saving, but the
+                        // person asked for that face; say it did not land.
+                        saveError = "头像上传失败，其余修改已保留。"
+                    }
                     pendingUpload = null
                     pendingPreset = null
                 }
@@ -243,19 +256,24 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     ProfileRules.patch(form, baseline, config),
                     target,
                 )
-                if (updated != null) {
-                    form = ProfileForm.of(updated)
-                    baseline = ProfileForm.of(updated)
-                    // A model chosen in the creation form is applied now, when
-                    // there is finally an id to send it to.
-                    pendingModel?.let { selection ->
-                        val applied = session.updateModel(selection, updated)
-                        if (applied != null) {
-                            savedModel = applied.modelSelection
-                            showModel(applied.modelSelection)
-                        }
-                        pendingModel = null
+                if (updated == null) {
+                    // Closing here made a failed save look like a saved one.
+                    if (saveError == null) {
+                        saveError = session.actionError ?: "保存失败，请检查连接后重试。"
                     }
+                    return@launch
+                }
+                form = ProfileForm.of(updated)
+                baseline = ProfileForm.of(updated)
+                // A model chosen in the creation form is applied now, when
+                // there is finally an id to send it to.
+                pendingModel?.let { selection ->
+                    val applied = session.updateModel(selection, updated)
+                    if (applied != null) {
+                        savedModel = applied.modelSelection
+                        showModel(applied.modelSelection)
+                    }
+                    pendingModel = null
                 }
                 if (close) onDismiss()
             } finally {
@@ -415,6 +433,21 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             color = if (profileDirty) minisPage else minisSecondary,
                         )
                     }
+                }
+
+                // Under the bar, above the scroll: a failed save must be
+                // readable without hunting for the section it came from.
+                saveError?.let { message ->
+                    Text(
+                        text = message,
+                        fontSize = 13.sp,
+                        color = MinisTokens.Danger,
+                        modifier = Modifier.padding(
+                            start = MinisPagePadding,
+                            end = MinisPagePadding,
+                            top = 2.dp,
+                        ),
+                    )
                 }
 
                 Column(

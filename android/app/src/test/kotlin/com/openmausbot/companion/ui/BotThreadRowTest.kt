@@ -12,22 +12,22 @@ class BotThreadRowTest {
 
     @Test
     fun teammateWaitIsLabeledAsWaitingNeverAsWork() {
-        assertEquals("Waiting on teammate", task("dispatch", activity = "idle", waiting = true).runtimeLabel())
+        assertEquals("等待队友", task("dispatch", activity = "idle", waiting = true).runtimeLabel())
     }
 
     @Test
     fun aTeammateWaitOutranksThePaintedWorkingStatus() {
-        assertEquals("Waiting on teammate", task("run", activity = "working", busy = true, waiting = true).runtimeLabel())
-        assertEquals("Working", task("run", busy = true).runtimeLabel())
+        assertEquals("等待队友", task("run", activity = "working", busy = true, waiting = true).runtimeLabel())
+        assertEquals("工作中", task("run", busy = true).runtimeLabel())
     }
 
     @Test
     fun onlyWorkShowsWorkAndUnknownActivitiesStayQuiet() {
-        assertEquals("Working", task("run", activity = "working").runtimeLabel())
-        assertEquals("Working", task("run", activity = "running").runtimeLabel(), "a running thread is work, exactly as its row labels it")
-        assertEquals("Waiting on you", task("ask", activity = "waiting-on-you").runtimeLabel())
-        assertEquals("Queued", task("later", activity = "queued").runtimeLabel())
-        assertEquals("Queued", task("held").runtimeLabel(queued = true), "a client-held send labels the row Queued without wire activity")
+        assertEquals("工作中", task("run", activity = "working").runtimeLabel())
+        assertEquals("工作中", task("run", activity = "running").runtimeLabel(), "a running thread is work, exactly as its row labels it")
+        assertEquals("等待你确认", task("ask", activity = "waiting-on-you").runtimeLabel())
+        assertEquals("排队中", task("later", activity = "queued").runtimeLabel())
+        assertEquals("排队中", task("held").runtimeLabel(queued = true), "a client-held send labels the row Queued without wire activity")
         assertNull(task("idle", activity = "idle").runtimeLabel())
         assertNull(task("idle").runtimeLabel())
     }

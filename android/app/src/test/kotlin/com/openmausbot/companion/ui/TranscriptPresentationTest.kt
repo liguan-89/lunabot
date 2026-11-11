@@ -110,15 +110,15 @@ class TranscriptPresentationTest {
         """))
         compose.onNodeWithText("The pasted notes stay visible.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("<pasted-text", substring = true).assertDoesNotExist()
-        compose.onNodeWithText("I'll do it myself").assertIsDisplayed()
-        compose.onNodeWithText("Update Claude for me").performClick()
+        compose.onNodeWithText("我自己手动更新").assertIsDisplayed()
+        compose.onNodeWithText("帮我更新 Claude").performClick()
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Wait for the running Claude task.").fetchSemanticsNodes().isNotEmpty()
         }
         compose.onNodeWithText("claude update").assertIsDisplayed()
-        compose.onNodeWithText("Try updating again").performClick()
+        compose.onNodeWithText("重试更新").performClick()
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("Claude updated — 2.1.280 (Claude Code). Send your message again.").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("Claude 已更新至 2.1.280 (Claude Code)，请重新发送你的消息。").fetchSemanticsNodes().isNotEmpty()
         }
         assertEquals(2, updates.get())
         screenshot("claude-update-recovered")
@@ -128,26 +128,26 @@ class TranscriptPresentationTest {
     fun completedNarrationAndWebhookPayloadStartCollapsedAndExpandOnDemand() {
         mount(ActivityDetail.HIDDEN)
         screenshot("transcript-collapsed")
-        compose.onNodeWithText("Worked for 4s").assertIsDisplayed()
+        compose.onNodeWithText("已处理 4秒").assertIsDisplayed()
         compose.onNodeWithText("Let me inspect the build logs.").assertDoesNotExist()
         compose.onNodeWithText("I found the failing check.").assertDoesNotExist()
         compose.onNodeWithText("A dependency is missing.").assertIsDisplayed()
-        compose.onNodeWithText("Webhook task").assertIsDisplayed()
+        compose.onNodeWithText("Webhook 任务").assertIsDisplayed()
         compose.onNodeWithText("Triage the build failure.").assertIsDisplayed()
         compose.onNodeWithText("Delivery ID", substring = true).assertDoesNotExist()
         compose.onNodeWithText("AUTHENTICATED WEBHOOK", substring = true).assertDoesNotExist()
         compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
 
-        compose.onNodeWithText("Worked for 4s").performClick()
+        compose.onNodeWithText("已处理 4秒").performClick()
         compose.onNodeWithText("Let me inspect the build logs.").assertIsDisplayed()
         compose.onNodeWithText("I found the failing check.").assertIsDisplayed()
-        compose.onNodeWithText("Worked for 4s").performClick()
+        compose.onNodeWithText("已处理 4秒").performClick()
         compose.onNodeWithText("Let me inspect the build logs.").assertDoesNotExist()
 
-        compose.onNodeWithText("Event payload").performClick()
+        compose.onNodeWithText("事件负载").performClick()
         compose.onNodeWithText("{\"service\":\"checkout\"}").assertIsDisplayed()
         screenshot("transcript-payload-expanded")
-        compose.onNodeWithText("Event payload").performClick()
+        compose.onNodeWithText("事件负载").performClick()
         compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
     }
 
@@ -172,12 +172,12 @@ class TranscriptPresentationTest {
     @Test
     fun changingActivityToHiddenSuppressesLiveReasoningButKeepsWorkingIndicator() {
         mount(ActivityDetail.FULL, reasoning = true)
-        compose.onNodeWithText("Thinking…").assertIsDisplayed()
+        compose.onNodeWithText("思考中…").assertIsDisplayed()
         compose.runOnIdle { scene.environment.chatPreferences.setActivityDetail(ActivityDetail.HIDDEN) }
-        compose.onNodeWithText("Thinking…").assertDoesNotExist()
-        compose.onNodeWithContentDescription("Scout is working").assertIsDisplayed()
+        compose.onNodeWithText("思考中…").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Scout 正在工作").assertIsDisplayed()
         compose.runOnIdle { scene.environment.chatPreferences.setActivityDetail(ActivityDetail.REDUCED) }
-        compose.onNodeWithText("Thinking…").assertIsDisplayed()
+        compose.onNodeWithText("思考中…").assertIsDisplayed()
     }
 
     @Test

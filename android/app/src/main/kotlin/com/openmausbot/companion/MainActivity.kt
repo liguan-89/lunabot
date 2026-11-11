@@ -201,7 +201,7 @@ class MainActivity : ComponentActivity() {
             permissions = app.permissions,
             discovery = app.discovery,
             onboarding = app.onboarding,
-            chatPreferences = ChatPreferences(this),
+            chatPreferences = app.chatPreferences,
             camera = camera,
             mic = mic,
             notifications = notifications,
@@ -219,6 +219,7 @@ class MainActivity : ComponentActivity() {
             onToggleAlwaysOn = ::toggleAlwaysOn,
             // App-scoped: leaving Settings during the download must not cancel it.
             updates = AppUpdater(this),
+            appScope = app.appScope,
         )
 
         handleIntent(intent)

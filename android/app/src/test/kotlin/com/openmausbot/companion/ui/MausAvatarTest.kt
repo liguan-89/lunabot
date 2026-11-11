@@ -29,7 +29,9 @@ class MausAvatarTest {
         assertEquals(0xFFD8A729.toInt(), MausPalette.argb("yellow"))
         assertEquals(0xFF01A492.toInt(), MausPalette.argb("teal"))
         assertEquals(0xFFE5634E.toInt(), MausPalette.argb("coral"))
-        assertEquals(10, MausPalette.names.size)
+        // The chief-of-staff mascot wears the silver ramp; this is its mid-stop.
+        assertEquals(0xFFB7BBC2.toInt(), MausPalette.argb("chrome"))
+        assertEquals(11, MausPalette.names.size)
     }
 
     @Test

@@ -35,11 +35,11 @@ class CallRulesTest {
     fun `a pending card is announced once, and never over the bot's own voice`() {
         val permission = card("m1", "req-1", tool = "bash")
         assertEquals(
-            CallAction.Announce("Scout is asking for permission. Open the chat to answer it."),
+            CallAction.Announce("Scout 正在请求权限审批，请打开聊天窗口回复。"),
             react(pendingCard = permission, phase = CallPhase.LISTENING),
         )
         assertEquals(
-            CallAction.Announce("Scout has a question. Open the chat to answer it."),
+            CallAction.Announce("Scout 有一个问题待确认，请打开聊天窗口回复。"),
             react(pendingCard = card("m2", "req-2", tool = null), phase = CallPhase.WORKING),
         )
         assertEquals(CallAction.None, react(pendingCard = permission, announced = setOf("req-1"), phase = CallPhase.LISTENING))
@@ -73,9 +73,9 @@ class CallRulesTest {
 
     @Test
     fun `the phase line and the notes read as the Swift's`() {
-        assertEquals("Listening…", CallRules.phaseText(CallPhase.LISTENING, "Scout"))
-        assertEquals("Scout is working…", CallRules.phaseText(CallPhase.WORKING, "Scout"))
-        assertEquals("Set up a voice in Settings → Voice to hear Scout.", CallRules.noVoiceNote("Scout"))
+        assertEquals("正在倾听…", CallRules.phaseText(CallPhase.LISTENING, "Scout"))
+        assertEquals("Scout 正在处理…", CallRules.phaseText(CallPhase.WORKING, "Scout"))
+        assertEquals("请在“设置 → 语音”中配置语音以收听 Scout 的回复。", CallRules.noVoiceNote("Scout"))
         assertEquals(850L, CallRules.ENDPOINT_GAP_MILLIS)
     }
 
@@ -83,14 +83,14 @@ class CallRulesTest {
     fun `voice settings offer the key only under ElevenLabs`() {
         val ready = ConfigStatus(tts = ConfigFlag(configured = true))
         val system = ConfigStatus(tts = ConfigFlag(configured = true, provider = "system"))
-        assertEquals("Ready", VoiceSettingsRules.statusText(ready))
-        assertEquals("Not set up", VoiceSettingsRules.statusText(ConfigStatus(tts = ConfigFlag(configured = false))))
+        assertEquals("已就绪", VoiceSettingsRules.statusText(ready))
+        assertEquals("未设置", VoiceSettingsRules.statusText(ConfigStatus(tts = ConfigFlag(configured = false))))
         assertNull(VoiceSettingsRules.statusText(null))
         assertTrue(VoiceSettingsRules.showsKeyField(ready))
         assertTrue(VoiceSettingsRules.showsKeyField(null))
         assertFalse(VoiceSettingsRules.showsKeyField(system))
-        assertEquals("Replace key", VoiceSettingsRules.saveLabel(ready))
-        assertEquals("Save key", VoiceSettingsRules.saveLabel(null))
+        assertEquals("替换密钥", VoiceSettingsRules.saveLabel(ready))
+        assertEquals("保存密钥", VoiceSettingsRules.saveLabel(null))
         assertTrue(VoiceSettingsRules.canSave("sk", saving = false))
         assertFalse(VoiceSettingsRules.canSave("  ", saving = false))
         assertFalse(VoiceSettingsRules.canSave("sk", saving = true))

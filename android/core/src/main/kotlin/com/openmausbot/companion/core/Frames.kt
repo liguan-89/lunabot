@@ -11,6 +11,7 @@ import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonEncoder
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
@@ -59,6 +60,10 @@ sealed interface Frame {
     data class Thread(val threadId: String, val activeLeafId: String?) : Frame
     data class Bot(val bot: com.openmausbot.companion.core.Bot) : Frame
     data class BotDeleted(val botId: String) : Frame
+    /** The desktop reordered the sidebar; ids not named here keep relative order. */
+    data class BotsOrder(val botIds: List<String>) : Frame
+    /** Something is waiting in this phone's job queue; the phone polls now. */
+    data class DeviceJob(val phone: String, val id: String) : Frame
     data class BotQueued(val queues: Map<String, List<QueuedSend>>) : Frame
     data class Room(val room: com.openmausbot.companion.core.Room) : Frame
     data class RoomDeleted(val groupId: String) : Frame
@@ -124,6 +129,13 @@ object FrameSerializer : KSerializer<Frame> {
                 objectValue.required("bot"),
             ))
             "bot.deleted" -> Frame.BotDeleted(objectValue.requiredString("botId"))
+            "bots.order" -> (objectValue["botIds"] as? JsonArray)
+                ?.let { ids -> Frame.BotsOrder(ids.mapNotNull { it.jsonPrimitive.contentOrNull }) }
+                ?: Frame.Unknown(kind)
+            "device.job" -> Frame.DeviceJob(
+                phone = objectValue["phone"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                id = objectValue["id"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+            )
             "bot.queued" -> decodeBotQueued(objectValue) ?: Frame.Unknown(kind)
             "group" -> Frame.Room(input.json.decodeFromJsonElement(
                 com.openmausbot.companion.core.Room.serializer(),
@@ -254,6 +266,15 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         is Frame.BotDeleted -> {
             put("kind", "bot.deleted")
             put("botId", botId)
+        }
+        is Frame.BotsOrder -> {
+            put("kind", "bots.order")
+            put("botIds", JsonArray(botIds.map { JsonPrimitive(it) }))
+        }
+        is Frame.DeviceJob -> {
+            put("kind", "device.job")
+            put("phone", phone)
+            put("id", id)
         }
         is Frame.BotQueued -> {
             put("kind", "bot.queued")

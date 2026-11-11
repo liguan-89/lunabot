@@ -92,13 +92,13 @@ class OnboardingRoutingTest {
 
         // The later way back to notifications, without re-entering a connection
         // flow this person has just declined.
-        compose.onNodeWithContentDescription("Settings").performClick()
+        compose.onNodeWithContentDescription("设置").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Connect a computer").assertIsDisplayed()
-        compose.onNodeWithText("Enable notifications").assertIsDisplayed()
+        compose.onNodeWithText("连接电脑").assertIsDisplayed()
+        compose.onNodeWithText("开启通知").assertIsDisplayed()
         // And nothing that needs a pairing to mean anything.
-        compose.onNodeWithText("Unpair this phone").assertDoesNotExist()
-        compose.onNodeWithText("Tasks & Routines").assertDoesNotExist()
+        compose.onNodeWithText("取消配对此手机").assertDoesNotExist()
+        compose.onNodeWithText("会话与例程").assertDoesNotExist()
 
         assertEquals(emptyList(), scene.asked(), "declining setup still spent a prompt")
 
@@ -117,7 +117,7 @@ class OnboardingRoutingTest {
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_CONNECT).performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Pair with a computer").assertIsDisplayed()
+        compose.onNodeWithText("与电脑配对").assertIsDisplayed()
         assertEquals(emptyList(), scene.asked(), "reaching the QR screen asked for something")
     }
 
@@ -132,7 +132,7 @@ class OnboardingRoutingTest {
         )
         compose.waitForIdle()
 
-        compose.onNodeWithText("Pair with a computer").assertIsDisplayed()
+        compose.onNodeWithText("与电脑配对").assertIsDisplayed()
     }
 
     @Test
@@ -147,7 +147,7 @@ class OnboardingRoutingTest {
         )
         mount(scene)
 
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
         assertEquals(
             emptyList(),
             scene.asked(),
@@ -184,7 +184,7 @@ class OnboardingRoutingTest {
         )
         // And the step is over: it does not come back for the same pairing, in
         // this process or the next one.
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
         assertFalse(
             scene.relaunchedOnboarding().notificationPending.value,
             "the prompt was fired but the marker is still pending",
@@ -205,7 +205,7 @@ class OnboardingRoutingTest {
         compose.onNodeWithText(OnboardingCopy.NOT_NOW).performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
         assertEquals(emptyList(), scene.asked(), "\"Not now\" fired the prompt anyway")
         // And the answer reached disk: a relaunch finds no step still owing.
         // Read through a store that never saw this process, because a marker
@@ -227,7 +227,7 @@ class OnboardingRoutingTest {
         )
         mount(scene)
 
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
         assertEquals(emptyList(), scene.asked())
     }
 
@@ -248,7 +248,7 @@ class OnboardingRoutingTest {
             welcomeSeen = false,
         )
         mount(scene)
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
 
         scene.session.signOut()
         compose.waitUntil(5_000) { scene.session.connection.value == null }
@@ -283,7 +283,7 @@ class OnboardingRoutingTest {
         )
         compose.waitUntil(5_000) { scene.session.pairingInvite.value != null }
         compose.waitForIdle()
-        compose.onNodeWithText("Pair with this computer").performClick()
+        compose.onNodeWithText("与此电脑配对").performClick()
         compose.waitUntil(5_000) { scene.session.connection.value != null }
         compose.waitForIdle()
 
@@ -297,14 +297,14 @@ class OnboardingRoutingTest {
 
         compose.onNodeWithText(OnboardingCopy.NOT_NOW).performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
 
         scene.session.signOut()
         compose.waitUntil(5_000) { scene.session.connection.value == null }
         compose.waitForIdle()
 
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
-        compose.onNodeWithText("Pair with a computer").assertDoesNotExist()
+        compose.onNodeWithText("与电脑配对").assertDoesNotExist()
         assertFalse(
             scene.relaunchedOnboarding().notificationPending.value,
             "the unpaired phone still owes an education step for a pairing it no longer has",
@@ -377,7 +377,7 @@ class OnboardingRoutingTest {
         )
         mount(scene)
 
-        compose.onNodeWithText("No bots yet").assertIsDisplayed()
+        compose.onNodeWithText("暂无智能体").assertIsDisplayed()
         compose.onNodeWithText(OnboardingCopy.NOTIFICATIONS_TITLE).assertDoesNotExist()
         assertEquals(emptyList(), scene.asked())
     }
@@ -414,7 +414,7 @@ class OnboardingRoutingTest {
 
         // The other reason this phone could be routed somewhere else is already
         // true: an education step is pending and its permission is askable.
-        compose.onNodeWithText("This phone was unpaired").assertIsDisplayed()
+        compose.onNodeWithText("此手机已取消配对").assertIsDisplayed()
 
         scene.session.receivePairingURL(
             "openmausbot://pair?address=127.0.0.1:8810&code=123456",
@@ -422,7 +422,7 @@ class OnboardingRoutingTest {
         compose.waitForIdle()
 
         assertNotNull(scene.session.pairingInvite.value)
-        compose.onNodeWithText("This phone was unpaired").assertIsDisplayed()
+        compose.onNodeWithText("此手机已取消配对").assertIsDisplayed()
         assertTrue(scene.asked().isEmpty())
     }
 }

@@ -76,14 +76,14 @@ class AttentionInboxTest {
         )
         val entry = state.crossBotAttention().single()
         assertTrue(entry.queued)
-        assertEquals("Queued", entry.statusLine())
+        assertEquals("排队中", entry.statusLine())
     }
 
     @Test
     fun statusWordsFollowTheAttentionOrder() {
-        assertEquals("Waiting on you", AttentionEntry("b", "Bot", task("w", activity = "waiting-on-you"), false).statusLine())
-        assertEquals("Working", AttentionEntry("b", "Bot", task("w", busy = true), false).statusLine())
-        assertEquals("Working", AttentionEntry("b", "Bot", task("w", activity = "working"), false).statusLine())
-        assertEquals("Unread", AttentionEntry("b", "Bot", task("w", unread = true), false).statusLine())
+        assertEquals("等待你确认", AttentionEntry("b", "Bot", task("w", activity = "waiting-on-you"), false).statusLine())
+        assertEquals("工作中", AttentionEntry("b", "Bot", task("w", busy = true), false).statusLine())
+        assertEquals("工作中", AttentionEntry("b", "Bot", task("w", activity = "working"), false).statusLine())
+        assertEquals("未读", AttentionEntry("b", "Bot", task("w", unread = true), false).statusLine())
     }
 }

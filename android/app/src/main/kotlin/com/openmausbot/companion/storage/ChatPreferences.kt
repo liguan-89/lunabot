@@ -55,6 +55,52 @@ class ChatPreferences(
     )
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
 
+    /**
+     * Whether bots on the paired computer may read this phone's calendar.
+     * Off until the person turns it on and grants the Android permission; the
+     * runner registers only while it is on.
+     */
+    private val _phoneCalendar = MutableStateFlow(prefs.getBoolean(PHONE_CALENDAR, false))
+    val phoneCalendar: StateFlow<Boolean> = _phoneCalendar.asStateFlow()
+
+    fun setPhoneCalendar(enabled: Boolean) {
+        if (_phoneCalendar.value == enabled && prefs.contains(PHONE_CALENDAR)) return
+        prefs.edit().putBoolean(PHONE_CALENDAR, enabled).commit()
+        _phoneCalendar.value = enabled
+    }
+
+    /** Whether bots may search and change this phone's contacts; off until allowed. */
+    private val _phoneContacts = MutableStateFlow(prefs.getBoolean(PHONE_CONTACTS, false))
+    val phoneContacts: StateFlow<Boolean> = _phoneContacts.asStateFlow()
+
+    fun setPhoneContacts(enabled: Boolean) {
+        if (_phoneContacts.value == enabled && prefs.contains(PHONE_CONTACTS)) return
+        prefs.edit().putBoolean(PHONE_CONTACTS, enabled).commit()
+        _phoneContacts.value = enabled
+    }
+
+    /** Whether bots may keep reminders in this app; no OS permission is involved. */
+    private val _phoneReminders = MutableStateFlow(prefs.getBoolean(PHONE_REMINDERS, false))
+    val phoneReminders: StateFlow<Boolean> = _phoneReminders.asStateFlow()
+
+    fun setPhoneReminders(enabled: Boolean) {
+        if (_phoneReminders.value == enabled && prefs.contains(PHONE_REMINDERS)) return
+        prefs.edit().putBoolean(PHONE_REMINDERS, enabled).commit()
+        _phoneReminders.value = enabled
+    }
+
+    /**
+     * This installation's id for the phone-tools registration. Stable for the
+     * life of the install so a re-registration updates the same device record;
+     * a fresh pairing changes the key the server stores it under, not this.
+     */
+    fun phoneInstallId(): String {
+        prefs.getString(PHONE_INSTALL_ID, null)?.let { if (it.isNotBlank()) return it }
+        val created = java.util.UUID.randomUUID().toString()
+        prefs.edit().putString(PHONE_INSTALL_ID, created).commit()
+        return created
+    }
+
     fun setThemeMode(mode: ThemeMode) {
         if (_themeMode.value == mode && prefs.contains(THEME_MODE)) return
         prefs.edit().putString(THEME_MODE, mode.wireValue).commit()
@@ -111,6 +157,10 @@ class ChatPreferences(
         private const val ACTIVITY_DETAIL = "companion.prefs.activityDetail"
         private const val QUICK_REPLIES = "companion.prefs.quickReplies"
         private const val THEME_MODE = "companion.prefs.themeMode"
+        private const val PHONE_CALENDAR = "companion.prefs.phone.calendar"
+        private const val PHONE_CONTACTS = "companion.prefs.phone.contacts"
+        private const val PHONE_REMINDERS = "companion.prefs.phone.reminders"
+        private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 
         private fun threadKey(connectionId: String, botId: String): String =
             "thread.last-opened.${connectionId.length}:$connectionId$botId"

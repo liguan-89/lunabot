@@ -70,7 +70,7 @@ class AndroidThreadNavigationTest {
     private val requests = ConcurrentLinkedQueue<RecordedRequest>()
     private var answerAction: (RecordedRequest) -> MockResponse = { MockResponse().setResponseCode(503) }
     private var answerHistory: () -> MockResponse = { json("""{"messages":[],"hasMore":false}""") }
-    private val unavailable = "The computer answered with an error (503)."
+    private val unavailable = "电脑返回了错误 (503)。"
     private val fixture = bot().copy(
         threadId = "first",
         messages = emptyList(),
@@ -122,12 +122,14 @@ class AndroidThreadNavigationTest {
         }
 
         compose.onNode(hasSetTextAction()).performTextInput("Draft for the first thread")
-        compose.onNodeWithText("First thread").performClick()
+        // The header title itself is the thread picker's door now: the subtitle
+        // that used to carry the thread title is gone.
+        compose.onNodeWithText(fixture.name).performClick()
         compose.onNodeWithText("Second thread").performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
         compose.onNode(hasSetTextAction()).assertTextEquals("")
         compose.onNode(hasSetTextAction()).performTextInput("Draft for the second thread")
-        compose.onNodeWithText("Second thread").performClick()
+        compose.onNodeWithText(fixture.name).performClick()
         compose.onNodeWithText("First thread").performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "first" }
         compose.onNode(hasSetTextAction()).assertTextEquals("Draft for the first thread")
@@ -135,7 +137,7 @@ class AndroidThreadNavigationTest {
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
         assertTrue(requests.none { it.method == "POST" && it.path?.contains("/tasks/") == true })
 
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
         compose.onNodeWithText("Fixture Home").assertIsDisplayed()
         assertNull(scene.environment.chatDrafts.get("first"))
         assertNull(scene.environment.chatDrafts.get("second"))
@@ -154,10 +156,11 @@ class AndroidThreadNavigationTest {
             }
         }
         compose.onNodeWithText(fixture.name).performClick()
-        compose.onNodeWithText("First thread").performClick()
+        compose.onNodeWithText(fixture.name).performClick()
         compose.onNodeWithText("Second thread").performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
-        compose.onNodeWithContentDescription("Back").performClick()
+        compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithText(fixture.name).performClick()
         compose.onNodeWithText(fixture.name).performClick()
         compose.onNodeWithText("Second thread").assertIsDisplayed()
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
@@ -221,9 +224,9 @@ class AndroidThreadNavigationTest {
         mount {
             TaskSheet(Chat.BotChat(fixture), onDismiss = { dismissed++ }, onSelectTask = { selected = it })
         }
-        compose.onNodeWithContentDescription("New thread").performClick()
+        compose.onNodeWithContentDescription("新建会话").performClick()
         waitForError()
-        compose.onNodeWithText("${fixture.name}'s threads").assertIsDisplayed()
+        compose.onNodeWithText("${fixture.name} 的会话").assertIsDisplayed()
         compose.onNodeWithText(unavailable).assertIsDisplayed()
         assertEquals(0, dismissed)
         assertNull(selected)
@@ -233,11 +236,11 @@ class AndroidThreadNavigationTest {
     @Test
     fun `a failed rename preserves the edited title in the dialog`() {
         mount { TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {}) }
-        compose.onNodeWithContentDescription("Rename Second thread").performClick()
+        compose.onNodeWithContentDescription("重命名 Second thread").performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("Keep these release notes")
-        compose.onNodeWithText("Save").performClick()
+        compose.onNodeWithText("保存").performClick()
         waitForError()
-        compose.onNodeWithText("Rename thread").assertIsDisplayed()
+        compose.onNodeWithText("重命名会话").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertTextContains("Keep these release notes")
         val request = requests.single { it.method == "PATCH" }
         assertEquals("/api/bots/${fixture.id}/tasks/second", request.path)
@@ -248,7 +251,9 @@ class AndroidThreadNavigationTest {
     @Test
     fun `archiving a thread patches a timestamp and the sheet reports failure`() {
         mount { TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {}) }
-        compose.onNodeWithContentDescription("Archive First thread").performClick()
+        // Pin and archive moved behind the row's overflow menu.
+        compose.onNodeWithContentDescription("更多操作 First thread").performClick()
+        compose.onNodeWithText("归档").performClick()
         compose.waitUntil(5_000) {
             requests.any { it.method == "PATCH" && it.path == "/api/bots/${fixture.id}/tasks/first" }
         }
@@ -257,7 +262,7 @@ class AndroidThreadNavigationTest {
         }.body.readUtf8()
         assertTrue(Regex("""\{"archivedAt":\d+(\.\d+)?}""").matches(body), body)
         waitForError()
-        compose.onNodeWithText("${fixture.name}'s threads").assertIsDisplayed()
+        compose.onNodeWithText("${fixture.name} 的会话").assertIsDisplayed()
     }
 
     @Test
@@ -279,18 +284,18 @@ class AndroidThreadNavigationTest {
             )
         }
 
-        compose.onNodeWithContentDescription("Delete First thread").performClick()
-        compose.onNodeWithText("Delete First thread?").assertIsDisplayed()
+        compose.onNodeWithContentDescription("删除 First thread").performClick()
+        compose.onNodeWithText("删除“First thread”？").assertIsDisplayed()
         assertTrue(requests.none { it.method == "DELETE" })
-        compose.onNodeWithText("Cancel").performClick()
+        compose.onNodeWithText("取消").performClick()
         assertTrue(requests.none { it.method == "DELETE" })
-        compose.onNodeWithContentDescription("Delete First thread").performClick()
-        compose.onNodeWithText("Delete", substring = false).performClick()
+        compose.onNodeWithContentDescription("删除 First thread").performClick()
+        compose.onNodeWithText("删除", substring = false).performClick()
         waitForError()
         assertEquals(0, deletedCurrent)
         assertEquals(0, dismissed)
-        compose.onNodeWithText("Delete First thread?").assertIsDisplayed()
-        compose.onNodeWithText("Delete", substring = false).performClick()
+        compose.onNodeWithText("删除“First thread”？").assertIsDisplayed()
+        compose.onNodeWithText("删除", substring = false).performClick()
         compose.waitUntil(5_000) { deletedCurrent == 1 }
         assertEquals(1, dismissed)
         assertNull(selected, "deleting the open bot conversation should leave it, not select a sibling")
@@ -308,7 +313,7 @@ class AndroidThreadNavigationTest {
         mount {
             TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {}, nowMillis = { clock })
         }
-        compose.onNodeWithContentDescription("Snooze First thread").performClick()
+        compose.onNodeWithContentDescription("延后提醒 First thread").performClick()
         compose.onNodeWithText(SnoozeRules.UNTIL_SIX_PM).assertIsDisplayed()
         // This is deliberately not Compose state: time passes without a
         // server event or recomposition while the dialog remains open.
@@ -334,8 +339,8 @@ class AndroidThreadNavigationTest {
             TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {})
         }
 
-        compose.onNodeWithContentDescription("Snooze First thread").performClick()
-        compose.onNodeWithText("Until new activity").assertIsDisplayed()
+        compose.onNodeWithContentDescription("延后提醒 First thread").performClick()
+        compose.onNodeWithText(SnoozeRules.UNTIL_NEW_ACTIVITY).assertIsDisplayed()
 
         val working = fixture.copy(tasks = fixture.tasks!!.map {
             if (it.threadId == "first") it.copy(busy = true, activity = "working") else it
@@ -343,10 +348,10 @@ class AndroidThreadNavigationTest {
         compose.waitUntil(5_000) { frames.subscriptionCount.value > 0 }
         compose.runOnIdle { frames.tryEmit(StreamFrame(Frame.Bot(working), seq = 2)) }
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("Stop this thread before snoozing it.").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("请先停止此会话，然后再设置延后提醒。").fetchSemanticsNodes().isNotEmpty()
         }
-        assertTrue(compose.onAllNodesWithText("Until new activity").fetchSemanticsNodes().isEmpty())
-        assertTrue(compose.onAllNodesWithText("Until 6 PM").fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodesWithText(SnoozeRules.UNTIL_NEW_ACTIVITY).fetchSemanticsNodes().isEmpty())
+        assertTrue(compose.onAllNodesWithText(SnoozeRules.UNTIL_SIX_PM).fetchSemanticsNodes().isEmpty())
         assertTrue(requests.none { it.method == "PATCH" })
     }
 

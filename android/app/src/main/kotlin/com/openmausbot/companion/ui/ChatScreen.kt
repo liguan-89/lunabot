@@ -94,6 +94,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -873,14 +874,17 @@ private fun LoadedChat(
     // Back dismisses an open panel before it leaves the screen — the platform's
     // own gesture, applied to the HUD the way it already was to the + sheet.
     BackHandler(enabled = !showingPlus && hudOpen) { closeHud() }
-    BackHandler(enabled = !showingPlus && !hudOpen) { leaveToRoster() }
+    // Search is a level of its own: Back closed the whole chat and wiped the
+    // draft, so searching for an old message cost you what you were writing.
+    BackHandler(enabled = searching) { searching = false }
+    BackHandler(enabled = !showingPlus && !hudOpen && !searching) { leaveToRoster() }
+
+    // Measured rather than assumed, because the notice below clears the header
+    // and the header grows with the font scale.
+    var headerHeight by remember { mutableStateOf(0.dp) }
 
     Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // The roster's connection notice follows the person into the chat:
-            // a transcript that silently stops updating while the computer is
-            // unreachable used to explain itself only on the roster.
-            StatusBanner()
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -1106,8 +1110,30 @@ private fun LoadedChat(
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
+                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                        .onSizeChanged { headerHeight = with(density) { it.height.toDp() } },
                 )
+
+                // The roster's connection notice follows the person into the
+                // chat: a transcript that silently stops updating while the
+                // computer is unreachable used to explain itself only on the
+                // roster. It sits *under* the controls — at the top of the
+                // column it pushed the back button down the moment the
+                // computer went away, and the way back is the one control that
+                // should stay where the thumb left it. Overlaying the
+                // transcript costs the first lines of an old message while the
+                // banner is up, and moves nothing when it goes.
+                if (headerHeight > 0.dp) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                            .fillMaxWidth()
+                            .padding(top = headerHeight),
+                    ) {
+                        StatusBanner()
+                    }
+                }
             }
 
             Composer(

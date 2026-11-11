@@ -37,13 +37,13 @@ class RoutineRulesTest {
 
     @Test
     fun `routine copy distinguishes fresh context from the shared results thread`() {
-        assertEquals("Routine = scheduled work with one results thread", RoutineRules.HEADER_ROUTINE)
+        assertEquals("例程 = 定时工作并将结果汇总在单个会话中", RoutineRules.HEADER_ROUTINE)
         for (footer in listOf(RoutineRules.SCHEDULE_FOOTER, RoutineRules.INTERVAL_SCHEDULE_FOOTER)) {
-            assertTrue(footer.contains("fresh context"))
-            assertTrue(footer.contains("Results collect in one thread"))
-            assertTrue(footer.contains("full run logs remain available"))
+            assertTrue(footer.contains("全新上下文"))
+            assertTrue(footer.contains("结果汇总在同一个会话中"))
+            assertTrue(footer.contains("完整的运行日志"))
         }
-        assertTrue(RoutineRules.INTERVAL_SCHEDULE_FOOTER.contains("skipped instead of queued"))
+        assertTrue(RoutineRules.INTERVAL_SCHEDULE_FOOTER.contains("被跳过而不是排队"))
     }
 
     @Test
@@ -96,7 +96,7 @@ class RoutineRulesTest {
         val schedule = RoutineSchedule(RoutineSchedule.Kind.ONCE, at = null)
 
         assertEquals(
-            "One time · date unavailable",
+            "单次运行 · 日期不可用",
             RoutineRules.scheduleSummary(schedule, utc, en),
         )
     }
@@ -105,13 +105,13 @@ class RoutineRulesTest {
     fun `an unknown schedule stays visible as a newer one`() {
         val schedule = RoutineSchedule(RoutineSchedule.Kind.UNKNOWN)
 
-        assertEquals("Newer schedule", RoutineRules.scheduleSummary(schedule, utc, en))
+        assertEquals("较新版本的计划", RoutineRules.scheduleSummary(schedule, utc, en))
     }
 
     @Test
     fun `an interval schedule reads as its cadence`() {
         assertEquals(
-            "Every 5 min · starting Nov 14, 2023, 10:13 PM",
+            "每 5 分钟 · 自 Nov 14, 2023, 10:13 PM 起",
             spacesNormalized(
                 RoutineRules.scheduleSummary(
                     RoutineSchedule.interval(5, 1_700_000_000_000L),
@@ -121,7 +121,7 @@ class RoutineRulesTest {
             ),
         )
         assertEquals(
-            "Interval unavailable",
+            "间隔不可用",
             RoutineRules.scheduleSummary(RoutineSchedule(RoutineSchedule.Kind.INTERVAL), utc, en),
         )
     }
@@ -129,7 +129,7 @@ class RoutineRulesTest {
     @Test
     fun `seven days read as every day and the working week as weekdays`() {
         assertEquals(
-            "Every day at 09:00",
+            "每天 09:00",
             RoutineRules.scheduleSummary(
                 RoutineSchedule.daily("09:00", listOf(0, 1, 2, 3, 4, 5, 6)),
                 utc,
@@ -137,7 +137,7 @@ class RoutineRulesTest {
             ),
         )
         assertEquals(
-            "Weekdays at 07:30",
+            "工作日 07:30",
             RoutineRules.scheduleSummary(RoutineSchedule.daily("07:30", listOf(1, 2, 3, 4, 5)), utc, en),
         )
     }
@@ -145,7 +145,7 @@ class RoutineRulesTest {
     @Test
     fun `any other selection lists three-letter days in the given order`() {
         assertEquals(
-            "Sun, Sat at 10:00",
+            "周日、周六 10:00",
             RoutineRules.scheduleSummary(RoutineSchedule.daily("10:00", listOf(0, 6)), utc, en),
         )
     }
@@ -153,7 +153,7 @@ class RoutineRulesTest {
     @Test
     fun `out-of-range weekdays are dropped from the summary`() {
         assertEquals(
-            "Mon at 10:00",
+            "周一 10:00",
             RoutineRules.scheduleSummary(RoutineSchedule.daily("10:00", listOf(1, 9)), utc, en),
         )
     }
@@ -162,7 +162,7 @@ class RoutineRulesTest {
     fun `the Swift's two schedule quirks are mirrored, not repaired`() {
         // Seven of anything is "Every day", even seven of the same day…
         assertEquals(
-            "Every day at 08:00",
+            "每天 08:00",
             RoutineRules.scheduleSummary(
                 RoutineSchedule.daily("08:00", listOf(3, 3, 3, 3, 3, 3, 3)),
                 utc,
@@ -171,7 +171,7 @@ class RoutineRulesTest {
         )
         // …and only the exact ordered [1,2,3,4,5] is "Weekdays".
         assertEquals(
-            "Fri, Thu, Wed, Tue, Mon at 08:00",
+            "周五、周四、周三、周二、周一 08:00",
             RoutineRules.scheduleSummary(
                 RoutineSchedule.daily("08:00", listOf(5, 4, 3, 2, 1)),
                 utc,
@@ -184,7 +184,7 @@ class RoutineRulesTest {
     fun `a missing time falls back to an em dash`() {
         val schedule = RoutineSchedule(RoutineSchedule.Kind.DAILY, weekdays = listOf(1))
 
-        assertEquals("Mon at —", RoutineRules.scheduleSummary(schedule, utc, en))
+        assertEquals("周一 —", RoutineRules.scheduleSummary(schedule, utc, en))
     }
 
     @Test
@@ -192,11 +192,11 @@ class RoutineRulesTest {
         val routine = routine(schedule = RoutineSchedule.daily("09:00", listOf(1, 2, 3, 4, 5)))
 
         assertEquals(
-            "Scout · Weekdays at 09:00 · This computer",
+            "Scout · 工作日 09:00 · 此电脑",
             RoutineRules.routineSubtitle(routine, "Scout", utc, en),
         )
         assertEquals(
-            "Deleted agent · Weekdays at 09:00 · This computer",
+            "已删除的智能体 · 工作日 09:00 · 此电脑",
             RoutineRules.routineSubtitle(routine, null, utc, en),
         )
     }
@@ -204,11 +204,11 @@ class RoutineRulesTest {
     @Test
     fun `an unrecognised run location falls back to the computer`() {
         assertEquals(
-            "This computer",
+            "此电脑",
             RoutineRules.locationLabel(routine(runOn = "moon").runLocation),
         )
         assertEquals(
-            "Cloud VM",
+            "云端虚拟机",
             RoutineRules.locationLabel(routine(runOn = "cloud").runLocation),
         )
     }
@@ -254,9 +254,9 @@ class RoutineRulesTest {
 
     @Test
     fun `waiting reads as Needs you and everything else is capitalized`() {
-        assertEquals("Needs you", RoutineRules.runStatusLabel("waiting"))
-        assertEquals("Completed", RoutineRules.runStatusLabel("completed"))
-        assertEquals("Failed", RoutineRules.runStatusLabel("FAILED"))
+        assertEquals("需要你处理", RoutineRules.runStatusLabel("waiting"))
+        assertEquals("已完成", RoutineRules.runStatusLabel("completed"))
+        assertEquals("失败", RoutineRules.runStatusLabel("FAILED"))
         assertEquals("Something Newer", RoutineRules.runStatusLabel("something newer"))
     }
 
@@ -855,9 +855,9 @@ class RoutineRulesTest {
 
     @Test
     fun `the weekday row is Sunday-first, matching the wire's indices`() {
-        assertEquals(listOf("S", "M", "T", "W", "T", "F", "S"), RoutineRules.DAY_LETTERS)
-        assertEquals("Sunday", RoutineRules.DAY_NAMES.first())
-        assertEquals("Saturday", RoutineRules.DAY_NAMES.last())
+        assertEquals(listOf("日", "一", "二", "三", "四", "五", "六"), RoutineRules.DAY_LETTERS)
+        assertEquals("周日", RoutineRules.DAY_NAMES.first())
+        assertEquals("周六", RoutineRules.DAY_NAMES.last())
         assertEquals(setOf(1, 2, 3, 4, 5), RoutineRules.DEFAULT_WEEKDAYS)
     }
 

@@ -84,12 +84,12 @@ class TableReadingOrderTest {
     fun `the tree reads by row, headings first, the way iOS does`() {
         assertEquals(
             listOf(
-                "DATA TABLE", "3 rows",
+                "数据表", "3 行",
                 "LANGUAGE", "YEAR",
                 "Python", "1991",
                 "Java", "1995",
                 "Rust", "2010",
-                "Copy CSV",
+                "复制 CSV",
             ),
             spokenCard(languages),
         )
@@ -103,11 +103,11 @@ class TableReadingOrderTest {
         )
         assertEquals(
             listOf(
-                "DATA TABLE", "2 rows",
+                "数据表", "2 行",
                 "LANGUAGE", "YEAR",
                 "Python", "1991",
                 "Java", "",
-                "Copy CSV",
+                "复制 CSV",
             ),
             spokenCard(ragged),
         )

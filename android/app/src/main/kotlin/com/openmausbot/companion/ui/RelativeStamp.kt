@@ -28,7 +28,7 @@ object RelativeStamp {
         val now = zoned(nowMillis.toDouble(), zone)
         return when {
             at.toLocalDate() == now.toLocalDate() -> time(atMillis, zone, locale)
-            at.toLocalDate() == now.toLocalDate().minusDays(1) -> "昨天"
+            at.toLocalDate() == now.toLocalDate().minusDays(1) -> yesterday(locale)
             at.isAfter(now.minusDays(6)) -> weekdayFormatter(locale).format(at)
             else -> dateFormatter(locale).format(at)
         }
@@ -45,8 +45,8 @@ object RelativeStamp {
         val now = zoned(nowMillis.toDouble(), zone)
         val clock = time(atMillis, zone, locale)
         return when {
-            at.toLocalDate() == now.toLocalDate() -> "今天 $clock"
-            at.toLocalDate() == now.toLocalDate().minusDays(1) -> "昨天 $clock"
+            at.toLocalDate() == now.toLocalDate() -> "${today(locale)} $clock"
+            at.toLocalDate() == now.toLocalDate().minusDays(1) -> "${yesterday(locale)} $clock"
             else -> "${dateFormatter(locale).format(at)} $clock"
         }
     }
@@ -95,6 +95,13 @@ object RelativeStamp {
         ZonedDateTime.ofInstant(Instant.ofEpochMilli(millis.toLong()), zone)
 
     private fun weekdayFormatter(locale: Locale) = DateTimeFormatter.ofPattern("EEEE", locale)
+
+    // These two words are copy, not a date pattern: the formatter that follows
+    // them speaks the locale, and a hardcoded Chinese word in front of
+    // "3:35 PM" was the one mixed-script line on an English phone.
+    private fun today(locale: Locale) = if (locale.language == "zh") "今天" else "Today"
+
+    private fun yesterday(locale: Locale) = if (locale.language == "zh") "昨天" else "Yesterday"
 
     private fun dateFormatter(locale: Locale) = if (locale.language == "zh") {
         DateTimeFormatter.ofPattern("M月d日", locale)

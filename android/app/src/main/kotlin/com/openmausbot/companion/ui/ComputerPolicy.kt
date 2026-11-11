@@ -22,8 +22,12 @@ object ComputerPolicy {
     const val CONFIRM_MESSAGE =
         "这将赋予此手机对云端电脑的完全控制权，包括其中已登录的任何账号。"
     const val VNC_NOTE =
-        "交互式 VNC 会话。必须在电脑端的“手机设置”中为此手机启用访问权限。"
+        "交互式 VNC 会话。必须在电脑端的「手机和设备」中为此手机启用访问权限。"
     const val OPEN_DESKTOP = "打开实时云端桌面"
+    const val LOCAL_TAKEOVER = "接管控制"
+    const val LOCAL_TAKEOVER_TITLE = "接管这台电脑？"
+    const val LOCAL_TAKEOVER_MESSAGE =
+        "接管期间，这台手机可以直接操作该智能体的桌面。交还控制或离开此页会立即结束接管。"
 
     /**
      * A VPS-backed bot is `"cloud"` too, but the server refuses to mint an

@@ -144,6 +144,11 @@ internal fun previewText(message: Message): String = when (message.kind) {
     Message.Kind.SCREEN -> "屏幕截图"
     Message.Kind.CONNECTOR -> message.connector?.label.orEmpty()
     Message.Kind.SECRET -> message.secret?.label.orEmpty()
+    // The site is the fact a reader needs in one line; the reason is on the card.
+    Message.Kind.SIGNIN -> message.signIn?.site
+        ?.takeIf { it.isNotBlank() }
+        ?.let { "需要登录 $it" }
+        ?: message.text.orEmpty()
     Message.Kind.ROUTINE_RUN -> message.routineRun?.routineName.orEmpty()
     Message.Kind.GOAL_RUN -> message.goalRun?.goal.orEmpty()
     Message.Kind.DIGEST -> ""

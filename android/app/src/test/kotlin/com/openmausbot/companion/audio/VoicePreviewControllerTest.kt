@@ -43,7 +43,7 @@ class VoicePreviewControllerTest {
             focus = focus,
         )
         assertEquals(
-            "The generated audio could not be played.",
+            VoicePreviewController.PLAYBACK_ERROR,
             controller.play(byteArrayOf(9)),
         )
         assertFalse(controller.playing.value)
@@ -177,7 +177,7 @@ class VoicePreviewControllerTest {
         engine.onError?.invoke()
         testScheduler.runCurrent()
         assertEquals(
-            listOf("The generated audio could not be played."),
+            listOf(VoicePreviewController.PLAYBACK_ERROR),
             errors,
         )
         assertFalse(controller.playing.value)
@@ -201,7 +201,7 @@ class VoicePreviewControllerTest {
         assertNull(controller.play(byteArrayOf(1)))
         testScheduler.runCurrent()
         assertEquals(
-            listOf("The generated audio could not be played."),
+            listOf(VoicePreviewController.PLAYBACK_ERROR),
             errors,
         )
         assertFalse(controller.playing.value)

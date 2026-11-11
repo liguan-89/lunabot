@@ -107,6 +107,15 @@ object ConnectionAdvice {
     /** The gateway family Cloudflare returns when a tunnel or its origin is unhealthy. */
     private val TUNNEL_GATEWAY_STATUSES = 520..530
 
+    /** Nothing at the stored address is serving the companion's routes. */
+    private const val MISSING_ROUTE_STATUS = 404
+
+    internal const val MISSING_ROUTE_MESSAGE =
+        "连不上电脑：地址已失效，或电脑上的 OpenMausBot 未在运行。"
+
+    private const val MISSING_ROUTE_HINT =
+        "在电脑上重新开启远程访问，或点「编辑地址」改用局域网地址；应用会继续自动重试。"
+
     fun shouldTryAnotherHost(failure: ConnectionFailure): Boolean = failure in setOf(
         ConnectionFailure.CANNOT_FIND_HOST,
         ConnectionFailure.CANNOT_CONNECT_TO_HOST,
@@ -233,6 +242,12 @@ object ConnectionAdvice {
         tryingNext: String? = null,
     ): String {
         gatewayStatus(error)?.let { return message(it, host, tryingNext) }
+        // A 404 is not a transport failure: something answered, and it was not
+        // this computer. The generic "该内容已不存在。" on `APIError.Status` put
+        // an HTTP body in the 连接状态 row, where a person reads connection
+        // facts. On a relay address it is the tunnel that is gone; on a LAN
+        // address, nothing is serving the pairing route.
+        if (statusCode(error) == MISSING_ROUTE_STATUS) return MISSING_ROUTE_MESSAGE
         val failure = classify(error)
         return if (failure == ConnectionFailure.OTHER) {
             error.message?.takeIf { it.isNotBlank() } ?: message(failure, host, port, tryingNext)
@@ -241,6 +256,24 @@ object ConnectionAdvice {
         }
     }
 
+    /**
+     * True when something answered at the address, but not with this
+     * computer's routes — a relay whose tunnel is gone, a stale tailnet name,
+     * a port that now belongs to something else. Not a transport failure:
+     * retrying the same address cannot fix it.
+     */
+    fun isMissingRoute(error: Throwable): Boolean =
+        statusCode(error) == MISSING_ROUTE_STATUS
+
     private fun fallbackAdvice(tryingNext: String?): String =
         tryingNext?.let { " 接下来正在尝试 $it。" }.orEmpty() + " 应用会自动持续重试。"
+
+    /**
+     * The next step a failure has, when it has one. Silence is the answer for
+     * a reset socket — there is nothing to do but wait for the retry — and an
+     * instruction for a route that is gone, which will not come back on its
+     * own no matter how many times this app dials it.
+     */
+    fun remedy(error: Throwable): String? =
+        if (statusCode(error) == MISSING_ROUTE_STATUS) MISSING_ROUTE_HINT else null
 }

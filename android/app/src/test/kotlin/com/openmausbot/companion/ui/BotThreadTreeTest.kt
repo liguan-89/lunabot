@@ -90,7 +90,7 @@ class BotThreadTreeTest {
         compose.onNodeWithTag("thread-folder.${fixture.id}:launch").assertIsNotEnabled()
         compose.onNodeWithTag("thread.second").assertIsDisplayed()
         compose.onNodeWithTag("thread.closed").assertIsDisplayed()
-        compose.onNodeWithText("closed by Parker").assertIsDisplayed()
+        compose.onNodeWithText("由 Parker 关闭").assertIsDisplayed()
         compose.onNodeWithTag("thread.main").assertDoesNotExist()
         compose.runOnIdle { query = "" }
         compose.onNodeWithTag("thread.second").assertDoesNotExist()
@@ -109,14 +109,14 @@ class BotThreadTreeTest {
                 )
             }
         }
-        compose.onNodeWithText("Waiting on you").assertDoesNotExist()
+        compose.onNodeWithText("等待你确认").assertDoesNotExist()
         compose.runOnIdle {
             liveBot = fixture.copy(tasks = fixture.tasks!!.map {
                 if (it.threadId == "second") it.copy(activity = "waiting-on-you", busy = true, unread = true) else it
             })
         }
-        compose.onNodeWithText("Waiting on you").assertIsDisplayed()
-        compose.onNodeWithText("Unread").assertIsDisplayed()
+        compose.onNodeWithText("等待你确认").assertIsDisplayed()
+        compose.onNodeWithText("未读").assertIsDisplayed()
         compose.onNodeWithTag("thread.second").performClick()
         assertEquals("second", opened?.threadId)
         assertTrue(opened!!.busy)
@@ -134,7 +134,7 @@ class BotThreadTreeTest {
                 )
             }
         }
-        compose.onNodeWithContentDescription("New thread with ${fixture.name}").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("与 ${fixture.name} 新建话题").assertIsNotEnabled()
     }
 
     @Test

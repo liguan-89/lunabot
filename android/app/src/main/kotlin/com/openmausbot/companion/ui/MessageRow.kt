@@ -111,6 +111,7 @@ import com.openmausbot.companion.core.ConnectorCardAction
 import com.openmausbot.companion.core.ConnectorCardData
 import com.openmausbot.companion.core.GroupGoalRunCardData
 import com.openmausbot.companion.core.RoutineRunCardData
+import com.openmausbot.companion.core.SignInCardAction
 import com.openmausbot.companion.core.SecretCardAction
 import com.openmausbot.companion.core.SecretRequestCardData
 import com.openmausbot.companion.core.AttachedMessageContent
@@ -500,6 +501,19 @@ private fun MessageContent(
         } else if (!message.text.isNullOrEmpty()) {
             TextBubble(chat, message, endsRun, openLink, openAttachment)
         }
+        // The person does the signing in; the phone only carries the request
+        // and the two answers, so a card waiting on the computer is visible
+        // here instead of being a gap in the transcript.
+        Message.Kind.SIGNIN -> if (message.signIn != null) {
+            SignInRequestCard(
+                message = message,
+                botId = (chat as? Chat.BotChat)?.bot?.id,
+                botName = chat.name,
+                threadId = chat.threadId,
+            )
+        } else if (!message.text.isNullOrEmpty()) {
+            TextBubble(chat, message, endsRun, openLink, openAttachment)
+        }
         Message.Kind.ROUTINE_RUN -> if (message.routineRun != null) {
             RoutineRunCard(message)
         } else if (!message.text.isNullOrEmpty()) {
@@ -565,7 +579,7 @@ private fun TextBubble(
                         Modifier
                             .background(
                                 BubbleColor.userBubble,
-                                RoundedCornerShape(20.dp),
+                                MinisBubbleShape,
                             )
                             .padding(horizontal = 13.dp, vertical = 10.dp)
                     } else {
@@ -1699,6 +1713,64 @@ private fun SecretRequestCard(message: Message, botId: String?, threadId: String
                 }
                 TextButton(enabled = !working, onClick = { act(SecretCardAction.DISMISS) }) {
                     Text("跳过")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SignInRequestCard(
+    message: Message,
+    botId: String?,
+    botName: String,
+    threadId: String,
+) {
+    val data = message.signIn ?: return
+    val session = LocalCompanion.current.session
+    val scope = rememberCoroutineScope()
+    var working by remember(message.id) { mutableStateOf(false) }
+
+    fun act(action: SignInCardAction) {
+        val bot = botId ?: return
+        scope.launch {
+            working = true
+            session.signInCardAction(bot, message.id, threadId, action)
+            working = false
+        }
+    }
+
+    RemoteCard(
+        title = if (data.site.isBlank()) "需要登录" else "需要登录 ${data.site}",
+        body = data.reason,
+    ) {
+        Text(
+            text = SignInCardRules.statusLabel(data, data.site),
+            fontSize = 13.sp,
+            color = if (data.error != null) minisWarning else secondaryTint,
+        )
+        if (data.isPending) {
+            Text(
+                SignInCardRules.whereText(data.place, botName),
+                fontSize = 13.sp,
+                color = minisSecondary,
+            )
+            Text(
+                "密码由你亲自输入到页面中，OpenMausBot 始终看不到。",
+                fontSize = 12.sp,
+                color = secondaryTint,
+            )
+        }
+        data.error?.takeIf { it.isNotBlank() }?.let {
+            Text(it, fontSize = 13.sp, color = minisWarning)
+        }
+        if (botId != null && data.isPending) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                TextButton(enabled = !working, onClick = { act(SignInCardAction.DONE) }) {
+                    Text("完成")
+                }
+                TextButton(enabled = !working, onClick = { act(SignInCardAction.CANCEL) }) {
+                    Text("取消")
                 }
             }
         }

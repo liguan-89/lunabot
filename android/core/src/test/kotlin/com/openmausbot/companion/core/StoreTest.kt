@@ -457,6 +457,36 @@ class StoreTest {
         state = state.apply(Frame.Unknown("routine.run"))
         assertEquals(before, state.bots.size)
     }
+
+    @Test
+    fun aSidebarOrderRearrangesOnlyBotsThisPhoneHas() {
+        // Three bots, so "reversed" is a real rearrangement and the unnamed
+        // bot has somewhere to keep its place.
+        val template = hydrated().bots.first()
+        val state = CompanionState().hydrate(
+            Fleet(
+                bots = listOf(
+                    template,
+                    template.copy(id = "b-second", threadId = "t-second"),
+                    template.copy(id = "b-third", threadId = "t-third"),
+                ),
+                groups = emptyList(),
+            ),
+        )
+        val ids = state.bots.map { it.id }
+        assertEquals(3, ids.size)
+
+        // The desktop's order, reversed, plus an id this phone never hydrated.
+        val reordered = state.apply(Frame.BotsOrder(ids.reversed() + "not-on-this-phone"))
+        assertEquals(ids.reversed(), reordered.bots.map { it.id })
+
+        // A bot the order does not name keeps its relative place after the named
+        // ones rather than disappearing from the bottom of the list.
+        val partial = state.apply(Frame.BotsOrder(listOf(ids.last())))
+        assertEquals(ids.size, partial.bots.size)
+        assertEquals(ids.last(), partial.bots.first().id)
+        assertEquals(ids.dropLast(1), partial.bots.drop(1).map { it.id })
+    }
 }
 
 class StreamingTest {

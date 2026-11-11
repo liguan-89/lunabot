@@ -1,5 +1,6 @@
 package com.openmausbot.companion.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -154,6 +155,29 @@ fun RosterScreen(navigator: CompanionNavigator) {
     var creatingBotProfile by remember { mutableStateOf(false) }
 
     val query = bar.query
+
+    // The roster is the stack root, so the app-level Back would leave the app.
+    // With the search bar open, the platform gesture closes the search first —
+    // the same rule every pushed screen follows.
+    BackHandler(enabled = bar.searchOpen) {
+        bar = RosterBar()
+        hits = emptyList()
+    }
+
+    // A different computer is a different fleet: the previous search answer,
+    // the previous expansion and the previous query describe bots that are no
+    // longer here. Only a *change* clears them — a restored search from process
+    // death is still this computer's.
+    var lastComputer by remember { mutableStateOf(connection?.id) }
+    LaunchedEffect(connection?.id) {
+        if (connection?.id != lastComputer) {
+            lastComputer = connection?.id
+            bar = RosterBar()
+            hits = emptyList()
+            expandedBots = emptySet()
+            collapsedFolders = emptySet()
+        }
+    }
 
     // Local filtering is always on; the computer is only asked past two
     // characters and after a quiet moment (§10).

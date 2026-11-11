@@ -7,11 +7,11 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * The desktop app's companion area is called **Phone**. Every instruction that
- * sends a person there has to use that name, or the first step of setup points
- * at a screen that does not exist: `ios/App/PairingView.swift:132,227`,
- * `OnboardingViews.swift:137`, `SettingsView.swift:289,302`,
- * `ComputerView.swift:89` and `Discovery.swift:137` all say Phone.
+ * The desktop app's companion area is called **手机和设备** — the harness's own
+ * `settings.section.phoneDevices`. Every instruction that sends a person there
+ * has to use that name, or the first step of setup points at a screen that does
+ * not exist. The two names used before this pass ("手机设置", "手机访问") are
+ * retired below.
  *
  * The copy pinned here lives inside `@Composable` bodies and a private
  * `failureMessage`, so no JVM unit test can call it — a source pin, in the
@@ -32,29 +32,35 @@ class PhoneSectionCopyTest {
         "shown by Companion",
         "companion settings",
         "Companion settings",
+        "手机设置",
+        "「手机访问」",
     )
 
     @Test
     fun `pairing sends the person to Settings then Phone`() {
         val source = sourceFile("ui/PairingScreen.kt").readText()
 
-        // Step one of setup. Upstream: `ios/App/OnboardingViews.swift:137`.
+        // Step one of setup, and the action that opens the pairing code.
         assertTrue(
-            source.contains("1.  Open OpenMausBot → Settings → Phone"),
+            source.contains("1.  打开 OpenMausBot → 设置 → 手机和设备"),
             "the setup steps must name the Phone section",
+        )
+        assertTrue(
+            source.contains("2.  选择「配对设备」"),
+            "the setup steps must name the button that shows the code",
         )
         // A discovered computer that answered without an address.
         assertTrue(
-            source.contains("Enter the address shown in Phone settings instead."),
+            source.contains("该电脑未返回可用地址。请改用「手机和设备」中显示的地址手动输入。"),
             "the discovery fallback must name Phone settings",
         )
         // The tailnet hint, and the manual-address footnote.
         assertTrue(
-            source.contains("same account — Phone settings will then show a name ending in "),
+            source.contains("同一账号——电脑端的「手机和设备」将显示以 .ts.net 结尾的地址"),
             "the Tailscale hint must name Phone settings",
         )
         assertTrue(
-            source.contains("Whatever Phone settings on your computer shows — "),
+            source.contains("输入电脑端「手机和设备」中显示的地址——"),
             "the manual-address footnote must name Phone settings",
         )
     }
@@ -68,7 +74,7 @@ class PhoneSectionCopyTest {
         // nowhere else to read the address from.
         assertEquals(
             4,
-            countOf(source, "Enter the address shown in Phone settings below."),
+            countOf(source, "请在下方输入电脑「手机和设备」中显示的地址。"),
             "every discovery failure must send the person to Phone settings",
         )
     }
@@ -79,7 +85,7 @@ class PhoneSectionCopyTest {
 
         assertTrue(
             source.contains(
-                "It was removed from the computer's Phone settings, or the pairing was reset.",
+                "此手机已从电脑的「手机和设备」中移除，或配对已被重置。",
             ),
             "the unpaired screen must name Phone settings",
         )

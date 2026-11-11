@@ -165,6 +165,7 @@ class OnboardingScene(
         alwaysOnEnabled = MutableStateFlow(false),
         onToggleAlwaysOn = {},
         updates = AppUpdater(context),
+        appScope = scope,
     )
 
     init {

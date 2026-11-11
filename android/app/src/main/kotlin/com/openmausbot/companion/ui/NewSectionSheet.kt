@@ -63,6 +63,9 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
     var selected by remember { mutableStateOf(emptySet<String>()) }
     var saving by remember { mutableStateOf(false) }
     var lastCreated by remember { mutableStateOf<String?>(null) }
+    // A refused save used to re-enable the button with no word about why: the
+    // activity notice sits behind the sheet.
+    var saveError by remember { mutableStateOf<String?>(null) }
     val bots = remember(state) { SectionRules.selectable(state) }
 
     val trimmed = name.trim()
@@ -109,6 +112,7 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                     enabled = SectionRules.canSave(name, selected, saving, chiefConflict),
                     onClick = {
                         saving = true
+                        saveError = null
                         val section = trimmed
                         scope.launch {
                             val saved = session.assignSection(section, SectionRules.ids(bots, selected))
@@ -117,6 +121,8 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                                 lastCreated = section
                                 selected = emptySet()
                                 name = ""
+                            } else {
+                                saveError = session.actionError ?: "没能保存这个分组，请检查连接后重试。"
                             }
                             saving = false
                         }
@@ -125,6 +131,15 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                 ) {
                     Text("保存")
                 }
+            }
+
+            saveError?.let { message ->
+                Text(
+                    text = message,
+                    fontSize = 13.sp,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
             }
 
             lastCreated?.let { section ->

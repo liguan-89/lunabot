@@ -60,7 +60,7 @@ object OnboardingCopy {
     const val UNPAIRED_HOME_BODY =
         "将此手机与 OpenMausBot 配对，即可查看对话并回复您的机器人。"
     const val UNPAIRED_HOME_HINT =
-        "请在电脑上打开 OpenMausBot → 设置 → 手机。"
+        "请在电脑上打开 OpenMausBot → 设置 → 手机和设备。"
     const val UNPAIRED_HOME_CONNECT = "连接电脑"
 
     const val NOTIFICATIONS_TITLE = "随时掌握最新动态"
@@ -158,7 +158,7 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
                 onClick = onOpenSettings,
             )
         }
-        HorizontalDivider()
+        MinisDivider()
         OnboardingLayout(
             actions = {
                 Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) {

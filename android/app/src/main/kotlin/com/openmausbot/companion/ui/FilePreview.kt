@@ -466,7 +466,7 @@ internal fun FilePreviewSheet(
                     TextButton(onClick = { actionError = onShare() }) { Text("分享") }
                     TextButton(onClick = { actionError = onOpen() }) { Text("打开") }
                 }
-                HorizontalDivider()
+                MinisDivider()
                 actionError?.let { message ->
                     Text(
                         text = message,

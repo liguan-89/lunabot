@@ -12,10 +12,14 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -94,7 +98,13 @@ class Session(
         data object Unauthorized : Status
         /** The computer refused this app version: only an update can connect. */
         data object OutdatedApp : Status
-        data class Offline(val message: String) : Status
+        /**
+         * [hint] is the next step the failure has, when it has one: a stored
+         * address that is gone needs a new address, a dropped socket only
+         * needs the retry already running. Settings shows it under the
+         * message rather than in the 连接状态 row, which is one line.
+         */
+        data class Offline(val message: String, val hint: String? = null) : Status
     }
 
     sealed interface RestoreState {
@@ -135,6 +145,14 @@ class Session(
      */
     private val _rosterSnapshotAt = MutableStateFlow<Long?>(null)
     val rosterSnapshotAt: StateFlow<Long?> = _rosterSnapshotAt.asStateFlow()
+
+    /**
+     * One emission per `device.job` frame. The frame names the computer's own
+     * key for this phone, which the phone does not otherwise know, so it is a
+     * wake signal and nothing more: the poll asks for the job.
+     */
+    private val _deviceJobNudge = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val deviceJobNudge: SharedFlow<Unit> = _deviceJobNudge.asSharedFlow()
 
     private val _actionError = MutableStateFlow<String?>(null)
     var actionError: String?
@@ -971,7 +989,12 @@ class Session(
     private suspend fun runStream() {
         while (currentCoroutineContext().isActive) {
             val activeClient = client ?: return
-            _status.value = Status.Connecting
+            // A retry is not news. Flipping back to "connecting" before every
+            // attempt made the roster's notice cross-fade with itself on each
+            // backoff step — every 15 s, forever, while the computer stayed
+            // away. The first attempt of a run announces itself; the retries
+            // leave the failure on screen until it is no longer true.
+            if (_status.value !is Status.Offline) _status.value = Status.Connecting
             var receivedHello = false
             try {
                 activeClient.connection.serverEnvironmentId?.let { expected ->
@@ -1002,6 +1025,9 @@ class Session(
                                 // the snapshot without waiting for a reconnect.
                                 refreshConnectionMetadata(activeClient, payload.metadata)
                             }
+                            // Nothing to fold: the phone's job runner polls now
+                            // instead of waiting out its long poll.
+                            is Frame.DeviceJob -> _deviceJobNudge.tryEmit(Unit)
                             else -> {
                                 _state.update { it.apply(frame) }
                                 if (payload is Frame.Notify) {
@@ -1040,7 +1066,10 @@ class Session(
                     _status.value = Status.OutdatedApp
                     return
                 }
-                _status.value = Status.Offline(failureMessage(error))
+                _status.value = Status.Offline(
+                    failureMessage(error),
+                    ConnectionAdvice.remedy(error),
+                )
             }
 
             if (!currentCoroutineContext().isActive) return
@@ -1109,6 +1138,7 @@ class Session(
         ConnectionAdvice.gatewayStatus(error)?.let { status ->
             return ConnectionAdvice.message(status, moved.failedAddress, moved.next)
         }
+        if (ConnectionAdvice.isMissingRoute(error)) return ConnectionAdvice.MISSING_ROUTE_MESSAGE
         val failure = ConnectionAdvice.classify(error)
         return if (failure == ConnectionFailure.OTHER) {
             error.message?.takeIf { it.isNotBlank() }
@@ -2269,7 +2299,7 @@ class Session(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            error.message ?: "无法保存密钥。"
+            voiceWriteFailure(error)
         }
     }
 
@@ -2281,9 +2311,21 @@ class Session(
         } catch (error: CancellationException) {
             throw error
         } catch (error: Throwable) {
-            error.message ?: "无法切换语音引擎。"
+            voiceWriteFailure(error)
         }
     }
+
+    /**
+     * A desktop from 0.1.104 refuses every `/api/config` write from a phone —
+     * the allowlist answers 403 with an English sentence meant for an API
+     * client. A person holding the phone needs to know where the setting went.
+     */
+    private fun voiceWriteFailure(error: Throwable): String =
+        if ((error as? APIError)?.isForbidden == true) {
+            "新版电脑端已不允许手机修改语音设置，请在电脑上的 OpenMausBot 中修改。"
+        } else {
+            error.message ?: "无法修改语音设置。"
+        }
 
     suspend fun configStatus(): ConfigStatus? = try {
         client?.config()
@@ -2302,7 +2344,7 @@ class Session(
             activeClient.updateVoiceProvider(provider)
         } catch (error: Throwable) {
             if (error is kotlinx.coroutines.CancellationException) throw error
-            _actionError.value = error.message
+            _actionError.value = voiceWriteFailure(error)
             null
         }
     }
@@ -2395,6 +2437,24 @@ class Session(
         }
     }
 
+    /** Answer a sign-in card; false when the computer refused or could not be reached. */
+    suspend fun signInCardAction(
+        botId: String,
+        messageId: String,
+        threadId: String,
+        action: SignInCardAction,
+    ): Boolean {
+        val activeClient = client ?: return false
+        return try {
+            activeClient.signInCardAction(botId, messageId, threadId, action)
+            true
+        } catch (error: Throwable) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            _actionError.value = error.message
+            false
+        }
+    }
+
     suspend fun loadRoutines(): RoutinesResponse {
         val activeClient = client ?: return RoutinesResponse(emptyList(), emptyList())
         return try {
@@ -2418,6 +2478,132 @@ class Session(
             if (_connection.value?.id == connectionId) _actionError.value = error.message
             null
         }
+    }
+
+    /**
+     * The bot's MCP servers, or null when the computer refused or could not be
+     * reached. Null is a state the screen draws — a Team Cloud member's session
+     * is refused by scope, and that is not worth an error banner.
+     */
+    suspend fun loadMcpServers(botId: String): List<McpServerEntry>? {
+        val activeClient = client ?: return null
+        val connectionId = _connection.value?.id
+        return try {
+            val servers = activeClient.mcpServers(botId).servers
+            currentCoroutineContext().ensureActive()
+            servers.takeIf { _connection.value?.id == connectionId }
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            null
+        }
+    }
+
+    // MARK: - Phone apps as bot tools
+    //
+    // These run in the background and must not paint the UI red: a refused
+    // registration already has a consent screen, and a poll that fails while
+    // the computer is asleep is ordinary. Failure is a return value.
+
+    /** What the phone-tools runner last achieved, for the Settings row. */
+    sealed interface PhoneToolsStatus {
+        data object Idle : PhoneToolsStatus
+        data object Registered : PhoneToolsStatus
+        data class Failed(val message: String) : PhoneToolsStatus
+    }
+
+    private val _phoneToolsStatus = MutableStateFlow<PhoneToolsStatus>(PhoneToolsStatus.Idle)
+    val phoneToolsStatus: StateFlow<PhoneToolsStatus> = _phoneToolsStatus.asStateFlow()
+
+    /**
+     * For the app's phone-tools runner: the status the Settings row shows.
+     * Public because the runner lives in the app module, which cannot see
+     * `internal` here.
+     */
+    fun reportPhoneTools(status: PhoneToolsStatus) {
+        _phoneToolsStatus.value = status
+    }
+
+    /** Null on success, or the sentence that explains the refusal. */
+    suspend fun registerPhone(registration: PhoneRegistration): String? = try {
+        client?.registerPhone(registration)
+        null
+    } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        // A phone-tools refusal is read in Settings, not in a log: a transport
+        // failure there is the computer being unreachable, and its raw OkHttp
+        // text ("Failed to connect to /192.168…") is not a sentence for a
+        // person. The connection advice already says it in Chinese.
+        val connection = _connection.value
+        if (error is APIError.Transport && connection != null) {
+            ConnectionAdvice.message(error, connection.host, connection.port)
+        } else {
+            error.message ?: "无法在电脑上登记这台手机。"
+        }
+    }
+
+    suspend fun unregisterPhone(): Boolean = guardPhone {
+        client?.unregisterPhone()
+        true
+    } ?: false
+
+    /** True when the computer holds a registration for this phone; null when it could not be asked. */
+    suspend fun myPhoneRegistered(): Boolean? = guardPhone { client?.myPhone() }
+
+    // MARK: - Local VM takeover
+
+    suspend fun takeLocalComputer(botId: String, leaseId: String): Boolean = guardPhone {
+        client?.takeLocalComputer(botId, leaseId)?.held
+    } ?: false
+
+    suspend fun releaseLocalComputer(botId: String, leaseId: String): Boolean = guardPhone {
+        client?.releaseLocalComputer(botId, leaseId)?.let { !it.held }
+    } ?: false
+
+    suspend fun joinLocalComputer(botId: String, leaseId: String): LocalComputerJoin? =
+        guardPhone { client?.joinLocalComputer(botId, leaseId) }
+
+    suspend fun closeComputerViewer(botId: String): Boolean = guardPhone {
+        client?.closeComputerViewer(botId)
+        true
+    } ?: false
+
+    /** Null when there is no paired client, or the address cannot be dialled. */
+    fun openViewerSocket(path: String, listener: okhttp3.WebSocketListener): okhttp3.WebSocket? =
+        try {
+            client?.openViewerSocket(path, listener)
+        } catch (_: Throwable) {
+            null
+        }
+
+    suspend fun pollPhoneJob(): PhoneJob? = try {
+        client?.pollPhoneJob().also { lastPhonePollError = null }
+    } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        lastPhonePollError = error.message ?: error::class.simpleName
+        null
+    }
+
+    /**
+     * Why the last poll returned nothing. Kept because the poll's failure is a
+     * background one — the Settings row and the runner's log are the only
+     * places it can be seen.
+     */
+    var lastPhonePollError: String? = null
+        private set
+
+    suspend fun leasePhoneJob(jobId: String): Boolean =
+        guardPhone { client?.leasePhoneJob(jobId) } ?: false
+
+    suspend fun completePhoneJob(jobId: String, outcome: JsonObject): Boolean = guardPhone {
+        client?.completePhoneJob(jobId, outcome)
+        true
+    } ?: false
+
+    private suspend fun <T> guardPhone(block: suspend () -> T?): T? = try {
+        block()
+    } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        null
     }
 
     suspend fun loadRoutineRunAvailability(): RoutineRunAvailability? {

@@ -44,7 +44,7 @@ class SharePolicyTest {
         )
         val destinations = SharePolicy.destinations(Fleet(listOf(older, newer), emptyList()), emptySet())
         assertEquals(listOf("bot:alpha", "bot:zeta"), destinations.map { it.id })
-        assertEquals("Bot · Research", destinations.first().subtitle)
+        assertEquals("智能体 · Research", destinations.first().subtitle)
     }
 
     @Test
@@ -90,14 +90,14 @@ class SharePolicyTest {
         val preview = SharePolicy.SharePreview(imageCount = 1, attachmentNames = listOf("photo.png"))
         assertNull(SharePolicy.imageCompatibilityMessage(preview, vision))
         assertEquals(
-            "Text's current model doesn't support images. Choose another bot or share without the image.",
+            "Text 当前的模型不支持图片。请选择其他智能体，或不带图片进行分享。",
             SharePolicy.imageCompatibilityMessage(preview, text),
         )
         assertTrue(SharePolicy.canSend(true, preview, vision, ""))
         assertFalse(SharePolicy.canSend(true, preview, text, ""))
         assertFalse(SharePolicy.canSend(true, SharePolicy.SharePreview(), vision, ""))
         assertEquals(
-            "Keep the optional instruction under 20,000 characters.",
+            "请将可选指令控制在 20,000 个字符以内。",
             SharePolicy.instructionValidationMessage("x".repeat(20_001)),
         )
     }
@@ -123,28 +123,28 @@ class SharePolicyTest {
     fun hostedRouteLabelAndAmbiguousErrorsStaySpecific() {
         val hosted = CompanionEndpoint.create("https://pair.example", CompanionEndpointKind.HOSTED, 0)!!
         val connection = Connection(id = "air", name = "Air", host = "air.local", port = 8810, activeEndpoint = hosted)
-        assertEquals("Secure HTTPS", SharePolicy.routeLabel(connection))
+        assertEquals("安全 HTTPS", SharePolicy.routeLabel(connection))
         assertEquals(
-            "Automatic",
+            "自动",
             SharePolicy.routeLabel(Connection(id = "lan", name = "Lan", host = "10.0.0.2", port = 8810)),
         )
         assertEquals(
-            "This phone's pairing has expired. Open OpenMausBot and pair it again.",
+            "此手机的配对已过期。请打开 OpenMausBot 并重新配对。",
             SharePolicy.friendlyMessage(APIError.Status(401, "revoked"), "Air"),
         )
         assertEquals(
-            "Couldn't reach Air. Keep OpenMausBot open and Phone access on, then try again.",
+            "无法连接到 Air。请保持 OpenMausBot 打开并开启远程访问，然后重试。",
             SharePolicy.friendlyMessage(APIError.Transport("timeout"), "Air"),
         )
         assertEquals(
-            "Unlock this phone, then try sharing again.",
+            "请先解锁此手机，然后重试分享。",
             SharePolicy.friendlyMessage(
                 APIError.Transport("Unlock this phone, then try sharing again."),
                 "Air",
             ),
         )
         assertEquals(
-            "This saved connection is no longer available on this phone. Remove it and pair again.",
+            "此已保存的连接在本手机上已不可用。请移除并重新配对。",
             SharePolicy.friendlyMessage(
                 APIError.Transport(
                     "This saved connection is no longer available on this phone. Remove it and pair again.",

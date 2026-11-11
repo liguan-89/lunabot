@@ -44,8 +44,8 @@ class PairingDiscoveryTimingTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val otherWays = "Other ways to connect"
-    private val discoveryHeader = "On this network".uppercase()
+    private val otherWays = "其他连接方式"
+    private val discoveryHeader = "当前网络"
 
     /** API 37 in the permission model, so the local-network grant is in scope. */
     private fun scene(
@@ -68,7 +68,7 @@ class PairingDiscoveryTimingTest {
         val scene = scene()
         mount(scene)
 
-        compose.onNodeWithText("Scan QR Code").assertIsDisplayed()
+        compose.onNodeWithText("扫描二维码").assertIsDisplayed()
         compose.onNodeWithText(otherWays).assertIsDisplayed()
 
         assertEquals(
@@ -152,7 +152,7 @@ class PairingDiscoveryTimingTest {
         var cancelled = 0
         mount(scene) { cancelled += 1 }
 
-        compose.onNodeWithText("Not now").performClick()
+        compose.onNodeWithText("暂不").performClick()
         compose.waitForIdle()
 
         assertEquals(1, cancelled)
@@ -178,12 +178,12 @@ class PairingDiscoveryTimingTest {
         compose.waitForIdle()
         // The link carried the credential, so the step is a confirmation of the
         // computer rather than a code to type.
-        compose.onNodeWithText("Not now").assertIsEnabled()
+        compose.onNodeWithText("暂不").assertIsEnabled()
 
-        compose.onNodeWithText("Pair with this computer").performClick()
+        compose.onNodeWithText("与此电脑配对").performClick()
         compose.waitForIdle()
 
-        compose.onNodeWithText("Not now").assertIsNotEnabled()
+        compose.onNodeWithText("暂不").assertIsNotEnabled()
         assertEquals(0, cancelled)
 
         gate.complete(Unit)

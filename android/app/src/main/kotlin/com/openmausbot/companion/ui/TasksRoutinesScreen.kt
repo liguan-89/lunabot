@@ -98,6 +98,22 @@ internal fun TasksRoutinesScreen(
         mutableStateOf<RoutineEditorTarget?>(null)
     }
     var deleting by remember { mutableStateOf<Routine?>(null) }
+    // One request per row at a time. A double tap used to fire two runs of the
+    // same routine, or two competing toggles, each reloading over the other.
+    var busyRows by remember { mutableStateOf(emptySet<String>()) }
+
+    /** Runs [block] for [key] unless that row already has a request in flight. */
+    fun request(key: String, block: suspend () -> Unit) {
+        if (key in busyRows) return
+        busyRows = busyRows + key
+        scope.launch {
+            try {
+                block()
+            } finally {
+                busyRows = busyRows - key
+            }
+        }
+    }
 
     suspend fun reload(quiet: Boolean = false) {
         if (!quiet) loading = true
@@ -202,14 +218,14 @@ internal fun TasksRoutinesScreen(
                         bot = state.bot(routine.botId),
                         onEdit = { editor = RoutineEditorTarget.edit(routine) },
                         onRunNow = {
-                            scope.launch {
+                            request("run:${routine.id}") {
                                 session.runRoutine(routine)
                                 reload()
                             }
                         },
                         onToggle = {
-                            scope.launch {
-                                if (!routine.canToggle()) return@launch
+                            request("toggle:${routine.id}") {
+                                if (!routine.canToggle()) return@request
                                 session.setRoutineEnabled(routine, !routine.enabled)
                                 reload()
                             }
@@ -252,7 +268,7 @@ internal fun TasksRoutinesScreen(
                             }
                         },
                         onCancel = {
-                            scope.launch {
+                            request("cancel:${run.id}") {
                                 session.cancelRoutineRun(run)
                                 reload()
                             }

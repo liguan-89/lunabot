@@ -84,4 +84,16 @@ class ChatDraftHolder {
         attachments.remove(chatId)
         composers.remove(chatId)
     }
+
+    /**
+     * Forget every draft. A draft belongs to a thread on one computer; when the
+     * phone switches computers or loses its pairing, a line half-typed for the
+     * old fleet must not surface under the next one.
+     */
+    fun clearAll() {
+        owners.clear()
+        attachments.clear()
+        composers.clear()
+        entries.clear()
+    }
 }

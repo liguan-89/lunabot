@@ -128,7 +128,7 @@ class UpdatesTest {
             updates.map { it.kind },
         )
         assertEquals(
-            listOf("Waiting on you", "Sorting the iCloud inbox", "Queued — waiting for an available slot", "Calendar is ready"),
+            listOf("等待你的回复", "Sorting the iCloud inbox", "已排队 — 正在等待可用槽位", "Calendar is ready"),
             updates.map { it.line },
         )
         assertEquals(4, updates.map { it.id }.toSet().size)
@@ -152,7 +152,7 @@ class UpdatesTest {
             ),
         )
         assertEquals(listOf(UpdateKind.WORKING), held.updates.map { it.kind })
-        assertEquals("2 messages queued", held.updates.single().line)
+        assertEquals("已排队 2 条消息", held.updates.single().line)
     }
 
     @Test
@@ -277,7 +277,7 @@ class UpdatesTest {
     @Test
     fun `a working bot with nothing to say says so`() {
         val quiet = CompanionState(bots = listOf(bot(busy = true)))
-        assertEquals("Working…", quiet.updates.single().line)
+        assertEquals("处理中…", quiet.updates.single().line)
 
         // An activity without a tool is not a name, so it is not a line either.
         val toolless = CompanionState(
@@ -288,14 +288,14 @@ class UpdatesTest {
                 ),
             ),
         )
-        assertEquals("Working…", toolless.updates.single().line)
+        assertEquals("处理中…", toolless.updates.single().line)
 
         // The last message being text does not make it a working line either.
         val talked = CompanionState(
             bots = listOf(bot(busy = true)),
             messages = mapOf("thread-bot-1" to listOf(text("m1", "hello"))),
         )
-        assertEquals("Working…", talked.updates.single().line)
+        assertEquals("处理中…", talked.updates.single().line)
     }
 
     @Test
@@ -305,7 +305,7 @@ class UpdatesTest {
             // Answered: a card still pending would make this a needs-you instead.
             options("m1", pendingCard().copy(answered = "Allow")) to "Run a command",
             activity("m1", "Bash") to "Bash",
-            screen("m1") to "Screenshot",
+            screen("m1") to "屏幕截图",
             unknown("m1", "something new") to "something new",
         )
         for ((message, expected) in cases) {
@@ -441,23 +441,23 @@ class UpdatesSummaryTest {
 
     @Test
     fun `nothing active reads as quiet`() {
-        assertEquals("All quiet", UpdatesSummary.headline(emptyList()))
-        assertEquals("Nothing needs you", UpdatesSummary.subline(emptyList()))
-        assertEquals("All quiet", UpdatesSummary.count(emptyList()))
+        assertEquals("一切平静", UpdatesSummary.headline(emptyList()))
+        assertEquals("暂无待办事项", UpdatesSummary.subline(emptyList()))
+        assertEquals("一切平静", UpdatesSummary.count(emptyList()))
     }
 
     @Test
     fun `the headline names the first chat and what it is doing`() {
         assertEquals(
-            "Scout needs you",
+            "Scout 需要你处理",
             UpdatesSummary.headline(listOf(update(UpdateKind.NEEDS_YOU, "Scout", ""))),
         )
         assertEquals(
-            "Ada is working",
+            "Ada 正在工作",
             UpdatesSummary.headline(listOf(update(UpdateKind.WORKING, "Ada", ""))),
         )
         assertEquals(
-            "Iris has an update",
+            "Iris 有新动态",
             UpdatesSummary.headline(listOf(update(UpdateKind.TO_REVIEW, "Iris", ""))),
         )
     }
@@ -469,8 +469,8 @@ class UpdatesSummaryTest {
         val third = update(UpdateKind.TO_REVIEW, "Iris", "done")
 
         assertEquals("may I run ls", UpdatesSummary.subline(listOf(first)))
-        assertEquals("1 more update", UpdatesSummary.subline(listOf(first, second)))
-        assertEquals("2 more updates", UpdatesSummary.subline(listOf(first, second, third)))
+        assertEquals("还有 1 条动态", UpdatesSummary.subline(listOf(first, second)))
+        assertEquals("还有 2 条动态", UpdatesSummary.subline(listOf(first, second, third)))
     }
 
     @Test
@@ -481,15 +481,15 @@ class UpdatesSummaryTest {
     @Test
     fun `the sheet counts what is active`() {
         val one = update(UpdateKind.WORKING, "Ada", "")
-        assertEquals("1 active", UpdatesSummary.count(listOf(one)))
-        assertEquals("2 active", UpdatesSummary.count(listOf(one, one)))
+        assertEquals("1 项活动", UpdatesSummary.count(listOf(one)))
+        assertEquals("2 项活动", UpdatesSummary.count(listOf(one, one)))
     }
 
     @Test
     fun `the sections are named the way iOS names them`() {
-        assertEquals("Needs you", UpdatesSummary.section(UpdateKind.NEEDS_YOU))
-        assertEquals("Working", UpdatesSummary.section(UpdateKind.WORKING))
-        assertEquals("To review", UpdatesSummary.section(UpdateKind.TO_REVIEW))
+        assertEquals("需要你处理", UpdatesSummary.section(UpdateKind.NEEDS_YOU))
+        assertEquals("正在工作", UpdatesSummary.section(UpdateKind.WORKING))
+        assertEquals("待查看", UpdatesSummary.section(UpdateKind.TO_REVIEW))
         assertEquals(3, UpdatesSummary.MASCOTS)
     }
 
@@ -500,9 +500,9 @@ class UpdatesSummaryTest {
         try {
             // Swift's `uppercased()` is the canonical transform; a localised one
             // would put a dot on the capital I and read WORKİNG here.
-            assertEquals("NEEDS YOU", UpdatesSummary.sectionLabel(UpdateKind.NEEDS_YOU))
-            assertEquals("WORKING", UpdatesSummary.sectionLabel(UpdateKind.WORKING))
-            assertEquals("TO REVIEW", UpdatesSummary.sectionLabel(UpdateKind.TO_REVIEW))
+            assertEquals("需要你处理", UpdatesSummary.sectionLabel(UpdateKind.NEEDS_YOU))
+            assertEquals("正在工作", UpdatesSummary.sectionLabel(UpdateKind.WORKING))
+            assertEquals("待查看", UpdatesSummary.sectionLabel(UpdateKind.TO_REVIEW))
         } finally {
             Locale.setDefault(reader)
         }

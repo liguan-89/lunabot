@@ -13,17 +13,25 @@ class SettingsPolicyTest {
 
     @Test
     fun `every connection state has words for it`() {
-        assertEquals("Connected", SettingsPolicy.statusText(Session.Status.Live))
-        assertEquals("Connecting…", SettingsPolicy.statusText(Session.Status.Connecting))
-        assertEquals("Not paired", SettingsPolicy.statusText(Session.Status.Unpaired))
+        assertEquals("已连接", SettingsPolicy.statusText(Session.Status.Live))
+        assertEquals("正在连接…", SettingsPolicy.statusText(Session.Status.Connecting))
+        assertEquals("未配对", SettingsPolicy.statusText(Session.Status.Unpaired))
         assertEquals(
-            "Unpaired on the computer",
+            "已在电脑上取消配对",
             SettingsPolicy.statusText(Session.Status.Unauthorized),
         )
         // Offline carries the advice string Session built; it is not restated.
         assertEquals(
-            "You're offline.",
-            SettingsPolicy.statusText(Session.Status.Offline("You're offline.")),
+            "该地址已失效。",
+            SettingsPolicy.statusText(Session.Status.Offline("该地址已失效。")),
+        )
+        // ...unless the failure also carries a remedy, which lives in
+        // 故障排除: then the one-line row gives the state, not half a sentence.
+        assertEquals(
+            "电脑暂不可达",
+            SettingsPolicy.statusText(
+                Session.Status.Offline("连不上电脑：地址已失效。", hint = "重新开启远程访问。"),
+            ),
         )
     }
 
@@ -49,12 +57,12 @@ class SettingsPolicyTest {
     @Test
     fun `the footers name the desktop section that exists`() {
         assertEquals(
-            "Removes the pairing from this phone only. To stop it reaching the computer at all, " +
-                "remove the device in OpenMausBot → Settings → Phone.",
+            "仅从本手机移除配对。若要彻底禁止此手机访问电脑，" +
+                "请在电脑端 OpenMausBot → 设置 → 手机和设备 中移除该设备。",
             SettingsPolicy.UNPAIR_FOOTER,
         )
         assertEquals(
-            "Enter whatever Phone settings on your computer shows. The pairing itself is kept.",
+            "请输入电脑端「手机和设备」中显示的地址。现有配对将保留。",
             SettingsPolicy.EDIT_ADDRESS_MESSAGE,
         )
     }
@@ -168,7 +176,7 @@ class NotificationPermissionControllerTest {
         val phone = Phone(enabled = true)
         assertEquals(NotificationAccess.GRANTED, phone.controller.access.value)
         assertFalse(NotificationPermissionController.buttonEnabled(NotificationAccess.GRANTED))
-        assertEquals("Allowed", NotificationPermissionController.statusText(NotificationAccess.GRANTED))
+        assertEquals("已允许", NotificationPermissionController.statusText(NotificationAccess.GRANTED))
     }
 
     @Test
@@ -369,11 +377,11 @@ class NotificationPermissionControllerTest {
     @Test
     fun `the blocked button names the settings page it opens`() {
         assertEquals(
-            "Open notification settings",
+            "打开通知设置",
             NotificationPermissionController.buttonText(NotificationAccess.BLOCKED),
         )
         assertEquals(
-            "Turned off in system settings",
+            "已在系统设置中关闭",
             NotificationPermissionController.statusText(NotificationAccess.BLOCKED),
         )
     }

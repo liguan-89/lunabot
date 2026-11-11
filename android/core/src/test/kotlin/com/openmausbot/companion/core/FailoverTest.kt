@@ -196,6 +196,24 @@ class FailoverTest {
     }
 
     @Test
+    fun aMissingRouteIsNotAnHttpBodyAndCarriesARemedy() {
+        val missing = APIError.Status(404)
+
+        assertTrue(ConnectionAdvice.isMissingRoute(missing))
+        assertEquals(
+            ConnectionAdvice.MISSING_ROUTE_MESSAGE,
+            ConnectionAdvice.message(missing, "c-520e.openmausbot.com", 443),
+        )
+        assertNotNull(ConnectionAdvice.remedy(missing))
+    }
+
+    @Test
+    fun anOrdinaryServerErrorHasNoRemedy() {
+        assertFalse(ConnectionAdvice.isMissingRoute(APIError.Status(409)))
+        assertNull(ConnectionAdvice.remedy(APIError.Status(500)))
+    }
+
+    @Test
     fun unresolvedHostNamesTheTailnetPossibility() {
         val message = ConnectionAdvice.message(
             ConnectionFailure.CANNOT_FIND_HOST,

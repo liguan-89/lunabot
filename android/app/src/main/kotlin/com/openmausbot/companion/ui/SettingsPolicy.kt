@@ -23,7 +23,7 @@ object SettingsPolicy {
             "本地虚拟机以及智能体执行策略均保留在你的电脑上。"
 
     const val UNPAIR_FOOTER =
-        "仅从本手机移除配对。若要彻底禁止此手机访问电脑，请在电脑端 OpenMausBot → 设置 → 手机 中移除该设备。"
+        "仅从本手机移除配对。若要彻底禁止此手机访问电脑，请在电脑端 OpenMausBot → 设置 → 手机和设备 中移除该设备。"
 
     const val NOT_HERE =
         "API 密钥、配对和本地虚拟机均在电脑上管理。为安全起见，手机端不允许更改这些设置。"
@@ -32,7 +32,7 @@ object SettingsPolicy {
     const val UNPAIR_CONFIRM_MESSAGE = "再次连接需要新的配对码。"
 
     const val EDIT_ADDRESS_MESSAGE =
-        "请输入电脑端“手机设置”中显示的地址。现有配对将保留。"
+        "请输入电脑端「手机和设备」中显示的地址。现有配对将保留。"
 
     fun statusText(status: Session.Status): String = when (status) {
         Session.Status.Live -> "已连接"
@@ -40,7 +40,13 @@ object SettingsPolicy {
         Session.Status.Unpaired -> "未配对"
         Session.Status.Unauthorized -> "已在电脑上取消配对"
         Session.Status.OutdatedApp -> "应用版本过旧"
-        is Session.Status.Offline -> status.message
+        // One line, ellipsized. A failure long enough to carry a remedy has
+        // that message and the next step in 故障排除 just below; repeating it
+        // here only produced "连不上电脑：地址已失效或服务未…". A failure with
+        // nothing else to say — a locked phone, a busy token store — still
+        // says it here, where it is the only place it appears.
+        is Session.Status.Offline ->
+            if (status.hint != null) "电脑暂不可达" else status.message
     }
 
     fun addressText(connection: Connection?): String =

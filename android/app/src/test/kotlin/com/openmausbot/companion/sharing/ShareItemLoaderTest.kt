@@ -114,7 +114,7 @@ class ShareItemLoaderTest {
             ShareItemLoader.load(sendMultiple(five), resolver, inboxRoot)
         }
 
-        assertEquals("Send up to 4 items at a time.", refusal.message)
+        assertEquals("每次最多发送 4 项内容。", refusal.message)
         // A refused share leaves nothing of itself in the cache.
         assertEquals(emptyList(), inboxRoot.listFiles().orEmpty().toList())
     }
@@ -168,7 +168,7 @@ class ShareItemLoaderTest {
             )
         }
 
-        assertEquals("photo.png is larger than 25 MB.", refusal.message)
+        assertEquals("photo.png 超过 25 MB 限制。", refusal.message)
         assertEquals(emptyList(), inboxRoot.listFiles().orEmpty().toList())
     }
 
@@ -206,7 +206,7 @@ class ShareItemLoaderTest {
             )
         }
 
-        assertEquals("There isn't any text, link, image, or supported document to send.", refusal.message)
+        assertEquals("没有可发送的文本、链接、图片或受支持的文档。", refusal.message)
     }
 
     private fun send(build: Intent.() -> Unit): Intent = Intent(Intent.ACTION_SEND).apply(build)

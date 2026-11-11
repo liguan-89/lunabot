@@ -36,6 +36,132 @@ class ClientTest {
     }
 
     @Test
+    fun signInAnswersCarryOnlyTheThread() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        client.signInCardAction("b1", "m1", "t1", SignInCardAction.DONE)
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/b1/sign-in-cards/m1/done", request.path)
+            // No credential ever travels: the body names the conversation and
+            // nothing else.
+            assertEquals(mapOf("threadId" to "t1"), stringBody(request.body.readUtf8()))
+        }
+    }
+
+    @Test
+    fun mcpServersDecodeNamesAndSwitchesOnly() = runBlocking {
+        server.enqueue(
+            json(
+                """{"servers":[
+                     {"name":"github","enabled":true,"on":true},
+                     {"name":"slack","enabled":true,"on":false,"offFor":true}
+                   ]}""",
+            ),
+        )
+        val servers = client.mcpServers("b1").servers
+        server.takeRequest().let { request ->
+            assertEquals("GET", request.method)
+            assertEquals("/api/bots/b1/mcp-servers", request.path)
+        }
+        assertEquals(listOf("github", "slack"), servers.map { it.name })
+        assertTrue(servers[0].on)
+        assertFalse(servers[1].on)
+        assertEquals(true, servers[1].offFor)
+    }
+
+    @Test
+    fun phoneJobsUseTheSelfRoutesAndCarryOneJobAtATime() = runBlocking {
+        server.enqueue(json("""{"phone":{"key":"companion:x"}}"""))
+        client.registerPhone(
+            PhoneRegistration(
+                installId = "install-1234",
+                name = "Pixel",
+                platform = "android",
+                appVersion = "1.6.14",
+                timeZone = "Asia/Shanghai",
+                capabilities = mapOf("calendar" to "full"),
+            ),
+        )
+        server.takeRequest().let { request ->
+            assertEquals("PUT", request.method)
+            assertEquals("/api/phones/self", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("install-1234", body.getValue("installId").jsonPrimitive.content)
+            assertEquals("android", body.getValue("platform").jsonPrimitive.content)
+            assertEquals(
+                "full",
+                body.getValue("capabilities").jsonObject.getValue("calendar").jsonPrimitive.content,
+            )
+        }
+
+        server.enqueue(
+            json("""{"job":{"id":"j1","tool":"PHONE_LIST_EVENTS","arguments":{"from":"a"},"expiresAt":5}}"""),
+        )
+        val job = client.pollPhoneJob()
+        server.takeRequest().let { request ->
+            assertEquals("GET", request.method)
+            assertEquals("/api/phones/self/jobs", request.path)
+        }
+        assertEquals("j1", job?.id)
+        assertEquals("PHONE_LIST_EVENTS", job?.tool)
+        assertEquals("a", job?.arguments?.get("from")?.jsonPrimitive?.content)
+
+        server.enqueue(json("""{"active":true}"""))
+        assertTrue(client.leasePhoneJob("j1"))
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/phones/self/jobs/j1/lease", request.path)
+        }
+
+        server.enqueue(json("""{"ok":true}"""))
+        client.completePhoneJob(
+            "j1",
+            kotlinx.serialization.json.buildJsonObject {
+                put("ok", kotlinx.serialization.json.JsonPrimitive(true))
+                put("result", kotlinx.serialization.json.buildJsonObject { put("events", kotlinx.serialization.json.JsonArray(emptyList())) })
+            },
+        )
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/phones/self/jobs/j1/result", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals(true, body.getValue("ok").jsonPrimitive.content.toBoolean())
+            assertTrue("result" in body)
+        }
+    }
+
+    @Test
+    fun localVmTakeoverLeasesTheComputerAndJoinsUnderThatLease() = runBlocking {
+        server.enqueue(json("""{"held":true,"owned":true}"""))
+        assertTrue(client.takeLocalComputer("b1", "phone-lease-0123456789").held)
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/b1/computer/control", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("take", body.getValue("action").jsonPrimitive.content)
+            assertEquals("phone-lease-0123456789", body.getValue("controlLeaseId").jsonPrimitive.content)
+        }
+
+        server.enqueue(json("""{"joinUrl":"/vps-viewer/abc#path=vps-viewer/abc/websockify"}"""))
+        val join = client.joinLocalComputer("b1", "phone-lease-0123456789")
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/b1/local-computer/join?controlLeaseId=phone-lease-0123456789", request.path)
+        }
+        assertEquals("/vps-viewer/abc/websockify", join.socketPath)
+
+        server.enqueue(json("""{"ok":true}"""))
+        client.closeComputerViewer("b1")
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/bots/b1/computer/viewer-close", request.path)
+        }
+
+        server.enqueue(json("""{"held":false,"owned":false}"""))
+        assertTrue(client.releaseLocalComputer("b1", "phone-lease-0123456789").let { !it.held })
+    }
+
+    @Test
     fun pairingUsesTheRightCredentialFieldAndNoAuthorization() = runBlocking {
         server.enqueue(json(fixtureText("pair-response")))
         val older = CompanionClient.pair(connection, "004209", "Ada's phone")

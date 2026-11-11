@@ -65,7 +65,7 @@ class QuestionCardRulesTest {
 
     @Test
     fun `tabs fall back to a number only where the model named nothing`() {
-        assertEquals(listOf("Model", "Question 2"), QuestionCardRules.tabLabels(questions))
+        assertEquals(listOf("Model", "问题 2"), QuestionCardRules.tabLabels(questions))
     }
 
     @Test

@@ -206,6 +206,18 @@ fun CompanionRoot(
         tapCoordinator.onPending(session, target, onPendingTargetConsumed)
     }
 
+    // A draft names a thread on one computer. Pairing again, or switching to
+    // another computer, replaces the fleet; a half-typed line from the old one
+    // must not reappear under the new names.
+    val boundComputer by session.connection.collectAsState()
+    var draftsComputer by remember { mutableStateOf(boundComputer?.id) }
+    LaunchedEffect(boundComputer?.id) {
+        if (boundComputer?.id != draftsComputer) {
+            draftsComputer = boundComputer?.id
+            environment.chatDrafts.clearAll()
+        }
+    }
+
     // The phone's answer unless someone chose otherwise in Settings → 外观.
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
     val systemDark = isSystemInDarkTheme()
@@ -519,7 +531,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
 private fun UnpairedScreen(onPairAgain: () -> Unit, onChooseAnother: (() -> Unit)? = null) {
     EmptyState(
         title = "此手机已取消配对",
-        description = "此手机已从电脑的手机设置中移除，或配对已被重置。",
+        description = "此手机已从电脑的「手机和设备」中移除，或配对已被重置。",
     ) {
         Button(onClick = onPairAgain) { Text("重新配对") }
         onChooseAnother?.let { choose ->

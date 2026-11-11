@@ -112,6 +112,7 @@ class ChatActionsTest {
             listOf(
                 ChatActionId.PHOTOS,
                 ChatActionId.FILES,
+                ChatActionId.VOICE,
                 ChatActionId.NEW_TASK,
                 ChatActionId.TASKS,
                 ChatActionId.SETTINGS,
@@ -121,22 +122,24 @@ class ChatActionsTest {
             ),
             actions.map { it.id },
         )
-        assertEquals("Photo Library", actions[0].title)
-        assertEquals("Add a photo to this message", actions[0].subtitle)
-        assertEquals("Choose File", actions[1].title)
-        assertEquals("Add a document from Files", actions[1].subtitle)
-        assertEquals("New thread", actions[2].title)
-        assertEquals("Start a fresh thread with Scout", actions[2].subtitle)
-        assertEquals("Threads", actions[3].title)
-        assertEquals("Switch, rename or remove one", actions[3].subtitle)
-        assertEquals("Bot settings", actions[4].title)
-        assertEquals("Model, profile, voice and notifications", actions[4].subtitle)
-        assertEquals("Watch computer", actions[5].title)
-        assertEquals("Live view of what Scout is doing", actions[5].subtitle)
-        assertEquals("Share transcript", actions[6].title)
-        assertEquals("This thread as Markdown", actions[6].subtitle)
-        assertEquals("Share as JSON", actions[7].title)
-        assertEquals("Structured transcript data", actions[7].subtitle)
+        assertEquals("照片图库", actions[0].title)
+        assertEquals("向此消息添加照片", actions[0].subtitle)
+        assertEquals("选择文件", actions[1].title)
+        assertEquals("从文件中添加文档", actions[1].subtitle)
+        assertEquals("语音消息", actions[2].title)
+        assertEquals("按住说话，松开发送", actions[2].subtitle)
+        assertEquals("新建话题", actions[3].title)
+        assertEquals("与 Scout 开启新话题", actions[3].subtitle)
+        assertEquals("话题列表", actions[4].title)
+        assertEquals("切换、重命名或移除话题", actions[4].subtitle)
+        assertEquals("机器人设置", actions[5].title)
+        assertEquals("模型、资料、语音与通知", actions[5].subtitle)
+        assertEquals("查看电脑画面", actions[6].title)
+        assertEquals("实时查看 Scout 的操作", actions[6].subtitle)
+        assertEquals("分享对话记录", actions[7].title)
+        assertEquals("将当前话题导出为 Markdown", actions[7].subtitle)
+        assertEquals("分享为 JSON", actions[8].title)
+        assertEquals("导出结构化对话数据", actions[8].subtitle)
     }
 
     @Test
@@ -144,8 +147,8 @@ class ChatActionsTest {
         val actions = sheet(Chat.BotChat(bot(busy = true)))
         val interrupt = actions.last()
         assertEquals(ChatActionId.INTERRUPT, interrupt.id)
-        assertEquals("Interrupt", interrupt.title)
-        assertEquals("Stop the current turn", interrupt.subtitle)
+        assertEquals("中断", interrupt.title)
+        assertEquals("停止当前轮次", interrupt.subtitle)
         assertTrue(interrupt.destructive)
         // iOS: `.disabled(bot.busy == true)` on New task only.
         assertFalse(actions.single { it.id == ChatActionId.NEW_TASK }.enabled)
@@ -186,6 +189,7 @@ class ChatActionsTest {
             listOf(
                 ChatActionId.PHOTOS,
                 ChatActionId.FILES,
+                ChatActionId.VOICE,
                 ChatActionId.NEW_TASK,
                 ChatActionId.TASKS,
                 ChatActionId.SHARE_MARKDOWN,
@@ -202,37 +206,56 @@ class ChatActionsTest {
         // channel branch is the only one that adds them.
         val dm = Chat.RoomChat(taskCapableRoom().copy(dm = true))
         assertEquals(
-            listOf(ChatActionId.PHOTOS, ChatActionId.FILES, ChatActionId.SHARE_MARKDOWN, ChatActionId.SHARE_JSON),
+            listOf(
+                ChatActionId.PHOTOS,
+                ChatActionId.FILES,
+                ChatActionId.VOICE,
+                ChatActionId.SHARE_MARKDOWN,
+                ChatActionId.SHARE_JSON,
+            ),
             sheet(dm).map { it.id },
         )
     }
 
     @Test
-    fun `a legacy room has no tasks, no computer and nothing to interrupt`() {
+    fun `a legacy room has no tasks and no computer, but can still stop the speaker`() {
+        // Rooms have had their own interrupt route since Voice landed; "nothing
+        // to interrupt" was the pre-voice rule.
         val busyRoom = Chat.RoomChat(room().copy(busyBotId = "bot-1"))
         assertEquals(
-            listOf(ChatActionId.PHOTOS, ChatActionId.FILES, ChatActionId.SHARE_MARKDOWN, ChatActionId.SHARE_JSON),
+            listOf(
+                ChatActionId.PHOTOS,
+                ChatActionId.FILES,
+                ChatActionId.VOICE,
+                ChatActionId.SHARE_MARKDOWN,
+                ChatActionId.SHARE_JSON,
+                ChatActionId.INTERRUPT,
+            ),
             sheet(busyRoom).map { it.id },
         )
     }
 
     @Test
-    fun `a task-capable channel offers task navigation but not computer or interrupt`() {
+    fun `a task-capable channel offers navigation, no computer, and can stop the speaker`() {
         val room = Chat.RoomChat(taskCapableRoom().copy(busyBotId = "bot-1"))
         val actions = sheet(room)
         assertEquals(
             listOf(
                 ChatActionId.PHOTOS,
                 ChatActionId.FILES,
+                ChatActionId.VOICE,
                 ChatActionId.NEW_TASK,
                 ChatActionId.TASKS,
                 ChatActionId.SHARE_MARKDOWN,
                 ChatActionId.SHARE_JSON,
+                ChatActionId.INTERRUPT,
             ),
             actions.map { it.id },
         )
         assertFalse(actions.single { it.id == ChatActionId.NEW_TASK }.enabled)
-        assertFalse(actions.any { it.id == ChatActionId.WATCH_COMPUTER || it.id == ChatActionId.INTERRUPT })
+        // A room has no computer panel; it does have the group interrupt route.
+        assertFalse(actions.any { it.id == ChatActionId.WATCH_COMPUTER })
+        assertTrue(actions.any { it.id == ChatActionId.INTERRUPT })
     }
 
     @Test

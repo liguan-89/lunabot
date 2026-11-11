@@ -48,7 +48,7 @@ class AvatarImageRulesTest {
         )
         assertEquals(AvatarImageRules.TYPE_ERROR, rejected.message)
         assertEquals(
-            "Choose a PNG, JPEG, GIF, or WebP image.",
+            "请选择 PNG、JPEG、GIF 或 WebP 格式的图片。",
             rejected.message,
         )
     }
@@ -63,7 +63,7 @@ class AvatarImageRulesTest {
         val over = PNG_HEADER + ByteArray(AvatarImageRules.MAX_BYTES - PNG_HEADER.size + 1)
         val rejected = assertIs<PreparedAvatar.Rejected>(AvatarImageRules.prepare(over))
         assertEquals(AvatarImageRules.SIZE_ERROR, rejected.message)
-        assertEquals("That image is larger than 10 MB.", rejected.message)
+        assertEquals("该图片大小超过 10 MB。", rejected.message)
     }
 
     @Test

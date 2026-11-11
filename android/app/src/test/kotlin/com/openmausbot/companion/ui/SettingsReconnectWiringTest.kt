@@ -45,7 +45,7 @@ class SettingsReconnectWiringTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val reconnect = "Try reconnecting"
+    private val reconnect = "尝试重新连接"
     private val mac = Connection(id = "c1", name = "Mac", host = "127.0.0.1", port = 8810)
 
     @Test
@@ -88,19 +88,19 @@ class SettingsReconnectWiringTest {
     @Test
     fun `the troubleshooting line says what the connection is doing`() {
         assertEquals(
-            "This computer is connected and responding normally.",
+            "此电脑已连接且响应正常。",
             troubleshootingText(Session.Status.Live),
         )
         assertEquals(
-            "OpenMausBot is trying the saved connection automatically.",
+            "OpenMausBot 正在自动尝试已保存的连接。",
             troubleshootingText(Session.Status.Connecting),
         )
         assertEquals(
-            "This phone was removed from the computer. Pair it again to reconnect.",
+            "此手机已从电脑移除，请重新配对以恢复连接。",
             troubleshootingText(Session.Status.Unauthorized),
         )
         assertEquals(
-            "This phone is not paired with a computer.",
+            "此手机尚未与电脑配对。",
             troubleshootingText(Session.Status.Unpaired),
         )
         // Offline already carries advice written for the failure that caused it.
@@ -122,6 +122,24 @@ class SettingsReconnectWiringTest {
         assertEquals("https://macbook-pro.…t:8811", short)
         assertTrue(long.startsWith(short.substringBefore("…")), "the head is the real head")
         assertTrue(long.endsWith(short.substringAfter("…")), "the tail is the real tail")
+    }
+
+    @Test
+    fun `a full address breaks inside its long relay label`() {
+        // ICU breaks at "/" and around "." and nowhere inside the 32-character
+        // relay label, so the expanded row used to draw "https://c" alone on
+        // the first line. The breaks added here are invisible and leave every
+        // visible character — and 复制 — untouched.
+        val address = "https://c-520e4f9f627b551883c94878b2bcd2c4.openmausbot.com"
+        val wrapped = wrapAddress(address)
+
+        assertEquals(address, wrapped.replace("\u200B", ""))
+        assertTrue(wrapped.contains('\u200B'))
+        wrapped.split('\u200B').forEach { run ->
+            assertTrue(run.length <= 40, "no break opportunity inside \"$run\"")
+        }
+        // Short addresses are left exactly as they are.
+        assertEquals("192.168.1.42:8810", wrapAddress("192.168.1.42:8810"))
     }
 
     /** Disabled is a semantics property, so its absence is the honest question. */

@@ -696,20 +696,20 @@ class PairingConfirmationTest {
         val confirmation = PairingConfirmation.of(pending, secrets)
 
         assertEquals("https://mac.example:9443", confirmation.address)
-        assertTrue(confirmation.notice.contains("authenticated HTTPS companion connection"))
-        assertFalse(confirmation.notice.contains("does not encrypt"))
+        assertTrue(confirmation.notice.contains("经过身份验证的 HTTPS 伴侣连接"))
+        assertFalse(confirmation.notice.contains("不会加密"))
     }
 
     @Test
     fun `the scanned notice says authenticated and says the local network is not encrypted`() {
         val notice = PairingCopy.CONFIRM_SCAN
         // The clauses of the Swift line, each carrying its own claim.
-        assertTrue(notice.contains("authenticated companion connection"), notice)
-        assertTrue(notice.contains("trusted Wi-Fi"), notice)
+        assertTrue(notice.contains("经过身份验证的伴侣连接"), notice)
+        assertTrue(notice.contains("可信的 Wi-Fi"), notice)
         assertTrue(notice.contains("tailnet"), notice)
-        assertTrue(notice.contains("does not encrypt local Wi-Fi traffic"), notice)
+        assertTrue(notice.contains("不会加密局域网内的明文流量"), notice)
         // And it still asks the question a scan must never answer for the user.
-        assertTrue(notice.contains("Only continue if this is the computer"), notice)
+        assertTrue(notice.contains("请确认这台电脑就是你刚刚扫描的二维码所属的电脑"), notice)
     }
 
     @Test
@@ -724,8 +724,8 @@ class PairingConfirmationTest {
     @Test
     fun `manual pairing asks for the desktop or server code`() {
         val notice = PairingCopy.ENTER_CODE
-        assertTrue(notice.contains("pairing code"), notice)
-        assertTrue(notice.contains("computer or server"), notice)
+        assertTrue(notice.contains("配对码"), notice)
+        assertTrue(notice.contains("电脑或服务器"), notice)
     }
 
     @Test

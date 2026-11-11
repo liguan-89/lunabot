@@ -125,6 +125,7 @@ internal class WiringScene(
         alwaysOnEnabled = MutableStateFlow(false),
         onToggleAlwaysOn = {},
         updates = AppUpdater(context),
+        appScope = scope,
     )
 
     private object SilentDiscovery : CompanionDiscovery {

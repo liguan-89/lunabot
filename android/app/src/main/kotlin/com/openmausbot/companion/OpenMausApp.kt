@@ -14,8 +14,10 @@ import com.openmausbot.companion.lifecycle.SessionLingerController
 import com.openmausbot.companion.lifecycle.installSessionLinger
 import com.openmausbot.companion.notifications.LocalNotificationPoster
 import com.openmausbot.companion.permissions.CompanionPermissions
+import com.openmausbot.companion.phone.PhoneJobRunner
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.storage.AlwaysOnPreferences
+import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.DataStoreConnectionStore
 import com.openmausbot.companion.storage.FileRosterSnapshotStore
 import com.openmausbot.companion.storage.OnboardingPreferences
@@ -64,6 +66,16 @@ class OpenMausApp : Application() {
     lateinit var shareInbox: ShareInbox
         private set
     lateinit var alwaysOn: AlwaysOnPreferences
+        private set
+
+    /**
+     * One preference store for the process: Settings writes the phone-tools
+     * switch here, and the runner observes the same flow. Two instances would
+     * each hold their own StateFlow and disagree until a restart.
+     */
+    lateinit var chatPreferences: ChatPreferences
+        private set
+    internal lateinit var phoneJobs: PhoneJobRunner
         private set
 
     override fun onCreate() {
@@ -126,6 +138,22 @@ class OpenMausApp : Application() {
         )
 
         alwaysOn = AlwaysOnPreferences(this)
+
+        // Phone apps as bot tools: off until Settings turns calendar access on.
+        // The runner registers, long-polls, and answers one job at a time for
+        // as long as that switch is on.
+        chatPreferences = ChatPreferences(this)
+        val versionName = runCatching {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        }.getOrNull().orEmpty()
+        phoneJobs = PhoneJobRunner(
+            context = this,
+            session = session,
+            preferences = chatPreferences,
+            appVersion = versionName,
+            scope = appScope,
+        )
+        phoneJobs.start()
         // Covers the case where the process was relaunched (not booted) while
         // the setting was on — e.g. the OS killed the whole app under memory
         // pressure and the user (or a notification tap) reopened it. A device

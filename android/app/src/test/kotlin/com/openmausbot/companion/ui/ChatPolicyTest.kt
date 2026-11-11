@@ -503,9 +503,9 @@ class SearchHitRoleTest {
 
     @Test
     fun `the glyph carries a description, because it carries meaning`() {
-        assertEquals("Your message", SearchHitRole.contentDescription(Message.Role.USER, "Scout"))
+        assertEquals("你的消息", SearchHitRole.contentDescription(Message.Role.USER, "Scout"))
         assertEquals(
-            "Message from Scout",
+            "来自 Scout 的消息",
             SearchHitRole.contentDescription(Message.Role.BOT, "Scout"),
         )
     }

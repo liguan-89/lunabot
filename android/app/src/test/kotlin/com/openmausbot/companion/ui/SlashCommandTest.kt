@@ -121,7 +121,8 @@ class SlashCommandsTest {
         )
         assertEquals(
             listOf("/computer"),
-            SlashCommands.matching(SlashCommands.ALL, "/desktop").map { it.title },
+            // "桌面" appears in no title; it is in `/computer`'s description.
+            SlashCommands.matching(SlashCommands.ALL, "/桌面").map { it.title },
         )
     }
 
@@ -236,15 +237,15 @@ class PredictiveChipsTest {
     fun `four chips, sending the words the Swift sends`() {
         assertEquals(
             listOf(
-                "Show latest git diff",
-                "Run all automated tests",
-                "Explain the changes in detail",
-                "What should we do next?",
+                "展示最新的 git diff",
+                "运行所有自动化测试",
+                "详细解释所做的更改",
+                "我们下一步该做什么？",
             ),
             PredictiveChips.ALL.map { it.prompt },
         )
         assertEquals(
-            listOf("Show diff", "Run tests", "Explain steps", "What's next?"),
+            listOf("查看变更", "运行测试", "解释步骤", "下一步？"),
             PredictiveChips.ALL.map { it.title },
         )
     }

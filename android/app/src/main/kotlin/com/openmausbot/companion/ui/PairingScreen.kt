@@ -327,7 +327,7 @@ fun PairingScreen(onCancel: () -> Unit) {
                         failure = null
                         val connection = service.toConnection()
                         if (connection == null) {
-                            failure = "该电脑未返回可用地址。请改用“手机设置”中显示的地址手动输入。"
+                            failure = "该电脑未返回可用地址。请改用「手机和设备」中显示的地址手动输入。"
                         } else {
                             openPending(connection, fromScan = false)
                         }
@@ -424,8 +424,8 @@ internal fun pairingFailureDisposition(
 @Composable
 private fun SetupSection(onScan: () -> Unit) {
     SectionCard(title = "在您的电脑上") {
-        Text("1.  打开 OpenMausBot → 设置 → 手机", fontSize = 15.sp)
-        Text("2.  选择“设置手机”", fontSize = 15.sp)
+        Text("1.  打开 OpenMausBot → 设置 → 手机和设备", fontSize = 15.sp)
+        Text("2.  选择「配对设备」", fontSize = 15.sp)
         Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
             Text("扫描二维码")
         }
@@ -469,7 +469,7 @@ private fun DiscoverySection(
                     )
                     // The honest answer when a network refuses to cooperate.
                     Text(
-                        text = "如果始终未显示，请在两端安装 Tailscale 并登录同一账号——电脑端的“手机设置”将显示以 .ts.net 结尾的地址供您在下方输入。",
+                        text = "如果始终未显示，请在两端安装 Tailscale 并登录同一账号——电脑端的「手机和设备」将显示以 .ts.net 结尾的地址供您在下方输入。",
                         fontSize = 13.sp,
                         color = secondaryTint,
                     )
@@ -513,7 +513,7 @@ private fun ManualSection(
             Text("继续")
         }
         Text(
-            text = "输入电脑端“手机设置”中显示的地址——可以是安全的 https:// 地址、局域网地址，或类似 macbook.tail1234.ts.net:8810 的 Tailscale 地址。",
+            text = "输入电脑端「手机和设备」中显示的地址——可以是安全的 https:// 地址、局域网地址，或类似 macbook.tail1234.ts.net:8810 的 Tailscale 地址。",
             fontSize = 13.sp,
             color = secondaryTint,
         )

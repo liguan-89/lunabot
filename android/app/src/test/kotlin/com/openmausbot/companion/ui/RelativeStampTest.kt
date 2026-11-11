@@ -55,6 +55,11 @@ class RelativeStampTest {
     @Test
     fun `yesterday says so`() {
         assertEquals("Yesterday", RelativeStamp.list(at(2026, 8, 19, 23, 59), now, zone, locale))
+        // The word follows the formatter's locale; the app's default is Chinese.
+        assertEquals(
+            "昨天",
+            RelativeStamp.list(at(2026, 8, 19, 23, 59), now, zone, Locale.SIMPLIFIED_CHINESE),
+        )
     }
 
     @Test
@@ -84,6 +89,17 @@ class RelativeStampTest {
         )
         assertTrue(
             RelativeStamp.separator(at(2026, 7, 4, 9, 30), now, zone, locale).startsWith("Jul 4 "),
+        )
+        // One script per line: the Chinese branch pairs the Chinese words with
+        // the Chinese clock, never "今天 9:30 AM".
+        assertEquals(
+            "今天 09:30",
+            RelativeStamp.separator(
+                at(2026, 8, 20, 9, 30),
+                now,
+                zone,
+                Locale.SIMPLIFIED_CHINESE,
+            ),
         )
     }
 }

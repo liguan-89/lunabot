@@ -101,8 +101,8 @@ class LiveTailTest {
 
     @Test
     fun `the working row is announced with the bot's own name`() {
-        assertEquals("Maus is working", LiveTail.workingLabel("Maus"))
-        assertEquals("Scout is working", LiveTail.workingLabel("Scout"))
+        assertEquals("Maus 正在工作", LiveTail.workingLabel("Maus"))
+        assertEquals("Scout 正在工作", LiveTail.workingLabel("Scout"))
     }
 }
 
@@ -167,15 +167,15 @@ class ActivityReceiptTest {
     @Test
     fun `no answer yet is running`() {
         assertEquals(ActivityStatus.RUNNING, ActivityReceipt.status(null))
-        assertEquals("Running", ActivityReceipt.label(ActivityStatus.RUNNING))
+        assertEquals("运行中", ActivityReceipt.label(ActivityStatus.RUNNING))
     }
 
     @Test
     fun `ok true is success and ok false is error`() {
         assertEquals(ActivityStatus.SUCCESS, ActivityReceipt.status(true))
         assertEquals(ActivityStatus.ERROR, ActivityReceipt.status(false))
-        assertEquals("Success", ActivityReceipt.label(ActivityStatus.SUCCESS))
-        assertEquals("Error", ActivityReceipt.label(ActivityStatus.ERROR))
+        assertEquals("成功", ActivityReceipt.label(ActivityStatus.SUCCESS))
+        assertEquals("错误", ActivityReceipt.label(ActivityStatus.ERROR))
     }
 
     @Test
@@ -195,9 +195,9 @@ class ActivityReceiptTest {
 
     @Test
     fun `every state reaches a screen reader, success included`() {
-        assertEquals("grep, running", ActivityReceipt.announcement("grep", ActivityStatus.RUNNING))
-        assertEquals("grep, success", ActivityReceipt.announcement("grep", ActivityStatus.SUCCESS))
-        assertEquals("grep, error", ActivityReceipt.announcement("grep", ActivityStatus.ERROR))
+        assertEquals("grep, 运行中", ActivityReceipt.announcement("grep", ActivityStatus.RUNNING))
+        assertEquals("grep, 成功", ActivityReceipt.announcement("grep", ActivityStatus.SUCCESS))
+        assertEquals("grep, 错误", ActivityReceipt.announcement("grep", ActivityStatus.ERROR))
     }
 }
 

@@ -112,10 +112,13 @@ class RemoteCardWiringTest {
         compose.onNodeWithText("Slack").assertIsDisplayed()
         compose.onNodeWithText("机器人需要你连接这个应用。").assertIsDisplayed()
         compose.onNodeWithText("ElevenLabs API key").assertIsDisplayed()
-        compose.onNodeWithText("手机端暂不支持直接提交凭据，请在电脑上完成这张卡。").assertIsDisplayed()
-        compose.onNodeWithText("Nightly").assertIsDisplayed()
-        compose.onNodeWithText("运行中").assertIsDisplayed()
-        compose.onNodeWithText("正在整理日志").assertIsDisplayed()
+        compose.onNodeWithText("手机端暂不支持直接提交凭据，请在电脑上填写后保存。").assertIsDisplayed()
+        // The routine card sits below the fold of this fixture now that the
+        // earlier cards' translated copy takes more room; being composed is
+        // the property under test — the row is no longer dropped.
+        compose.onNodeWithText("Nightly").assertExists()
+        compose.onNodeWithText("运行中").assertExists()
+        compose.onNodeWithText("正在整理日志").assertExists()
         // The last card sits below the fold of this fixture; being composed is
         // the property under test — the row is no longer dropped.
         compose.onNodeWithText("Ship the release").assertExists()

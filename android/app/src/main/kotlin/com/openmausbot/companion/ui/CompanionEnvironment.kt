@@ -140,6 +140,12 @@ class CompanionEnvironment(
     val onToggleAlwaysOn: () -> Unit,
     /** The public release channel: check, download, hand to the installer. */
     val updates: AppUpdater,
+    /**
+     * Process-lived work that must outlast a screen: releasing a Local VM lease
+     * when its viewer is disposed cannot use the composition's scope, which is
+     * cancelled at that exact moment.
+     */
+    val appScope: kotlinx.coroutines.CoroutineScope,
 )
 
 val LocalCompanion = staticCompositionLocalOf<CompanionEnvironment> {
