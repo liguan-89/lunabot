@@ -124,6 +124,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
         color,
         tier,
         status: "setting_up",
+        origin: `https://${hostname}`,
         role: "owner",
         hostname,
         machineId: id,
