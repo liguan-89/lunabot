@@ -15,8 +15,10 @@ protocols:
 # stranded on its installed version.
 publish:
   - provider: github
-    owner: milind-soni
-    repo: OpenMausBot
+    # This fork ships its own builds: pointing the updater at upstream would
+    # overwrite every fork build as soon as upstream cuts a release.
+    owner: liguan-89
+    repo: mausbot-cn
 
 directories:
   buildResources: build
