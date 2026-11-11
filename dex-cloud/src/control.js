@@ -17,7 +17,7 @@ const route = (method, pattern, handler) => routes.push({ method, pattern, handl
 
 const CREDENTIAL_DAYS = 365;
 const CONTROL_SESSION_DAYS = 30;
-const RELAY_HOST = /^relay[1-9][0-9]?\.dexai\.vip$/;
+const RELAY_HOST = /^(?:relay[1-9][0-9]?|cloud)\.dexai\.vip$/;
 
 export async function handleControl(ctx) {
   for (const entry of routes) {
