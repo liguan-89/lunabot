@@ -9538,13 +9538,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "fr": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -21747,7 +21741,6 @@
       "skills.learned.hintOff": "f3477db333415d4fdb93b9f40229ca082915b4e47e1749acaac94588a5836ab7",
       "skills.origin.imported": "058bf37c9767891850a04e77e252c5bcd5036c4a1d0cec568d498dc4c8437379",
       "skills.origin.native": "11fb682be0a0233d5fb899721ecfc1827d20f0d2ff2e093310efa61efca8af1c",
-      "skills.origin.nativeHint": "53bab467a186221ba1427720e9ba8dafe320ee791d2a0b091e3e7afc7bcbab72",
       "skills.write.title": "247262706fab09d0262162ba8a4fe4493b9abf4cd9a4eb5236094437f661e344",
       "skills.write.hint": "502d59dd98da355ebdd92770ec84323129cb4f8dd5156b6a3a06d0dd86c0f88e",
       "skills.write.name": "5af23acc15079d189a6abaefdd7e13ece4ec7fc5ae94aaa3f665407ce8a61d61",
@@ -23774,12 +23767,7 @@
       "phone.code.pairingCode": "1c5ea2f7ed52a91c82993d40cf16581ac6ccff5283e1840cad1a1857311d1121",
       "phone.code.typeIntro": "eefcfc11ed512a8866f3764a972fa5a7c7bdd01bcbe4cb1681c37ae697f69fe1",
       "phone.signIn.emailCode": "81c2e322abeb89f738de06ccdbefa7893c976a129b89c194299c75bd490fe128",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
     },
     "pt-br": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -29583,7 +29571,6 @@
       "skills.origin.imported": "058bf37c9767891850a04e77e252c5bcd5036c4a1d0cec568d498dc4c8437379",
       "skills.origin.importedHint": "1a0a4444bcb02305a59f0659abae2383385bf60c954dc84baade1d33d8b43ac1",
       "skills.origin.native": "11fb682be0a0233d5fb899721ecfc1827d20f0d2ff2e093310efa61efca8af1c",
-      "skills.origin.nativeHint": "53bab467a186221ba1427720e9ba8dafe320ee791d2a0b091e3e7afc7bcbab72",
       "skills.write.title": "247262706fab09d0262162ba8a4fe4493b9abf4cd9a4eb5236094437f661e344",
       "skills.write.hint": "502d59dd98da355ebdd92770ec84323129cb4f8dd5156b6a3a06d0dd86c0f88e",
       "skills.write.name": "5af23acc15079d189a6abaefdd7e13ece4ec7fc5ae94aaa3f665407ce8a61d61",
@@ -33865,12 +33852,6 @@
       "native.teamLink.signIn": "bdfe6b9bdb9f911ecbe705d31d1dcc1b58295c05617c16d8b743cffa8084c2e0",
       "engineSetup.piProvider.title": "4a5c018c6bedb14f9a3711d9259e92948df125c3387f88a85b5498c96edcae54",
       "engineSetup.piProvider.desc": "b2288d81afd3574629a95afc4e05495e078c96cfecc73f21648336e5275385e5",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6",
       "keys.openaiCompat.protocol": "a341ad08aa5fe8dc4f2106d9b77a98ae59e62f97b911f41d39a7001304c52cf4",
       "keys.openaiCompat.protocol.openai": "ff3cd3c3f7a9fb6942f3dfdd6f786012ae550dd9a18e98f80c589ba33113bb4b",
       "keys.openaiCompat.protocol.responses": "f3d7946e14a088b8c936e4057a05e704d2f8b3da9d7f407bfd28042d2be95283",
@@ -33884,7 +33865,8 @@
       "variflight.description": "17110e91fafe42537eaa7da5bb33e5cbcc638a7f29d0bdd12319c87582cfaa92",
       "variflight.notice": "80e26940d76814eb2e7e555d3a6bffba2f8f59e4a363aa34d4e4d45c607a989e",
       "baiduMap.description": "515226b3f527a99a442873251a8b79fcee59672f549b013680beffc63f4c53cb",
-      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da"
+      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da",
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -39965,7 +39947,6 @@
       "skills.origin.imported": "058bf37c9767891850a04e77e252c5bcd5036c4a1d0cec568d498dc4c8437379",
       "skills.origin.importedHint": "1a0a4444bcb02305a59f0659abae2383385bf60c954dc84baade1d33d8b43ac1",
       "skills.origin.native": "11fb682be0a0233d5fb899721ecfc1827d20f0d2ff2e093310efa61efca8af1c",
-      "skills.origin.nativeHint": "53bab467a186221ba1427720e9ba8dafe320ee791d2a0b091e3e7afc7bcbab72",
       "skills.write.title": "247262706fab09d0262162ba8a4fe4493b9abf4cd9a4eb5236094437f661e344",
       "skills.write.hint": "502d59dd98da355ebdd92770ec84323129cb4f8dd5156b6a3a06d0dd86c0f88e",
       "skills.write.name": "5af23acc15079d189a6abaefdd7e13ece4ec7fc5ae94aaa3f665407ce8a61d61",
@@ -44051,7 +44032,44 @@
       "variflight.description": "17110e91fafe42537eaa7da5bb33e5cbcc638a7f29d0bdd12319c87582cfaa92",
       "variflight.notice": "80e26940d76814eb2e7e555d3a6bffba2f8f59e4a363aa34d4e4d45c607a989e",
       "baiduMap.description": "515226b3f527a99a442873251a8b79fcee59672f549b013680beffc63f4c53cb",
-      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da"
+      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da",
+      "voice.volc.label": "a5112d54d49d5fe6c9304f640d85661e7a45a4f48a1ff25b5ced45fcfc76464d",
+      "voice.qwen.label": "28a5651e858aeea9486f74eec1417f604b13c5fd71452cad0769641156e07f8b",
+      "voice.liveShared": "6a0fac1011003ca5b95a70ecc428ff423f162fa4e46d35fcb83fcaacc4634eab",
+      "settings.channels.title": "071669bf4e71fbd697255a178017e1a0f32032c90b231cdeabf6563e34d5a962",
+      "settings.channels.subtitle": "3a631265bb1c68d90927376d44c1b508612d146fa2a20cfdd973dff6bca0fae5",
+      "settings.channels.adminOnly": "f0c752e843cbc300b2495a7c4e64ab25c2c11c5d00b161548911c8df7f66b855",
+      "settings.channels.feishu.name": "b129c975c34253eee7f7120397b14a6f9ca9abaf5a087063d43fceb6ed36633b",
+      "settings.channels.dingtalk.name": "02bd6f0992ef54f97735202203867a7135c9eee29dc6716a34b64423b8240e0a",
+      "settings.channels.wecom.name": "bdaaeb53f318727802138582069f5cc25df739fa84e15b9cb8e3ae02caabbeb2",
+      "settings.channels.botMail.name": "24d1a12b954fc3243463edd50be359c4521abf87c20a9a13b69f0eabed361168",
+      "settings.channels.sms.name": "1d178decaf7e35059f9c428ad81dd5723a5b4b74d8dfee9b6be5eef9f43c4bbe",
+      "settings.channels.connectedTo": "ec8fa7ef09cbd5106a6cb8031a2062e8c2dc81cce459c072dcebf380d2b5ab92",
+      "settings.channels.off": "0303e182467081801f8b614862519a3b174c0ae84ff08b70e7d126080c3f4b95",
+      "settings.channels.edit": "464c4ffd019e1e9691dcf0537c797353ef2b1c1d4833d3d463e5b74ae4547344",
+      "settings.channels.collapse": "7d9eb7acb13e24625c404401d8e88b2350e32162455885f18276cf802f7701ed",
+      "settings.channels.save": "1509f561f2416598629b886ad7d3c05a7e221e4e0675c84bbff4ee6d9e03913d",
+      "settings.channels.disconnect": "acfc5be785a9bb3da11c9f05adb69bd5633096f09002aa44813a1b3207e912ad",
+      "settings.channels.disconnectConfirm": "eebdd24a77d9ad32222660c07777163bf5f6732df2b172351f3f8d5783e4f529",
+      "settings.channels.saveError": "d0aadb7a0cf1df7bedf2f53a47d99e461c99fb83deac17d1518d931f5fa30fb0",
+      "settings.channels.keepSecret": "f1a85f6bace4efd7200c668072252d23cdabb70b7c443d747873a227e8182cb6",
+      "settings.channels.bot": "ed8657b23512cb343b0e2d36bb33aa3f24a0b645256e25cde264428c2ca10baa",
+      "settings.channels.field.appId": "3c2f1e20ab37389239e917ad63d911d7d663ed0e0eab04efc542ebe44ad6bed5",
+      "settings.channels.field.appSecret": "b78c628609a91a15acc5dac000c4e7a9adc688c324e9829e4cc12e4ed87104ce",
+      "settings.channels.field.appKey": "ca4eedfebcad98f58186fd117b5e13078f88d5aa0a43474584a53a5b06fa4339",
+      "settings.channels.field.corpId": "62d59a24743536808ad129a33b78e63de835119929508b4cae96e1922e749bef",
+      "settings.channels.field.corpSecret": "e4b6fe2be5ac43b938d0a15038ccb185c622865546ade7dbdc997841e3eac1d1",
+      "settings.channels.field.token": "60064a322164c1aa09deb805a159334f77d814690a19d0d608df495e8821fae9",
+      "settings.channels.field.encodingAesKey": "5449ac6d92f3d1f33aba0a2c4b71f8d432d135069ddd7dd3688153bac99953b6",
+      "settings.channels.field.agentId": "510bce732db77286d6622dfb5f99f59f346efd77c3746ab3474d6be2ab684c32",
+      "settings.channels.field.address": "f2488fd4ef4adbc6ac61300083f2c33980e48bb4bbf3c540ad760d61fc36f420",
+      "settings.channels.field.smsOwners": "310a5a6812aeaf68610566364bc2b344fd3d6a930475fe18636ecc410d8282ac",
+      "settings.channels.mailboxEmpty": "cf9be2da64af3b362d2617a713252528c746724d99b445218d9cc31d1f2412a8",
+      "settings.channels.wecomHint": "dd438daca9a731eee20b107462b61f850d7217823c946afb716d6396af32a14a",
+      "settings.channels.smsHint": "80c2b46f586571ae7ff743bb71b724141a0b62e78b835170137bd3d6542830fa",
+      "settings.channels.note": "b219c48d76b608dab5065f9ae0f245dc792bd2c891c15374b988aeacbe4ea550",
+      "serverError.voice.liveKeyRequired": "644121a4bf0ae4a2da199683b231033618b567aab800f53fcd370d6abcb7471c",
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -49968,7 +49986,6 @@
       "skills.learned.hintOff": "f3477db333415d4fdb93b9f40229ca082915b4e47e1749acaac94588a5836ab7",
       "skills.origin.imported": "058bf37c9767891850a04e77e252c5bcd5036c4a1d0cec568d498dc4c8437379",
       "skills.origin.native": "11fb682be0a0233d5fb899721ecfc1827d20f0d2ff2e093310efa61efca8af1c",
-      "skills.origin.nativeHint": "53bab467a186221ba1427720e9ba8dafe320ee791d2a0b091e3e7afc7bcbab72",
       "skills.write.title": "247262706fab09d0262162ba8a4fe4493b9abf4cd9a4eb5236094437f661e344",
       "skills.write.hint": "502d59dd98da355ebdd92770ec84323129cb4f8dd5156b6a3a06d0dd86c0f88e",
       "skills.write.name": "5af23acc15079d189a6abaefdd7e13ece4ec7fc5ae94aaa3f665407ce8a61d61",
@@ -54006,18 +54023,13 @@
       "agentEndpoints.codexHint": "2b1afcbf7bc1ab8970583399c941b7234d04f4f67949149c2600537c85b991ce",
       "settings.simple.account.noNameHint": "488c9a6a017d6ea2f145c838bee156e762ffcebdaddc173135f4d0590f0b6271",
       "settings.simple.account.yourName": "2c6b2e253c01fb2ed7209c15766745ccee92a35ac8209f544789bdf9500e0944",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6",
       "tencentMap.description": "c5a8ca5af9c17a7cb78b9717f20d722f9139417abf105dfc8f37197f03d5b39e",
       "tencentMap.notice": "bb97cbdbf54e8f4c62e24527040da618205e37eaf4875a7b2d1b0f638db58c19",
       "variflight.description": "17110e91fafe42537eaa7da5bb33e5cbcc638a7f29d0bdd12319c87582cfaa92",
       "variflight.notice": "80e26940d76814eb2e7e555d3a6bffba2f8f59e4a363aa34d4e4d45c607a989e",
       "baiduMap.description": "515226b3f527a99a442873251a8b79fcee59672f549b013680beffc63f4c53cb",
-      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da"
+      "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da",
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
     },
     "uk": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -57616,12 +57628,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "vi": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -63201,13 +63208,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "tr": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -68787,13 +68788,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "pl": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -75632,13 +75627,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "ru": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -82539,13 +82528,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "it": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -89246,13 +89229,7 @@
       "settings.simple.more.title": "fb39125df6db034fd02887363c6359f81a472738e86935368ff0f3aca223c8a8",
       "settings.simple.more.subtitle": "21c8d6bc04e3b70f7b1a17263ec509bd67f029d0bf97445aed0bf1e34c72444d",
       "settings.simple.more.limits": "dffb64dc70011ecf3ef3ad62cdd271f08f1b86601d7c2bc54f91978a32ca8cf4",
-      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "settings.simple.more.open": "ed077f3d8125d60dca1979c7133601bd187d47c73ed9975028f677e49e709942"
     },
     "ko": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -94748,7 +94725,6 @@
       "skills.learned.hintOff": "f3477db333415d4fdb93b9f40229ca082915b4e47e1749acaac94588a5836ab7",
       "skills.origin.imported": "058bf37c9767891850a04e77e252c5bcd5036c4a1d0cec568d498dc4c8437379",
       "skills.origin.native": "11fb682be0a0233d5fb899721ecfc1827d20f0d2ff2e093310efa61efca8af1c",
-      "skills.origin.nativeHint": "53bab467a186221ba1427720e9ba8dafe320ee791d2a0b091e3e7afc7bcbab72",
       "skills.write.title": "247262706fab09d0262162ba8a4fe4493b9abf4cd9a4eb5236094437f661e344",
       "skills.write.hint": "502d59dd98da355ebdd92770ec84323129cb4f8dd5156b6a3a06d0dd86c0f88e",
       "skills.write.name": "5af23acc15079d189a6abaefdd7e13ece4ec7fc5ae94aaa3f665407ce8a61d61",
@@ -96673,12 +96649,7 @@
       "phone.code.pairingCode": "1c5ea2f7ed52a91c82993d40cf16581ac6ccff5283e1840cad1a1857311d1121",
       "phone.code.typeIntro": "eefcfc11ed512a8866f3764a972fa5a7c7bdd01bcbe4cb1681c37ae697f69fe1",
       "phone.signIn.emailCode": "81c2e322abeb89f738de06ccdbefa7893c976a129b89c194299c75bd490fe128",
-      "keys.openaiCompat.label": "e9c110f80b8cd96234aa4803fe679b611f207e64cc1274e877c6c3bc2ad96db0",
-      "keys.openaiCompat.placeholder": "7f17422e2acbc57c33c1dc3aa9d1e764ba878ebb6af1916327b88aa9b06ab89d",
-      "keys.openaiCompat.desc": "bbfc18e947784d742342591b0764fa39fb182402a300ff0be8cd6bcb4022fc9c",
-      "keys.openaiCompat.link": "6133e5de704fd65904021db9a040869973084de8aaf3f63ff41a34a1c0cab692",
-      "keys.openaiCompat.url": "42b0eef58eb8f0c568de8e6067fdc49ba247d12bc14b8747dcd0728f24ffaaa5",
-      "keys.openaiCompat.urlHint": "6ad66d22f78b42277309d3b0299ead1b1a52aa030c339056df2366bcd47441c6"
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
     }
   }
 }
