@@ -18,6 +18,8 @@ class E2eRemovedException : java.io.IOException("e2e: this phone was removed fro
 
 /** One WebSocket carrying sealed bytes. The platform supplies it (OkHttp on Android, a fake in tests). */
 interface E2eSocket {
+    /** False once the socket is closed or failed; a session using it must be replaced. */
+    val isOpen: Boolean
     fun sendBinary(bytes: ByteArray)
     fun sendText(text: String)
     fun close(code: Int)
@@ -86,8 +88,8 @@ class E2eSession(
 
     val handshakeHash: ByteArray? get() = keys?.handshakeHash
 
-    /** True once records can flow and the socket has not been closed. */
-    val isUsable: Boolean get() = keys != null && !closed.get()
+    /** True once records can flow and the underlying socket is still open. */
+    val isUsable: Boolean get() = keys != null && !closed.get() && socket?.isOpen == true
 
     /** Dials, handshakes, and returns once records can flow. */
     fun connect(): E2eSession {

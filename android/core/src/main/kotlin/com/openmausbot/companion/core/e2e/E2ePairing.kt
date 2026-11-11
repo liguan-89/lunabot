@@ -34,6 +34,9 @@ class OkHttpE2eConnector(
 
 private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSocketListener(), E2eSocket {
     var webSocket: WebSocket? = null
+    @Volatile private var alive = false
+
+    override val isOpen: Boolean get() = alive
 
     override val bufferedBytes: Long
         get() = webSocket?.queueSize() ?: 0
@@ -50,7 +53,10 @@ private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSock
         webSocket?.close(code, null)
     }
 
-    override fun onOpen(webSocket: WebSocket, response: Response) = listener.onOpen()
+    override fun onOpen(webSocket: WebSocket, response: Response) {
+        alive = true
+        listener.onOpen()
+    }
 
     override fun onMessage(webSocket: WebSocket, bytes: okio.ByteString) = listener.onBinary(bytes.toByteArray())
 
@@ -58,11 +64,16 @@ private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSock
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         E2eLog.line("closing $code $reason")
+        alive = false
     }
 
-    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = listener.onClosed(code)
+    override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+        alive = false
+        listener.onClosed(code)
+    }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+        alive = false
         val detail = buildString {
             append(t.javaClass.simpleName).append(": ").append(t.message)
             response?.let { append(" http=").append(it.code) }

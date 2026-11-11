@@ -58,7 +58,12 @@ class E2eTransport(
     }
 
     fun ensureSession(): E2eSession = synchronized(lock) {
-        session?.takeIf { it.isUsable }?.let { return it }
+        val existing = session
+        if (existing != null && existing.isUsable) return existing
+        // A dead tunnel must not be reused: close it so the next attempt
+        // builds a fresh session instead of writing into a closed socket.
+        existing?.close()
+        session = null
         val psk = E2eCredentials.psk(token, E2eCredentials.keyId(descriptor.transportKey))
         val hostId = descriptor.hostId
         val targets = ArrayList<E2eTarget>()

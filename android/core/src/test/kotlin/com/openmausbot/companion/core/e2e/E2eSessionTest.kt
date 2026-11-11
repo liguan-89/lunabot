@@ -27,6 +27,7 @@ class E2eSessionTest {
         lateinit var listener: E2eSocketListener
         val socket = object : E2eSocket {
             override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
             override fun sendBinary(bytes: ByteArray) {
                 for (reply in computer.receive(bytes)) listener.onBinary(reply)
             }
@@ -74,6 +75,7 @@ class E2eSessionTest {
         lateinit var listener: E2eSocketListener
         val socket = object : E2eSocket {
             override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
             override fun sendBinary(bytes: ByteArray) {
                 for (reply in computer.receive(bytes)) listener.onBinary(reply)
             }
