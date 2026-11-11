@@ -934,6 +934,7 @@ private fun ConnectionLight(status: Session.Status, size: Dp, modifier: Modifier
         Session.Status.Connecting -> MinisTokens.Warning to "正在连接电脑"
         is Session.Status.Offline -> MinisTokens.Danger to "电脑离线"
         Session.Status.Unauthorized -> MinisTokens.Danger to "配对已失效"
+        Session.Status.OutdatedApp -> MinisTokens.Warning to "应用需更新"
         Session.Status.Unpaired -> minisTertiary to "未配对"
     }
     Box(
@@ -1439,6 +1440,11 @@ fun StatusBanner() {
         Session.Status.Unauthorized -> ConnectionNotice(
             message = "此手机已在电脑上取消配对。",
             title = null,
+            tone = NoticeTone.ERROR,
+        )
+        Session.Status.OutdatedApp -> ConnectionNotice(
+            message = "电脑已改用加密连接，请更新手机上的 MausBot 应用后再连接。",
+            title = "需要更新应用",
             tone = NoticeTone.ERROR,
         )
     }

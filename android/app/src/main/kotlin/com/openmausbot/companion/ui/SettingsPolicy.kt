@@ -39,6 +39,7 @@ object SettingsPolicy {
         Session.Status.Connecting -> "正在连接…"
         Session.Status.Unpaired -> "未配对"
         Session.Status.Unauthorized -> "已在电脑上取消配对"
+        Session.Status.OutdatedApp -> "应用版本过旧"
         is Session.Status.Offline -> status.message
     }
 

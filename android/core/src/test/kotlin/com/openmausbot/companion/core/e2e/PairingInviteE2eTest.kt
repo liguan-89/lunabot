@@ -2,7 +2,10 @@ package com.openmausbot.companion.core.e2e
 
 import com.openmausbot.companion.core.CompanionConnectionMetadata
 import com.openmausbot.companion.core.CompanionEndpoint
+import com.openmausbot.companion.core.CompanionJson
 import com.openmausbot.companion.core.Connection
+import com.openmausbot.companion.core.Frame
+import com.openmausbot.companion.core.StreamFrame
 import com.openmausbot.companion.core.PairingInvite
 import java.security.SecureRandom
 import kotlin.test.Test
@@ -75,5 +78,34 @@ class PairingInviteE2eTest {
         val other = descriptor.copy(k = E2eBase64.encode(P256.generateKeyPair(SecureRandom()).publicKey))
         val again = upgraded.reconciling(metadata.copy(e2e = other))
         assertEquals(descriptor.encode(), again.e2e)
+    }
+
+    @Test
+    fun `the endpoint-change event decodes without a sequence number`() {
+        val raw = """{"kind":"companion.endpoints","serverName":"Mac","endpoints":[{"url":"http://192.168.1.20:8810","kind":"lan","priority":1}],"e2e":{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.openmausbot.com"],"routes":"local"}}"""
+        val frame = CompanionJson.decodeFromString<StreamFrame>(raw)
+        assertEquals(null, frame.seq)
+        val endpoints = frame.frame as Frame.CompanionEndpoints
+        assertEquals("Mac", endpoints.metadata.serverName)
+        assertEquals("local", endpoints.metadata.e2e?.routes)
+    }
+
+    @Test
+    fun `a route restriction keeps the pinned key and takes the new routes`() {
+        val connection = Connection(name = "Mac", host = "192.168.1.20", port = 8810, e2e = descriptor.encode())
+        val restricted = descriptor.copy(routes = "local")
+        val metadata = CompanionConnectionMetadata(
+            serverName = "Mac",
+            endpoints = listOf(CompanionEndpoint.direct("192.168.1.20", 8810, priority = 0)!!),
+            e2e = restricted,
+        )
+        val updated = connection.reconciling(metadata)
+        assertEquals(descriptor.k, updated.e2eDescriptor?.k)
+        assertEquals("local", updated.e2eDescriptor?.routes)
+
+        // A different key is never adopted, even when the snapshot is restricted.
+        val stranger = restricted.copy(k = E2eBase64.encode(P256.generateKeyPair(SecureRandom()).publicKey))
+        val kept = connection.reconciling(metadata.copy(e2e = stranger))
+        assertEquals(descriptor.k, kept.e2eDescriptor?.k)
     }
 }

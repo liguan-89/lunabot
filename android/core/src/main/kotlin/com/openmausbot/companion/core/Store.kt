@@ -328,7 +328,8 @@ data class CompanionState(
         is Frame.Runtime -> applyRuntime(frame.event)
         is Frame.Screen -> copy(screens = screens + (frame.botId to ScreenFrame(frame.png, frame.mime)))
 
-        is Frame.Computer, Frame.Config, is Frame.Unknown -> this
+        is Frame.Computer, Frame.Config, is Frame.CompanionEndpoints -> this
+ is Frame.Unknown -> this
     }
 
     fun clearScreen(botId: String): CompanionState = copy(screens = screens - botId)

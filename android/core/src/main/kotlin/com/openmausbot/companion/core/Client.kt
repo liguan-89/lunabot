@@ -167,6 +167,12 @@ class CompanionClient(
         }
     }
 
+    init {
+        com.openmausbot.companion.core.e2e.E2eLog.line(
+            "client e2e=${e2e != null} base=${endpoint?.baseUrl}",
+        )
+    }
+
     private val actionClient = transportClient.newBuilder()
         .followRedirects(baseClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(baseClient.followSslRedirects && !connection.pairedWithServer)

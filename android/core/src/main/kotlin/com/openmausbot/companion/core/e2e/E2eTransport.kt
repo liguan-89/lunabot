@@ -49,7 +49,13 @@ class E2eTransport(
             E2eStreamSocket(this@E2eTransport)
     }
 
-    fun openStream(): E2eStream = ensureSession().openStream()
+    /** Non-null once the current session failed; `"removed"` means a re-pair is required. */
+    fun failureReason(): String? = synchronized(lock) { session?.failure }
+
+    fun openStream(): E2eStream {
+        if (failureReason() == "removed") throw E2eRemovedException()
+        return ensureSession().openStream()
+    }
 
     fun ensureSession(): E2eSession = synchronized(lock) {
         session?.takeIf { it.isUsable }?.let { return it }
@@ -75,8 +81,10 @@ class E2eTransport(
             try {
                 candidate.connect()
                 session = candidate
+                if (candidate.failure == "removed") throw E2eRemovedException()
                 return@synchronized candidate
             } catch (error: Throwable) {
+                E2eLog.line("target failed: ${error.message}")
                 lastError = error
                 candidate.close()
             }
@@ -105,6 +113,7 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
         }
 
         override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+            if (transport.failureReason() == "removed") throw E2eRemovedException()
             val active = stream ?: return -1
             while (true) {
                 val read = active.read(buffer, offset, length, timeoutMs.toLong())
@@ -125,6 +134,7 @@ private class E2eStreamSocket(private val transport: E2eTransport) : Socket() {
         }
 
         override fun write(buffer: ByteArray, offset: Int, length: Int) {
+            if (transport.failureReason() == "removed") throw E2eRemovedException()
             val active = stream ?: throw IOException("e2e: socket not connected")
             if (!active.write(buffer, offset, length)) throw IOException("e2e: stream reset")
         }

@@ -56,12 +56,25 @@ private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSock
 
     override fun onMessage(webSocket: WebSocket, text: String) = listener.onText(text)
 
-    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) = Unit
+    override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+        E2eLog.line("closing $code $reason")
+    }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) = listener.onClosed(code)
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        listener.onFailure((t as? IOException)?.message ?: t.message ?: "websocket failed")
+        val detail = buildString {
+            append(t.javaClass.simpleName).append(": ").append(t.message)
+            response?.let { append(" http=").append(it.code) }
+            var cause = t.cause
+            var depth = 0
+            while (cause != null && depth < 3) {
+                append(" <- ").append(cause.javaClass.simpleName).append(": ").append(cause.message)
+                cause = cause.cause
+                depth += 1
+            }
+        }
+        listener.onFailure(detail)
     }
 }
 

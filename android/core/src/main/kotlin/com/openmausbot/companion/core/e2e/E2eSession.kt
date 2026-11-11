@@ -8,6 +8,14 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.concurrent.thread
 
+/** Diagnostics for the tunnel: System.out reaches logcat as `I/System.out`. */
+internal object E2eLog {
+    fun line(message: String) = println("OMB-E2E $message")
+}
+
+/** The owner removed this phone from the computer (GoAway(3) inside the tunnel). */
+class E2eRemovedException : java.io.IOException("e2e: this phone was removed from the computer")
+
 /** One WebSocket carrying sealed bytes. The platform supplies it (OkHttp on Android, a fake in tests). */
 interface E2eSocket {
     fun sendBinary(bytes: ByteArray)
@@ -97,17 +105,21 @@ class E2eSession(
             psk = psk,
             random = random,
         )
+        E2eLog.line("dial $url as ${protocols.joinToString(",")}")
         socket = connector.connect(url, protocols, this)
         if (!ready.await(handshakeTimeoutMs, TimeUnit.MILLISECONDS)) {
+            E2eLog.line("handshake deadline on $url")
             close(IF_HANDSHAKE_DEADLINE)
             throw NoiseException("handshake_deadline")
         }
+        E2eLog.line("ready on $url")
         failure?.let { throw NoiseException(it) }
         startPings()
         return this
     }
 
     override fun onOpen() {
+        E2eLog.line("socket open")
         // The relay wants its hello as the very first frame; direct routes go
         // straight to Noise message 1.
         when (val current = target) {
@@ -120,6 +132,7 @@ class E2eSession(
     }
 
     override fun onText(text: String) {
+        E2eLog.line("text ${text.take(80)}")
         when (target) {
             // The relay's only text message on this socket is `ready`; a bad
             // frame shows up as a close code instead.
@@ -186,13 +199,18 @@ class E2eSession(
     }
 
     override fun onClosed(code: Int) {
+        E2eLog.line("closed $code")
         closeCode = code
         close(0)
     }
 
-    override fun onFailure(message: String) = fail(message)
+    override fun onFailure(message: String) {
+        E2eLog.line("failure $message")
+        fail(message)
+    }
 
     private fun fail(reason: String) {
+        E2eLog.line("fail $reason")
         if (failure == null) failure = reason
         ready.countDown()
         close(IF_PROTOCOL)
@@ -248,6 +266,7 @@ class E2eSession(
         }
 
         override fun goAway(code: Int) {
+            E2eLog.line("yamux goaway $code")
             if (code == Yamux.GO_AWAY_REMOVED) failure = "removed"
             close(IF_NORMAL)
         }

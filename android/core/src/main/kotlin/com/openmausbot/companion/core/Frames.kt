@@ -69,6 +69,9 @@ sealed interface Frame {
     data class Screen(val botId: String, val png: String, val mime: String) : Frame
     data class Computer(val botId: String, val state: String) : Frame
     data object Config : Frame
+    /** The computer's routes changed mid-session (spec §3): the body is the
+     * same snapshot `GET /api/companion/endpoints` returns. */
+    data class CompanionEndpoints(val metadata: CompanionConnectionMetadata) : Frame
     data class Runtime(val event: RuntimeEvent) : Frame
     data class Unknown(val kind: String) : Frame
 
@@ -150,6 +153,11 @@ object FrameSerializer : KSerializer<Frame> {
                 state = objectValue["state"]?.jsonPrimitive?.contentOrNull ?: "",
             )
             "config" -> Frame.Config
+            "companion.endpoints" -> runCatching {
+                Frame.CompanionEndpoints(
+                    input.json.decodeFromJsonElement(CompanionConnectionMetadata.serializer(), objectValue),
+                )
+            }.getOrNull() ?: Frame.Unknown(kind)
             "runtime" -> Frame.Runtime(input.json.decodeFromJsonElement(
                 RuntimeEvent.serializer(),
                 objectValue.required("event"),
@@ -294,6 +302,12 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         is Frame.Runtime -> {
             put("kind", "runtime")
             put("event", output.json.encodeToJsonElement(RuntimeEvent.serializer(), event))
+        }
+        is Frame.CompanionEndpoints -> {
+            put("kind", "companion.endpoints")
+            for ((key, value) in output.json.encodeToJsonElement(CompanionConnectionMetadata.serializer(), metadata).jsonObject) {
+                put(key, value)
+            }
         }
         is Frame.Unknown -> put("kind", kind)
     }

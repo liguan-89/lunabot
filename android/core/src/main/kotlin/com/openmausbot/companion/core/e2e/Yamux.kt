@@ -140,6 +140,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
     fun sendWindow(streamId: Int): Int = streams[streamId]?.sendWindow ?: 0
 
     /** Data may follow at once, within the first 256 KiB. */
+    @Synchronized
     fun open(): Int {
         if (role != "phone") throw YamuxException("computer_open")
         if (localGoneAway || peerGoneAway) throw YamuxException("gone_away")
@@ -157,6 +158,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
     }
 
     /** The computer side, once its origin socket is connected. */
+    @Synchronized
     fun accept(streamId: Int) {
         val stream = streams[streamId] ?: return
         if (stream.established || role != "computer") return
@@ -166,6 +168,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
     }
 
     /** Sends up to the window and the frame cap; returns the bytes taken. */
+    @Synchronized
     fun write(streamId: Int, data: ByteArray, offset: Int = 0): Int {
         val stream = streams[streamId] ?: return 0
         if (stream.localFin || (role == "computer" && !stream.established)) return 0
@@ -176,6 +179,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
         return size
     }
 
+    @Synchronized
     fun finish(streamId: Int) {
         val stream = streams[streamId] ?: return
         if (stream.localFin) return
@@ -184,6 +188,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
         closeIfDone(streamId, stream)
     }
 
+    @Synchronized
     fun reset(streamId: Int) {
         if (streams.remove(streamId) == null) return
         events.send(Yamux.resetFrame(streamId))
@@ -191,6 +196,7 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
     }
 
     /** The receiver handed `bytes` on; grants them back in 1 MiB steps. */
+    @Synchronized
     fun consumed(streamId: Int, bytes: Int) {
         val stream = streams[streamId] ?: return
         if (stream.remoteFin) return
@@ -202,27 +208,32 @@ class YamuxMux(private val role: String, private val events: YamuxEvents) {
         events.send(Yamux.windowFrame(streamId, delta))
     }
 
+    @Synchronized
     fun ping(value: Int) {
         events.send(Yamux.pingFrame(value))
     }
 
+    @Synchronized
     fun goAway(code: Int = Yamux.GO_AWAY_NORMAL) {
         localGoneAway = true
         events.send(Yamux.goAwayFrame(code))
     }
 
     /** Sends GoAway(1); the caller closes with 4000. */
+    @Synchronized
     fun protocolError() {
         goAway(Yamux.GO_AWAY_PROTOCOL)
         closeAll()
     }
 
+    @Synchronized
     fun closeAll() {
         val ids = streams.keys.toList()
         streams.clear()
         for (id in ids) events.reset(id)
     }
 
+    @Synchronized
     fun receive(frame: Yamux.Frame) {
         when (frame.type) {
             Yamux.TYPE_PING -> {

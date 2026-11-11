@@ -92,6 +92,8 @@ class Session(
         data object Connecting : Status
         data object Live : Status
         data object Unauthorized : Status
+        /** The computer refused this app version: only an update can connect. */
+        data object OutdatedApp : Status
         data class Offline(val message: String) : Status
     }
 
@@ -995,6 +997,11 @@ class Session(
                                 promoteWorkingRoute()
                                 refreshConnectionMetadata(activeClient)
                             }
+                            is Frame.CompanionEndpoints -> {
+                                // The computer's routes changed mid-session: apply
+                                // the snapshot without waiting for a reconnect.
+                                refreshConnectionMetadata(activeClient, payload.metadata)
+                            }
                             else -> {
                                 _state.update { it.apply(frame) }
                                 if (payload is Frame.Notify) {
@@ -1011,12 +1018,26 @@ class Session(
                 if (!receivedHello) throw MissingStreamHelloException()
                 _status.value = Status.Offline("连接已断开。")
             } catch (error: Throwable) {
+                com.openmausbot.companion.core.e2e.E2eLog.line(
+                    "stream ${error.javaClass.simpleName}: ${error.message}",
+                )
                 if (!currentCoroutineContext().isActive || error is kotlinx.coroutines.CancellationException) {
                     return
                 }
                 val apiError = error as? APIError
                 if (apiError?.isUnauthorized == true) {
                     _status.value = Status.Unauthorized
+                    return
+                }
+                if (error.carriesRemovedDevice()) {
+                    // GoAway(3) inside the tunnel: the owner removed this phone.
+                    _status.value = Status.Unauthorized
+                    return
+                }
+                if (apiError is APIError.Status && apiError.code == 426) {
+                    // The computer only serves the encrypted link from here:
+                    // this build is too old to open it.
+                    _status.value = Status.OutdatedApp
                     return
                 }
                 _status.value = Status.Offline(failureMessage(error))
@@ -1188,7 +1209,20 @@ class Session(
      * its transport policy, so nothing local may quietly outrank it; if it could, the refresh
      * would be decorative.
      */
-    private fun refreshConnectionMetadata(source: CompanionClient) {
+    /** Walks the cause chain for the tunnel's "removed" signal. */
+    private fun Throwable.carriesRemovedDevice(): Boolean {
+        var current: Throwable? = this
+        while (current != null) {
+            if (current is com.openmausbot.companion.core.e2e.E2eRemovedException) return true
+            current = current.cause
+        }
+        return false
+    }
+
+    private fun refreshConnectionMetadata(
+        source: CompanionClient,
+        snapshot: CompanionConnectionMetadata? = null,
+    ) {
         if (source.connection.pairedWithServer) return
         val connectionId = _connection.value?.id ?: return
         val workingEndpoint = rotation.currentEndpoint ?: source.connection.activeEndpoint
@@ -1198,7 +1232,7 @@ class Session(
             // write is as survivable here as a sidecar that answers 404, and neither has a
             // caller left to catch for it.
             try {
-                val metadata = metadataFn(source)
+                val metadata = snapshot ?: metadataFn(source)
                 gate.withLock {
                     val current = _connection.value ?: return@withLock
                     // The stream that asked for this snapshot may already have been replaced by

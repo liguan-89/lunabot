@@ -117,11 +117,16 @@ internal class SymmetricState(var h: ByteArray, var ck: ByteArray, internal var 
 
 /** One direction's post-handshake records. Each WebSocket binary message is exactly one. */
 class RecordCipher internal constructor(private val state: CipherState) {
+    /** The next counter this direction will use, for diagnostics. */
+    @get:Synchronized
+    val nonce: Long get() = state.nonce
+    @Synchronized
     fun seal(plaintext: ByteArray): ByteArray {
         if (plaintext.size > Noise.MAX_RECORD_PLAINTEXT) throw NoiseException("record_too_large")
         return state.encryptWithAd(ByteArray(0), plaintext)
     }
 
+    @Synchronized
     fun open(record: ByteArray): ByteArray {
         if (record.size > Noise.MAX_RECORD_BYTES) throw NoiseException("record_too_large")
         return state.decryptWithAd(ByteArray(0), record)

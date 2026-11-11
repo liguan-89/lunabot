@@ -828,6 +828,7 @@ internal fun troubleshootingText(status: Session.Status): String = when (status)
     Session.Status.Live -> "此电脑已连接且响应正常。"
     Session.Status.Connecting -> "OpenMausBot 正在自动尝试已保存的连接。"
     Session.Status.Unauthorized -> "此手机已从电脑移除，请重新配对以恢复连接。"
+    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 MausBot 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
     is Session.Status.Offline -> status.message
 }

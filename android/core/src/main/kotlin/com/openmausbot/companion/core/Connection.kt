@@ -241,8 +241,14 @@ data class Connection(
             endpoints = routes,
             // Trust on first use: a phone paired before the encrypted connection
             // existed adopts the pinned key once, from the computer it already
-            // trusts, and keeps it from then on.
-            e2e = e2e ?: metadata.e2e?.encode(),
+            // trusts. Afterwards the key is pinned: only a snapshot that keeps
+            // the same k may update the relay routes (spec §3, pinning).
+            e2e = when {
+                metadata.e2e == null -> e2e
+                e2e == null -> metadata.e2e.encode()
+                e2eDescriptor?.k == metadata.e2e.k -> metadata.e2e.encode()
+                else -> e2e
+            },
         )
     }
 
