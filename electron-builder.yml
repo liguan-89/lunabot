@@ -7,18 +7,13 @@ protocols:
     schemes: [dexbot]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
-# the NSIS .exe (Windows) from the PUBLIC releases in this source repo.
-# Public → no token on users' machines. Baked into
-# app-update.yml; both metadata files are emitted here even with
-# --publish never, and must be uploaded to the GitHub release alongside the
-# artifacts — a release missing latest.yml leaves every Windows install
-# stranded on its installed version.
+# the NSIS .exe (Windows) from DEX Cloud, which this fork controls. A private
+# source repository cannot serve update metadata to installed apps, so the
+# generic provider is deliberate: upload the artifacts and metadata files to
+# the server's /data/downloads/desktop directory, which `/desktop/*` serves.
 publish:
-  - provider: github
-    # This fork ships its own builds: pointing the updater at upstream would
-    # overwrite every fork build as soon as upstream cuts a release.
-    owner: liguan-89
-    repo: dexbot
+  - provider: generic
+    url: https://cloud.dexai.vip/desktop
 
 directories:
   buildResources: build

@@ -59,14 +59,14 @@ export function methodNotAllowed(res, allow) {
   return json(res, 405, { error: "method_not_allowed" }, { allow });
 }
 
-export async function readJson(req) {
+export async function readJson(req, limit = BODY_LIMIT) {
   const declared = Number(req.headers["content-length"] ?? 0);
-  if (declared > BODY_LIMIT) throw new HttpError(413, "request_too_large");
+  if (declared > limit) throw new HttpError(413, "request_too_large");
   const chunks = [];
   let total = 0;
   for await (const chunk of req) {
     total += chunk.length;
-    if (total > BODY_LIMIT) throw new HttpError(413, "request_too_large");
+    if (total > limit) throw new HttpError(413, "request_too_large");
     chunks.push(chunk);
   }
   if (total === 0) return {};

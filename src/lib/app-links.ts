@@ -1,21 +1,24 @@
 export const APP_NAME = "DEX BOT";
+/** The private source repository, kept for provenance; every link a person can click points at the Cloud instead, so a
+ * signed-out visitor never lands on a 404. */
 export const APP_REPOSITORY = "https://github.com/liguan-89/dexbot";
-export const DOCS_URL = `${APP_REPOSITORY}/tree/main/docs`;
+export const CLOUD_ORIGIN = "https://cloud.dexai.vip";
+export const DOCS_URL = `${CLOUD_ORIGIN}/docs`;
 export const HELP_CENTER_URL = DOCS_URL;
-export const APPROVAL_LEVELS_URL = `${APP_REPOSITORY}/blob/main/docs/approval-levels.md`;
-export const PASSKEY_HELP_URL = `${DOCS_URL}/troubleshooting.md`;
-export const FEEDBACK_URL = `${APP_REPOSITORY}/issues`;
-export const RELEASES_URL = `${APP_REPOSITORY}/releases`;
-export const PRICING_URL = "https://cloud.dexai.vip/pricing";
-export const CLOUD_PLAN_URL = "https://cloud.dexai.vip/cloud";
+export const APPROVAL_LEVELS_URL = `${DOCS_URL}#permissions`;
+export const PASSKEY_HELP_URL = `${DOCS_URL}#troubleshooting`;
+export const FEEDBACK_URL = `${CLOUD_ORIGIN}/feedback`;
+export const RELEASES_URL = `${CLOUD_ORIGIN}/download`;
+export const PRICING_URL = `${CLOUD_ORIGIN}/pricing`;
+export const CLOUD_PLAN_URL = `${CLOUD_ORIGIN}/cloud`;
 export function withSource(url: string, source: string): string {
   const target = new URL(url);
   target.searchParams.set("src", source);
   return target.href;
 }
-export const LICENSE_URL = `${APP_REPOSITORY}/blob/main/LICENSE`;
-export const IOS_APP_STORE_URL = "https://cloud.dexai.vip/download";
-export const ANDROID_APK_URL = "https://cloud.dexai.vip/download/dexbot.apk";
+export const LICENSE_URL = "https://www.apache.org/licenses/LICENSE-2.0";
+export const IOS_APP_STORE_URL = `${CLOUD_ORIGIN}/download`;
+export const ANDROID_APK_URL = `${CLOUD_ORIGIN}/download/dexbot.apk`;
 
 export function appVersion(): string {
   return typeof __APP_VERSION__ === "string" ? __APP_VERSION__ : "dev";

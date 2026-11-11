@@ -98,6 +98,22 @@ route("GET", "/v1/installations", async (ctx) => {
   json(ctx.res, 200, { installations: ctx.store.installationsFor(session.account_id).map(installationShape) });
 });
 
+/** The Cloud desktops this account owns, so a signed-in phone can open one without a desktop paired first. */
+route("GET", "/v1/clouds", async (ctx) => {
+  const session = controlSession(ctx);
+  const clouds = ctx.store.cloudsFor(session.account_id)
+    .filter((cloud) => cloud.status !== "ended" && cloud.role === "owner" && !cloud.team_id)
+    .map((cloud) => ({
+      id: cloud.id,
+      name: cloud.name,
+      status: cloud.status,
+      origin: cloud.origin || (cloud.hostname ? `https://${cloud.hostname}` : null),
+      ...(cloud.tier ? { tier: cloud.tier } : {}),
+      ...(Number(cloud.last_seen_at) > 0 ? { lastSeenAt: Number(cloud.last_seen_at) } : {}),
+    }));
+  json(ctx.res, 200, { clouds });
+});
+
 route("POST", "/v1/installations", async (ctx) => {
   const session = controlSession(ctx);
   const clientInstanceId = cleanInstallationClientId(ctx.body.clientInstanceId);
@@ -105,7 +121,7 @@ route("POST", "/v1/installations", async (ctx) => {
   const name = typeof ctx.body.name === "string" && ctx.body.name.trim() && ctx.body.name.trim().length <= 100 ? ctx.body.name.trim() : "This computer";
   const platform = typeof ctx.body.platform === "string" ? ctx.body.platform.slice(0, 40) : null;
   const appVersion = cleanVersion(ctx.body.appVersion);
-  const kind = ctx.body.kind === "server" ? "server" : "desktop";
+  const kind = ctx.body.kind === "server" ? "server" : ctx.body.kind === "phone" ? "phone" : "desktop";
   let installation = ctx.store.installationByClientInstance(session.account_id, clientInstanceId);
   if (installation) {
     ctx.store.revokeInstallationCredentials(installation.id);

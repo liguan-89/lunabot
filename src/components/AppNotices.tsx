@@ -225,7 +225,8 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     [MODELGO_OFFER_NOTICE]: modelgoNow,
     [BOAT_OFFER_NOTICE]: !boatHere || moving || afterWelcome === true || !usedBefore(state.bots) || desktopState?.seen.includes(BOAT_OFFER_NOTICE) ? false
       : organization === null || moving === null || afterWelcome === null || mausBotFirst || (desktop && !desktopState) ? null : !organization,
-    [STAR_NOTICE]: !bridge || moving || brandStatus().source === "file" || !usedBefore(state.bots) ? false : moving === null ? null : true,
+    // The source repository is private for now, so a "star us on GitHub" card would only lead to a 404.
+    [STAR_NOTICE]: false,
   }, id => id === CLOUD_INTRO ? stage === "done" && !introOpen
     : id === STAR_NOTICE || id === PRODUCT_HUNT_NOTICE || id === BOAT_OFFER_NOTICE || id === MODELGO_OFFER_NOTICE ? noticeSeen(record, id) : false, launch, closed) : null;
 

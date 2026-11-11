@@ -36,7 +36,7 @@ const route = (method, pattern, handler) => routes.push({ method, pattern, handl
 /** A paid account with no Cloud gets its first one on sign-in, as the desktop's setup card expects. Once only;
  * a failed first attempt is not retried behind the person's back. */
 function ensureDefaultCloud(ctx, account) {
-  if (!account || account.plan_status !== "active" || Number(account.plan_expires_at) <= Date.now()) return;
+  if (!account || !ctx.provisioner || account.plan_status !== "active" || Number(account.plan_expires_at) <= Date.now()) return;
   const live = ctx.store.cloudsFor(account.id).filter((cloud) => cloud.status !== "ended");
   if (live.length || !ctx.store.claimAutoCloud(account.id)) return;
   void ctx.provisioner.create({ accountId: account.id, tier: account.plan_tier, name: "My Cloud", color: "blue" })
@@ -319,6 +319,91 @@ route("POST", "/api/updates-consent", async () => {
 });
 
 const CLOUD_COLORS = new Set(["blue", "green", "amber", "rose", "violet", "slate"]);
+
+/** The @devs report contract the desktop and Cloud homes send: 10,000 description characters, 40 for appVersion and
+ * platform, 262,144 for diagnostics, a 600 KB body. */
+const REPORT_LIMITS = { description: 10_000, field: 40, diagnostics: 262_144, installId: /^[A-Za-z0-9._:-]{1,128}$/, ids: 50 };
+const REPORT_SOURCES = new Set(["bot", "web"]);
+
+function clipReport(value, max) {
+  return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+function reportId() {
+  return `br_${randomBytesB64u(16)}`;
+}
+
+route("POST", "/api/bug-reports", async (ctx) => {
+  rateLimit(ctx, ctx.limits.bugIp, `bug:${ctx.ip}`);
+  const installId = typeof ctx.body.installId === "string" ? ctx.body.installId.trim() : "";
+  const source = REPORT_SOURCES.has(ctx.body.source) ? ctx.body.source : "web";
+  const description = clipReport(ctx.body.description, REPORT_LIMITS.description).trim();
+  if (!REPORT_LIMITS.installId.test(installId) || description.length < 1) throw new HttpError(400, "invalid_request");
+  const contactEmail = cleanEmail(ctx.body.contactEmail ?? ctx.body.contact) ?? null;
+  const report = {
+    id: reportId(),
+    installId,
+    source,
+    description,
+    appVersion: clipReport(ctx.body.appVersion, REPORT_LIMITS.field).trim() || null,
+    platform: clipReport(ctx.body.platform, REPORT_LIMITS.field).trim() || null,
+    diagnostics: clipReport(ctx.body.diagnostics, REPORT_LIMITS.diagnostics) || null,
+    contactEmail,
+  };
+  ctx.store.insertBugReport(report);
+  ctx.log(`bug report ${report.id} from ${installId} (${source}, ${report.platform ?? "unknown"})`);
+  json(ctx.res, 201, { id: report.id });
+});
+
+route("POST", "/api/bug-reports/status", async (ctx) => {
+  rateLimit(ctx, ctx.limits.bugIp, `bug:${ctx.ip}`);
+  const installId = typeof ctx.body.installId === "string" ? ctx.body.installId.trim() : "";
+  if (!REPORT_LIMITS.installId.test(installId)) throw new HttpError(400, "invalid_request");
+  const ids = Array.isArray(ctx.body.ids)
+    ? ctx.body.ids.filter((id) => typeof id === "string" && /^[A-Za-z0-9_-]{1,64}$/.test(id)).slice(0, REPORT_LIMITS.ids)
+    : [];
+  const reports = ctx.store.bugReportStatuses(installId, ids).map((row) => ({
+    id: row.id,
+    status: row.status === "fixed" ? "fixed" : row.status === "unknown" ? "unknown" : "received",
+    fixedIn: row.fixed_in ?? null,
+  }));
+  json(ctx.res, 200, { reports, notify: true });
+});
+
+/** The admin reading the reports: a signed-in desktop session whose account is listed in DEXCLOUD_ADMIN_EMAILS. */
+function adminSession(ctx) {
+  const session = sessions(ctx);
+  if (!ctx.config.adminEmails.includes(String(session.account_email ?? "").toLowerCase())) throw new HttpError(403, "forbidden");
+  return session;
+}
+
+route("GET", "/api/cloud/desktop/admin/bug-reports", async (ctx) => {
+  adminSession(ctx);
+  const reports = ctx.store.recentBugReports(100).map((row) => ({
+    id: row.id,
+    installId: row.install_id,
+    source: row.source,
+    status: row.status,
+    fixedIn: row.fixed_in,
+    appVersion: row.app_version,
+    platform: row.platform,
+    contactEmail: row.contact_email,
+    description: row.description,
+    diagnostics: row.diagnostics,
+    createdAt: Number(row.created_at),
+  }));
+  json(ctx.res, 200, { reports });
+});
+
+route("POST", /^\/api\/cloud\/desktop\/admin\/bug-reports\/[A-Za-z0-9_-]{1,64}\/fixed$/, async (ctx) => {
+  adminSession(ctx);
+  const id = ctx.path.split("/").at(-2);
+  const fixedIn = cleanVersion(ctx.body.fixedIn);
+  if (!/^\d{1,6}\.\d{1,6}\.\d{1,6}$/.test(fixedIn)) throw new HttpError(400, "invalid_request");
+  const report = ctx.store.markBugReportFixed(id, fixedIn);
+  if (!report) throw new HttpError(404, "not_found");
+  json(ctx.res, 200, { id: report.id, status: report.status, fixedIn: report.fixed_in });
+});
 
 function cleanCloudName(value) {
   if (typeof value !== "string") return null;

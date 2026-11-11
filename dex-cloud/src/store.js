@@ -18,6 +18,8 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS team_members (team_id TEXT NOT NULL, account_id TEXT NOT NULL, role TEXT NOT NULL, joined_at INTEGER NOT NULL, PRIMARY KEY (team_id, account_id))",
   "CREATE TABLE IF NOT EXISTS checkouts (id TEXT PRIMARY KEY, account_id TEXT, plan TEXT NOT NULL, source TEXT NOT NULL, status TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, completed_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS consents (account_id TEXT PRIMARY KEY, status TEXT NOT NULL, text_version TEXT NOT NULL, updated_at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS bug_reports (id TEXT PRIMARY KEY, install_id TEXT NOT NULL, source TEXT NOT NULL, description TEXT NOT NULL, app_version TEXT, platform TEXT, diagnostics TEXT, contact_email TEXT, status TEXT NOT NULL DEFAULT 'received', fixed_in TEXT, created_at INTEGER NOT NULL)",
+  "CREATE INDEX IF NOT EXISTS bug_reports_install ON bug_reports(install_id, created_at)",
   "CREATE INDEX IF NOT EXISTS sessions_token ON sessions(token_hash)",
   "CREATE INDEX IF NOT EXISTS control_sessions_token ON control_sessions(token_hash)",
   "CREATE INDEX IF NOT EXISTS installations_account ON installations(account_id)",
@@ -370,6 +372,33 @@ export class Store {
       "ON CONFLICT(account_id) DO UPDATE SET status = excluded.status, text_version = excluded.text_version, updated_at = excluded.updated_at",
     ].join(" ")).run(accountId, status, textVersion, now());
     return this.consent(accountId);
+  }
+
+  insertBugReport({ id, installId, source, description, appVersion = null, platform = null, diagnostics = null, contactEmail = null }) {
+    this.db.prepare([
+      "INSERT INTO bug_reports (id, install_id, source, description, app_version, platform, diagnostics, contact_email, status, created_at)",
+      "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'received', ?)",
+    ].join(" ")).run(id, installId, source, description, appVersion, platform, diagnostics, contactEmail, now());
+    return this.bugReport(id);
+  }
+
+  bugReport(id) {
+    return this.db.prepare("SELECT * FROM bug_reports WHERE id = ?").get(id) ?? null;
+  }
+
+  /** The status of `ids` as sent by this install: an id another install sent is unknown here. */
+  bugReportStatuses(installId, ids) {
+    const statement = this.db.prepare("SELECT id, status, fixed_in FROM bug_reports WHERE id = ? AND install_id = ?");
+    return ids.map((id) => statement.get(id, installId) ?? { id, status: "unknown", fixed_in: null });
+  }
+
+  recentBugReports(limit = 100) {
+    return this.db.prepare("SELECT * FROM bug_reports ORDER BY created_at DESC LIMIT ?").all(limit);
+  }
+
+  markBugReportFixed(id, fixedIn) {
+    this.db.prepare("UPDATE bug_reports SET status = 'fixed', fixed_in = ? WHERE id = ?").run(fixedIn, id);
+    return this.bugReport(id);
   }
 
   counts() {

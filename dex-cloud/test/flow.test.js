@@ -208,3 +208,93 @@ test("healthz names the control plane", async () => {
     app.store.close();
   }
 });
+
+test("the Cloud serves docs, feedback and the download page instead of a private repository", async () => {
+  const app = await start(config());
+  try {
+    const docs = await call(app.base, "GET", "/docs");
+    assert.equal(docs.status, 200);
+    assert.match(String(docs.body), /疑难解答/);
+    assert.match(String(docs.body), /id="permissions"/);
+    assert.match(String(docs.body), /id="self-hosting"/);
+    assert.equal((await call(app.base, "GET", "/help")).status, 200);
+    assert.equal((await call(app.base, "GET", "/docs/troubleshooting")).status, 200);
+    assert.equal((await call(app.base, "GET", "/feedback")).status, 200);
+    assert.equal((await call(app.base, "GET", "/issues")).status, 200);
+    const download = await call(app.base, "GET", "/download");
+    assert.equal(download.status, 200);
+    assert.match(String(download.body), /\/download\/dexbot\.apk/);
+    assert.doesNotMatch(String(download.body), /github\.com\/liguan-89/);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});
+
+test("a bug report is stored, answered with 201, and its status is scoped to the install that sent it", async () => {
+  const app = await start(config());
+  try {
+    const sent = await call(app.base, "POST", "/api/bug-reports", {
+      installId: "install-abc123",
+      source: "bot",
+      description: "@devs the calendar never syncs",
+      appVersion: "2.0.0",
+      platform: "darwin",
+      diagnostics: "## Server warnings\nnone",
+    });
+    assert.equal(sent.status, 201);
+    assert.match(sent.body.id, /^[A-Za-z0-9_-]{1,64}$/);
+
+    const status = await call(app.base, "POST", "/api/bug-reports/status", { installId: "install-abc123", ids: [sent.body.id, "br_missing"] });
+    assert.equal(status.status, 200);
+    assert.deepEqual(status.body.reports, [
+      { id: sent.body.id, status: "received", fixedIn: null },
+      { id: "br_missing", status: "unknown", fixedIn: null },
+    ]);
+    assert.equal(status.body.notify, true);
+
+    const other = await call(app.base, "POST", "/api/bug-reports/status", { installId: "install-other", ids: [sent.body.id] });
+    assert.equal(other.body.reports[0].status, "unknown");
+
+    const invalid = await call(app.base, "POST", "/api/bug-reports", { installId: "bad id", description: "x" });
+    assert.equal(invalid.status, 400);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});
+
+test("an admin reads reports and marks one fixed, which the sender then sees", async () => {
+  const app = await start(loadConfig({
+    DEXCLOUD_DB: ":memory:",
+    DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
+    DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+    DEXCLOUD_DEV_CODES: "1",
+    DEXCLOUD_PLAN_MODE: "pro",
+    DEXCLOUD_ADMIN_EMAILS: "admin@example.com",
+  }));
+  try {
+    const authorize = await call(app.base, "POST", "/api/cloud/desktop/authorize", { deviceName: "Admin Mac", platform: "darwin", appVersion: "2.0.0" });
+    const approval = await call(app.base, "POST", "/api/cloud/desktop/approve/start", { userCode: authorize.body.userCode, email: "admin@example.com" });
+    await call(app.base, "POST", "/api/cloud/desktop/approve/verify", { userCode: authorize.body.userCode, attempt: approval.body.attempt, code: app.codes.at(-1).code });
+    const token = await call(app.base, "POST", "/api/cloud/desktop/token", { deviceCode: authorize.body.deviceCode });
+    assert.equal(token.status, 200);
+
+    const sent = await call(app.base, "POST", "/api/bug-reports", { installId: "install-abc123", source: "web", description: "something broke" });
+    assert.equal(sent.status, 201);
+
+    const list = await call(app.base, "GET", "/api/cloud/desktop/admin/bug-reports", undefined, token.body.accessToken);
+    assert.equal(list.status, 200);
+    assert.equal(list.body.reports[0].id, sent.body.id);
+
+    const fixed = await call(app.base, "POST", `/api/cloud/desktop/admin/bug-reports/${sent.body.id}/fixed`, { fixedIn: "2.0.1" }, token.body.accessToken);
+    assert.equal(fixed.status, 200);
+    assert.equal(fixed.body.status, "fixed");
+
+    const status = await call(app.base, "POST", "/api/bug-reports/status", { installId: "install-abc123", ids: [sent.body.id] });
+    assert.deepEqual(status.body.reports[0], { id: sent.body.id, status: "fixed", fixedIn: "2.0.1" });
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});

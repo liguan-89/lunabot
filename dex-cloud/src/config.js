@@ -63,6 +63,8 @@ export function loadConfig(env = process.env) {
     apkPath: trim(env.DEXCLOUD_APK_PATH) || "/data/downloads/dexbot.apk",
     updatePath: trim(env.DEXCLOUD_UPDATE_PATH) || "/data/downloads/update.json",
     landingPath: trim(env.DEXCLOUD_LANDING_PATH) || "/data/downloads/landing.html",
+    /** Desktop installers and electron-updater feeds (`latest-mac.yml`, …), served under `/desktop/`. */
+    desktopDir: trim(env.DEXCLOUD_DESKTOP_DIR) || "/data/downloads/desktop",
     dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",
     cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "dexbot-cloud-home:local",
     cloudNetwork: trim(env.DEXCLOUD_CLOUD_NETWORK) || "dexcloud",

@@ -9,7 +9,9 @@ process answers both APIs the clients use:
   account used by the desktop's **Phone and devices** sheet, installations,
   installation credentials and relay grants.
 
-It also serves the download page, the Android update manifest and the APK.
+It also serves the docs, feedback form, download page and the Android update
+manifest, plus the desktop installers and electron-updater feeds under
+`/desktop/`. The private source repository is never linked from the product.
 
 ## Current scope
 
@@ -111,6 +113,8 @@ The two `/v1` paths belong to the phone relay. Everything else is DEX Cloud.
 | `DEXCLOUD_SIGNUP_OPEN` | `0` refuses new addresses |
 | `DEXCLOUD_PLAN_MODE` | `pro` (default) grants a long-lived self-hosted licence; `free` does not |
 | `DEXCLOUD_LATEST_VERSION` | version written into `/update.json` |
+| `DEXCLOUD_APK_PATH` / `DEXCLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
+| `DEXCLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
 | `DEXCLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
 | `DEXCLOUD_CLOUD_IMAGE` | image for each Cloud, default `dexbot-cloud-home:local` |
 | `DEXCLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
