@@ -5,7 +5,7 @@ import { DatabaseSync } from "node:sqlite";
 const now = () => Date.now();
 
 const TABLES = [
-  "CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, plan_tier TEXT NOT NULL, plan_status TEXT NOT NULL, plan_expires_at INTEGER, plan_version INTEGER NOT NULL DEFAULT 1)",
+  "CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, email TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, plan_tier TEXT NOT NULL, plan_status TEXT NOT NULL, plan_expires_at INTEGER, plan_version INTEGER NOT NULL DEFAULT 1, auto_cloud INTEGER NOT NULL DEFAULT 0)",
   "CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, account_id TEXT, name TEXT NOT NULL, platform TEXT NOT NULL, app_version TEXT NOT NULL, created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS sessions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, device_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS device_codes (code_hash TEXT PRIMARY KEY, user_code TEXT NOT NULL UNIQUE, account_id TEXT, device_name TEXT NOT NULL, platform TEXT NOT NULL, app_version TEXT NOT NULL, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, approved_at INTEGER, redeemed_at INTEGER)",
@@ -50,7 +50,8 @@ const TEAMS_FOR = [
   "WHERE m.account_id = ? ORDER BY t.created_at ASC",
 ].join(" ");
 
-const CLOUD_MIGRATIONS = [
+const MIGRATIONS = [
+  "ALTER TABLE accounts ADD COLUMN auto_cloud INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE clouds ADD COLUMN hostname TEXT",
   "ALTER TABLE clouds ADD COLUMN machine_id TEXT",
   "ALTER TABLE clouds ADD COLUMN bootstrap_secret TEXT",
@@ -94,7 +95,7 @@ export function openStore(path) {
   db.exec("PRAGMA foreign_keys = ON");
   db.exec("PRAGMA busy_timeout = 5000");
   for (const statement of TABLES) db.prepare(statement).run();
-  for (const statement of CLOUD_MIGRATIONS) {
+  for (const statement of MIGRATIONS) {
     try {
       db.prepare(statement).run();
     } catch (error) {
@@ -137,6 +138,11 @@ export class Store {
     this.db.prepare("INSERT INTO accounts (id, email, created_at, plan_tier, plan_status, plan_expires_at, plan_version) VALUES (?, ?, ?, ?, ?, ?, 1)")
       .run(id, email, now(), planTier, planStatus, planExpiresAt ?? null);
     return this.accountById(id);
+  }
+
+  claimAutoCloud(accountId) {
+    const result = this.db.prepare("UPDATE accounts SET auto_cloud = 1 WHERE id = ? AND auto_cloud = 0").run(accountId);
+    return Number(result?.changes ?? 0) === 1;
   }
 
   updatePlan(accountId, { tier, status, expiresAt }) {

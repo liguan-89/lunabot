@@ -33,6 +33,16 @@ const UPGRADE_TIERS = new Set(["starter", "personal", "pro", "max"]);
 const routes = [];
 const route = (method, pattern, handler) => routes.push({ method, pattern, handler });
 
+/** A paid account with no Cloud gets its first one on sign-in, as the desktop's setup card expects. Once only;
+ * a failed first attempt is not retried behind the person's back. */
+function ensureDefaultCloud(ctx, account) {
+  if (!account || account.plan_status !== "active" || Number(account.plan_expires_at) <= Date.now()) return;
+  const live = ctx.store.cloudsFor(account.id).filter((cloud) => cloud.status !== "ended");
+  if (live.length || !ctx.store.claimAutoCloud(account.id)) return;
+  void ctx.provisioner.create({ accountId: account.id, tier: account.plan_tier, name: "My Cloud", color: "blue" })
+    .catch((error) => ctx.log(`auto cloud for ${account.id} failed: ${error?.message ?? error}`));
+}
+
 export async function handleAdmin(ctx) {
   for (const entry of routes) {
     if (entry.method !== ctx.method) continue;
@@ -82,11 +92,13 @@ route("POST", "/api/cloud/desktop/token", async (ctx) => {
   if (!account) throw new HttpError(400, "invalid_grant");
   const session = grantSession(ctx, account, row.device_name, row.platform, row.app_version);
   ctx.store.redeemDeviceCode(row.code_hash);
+  ensureDefaultCloud(ctx, account);
   json(ctx.res, 200, grantFor(account, session.deviceId, { token: session.token, expiresAt: session.expiresAt }));
 });
 
 route("GET", "/api/cloud/desktop/session", async (ctx) => {
   const session = sessions(ctx);
+  ensureDefaultCloud(ctx, ctx.store.accountById(session.account_id));
   json(ctx.res, 200, sessionPayload(ctx.store, ctx.config, session));
 });
 
@@ -115,6 +127,7 @@ route("POST", "/api/cloud/app/sign-in/start", async (ctx) => {
 route("POST", "/api/cloud/app/sign-in/verify", async (ctx) => {
   const { account, row } = await verifyOtp(ctx, { attempt: ctx.body.attempt, code: ctx.body.code, purpose: "admin" });
   const session = grantSession(ctx, account, row.device_name, row.platform, row.app_version);
+  ensureDefaultCloud(ctx, account);
   json(ctx.res, 200, grantFor(account, session.deviceId, { token: session.token, expiresAt: session.expiresAt }));
 });
 
