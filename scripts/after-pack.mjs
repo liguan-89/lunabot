@@ -151,7 +151,7 @@ async function signAdHocIdentity(context) {
 export default async function afterPack(context) {
   const resources = context.packager?.getResourcesDir?.(context.appOutDir) ?? (
     context.electronPlatformName === "darwin"
-      ? path.join(context.appOutDir, "OpenMausBot.app", "Contents", "Resources")
+      ? path.join(context.appOutDir, "DEX BOT.app", "Contents", "Resources")
       : path.join(context.appOutDir, "resources")
   );
   await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));

@@ -261,10 +261,10 @@ class AppUpdater(
          * The fixed ZCode Sites address of the release page. It never changes
          * across deploys, so shipped builds keep finding the newest manifest.
          */
-        const val MANIFEST_URL = "https://mausbot-cn-7i51.zai.site/update.json"
+        const val MANIFEST_URL = "https://cloud.dexai.vip/update.json"
 
         /** Where a person can install manually if the in-app flow cannot. */
-        const val RELEASE_PAGE = "https://mausbot-cn-7i51.zai.site/"
+        const val RELEASE_PAGE = "https://cloud.dexai.vip/download"
     }
 }
 

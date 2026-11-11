@@ -4,7 +4,9 @@ import type { CaptureResult, PostHog } from "posthog-js";
 import { appVersion } from "@/lib/app-links";
 import { readAdvancedMode } from "@/lib/interface-mode";
 
-const TOKEN = "phc_m2hP39w8y2gLPvHgDvSXAu6xcZ3agjf4ruL56rGcMZEe";
+// DEX BOT ships no product-analytics key: nothing leaves the machine until an
+// operator builds a fork with its own write-only key here.
+const TOKEN = "";
 
 // Read before init(): an opted-out install must never call posthog.init(), so no request leaves the machine.
 const OPT_OUT_KEY = "omb-analytics-opt-out";
@@ -71,7 +73,7 @@ function keepStoredOptOut() {
 
 export function initAnalytics(): Promise<void> {
   keepStoredOptOut();
-  if (client || !analyticsEnabled()) return Promise.resolve();
+  if (!TOKEN || client || !analyticsEnabled()) return Promise.resolve();
   loading ??= import("posthog-js")
     .then(({ default: posthog }) => start(posthog))
     .catch(() => {

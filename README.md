@@ -1,12 +1,12 @@
 <div align="center">
 
-# OpenMausBot
+# DEX BOT
 
-**The open-source Grok Bot alternative: your own team of AI bots, in a chat app.**
+**A local-first chat app for running a team of AI agents.**
 
-[**openmausbot.com**](https://www.openmausbot.com) &nbsp;·&nbsp; [Download](https://www.openmausbot.com/download) &nbsp;·&nbsp; [Open source Grok Bot alternative, compared](https://www.openmausbot.com/blog/grok-bot-vs-openmausbot)
+[**cloud.dexai.vip**](https://cloud.dexai.vip) &nbsp;·&nbsp; [Download](https://cloud.dexai.vip/download)
 
-<sub>OpenMausBot is an open-source Grok Bot alternative: an independent project inspired by **Grok Bot**, and the open-source alternative to **Meta Muse**, **OpenAI dots** and **Cue by Manus** — bring-your-own-agent, local-first, on the models you already have. Also known as **MausBot**; formerly **OpenGrokBot**. Not affiliated with xAI, Meta, OpenAI or Manus.</sub>
+<sub>DEX BOT is an independent, rebranded fork of **OpenMausBot**, which is an open-source Grok Bot alternative inspired by **Grok Bot** and an alternative to **Meta Muse**, **OpenAI dots** and **Cue by Manus**. It keeps the upstream Apache-2.0 license and attribution; DEX BOT is not affiliated with xAI, Meta, OpenAI, Manus or the OpenMausBot maintainers.</sub>
 
 Every bot in the sidebar is a real agent — Claude or Codex running locally under the hood — with its own
 personality, its own model, its own cloud computer, and its own connected apps.

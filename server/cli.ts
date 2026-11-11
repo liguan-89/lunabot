@@ -131,7 +131,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   const options: CliOptions = {
     command: command === "--help" || command === "-h" ? "help" : command === "--version" || command === "-v" ? "version" : command === "devices" ? "sessions" : (command as CliOptions["command"]),
     port: Number(env.OMB_PORT || 8799),
-    dataDir: env.OMB_DATA_DIR || join(homedir(), ".openmausbot"),
+    dataDir: env.OMB_DATA_DIR || join(homedir(), ".dexbot"),
     tailscale: false,
     tunnel: false,
     client: false,
@@ -968,7 +968,7 @@ export async function runOnboardingCommand(
     }
     if (options.command === "setup") {
       io.log(`\nAll set. Start with: ${cliPrefix()}`);
-      if (options.dataDir !== join(homedir(), ".openmausbot") || options.port !== 8799) {
+      if (options.dataDir !== join(homedir(), ".dexbot") || options.port !== 8799) {
         io.log(`Use the same --data-dir (${options.dataDir}) and --port (${options.port}) options when starting.`);
       }
       return 0;

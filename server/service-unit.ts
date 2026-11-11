@@ -17,8 +17,8 @@ export interface ServiceSpec {
   cliPrefix?: string;
 }
 
-export const SYSTEMD_UNIT_NAME = "openmausbot.service";
-export const LAUNCHD_LABEL = "com.openmausbot.serve";
+export const SYSTEMD_UNIT_NAME = "dexbot.service";
+export const LAUNCHD_LABEL = "com.dexbot.serve";
 
 function quoteSystemd(value: string): string {
   // systemd's ExecStart splits on whitespace and understands double quotes.
@@ -35,9 +35,9 @@ export function serviceCommand(spec: Pick<ServiceSpec, "node" | "script" | "serv
 
 export function systemdUnit(spec: ServiceSpec): string {
   const lines = [
-    "# Written by `openmausbot service install`. Re-run it to change the options.",
+    "# Written by `dexbot service install`. Re-run it to change the options.",
     "[Unit]",
-    `Description=OpenMausBot${spec.label ? ` (${spec.label})` : ""}`,
+    `Description=DEX BOT${spec.label ? ` (${spec.label})` : ""}`,
     "After=network-online.target",
     "Wants=network-online.target",
     "",
@@ -137,8 +137,8 @@ export function servicePlan(platform: NodeJS.Platform, dataDir: string, home = h
   return null;
 }
 
-export const SENTINEL_LAUNCHD_LABEL = "com.openmausbot.sentinel";
-export const SENTINEL_SYSTEMD_NAME = "openmausbot-sentinel";
+export const SENTINEL_LAUNCHD_LABEL = "com.dexbot.sentinel";
+export const SENTINEL_SYSTEMD_NAME = "dexbot-sentinel";
 export const SENTINEL_INTERVAL_SECONDS = 120;
 
 export type SentinelServiceSpec = Pick<ServiceSpec, "node" | "script" | "dataDir" | "home"> & {
@@ -152,10 +152,10 @@ export function shippedSentinelCli(
   platform: NodeJS.Platform, home: string, exists: (path: string) => boolean, hasSentinel: (script: string) => boolean = () => true,
 ): { node: string; script: string } | null {
   const candidates = platform === "darwin"
-    ? ["/Applications/OpenMausBot.app", join(home, "Applications", "OpenMausBot.app")].map((app) => ({
-      node: join(app, "Contents", "MacOS", "OpenMausBot"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
+    ? ["/Applications/DEX BOT.app", join(home, "Applications", "DEX BOT.app")].map((app) => ({
+      node: join(app, "Contents", "MacOS", "DEX BOT"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
     }))
-    : platform === "linux" ? [{ node: "/opt/OpenMausBot/openmausbot", script: "/opt/OpenMausBot/resources/server/openmausbot.js" }] : [];
+    : platform === "linux" ? [{ node: "/opt/DEX BOT/dexbot", script: "/opt/DEX BOT/resources/server/openmausbot.js" }] : [];
   return candidates.find((cli) => exists(cli.node) && exists(cli.script) && hasSentinel(cli.script)) ?? null;
 }
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">DexBot</string>
+    <string name="app_name">DEX BOT</string>
     <string name="notification_channel_blocking">审批与提问</string>
     <string name="notification_channel_blocking_desc">需要及时回复的审批或提问提示</string>
     <string name="notification_channel_done">机器人消息</string>

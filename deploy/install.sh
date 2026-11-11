@@ -17,7 +17,7 @@ settings() {
   INSTALL_DIR="${OMB_INSTALL_DIR:-/opt/openmausbot}"
   IMAGE_REPO=milind-soni/openmausbot
   RELEASES_URL=https://api.github.com/repos/milind-soni/OpenMausBot/releases/latest
-  ADMIN_URL="${MAUSBOT_ADMIN_URL:-https://cloud.openmausbot.com}"
+  ADMIN_URL="${MAUSBOT_ADMIN_URL:-https://cloud.dexai.vip}"
   SCRIPT_URL=https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh
   # Where the files this installer places come from: this repository at the tag of the version it installs, and at
   # main when that tag does not have them. OMB_INSTALL_SOURCE names one copy to use instead (https://… or file:///…).

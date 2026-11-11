@@ -420,6 +420,11 @@ internal fun BotFace(
     val faceSeed = remember(preset.key, seed) {
         BotFaceRig.mix(preset.key.hashCode() * 31 + seed)
     }
+    // Hands belong to the one large portrait; a rig buffer and its one brush
+    // live as long as the face, so a frame allocates neither.
+    val hands = remember { BotHandsPose() }
+    val handBrush = remember(preset) { botHandBrush(preset) }
+    val handEdge = remember(preset) { botHandEdge(preset) }
     // A still face never asks for the clock, because a still face is not on
     // screen for its motion — it is there to be looked at.
     val time = if (life == FaceLife.STILL) null else rememberFaceTime()
@@ -486,6 +491,15 @@ internal fun BotFace(
                 BotFaceRig.pose(now, faceSeed, effective, life)
                     .copy(lookX = look.first, lookY = look.second)
             }
+            // The hands read the same mood and the same clock as the eyes:
+            // sleepy eyes come with a hand under the cheek, a working face
+            // with both hands in front.
+            if (now == null) {
+                hands.start(false)
+            } else {
+                val effective = if (asleep.value) FaceMood.DROWSY else mood
+                BotHandRig.pose(now, faceSeed, effective, life, hands)
+            }
             val top = headroom.toPx()
             drawFace(
                 palette = preset,
@@ -494,6 +508,9 @@ internal fun BotFace(
                 crown = crown,
                 diameter = this.size.height - top,
                 middle = Offset(this.size.width / 2f, top + (this.size.height - top) / 2f),
+                hands = hands,
+                handBrush = handBrush,
+                handEdge = handEdge,
             )
         }
     }
@@ -536,6 +553,9 @@ private fun DrawScope.drawFace(
     crown: Boolean,
     diameter: Float,
     middle: Offset,
+    hands: BotHandsPose,
+    handBrush: Brush,
+    handEdge: Color,
 ) {
     val radius = diameter / 2f
     // The breath squashes as it stretches: the disc is a soft body, not a
@@ -609,6 +629,9 @@ private fun DrawScope.drawFace(
         }
 
         drawCircle(rim, radius, middle, style = Stroke(0.5.dp.toPx()))
+        // The hands sit in front of the body, over the rim: a limb held across
+        // the belly, not a sticker behind the portrait.
+        drawBotHands(hands, handEdge, handBrush, radius, middle)
         if (crown) drawCrown(pose, radius, middle)
     }
 }

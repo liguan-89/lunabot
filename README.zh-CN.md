@@ -1,10 +1,10 @@
-# DexBot · Minis 风格 Android 客户端
+# DEX BOT · Minis 风格 Android 客户端
 
-> 原名 **MausBot 中文版**（OpenMausBot 中文客户端），自 1.6.1 起改名为 **DexBot**；包名仍是 `com.openmausbot.companion`，所以升级安装不会丢配对和聊天记录。
+> **DEX BOT** 是独立分支：安装包名改为 `com.dexbot.companion`，可以和原版同时安装、对照使用；桌面端应用 ID 为 `com.dexbot.app`。
 >
-> 基于 [OpenMausBot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/OpenMausBot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面。
+> 基于 [OpenMausBot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/OpenMausBot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面，并接入自建 **DEX Cloud**（`https://cloud.dexai.vip`）。
 >
-> 非官方项目。手机连的是电脑上的 companion，不改变 OpenMausBot 服务端。
+> 保留上游 Apache-2.0 许可与署名。手机连的是电脑上的 companion；局域网直连、Tailscale 和自建配对服务都保留。
 
 ## 为什么做这个
 

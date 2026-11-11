@@ -139,7 +139,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:host="pair"
-                    android:scheme="openmausbot" />
+                    android:scheme="dexbot" />
             </intent-filter>
         </activity>
         <!--
