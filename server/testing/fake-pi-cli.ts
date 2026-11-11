@@ -331,6 +331,7 @@ function handle(cmd: any) {
       }
       sessionCounter += 1;
       currentSessionFile = `/fake/pi-session-${sessionCounter}.json`;
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ newSession: true }) + "\n");
       const sessionReply = { type: "response", command: "new_session", success: true, data: { sessionId: `s-${sessionCounter}`, sessionFile: currentSessionFile } };
       if (mode !== "session-slow") {
         send(sessionReply);
@@ -347,6 +348,7 @@ function handle(cmd: any) {
         return;
       }
       currentSessionFile = cmd.sessionPath ?? currentSessionFile;
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ switchSession: cmd.sessionPath ?? null }) + "\n");
       send({ type: "response", command: "switch_session", success: true, data: { sessionId: "s-resumed", sessionFile: currentSessionFile } });
       return;
     case "set_model": {

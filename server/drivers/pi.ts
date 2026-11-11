@@ -20,6 +20,7 @@ import {
   writePromptSplitReceipt,
 } from "./prompt-split.ts";
 import type { PromptSplitReceipt } from "./prompt-split.ts";
+import { sessionIdlePolicy } from "./session-idle.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 import { commandSummary, toolDetailPreview } from "../tool-summary.ts";
 
@@ -413,8 +414,42 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       steer?: (text: string) => Promise<SteerOutcome>;
     }>();
 
+    /** A pi child kept warm between turns, with everything the boot fixed.
+     *
+     * pi's MCP extension mounts every integration and reads the tool scope and
+     * approval mode *at spawn*, so a warm child is only reusable while every
+     * input to that boot is unchanged. `key` is exactly that input set; a
+     * different scope, approval mode, integration set, cwd, model inject file
+     * or CLI closes the child and the next turn spawns a fresh one.
+     */
+    interface PiWarmSession {
+      child: ReturnType<typeof spawnCli>;
+      key: string;
+      sessionFile: string | null;
+      sessionReady: boolean;
+      confirmedModel: string | null;
+      idleTimer: ReturnType<typeof setTimeout> | null;
+    }
+    const warmSessions = new Map<string, PiWarmSession>();
+    const { idleMs: SESSION_IDLE_MS } = sessionIdlePolicy("PI");
+
+    const closeWarmSession = (threadId: string, reason: string) => {
+      const warm = warmSessions.get(threadId);
+      if (!warm) return;
+      warmSessions.delete(threadId);
+      if (warm.idleTimer) clearTimeout(warm.idleTimer);
+      try {
+        warm.child.stdin.end();
+      } catch {}
+      try {
+        killCliTree(warm.child);
+      } catch {}
+      void reason;
+    };
+
     const stopAll = async () => {
       const results = await Promise.allSettled([...active.values()].map(({ stop }) => Promise.resolve().then(stop)));
+      for (const threadId of Array.from(warmSessions.keys())) closeWarmSession(threadId, "stop all");
       const failure = results.find((result) => result.status === "rejected");
       if (failure) throw failure.reason;
     };
@@ -448,6 +483,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const pending = new Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>();
       const askTimers = new Set<ReturnType<typeof setTimeout>>();
       let settled = false;
+      /** Whether the child may outlive this turn (pooling); stop() clears it. */
+      let keepChild = true;
       let completion: Promise<void> | null = null;
       let endStopReason: string | undefined;
       const runUsage = new PiRunUsage();
@@ -461,27 +498,63 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
       }
 
-      // The MCP config carries credentials: a 0600 temp file removed at settle, never argv.
-      // Written on every turn: the extension also carries ask_user.
+      // The MCP config carries credentials: a 0600 temp file removed once the
+      // child has read it, never argv. Written only for a fresh spawn — the
+      // extension reads it, the tool scope and the approval mode at boot.
       const mcpServers = buildMcpServers(turn);
       const askUser = toolScope === undefined || allowsTool(toolScope, { kind: "native", name: ASK_USER_TOOL });
-      const mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
-      const scopeReadyPath = toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
-      try {
-        writeFileSync(join(mcpTempDir, "mcp.json"), JSON.stringify({ mcpServers: mcpServers ?? {}, toolScope, scopeReadyPath, approvalMode: turn.approvalMode, askUser }), { mode: 0o600 });
-      } catch (err) {
-        // A partial file could still hold credentials.
+      // Everything the child's boot fixed. A turn whose contract differs must
+      // not inherit the previous child's grants, scope or model.
+      const poolKey = JSON.stringify({
+        cli: config.cli,
+        cwd: turn.cwd ?? null,
+        toolScope: toolScope ?? null,
+        approvalMode: turn.approvalMode ?? null,
+        askUser,
+        model: turn.model ?? null,
+        mcpServers: mcpServers ?? null,
+      });
+      const warm = warmSessions.get(threadId);
+      const reuse = Boolean(
+        warm &&
+          !turn.sessionReset &&
+          warm.key === poolKey &&
+          warm.child.exitCode === null &&
+          warm.child.signalCode === null,
+      );
+      let mcpTempDir: string | null = null;
+      let scopeReadyPath: string | undefined;
+      let child: ReturnType<typeof spawnCli>;
+      let sessionFile: string | null;
+      let sessionReady: boolean;
+      let confirmedModel: string | null;
+      if (reuse && warm) {
+        child = warm.child;
+        sessionFile = warm.sessionFile;
+        sessionReady = warm.sessionReady;
+        confirmedModel = warm.confirmedModel;
+        if (warm.idleTimer) {
+          clearTimeout(warm.idleTimer);
+          warm.idleTimer = null;
+        }
+        warmSessions.delete(threadId);
+      } else {
+        closeWarmSession(threadId, "spawn contract changed");
+        mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
+        scopeReadyPath = toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
         try {
-          rmSync(mcpTempDir, { recursive: true, force: true });
-        } catch {}
-        throw err;
-      }
-      const childArgs = [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension];
-
-      // spawnCli can throw synchronously, before settle() could remove the credential file.
-      const child = (() => {
+          writeFileSync(join(mcpTempDir, "mcp.json"), JSON.stringify({ mcpServers: mcpServers ?? {}, toolScope, scopeReadyPath, approvalMode: turn.approvalMode, askUser }), { mode: 0o600 });
+        } catch (err) {
+          // A partial file could still hold credentials.
+          try {
+            rmSync(mcpTempDir, { recursive: true, force: true });
+          } catch {}
+          throw err;
+        }
+        const childArgs = [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension];
+        // spawnCli can throw synchronously, before settle() could remove the credential file.
         try {
-          return spawnCli(config.cli, childArgs, {
+          child = spawnCli(config.cli, childArgs, {
             stdio: ["pipe", "pipe", "pipe"],
             cwd: turn.cwd,
             env: piEnvironment({
@@ -496,7 +569,16 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           } catch {}
           throw err;
         }
-      })();
+        sessionFile = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
+        sessionReady = false;
+        confirmedModel = null;
+        // Kept for the child's whole life: the per-turn listeners are detached
+        // between turns, and an 'error' event on a stream with no listener
+        // takes the process down. A warm child can emit one while idle.
+        child.on("error", () => {});
+        child.stdin.on("error", () => {});
+      }
+      const freshSpawn = !reuse;
       let assistantText = "";
       let compactionObserved = false;
       const responseWaiters = new Map<string, { resolve: (data: unknown) => void; reject: (err: Error) => void; timer?: NodeJS.Timeout }>();
@@ -518,13 +600,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           timer?.unref?.();
           responseWaiters.set(key, { resolve, reject, timer });
         });
-      child.stdin.on("error", () => rejectWaiters(new Error("pi stdin closed")));
+      const onStdinError = () => rejectWaiters(new Error("pi stdin closed"));
+      child.stdin.on("error", onStdinError);
       const send = (obj: Record<string, unknown>) => {
         appendNative(threadId, { dir: "out", source: "pi.rpc", msg: piNativeLogMessage(obj) });
         child.stdin.write(JSON.stringify(obj) + "\n");
       };
       // Vanilla pi refuses the unknown command; no waiter is keyed for the reply.
-      send(PI_NEGOTIATE_FRAME);
+      // Only a fresh child needs it: a reused one was negotiated at spawn.
+      if (freshSpawn) send(PI_NEGOTIATE_FRAME);
 
       const flushAssistantText = () => {
         const text = assistantText;
@@ -548,17 +632,44 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         for (const timer of askTimers) clearTimeout(timer);
         askTimers.clear();
         pending.clear();
-        try {
-          child.stdin.end();
-        } catch {}
+        // `keep` is decided once: a warm child survives an ordinary completion
+        // (that is the whole point), and every other exit — an explicit stop, a
+        // dead or unconfirmed child — takes the kill path.
+        const keep = keepChild && child.exitCode === null && child.signalCode === null;
         completion = (async () => {
+          rejectWaiters(new Error("pi turn ended"));
+          active.delete(threadId);
+          if (keep) {
+            detachHandlers();
+            flushAssistantText();
+            const warm: PiWarmSession = {
+              child,
+              key: poolKey,
+              sessionFile,
+              sessionReady,
+              confirmedModel,
+              idleTimer: null,
+            };
+            warm.idleTimer = setTimeout(() => closeWarmSession(threadId, "idle"), SESSION_IDLE_MS);
+            warm.idleTimer.unref?.();
+            warmSessions.set(threadId, warm);
+            emit({
+              ...base(threadId, turnId),
+              type: "turn.completed",
+              ...outcome,
+            });
+            return;
+          }
+          try {
+            child.stdin.end();
+          } catch {}
           // The TERM grace lets Pi end the detached tool processes it started; a CLI that ignores TERM is killed after it.
           if (!await killCliTree(child)) throw new Error("Pi process termination could not be confirmed");
-          rejectWaiters(new Error("pi turn ended"));
-          try {
-            rmSync(mcpTempDir, { recursive: true, force: true });
-          } catch {}
-          active.delete(threadId);
+          if (mcpTempDir) {
+            try {
+              rmSync(mcpTempDir, { recursive: true, force: true });
+            } catch {}
+          }
           flushAssistantText();
           emit({
             ...base(threadId, turnId),
@@ -588,6 +699,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       };
 
       const stop = () => {
+        keepChild = false;
         try {
           send({ type: "abort" });
         } catch {}
@@ -788,51 +900,63 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       };
 
       const chunks = new PiRpcChunks();
-      child.stdout.setEncoding("utf8");
-      child.stdout.on("data", piLineReader((line) => {
+      const onStdout = piLineReader((line) => {
         const frame = decodePiFrame(line, chunks);
         if (!frame) return;
         try {
           onEvent(frame as unknown as PiEvent);
         } catch {}
-      }));
-      child.on("error", (err) => {
-        const fail = describeSpawnFailure(err as NodeJS.ErrnoException, config.cli, turn.cwd);
+      });
+      const onChildError = (err: NodeJS.ErrnoException) => {
+        const fail = describeSpawnFailure(err, config.cli, turn.cwd);
         rejectWaiters(new Error(fail.message));
         emit({ ...base(threadId, turnId), type: "runtime.error", message: fail.message, setup: fail.setup });
         settle(false);
-      });
-      child.on("close", () => {
+      };
+      const onChildClose = () => {
         rejectWaiters(new Error("pi process exited before replying"));
         settle(false);
-      });
+      };
+      child.stdout.setEncoding("utf8");
+      child.stdout.on("data", onStdout);
+      child.on("error", onChildError);
+      child.on("close", onChildClose);
+      /** Detach this turn's listeners, so a child kept for the next turn
+       * cannot call back into a settled one. */
+      const detachHandlers = () => {
+        child.stdout.off("data", onStdout);
+        child.stdin.off("error", onStdinError);
+        child.off("error", onChildError);
+        child.off("close", onChildClose);
+      };
 
       emit({ ...base(threadId, turnId), type: "turn.started" });
 
-      // The resumeCursor is pi's sessionFile, which switch_session takes as `sessionPath`.
-      const sessionPath = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
-      let sessionFile = sessionPath;
       let sessionId: string | null = sessionFile;
-      let sessionReady = false;
       let sessionOpened = false;
-      let confirmedModel: string | null = null;
-      try {
-        const command = sessionPath ? "switch_session" : "new_session";
-        const hsPromise = awaitResponse(command, Infinity);
-        send(sessionPath ? { type: "switch_session", sessionPath } : { type: "new_session" });
-        const slow = setTimeout(() => emit({ ...base(threadId, turnId), type: "runtime.notice", ...noticeFailure("chat.notice.piSessionSlow") }), PI_SESSION_SLOW_MS);
-        const hs = (await hsPromise.finally(() => clearTimeout(slow))) as { sessionFile?: string; sessionId?: string } | undefined;
-        if (hs?.sessionFile) sessionFile = hs.sessionFile;
-        sessionId = sessionFile ?? hs?.sessionId ?? null;
-        sessionReady = true;
-        sessionOpened = true;
-      } catch {
-        // pi --no-session accepts a prompt without an explicit session.
+      if (!freshSpawn) {
+        // The warmed child already holds this session: reuse it rather than
+        // making pi recreate (or re-read) the same conversation.
+        sessionOpened = sessionReady;
+      } else {
+        try {
+          const command = sessionFile ? "switch_session" : "new_session";
+          const hsPromise = awaitResponse(command, Infinity);
+          send(sessionFile ? { type: "switch_session", sessionPath: sessionFile } : { type: "new_session" });
+          const slow = setTimeout(() => emit({ ...base(threadId, turnId), type: "runtime.notice", ...noticeFailure("chat.notice.piSessionSlow") }), PI_SESSION_SLOW_MS);
+          const hs = (await hsPromise.finally(() => clearTimeout(slow))) as { sessionFile?: string; sessionId?: string } | undefined;
+          if (hs?.sessionFile) sessionFile = hs.sessionFile;
+          sessionId = sessionFile ?? hs?.sessionId ?? null;
+          sessionReady = true;
+          sessionOpened = true;
+        } catch {
+          // pi --no-session accepts a prompt without an explicit session.
+        }
       }
       if (settled) return { turnId };
 
       const chosen = typeof turn.model === "string" ? splitPiModel(turn.model) : null;
-      if (chosen) {
+      if (chosen && (freshSpawn || !confirmedModel)) {
         try {
           const modelPromise = awaitResponse("set_model");
           send({ type: "set_model", provider: chosen.provider, modelId: chosen.modelId });
@@ -846,7 +970,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return { turnId };
         }
       }
-      if (!chosen) {
+      if (!chosen && freshSpawn) {
         try {
           const statePromise = awaitResponse("get_state");
           send({ type: "get_state" });
@@ -879,6 +1003,16 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           settle(false);
           throw new Error(message);
         }
+      }
+
+      // The extension mounted every server and wrote its scope receipt at
+      // boot, and both have been checked above: the credential-bearing config
+      // is not needed for the rest of this child's life.
+      if (mcpTempDir) {
+        try {
+          rmSync(mcpTempDir, { recursive: true, force: true });
+        } catch {}
+        mcpTempDir = null;
       }
 
       const halves = promptHalves(turn);

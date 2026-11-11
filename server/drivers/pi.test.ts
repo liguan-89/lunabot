@@ -477,6 +477,27 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(secondSession?.sessionId).toBe(firstSession?.sessionId);
   });
 
+  it("respawns when the approval mode changes, so a stale grant is never reused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-approval-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row).length;
+    const threadId = "t-pi-approval-" + randomUUID();
+
+    const first = await instance!.adapter.sendTurn({ threadId, text: "first", approvalMode: "full" });
+    await recorder!.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    expect(spawns()).toBe(1);
+
+    // The MCP extension reads the approval mode at boot: a turn under a
+    // different policy must get its own child, never the previous grant.
+    const second = await instance!.adapter.sendTurn({ threadId, text: "second", approvalMode: "ask" });
+    await recorder!.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+    expect(spawns()).toBe(2);
+  });
+
   it("keeps one child for a follow-up turn instead of paying pi's boot again", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-pool-"));
     const dump = join(dir, "dump.jsonl");
