@@ -136,6 +136,8 @@ const __APP_VERSION__: string;
       };
       /** Settings on the person's own Cloud: the plan, read only. */
       cloudPlan?: import("../../electron/cloud-account.mjs").CloudPlanBridge;
+      /** TK1688 API subscriptions: sign-in, plans, quota, and installing the issued key as an engine. */
+      market?: import("../../electron/market-client.mjs").MarketBridge;
       /** This computer's page, and My Cloud's own page once it is the person's home: the window onto My Cloud. */
       home?: import("../../electron/home-window.mjs").HomeBridge;
       desktopNotices?: import("../../electron/desktop-prefs.mjs").DesktopNoticesBridge;

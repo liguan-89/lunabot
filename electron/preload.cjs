@@ -608,6 +608,28 @@ const bridge = {
     restartNow: () => navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("cloud-plan:restart-now") : Promise.reject(new Error("Choose Restart now to restart the Cloud.")),
   } : undefined,
+  market: process.argv.includes("--omb-company-desktop=1") ? {
+    state: () => ipcRenderer.invoke("market:state"),
+    plans: () => ipcRenderer.invoke("market:plans"),
+    subscriptions: () => ipcRenderer.invoke("market:subscriptions"),
+    signIn: () => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:sign-in") : Promise.reject(new Error("Choose Sign in to sign in.")),
+    signOut: () => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:sign-out") : Promise.reject(new Error("Choose Sign out to sign out.")),
+    checkout: (planCode, paymentMethod) => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:checkout", String(planCode), String(paymentMethod ?? "epay")) : Promise.reject(new Error("Choose Subscribe to open checkout.")),
+    checkoutStatus: checkoutId => ipcRenderer.invoke("market:checkout-status", String(checkoutId)),
+    install: subscriptionId => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:install", String(subscriptionId)) : Promise.reject(new Error("Choose Install to add the API key.")),
+    installed: () => ipcRenderer.invoke("market:installed"),
+    manage: () => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:manage") : Promise.reject(new Error("Choose Manage to open your subscriptions.")),
+    onState: callback => {
+      const listener = (_event, state) => callback(state);
+      ipcRenderer.on("market:changed", listener);
+      return () => ipcRenderer.off("market:changed", listener);
+    },
+  } : undefined,
   organization: process.argv.includes("--omb-company-desktop=1") ? {
     settingsOpened: () => ipcRenderer.invoke("organization:settings-opened"),
     state: () => ipcRenderer.invoke("organization:state"),
