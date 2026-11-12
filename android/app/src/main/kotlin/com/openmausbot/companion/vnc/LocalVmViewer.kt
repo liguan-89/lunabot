@@ -107,7 +107,7 @@ internal class LocalVmViewer(
             fail("这台电脑暂时没有可用的实时桌面。")
             return
         }
-        val client = RfbClient(password = join?.password)
+        val client = RfbClient()
         rfb = client
         val opened = session.openViewerSocket(path, SocketListener(client))
         if (opened == null) {

@@ -1,6 +1,6 @@
 // Cua-backed Local VM: OMB owns only the sandbox boundary; desktop automation is Cua Driver's (`cua-driver mcp` in the container).
 import { execFile } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { lstatSync } from "node:fs";
 import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -773,7 +773,6 @@ function appleWorkspaceMountIsSafe(
 
 export function containerRunArgs(
   runtime: Runtime,
-  password = "CHANGE_ME",
   target: LocalVmTarget = SHARED_LOCAL_VM_TARGET,
   desktop: DesktopRunOptions = { platform: process.platform, resources: DEFAULT_DESKTOP_RESOURCES, hostUser: null },
 ): string[] {
@@ -827,8 +826,10 @@ export function containerRunArgs(
     runtime === "podman"
       ? `type=bind,source=${target.workspaceDir},target=${VM_WORKSPACE_GUEST},relabel=private`
       : `type=bind,source=${target.workspaceDir},target=${VM_WORKSPACE_GUEST}`,
-    "-e",
-    `VNC_PW=${password}`,
+    // No VNC_PW: without one the desktop offers RFB security type None, which
+    // is what the phone viewer speaks. VNC Auth's DES is weak crypto and adds
+    // nothing here — the port is loopback-only and every viewer reaches it
+    // through the paired, lease-bound relay inside TLS.
     "-p",
     target.viewerPort
       ? `127.0.0.1:${target.viewerPort}:${INTERNAL_VIEWER_PORT}`
@@ -914,7 +915,7 @@ export async function containerComputerAction(
     }
     const args =
       action === "run"
-        ? containerRunArgs(runtime, randomBytes(6).toString("base64url"), target, {
+        ? containerRunArgs(runtime, target, {
           platform,
           resources,
           hostUser: currentHostUser(platform),
@@ -1162,7 +1163,7 @@ export function setupCommands(
     run:
       runtime === "container" && target.key !== SHARED_LOCAL_VM_TARGET.key
         ? null
-        : command(containerRunArgs(runtime, "CHANGE_ME", target, {
+        : command(containerRunArgs(runtime, target, {
           platform,
           resources: DEFAULT_DESKTOP_RESOURCES,
           hostUser: null,

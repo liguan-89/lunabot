@@ -1071,7 +1071,7 @@ describe("containerComputerAction", () => {
     });
 
     await expect(containerComputerAction("remove", fake.run, "linux")).rejects.toThrow(
-      /not created by OpenMausBot.*remove it manually/i,
+      /not created by DEX BOT.*remove it manually/i,
     );
     expect(fake.calls).not.toContain(`docker rm -f ${CONTAINER}`);
   });
@@ -1173,7 +1173,7 @@ describe("setupCommands", () => {
 
   it("asks Docker for an ephemeral loopback viewer port for each per-bot VM", () => {
     const target = perBotLocalVmTarget("bot-a");
-    const args = containerRunArgs("docker", "secret", target);
+    const args = containerRunArgs("docker", target);
     const command = ["docker", ...args].join(" ");
 
     expect(command).toContain(`--name ${target.containerName}`);
@@ -1195,12 +1195,14 @@ describe("setupCommands", () => {
     expect(commands.install).not.toContain("Docker");
   });
 
-  it("publishes only the password-protected viewer and only on loopback", () => {
+  it("publishes the viewer only on loopback and leaves VNC without a password", () => {
     const command = setupCommands("podman", "linux").run!;
     expect(command).toContain("-p 127.0.0.1:6080:6901");
     expect(command).not.toContain(" -p 6080:6901");
     expect(command).not.toContain("5900");
-    expect(command).toContain("VNC_PW=CHANGE_ME");
+    // A VNC_PW would make KasmVNC offer only VNC Auth (DES); the phone viewer
+    // speaks security type None, and the port is loopback-only anyway.
+    expect(command).not.toContain("VNC_PW=");
   });
 
   it("offers a start command for a stopped compatible desktop", () => {
@@ -1227,7 +1229,7 @@ describe("setupCommands", () => {
 
   it("bars every route to root only where the desktop's root is the host's root", () => {
     expect(setupCommands("docker", "linux").run).toContain("--security-opt no-new-privileges");
-    const rootPodman = containerRunArgs("podman", "secret", SHARED_LOCAL_VM_TARGET, {
+    const rootPodman = containerRunArgs("podman", SHARED_LOCAL_VM_TARGET, {
       platform: "linux",
       resources: { memoryGb: 4, cpus: 2 },
       hostUser: { uid: 0, gid: 0 },
@@ -1241,10 +1243,10 @@ describe("setupCommands", () => {
   it("takes the configured memory and CPU limits", () => {
     const resources = { memoryGb: 8, cpus: 4 };
     for (const runtime of ["docker", "podman"] as const) {
-      const command = containerRunArgs(runtime, "secret", SHARED_LOCAL_VM_TARGET, { platform: "linux", resources, hostUser: null }).join(" ");
+      const command = containerRunArgs(runtime, SHARED_LOCAL_VM_TARGET, { platform: "linux", resources, hostUser: null }).join(" ");
       expect(command).toContain("--memory 8g --memory-swap 8g --cpus 4");
     }
-    const apple = containerRunArgs("container", "secret", SHARED_LOCAL_VM_TARGET, { platform: "darwin", resources, hostUser: null }).join(" ");
+    const apple = containerRunArgs("container", SHARED_LOCAL_VM_TARGET, { platform: "darwin", resources, hostUser: null }).join(" ");
     expect(apple).toContain("--memory 8g --cpus 4 --cap-drop ALL");
     expect(apple).not.toContain("--memory-swap");
   });
@@ -1258,7 +1260,7 @@ describe("setupCommands", () => {
     ["docker", "darwin", { uid: 501, gid: 20 }, null],
     ["podman", "linux", { uid: 1001, gid: 1001 }, null],
   ] as const)("on %s/%s with host user %j gives cua the host ids: %j", (runtime, platform, hostUser, ids) => {
-    const args = containerRunArgs(runtime, "secret", SHARED_LOCAL_VM_TARGET, {
+    const args = containerRunArgs(runtime, SHARED_LOCAL_VM_TARGET, {
       platform,
       resources: { memoryGb: 4, cpus: 2 },
       hostUser,
@@ -1293,7 +1295,7 @@ describe("setupCommands", () => {
   it("keeps per-bot Podman workspaces separate without recursively changing their owner", () => {
     for (const id of ["podman-a", "podman-b"]) {
       const target = perBotLocalVmTarget(id);
-      const args = containerRunArgs("podman", "secret", target);
+      const args = containerRunArgs("podman", target);
       expect(args.slice(args.indexOf("--userns"), args.indexOf("--userns") + 4))
         .toEqual(["--userns", "keep-id:uid=1000,gid=1000", "--user", "0:0"]);
       expect(args[args.indexOf("--mount") + 1]).toBe(

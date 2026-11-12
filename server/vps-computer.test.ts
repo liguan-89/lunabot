@@ -478,8 +478,11 @@ describe("VPS computer", () => {
     expect(run.join(" ")).toContain(`--label ${IMAGE_LAYER_LABEL}=${IMAGE_LAYER_VERSION}`);
     expect(run.join(" ")).toContain(`--label ${VPS_VIEWER_LABEL}=1`);
     expect(run.join(" ")).toContain("--restart unless-stopped");
-    expect(run).toContain("-e");
-    expect(run.some((arg) => /^VNC_PW=[A-Za-z0-9_-]{8,}$/.test(arg))).toBe(true);
+    // No VNC_PW: KasmVNC then offers security type None, which the phone viewer
+    // speaks. The port is never published; the panel reaches it over a loopback
+    // SSH tunnel.
+    expect(run).not.toContain("-e");
+    expect(run.some((arg) => arg.startsWith("VNC_PW="))).toBe(false);
     expect(run).not.toContain("--mount");
     expect(run).not.toContain("-p");
     const build = provision.calls.find(({ args }) => args[2] === "build");

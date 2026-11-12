@@ -99,42 +99,17 @@ class RfbClientTest {
     }
 
     @Test
-    fun `VNC authentication reverses the password bits and DES-encrypts the challenge`() {
-        // Vector computed independently with OpenSSL for password "password"
-        // and challenge 00 01 … 0f. VNC's DES is the protocol; this client
-        // cannot choose a stronger primitive and still talk to the viewer.
-        val client = RfbClient(password = "password")
+    fun `a server that only offers VNC Auth is refused explicitly`() {
+        // This build dropped RFB's DES challenge-response: it is weak crypto,
+        // and the relay already carries the bytes inside TLS. Refuse rather
+        // than pretend the viewer can connect.
+        val client = RfbClient()
         client.start()
         client.feed("RFB 003.008\n".toByteArray())
         client.takeOutbound()
-        client.feed(byteArrayOf(1, 2)) // only VNC Auth offered
-        assertContentEquals(byteArrayOf(2), client.takeOutbound())
 
-        client.feed(ByteArray(16) { it.toByte() })
-        val response = client.takeOutbound()
-        assertEquals(
-            "b866924125c8eebb9debc1db61c538e2",
-            response.joinToString("") { "%02x".format(it) },
-        )
-    }
-
-    @Test
-    fun `a refused authentication closes with the server's reason`() {
-        val client = RfbClient(password = "password")
-        client.start()
-        client.feed("RFB 003.008\n".toByteArray())
-        client.takeOutbound()
-        client.feed(byteArrayOf(1, 2))
-        client.takeOutbound()
-        client.feed(ByteArray(16) { it.toByte() })
-        client.takeOutbound()
-
-        val reason = "wrong password".toByteArray()
-        val result = byteArrayOf(0, 0, 0, 1) +
-            byteArrayOf(0, 0, (reason.size ushr 8).toByte(), reason.size.toByte()) +
-            reason
-        val closed = assertIs<RfbClient.Event.Closed>(client.feed(result).single())
-        assertTrue(closed.reason.contains("wrong password"))
+        val closed = assertIs<RfbClient.Event.Closed>(client.feed(byteArrayOf(1, 2)).single())
+        assertTrue(closed.reason.contains("密码认证"))
     }
 
     @Test

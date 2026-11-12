@@ -1,5 +1,5 @@
 // BYO Linux VPS: Docker's SSH transport reaches the user's daemon; one Cua MCP container per bot.
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { createConnection, createServer, type AddressInfo } from "node:net";
 
@@ -721,12 +721,10 @@ export async function listManagedVpsComputers(
 export function vpsContainerRunArgs(
   containerName: string,
   imageRef = VPS_IMAGE,
-  viewerSecret = randomBytes(18).toString("base64url"),
 ): string[] {
   if (!CONTAINER_NAME.test(containerName) || (imageRef !== VPS_IMAGE && !IMAGE_ID.test(imageRef))) {
     throw new Error("invalid managed VPS container or image reference");
   }
-  if (!/^[A-Za-z0-9_-]{8,128}$/.test(viewerSecret)) throw new Error("invalid managed VPS viewer secret");
   return [
     "run",
     "-d",
@@ -768,8 +766,10 @@ export function vpsContainerRunArgs(
     // Without a restart policy Docker leaves the container down after a VPS reboot; unless-stopped still honors Stop.
     "--restart",
     "unless-stopped",
-    "-e",
-    `VNC_PW=${viewerSecret}`,
+    // No VNC_PW: without one the desktop offers RFB security type None, which
+    // is what the phone viewer speaks (VNC Auth's DES is weak crypto). The
+    // port is never published; the panel reaches it over the loopback SSH
+    // tunnel and the phone through the paired, lease-bound relay inside TLS.
     imageRef,
   ];
 }

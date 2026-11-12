@@ -1,9 +1,6 @@
 package com.openmausbot.companion.vnc
 
 import java.io.ByteArrayOutputStream
-import javax.crypto.Cipher
-import javax.crypto.spec.SecretKeySpec
-import android.annotation.SuppressLint
 
 /**
  * A minimal RFB (VNC) 3.8 client: enough to show a Local VM and drive its
@@ -11,16 +8,23 @@ import android.annotation.SuppressLint
  *
  * The relay hands the phone raw RFB bytes over a WebSocket (`websockify`), so
  * there is no noVNC in between and nothing here parses a browser. The scope is
- * deliberate: security type None and VNC Auth, a 32-bpp little-endian true
- * colour pixel format, and Raw rectangles. Encodings the server might prefer
+ * deliberate: security type None only, a 32-bpp little-endian true colour
+ * pixel format, and Raw rectangles. Encodings the server might prefer
  * (CopyRect, ZRLE, Tight) are not requested, so it sends Raw or nothing.
+ *
+ * VNC Auth (RFB's DES challenge-response) is not implemented: DES is weak by
+ * modern standards, and the bytes already travel inside the relay's TLS. The
+ * viewer is only reachable through the paired, lease-bound relay, so the
+ * server's own password handshake adds no transport protection this app does
+ * not already have. A server that offers only VNC Auth is refused with an
+ * explicit message rather than silently downgraded.
  *
  * The class is a pure state machine over a byte buffer: [feed] consumes any
  * number of bytes — a WebSocket frame boundary need not be a message boundary —
  * and [takeOutbound] returns what the client must send next. That is what makes
  * the handshake and the update decoder testable without a socket.
  */
-class RfbClient(private val password: String? = null) {
+class RfbClient {
 
     sealed interface Event {
         /** ServerInit arrived; the framebuffer is this big and the handshake is done. */
@@ -53,7 +57,6 @@ class RfbClient(private val password: String? = null) {
     private enum class Phase {
         WAIT_VERSION,
         WAIT_SECURITY_TYPES,
-        WAIT_AUTH_CHALLENGE,
         WAIT_AUTH_RESULT,
         WAIT_INIT,
         READY,
@@ -126,7 +129,6 @@ class RfbClient(private val password: String? = null) {
         val consumed = when (phase) {
             Phase.WAIT_VERSION -> readVersion(data, events)
             Phase.WAIT_SECURITY_TYPES -> readSecurityTypes(data, events)
-            Phase.WAIT_AUTH_CHALLENGE -> readChallenge(data, events)
             Phase.WAIT_AUTH_RESULT -> readAuthResult(data, events)
             Phase.WAIT_INIT -> readInit(data, events)
             Phase.READY -> readMessage(data, events)
@@ -168,31 +170,15 @@ class RfbClient(private val password: String? = null) {
         }
         if (data.size < 1 + count) return 0
         val types = data.copyOfRange(1, 1 + count).map { it.toInt() and 0xFF }
-        val chosen = when {
-            types.contains(SEC_NONE) && password.isNullOrEmpty() -> SEC_NONE
-            types.contains(SEC_VNC_AUTH) -> SEC_VNC_AUTH
-            types.contains(SEC_NONE) -> SEC_NONE
-            else -> {
-                events += Event.Closed("这台电脑要求不支持的 VNC 认证方式。")
-                return 0
-            }
-        }
-        outbox.write(chosen)
-        phase = if (chosen == SEC_VNC_AUTH) Phase.WAIT_AUTH_CHALLENGE else Phase.WAIT_AUTH_RESULT
-        return 1 + count
-    }
-
-    private fun readChallenge(data: ByteArray, events: MutableList<Event>): Int {
-        if (data.size < 16) return 0
-        val challenge = data.copyOfRange(0, 16)
-        val secret = vncDesResponse(password.orEmpty(), challenge)
-        if (secret == null) {
-            events += Event.Closed("无法用 VNC 密码完成认证。")
+        if (!types.contains(SEC_NONE)) {
+            events += Event.Closed(
+                "这台电脑要求 VNC 密码认证，当前构建只接受无需密码的本机连接。",
+            )
             return 0
         }
-        outbox.write(secret)
+        outbox.write(SEC_NONE)
         phase = Phase.WAIT_AUTH_RESULT
-        return 16
+        return 1 + count
     }
 
     private fun readAuthResult(data: ByteArray, events: MutableList<Event>): Int {
@@ -335,7 +321,6 @@ class RfbClient(private val password: String? = null) {
 
     private companion object {
         const val SEC_NONE = 1
-        const val SEC_VNC_AUTH = 2
         const val MSG_FRAMEBUFFER_UPDATE = 0
         const val MSG_SET_COLOUR_MAP = 1
         const val MSG_BELL = 2
@@ -350,40 +335,5 @@ class RfbClient(private val password: String? = null) {
                 ((data[at + 1].toInt() and 0xFF) shl 16) or
                 ((data[at + 2].toInt() and 0xFF) shl 8) or
                 (data[at + 3].toInt() and 0xFF)
-
-        /**
-         * VNC authentication: DES-encrypt the 16-byte challenge with a key made
-         * from the password, each byte bit-reversed and zero-padded to 8 bytes.
-         * That reversal is the protocol, not an implementation detail.
-         *
-         * DES here is not protecting anything this app owns — it is the only
-         * password handshake RFB 3.8 defines, and the relay's TLS is what
-         * carries the bytes. It is used for exactly this one challenge response
-         * and nothing else.
-         */
-        // DES/ECB is RFB 3.8's one password handshake, not a local cipher
-        // choice; the comment above records why there is no alternative.
-        @SuppressLint("GetInstance")
-        fun vncDesResponse(password: String, challenge: ByteArray): ByteArray? = runCatching {
-            val key = ByteArray(8)
-            val bytes = password.toByteArray(Charsets.ISO_8859_1)
-            for (index in 0 until 8) {
-                val value = if (index < bytes.size) bytes[index].toInt() and 0xFF else 0
-                key[index] = reverseBits(value).toByte()
-            }
-            val cipher = Cipher.getInstance("DES/ECB/NoPadding")
-            cipher.init(Cipher.ENCRYPT_MODE, SecretKeySpec(key, "DES"))
-            cipher.doFinal(challenge)
-        }.getOrNull()
-
-        private fun reverseBits(value: Int): Int {
-            var input = value
-            var output = 0
-            repeat(8) {
-                output = (output shl 1) or (input and 1)
-                input = input shr 1
-            }
-            return output
-        }
     }
 }
