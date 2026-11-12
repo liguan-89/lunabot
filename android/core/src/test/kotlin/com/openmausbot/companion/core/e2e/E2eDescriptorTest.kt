@@ -52,4 +52,32 @@ class E2eDescriptorTest {
             }
         }
     }
+
+    @Test
+    fun `DEX relay hosts are accepted`() {
+        val withRelay = vectors.getValue("valid").jsonArray.map { it.jsonObject }
+            .first { it.getValue("parsed").jsonObject["h"] != null }
+        val parsed = assertIs<DescriptorParse.Ok>(E2eDescriptorParser.parse(withRelay.str("value")))
+        val descriptor = E2eDescriptor(
+            k = parsed.descriptor.k,
+            h = parsed.descriptor.h,
+            relays = listOf("cloud.dexai.vip", "relay1.dexai.vip"),
+        )
+        val reparsed = assertIs<DescriptorParse.Ok>(E2eDescriptorParser.parse(descriptor.encode()))
+        assertEquals(listOf("cloud.dexai.vip", "relay1.dexai.vip"), reparsed.descriptor.relays)
+    }
+
+    @Test
+    fun `lookalike relay hosts are refused`() {
+        val withRelay = vectors.getValue("valid").jsonArray.map { it.jsonObject }
+            .first { it.getValue("parsed").jsonObject["h"] != null }
+        val parsed = assertIs<DescriptorParse.Ok>(E2eDescriptorParser.parse(withRelay.str("value")))
+        val descriptor = E2eDescriptor(
+            k = parsed.descriptor.k,
+            h = parsed.descriptor.h,
+            relays = listOf("cloud.dexai.vip.evil.com"),
+        )
+        val refused = assertIs<DescriptorParse.Reject>(E2eDescriptorParser.parse(descriptor.encode()))
+        assertEquals("relay_host", refused.reason)
+    }
 }

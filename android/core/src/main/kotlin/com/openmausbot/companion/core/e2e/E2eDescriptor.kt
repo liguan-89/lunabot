@@ -48,7 +48,7 @@ sealed class DescriptorParse {
 object E2eDescriptorParser {
     const val MAX_CHARS = 1024
     const val MAX_RELAY_NODES = 4
-    val RELAY_HOST = Regex("^relay[1-9][0-9]?\\.openmausbot\\.com$")
+    val RELAY_HOST = Regex("^(?:relay[1-9][0-9]?\\.openmausbot\\.com|(?:relay[1-9][0-9]?|cloud)\\.dexai\\.vip)$")
 
     /** Accepts the base64url text (the QR parameter) or the already-decoded JSON object (a response field). */
     fun parse(text: String): DescriptorParse {
