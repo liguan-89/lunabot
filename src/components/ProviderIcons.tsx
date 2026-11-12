@@ -85,6 +85,20 @@ export function OpenCodeMark({ size = 16, className }: IconProps) {
   );
 }
 
+/** Official ZCode app-icon mark: white Z on the black tile. The tile is the
+ * brand surface, not a skin colour, so it stays black everywhere; `white` (not
+ * an ink utility) keeps the official contrast on every theme. */
+export function ZCodeMark({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden>
+      <rect x="1" y="1" width="22" height="22" rx="5.6" fill="#161616" />
+      <path fill="white" d="M5.7 5.8h8.2l-1.6 1.9H5.7z" />
+      <path fill="white" d="M14.1 5.8h5.5l-8.9 11.9H5.1z" />
+      <path fill="white" d="M12.2 15.8h6.9v1.9h-6.9z" />
+    </svg>
+  );
+}
+
 export function QwenMark({ size = 16, className }: IconProps) {
   const grad = "omb-qwen-mark";
   return (
@@ -212,6 +226,8 @@ export function ProviderMark({ driverKind, size, className }: IconProps & { driv
       return <GreenferenceMark size={size} className={className} />;
     case "modelgo":
       return <ModelgoMark size={size} className={className} />;
+    case "zcodeAgent":
+      return <ZCodeMark size={size} className={className} />;
     default:
       return (
         <span className={cn("flex size-full items-center justify-center text-[10px] font-semibold tracking-tight text-ink-secondary", className)}>

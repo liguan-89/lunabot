@@ -2,15 +2,18 @@
 // app-server` in server/testing/fake-zcode-cli.ts: the resume handshake, the
 // streaming deltas, model pinning with its reasoning level, the full-access
 // requirement, and how a failed run is reported.
-import { chmodSync, mkdtempSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { DATA_DIR } from "../config.ts";
 import type { ProviderInstance } from "../contracts.ts";
+import { findCliCandidates } from "../env-path.ts";
 import { recordEvents, type EventRecorder } from "../testing/events.ts";
-import { decodeZcodeConfig, splitZcodeModel, ZcodeDriver, zcodeExecutable } from "./zcode.ts";
+import { decodeZcodeConfig, resolveZcodeLaunch, splitZcodeModel, ZcodeDriver, zcodeExecutable } from "./zcode.ts";
 
 const FAKE_CLI = join(dirname(fileURLToPath(import.meta.url)), "..", "testing", "fake-zcode-cli.ts");
 
@@ -49,6 +52,80 @@ describe("zcodeExecutable", () => {
     expect(() => zcodeExecutable("/definitely/not/here/zcode")).toThrow(/not a file/);
     expect(() => zcodeExecutable("  ")).toThrow(/executable name or an absolute file path/);
   });
+});
+
+describe("resolveZcodeLaunch", () => {
+  it("runs a .cjs bundle under node instead of spawning the file", () => {
+    const script = join(mkdtempSync(join(tmpdir(), "omb-zcode-launch-")), "zcode.cjs");
+    writeFileSync(script, "// zcode bundle\n");
+    const launch = resolveZcodeLaunch(script);
+    expect(launch.command).toBe(process.execPath);
+    expect(launch.args).toEqual([script]);
+  });
+
+  it("spawns an executable script directly", () => {
+    const launch = resolveZcodeLaunch(FAKE_CLI);
+    expect(launch.command).toBe(FAKE_CLI);
+    expect(launch.args).toEqual([]);
+  });
+
+  it("keeps an unknown bare name so the spawn reports the failure", () => {
+    const launch = resolveZcodeLaunch("zcode-definitely-absent");
+    expect(launch.command).toBe("zcode-definitely-absent");
+  });
+
+  // No `zcode` on PATH but the desktop app present: the bundle is the CLI.
+  it.skipIf(
+    process.platform !== "darwin" ||
+      findCliCandidates("zcode").length > 0 ||
+      !existsSync("/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"),
+  )("falls back to the desktop app's bundled zcode.cjs", () => {
+    const launch = resolveZcodeLaunch("zcode");
+    expect(launch.command).toBe(process.execPath);
+    expect(launch.args).toEqual(["/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"]);
+  });
+});
+
+describe("install descriptor", () => {
+  it("puts a runnable macOS shim on PATH rather than prose", () => {
+    const command = ZcodeDriver.install?.command?.darwin ?? "";
+    expect(command).toContain("~/.local/bin/zcode");
+    expect(command).toContain("zcode.cjs");
+    expect(command).not.toMatch(/^install /);
+  });
+
+  // Local machines with the desktop app installed exercise the real command;
+  // CI without /Applications/ZCode.app skips it.
+  it.skipIf(process.platform !== "darwin" || !existsSync("/Applications/ZCode.app"))(
+    "actually prints a version when run",
+    () => {
+      const home = mkdtempSync(join(tmpdir(), "omb-zcode-install-"));
+      const out = execFileSync("/bin/sh", ["-c", ZcodeDriver.install?.command?.darwin ?? ""], {
+        env: { ...process.env, HOME: home },
+        encoding: "utf8",
+        timeout: 30_000,
+      });
+      expect(out.trim()).toMatch(/^\d+\.\d+\.\d+/);
+    },
+  );
+
+  it.skipIf(process.platform !== "darwin" || !existsSync("/Applications/ZCode.app"))(
+    "reports the engine ready through the bundled CLI alone",
+    async () => {
+      const instance = await ZcodeDriver.create({
+        instanceId: "zcode-bundle",
+        displayName: "ZCode",
+        environment: {},
+        enabled: true,
+        config: { cli: "zcode", fullAuto: true },
+      });
+      try {
+        expect(await instance.snapshot()).toMatchObject({ state: "available", authenticated: true });
+      } finally {
+        await instance.dispose();
+      }
+    },
+  );
 });
 
 describe("decodeZcodeConfig", () => {
@@ -152,6 +229,28 @@ describe("ZcodeDriver (fake app-server)", () => {
     expect(instance!.models.options.map((option) => option.id)).toEqual(["fake/fake-model"]);
   });
 
+  it("lists models before any turn so a bot can be switched onto the engine", async () => {
+    const dump = join(mkdtempSync(join(tmpdir(), "omb-zcode-catalog-")), "dump.jsonl");
+    const fresh = await ZcodeDriver.create({
+      instanceId: "zcode-catalog-test",
+      displayName: "ZCode Catalog",
+      environment: { FAKE_ZCODE_DUMP: dump },
+      enabled: true,
+      config: { cli: FAKE_CLI, fullAuto: true },
+    });
+    try {
+      // No sendTurn: the throwaway catalog session is what filled the list.
+      await fresh.refreshModels?.();
+      expect(fresh.models.options.map((option) => option.id)).toEqual(["fake/fake-model"]);
+      const rows = readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, any>);
+      expect(rows.some((row) => row.method === "session/send")).toBe(false);
+      // The probe session was closed, not left running.
+      expect(rows.some((row) => row.method === "session/close")).toBe(true);
+    } finally {
+      await fresh.dispose();
+    }
+  });
+
   it("resumes the stored session instead of creating a second one", async () => {
     // One dump across both instances, so the second run's frames are visible
     // next to the first run's.
@@ -187,7 +286,12 @@ describe("ZcodeDriver (fake app-server)", () => {
 
     const session = recorder!.events.find((event) => event.type === "session.started") as { sessionId: string };
     expect(session.sessionId).toBe("sess_fake-1");
-    expect(rows().filter((row) => row.method === "session/create")).toHaveLength(1);
+    // The catalog probe is its own throwaway workspace; count real threads only.
+    const catalogWorkspace = join(DATA_DIR, "providers", "zcode-catalog");
+    const realCreates = rows().filter(
+      (row) => row.method === "session/create" && row.params?.workspace?.workspacePath !== catalogWorkspace,
+    );
+    expect(realCreates).toHaveLength(1);
     expect(rows().filter((row) => row.method === "session/resume")).toHaveLength(1);
   });
 

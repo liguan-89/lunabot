@@ -6,6 +6,23 @@ and from live probe sessions. Everything below was observed, not guessed,
 except where a line says otherwise. This file exists so the driver work does
 not have to repeat the probing.
 
+## Getting the CLI
+
+There is no npm package and no standalone `zcode` installer. The CLI ships
+inside the ZCode desktop app as
+`/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs`, and runs under the
+app's own Electron runtime in node mode:
+
+```
+ELECTRON_RUN_AS_NODE=1 /Applications/ZCode.app/Contents/MacOS/ZCode \
+  /Applications/ZCode.app/Contents/Resources/glm/zcode.cjs version
+```
+
+System Node also runs it (`node zcode.cjs version`). The driver resolves a
+bare `zcode` from the augmented PATH first and falls back to that bundle on
+macOS; the Settings install card writes a `~/.local/bin/zcode` shim with the
+same invocation, so no separate download is expected.
+
 ## Process
 
 ```
