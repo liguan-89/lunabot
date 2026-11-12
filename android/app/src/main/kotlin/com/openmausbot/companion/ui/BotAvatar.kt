@@ -30,6 +30,7 @@ import com.openmausbot.companion.core.Bot
 import com.openmausbot.companion.core.Chat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.ui.platform.LocalResources
 
 /**
  * What a bot without an uploaded identity image wears.
@@ -57,6 +58,7 @@ internal enum class AvatarFallback { MASCOT, PRESET }
 internal fun BotAvatar(
     bot: Bot,
     size: Dp,
+    modifier: Modifier = Modifier,
     state: MausState = MausState.IDLE,
     animated: Boolean = true,
     /**
@@ -65,7 +67,6 @@ internal fun BotAvatar(
      * semantics. Set it where the face stands alone.
      */
     contentDescription: String? = null,
-    modifier: Modifier = Modifier,
     fallback: AvatarFallback = AvatarFallback.MASCOT,
     motion: AvatarMotion = AvatarMotion.NONE,
     mood: FaceMood = FaceMood.IDLE,
@@ -76,6 +77,7 @@ internal fun BotAvatar(
     val path = bot.avatarUrl
     val store = LocalCompanion.current.avatars
     val context = LocalContext.current
+    val resources = LocalResources.current
 
     // `BotAvatarView` keys its fetch on the attachment and the crop together, and
     // clears the rendered image whenever either changes. Keying the state itself
@@ -96,7 +98,7 @@ internal fun BotAvatar(
         }
         image = decoded
         presetKey = withContext(Dispatchers.Default) {
-            PresetAvatars.match(context.resources, decoded)?.key
+            PresetAvatars.match(resources, decoded)?.key
         }
     }
 
@@ -182,10 +184,10 @@ internal fun BotAvatar(
 internal fun ChatAvatar(
     chat: Chat,
     size: Dp,
+    modifier: Modifier = Modifier,
     state: MausState = MausState.IDLE,
     animated: Boolean = true,
     contentDescription: String? = null,
-    modifier: Modifier = Modifier,
     fallback: AvatarFallback = AvatarFallback.MASCOT,
     motion: AvatarMotion = AvatarMotion.NONE,
     mood: FaceMood = FaceMood.IDLE,

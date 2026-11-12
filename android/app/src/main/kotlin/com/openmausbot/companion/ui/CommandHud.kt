@@ -31,6 +31,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -177,6 +180,9 @@ fun PredictiveChipsRow(
         chips.forEach { chip ->
             AssistChip(
                 onClick = { onSelect(chip) },
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = chip.title
+                },
                 label = { Text(chip.title, fontSize = 13.sp) },
                 leadingIcon = chip.icon?.let { icon ->
                     { Text(quickReplyGlyph(icon), fontSize = 13.sp) }

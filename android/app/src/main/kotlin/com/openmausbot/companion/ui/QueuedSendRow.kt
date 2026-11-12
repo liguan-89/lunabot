@@ -3,7 +3,9 @@ package com.openmausbot.companion.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -79,33 +81,41 @@ fun QueuedSendRow(
             modifier = Modifier.weight(1f),
         )
         if (onSteer != null) {
-            Row(
+            // The pill is 33 dp tall; the target is 48. The outer box owns the
+            // tap, the inner row keeps the capsule the size the design chose.
+            Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(50))
-                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
-                    .clickable(enabled = !steering, role = Role.Button, onClick = onSteer)
-                    .padding(horizontal = 11.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .heightIn(min = 48.dp)
+                    .clickable(enabled = !steering, role = Role.Button, onClick = onSteer),
+                contentAlignment = Alignment.Center,
             ) {
-                if (steering) {
-                    CircularProgressIndicator(
-                        strokeWidth = 1.5.dp,
-                        modifier = Modifier.size(12.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f))
+                        .padding(horizontal = 11.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (steering) {
+                        CircularProgressIndicator(
+                            strokeWidth = 1.5.dp,
+                            modifier = Modifier.size(12.dp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
+                    Text(
+                        text = if (steering) "插话中…" else "插话",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
                     )
                 }
-                Text(
-                    text = if (steering) "插话中…" else "插话",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                )
             }
         }
         Icon(
@@ -113,23 +123,23 @@ fun QueuedSendRow(
             contentDescription = "编辑此排队消息",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                // 44 dp of target around a 16 dp glyph: the padding sits
+                // 48 dp of target around a 16 dp glyph: the padding sits
                 // inside the size, so the row's height no longer sets the
                 // reach.
-                .size(44.dp)
+                .size(48.dp)
                 .clip(RoundedCornerShape(50))
                 .clickable(role = Role.Button, onClick = onEdit)
-                .padding(14.dp),
+                .padding(16.dp),
         )
         Icon(
             imageVector = Icons.Filled.Delete,
             contentDescription = "删除此排队消息",
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(RoundedCornerShape(50))
                 .clickable(role = Role.Button, onClick = onCancel)
-                .padding(14.dp),
+                .padding(16.dp),
         )
     }
 }

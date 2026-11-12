@@ -35,6 +35,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openmausbot.companion.core.AskQuestion
@@ -42,6 +47,7 @@ import com.openmausbot.companion.core.AskQuestionAnswer
 import com.openmausbot.companion.core.Chat
 import com.openmausbot.companion.core.Message
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableIntStateOf
 
 /**
  * The question card: what the bot actually asked, and its own answers.
@@ -72,7 +78,7 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
     val picked = remember(message.id) { mutableStateMapOf<Int, Set<String>>() }
     val custom = remember(message.id) { mutableStateMapOf<Int, String>() }
     val other = remember(message.id) { mutableStateMapOf<Int, Boolean>() }
-    var active by remember(message.id) { mutableStateOf(0) }
+    var active by remember(message.id) { mutableIntStateOf(0) }
     var answering by remember(message.id) { mutableStateOf(false) }
     // The harness settles the card, but only after a round trip. Holding the
     // sent answer closes the window where the buttons are still live.
@@ -181,16 +187,19 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                     Row(
                         modifier = Modifier
                             // A tab is a control, not a label: 44 dp is the
-                            // smallest height a thumb lands on reliably.
+                            // smallest height a thumb lands on reliably. The
+                            // role and selected state are how TalkBack knows
+                            // which of the tabs is the one being shown.
                             .heightIn(min = 44.dp)
                             .background(
                                 if (chosen) secondaryTint.copy(alpha = 0.22f) else Color.Transparent,
                                 RoundedCornerShape(14.dp),
                             )
-                            .clickable(enabled = !settled) {
+                            .clickable(enabled = !settled, role = Role.Tab) {
                                 haptics.play(TactileAction.CHOOSE_APPROVAL)
                                 active = position
                             }
+                            .semantics { selected = chosen }
                             .padding(horizontal = 10.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -285,7 +294,8 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                     enabled = !answering,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(10.dp),
+                        .padding(10.dp)
+                        .semantics { contentDescription = "输入您的回答" },
                 )
             }
         }
@@ -313,7 +323,18 @@ private fun ChoiceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            // The marker is drawn, not a Material control, so the row has to
+            // carry the semantics the drawing cannot: which role it plays and
+            // whether it is currently chosen.
+            .clickable(
+                enabled = enabled,
+                role = if (multi) Role.Checkbox else Role.RadioButton,
+                onClick = onClick,
+            )
+            .semantics {
+                selected = checked
+                stateDescription = if (checked) "已选择" else "未选择"
+            }
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.Top,

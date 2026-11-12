@@ -7,6 +7,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
 import com.openmausbot.companion.R
 import kotlin.math.abs
+import androidx.core.graphics.scale
 
 /**
  * The circular portrait library.
@@ -88,7 +89,7 @@ internal object PresetAvatars {
 
     /** One 16×16 RGB grid, packed as ARGB ints, which is enough to recognise a face. */
     private fun signatureOf(bitmap: Bitmap): IntArray {
-        val scaled = Bitmap.createScaledBitmap(bitmap, SIGNATURE_EDGE, SIGNATURE_EDGE, true)
+        val scaled = bitmap.scale(SIGNATURE_EDGE, SIGNATURE_EDGE)
         val pixels = IntArray(SIGNATURE_EDGE * SIGNATURE_EDGE)
         scaled.getPixels(pixels, 0, SIGNATURE_EDGE, 0, 0, SIGNATURE_EDGE, SIGNATURE_EDGE)
         if (scaled !== bitmap) scaled.recycle()

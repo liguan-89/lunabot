@@ -2,6 +2,9 @@ package com.openmausbot.companion.ui
 
 import android.app.Application
 import android.content.Context
+import com.openmausbot.companion.account.CloudAccountApi
+import com.openmausbot.companion.account.CloudAccountController
+import com.openmausbot.companion.account.CloudAccountStore
 import com.openmausbot.companion.audio.VoicePreviewPlayer
 import com.openmausbot.companion.audio.VoiceNotePlayer
 import com.openmausbot.companion.avatar.AvatarImageStore
@@ -97,6 +100,15 @@ internal class WiringScene(
         discovery = SilentDiscovery,
         onboarding = onboarding,
         chatPreferences = ChatPreferences(context),
+        // Never started in tests: the environment only needs a live object, and
+        // the store's Keystore-backed prefs are lazy.
+        cloudAccount = CloudAccountController(
+            api = CloudAccountApi(),
+            store = CloudAccountStore(context),
+            scope = scope,
+            deviceName = "test",
+            appVersion = "test",
+        ),
         camera = CameraPermissionController(isGranted = { true }, request = {}),
         mic = MicPermissionController(isGranted = { true }, request = {}),
         notifications = NotificationPermissionController(

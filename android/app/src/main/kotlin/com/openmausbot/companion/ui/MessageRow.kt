@@ -101,6 +101,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
@@ -110,6 +111,7 @@ import com.openmausbot.companion.core.Chat
 import com.openmausbot.companion.core.ConnectorCardAction
 import com.openmausbot.companion.core.ConnectorCardData
 import com.openmausbot.companion.core.GroupGoalRunCardData
+import com.openmausbot.companion.core.LiveCallRecord
 import com.openmausbot.companion.core.RoutineRunCardData
 import com.openmausbot.companion.core.SignInCardAction
 import com.openmausbot.companion.core.SecretCardAction
@@ -137,7 +139,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 /** What the clipboard shows this came from. */
-private const val MESSAGE_CLIP_LABEL = "OpenMausMobile message"
+private const val MESSAGE_CLIP_LABEL = "DEX BOT message"
 
 /**
  * One row of the transcript — the port of `MessageRow` in `ios/App/ChatView.swift`.
@@ -193,9 +195,17 @@ fun MessageRow(
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
+                // TalkBack has to be told what the hold does; "double-tap and
+                // hold" with no label is an unnamed action.
+                onLongClickLabel = "消息操作",
                 onLongClick = { menuOpen = true },
                 onClick = {},
-            ),
+            )
+            // The row is a long-press target, not a button with a name of its
+            // own. Merging keeps its message text as the announcement while the
+            // hold action stays available; nested links and reactions remain
+            // separate targets.
+            .semantics(mergeDescendants = true) {},
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
@@ -229,20 +239,35 @@ fun MessageRow(
                         } else {
                             secondaryTint
                         }
-                        Text(
-                            text = "${group.emoji} ${group.count}",
-                            fontSize = 13.sp,
-                            color = tint,
+                        // The capsule is 28 dp tall; the target is 48 dp. The
+                        // outer box owns the tap and the semantics, the inner
+                        // Text keeps the pill exactly where the design put it.
+                        Box(
                             modifier = Modifier
-                                .border(1.dp, tint.copy(alpha = 0.5f), CircleShape)
-                                .clickable {
+                                .heightIn(min = 48.dp)
+                                .clickable(
+                                    role = Role.Button,
+                                    onClickLabel = if (group.mine) "移除回应" else "回应",
+                                ) {
                                     haptics.play(TactileAction.TOGGLE_REACTION)
                                     scope.launch {
                                         session.react(message, chat.threadId, group.emoji)
                                     }
                                 }
-                                .padding(horizontal = 10.dp, vertical = 3.dp),
-                        )
+                                .semantics {
+                                    stateDescription = if (group.mine) "已回应" else "未回应"
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "${group.emoji} ${group.count}",
+                                fontSize = 13.sp,
+                                color = tint,
+                                modifier = Modifier
+                                    .border(1.dp, tint.copy(alpha = 0.5f), CircleShape)
+                                    .padding(horizontal = 10.dp, vertical = 3.dp),
+                            )
+                        }
                     }
                 }
             }
@@ -254,44 +279,54 @@ fun MessageRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     val busy = bot.busy == true
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                        contentDescription = "上一版本",
-                        tint = if (versionIndex == 0 || busy) {
-                            secondaryTint.copy(alpha = 0.4f)
-                        } else {
-                            secondaryTint
+                    TouchTarget(
+                        onClick = {
+                            scope.launch {
+                                session.switchVersion(versions[versionIndex - 1], bot)
+                            }
                         },
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clickable(enabled = versionIndex > 0 && !busy) {
-                                scope.launch {
-                                    session.switchVersion(versions[versionIndex - 1], bot)
-                                }
+                        size = 20.dp,
+                        enabled = versionIndex > 0 && !busy,
+                        contentDescription = "上一版本",
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                            contentDescription = null,
+                            tint = if (versionIndex == 0 || busy) {
+                                secondaryTint.copy(alpha = 0.4f)
+                            } else {
+                                secondaryTint
                             },
-                    )
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                     Text(
                         text = "${versionIndex + 1} / ${versions.size}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = secondaryTint,
                     )
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = "下一版本",
-                        tint = if (versionIndex + 1 >= versions.size || busy) {
-                            secondaryTint.copy(alpha = 0.4f)
-                        } else {
-                            secondaryTint
+                    TouchTarget(
+                        onClick = {
+                            scope.launch {
+                                session.switchVersion(versions[versionIndex + 1], bot)
+                            }
                         },
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clickable(enabled = versionIndex + 1 < versions.size && !busy) {
-                                scope.launch {
-                                    session.switchVersion(versions[versionIndex + 1], bot)
-                                }
+                        size = 20.dp,
+                        enabled = versionIndex + 1 < versions.size && !busy,
+                        contentDescription = "下一版本",
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = if (versionIndex + 1 >= versions.size || busy) {
+                                secondaryTint.copy(alpha = 0.4f)
+                            } else {
+                                secondaryTint
                             },
-                    )
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
         }
@@ -299,17 +334,17 @@ fun MessageRow(
         DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
             if (!isPendingEdit) Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
                 Reactions.CHOICES.forEach { emoji ->
-                    Text(
-                        text = emoji,
-                        fontSize = 22.sp,
-                        modifier = Modifier
-                            .clickable {
-                                menuOpen = false
-                                haptics.play(TactileAction.TOGGLE_REACTION)
-                                scope.launch { session.react(message, chat.threadId, emoji) }
-                            }
-                            .padding(8.dp),
-                    )
+                    TouchTarget(
+                        onClick = {
+                            menuOpen = false
+                            haptics.play(TactileAction.TOGGLE_REACTION)
+                            scope.launch { session.react(message, chat.threadId, emoji) }
+                        },
+                        size = 40.dp,
+                        contentDescription = "用 $emoji 回应",
+                    ) {
+                        Text(text = emoji, fontSize = 22.sp)
+                    }
                 }
             }
             MessageActions.copyableText(message)?.let { text ->
@@ -523,6 +558,26 @@ private fun MessageContent(
             GoalRunCard(message)
         } else if (!message.text.isNullOrEmpty()) {
             TextBubble(chat, message, endsRun, openLink, openAttachment)
+        }
+        // A finished Live call leaves a receipt; without it the call simply
+        // vanishes from the conversation. The phone cannot join a call the
+        // desktop is running, so it shows what happened and when.
+        Message.Kind.CALL -> {
+            val call = message.call
+            if (call != null) {
+                CallRecordCard(call)
+            } else if (!message.text.isNullOrEmpty()) {
+                TextBubble(chat, message, endsRun, openLink, openAttachment)
+            }
+        }
+        // A bot-authored widget or app page is a full document on the desktop.
+        // The phone shows its readable fallback and the settled answer, so the
+        // row is a receipt rather than a gap.
+        Message.Kind.WIDGET -> if (message.widget != null || !message.text.isNullOrEmpty()) {
+            WidgetSummaryCard(message)
+        }
+        Message.Kind.APP -> if (message.app != null || !message.text.isNullOrEmpty()) {
+            AppSummaryCard(message)
         }
         // Turn-audit chip (tool list + reply preview). Desktop shows it only
         // behind a "show tool calls" setting Android doesn't have; hide it.
@@ -744,7 +799,7 @@ private fun SharedImageAttachment(
 ) {
     val foreground = if (message.role == Message.Role.USER) BubbleColor.userBubbleText else MaterialTheme.colorScheme.onSurface
     val session = LocalCompanion.current.session
-    var attempt by remember(message.id, attachment.path) { mutableStateOf(0) }
+    var attempt by remember(message.id, attachment.path) { mutableIntStateOf(0) }
     var state by remember(message.id, attachment.path) {
         mutableStateOf<AttachmentThumbnailState>(AttachmentThumbnailState.Loading)
     }
@@ -1464,7 +1519,7 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
 @Composable
 private fun ScreenShot(threadId: String, message: Message, openComputer: (() -> Unit)?) {
     val session = LocalCompanion.current.session
-    var attempt by remember(message.id) { mutableStateOf(0) }
+    var attempt by remember(message.id) { mutableIntStateOf(0) }
     var state by remember(message.id) { mutableStateOf<ScreenShotState>(ScreenShotState.Loading) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
@@ -1756,7 +1811,7 @@ private fun SignInRequestCard(
                 color = minisSecondary,
             )
             Text(
-                "密码由你亲自输入到页面中，OpenMausBot 始终看不到。",
+                "密码由你亲自输入到页面中，DEX BOT 始终看不到。",
                 fontSize = 12.sp,
                 color = secondaryTint,
             )
@@ -1819,6 +1874,78 @@ private fun GoalRunCard(message: Message) {
         )
         data.detail?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 14.sp) }
     }
+}
+
+@Composable
+private fun CallRecordCard(record: LiveCallRecord) {
+    val client = when (record.client) {
+        "android", "ios" -> "手机"
+        "web" -> "浏览器"
+        "desktop" -> "电脑"
+        else -> "其他设备"
+    }
+    RemoteCard(
+        title = record.title?.takeIf { it.isNotBlank() } ?: "通话记录",
+        body = null,
+    ) {
+        Text(
+            "${callDurationLabel(record.seconds)} · $client",
+            fontSize = 13.sp,
+            color = secondaryTint,
+        )
+        val reason = callEndLabel(record.endReason)
+        if (reason.isNotBlank()) Text(reason, fontSize = 12.sp, color = secondaryTint)
+    }
+}
+
+@Composable
+private fun WidgetSummaryCard(message: Message) {
+    RemoteCard(title = "小组件", body = message.text) {
+        val settled = message.widget?.settled
+        if (settled != null && settled.label.isNotBlank()) {
+            Text("已选择：${settled.label}", fontSize = 13.sp, color = secondaryTint)
+        } else {
+            Text("这个小组件的按钮需要在电脑上操作。", fontSize = 12.sp, color = secondaryTint)
+        }
+    }
+}
+
+@Composable
+private fun AppSummaryCard(message: Message) {
+    val data = message.app
+    RemoteCard(
+        title = data?.title?.takeIf { it.isNotBlank() } ?: "应用卡片",
+        body = message.text,
+    ) {
+        Text(
+            if (data?.source == "mcp") "MCP 应用" else "机器人页面",
+            fontSize = 12.sp,
+            color = secondaryTint,
+        )
+        Text("完整页面请在电脑上打开。", fontSize = 12.sp, color = secondaryTint)
+    }
+}
+
+private fun callDurationLabel(seconds: Double): String {
+    val total = seconds.coerceAtLeast(0.0).toInt()
+    val minutes = total / 60
+    val rest = total % 60
+    return if (minutes > 0) "$minutes 分 $rest 秒" else "$rest 秒"
+}
+
+private fun callEndLabel(reason: String): String = when (reason) {
+    "hung-up" -> "已挂断"
+    "idle" -> "因长时间无对话结束"
+    "expired" -> "已过期"
+    "content" -> "因内容原因结束"
+    "remote-hangup" -> "对方已挂断"
+    "connection-lost" -> "连接中断"
+    "sideband-lost" -> "连接中断"
+    "deleted" -> "通话已删除"
+    "shutdown" -> "服务已关闭"
+    "signed-out" -> "登录已失效"
+    "error" -> "通话出错"
+    else -> ""
 }
 
 private fun connectorStatusLabel(card: ConnectorCardData): String = when {

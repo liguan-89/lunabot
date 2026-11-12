@@ -49,6 +49,9 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openmausbot.companion.core.ActivityDetail
+import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
 import com.openmausbot.companion.storage.ThemeMode
@@ -64,6 +68,8 @@ import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.core.net.toUri
+import java.net.URI
 
 /**
  * What little the phone gets to configure — the port of
@@ -100,6 +106,8 @@ fun SettingsScreen(
     val phoneCalendar by environment.chatPreferences.phoneCalendar.collectAsState()
     val phoneContacts by environment.chatPreferences.phoneContacts.collectAsState()
     val phoneReminders by environment.chatPreferences.phoneReminders.collectAsState()
+    val phoneLocation by environment.chatPreferences.phoneLocation.collectAsState()
+    val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val haptics = rememberHaptics()
@@ -121,6 +129,16 @@ fun SettingsScreen(
             granted[android.Manifest.permission.READ_CONTACTS] == true,
         )
     }
+    // Coarse is enough to register `limited`; asking for fine too lets the
+    // person choose "precise" in the system dialog and get `full`.
+    val locationPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        environment.chatPreferences.setPhoneLocation(
+            granted[android.Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                granted[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true,
+        )
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -134,6 +152,10 @@ fun SettingsScreen(
     var choosingTheme by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
+    val account = environment.cloudAccount
+    val accountUi by account.state.collectAsState()
+    var signingIn by remember { mutableStateOf(false) }
+    var cloudNotice by remember { mutableStateOf<String?>(null) }
 
     Column(modifier = Modifier.fillMaxSize()) {
         // A large title, the way iOS settings reads: the page is the title,
@@ -146,7 +168,12 @@ fun SettingsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             HeaderBackButton(onBack)
-            Text("设置", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(
+                "设置",
+                fontSize = 22.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.semantics { heading() },
+            )
         }
 
         Column(
@@ -209,6 +236,76 @@ fun SettingsScreen(
                     }
                     Footnote("每台电脑单独配对。同一时间只有选中的电脑处于活动状态。")
                 }
+            }
+
+            SettingsSection("DEX 账号") {
+                when (accountUi.phase) {
+                    // A failed first read keeps the phase at LOADING, because the
+                    // stored session may still be perfectly good — only the
+                    // request lost its race with the network on a cold start.
+                    // Without a retry here the section said it was still checking
+                    // and nothing but an app restart could recover it.
+                    CloudAccountUi.Phase.LOADING -> if (accountUi.error == null) {
+                        SettingsRow("状态", "正在检查…")
+                    } else {
+                        SettingsButton("重试", enabled = !accountUi.busy) {
+                            environment.cloudAccount.refresh()
+                        }
+                    }
+                    CloudAccountUi.Phase.SIGNED_OUT -> {
+                        SettingsButton("登录 DEX 账号", chevron = true) {
+                            environment.cloudAccount.clearError()
+                            signingIn = true
+                        }
+                        Footnote("用同一个账号管理桌面端、这台手机和云电脑。登录后这台手机会出现在设备列表里。")
+                    }
+                    CloudAccountUi.Phase.SIGNED_IN -> {
+                        SettingsRow("账号", accountUi.email ?: "")
+                        if (accountUi.clouds.isEmpty()) {
+                            Footnote("这个账号还没有云电脑。在桌面端登录后会自动创建。")
+                        }
+                        accountUi.clouds.forEach { cloud ->
+                            SettingsButton(
+                                text = if (accountUi.busy) "正在配对…" else "配对 ${cloud.name} 到这台手机",
+                                enabled = cloud.origin != null && !accountUi.busy,
+                            ) {
+                                if (cloud.origin == null) return@SettingsButton
+                                scope.launch {
+                                    // Mint the one-time code, then hand it to the pairing
+                                    // screen. Redeeming it here bypassed that screen's
+                                    // attempt transaction — the Cloud saw a session but
+                                    // nothing was written down for this phone to restore.
+                                    val grant = environment.cloudAccount.pairCloud(cloud)
+                                        ?: return@launch
+                                    CloudPairingInbox.offer(
+                                        CloudPairingRequest(
+                                            origin = grant.origin,
+                                            code = grant.code,
+                                            name = cloud.name,
+                                        ),
+                                    )
+                                    session.beginPairing()
+                                }
+                            }
+                            SettingsRow("云电脑状态", cloudStatusText(cloud.status))
+                            SettingsButton(
+                                text = "在浏览器中打开 ${cloud.name}",
+                                enabled = cloud.origin != null && !accountUi.busy,
+                            ) {
+                                val origin = cloud.origin ?: return@SettingsButton
+                                cloudNotice = environment.openCloudDesktop(URI(origin))
+                            }
+                        }
+                        SettingsButton(if (accountUi.busy) "正在刷新…" else "刷新", enabled = !accountUi.busy) {
+                            environment.cloudAccount.refresh()
+                        }
+                        SettingsButton("退出账号", destructive = true) {
+                            environment.cloudAccount.signOut()
+                        }
+                    }
+                }
+                accountUi.error?.let { Footnote(it) }
+                cloudNotice?.let { Footnote(it) }
             }
 
             if (connection != null) {
@@ -303,9 +400,9 @@ fun SettingsScreen(
                     }
                 }
                 Footnote(
-                    "一加 / OPPO / realme：设置 → 电池 → 应用电池管理 → OpenMausBot → 允许后台运行。" +
-                        "小米：设置 → 应用设置 → 应用管理 → OpenMausBot → 自启动、省电策略 → 无限制。" +
-                        "华为：设置 → 应用 → 应用启动管理 → OpenMausBot → 手动管理，三项全部允许。",
+                    "一加 / OPPO / realme：设置 → 电池 → 应用电池管理 → DEX BOT → 允许后台运行。" +
+                        "小米：设置 → 应用设置 → 应用管理 → DEX BOT → 自启动、省电策略 → 无限制。" +
+                        "华为：设置 → 应用 → 应用启动管理 → DEX BOT → 手动管理，三项全部允许。",
                 )
             }
 
@@ -351,7 +448,32 @@ fun SettingsScreen(
                         environment.chatPreferences.setPhoneReminders(enabled)
                     },
                 )
-                if (phoneCalendar || phoneContacts || phoneReminders) {
+                SettingsSwitchRow(
+                    text = "允许机器人获取位置",
+                    checked = phoneLocation,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            locationPermissions.launch(
+                                arrayOf(
+                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
+                                    android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                                ),
+                            )
+                        } else {
+                            environment.chatPreferences.setPhoneLocation(false)
+                        }
+                    },
+                )
+                // No permission: this only opens the system composer with the
+                // text filled in, and the person taps Send.
+                SettingsSwitchRow(
+                    text = "允许机器人起草短信 / WhatsApp",
+                    checked = phoneMessages,
+                    onCheckedChange = { enabled ->
+                        environment.chatPreferences.setPhoneMessages(enabled)
+                    },
+                )
+                if (phoneCalendar || phoneContacts || phoneReminders || phoneLocation || phoneMessages) {
                     SettingsRow(
                         "电脑登记",
                         when (phoneToolsStatus) {
@@ -368,6 +490,8 @@ fun SettingsScreen(
                     if (phoneCalendar) add("日历")
                     if (phoneContacts) add("联系人")
                     if (phoneReminders) add("提醒")
+                    if (phoneLocation) add("位置")
+                    if (phoneMessages) add("消息")
                 }
                 Footnote(
                     if (enabledApps.isEmpty()) {
@@ -375,7 +499,8 @@ fun SettingsScreen(
                             "关闭开关或撤销系统权限后立即停止。"
                     } else {
                         "已开启${enabledApps.joinToString("、")}。被授权的智能体可以按各自范围读取或修改；" +
-                            "读到的内容只会发送给你已配对的电脑。提醒保存在本应用里，不会写进系统日历。"
+                            "读到的内容只会发送给你已配对的电脑。提醒保存在本应用里，不会写进系统日历。" +
+                            "“消息”只会打开短信或 WhatsApp 的编辑界面，内容仍需你亲手点发送。"
                     },
                 )
             }
@@ -475,7 +600,7 @@ fun SettingsScreen(
                     SettingsButton("在浏览器中打开发布页", chevron = true) {
                         runCatching {
                             context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(AppUpdater.RELEASE_PAGE))
+                                Intent(Intent.ACTION_VIEW, AppUpdater.RELEASE_PAGE.toUri())
                                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
                             )
                         }
@@ -507,7 +632,9 @@ fun SettingsScreen(
                         singleLine = true,
                         isError = addressError != null,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .semantics { contentDescription = "电脑地址" },
                     )
                     addressError?.let {
                         Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
@@ -667,6 +794,81 @@ fun SettingsScreen(
             onDismiss = { editingQuickReplies = false },
         )
     }
+
+    if (signingIn) {
+        DexSignInDialog(
+            account = environment.cloudAccount,
+            ui = accountUi,
+            onDismiss = { signingIn = false },
+        )
+    }
+}
+
+private fun cloudStatusText(status: String): String = when (status) {
+    "ready" -> "已就绪"
+    "setting_up" -> "正在创建"
+    "offline" -> "离线"
+    "stopped" -> "已睡眠"
+    else -> status
+}
+
+/**
+ * Email code sign-in: the account section's only dialog. It closes itself once
+ * the controller reports a session, so the person never has to press "done".
+ */
+@Composable
+private fun DexSignInDialog(
+    account: com.openmausbot.companion.account.CloudAccountController,
+    ui: CloudAccountUi,
+    onDismiss: () -> Unit,
+) {
+    var email by remember { mutableStateOf(ui.codeSentTo.orEmpty()) }
+    var code by remember { mutableStateOf("") }
+    LaunchedEffect(ui.phase) {
+        if (ui.phase == CloudAccountUi.Phase.SIGNED_IN) onDismiss()
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(if (ui.codeSentTo == null) "登录 DEX 账号" else "输入登录码") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (ui.codeSentTo == null) {
+                    Text("用 DEX 账号的邮箱接收一个 8 位登录码。", fontSize = 13.sp, color = minisSecondary)
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        singleLine = true,
+                        label = { Text("邮箱") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    Text("登录码已发送到 ${ui.codeSentTo}。", fontSize = 13.sp, color = minisSecondary)
+                    OutlinedTextField(
+                        value = code,
+                        onValueChange = { code = it.filter(Char::isDigit).take(8) },
+                        singleLine = true,
+                        label = { Text("8 位登录码") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    TextButton(onClick = { account.sendCode(ui.codeSentTo) }, enabled = !ui.busy) {
+                        Text("重新发送", fontSize = 13.sp)
+                    }
+                }
+                ui.error?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !ui.busy,
+                onClick = { if (ui.codeSentTo == null) account.sendCode(email) else account.verify(code) },
+            ) {
+                Text(if (ui.busy) "请稍候…" else if (ui.codeSentTo == null) "发送登录码" else "登录")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
+    )
 }
 
 @Composable
@@ -678,7 +880,9 @@ private fun SettingsSection(title: String?, content: @Composable () -> Unit) {
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = minisSecondary,
-                modifier = Modifier.padding(start = 4.dp),
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .semantics { heading() },
             )
         }
         // The 1 dp gaps between rows are the separators: every row paints the
@@ -769,14 +973,14 @@ private fun AddressRow(
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 12 sp links on a 44 dp row: the padding used to be the target,
+            // 12 sp links on a 48 dp row: the padding used to be the target,
             // which made these the smallest things on the screen.
             Text(
                 text = if (expanded) "隐藏完整地址" else "显示完整地址",
                 fontSize = 12.sp,
                 color = minisAccent,
                 modifier = Modifier
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 48.dp)
                     .wrapContentHeight(Alignment.CenterVertically)
                     .clickable(role = Role.Button, onClick = onToggle)
                     .padding(horizontal = 6.dp),
@@ -786,7 +990,7 @@ private fun AddressRow(
                 fontSize = 12.sp,
                 color = minisAccent,
                 modifier = Modifier
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 48.dp)
                     .wrapContentHeight(Alignment.CenterVertically)
                     .clickable(role = Role.Button, onClick = onCopy)
                     .padding(horizontal = 6.dp),
@@ -911,7 +1115,7 @@ private fun updateFootnote(state: UpdateState): String = when (state) {
     else -> "更新包托管在公开网页；安装时系统会再确认。"
 }
 
-private const val ADDRESS_CLIP_LABEL = "OpenMausMobile 电脑地址"
+private const val ADDRESS_CLIP_LABEL = "DEX BOT 电脑地址"
 
 /** Long enough for "Copied" to be read, short enough not to linger (iOS `:363-367`). */
 private const val COPIED_LABEL_MILLIS = 2_000L
@@ -922,9 +1126,9 @@ private const val COPIED_LABEL_MILLIS = 2_000L
  */
 internal fun troubleshootingText(status: Session.Status): String = when (status) {
     Session.Status.Live -> "此电脑已连接且响应正常。"
-    Session.Status.Connecting -> "OpenMausBot 正在自动尝试已保存的连接。"
+    Session.Status.Connecting -> "DEX BOT 正在自动尝试已保存的连接。"
     Session.Status.Unauthorized -> "此手机已从电脑移除，请重新配对以恢复连接。"
-    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 MausBot 应用，然后重新打开它。"
+    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 DEX BOT 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
     is Session.Status.Offline ->
         // The status row above is one line and ellipsized; a failure that has

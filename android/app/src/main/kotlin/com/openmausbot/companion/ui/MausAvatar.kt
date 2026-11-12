@@ -54,13 +54,13 @@ import kotlinx.coroutines.flow.collectLatest
 @Composable
 internal fun MausAvatar(
     color: String,
+    modifier: Modifier = Modifier,
     /** Which catalog body to draw; null and unknown ids fall back to the cursor. */
     bodyId: String? = MausSilhouette.defaultBody,
     size: Dp = 52.dp,
     state: MausState = MausState.IDLE,
     /** Off draws the state's resting face, still. For lists of many. */
     animated: Boolean = true,
-    modifier: Modifier = Modifier,
 ) {
     val engine = remember { MausFaceEngine() }
     val geometry = remember { MausFaceGeometry() }
@@ -121,7 +121,7 @@ internal fun MausAvatar(
  * giving the human one too would blur the only distinction the roster makes.
  */
 @Composable
-fun ProfileAvatar(name: String, size: Dp = 34.dp, modifier: Modifier = Modifier) {
+fun ProfileAvatar(name: String, modifier: Modifier = Modifier, size: Dp = 34.dp) {
     Box(modifier = modifier.size(size), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(size)) {
             drawCircle(color = Color(MausPalette.argb("green")))

@@ -31,6 +31,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -58,9 +61,9 @@ object OnboardingCopy {
 
     const val UNPAIRED_HOME_TITLE = "随时准备连接"
     const val UNPAIRED_HOME_BODY =
-        "将此手机与 OpenMausBot 配对，即可查看对话并回复您的机器人。"
+        "将此手机与 DEX BOT 配对，即可查看对话并回复您的机器人。"
     const val UNPAIRED_HOME_HINT =
-        "请在电脑上打开 OpenMausBot → 设置 → 手机和设备。"
+        "请在电脑上打开 DEX BOT → 设置 → 手机和设备。"
     const val UNPAIRED_HOME_CONNECT = "连接电脑"
 
     const val NOTIFICATIONS_TITLE = "随时掌握最新动态"
@@ -103,6 +106,7 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             text = OnboardingCopy.WELCOME_SUBTITLE,
@@ -145,9 +149,10 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                // The product's name, the same one every other surface uses;
-                // "DexBot" was this screen's only holdout.
-                text = "OpenMausBot",
+                // The app's own name, the same one the launcher and every
+                // other surface use. The computer is still OpenMausBot; this
+                // header names the phone client, so it is DEX BOT.
+                text = "DEX BOT",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f).padding(start = 10.dp),
@@ -161,7 +166,14 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
         MinisDivider()
         OnboardingLayout(
             actions = {
-                Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = onConnect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = OnboardingCopy.UNPAIRED_HOME_CONNECT
+                        },
+                ) {
                     Text(OnboardingCopy.UNPAIRED_HOME_CONNECT)
                 }
             },

@@ -53,6 +53,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -518,6 +520,9 @@ private fun RoutineRunRow(
                 .fillMaxWidth()
                 .heightIn(min = MIN_TOUCH_TARGET)
                 .clickable(role = Role.Button) { expanded = !expanded }
+                // Every other expander in the app says whether it is open; this
+                // one was silent, so TalkBack could not tell the two states.
+                .semantics { stateDescription = if (expanded) "已展开" else "已收起" }
                 .padding(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,

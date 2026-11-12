@@ -34,8 +34,10 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick as semanticsOnClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
@@ -157,10 +159,12 @@ internal fun ChromeButton(
     glass: Boolean = false,
     surface: Boolean = false,
 ) {
-    ChromeButton(modifier, size, enabled, onClick, glass, surface) {
+    ChromeButton(modifier, size, enabled, onClick, glass, surface, contentDescription) {
+        // The target carries the name; the glyph is decorative, otherwise the
+        // control exposes a silent parent and a description child.
         Icon(
             imageVector = icon,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else tint,
             modifier = Modifier.size(glyph),
         )
@@ -181,10 +185,10 @@ internal fun ChromeButton(
     glass: Boolean = false,
     surface: Boolean = false,
 ) {
-    ChromeButton(modifier, size, enabled, onClick, glass, surface) {
+    ChromeButton(modifier, size, enabled, onClick, glass, surface, contentDescription) {
         Icon(
             painter = painter,
-            contentDescription = contentDescription,
+            contentDescription = null,
             tint = if (tint == Color.Unspecified) MaterialTheme.colorScheme.onSurface else tint,
             modifier = Modifier.size(glyph),
         )
@@ -199,11 +203,18 @@ private fun ChromeButton(
     onClick: () -> Unit,
     glass: Boolean,
     surface: Boolean,
+    contentDescription: String?,
     glyph: @Composable () -> Unit,
 ) {
-    // No description on the target: the glyph inside carries it, and `clickable`
-    // merges its descendants, so naming it twice is how a control gets read twice.
-    TouchTarget(modifier = modifier, size = size, enabled = enabled, onClick = onClick) {
+    // The name lives on the target. Leaving it to the glyph produced a
+    // clickable parent with no label and a separate description child.
+    TouchTarget(
+        modifier = modifier,
+        size = size,
+        enabled = enabled,
+        onClick = onClick,
+        contentDescription = contentDescription,
+    ) {
         Box(
             // Minis draws header actions as bare glyphs on the page. A glass
             // circle is the floating-chrome variant: the target stays 48 dp,
@@ -278,7 +289,23 @@ internal fun TouchTarget(
                 if (contentDescription == null) {
                     Modifier
                 } else {
-                    Modifier.semantics { this.contentDescription = contentDescription }
+                    // One named node, not a silent clickable parent plus a
+                    // description child. `clickable` still handles the touch;
+                    // this block replaces its semantics and re-adds the same
+                    // action so TalkBack announces and activates one button.
+                    Modifier.clearAndSetSemantics {
+                        this.contentDescription = contentDescription
+                        this.role = Role.Button
+                        // A disabled control must not keep an action TalkBack
+                        // can invoke: re-add it only when the touch target is
+                        // also enabled.
+                        if (enabled) {
+                            semanticsOnClick(label = contentDescription) {
+                                onClick()
+                                true
+                            }
+                        }
+                    }
                 },
             ),
         contentAlignment = Alignment.Center,

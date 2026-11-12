@@ -131,6 +131,9 @@ private fun CompanionState.lastLine(threadId: String): String {
         Message.Kind.ROUTINE_RUN -> last.routineRun?.routineName.orEmpty()
         Message.Kind.GOAL_RUN -> last.goalRun?.goal.orEmpty()
         Message.Kind.SIGNIN -> last.signIn?.site?.let { "需要登录 $it" }.orEmpty()
+        Message.Kind.CALL -> last.call?.title?.takeIf { it.isNotBlank() } ?: "通话记录"
+        Message.Kind.WIDGET -> last.text.orEmpty().ifBlank { "小组件" }
+        Message.Kind.APP -> last.app?.title?.takeIf { it.isNotBlank() } ?: "应用卡片"
         Message.Kind.DIGEST -> ""
         Message.Kind.COMPACTION -> last.compaction?.chipText ?: last.text.orEmpty()
     }

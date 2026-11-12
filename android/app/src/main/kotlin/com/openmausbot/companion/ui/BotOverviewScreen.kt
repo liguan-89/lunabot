@@ -40,6 +40,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -115,6 +117,15 @@ fun BotOverviewScreen(
             refresh()
         } finally {
             loading = false
+        }
+    }
+
+    // A tool server toggled on the computer does not push a bot frame; without
+    // this the card keeps saying what it said when the screen opened.
+    LaunchedEffect(botId, connectionId) {
+        session.mcpChanged.collect {
+            mcpServers = session.loadMcpServers(botId)
+            mcpLoaded = true
         }
     }
 
@@ -339,7 +350,9 @@ private fun OverviewHero(bot: Bot?, overview: BotOverview?) {
             // push the action rows off the screen.
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 24.dp),
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .semantics { heading() },
         )
         val title = overview?.who?.title.orEmpty()
         if (title.isNotBlank()) {

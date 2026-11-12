@@ -37,6 +37,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,6 +114,9 @@ fun PairingScreen(onCancel: () -> Unit) {
     // attempt is in flight is the secret store's answer, not this flag's —
     // `PairingSecrets` is the one object that can refuse to replace the slot.
     var pairing by remember { mutableStateOf(false) }
+    // The handle a Cloud hand-off opened, while its one automatic submit is
+    // still owed. Process memory only, like everything else secret here.
+    var cloudAutoSubmit by remember { mutableStateOf<String?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var showingScanner by remember { mutableStateOf(false) }
     // "Looking…" forever is not an answer. After a few seconds with nothing
@@ -138,11 +143,31 @@ fun PairingScreen(onCancel: () -> Unit) {
     // The credential goes to the process-scoped store; only the handle is ever
     // held by composition state, and the handle is minted with the computer it
     // belongs to, so this screen never has two halves to line up.
-    fun openPending(connection: Connection, fromScan: Boolean) {
-        val opened = PendingPairing.opening(secrets, connection, fromScan) ?: return
+    fun openPending(connection: Connection, fromScan: Boolean, initialCode: String = ""): Boolean {
+        val opened = PendingPairing.opening(secrets, connection, fromScan) ?: return false
         pending = opened
-        code = ""
+        code = initialCode
+        if (initialCode.isNotEmpty()) secrets.setCode(opened.handle, initialCode)
         failure = null
+        return true
+    }
+
+    // A Cloud pairing arrives with its code already in hand: Settings minted it
+    // for this account a moment ago. Open the ordinary confirmation and submit
+    // once through the same attempt transaction a typed code uses — that
+    // transaction is what persists the connection and its device token.
+    val cloudRequest by CloudPairingInbox.pending
+    LaunchedEffect(cloudRequest) {
+        val request = cloudRequest ?: return@LaunchedEffect
+        CloudPairingInbox.consume()
+        val connection = Connection.parse(request.origin)
+        if (connection == null) {
+            failure = "无法识别 ${request.name} 的地址：${request.origin}"
+            return@LaunchedEffect
+        }
+        if (openPending(connection, fromScan = false, initialCode = request.code)) {
+            cloudAutoSubmit = pending?.handle
+        }
     }
 
     val invite by session.pairingInvite.collectAsState()
@@ -189,7 +214,7 @@ fun PairingScreen(onCancel: () -> Unit) {
             onCancel = { showingScanner = false },
             validate = { payload ->
                 if (PairingInvite.parse(payload) == null) {
-                    "这不是有效的 OpenMausBot 配对二维码。"
+                    "这不是有效的 DEX BOT 配对二维码。"
                 } else {
                     // Session decides whether this invite may be accepted at all
                     // (already paired, credential already burned) and publishes
@@ -258,6 +283,17 @@ fun PairingScreen(onCancel: () -> Unit) {
         }
     }
 
+    // The tap in Settings that started this flow is the confirmation: the code
+    // was minted for this account and this Cloud, not read off a screen. Submit
+    // once, here, so a refusal lands on this form where Retry lives instead of
+    // disappearing with a coroutine in another screen.
+    LaunchedEffect(pending?.handle, cloudAutoSubmit) {
+        val selected = pending ?: return@LaunchedEffect
+        if (cloudAutoSubmit != selected.handle) return@LaunchedEffect
+        cloudAutoSubmit = null
+        submit(selected.connection, code, cameFromScanner = false)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -279,7 +315,13 @@ fun PairingScreen(onCancel: () -> Unit) {
             // the same place. Refused while a redemption is in flight, because a
             // credential that may already have reached the computer must not be
             // abandoned halfway (§6) — the port of `.disabled(!allowsNavigation)`.
-            TextButton(onClick = onCancel, enabled = !pairing) { Text("暂不") }
+            TextButton(
+                onClick = onCancel,
+                enabled = !pairing,
+                modifier = Modifier.semantics(mergeDescendants = true) {
+                    contentDescription = "暂不配对"
+                },
+            ) { Text("暂不") }
         }
 
         val selected = pending
@@ -378,7 +420,14 @@ private fun OtherWaysSection(
     content: @Composable () -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        TextButton(onClick = onToggle, modifier = Modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = onToggle,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = if (expanded) "收起其他连接方式" else "其他连接方式"
+                },
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -424,9 +473,16 @@ internal fun pairingFailureDisposition(
 @Composable
 private fun SetupSection(onScan: () -> Unit) {
     SectionCard(title = "在您的电脑上") {
-        Text("1.  打开 OpenMausBot → 设置 → 手机和设备", fontSize = 15.sp)
+        Text("1.  打开 DEX BOT → 设置 → 手机和设备", fontSize = 15.sp)
         Text("2.  选择「配对设备」", fontSize = 15.sp)
-        Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = onScan,
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "扫描二维码"
+                },
+        ) {
             Text("扫描二维码")
         }
         Text(
@@ -503,7 +559,9 @@ private fun ManualSection(
             placeholder = { Text("https://mac.example 或 192.168.1.42:8810") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = "电脑地址" },
         )
         Button(
             onClick = onContinue,
@@ -566,7 +624,9 @@ private fun CodeSection(
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center,
                     ),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "配对码" },
                 )
                 Button(
                     onClick = { onSubmit(code) },

@@ -23,6 +23,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -249,7 +251,11 @@ fun MinisCard(
 fun MinisSectionHeader(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
-        modifier = modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+        // A caption that names a group is a heading to a screen reader: it is
+        // how TalkBack's by-heading navigation moves between groups.
+        modifier = modifier
+            .padding(horizontal = 20.dp, vertical = 6.dp)
+            .semantics { heading() },
         fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
         letterSpacing = 0.2.sp,

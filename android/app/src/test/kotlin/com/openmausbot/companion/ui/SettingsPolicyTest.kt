@@ -58,7 +58,7 @@ class SettingsPolicyTest {
     fun `the footers name the desktop section that exists`() {
         assertEquals(
             "仅从本手机移除配对。若要彻底禁止此手机访问电脑，" +
-                "请在电脑端 OpenMausBot → 设置 → 手机和设备 中移除该设备。",
+                "请在电脑端 DEX BOT → 设置 → 手机和设备 中移除该设备。",
             SettingsPolicy.UNPAIR_FOOTER,
         )
         assertEquals(

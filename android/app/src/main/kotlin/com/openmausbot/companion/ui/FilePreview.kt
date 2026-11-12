@@ -73,6 +73,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.core.graphics.scale
 
 /** How a downloaded file is shown — `FilePreviewItem.Kind` in `AttachmentViews.swift`. */
 enum class FilePreviewKind {
@@ -290,7 +291,7 @@ private fun decodeLegacyOrientedBitmap(data: ByteArray, maximumEdge: Int): andro
         }
         val target = AttachmentImageRules.targetSize(oriented.width, oriented.height, maximumEdge)
         if (target.width == oriented.width && target.height == oriented.height) return oriented
-        return android.graphics.Bitmap.createScaledBitmap(oriented, target.width, target.height, true)
+        return oriented.scale(target.width, target.height)
             .also { if (it !== oriented) oriented.recycle() }
     }
 

@@ -80,8 +80,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick as semanticsOnClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -697,12 +701,15 @@ private fun RosterHeader(
                         onLongClickLabel = if (canCreateBot) "新建分组" else null,
                         onLongClick = if (canCreateBot) onCreateSection else null,
                         onClick = { menuOpen = true },
-                    ),
+                    )
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "新建"
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_plus_line),
-                    contentDescription = "新建",
+                    contentDescription = null,
                     tint = minisInk,
                     modifier = Modifier.size(22.dp),
                 )
@@ -795,12 +802,24 @@ private fun RosterHero(
 ) {
     val chief = (summary.chat as? Chat.BotChat)?.bot?.chiefOfStaff == true
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
-            .padding(top = 6.dp, bottom = 8.dp),
+        modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // The portrait and the name are one button. The computer chip below is
+        // deliberately outside it: clearing the hero's descendant semantics to
+        // get a single label would otherwise hide the chip from TalkBack.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(role = Role.Button, onClick = onClick)
+                // Keep the name in the merged tree; clearing it would leave
+                // only the description and break text-based readers/tests.
+                .semantics(mergeDescendants = true) {
+                    contentDescription = "${summary.chat.name}，打开会话"
+                }
+                .padding(top = 6.dp, bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
         Box {
             // The one large portrait on the screen, and the only one that
             // breathes: a slow scale and a six-second highlight sweep are
@@ -809,7 +828,9 @@ private fun RosterHero(
                 chat = summary.chat,
                 size = 84.dp,
                 animated = false,
-                contentDescription = "${summary.chat.name} 头像",
+                // The whole hero is one labelled button; the portrait must not
+                // add a second, duplicate focus stop.
+                contentDescription = null,
                 fallback = AvatarFallback.PRESET,
                 motion = AvatarMotion.BREATH,
                 // The one face a person actually looks at for a while: it
@@ -849,6 +870,7 @@ private fun RosterHero(
                 Box(Modifier.size(8.dp).background(minisAccent, CircleShape))
             }
         }
+        }
         // Which computer these bots live on, and the way to the other one.
         // Only when there is a choice: a single paired computer needs no chip,
         // and an unpaired phone has nothing to switch to.
@@ -859,6 +881,14 @@ private fun RosterHero(
                     .clip(CircleShape)
                     .background(minisCard)
                     .clickable(role = Role.Button, onClick = onChooseComputer)
+                    .clearAndSetSemantics {
+                        contentDescription = "切换电脑，当前 $computerName"
+                        role = Role.Button
+                        semanticsOnClick(label = "切换电脑") {
+                            onChooseComputer()
+                            true
+                        }
+                    }
                     .padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -871,7 +901,7 @@ private fun RosterHero(
                 )
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = "切换电脑",
+                    contentDescription = null,
                     tint = minisSecondary,
                     modifier = Modifier.size(16.dp),
                 )
@@ -1285,7 +1315,10 @@ private fun RosterBottomBar(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(focus),
+                            .focusRequester(focus)
+                            // The placeholder is a sibling that disappears once
+                            // typing starts; name the field itself.
+                            .semantics { contentDescription = "搜索会话" },
                     )
                 }
                 if (bar.query.isNotEmpty()) {
@@ -1321,12 +1354,19 @@ private fun RosterBottomBar(
                     .clip(CircleShape)
                     .background(minisCard)
                     .border(0.5.dp, minisSeparator, CircleShape)
-                    .clickable(role = Role.Button, onClick = onOpenUpdates),
+                    .clickable(role = Role.Button, onClick = onOpenUpdates)
+                    // The accent dot is the only visible unread signal; without
+                    // a state description TalkBack reads a plain "动态" button.
+                    // Merge so the glyph's label lands on the button itself.
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "动态"
+                        stateDescription = if (updates.isNotEmpty()) "有未读更新" else "无未读更新"
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_grid),
-                    contentDescription = "动态",
+                    contentDescription = null,
                     tint = minisInk,
                     modifier = Modifier.size(22.dp),
                 )
@@ -1348,6 +1388,9 @@ private fun RosterBottomBar(
                     .background(minisCard)
                     .border(0.5.dp, minisSeparator, CircleShape)
                     .clickable(role = Role.Button, onClick = onOpenSearch)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "搜索会话"
+                    }
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1467,7 +1510,7 @@ fun StatusBanner() {
             tone = NoticeTone.ERROR,
         )
         Session.Status.OutdatedApp -> ConnectionNotice(
-            message = "电脑已改用加密连接，请更新手机上的 MausBot 应用后再连接。",
+            message = "电脑已改用加密连接，请更新手机上的 DEX BOT 应用后再连接。",
             title = "需要更新应用",
             tone = NoticeTone.ERROR,
         )

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import com.openmausbot.companion.audio.VoicePreviewPlayer
 import com.openmausbot.companion.audio.VoiceNotePlayer
+import com.openmausbot.companion.account.CloudAccountController
 import com.openmausbot.companion.avatar.AvatarImageStore
 import com.openmausbot.companion.core.ExportedTranscript
 import com.openmausbot.companion.core.Session
@@ -108,6 +109,8 @@ class CompanionEnvironment(
     val onboarding: OnboardingPreferences,
     /** Phone-local transcript and composer presentation choices. */
     val chatPreferences: ChatPreferences,
+    /** The DEX account this phone signs in with, and the Cloud desktops it can open. */
+    val cloudAccount: CloudAccountController,
     val camera: CameraPermissionController,
     val mic: MicPermissionController,
     val notifications: NotificationPermissionController,

@@ -5,6 +5,7 @@ import android.view.HapticFeedbackConstants
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalView
+import android.annotation.SuppressLint
 
 /**
  * The two things this app has to say through the motor — the Android half of
@@ -110,6 +111,9 @@ object CompanionHaptics {
      * key or long press would describe the initial tap rather than the later
      * result, so `NO_HAPTICS` deliberately keeps the success quiet.
      */
+    // Every constant below is an API the branch already gates on; the values are
+    // plain ints, so referencing them on an older runtime is safe.
+    @SuppressLint("InlinedApi")
     fun constant(cue: HapticCue, sdkInt: Int = Build.VERSION.SDK_INT): Int = when (cue) {
         HapticCue.SEND ->
             if (sdkInt >= Build.VERSION_CODES.R) {

@@ -45,8 +45,8 @@ internal fun BotTask.runtimeLabel(queued: Boolean = false): String? = when {
 @Composable
 internal fun BotThreadRow(
     task: BotTask,
-    selected: Boolean = false,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
     now: Long = System.currentTimeMillis(),
     /** The thread is holding a queued send, from the client's queue state.
      * The harness reports this out-of-band; the activity string never says

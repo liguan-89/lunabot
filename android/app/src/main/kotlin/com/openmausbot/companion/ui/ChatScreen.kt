@@ -101,7 +101,11 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick as semanticsOnClick
+import androidx.compose.ui.semantics.onLongClick as semanticsOnLongClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.focus.FocusRequester
@@ -1548,7 +1552,11 @@ private fun ChatSearchOverlay(
                         cursorBrush = SolidColor(minisInk),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(focus),
+                            .focusRequester(focus)
+                            // The placeholder is a sibling Text that disappears
+                            // once typing starts; the field needs a name of its
+                            // own or TalkBack focuses a bare edit box.
+                            .semantics { contentDescription = "搜索聊天内容" },
                     )
                 }
             }
@@ -1687,6 +1695,15 @@ private fun ChatHeader(
                         role = Role.Button,
                         onClick = if (chat.supportsTasks) onOpenThreads else onOpenProfile,
                     )
+                    // Merge, but do not clear: the visible name is the label,
+                    // and clearing it would remove the only text TalkBack and
+                    // the UI tests can find. The description says what the tap
+                    // opens, while the name stays in the merged tree.
+                    .semantics(mergeDescendants = true) {
+                        contentDescription =
+                            if (chat.supportsTasks) "${chat.name}，打开任务列表"
+                            else "${chat.name}，编辑机器人资料"
+                    }
                     .padding(vertical = 3.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
@@ -2323,6 +2340,13 @@ private fun Composer(
                         // key event too, so the rule also asks where it came from.
                         modifier = Modifier
                             .fillMaxWidth()
+                            // The promise line above is drawn as a sibling and
+                            // vanishes on the first character; name the field.
+                            // Merge so the name lands on the editable node
+                            // TalkBack focuses, not on a silent child.
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = "消息输入框"
+                            }
                             .onPreviewKeyEvent { event ->
                                 val sends = ComposerReturn.sends(
                                     isReturnKey = event.key == Key.Enter || event.key == Key.NumPadEnter,
@@ -2372,7 +2396,22 @@ private fun Composer(
                             onLongClickLabel = "发送语音消息",
                             onLongClick = onOpenVoice,
                             onClick = onToggleDictation,
-                        ),
+                        )
+                        .clearAndSetSemantics {
+                            contentDescription =
+                                if (dictationListening) "停止语音听写" else "语音输入"
+                            role = Role.Button
+                            semanticsOnClick(
+                                label = if (dictationListening) "停止语音听写" else "开始语音听写",
+                            ) {
+                                onToggleDictation()
+                                true
+                            }
+                            semanticsOnLongClick(label = "发送语音消息") {
+                                onOpenVoice()
+                                true
+                            }
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(
@@ -2407,7 +2446,11 @@ private fun Composer(
                 }
 
                 } else {
-                    TouchTarget(onClick = onSend, enabled = canSend) {
+                    TouchTarget(
+                        onClick = onSend,
+                        enabled = canSend,
+                        contentDescription = "发送",
+                    ) {
                         Box(
                             modifier = Modifier
                                 .size(34.dp)
@@ -2416,7 +2459,7 @@ private fun Composer(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "发送",
+                                contentDescription = null,
                                 tint = minisPage,
                                 modifier = Modifier.size(18.dp),
                             )

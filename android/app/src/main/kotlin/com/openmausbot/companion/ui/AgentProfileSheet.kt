@@ -1,5 +1,7 @@
 package com.openmausbot.companion.ui
 
+import android.annotation.SuppressLint
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -71,6 +73,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -518,6 +523,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                 if (it.isNotBlank()) nameHint = false
                             },
                             placeholder = "名称",
+                            label = "名称",
                             keyboardOptions = KeyboardOptions(
                                 capitalization = KeyboardCapitalization.Words,
                             ),
@@ -601,9 +607,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                                 scope.launch {
                                                     busy = true
                                                     try {
-                                                        val bytes = context.resources
-                                                            .openRawResource(preset.res)
-                                                            .use { it.readBytes() }
+                                                        val bytes = presetPngBytes(context, preset)
                                                         val target = created ?: opened
                                                         if (target == null) {
                                                             // Not saved yet: keep the
@@ -929,6 +933,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             value = prompt,
                             onValueChange = { prompt = it },
                             placeholder = "画面风格描述",
+                            label = "画面风格描述",
                             singleLine = false,
                             minLines = 2,
                             maxLines = 5,
@@ -983,12 +988,14 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             value = form.title,
                             onValueChange = { form = form.copy(title = it) },
                             placeholder = "头衔",
+                            label = "头衔",
                         )
                         ProfileCardDivider()
                         ProfilePlainField(
                             value = form.description,
                             onValueChange = { form = form.copy(description = it) },
                             placeholder = "此智能体的职责描述",
+                            label = "职责描述",
                             singleLine = false,
                             minLines = 3,
                             maxLines = 8,
@@ -1367,6 +1374,8 @@ private fun ProfilePlainField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
+    /** The field's accessible name; the placeholder is only a hint. */
+    label: String,
     modifier: Modifier = Modifier,
     singleLine: Boolean = true,
     minLines: Int = 1,
@@ -1390,7 +1399,9 @@ private fun ProfilePlainField(
             singleLine = singleLine,
             minLines = minLines,
             maxLines = maxLines,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = label },
         )
     }
 }
@@ -1413,6 +1424,7 @@ internal fun FormSection(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = secondaryTint,
+                modifier = Modifier.semantics { heading() },
             )
         }
         MinisDivider()
@@ -1549,3 +1561,15 @@ private val ProfileFormSaver = listSaver<ProfileForm, Any>(
         )
     },
 )
+
+/**
+ * The bytes of one built-in preset PNG.
+ *
+ * `openRawResource` is normally for `res/raw`, but the preset library ships
+ * drawable PNGs and the upload needs the file itself rather than a bitmap
+ * re-encoded here. The ids are this app's own constants, so the resource type
+ * is known even though the annotation cannot say so.
+ */
+@SuppressLint("ResourceType")
+private fun presetPngBytes(context: Context, preset: PresetAvatar): ByteArray =
+    context.resources.openRawResource(preset.res).use { it.readBytes() }

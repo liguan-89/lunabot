@@ -508,6 +508,16 @@ object MessageActions {
             ?.let { card -> listOfNotNull(card.site, card.reason).filter { it.isNotBlank() } }
             ?.takeIf { it.isNotEmpty() }
             ?.joinToString("\n\n")
+        // A call receipt is worth copying as what happened and how long.
+        Message.Kind.CALL -> message.call?.let { record ->
+            listOfNotNull(
+                record.title?.takeIf { it.isNotBlank() },
+                "${record.seconds.toInt()} 秒",
+                record.endReason.takeIf { it.isNotBlank() },
+            ).takeIf { it.isNotEmpty() }?.joinToString("\n\n")
+        }
+        // A widget or app row's readable fallback is the whole text a phone has.
+        Message.Kind.WIDGET, Message.Kind.APP -> message.text?.takeIf { it.isNotBlank() }
     }
 
     /**
@@ -735,7 +745,7 @@ object SignInCardRules {
         "vm" -> "请在 $botName 工作的私有桌面上登录，然后点「完成」。"
         "cloud" -> "请在 $botName 工作的云端桌面上登录，然后点「完成」。"
         "local" -> "在这台电脑上登录，使用 $botName 所用的浏览器，然后点「完成」。"
-        "host" -> "在运行 OpenMausBot 的那台电脑上登录，使用 $botName 所用的浏览器，然后点「完成」。"
+        "host" -> "在运行 DEX BOT 的那台电脑上登录，使用 $botName 所用的浏览器，然后点「完成」。"
         else -> "请在 $botName 所在的电脑上完成登录，然后点「完成」。"
     }
 

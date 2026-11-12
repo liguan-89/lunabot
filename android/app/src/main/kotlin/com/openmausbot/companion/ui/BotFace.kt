@@ -389,8 +389,8 @@ internal fun BotFace(
     color: String?,
     size: Dp,
     life: FaceLife,
-    mood: FaceMood = FaceMood.IDLE,
     modifier: Modifier = Modifier,
+    mood: FaceMood = FaceMood.IDLE,
     contentDescription: String? = null,
     /**
      * Whether this face may doze off on a screen nobody has touched. Only the

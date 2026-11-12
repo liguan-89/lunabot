@@ -49,6 +49,7 @@ import com.openmausbot.companion.core.Chat
 import com.openmausbot.companion.core.Message
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableIntStateOf
 
 /**
  * Call mode — the bot on the line, on the phone. The port of
@@ -85,7 +86,7 @@ internal fun CallScreen(bot: Bot, onDismiss: () -> Unit) {
     val spokenIds = remember { mutableSetOf<String>() }
     val announcedRequests = remember { mutableSetOf<String>() }
     var started by remember { mutableStateOf(false) }
-    var sayGeneration by remember { mutableStateOf(0) }
+    var sayGeneration by remember { mutableIntStateOf(0) }
 
     fun listen() {
         phase = CallPhase.LISTENING

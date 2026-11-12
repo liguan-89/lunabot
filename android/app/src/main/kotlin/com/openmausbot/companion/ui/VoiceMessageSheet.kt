@@ -47,6 +47,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -63,6 +64,7 @@ import com.openmausbot.companion.R
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.mutableLongStateOf
 
 /** One minute is the ceiling; the server's own file limit is far above this. */
 private const val VOICE_MAX_MS = 60_000L
@@ -101,7 +103,7 @@ fun VoiceMessageSheet(
     var permission by remember { mutableStateOf<Boolean?>(null) }
     var recording by remember { mutableStateOf(false) }
     var cancelling by remember { mutableStateOf(false) }
-    var elapsed by remember { mutableStateOf(0L) }
+    var elapsed by remember { mutableLongStateOf(0L) }
     var levels by remember { mutableStateOf(List(VOICE_METER_BARS) { 0f }) }
     var hint by remember { mutableStateOf<String?>(null) }
 
@@ -201,8 +203,13 @@ fun VoiceMessageSheet(
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
+                        role = Role.Button,
+                        onClickLabel = "关闭",
                         onClick = ::dismiss,
-                    ),
+                    )
+                    // The scrim is a control, not a blank surface: give the
+                    // full-screen clickable the name the chat's scrim has.
+                    .semantics { contentDescription = "关闭" },
             )
 
             Column(

@@ -92,7 +92,7 @@ class SettingsReconnectWiringTest {
             troubleshootingText(Session.Status.Live),
         )
         assertEquals(
-            "OpenMausBot 正在自动尝试已保存的连接。",
+            "DEX BOT 正在自动尝试已保存的连接。",
             troubleshootingText(Session.Status.Connecting),
         )
         assertEquals(

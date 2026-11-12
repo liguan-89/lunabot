@@ -10,6 +10,7 @@ import com.openmausbot.companion.core.BotTask
 import com.openmausbot.companion.core.nextSnoozeExpiry
 import kotlinx.coroutines.delay
 import java.util.Calendar
+import androidx.compose.runtime.mutableLongStateOf
 
 /**
  * The snooze presets behind the thread sheet's clock — `onSnooze` in
@@ -72,7 +73,7 @@ object SnoozeRules {
  */
 @Composable
 fun rememberSnoozeNow(tasks: List<BotTask>): Long {
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val next = nextSnoozeExpiry(tasks, now)
     LaunchedEffect(next) {
         if (next != null) {
