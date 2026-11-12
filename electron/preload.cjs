@@ -614,6 +614,8 @@ const bridge = {
     subscriptions: () => ipcRenderer.invoke("market:subscriptions"),
     signIn: () => navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("market:sign-in") : Promise.reject(new Error("Choose Sign in to sign in.")),
+    cancelSignIn: () => navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("market:cancel-sign-in") : Promise.reject(new Error("Choose Cancel to stop signing in.")),
     signOut: () => navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("market:sign-out") : Promise.reject(new Error("Choose Sign out to sign out.")),
     checkout: (planCode, paymentMethod) => navigator.userActivation?.isActive === true

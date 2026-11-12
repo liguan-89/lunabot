@@ -66,6 +66,7 @@ export function installMarketIpc({ ipcMain, localOnly, client, openBrowser, loca
   handle("market:plans", () => client().plans());
   handle("market:subscriptions", () => client().subscriptions());
   handle("market:sign-in", () => client().signIn());
+  handle("market:cancel-sign-in", () => client().cancelSignIn());
   handle("market:sign-out", () => client().signOut());
   handle("market:checkout", async (_event, planCode, paymentMethod) => {
     const checkout = await client().checkout(String(planCode ?? ""), String(paymentMethod ?? "epay"));

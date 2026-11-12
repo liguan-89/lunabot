@@ -25,6 +25,7 @@ function harness({ subscription = SUBSCRIPTION, reveal = async () => REVEALED, r
     plans: async () => ({ contractVersion: 1, plans: [] }),
     subscriptions: async () => ({ contractVersion: 1, subscriptions: [subscription] }),
     signIn: async () => ({ status: "signed-in", user: { id: 1 } }),
+    cancelSignIn: () => ({ status: "signed-out" }),
     signOut: async () => ({ status: "signed-out" }),
     checkout,
     checkoutStatus: async () => ({ checkout_id: "chk_test_00000001", status: "active", expires_at: 1 }),
@@ -79,6 +80,11 @@ test("refuses an expired subscription before revealing a key", async () => {
   const harnessed = harness({ subscription: { ...SUBSCRIPTION, status: "expired", expires_at: 1 } });
   await assert.rejects(harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id), /Renew this subscription/);
   assert.equal(harnessed.requests.length, 0);
+});
+
+test("forwards a sign-in cancel", async () => {
+  const harnessed = harness();
+  assert.deepEqual(await harnessed.handlers.get("market:cancel-sign-in")(), { status: "signed-out" });
 });
 
 test("opens only the checkout address main received", async () => {

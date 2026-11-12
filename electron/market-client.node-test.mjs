@@ -297,6 +297,28 @@ test("signs out by revoking and forgetting the stored tokens", async () => {
   }
 });
 
+test("cancels a sign-in that never reaches the browser callback", async () => {
+  const mock = await mockMarket();
+  try {
+    let opened;
+    const browserStarted = new Promise((resolve) => { opened = resolve; });
+    const saved = store();
+    const client = createMarketClient({
+      store: saved, openBrowser: async () => { opened(); }, origin: mock.base, fixture: true, apiOrigin: mock.base,
+      fetch, now: () => 1_000_000, waitMs: 60_000,
+    });
+    await client.start();
+    const pending = client.signIn();
+    await browserStarted;
+    client.cancelSignIn();
+    await assert.rejects(pending, (error) => error instanceof MarketError && error.code === "cancelled");
+    assert.equal(saved.value, null);
+    assert.equal(client.state().status, "signed-out");
+  } finally {
+    await mock.close();
+  }
+});
+
 test("refreshes an expired access token before revoking on sign-out", async () => {
   const mock = await mockMarket();
   try {

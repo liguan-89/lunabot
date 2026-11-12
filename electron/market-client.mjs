@@ -228,6 +228,7 @@ export function createMarketClient({
   let value = { status: "signed-out", message: "restoring" };
   let started = null;
   let signingIn = null;
+  let cancelActiveSignIn = null;
   let refreshing = null;
 
   const state = () => structuredClone(value);
@@ -335,6 +336,7 @@ export function createMarketClient({
       };
       settle.open = true;
     });
+    cancelActiveSignIn = () => settle(new MarketError("cancelled", "Sign-in was cancelled."));
     timer = setTimer(() => settle(new MarketError("sign_in_timeout", "TK1688 sign-in timed out. Try again.")), waitMs);
     server = loopbackServer((incoming, response, fail) => {
       const url = new URL(incoming.url, "http://127.0.0.1");
@@ -420,8 +422,13 @@ export function createMarketClient({
       signingIn = begin().catch((error) => {
         if (value.status !== "signed-in") publish({ status: "signed-out", message: error?.code ?? "sign_in_failed" });
         throw error;
-      }).finally(() => { signingIn = null; });
+      }).finally(() => { signingIn = null; cancelActiveSignIn = null; });
       return signingIn;
+    },
+
+    cancelSignIn() {
+      cancelActiveSignIn?.();
+      return state();
     },
 
     async signOut() {

@@ -105,6 +105,7 @@ export interface MarketClient {
   start(): Promise<MarketSessionState>;
   state(): MarketSessionState;
   signIn(): Promise<MarketSessionState>;
+  cancelSignIn(): MarketSessionState;
   signOut(): Promise<MarketSessionState>;
   plans(): Promise<{ contractVersion: 1; plans: MarketPlan[] }>;
   subscriptions(): Promise<{ contractVersion: 1; subscriptions: MarketSubscription[] }>;
@@ -120,6 +121,7 @@ export interface MarketBridge {
   plans(): Promise<{ contractVersion: 1; plans: MarketPlan[] }>;
   subscriptions(): Promise<{ contractVersion: 1; subscriptions: MarketSubscription[] }>;
   signIn(): Promise<MarketSessionState>;
+  cancelSignIn(): Promise<MarketSessionState>;
   signOut(): Promise<MarketSessionState>;
   checkout(planCode: string, paymentMethod?: MarketPaymentMethod): Promise<MarketCheckout>;
   checkoutStatus(checkoutId: string): Promise<MarketCheckoutStatus>;

@@ -36,6 +36,7 @@ export function MarketSubscriptionCard() {
   const [checkout, setCheckout] = useState<MarketCheckout | null>(null);
   const [error, setError] = useState<string | null>(null);
   const polling = useRef<ReturnType<typeof setInterval> | null>(null);
+  const signInCancelled = useRef(false);
 
   const stopPolling = useCallback(() => {
     if (polling.current) clearInterval(polling.current);
@@ -103,9 +104,17 @@ export function MarketSubscriptionCard() {
 
   const signIn = async () => {
     if (!bridge) return;
+    signInCancelled.current = false;
     setBusy("sign-in");
     setError(null);
-    try { await bridge.signIn(); } catch { setError(t("market.signInFailed")); } finally { setBusy(null); }
+    try { await bridge.signIn(); } catch { if (!signInCancelled.current) setError(t("market.signInFailed")); } finally { setBusy(null); }
+  };
+
+  const cancelSignIn = () => {
+    if (!bridge) return;
+    signInCancelled.current = true;
+    void bridge.cancelSignIn().catch(() => {});
+    setBusy(null);
   };
 
   const signOut = async () => {
@@ -161,10 +170,13 @@ export function MarketSubscriptionCard() {
       {session?.status !== "signed-in" ? (
         <div className="flex flex-col gap-3">
           <p className="text-[13px] leading-relaxed text-ink-secondary">{t("market.signInHint")}</p>
-          <button type="button" className="ui-button ui-button-primary w-fit" disabled={waiting} onClick={() => void signIn()}>
-            {busy === "sign-in" ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <ExternalLink size={13} aria-hidden="true" />}
-            {t("market.signIn")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="ui-button ui-button-primary w-fit" disabled={waiting} onClick={() => void signIn()}>
+              {busy === "sign-in" ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <ExternalLink size={13} aria-hidden="true" />}
+              {t("market.signIn")}
+            </button>
+            {busy === "sign-in" && <button type="button" className="ui-button" onClick={cancelSignIn}>{t("market.cancel")}</button>}
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
