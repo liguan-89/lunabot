@@ -1,0 +1,14 @@
+{
+  "id": "fixture-options",
+  "role": "bot",
+  "kind": "options",
+  "at": 1786742413762,
+  "card": {
+    "title": "Which target?",
+    "subtitle": "",
+    "options": [
+      "Staging",
+      "Production"
+    ]
+  }
+}

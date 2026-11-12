@@ -23,8 +23,10 @@ class SessionP2Test {
             val session = session(connection)
             session.awaitRestored()
             val original = decodeFixture<Fleet>("bot-avatar-profile").bots.first()
+            // The fixture's bot name is whatever the capture pinned; replace the
+            // one it actually carries rather than a name from an older capture.
             val updatedJson = fixtureBotJson().replace(
-                "\"name\":\"Scout\"",
+                "\"name\":\"${original.name}\"",
                 "\"name\":\"Mobile Scout\"",
             )
             server.enqueue(json("""{"bot":$updatedJson}"""))
@@ -38,7 +40,7 @@ class SessionP2Test {
             assertEquals("Mobile Scout", session.state.value.bot(original.id)?.name)
             val request = server.takeRequest()
             assertEquals("PATCH", request.method)
-            assertEquals("/api/bots/avatar-bot/profile", request.path)
+            assertEquals("/api/bots/${original.id}/profile", request.path)
             assertEquals(
                 setOf("name"),
                 CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject.keys,

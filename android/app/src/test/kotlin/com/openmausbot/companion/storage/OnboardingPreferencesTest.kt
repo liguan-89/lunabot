@@ -120,27 +120,32 @@ class OnboardingPreferencesTest {
     }
 
     /**
-     * A source pin, and it says only what a source pin can say: that the word
-     * `commit()` is written in the file. It is here because the difference this
-     * guards cannot be observed from a test at all — Robolectric runs `apply()`
-     * synchronously, so both spellings pass every assertion above.
+     * A source pin, and it says only what a source pin can say: that the write
+     * is committed. It is here because the difference this guards cannot be
+     * observed from a test at all — Robolectric runs `apply()` synchronously,
+     * so both spellings pass every assertion above.
      *
      * What is at stake is real: `Session.pair` writes this marker *before* it
      * saves the connection precisely so that a process which stops between them
      * leaves an orphan marker rather than a restorable pairing with none.
      * `apply()` hands the disk write to a background thread and returns, which
-     * silently gives that ordering back.
+     * silently gives that ordering back. KTX's `edit(commit = true)` is the
+     * same synchronous commit as `editor.commit()`; plain `edit {}` is apply.
      */
     @Test
     fun `the marker is written synchronously`() {
         val source = sourceFile("storage/OnboardingPreferences.kt").readText()
         assertTrue(
-            source.contains(".commit()"),
+            source.contains(".commit()") || source.contains("edit(commit = true)"),
             "the onboarding markers must be committed, not applied",
         )
         assertFalse(
             source.contains(".apply()"),
             "an apply() here returns before the value is durable",
+        )
+        assertFalse(
+            source.contains("prefs.edit {"),
+            "a plain edit {} is apply(); the marker must be committed",
         )
     }
 

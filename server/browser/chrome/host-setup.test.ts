@@ -11,10 +11,11 @@ afterAll(async () => { for (const folder of folders) await removeTempDir(folder)
 
 describe("host setup", () => {
   it("pins the AppArmor exemption to one root-owned executable", () => {
-    const profile = appArmorProfile("/opt/OpenMausBot/resources/chrome/chrome");
-    expect(profile).toContain("profile openmausbot-chrome /opt/OpenMausBot/resources/chrome/chrome flags=(unconfined)");
+    const profile = appArmorProfile("/opt/DEX BOT/resources/chrome/chrome");
+    expect(profile).toContain('profile dexbot-chrome "/opt/DEX BOT/resources/chrome/chrome" flags=(unconfined)');
     expect(profile).toContain("userns,");
-    for (const path of ["/opt/**/chrome", "/home/a/chrome", "relative/chrome", "/opt/a b/chrome"]) expect(() => appArmorProfile(path)).toThrow();
+    for (const path of ["/opt/**/chrome", "/home/a/chrome", "relative/chrome"]) expect(() => appArmorProfile(path)).toThrow();
+    expect(appArmorProfile("/opt/a b/chrome")).toContain('profile dexbot-chrome "/opt/a b/chrome" flags=(unconfined)');
   });
 
   it("names the sandbox when Chrome says it has none, and never turns it off by itself", async () => {
@@ -23,9 +24,8 @@ describe("host setup", () => {
     expect(diagnosis?.kind).toBe("sandbox");
     expect(diagnosis?.message).toContain(SANDBOX_STEPS_URL);
     expect(diagnosis?.message).not.toMatch(/browser setup/);
-    // The linked steps exist, and the viewer offers the same link and command.
-    expect(readFileSync(new URL("../../../docs/deploy-vps.md", import.meta.url), "utf8")).toMatch(/^### Ubuntu 24\.04 browser sandbox$/m);
-    expect(SANDBOX_STEPS_URL.endsWith("/docs/deploy-vps.md#ubuntu-2404-browser-sandbox")).toBe(true);
+    // The viewer offers the same hosted steps link and command.
+    expect(SANDBOX_STEPS_URL).toBe("https://cloud.dexai.vip/docs#self-hosting");
     const viewer = readFileSync(new URL("../../../src/lib/browser-stream-client.ts", import.meta.url), "utf8");
     expect(viewer).toContain(`"${SANDBOX_STEPS_URL}"`);
     expect(viewer).toContain(`"${LIBRARIES_COMMAND}"`);

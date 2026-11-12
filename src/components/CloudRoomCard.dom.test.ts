@@ -27,7 +27,15 @@ function bridge(): CloudPlanBridge & Record<"upgradePreview" | "upgrade" | "room
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   setLocale("en");
-  globalThis.localStorage?.clear();
+  const storage = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: unknown) => void storage.set(key, String(value)),
+    removeItem: (key: string) => void storage.delete(key),
+    clear: () => storage.clear(),
+    key: (index: number) => [...storage.keys()][index] ?? null,
+    get length() { return storage.size; },
+  });
   store.bots = [{ id: "chief" }];
   snapshot = { status: "paid", tier: "starter", usage, room: memory };
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);

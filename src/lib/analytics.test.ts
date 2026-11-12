@@ -62,6 +62,7 @@ const baseStorage = {
 vi.stubGlobal("localStorage", baseStorage);
 
 beforeEach(() => {
+  (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = "phc_test_token";
   store.clear();
   ph.loads = 0;
   ph.fail = false;
@@ -75,7 +76,10 @@ beforeEach(() => {
   ph.optIns = [];
 });
 // Restored in afterEach: an inline restore would be skipped when an assertion fails mid-test.
-afterEach(() => vi.stubGlobal("localStorage", baseStorage));
+afterEach(() => {
+  delete (globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__;
+  vi.stubGlobal("localStorage", baseStorage);
+});
 
 // resetModules keeps the mocked posthog-js cached, so it is registered again and `loads` counts this graph only.
 async function freshAnalytics() {

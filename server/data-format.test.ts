@@ -115,7 +115,7 @@ describe("the data folder's format marker", () => {
     writeFileSync(join(dir, DATA_FORMAT_FILE), `\uFEFF${JSON.stringify({ format: 1, writtenBy: "0.1.151", writtenAt: "" })}`);
     expect(readDataFormat(dir)).toMatchObject({ format: 1, writtenBy: "0.1.151" });
     writeFileSync(join(dir, DATA_FORMAT_FILE), `\uFEFF${JSON.stringify({ format: 3, writtenBy: "0.2.0", writtenAt: "" })}`);
-    expect(() => checkDataFormat(dir, "0.1.152", 1, 1)).toThrow("written by a newer OpenMausBot (0.2.0)");
+    expect(() => checkDataFormat(dir, "0.1.152", 1, 1)).toThrow("written by a newer DEX BOT (0.2.0)");
   });
 
   it.skipIf(process.platform === "win32" || process.getuid?.() === 0)("starts on a marker this user cannot read, and on a folder it cannot write", () => {

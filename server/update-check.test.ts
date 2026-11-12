@@ -16,7 +16,7 @@ const github = (newest: string, stable: string | null) => vi.fn(async (url: stri
 describe("server update check", () => {
   it("tells how this server was installed", () => {
     const none = () => false;
-    const root = ["", "srv", "OpenMausBot", "server"].join(sep);
+    const root = ["", "srv", "DEX BOT", "server"].join(sep);
     expect(installKind({ desktopManaged: true, managed: false, serverRoot: root, exists: () => true })).toBe("desktop");
     expect(installKind({ desktopManaged: false, managed: true, serverRoot: root, exists: () => true })).toBe("managed");
     expect(installKind({ desktopManaged: false, managed: false, serverRoot: root, exists: (path) => path === "/.dockerenv" })).toBe("docker");
@@ -54,7 +54,7 @@ describe("server update check", () => {
       channel: "stable",
       latest: "0.1.93",
       available: true,
-      releaseUrl: "https://github.com/milind-soni/OpenMausBot/releases/tag/v0.1.93",
+      releaseUrl: "https://github.com/milind-soni/DEX BOT/releases/tag/v0.1.93",
       command: "git pull && ./update.sh",
       restart: false,
     });

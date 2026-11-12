@@ -1,0 +1,112 @@
+[
+  {
+    "kind": "hello",
+    "cursor": "8cc84e6f:7",
+    "resumed": false
+  },
+  {
+    "kind": "bot",
+    "bot": {
+      "id": "e157d409-125e-40ca-a93e-93a4d082e536",
+      "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "name": "Pesto",
+      "title": "",
+      "description": "",
+      "soul": "",
+      "soulHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "notifications": true,
+      "color": "orange",
+      "mascotBody": "cursor",
+      "unread": false,
+      "modelSelection": {
+        "instanceId": "claude",
+        "model": "claude-sonnet-5"
+      },
+      "createdAt": 1794403254966,
+      "avatarUrl": null,
+      "autoApprove": false,
+      "approvalMode": "full",
+      "waitingForTeammates": false,
+      "mainThreadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "tasks": [
+        {
+          "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+          "title": "fixture message 0",
+          "createdAt": 1794403254966,
+          "updatedAt": 1794403254976,
+          "unread": false,
+          "activity": "idle",
+          "busy": false,
+          "lastThreadOrderAt": 1794403254976,
+          "modelSelection": {
+            "instanceId": "claude",
+            "model": "claude-sonnet-5"
+          },
+          "titleFromFirstMessage": true,
+          "followsBotModel": true,
+          "waitingForTeammates": false
+        }
+      ]
+    },
+    "seq": 8
+  },
+  {
+    "kind": "message",
+    "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+    "message": {
+      "id": "3c40e5f8-08e1-436f-8297-017f60c624b5",
+      "at": 1794403255008,
+      "parentId": "f8636e4c-e4cc-4a97-a499-2abd41b00eb6",
+      "role": "user",
+      "kind": "text",
+      "text": "fixture message 0"
+    },
+    "seq": 9
+  },
+  {
+    "kind": "bot",
+    "bot": {
+      "id": "e157d409-125e-40ca-a93e-93a4d082e536",
+      "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "name": "Pesto",
+      "title": "",
+      "description": "",
+      "soul": "",
+      "soulHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "notifications": true,
+      "color": "orange",
+      "mascotBody": "cursor",
+      "unread": false,
+      "modelSelection": {
+        "instanceId": "claude",
+        "model": "claude-sonnet-5"
+      },
+      "createdAt": 1794403254966,
+      "avatarUrl": null,
+      "autoApprove": false,
+      "approvalMode": "full",
+      "waitingForTeammates": false,
+      "mainThreadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "tasks": [
+        {
+          "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+          "title": "fixture message 0",
+          "createdAt": 1794403254966,
+          "updatedAt": 1794403255008,
+          "unread": false,
+          "activity": "idle",
+          "busy": false,
+          "lastThreadOrderAt": 1794403255008,
+          "modelSelection": {
+            "instanceId": "claude",
+            "model": "claude-sonnet-5"
+          },
+          "titleFromFirstMessage": true,
+          "followsBotModel": true,
+          "waitingForTeammates": false
+        }
+      ]
+    },
+    "seq": 10
+  }
+]

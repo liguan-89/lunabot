@@ -1,0 +1,242 @@
+{
+  "cloudStarter": false,
+  "waitingForRoom": false,
+  "pausedBots": [],
+  "xai": {
+    "configured": false
+  },
+  "mistral": {
+    "configured": false
+  },
+  "cerebras": {
+    "configured": false
+  },
+  "groq": {
+    "configured": false
+  },
+  "greenference": {
+    "configured": false
+  },
+  "modelgo": {
+    "configured": false
+  },
+  "meta": {
+    "configured": false
+  },
+  "deepseek": {
+    "configured": false
+  },
+  "xResearch": {
+    "included": false
+  },
+  "treg": {
+    "configured": false
+  },
+  "postiz": {
+    "configured": false
+  },
+  "anthropic": {
+    "configured": false,
+    "everyClaudeBot": true
+  },
+  "openai": {
+    "configured": false
+  },
+  "openrouter": {
+    "configured": false
+  },
+  "fleet": {
+    "available": false
+  },
+  "edition": {
+    "edition": "oss",
+    "features": []
+  },
+  "budgets": {},
+  "billing": {
+    "currency": "USD",
+    "prices": {}
+  },
+  "decisions": {
+    "retentionDays": 180
+  },
+  "safetyFloor": {
+    "enabled": false
+  },
+  "openaiCompat": {
+    "configured": false,
+    "url": ""
+  },
+  "composio": {
+    "configured": false,
+    "mode": "unavailable"
+  },
+  "box": {
+    "configured": false
+  },
+  "vps": {
+    "configured": false
+  },
+  "opencodeGo": {
+    "configured": false,
+    "providerKeys": []
+  },
+  "tts": {
+    "configured": false,
+    "ready": false,
+    "voice": "",
+    "provider": "elevenlabs",
+    "baseUrl": "",
+    "model": ""
+  },
+  "decider": {
+    "provider": "jev",
+    "configured": false,
+    "enabled": false,
+    "jobs": {
+      "roomRouting": true
+    }
+  },
+  "helpers": {
+    "own": {
+      "jev": false,
+      "workersAi": false,
+      "openrouter": false
+    },
+    "extraction": {
+      "ready": false
+    }
+  },
+  "imageGen": {
+    "provider": "openai",
+    "configured": false,
+    "model": "gpt-image-2",
+    "primary": {
+      "provider": "openai",
+      "model": "gpt-image-2",
+      "configured": false
+    },
+    "fallback": null,
+    "ready": false,
+    "maxPerTurn": 4,
+    "customUrl": "",
+    "customModel": "",
+    "openaiConfigured": false,
+    "xaiConfigured": false,
+    "customKeyConfigured": false,
+    "geminiConfigured": false,
+    "openrouterConfigured": false
+  },
+  "savedKeys": {
+    "ttsKey": {
+      "configured": false
+    },
+    "fishAudioKey": {
+      "configured": false
+    },
+    "geminiTtsKey": {
+      "configured": false
+    },
+    "jevApiKey": {
+      "configured": false
+    },
+    "openrouterDeciderKey": {
+      "configured": false
+    },
+    "workersAiToken": {
+      "configured": false
+    },
+    "openaiImageApiKey": {
+      "configured": false
+    },
+    "customImageApiKey": {
+      "configured": false
+    },
+    "geminiImageApiKey": {
+      "configured": false
+    },
+    "openaiLiveKey": {
+      "configured": false
+    }
+  },
+  "live": {
+    "configured": false,
+    "voice": "",
+    "readTypedReplies": true,
+    "idleMinutes": 5
+  },
+  "profile": {
+    "name": "Ada Lovelace",
+    "email": "ada@example.com",
+    "aboutMe": ""
+  },
+  "managedPolicy": null,
+  "language": "",
+  "computerName": "",
+  "everyBotRules": "",
+  "rooms": {
+    "turnTimeoutMinutes": 5
+  },
+  "mcp": {
+    "callTimeoutMinutes": 10
+  },
+  "automaticRecovery": {
+    "enabled": false
+  },
+  "cacheKeepWarm": {
+    "enabled": false,
+    "windowMinutes": 180
+  },
+  "newBots": {},
+  "threads": {
+    "maxConcurrentPerBot": 16
+  },
+  "localVm": {
+    "mode": "shared",
+    "maxInstances": 2,
+    "idleTimeoutMinutes": 480,
+    "preserveInstalledApps": false
+  },
+  "features": {
+    "skillAuthoring": true,
+    "skillReview": false,
+    "skillReviewSteps": 10,
+    "skillsLibrary": false,
+    "shareLearnedSkills": "off",
+    "showToolCalls": false,
+    "browser": true,
+    "sharedComputers": false,
+    "claudeUserMcp": false,
+    "claudeUserSkills": false,
+    "autoRecall": true,
+    "roomMemoryCapture": false,
+    "parallelRoomJobs": false,
+    "llmThreadTitles": false,
+    "savedSteps": true,
+    "savedStepsHere": true
+  },
+  "onboarding": {
+    "completedAt": "",
+    "version": 0,
+    "reelSeen": false,
+    "hintsSeen": []
+  },
+  "browserEngine": {
+    "kind": "unavailable",
+    "reason": "agent-browser is not installed on this machine yet",
+    "installable": true,
+    "myChrome": false,
+    "serverSites": false,
+    "engine": "agent-browser"
+  },
+  "browserProfiles": [],
+  "signIn": {
+    "admins": [],
+    "members": []
+  },
+  "membership": {
+    "authority": "local",
+    "pairingCodes": true
+  },
+  "workspaceBanner": null
+}

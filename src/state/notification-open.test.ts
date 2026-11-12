@@ -162,7 +162,7 @@ describe("following a notification", () => {
     expect(unread("finished")).toBe(false);
   });
 
-  it("opens the brief in MausBot's chat while MausBot is hidden from the sidebar", async () => {
+  it("opens the brief in DEX BOT's chat while DEX BOT is hidden from the sidebar", async () => {
     await threadsShown(true);
     server = { ...server, defaultBot: {}, sidebarHidden: true };
     stream().send({ kind: "bot", bot: structuredClone(server) });

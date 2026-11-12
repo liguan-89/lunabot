@@ -68,6 +68,15 @@ const fromFrame = (data: unknown, source: unknown) => act(async () => {
 const PICK = { jsonrpc: "2.0", method: POINTED_METHOD, params: { tag: "button", role: "button", text: "Choose Pro", selector: "main > section:nth-of-type(2) > button", html: "<button>Choose Pro</button>" } };
 
 beforeEach(() => {
+  const storage = new Map<string, string>();
+  vi.stubGlobal("localStorage", {
+    getItem: (key: string) => storage.get(key) ?? null,
+    setItem: (key: string, value: unknown) => void storage.set(key, String(value)),
+    removeItem: (key: string) => void storage.delete(key),
+    clear: () => storage.clear(),
+    key: (index: number) => [...storage.keys()][index] ?? null,
+    get length() { return storage.size; },
+  });
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (path) => {
     const url = new URL(path, "http://omb.test");

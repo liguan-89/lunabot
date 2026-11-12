@@ -49,6 +49,8 @@ deploy/podman/.env.*
 
 # Local build output published through the update channel, not source.
 /*.apk
+# A packaged app kept only while checking a release build.
+/release-verify/
 
 # Tooling scratch state that lands wherever a session happened to run.
 .mimosa/

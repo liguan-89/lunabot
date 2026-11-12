@@ -1,0 +1,86 @@
+{
+  "section": "",
+  "label": "General",
+  "entries": [
+    {
+      "id": "1551abb6-103d-458c-8a7a-ed3c6d19f6bb",
+      "kind": "person",
+      "name": "Ada Lovelace",
+      "detail": "Runs the team",
+      "aliases": [
+        "Ada"
+      ],
+      "key": "person:ada lovelace",
+      "status": "accepted",
+      "source": {
+        "botId": "",
+        "botName": "you",
+        "threadId": "",
+        "at": 1794403256176
+      },
+      "updatedAt": 1794403256181,
+      "replaces": [],
+      "revision": "a959b1733da20e292b9701d9738f2dd56616649f8cadad4e8cc4c1318e1bcdc0"
+    },
+    {
+      "id": "ea3ab72f-b67a-43ea-ba02-d30d7215641a",
+      "kind": "place",
+      "name": "Launch plan",
+      "detail": "Notion, Marketing space",
+      "aliases": [],
+      "key": "place:launch plan",
+      "status": "accepted",
+      "source": {
+        "botId": "",
+        "botName": "you",
+        "threadId": "",
+        "at": 1794403256186
+      },
+      "updatedAt": 1794403256191,
+      "replaces": [],
+      "revision": "04c8d2d3b517aee1c74ea1f0031933c079f43d302d1e8a28f482479bd2e18bdf"
+    },
+    {
+      "id": "6820c8c3-5893-432e-8dc2-888b8e17ae59",
+      "kind": "decision",
+      "name": "Ship Android first",
+      "detail": "Decided in the Monday sync",
+      "aliases": [],
+      "key": "decision:ship android first",
+      "status": "accepted",
+      "source": {
+        "botId": "",
+        "botName": "you",
+        "threadId": "",
+        "at": 1794403256195
+      },
+      "updatedAt": 1794403256198,
+      "replaces": [],
+      "revision": "a500f03609f8e7226b708a4e2f91980ecd6ef2456f164aff8f419801bbe88419"
+    },
+    {
+      "id": "b46e6368-af5d-4d08-845e-5bba8a125e01",
+      "kind": "term",
+      "name": "MCHQ",
+      "detail": "MissionControlHQ, the old name",
+      "aliases": [],
+      "key": "term:mchq",
+      "status": "accepted",
+      "source": {
+        "botId": "",
+        "botName": "you",
+        "threadId": "",
+        "at": 1794403256204
+      },
+      "updatedAt": 1794403256208,
+      "replaces": [],
+      "revision": "e0976003d39c8f2863e12c9a49b9247bcef1b779637b7bcf93bced67760749c8"
+    }
+  ],
+  "loadedIds": [
+    "b46e6368-af5d-4d08-845e-5bba8a125e01",
+    "6820c8c3-5893-432e-8dc2-888b8e17ae59",
+    "ea3ab72f-b67a-43ea-ba02-d30d7215641a",
+    "1551abb6-103d-458c-8a7a-ed3c6d19f6bb"
+  ]
+}

@@ -1,0 +1,1763 @@
+{
+  "instances": [
+    {
+      "instanceId": "grok",
+      "driverKind": "grokAgent",
+      "displayName": "Grok",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`grok` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "grok-4.7",
+        "options": [
+          {
+            "id": "grok-4.7",
+            "label": "Grok 4.7",
+            "contextWindow": 500000
+          },
+          {
+            "id": "grok-4.6",
+            "label": "Grok 4.6"
+          },
+          {
+            "id": "grok-4.5",
+            "label": "Grok 4.5"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high"
+        ],
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://x.ai/cli/install.sh | bash",
+          "linux": "curl -fsSL https://x.ai/cli/install.sh | bash"
+        },
+        "docsUrl": "https://x.ai/cli",
+        "signInCommand": "grok login",
+        "platform": "darwin"
+      },
+      "authentication": {
+        "method": "device-code",
+        "signOut": true
+      },
+      "cliDefault": "grok",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "kimi",
+      "driverKind": "kimiAgent",
+      "displayName": "Kimi",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`kimi` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "kimi-code/k3",
+        "options": [
+          {
+            "id": "kimi-code/k3",
+            "label": "Kimi K3"
+          },
+          {
+            "id": "kimi-code/k3-256k",
+            "label": "Kimi K3 256K"
+          },
+          {
+            "id": "kimi-code/kimi-for-coding",
+            "label": "Kimi for Coding"
+          },
+          {
+            "id": "kimi-code/kimi-for-coding-highspeed",
+            "label": "Kimi for Coding Highspeed"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+          "linux": "curl -fsSL https://code.kimi.com/kimi-code/install.sh | bash",
+          "win32": "irm https://code.kimi.com/kimi-code/install.ps1 | iex"
+        },
+        "npmPackage": "@moonshot-ai/kimi-code",
+        "docsUrl": "https://moonshotai.github.io/kimi-code/en/guides/getting-started.html",
+        "signInCommand": "kimi login",
+        "platform": "darwin",
+        "server": {
+          "package": "@moonshot-ai/kimi-code"
+        }
+      },
+      "authentication": {
+        "method": "device-code",
+        "signOut": true
+      },
+      "cliDefault": "kimi",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "droid",
+      "driverKind": "droidAgent",
+      "displayName": "Droid",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`droid` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "claude-opus-5",
+        "options": [
+          {
+            "id": "auto",
+            "label": "Auto (Factory picks)"
+          },
+          {
+            "id": "claude-opus-5",
+            "label": "Claude Opus 5"
+          },
+          {
+            "id": "claude-sonnet-5",
+            "label": "Claude Sonnet 5"
+          },
+          {
+            "id": "claude-haiku-4-5-20251001",
+            "label": "Claude Haiku 4.5"
+          },
+          {
+            "id": "gpt-5.6-sol",
+            "label": "GPT-5.6 Sol"
+          },
+          {
+            "id": "gpt-5.6-terra",
+            "label": "GPT-5.6 Terra"
+          },
+          {
+            "id": "gemini-3.1-pro-preview",
+            "label": "Gemini 3.1 Pro"
+          },
+          {
+            "id": "glm-5.2",
+            "label": "GLM 5.2"
+          },
+          {
+            "id": "kimi-k3",
+            "label": "Kimi K3"
+          },
+          {
+            "id": "grok-4.6",
+            "label": "Grok 4.6"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://app.factory.ai/cli | sh",
+          "linux": "curl -fsSL https://app.factory.ai/cli | sh",
+          "win32": "irm https://app.factory.ai/cli/windows | iex"
+        },
+        "docsUrl": "https://docs.factory.ai/droid-cli/quickstart",
+        "signInCommand": "droid",
+        "platform": "darwin"
+      },
+      "cliDefault": "droid",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "cursor",
+      "driverKind": "cursorAgent",
+      "displayName": "Cursor",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`cursor-agent` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "auto",
+        "options": [
+          {
+            "id": "auto",
+            "label": "Auto"
+          },
+          {
+            "id": "composer-2.5",
+            "label": "Composer 2.5"
+          },
+          {
+            "id": "composer-2.5-fast",
+            "label": "Composer 2.5 Fast"
+          },
+          {
+            "id": "gpt-5.3-codex",
+            "label": "Codex 5.3"
+          },
+          {
+            "id": "claude-sonnet-5-thinking-high",
+            "label": "Claude Sonnet 5 1M Thinking"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl https://cursor.com/install -fsS | bash",
+          "linux": "curl https://cursor.com/install -fsS | bash",
+          "win32": "irm 'https://cursor.com/install?win32=true' | iex"
+        },
+        "docsUrl": "https://cursor.com/docs/cli/installation",
+        "signInCommand": "cursor-agent login",
+        "platform": "darwin"
+      },
+      "authentication": {
+        "method": "device-code",
+        "signOut": false
+      },
+      "cliDefault": "cursor-agent",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "githubCopilot",
+      "driverKind": "copilotAgent",
+      "displayName": "GitHub Copilot",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`copilot` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "auto",
+        "options": [
+          {
+            "id": "auto",
+            "label": "Auto"
+          }
+        ]
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @github/copilot",
+          "linux": "npm install -g @github/copilot",
+          "win32": "npm install -g @github/copilot"
+        },
+        "needsNode": true,
+        "docsUrl": "https://docs.github.com/en/copilot/reference/acp-server",
+        "signInCommand": "copilot login",
+        "platform": "darwin",
+        "server": {
+          "package": "@github/copilot"
+        }
+      },
+      "cliDefault": "copilot",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "commandCode",
+      "driverKind": "commandCodeAgent",
+      "displayName": "Command Code",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`command-code` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "agent-default",
+        "options": [
+          {
+            "id": "agent-default",
+            "label": "Command Code default"
+          }
+        ]
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g command-code",
+          "linux": "npm install -g command-code",
+          "win32": "npm install -g command-code"
+        },
+        "needsNode": true,
+        "docsUrl": "https://commandcode.ai/docs/acp",
+        "signInCommand": "cmd login",
+        "platform": "darwin",
+        "server": {
+          "package": "command-code"
+        }
+      },
+      "cliDefault": "command-code",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "kiro",
+      "driverKind": "kiroAgent",
+      "displayName": "Kiro",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`kiro-cli` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "agent-default",
+        "options": [
+          {
+            "id": "agent-default",
+            "label": "Kiro default"
+          }
+        ]
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": false,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://cli.kiro.dev/install | bash",
+          "linux": "curl -fsSL https://cli.kiro.dev/install | bash",
+          "win32": "irm 'https://cli.kiro.dev/install.ps1' | iex"
+        },
+        "docsUrl": "https://kiro.dev/docs/getting-started/installation/",
+        "signInCommand": "kiro-cli login",
+        "platform": "darwin"
+      },
+      "cliDefault": "kiro-cli",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "claude",
+      "driverKind": "claudeAgent",
+      "displayName": "Claude",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`claude` CLI not found"
+      },
+      "models": {
+        "default": "claude-sonnet-5",
+        "options": [
+          {
+            "id": "claude-fable-5-2",
+            "label": "Claude Fable 5.2",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-fable-5-1",
+            "label": "Claude Fable 5.1"
+          },
+          {
+            "id": "claude-fable-5",
+            "label": "Claude Fable 5"
+          },
+          {
+            "id": "claude-opus-5-5",
+            "label": "Claude Opus 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-opus-5",
+            "label": "Claude Opus 5"
+          },
+          {
+            "id": "claude-sonnet-5-5",
+            "label": "Claude Sonnet 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-sonnet-5",
+            "label": "Claude Sonnet 5"
+          },
+          {
+            "id": "claude-haiku-5-5",
+            "label": "Claude Haiku 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "label": "Claude Haiku 4.5"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": true,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": true,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @anthropic-ai/claude-code",
+          "linux": "npm install -g @anthropic-ai/claude-code",
+          "win32": "npm install -g @anthropic-ai/claude-code"
+        },
+        "needsNode": true,
+        "docsUrl": "https://claude.com/claude-code",
+        "signInCommand": "(unset CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CODE_OAUTH_REFRESH_TOKEN CLAUDE_CODE_OAUTH_SCOPES CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_CUSTOM_HEADERS CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY CLAUDE_CONFIG_DIR; 'claude' 'auth' 'login')",
+        "platform": "darwin",
+        "server": {
+          "package": "@anthropic-ai/claude-code"
+        }
+      },
+      "authentication": {
+        "method": "paste-code",
+        "signOut": true
+      },
+      "cliDefault": "claude",
+      "cliCandidates": [],
+      "claudeAccount": {
+        "configDir": "",
+        "signInCommand": "(unset CLAUDE_CODE_OAUTH_TOKEN CLAUDE_CODE_OAUTH_REFRESH_TOKEN CLAUDE_CODE_OAUTH_SCOPES CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL ANTHROPIC_CUSTOM_HEADERS CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLAUDE_CODE_USE_FOUNDRY CLAUDE_CONFIG_DIR; 'claude' 'auth' 'login')",
+        "signInShell": "sh",
+        "isDefault": true
+      }
+    },
+    {
+      "instanceId": "codex",
+      "driverKind": "codex",
+      "displayName": "Codex",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`codex` CLI not found"
+      },
+      "models": {
+        "default": "gpt-5.6-sol",
+        "options": [
+          {
+            "id": "gpt-6-astra",
+            "label": "GPT-6 Astra (availability unverified)"
+          },
+          {
+            "id": "gpt-6-sol",
+            "label": "GPT-6 Sol (availability unverified)"
+          },
+          {
+            "id": "gpt-6-luna",
+            "label": "GPT-6 Luna (availability unverified)"
+          },
+          {
+            "id": "gpt-5.6-sol",
+            "label": "GPT-5.6 Sol"
+          },
+          {
+            "id": "gpt-5.6-terra",
+            "label": "GPT-5.6 Terra"
+          },
+          {
+            "id": "gpt-5.6-luna",
+            "label": "GPT-5.6 Luna"
+          },
+          {
+            "id": "gpt-5.5",
+            "label": "GPT-5.5"
+          },
+          {
+            "id": "gpt-5.4",
+            "label": "GPT-5.4"
+          },
+          {
+            "id": "gpt-5.4-mini",
+            "label": "GPT-5.4 Mini"
+          },
+          {
+            "id": "gpt-5.3-codex-spark",
+            "label": "GPT-5.3 Codex Spark"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": true,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @openai/codex",
+          "linux": "npm install -g @openai/codex",
+          "win32": "npm install -g @openai/codex"
+        },
+        "needsNode": true,
+        "docsUrl": "https://github.com/openai/codex",
+        "signInCommand": "codex login",
+        "platform": "darwin",
+        "server": {
+          "package": "@openai/codex"
+        }
+      },
+      "authentication": {
+        "method": "device-code",
+        "signOut": true
+      },
+      "cliDefault": "codex",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "chatgpt",
+      "driverKind": "codex",
+      "displayName": "ChatGPT plan",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`codex` CLI not found",
+        "chatgptPlan": true
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": true,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @openai/codex",
+          "linux": "npm install -g @openai/codex",
+          "win32": "npm install -g @openai/codex"
+        },
+        "needsNode": true,
+        "docsUrl": "https://github.com/openai/codex",
+        "signInCommand": "codex login",
+        "platform": "darwin",
+        "server": {
+          "package": "@openai/codex"
+        }
+      },
+      "authentication": {
+        "method": "browser-pkce",
+        "signOut": true
+      },
+      "cliDefault": "codex",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "antigravity",
+      "driverKind": "antigravityAgent",
+      "displayName": "Google Gemini (Antigravity)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "Antigravity now uses Google's official runtime. Choose Install official Antigravity, then Sign in with Google. Your previous agy login is not copied."
+      },
+      "models": {
+        "default": "gemini-3.8-flash",
+        "options": [
+          {
+            "id": "gemini-3.8-flash",
+            "label": "Gemini 3.8 Flash",
+            "variants": [
+              {
+                "id": "low",
+                "label": "Low"
+              },
+              {
+                "id": "medium",
+                "label": "Medium"
+              },
+              {
+                "id": "high",
+                "label": "High"
+              }
+            ]
+          }
+        ]
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "docsUrl": "https://github.com/agentclientprotocol/registry/tree/main/antigravity-acp",
+        "managed": {
+          "label": "Install official Antigravity",
+          "downloadBytes": 114147623
+        },
+        "platform": "darwin"
+      },
+      "authentication": {
+        "method": "browser",
+        "signOut": true
+      },
+      "cliDefault": "agy",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "opencodeGo",
+      "driverKind": "opencodeGo",
+      "displayName": "OpenCode",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`opencode` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @opencode/cli",
+          "linux": "npm install -g @opencode/cli",
+          "win32": "npm install -g @opencode/cli"
+        },
+        "docsUrl": "https://opencode.ai/docs/",
+        "signInCommand": "opencode auth login",
+        "needsNode": true,
+        "platform": "darwin",
+        "server": {
+          "standalone": {
+            "version": "2.2.5",
+            "downloadBytes": 105851917
+          },
+          "package": "@opencode/cli"
+        }
+      },
+      "cliDefault": "opencode",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "openaiCompat",
+      "driverKind": "openai-compat",
+      "displayName": "Other (OpenAI-compatible)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "meta-llama/llama-3.3-70b-instruct",
+        "options": [
+          {
+            "id": "meta-llama/llama-3.3-70b-instruct",
+            "label": "Llama 3.3 70B (OpenRouter)",
+            "custom": true
+          },
+          {
+            "id": "llama-3.3-70b-versatile",
+            "label": "Llama 3.3 70B (Groq)",
+            "custom": true
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://openrouter.ai/keys",
+        "settings": "connections",
+        "signInCommand": "Save an OpenAI-compatible API key in Settings → API keys, or set OPENAI_COMPAT_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "mistral",
+      "driverKind": "mistral",
+      "displayName": "Mistral (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No Mistral API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "mistral-large-latest",
+        "options": [
+          {
+            "id": "mistral-large-latest",
+            "label": "Mistral Large (latest)"
+          },
+          {
+            "id": "mistral-small-latest",
+            "label": "Mistral Small (latest)"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": false,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": false,
+        "images": false,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": false,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://console.mistral.ai/api-keys",
+        "settings": "connections",
+        "signInCommand": "Save a Mistral API key in Settings → API keys, or set MISTRAL_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "cerebras",
+      "driverKind": "cerebras",
+      "displayName": "Cerebras (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No Cerebras API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "gpt-oss-120b",
+        "options": [
+          {
+            "id": "gpt-oss-120b",
+            "label": "GPT OSS 120B",
+            "contextWindow": 65536
+          },
+          {
+            "id": "qwen-3.8-27b",
+            "label": "Qwen3.8 27B",
+            "contextWindow": 65536
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://cloud.cerebras.ai/",
+        "settings": "connections",
+        "signInCommand": "Save a Cerebras API key in Settings → API keys, or set CEREBRAS_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "groq",
+      "driverKind": "groq",
+      "displayName": "Groq (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No Groq API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "openai/gpt-oss-120b",
+        "options": [
+          {
+            "id": "openai/gpt-oss-120b",
+            "label": "GPT OSS 120B",
+            "contextWindow": 131072
+          },
+          {
+            "id": "openai/gpt-oss-20b",
+            "label": "GPT OSS 20B",
+            "contextWindow": 131072
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://console.groq.com/docs/overview",
+        "settings": "connections",
+        "signInCommand": "Save a Groq API key in Settings → API keys, or set GROQ_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "greenference",
+      "driverKind": "greenference",
+      "displayName": "Greenference (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No Greenference API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "greenference/glm-5.3-flash",
+        "options": [
+          {
+            "id": "greenference/glm-5.3-flash",
+            "label": "GLM 5.3 Flash",
+            "contextWindow": 1048576
+          },
+          {
+            "id": "greenference/qwen3.6-27b",
+            "label": "Qwen3.6 27B",
+            "contextWindow": 262144
+          },
+          {
+            "id": "greenference/gemma-4-31b-it",
+            "label": "Gemma 4 31B",
+            "contextWindow": 262144
+          },
+          {
+            "id": "greenference/glm-4.7-flash",
+            "label": "GLM 4.7 Flash",
+            "contextWindow": 131072
+          },
+          {
+            "id": "greenference/qwen3-14b",
+            "label": "Qwen3 14B",
+            "contextWindow": 41000
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://greenference.com/docs",
+        "settings": "connections",
+        "signInCommand": "Save a Greenference API key in Settings → API keys, or set GREENFERENCE_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "modelgo",
+      "driverKind": "modelgo",
+      "displayName": "ModelGo (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No ModelGo API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://modelgo.ai/?utm_source=openmausbot&utm_medium=sponsorship&utm_content=app&campaign_id=openmausbot&ad_group_id=app",
+        "settings": "connections",
+        "signInCommand": "Save a ModelGo API key in Settings → API keys, or set MODELGO_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "meta",
+      "driverKind": "meta",
+      "displayName": "Meta Muse (API)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No Meta Model API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "muse-wonder-1.0",
+        "options": [
+          {
+            "id": "muse-wonder-1.0",
+            "label": "Muse Wonder 1.0",
+            "contextWindow": 1048576
+          },
+          {
+            "id": "muse-spark-1.3",
+            "label": "Muse Spark 1.3",
+            "contextWindow": 1048576
+          },
+          {
+            "id": "muse-spark-1.3-contributor",
+            "label": "Muse Spark 1.3 Contributor",
+            "contextWindow": 1048576
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://dev.meta.ai/docs/authentication",
+        "settings": "connections",
+        "signInCommand": "Save a Meta Model API key in Settings → API keys, or set META_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "deepseek",
+      "driverKind": "deepseekAgent",
+      "displayName": "DeepSeek Harness",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`dsh` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "deepseek-official/deepseek-v4-flash",
+        "options": [
+          {
+            "id": "deepseek-official/deepseek-v4-flash",
+            "label": "DeepSeek-V4-Flash"
+          },
+          {
+            "id": "deepseek-official/deepseek-flash",
+            "label": "DeepSeek-V4.1-Flash"
+          },
+          {
+            "id": "deepseek-official/deepseek-v4-pro",
+            "label": "DeepSeek-V4-Pro"
+          }
+        ]
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": true,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @deepseek-ai/dsh",
+          "linux": "npm install -g @deepseek-ai/dsh",
+          "win32": "npm install -g @deepseek-ai/dsh"
+        },
+        "docsUrl": "https://github.com/deepseek-ai/deepseek-harness",
+        "needsNode": true,
+        "settings": "connections",
+        "platform": "darwin",
+        "server": {
+          "package": "@deepseek-ai/dsh"
+        }
+      },
+      "cliDefault": "dsh",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "museCode",
+      "driverKind": "museCode",
+      "displayName": "Muse Code",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "Muse Code isn't installed on this computer.",
+        "authenticated": false
+      },
+      "models": {
+        "default": "muse-wonder-1.0",
+        "options": [
+          {
+            "id": "muse-wonder-1.0",
+            "label": "Muse Wonder 1.0",
+            "contextWindow": 1048576
+          },
+          {
+            "id": "muse-spark-1.3",
+            "label": "Muse Spark 1.3",
+            "contextWindow": 1048576
+          },
+          {
+            "id": "muse-spark-1.2",
+            "label": "Muse Spark 1.2",
+            "contextWindow": 1048576
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": false
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://dev.meta.ai/install.sh | bash",
+          "linux": "curl -fsSL https://dev.meta.ai/install.sh | bash",
+          "win32": "irm https://dev.meta.ai/install.ps1 | iex"
+        },
+        "docsUrl": "https://dev.meta.ai/docs/muse-code",
+        "signInCommand": "muse login",
+        "platform": "darwin"
+      },
+      "cliDefault": "muse",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "openai",
+      "driverKind": "openai-compat",
+      "displayName": "OpenAI",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "gpt-5",
+        "options": [
+          {
+            "id": "gpt-5",
+            "label": "gpt-5"
+          },
+          {
+            "id": "gpt-5-mini",
+            "label": "gpt-5-mini"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://openrouter.ai/keys",
+        "settings": "connections",
+        "signInCommand": "Save an OpenAI-compatible API key in Settings → API keys, or set OPENAI_COMPAT_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": [],
+      "icon": {
+        "kind": "preset",
+        "preset": "openai"
+      }
+    },
+    {
+      "instanceId": "claudeApi",
+      "driverKind": "claudeAgent",
+      "displayName": "Claude (API key)",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`claude` CLI not found"
+      },
+      "models": {
+        "default": "claude-sonnet-5",
+        "options": [
+          {
+            "id": "claude-fable-5-2",
+            "label": "Claude Fable 5.2",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-fable-5-1",
+            "label": "Claude Fable 5.1"
+          },
+          {
+            "id": "claude-fable-5",
+            "label": "Claude Fable 5"
+          },
+          {
+            "id": "claude-opus-5-5",
+            "label": "Claude Opus 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-opus-5",
+            "label": "Claude Opus 5"
+          },
+          {
+            "id": "claude-sonnet-5-5",
+            "label": "Claude Sonnet 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-sonnet-5",
+            "label": "Claude Sonnet 5"
+          },
+          {
+            "id": "claude-haiku-5-5",
+            "label": "Claude Haiku 5.5",
+            "contextWindow": 1000000
+          },
+          {
+            "id": "claude-haiku-4-5",
+            "label": "Claude Haiku 4.5"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": true,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": true,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @anthropic-ai/claude-code",
+          "linux": "npm install -g @anthropic-ai/claude-code",
+          "win32": "npm install -g @anthropic-ai/claude-code"
+        },
+        "needsNode": true,
+        "docsUrl": "https://claude.com/claude-code",
+        "platform": "darwin",
+        "server": {
+          "package": "@anthropic-ai/claude-code"
+        }
+      },
+      "cliDefault": "claude",
+      "cliCandidates": [],
+      "icon": {
+        "kind": "preset",
+        "preset": "anthropic"
+      }
+    },
+    {
+      "instanceId": "xaiApi",
+      "driverKind": "grok",
+      "displayName": "xAI",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No xAI API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "grok-4.7",
+        "options": [
+          {
+            "id": "grok-4.7",
+            "label": "Grok 4.7",
+            "contextWindow": 500000
+          },
+          {
+            "id": "grok-4",
+            "label": "Grok 4"
+          },
+          {
+            "id": "grok-4-fast",
+            "label": "Grok 4 Fast"
+          },
+          {
+            "id": "grok-3-mini",
+            "label": "Grok 3 Mini"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": false,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": false,
+        "images": false,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": false,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "cliCandidates": [],
+      "icon": {
+        "kind": "preset",
+        "preset": "xai"
+      }
+    },
+    {
+      "instanceId": "openrouter",
+      "driverKind": "openai-compat",
+      "displayName": "OpenRouter",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "No API key — open Settings → API keys."
+      },
+      "models": {
+        "default": "meta-llama/llama-3.3-70b-instruct",
+        "options": [
+          {
+            "id": "meta-llama/llama-3.3-70b-instruct",
+            "label": "Llama 3.3 70B (OpenRouter)",
+            "custom": true
+          },
+          {
+            "id": "llama-3.3-70b-versatile",
+            "label": "Llama 3.3 70B (Groq)",
+            "custom": true
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "api",
+      "install": {
+        "docsUrl": "https://openrouter.ai/keys",
+        "settings": "connections",
+        "signInCommand": "Save an OpenAI-compatible API key in Settings → API keys, or set OPENAI_COMPAT_API_KEY on the server.",
+        "platform": "darwin"
+      },
+      "cliCandidates": [],
+      "icon": {
+        "kind": "preset",
+        "preset": "openrouter"
+      }
+    },
+    {
+      "instanceId": "qwen",
+      "driverKind": "qwenAgent",
+      "displayName": "Qwen",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`qwen` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "custom",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash",
+          "linux": "curl -fsSL https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.sh | bash",
+          "win32": "irm https://qwen-code-assets.oss-cn-hangzhou.aliyuncs.com/installation/install-qwen-standalone.ps1 | iex"
+        },
+        "docsUrl": "https://qwenlm.github.io/qwen-code-docs/en/users/overview/",
+        "platform": "darwin"
+      },
+      "cliDefault": "qwen",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "hermes",
+      "driverKind": "hermesAgent",
+      "displayName": "Hermes",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`hermes` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "modelsUnconfirmed": true,
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "custom",
+      "install": {
+        "command": {
+          "darwin": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+          "linux": "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+          "win32": "iex (irm https://hermes-agent.nousresearch.com/install.ps1)"
+        },
+        "docsUrl": "https://hermes-agent.nousresearch.com/docs/getting-started/quickstart",
+        "signInCommand": "hermes setup",
+        "platform": "darwin"
+      },
+      "cliDefault": "hermes",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "cline",
+      "driverKind": "clineAgent",
+      "displayName": "Cline",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`cline` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+      },
+      "models": {
+        "default": "cline-default",
+        "options": [
+          {
+            "id": "cline-default",
+            "label": "Cline default (configured)"
+          }
+        ]
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": false,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": true
+      },
+      "access": "subscription",
+      "install": {
+        "command": {
+          "darwin": "npm install -g cline",
+          "linux": "npm install -g cline",
+          "win32": "npm install -g cline"
+        },
+        "needsNode": true,
+        "docsUrl": "https://docs.cline.bot/usage/acp",
+        "signInCommand": "cline auth",
+        "platform": "darwin",
+        "server": {
+          "package": "cline"
+        }
+      },
+      "cliDefault": "cline",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "pi",
+      "driverKind": "piAgent",
+      "displayName": "pi",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`pi` CLI not found"
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "capabilities": {
+        "computerMcp": true,
+        "agentsMcp": true,
+        "composioMcp": true,
+        "phoneMcp": true,
+        "deviceMcp": true,
+        "dataMcp": true,
+        "emailMcp": true,
+        "browserMcp": true,
+        "images": true,
+        "effortLevels": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "modelVariants": false,
+        "queueing": true,
+        "localComputerMcp": true,
+        "approvalReview": false,
+        "backgroundText": false
+      },
+      "access": "custom",
+      "install": {
+        "command": {
+          "darwin": "npm install -g @earendil-works/pi-coding-agent",
+          "linux": "npm install -g @earendil-works/pi-coding-agent",
+          "win32": "npm install -g @earendil-works/pi-coding-agent"
+        },
+        "needsNode": true,
+        "docsUrl": "https://pi.dev",
+        "platform": "darwin",
+        "server": {
+          "package": "@earendil-works/pi-coding-agent"
+        }
+      },
+      "cliDefault": "pi",
+      "cliCandidates": []
+    },
+    {
+      "instanceId": "zcode",
+      "driverKind": "zcodeAgent",
+      "displayName": "ZCode",
+      "snapshot": {
+        "state": "unavailable",
+        "reason": "`zcode` CLI not found"
+      },
+      "models": {
+        "default": "",
+        "options": []
+      },
+      "capabilities": {
+        "computerMcp": false,
+        "agentsMcp": false,
+        "composioMcp": false,
+        "phoneMcp": false,
+        "deviceMcp": false,
+        "dataMcp": false,
+        "emailMcp": false,
+        "browserMcp": false,
+        "images": false,
+        "modelVariants": false,
+        "queueing": false,
+        "localComputerMcp": false,
+        "approvalReview": false,
+        "backgroundText": false
+      },
+      "access": "custom",
+      "install": {
+        "command": {
+          "darwin": "install the zcode CLI on PATH, or point the engine at ZCode.app's bundled zcode.cjs",
+          "linux": "install the zcode CLI on PATH",
+          "win32": "install the zcode CLI on PATH"
+        },
+        "needsNode": false,
+        "platform": "darwin"
+      },
+      "cliDefault": "zcode",
+      "cliCandidates": []
+    }
+  ]
+}

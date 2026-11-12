@@ -19,6 +19,9 @@ delete process.env.CODEX_HOME;
 // Named explicitly although homedir() already covers it: the device tests delete this directory wholesale.
 process.env.OMB_COMPANION_DIR = join(home, ".openmausbot-companion");
 
+// The shipped app has no analytics key; tests exercise the loading path with a throwaway write-only key.
+(globalThis as { __DEXBOT_ANALYTICS_TOKEN__?: string }).__DEXBOT_ANALYTICS_TOKEN__ = "phc_test_token";
+
 // Product code follows navigator.language; pin it so English assertions do not depend on the host locale.
 Object.defineProperty(globalThis.navigator, "language", { value: "en", configurable: true });
 

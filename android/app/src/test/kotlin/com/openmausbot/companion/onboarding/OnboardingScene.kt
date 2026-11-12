@@ -3,6 +3,9 @@ package com.openmausbot.companion.onboarding
 import android.Manifest
 import android.app.Application
 import android.content.Context
+import com.openmausbot.companion.account.CloudAccountApi
+import com.openmausbot.companion.account.CloudAccountController
+import com.openmausbot.companion.account.CloudAccountStore
 import com.openmausbot.companion.avatar.AvatarImageStore
 import com.openmausbot.companion.core.APIError
 import com.openmausbot.companion.core.CompanionClient
@@ -138,6 +141,15 @@ class OnboardingScene(
         discovery = discovery,
         onboarding = onboarding,
         chatPreferences = ChatPreferences(context),
+        // Never started in tests: the environment only needs a live object, and
+        // the store's Keystore-backed prefs are lazy.
+        cloudAccount = CloudAccountController(
+            api = CloudAccountApi(),
+            store = CloudAccountStore(context),
+            scope = scope,
+            deviceName = "test",
+            appVersion = "test",
+        ),
         camera = CameraPermissionController(
             isGranted = { "android.permission.CAMERA" in granted },
             request = { record(listOf("android.permission.CAMERA")) },

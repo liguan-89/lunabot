@@ -52,7 +52,7 @@ describe("custom MCP registry", () => {
   });
 
   it("lets a custom server run an Electron binary as node, and nothing else", () => {
-    const refused = "Environment variable “ELECTRON_RUN_AS_NODE” is reserved by OpenMausBot; a custom server may set it to “1” only.";
+    const refused = "Environment variable “ELECTRON_RUN_AS_NODE” is reserved by DEX BOT; a custom server may set it to “1” only.";
     expect(parseStoredMcpServer("notes", { command: "notes-mcp", env: { ELECTRON_RUN_AS_NODE: "0" } })).toEqual({ ok: false, error: refused });
     expect(parseMcpServerMutation("notes", { command: "notes-mcp", env: { ELECTRON_RUN_AS_NODE: "true" } })).toEqual({ ok: false, error: refused });
     const stored = parseStoredMcpServer("bundled", {

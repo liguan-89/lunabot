@@ -13,7 +13,10 @@ class PhoneJobsTest {
 
     @Test
     fun `the registration only claims the apps this build can serve`() {
-        assertEquals(setOf("calendar", "contacts", "reminders"), PhoneToolCatalog.supportedCapabilities)
+        assertEquals(
+            setOf("calendar", "contacts", "reminders", "location", "messages"),
+            PhoneToolCatalog.supportedCapabilities,
+        )
         assertEquals(
             emptyMap(),
             PhoneToolCatalog.capabilities(CalendarAccess.NONE),
@@ -34,6 +37,21 @@ class PhoneJobsTest {
             mapOf("contacts" to "full", "reminders" to "full"),
             PhoneToolCatalog.capabilities(CalendarAccess.NONE, ContactsAccess.READ_WRITE, reminders = true),
         )
+        // Coarse location is a limited grant; precise is full. Messages open a
+        // composer, so the switch is the whole grant and there is no OS
+        // permission to report.
+        assertEquals(
+            mapOf("location" to "limited"),
+            PhoneToolCatalog.capabilities(CalendarAccess.NONE, location = LocationAccess.COARSE),
+        )
+        assertEquals(
+            mapOf("location" to "full"),
+            PhoneToolCatalog.capabilities(CalendarAccess.NONE, location = LocationAccess.PRECISE),
+        )
+        assertEquals(
+            mapOf("messages" to "full"),
+            PhoneToolCatalog.capabilities(CalendarAccess.NONE, messages = true),
+        )
     }
 
     @Test
@@ -47,13 +65,21 @@ class PhoneJobsTest {
     }
 
     @Test
-    fun `only the calendar, contacts and reminders tools are implemented`() {
-        assertEquals(15, PhoneTool.entries.size)
-        assertTrue(PhoneTool.entries.all { it.capability in setOf("calendar", "contacts", "reminders") })
+    fun `only the implemented phone apps are in the catalog`() {
+        assertEquals(18, PhoneTool.entries.size)
+        assertTrue(
+            PhoneTool.entries.all {
+                it.capability in setOf("calendar", "contacts", "reminders", "location", "messages")
+            },
+        )
         assertEquals(PhoneTool.CREATE_EVENT, PhoneTool.fromWire("PHONE_CREATE_EVENT"))
         assertEquals(PhoneTool.UPDATE_CONTACT, PhoneTool.fromWire("PHONE_UPDATE_CONTACT"))
         assertEquals(PhoneTool.COMPLETE_REMINDER, PhoneTool.fromWire("PHONE_COMPLETE_REMINDER"))
-        assertNull(PhoneTool.fromWire("PHONE_SEND_MESSAGE"))
+        assertEquals(PhoneTool.GET_LOCATION, PhoneTool.fromWire("PHONE_GET_LOCATION"))
+        assertEquals(PhoneTool.SEND_MESSAGE, PhoneTool.fromWire("PHONE_SEND_MESSAGE"))
+        assertEquals(PhoneTool.SEND_WHATSAPP, PhoneTool.fromWire("PHONE_SEND_WHATSAPP"))
+        // Home and nearby places need a vendor SDK this build does not carry.
+        assertNull(PhoneTool.fromWire("PHONE_RUN_SCENE"))
     }
 
     @Test

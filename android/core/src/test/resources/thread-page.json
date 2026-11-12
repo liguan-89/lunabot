@@ -1,0 +1,41 @@
+{
+  "messages": [
+    {
+      "id": "871e8e2a-ca9b-4e0f-a730-2487f2a9a900",
+      "at": 1794403255285,
+      "parentId": "6eeb2808-ac0e-40f0-b04c-f44555d2e7b0",
+      "role": "bot",
+      "kind": "activity",
+      "tool": {
+        "name": "error: `claude` isn't installed, or isn't on this app's PATH",
+        "ok": false,
+        "setup": true
+      },
+      "requestMessageId": "6eeb2808-ac0e-40f0-b04c-f44555d2e7b0"
+    },
+    {
+      "id": "798386e8-b8c3-4453-ba09-f58ea9e0aeb9",
+      "at": 1794403255292,
+      "parentId": "871e8e2a-ca9b-4e0f-a730-2487f2a9a900",
+      "role": "bot",
+      "kind": "digest",
+      "text": "[digest] · no tool activity observed in this turn",
+      "digest": {
+        "turnId": "b8c5200b-ba48-42cb-96d3-a6ad8a7089ec",
+        "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+        "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+        "at": 1794403255292,
+        "durationMs": 7,
+        "tools": [],
+        "toolCalls": 0,
+        "memory": [],
+        "reply": "",
+        "hookCoverage": "none"
+      },
+      "turnId": "b8c5200b-ba48-42cb-96d3-a6ad8a7089ec",
+      "turnSucceeded": false
+    }
+  ],
+  "hasMore": true,
+  "activeLeafId": "798386e8-b8c3-4453-ba09-f58ea9e0aeb9"
+}

@@ -1,0 +1,242 @@
+{
+  "bots": [
+    {
+      "id": "e157d409-125e-40ca-a93e-93a4d082e536",
+      "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "name": "Pesto",
+      "title": "",
+      "description": "",
+      "soul": "",
+      "soulHash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "notifications": true,
+      "color": "orange",
+      "mascotBody": "cursor",
+      "unread": false,
+      "modelSelection": {
+        "instanceId": "claude",
+        "model": "claude-sonnet-5"
+      },
+      "createdAt": 1794403254966,
+      "avatarUrl": null,
+      "autoApprove": false,
+      "activity": "dead",
+      "busy": false,
+      "approvalMode": "full",
+      "waitingForTeammates": false,
+      "mainThreadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+      "tasks": [
+        {
+          "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+          "title": "fixture message 0",
+          "createdAt": 1794403254966,
+          "updatedAt": 1794403255292,
+          "activity": "dead",
+          "busy": false,
+          "lastThreadOrderAt": 1794403255272,
+          "modelSelection": {
+            "instanceId": "claude",
+            "model": "claude-sonnet-5"
+          },
+          "titleFromFirstMessage": true,
+          "cwd": "/fixture-home/.dexbot/task-workspaces/e157d409-125e-40ca-a93e-93a4d082e536/36250041-0228-4c24-b361-f6c1f5d5aed5",
+          "usage": {
+            "input": 0,
+            "output": 0,
+            "costUsd": null,
+            "turns": 3,
+            "lastTurn": {
+              "input": 0,
+              "output": 0,
+              "costUsd": null
+            }
+          },
+          "lastReadMessageId": "798386e8-b8c3-4453-ba09-f58ea9e0aeb9",
+          "followsBotModel": true,
+          "waitingForTeammates": false
+        }
+      ],
+      "messages": [
+        {
+          "id": "6eeb2808-ac0e-40f0-b04c-f44555d2e7b0",
+          "at": 1794403255272,
+          "parentId": "cb9dc376-9550-45d4-9c23-fcffb7868c40",
+          "role": "user",
+          "kind": "text",
+          "text": "fixture message 2",
+          "requestPending": true
+        },
+        {
+          "id": "871e8e2a-ca9b-4e0f-a730-2487f2a9a900",
+          "at": 1794403255285,
+          "parentId": "6eeb2808-ac0e-40f0-b04c-f44555d2e7b0",
+          "role": "bot",
+          "kind": "activity",
+          "tool": {
+            "name": "error: `claude` isn't installed, or isn't on this app's PATH",
+            "ok": false,
+            "setup": true
+          },
+          "requestMessageId": "6eeb2808-ac0e-40f0-b04c-f44555d2e7b0"
+        },
+        {
+          "id": "798386e8-b8c3-4453-ba09-f58ea9e0aeb9",
+          "at": 1794403255292,
+          "parentId": "871e8e2a-ca9b-4e0f-a730-2487f2a9a900",
+          "role": "bot",
+          "kind": "digest",
+          "text": "[digest] · no tool activity observed in this turn",
+          "digest": {
+            "turnId": "b8c5200b-ba48-42cb-96d3-a6ad8a7089ec",
+            "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+            "threadId": "36250041-0228-4c24-b361-f6c1f5d5aed5",
+            "at": 1794403255292,
+            "durationMs": 7,
+            "tools": [],
+            "toolCalls": 0,
+            "memory": [],
+            "reply": "",
+            "hookCoverage": "none"
+          },
+          "turnId": "b8c5200b-ba48-42cb-96d3-a6ad8a7089ec",
+          "turnSucceeded": false
+        }
+      ],
+      "hasMore": true,
+      "activeLeafId": "798386e8-b8c3-4453-ba09-f58ea9e0aeb9"
+    }
+  ],
+  "botQueuedMessages": {},
+  "sections": [
+    "Fixtures"
+  ],
+  "groups": [
+    {
+      "id": "6570f01f-437a-42a7-aa42-d3df1e8abe9c",
+      "threadId": "dcb987e3-a44e-4ced-a107-3fbc203cf925",
+      "name": "Fixtures",
+      "memberIds": [
+        "e157d409-125e-40ca-a93e-93a4d082e536"
+      ],
+      "defaultResponder": {
+        "kind": "member",
+        "botId": "e157d409-125e-40ca-a93e-93a4d082e536"
+      },
+      "bulletin": "",
+      "unread": true,
+      "createdAt": 1794403255413,
+      "busyBotId": null,
+      "section": "Fixtures",
+      "tasks": [
+        {
+          "threadId": "dcb987e3-a44e-4ced-a107-3fbc203cf925",
+          "title": "room fixture message 0",
+          "createdAt": 1794403255413,
+          "updatedAt": 1794403255951,
+          "lastThreadOrderAt": 1794403255938,
+          "titleFromFirstMessage": true,
+          "pinnedCwd": null,
+          "working": false,
+          "busyBotId": null
+        }
+      ],
+      "setupCompletedAt": null,
+      "setupSkippedAt": 1794403255420,
+      "pinnedCwd": null,
+      "description": null,
+      "turnTimeoutMinutes": null,
+      "usage": {
+        "input": 0,
+        "output": 0,
+        "costUsd": 0,
+        "turns": 5,
+        "lastTurn": {
+          "input": 0,
+          "output": 0,
+          "costUsd": 0
+        },
+        "lastSpeaker": {
+          "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+          "name": "Pesto"
+        }
+      },
+      "memberContext": null,
+      "working": false,
+      "queue": [],
+      "chiefAbsent": null,
+      "messages": [
+        {
+          "id": "c83b6660-074a-458a-848e-4ea8d43f6832",
+          "at": 1794403255938,
+          "parentId": "c7f82b97-7f0a-4961-ac96-08a42466f494",
+          "role": "user",
+          "kind": "text",
+          "text": "room fixture message 4",
+          "channelMode": "chat",
+          "via": "api"
+        },
+        {
+          "id": "d527faf1-fb40-4864-8f9f-a9a57b8c14b7",
+          "at": 1794403255950,
+          "parentId": "c83b6660-074a-458a-848e-4ea8d43f6832",
+          "role": "bot",
+          "kind": "activity",
+          "tool": {
+            "name": "error: `claude` isn't installed, or isn't on this app's PATH",
+            "ok": false,
+            "setup": true
+          },
+          "from": {
+            "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+            "name": "Pesto",
+            "color": "orange",
+            "since": 1794403255940
+          }
+        },
+        {
+          "id": "38e37b68-78eb-438f-822c-d59023ebb192",
+          "at": 1794403255951,
+          "parentId": "d527faf1-fb40-4864-8f9f-a9a57b8c14b7",
+          "role": "bot",
+          "kind": "digest",
+          "text": "[digest] · no tool activity observed in this turn",
+          "digest": {
+            "turnId": "fd8b0ffd-1fa8-4c77-9074-626772eedd39",
+            "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+            "threadId": "dcb987e3-a44e-4ced-a107-3fbc203cf925",
+            "at": 1794403255951,
+            "durationMs": 1,
+            "tools": [],
+            "toolCalls": 0,
+            "memory": [],
+            "reply": "",
+            "usage": {
+              "input": 0,
+              "output": 0,
+              "costUsd": null
+            },
+            "hookCoverage": "none"
+          },
+          "turnId": "fd8b0ffd-1fa8-4c77-9074-626772eedd39",
+          "from": {
+            "botId": "e157d409-125e-40ca-a93e-93a4d082e536",
+            "name": "Pesto",
+            "color": "orange",
+            "since": 1794403255940
+          }
+        }
+      ],
+      "hasMore": true,
+      "activeLeafId": "38e37b68-78eb-438f-822c-d59023ebb192"
+    }
+  ],
+  "computerControl": {
+    "e157d409-125e-40ca-a93e-93a4d082e536": {
+      "held": false,
+      "helpReason": null
+    },
+    "b2bb645d-bb45-4d92-b024-13d6256222bd": {
+      "held": false,
+      "helpReason": null
+    }
+  }
+}

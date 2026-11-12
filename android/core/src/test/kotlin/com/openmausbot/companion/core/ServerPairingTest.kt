@@ -27,6 +27,19 @@ class ServerPairingTest {
     }
 
     @Test
+    fun companionLinksAreAcceptedUnderBothBrands() {
+        // The desktop writes dexbot:// now; links and QR codes made before the
+        // rebrand still have to pair. Anything else stays out.
+        for (scheme in listOf(PairingInvite.SCHEME, PairingInvite.LEGACY_SCHEME, "DEXBOT")) {
+            assertNotNull(
+                PairingInvite.parse("$scheme://pair?address=192.168.1.9:8810&code=123456"),
+                scheme,
+            )
+        }
+        assertNull(PairingInvite.parse("other://pair?address=192.168.1.9:8810&code=123456"))
+    }
+
+    @Test
     fun malformedServerLinksAreRejectedAndCompanionLinksStillWork() {
         for (bad in listOf(
             "https://mini.example/pair",

@@ -32,6 +32,38 @@ class DecodingTest {
         assertNull(fleet.bots.first().hasMore)
     }
 
+    /**
+     * The three message kinds the phone used to fall back to UNKNOWN: a
+     * finished call's receipt, a bot-authored widget, and an app page. Each
+     * carries its own payload, so reading the kind without the payload would
+     * still leave a gap in the transcript.
+     */
+    @Test
+    fun decodesCallWidgetAndAppRows() {
+        val messages = CompanionJson.decodeFromString<List<Message>>(
+            """
+            [
+              {"id":"c","role":"bot","kind":"call","at":1,
+               "call":{"callId":"call1","botId":"b1","client":"android","startedAt":2,"endedAt":77,
+                       "seconds":75,"endReason":"hung-up","title":"Weekly sync"}},
+              {"id":"w","role":"bot","kind":"widget","at":2,"text":"Choose a target",
+               "widget":{"v":1,"settled":{"label":"Staging","tone":"confirm"}}},
+              {"id":"a","role":"bot","kind":"app","at":3,"text":"Pick a date",
+               "app":{"v":1,"source":"mcp","title":"Calendar","doc":"d1"}}
+            ]
+            """,
+        )
+
+        assertEquals(Message.Kind.CALL, messages[0].kind)
+        assertEquals(75.0, messages[0].call?.seconds)
+        assertEquals("Weekly sync", messages[0].call?.title)
+        assertEquals(Message.Kind.WIDGET, messages[1].kind)
+        assertEquals("Staging", messages[1].widget?.settled?.label)
+        assertEquals(Message.Kind.APP, messages[2].kind)
+        assertEquals("Calendar", messages[2].app?.title)
+        assertEquals("mcp", messages[2].app?.source)
+    }
+
     @Test
     fun decodesTheCardKindsTheTranscriptUsedToDrop() {
         val messages = CompanionJson.decodeFromString<List<Message>>(
@@ -404,7 +436,7 @@ class DecodingTest {
         // A "contains pair" assertion would have kept passing when the desktop
         // renamed its Companion area to Phone and the fixtures were re-captured.
         assertEquals(
-            "pair this device from Phone settings in OpenMausBot on your computer",
+            "pair this device from Remote access settings on the host computer",
             decodeFixture<APIErrorBody>("unauthorized").error,
         )
         assertTrue(decodeFixture<APIErrorBody>("forbidden").error.isNotEmpty())
@@ -477,6 +509,35 @@ class DecodingTest {
         assertTrue("hello" in kinds)
         assertTrue("message" in kinds)
         assertTrue("bot" in kinds)
+    }
+
+    /**
+     * Frames the phone used to drop into Unknown: a Live call, a computer lease
+     * change and a tool-server change. The desktop-only webhook and app-trigger
+     * frames are named too, so a newer computer's stream stays legible.
+     */
+    @Test
+    fun decodesCallLeaseAndDesktopOnlyFrames() {
+        fun frame(json: String): Frame =
+            CompanionJson.decodeFromString<StreamFrame>(json).frame
+
+        val call = frame(
+            """{"kind":"live.call","botId":"b1","threadId":"t1","seq":2,
+               "call":{"callId":"c1","botId":"b1","client":"desktop","startedAt":1,
+                       "endedAt":31,"seconds":30,"endReason":"hung-up"}}""",
+        )
+        assertTrue(call is Frame.LiveCall)
+        call as Frame.LiveCall
+        assertEquals("b1", call.botId)
+        assertEquals(30.0, call.call?.seconds)
+
+        assertEquals(
+            Frame.ComputerControl("b1", true, "needs your hands"),
+            frame("""{"kind":"computer-control","botId":"b1","held":true,"helpReason":"needs your hands"}"""),
+        )
+        assertEquals(Frame.McpChanged, frame("""{"kind":"mcp.changed"}"""))
+        assertTrue(frame("""{"kind":"webhook","webhook":{"id":"w"}}""") is Frame.DesktopOnly)
+        assertTrue(frame("""{"kind":"app-trigger","botId":"b1"}""") is Frame.DesktopOnly)
     }
 
     @Test

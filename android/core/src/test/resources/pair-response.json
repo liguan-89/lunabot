@@ -1,0 +1,29 @@
+{
+  "device": {
+    "id": "488dea63-2392-4798-965b-fcccbc56afa0",
+    "name": "Ada's iPhone",
+    "createdAt": 1794403254951,
+    "lastSeenAt": 1794403254951,
+    "cloudDesktopAccess": false,
+    "browserControlAccess": false,
+    "routes": "any"
+  },
+  "token": "omb_REDACTED",
+  "serverName": "OpenMausBot",
+  "hosts": [
+    "192.168.31.175",
+    "openmausbot-90e339db.local"
+  ],
+  "endpoints": [
+    {
+      "url": "http://192.168.31.175:22012",
+      "kind": "lan",
+      "priority": 200
+    },
+    {
+      "url": "http://openmausbot-90e339db.local:22012",
+      "kind": "bonjour",
+      "priority": 300
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "who": {
+    "name": "Kiwi",
+    "title": "Tracker",
+    "blurb": "Files bugs.",
+    "soulLead": "File bugs."
+  },
+  "does": [
+    "Every 5 minutes: Triage Discord. Next run 1:25 PM."
+  ],
+  "doesRoutines": [
+    {
+      "name": "Triage Discord",
+      "schedule": {
+        "type": "interval",
+        "everyMinutes": 5,
+        "anchorAt": 1794403256158
+      },
+      "nextRunAt": 1794403556158
+    }
+  ],
+  "reaches": [
+    "Computer preference: Auto; availability is checked when a task starts.",
+    "Works in its private workspace."
+  ],
+  "wont": [
+    "Has no connected apps."
+  ],
+  "recent": [
+    {
+      "at": 1794403256157,
+      "summary": "soul: 0 → 29 bytes"
+    }
+  ],
+  "setup": [
+    {
+      "id": "identity",
+      "label": "Give it a name and a role",
+      "done": true,
+      "section": "identity"
+    },
+    {
+      "id": "soul",
+      "label": "Write its standing instructions",
+      "done": true,
+      "section": "soul"
+    },
+    {
+      "id": "folder",
+      "label": "Choose a working folder",
+      "done": false,
+      "section": "access"
+    },
+    {
+      "id": "schedule",
+      "label": "Add a schedule or a trigger",
+      "done": true,
+      "section": "routines"
+    }
+  ]
+}
