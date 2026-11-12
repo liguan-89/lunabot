@@ -924,7 +924,7 @@ export async function verifyToken(token: string): Promise<{ ok: true } | { ok: f
 }
 
 const INCLUDED_BOAT_UNAVAILABLE = "The cloud computers included with your Cloud plan aren't available right now. Try again later.";
-const boatServiceName = (included: boolean) => included ? "DexBot Cloud's computer service" : "boat.dev";
+const boatServiceName = (included: boolean) => included ? "DEX BOT Cloud's computer service" : "boat.dev";
 
 export function boatErrorMessage(status: number, what: string, body?: any, included = false): string {
   const theirs = typeof body?.message === "string" ? body.message.trim() : "";

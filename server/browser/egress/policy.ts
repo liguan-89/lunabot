@@ -15,7 +15,7 @@ export type Refusal = "omb" | "this-computer" | "local-network" | "link-local" |
 
 /** How a refusal reads in the page-health line. */
 export const REFUSAL_TEXT: Record<Refusal, string> = {
-  omb: "OpenMausBot's own service",
+  omb: "DEX BOT's own service",
   "this-computer": "a service on this computer that no bot started",
   "local-network": "the local network",
   "link-local": "a link-local address",
@@ -47,7 +47,7 @@ export const browserEgressConfigSchema = z.object({
     message: "must be an IP address or CIDR range, with an optional :port",
   })).max(64).optional(),
   /** Desktop: false keeps bots' browsers off the local network (the default lets them reach it). Self-hosted
-   * servers: true lets them open this server's own sites and its local network (off by default); OpenMausBot's
+   * servers: true lets them open this server's own sites and its local network (off by default); DEX BOT's
    * own ports, cloud metadata and link-local addresses stay closed. MausBot Cloud ignores it. */
   localNetwork: z.boolean().optional(),
 });
@@ -123,7 +123,7 @@ export async function refusalFor(
     if (kind === "metadata" || kind === "link-local" || kind === "reserved") return kind;
     if (kind === "private") {
       if (rules.host === "desktop" ? rules.localNetwork : rules.host === "server" && rules.allowed(address, port)) continue;
-      // The owner's switch opens the local network, but never OpenMausBot's own ports through it (a Docker host's gateway).
+      // The owner's switch opens the local network, but never DEX BOT's own ports through it (a Docker host's gateway).
       if (rules.host === "server" && rules.localNetwork) {
         if (rules.ownPort(port)) return "omb";
         continue;

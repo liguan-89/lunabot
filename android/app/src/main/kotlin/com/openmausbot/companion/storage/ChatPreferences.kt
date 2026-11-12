@@ -9,6 +9,7 @@ import com.openmausbot.companion.core.QuickReply
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import androidx.core.content.edit
 
 /** Light, dark, or whatever the phone is set to. */
 enum class ThemeMode(val wireValue: String) {
@@ -65,7 +66,7 @@ class ChatPreferences(
 
     fun setPhoneCalendar(enabled: Boolean) {
         if (_phoneCalendar.value == enabled && prefs.contains(PHONE_CALENDAR)) return
-        prefs.edit().putBoolean(PHONE_CALENDAR, enabled).commit()
+        prefs.edit { putBoolean(PHONE_CALENDAR, enabled) }
         _phoneCalendar.value = enabled
     }
 
@@ -75,7 +76,7 @@ class ChatPreferences(
 
     fun setPhoneContacts(enabled: Boolean) {
         if (_phoneContacts.value == enabled && prefs.contains(PHONE_CONTACTS)) return
-        prefs.edit().putBoolean(PHONE_CONTACTS, enabled).commit()
+        prefs.edit { putBoolean(PHONE_CONTACTS, enabled) }
         _phoneContacts.value = enabled
     }
 
@@ -85,8 +86,32 @@ class ChatPreferences(
 
     fun setPhoneReminders(enabled: Boolean) {
         if (_phoneReminders.value == enabled && prefs.contains(PHONE_REMINDERS)) return
-        prefs.edit().putBoolean(PHONE_REMINDERS, enabled).commit()
+        prefs.edit { putBoolean(PHONE_REMINDERS, enabled) }
         _phoneReminders.value = enabled
+    }
+
+    /** Whether bots may ask this phone where it is; off until allowed. */
+    private val _phoneLocation = MutableStateFlow(prefs.getBoolean(PHONE_LOCATION, false))
+    val phoneLocation: StateFlow<Boolean> = _phoneLocation.asStateFlow()
+
+    fun setPhoneLocation(enabled: Boolean) {
+        if (_phoneLocation.value == enabled && prefs.contains(PHONE_LOCATION)) return
+        prefs.edit { putBoolean(PHONE_LOCATION, enabled) }
+        _phoneLocation.value = enabled
+    }
+
+    /**
+     * Whether bots may send a message from this phone. One switch for both SMS
+     * and WhatsApp: the person grants the address book once, and the Android
+     * SMS permission is asked only when the switch is turned on.
+     */
+    private val _phoneMessages = MutableStateFlow(prefs.getBoolean(PHONE_MESSAGES, false))
+    val phoneMessages: StateFlow<Boolean> = _phoneMessages.asStateFlow()
+
+    fun setPhoneMessages(enabled: Boolean) {
+        if (_phoneMessages.value == enabled && prefs.contains(PHONE_MESSAGES)) return
+        prefs.edit { putBoolean(PHONE_MESSAGES, enabled) }
+        _phoneMessages.value = enabled
     }
 
     /**
@@ -97,13 +122,13 @@ class ChatPreferences(
     fun phoneInstallId(): String {
         prefs.getString(PHONE_INSTALL_ID, null)?.let { if (it.isNotBlank()) return it }
         val created = java.util.UUID.randomUUID().toString()
-        prefs.edit().putString(PHONE_INSTALL_ID, created).commit()
+        prefs.edit { putString(PHONE_INSTALL_ID, created) }
         return created
     }
 
     fun setThemeMode(mode: ThemeMode) {
         if (_themeMode.value == mode && prefs.contains(THEME_MODE)) return
-        prefs.edit().putString(THEME_MODE, mode.wireValue).commit()
+        prefs.edit { putString(THEME_MODE, mode.wireValue) }
         _themeMode.value = mode
     }
 
@@ -111,7 +136,7 @@ class ChatPreferences(
         if (_activityDetail.value == detail && prefs.contains(ACTIVITY_DETAIL)) return
         // The value is small and changed only from Settings. Commit makes a
         // selection durable before a process recreation can observe it.
-        prefs.edit().putString(ACTIVITY_DETAIL, detail.wireValue).commit()
+        prefs.edit { putString(ACTIVITY_DETAIL, detail.wireValue) }
         _activityDetail.value = detail
     }
 
@@ -121,7 +146,7 @@ class ChatPreferences(
         // as a first-run default.
         val encoded = QuickReply.encode(replies)
         if (_quickReplies.value == replies && prefs.getString(QUICK_REPLIES, null) == encoded) return
-        prefs.edit().putString(QUICK_REPLIES, encoded).commit()
+        prefs.edit { putString(QUICK_REPLIES, encoded) }
         _quickReplies.value = replies
     }
 
@@ -133,7 +158,7 @@ class ChatPreferences(
     fun setLastShareDestination(connectionId: String, destinationId: String) {
         val key = destinationKey(connectionId)
         if (prefs.getString(key, null) == destinationId) return
-        prefs.edit().putString(key, destinationId).commit()
+        prefs.edit { putString(key, destinationId) }
     }
 
     /** Only a generic roster tap restores this preference; explicit links keep their target. */
@@ -147,7 +172,7 @@ class ChatPreferences(
         if (chat !is Chat.BotChat || connectionId == null) return
         val key = threadKey(connectionId, chat.id)
         if (prefs.getString(key, null) != chat.threadId) {
-            prefs.edit().putString(key, chat.threadId).commit()
+            prefs.edit { putString(key, chat.threadId) }
         }
     }
 
@@ -160,6 +185,8 @@ class ChatPreferences(
         private const val PHONE_CALENDAR = "companion.prefs.phone.calendar"
         private const val PHONE_CONTACTS = "companion.prefs.phone.contacts"
         private const val PHONE_REMINDERS = "companion.prefs.phone.reminders"
+        private const val PHONE_LOCATION = "companion.prefs.phone.location"
+        private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 
         private fun threadKey(connectionId: String, botId: String): String =

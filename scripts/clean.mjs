@@ -7,6 +7,7 @@ const generatedPaths = [
   "dist-server",
   "release",
   "electron/resources/speech-helper",
+  "electron/resources/DEX BOT Speech.app",
   "electron/resources/OpenMausBot Speech.app",
 ];
 

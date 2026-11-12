@@ -44,40 +44,59 @@ internal class PhoneJobRunner(
 ) {
     private val calendar = PhoneCalendar(context)
     private val contacts = PhoneContacts(context)
+    private val location = PhoneLocation(context)
+    private val messages = PhoneMessages(context)
     private val reminderStore = ReminderStore(java.io.File(context.filesDir, "phone-reminders.json"))
     private val reminderAlarms = ReminderAlarms(context)
     private val reminders = PhoneReminders(reminderStore, reminderAlarms)
 
     fun start() {
         scope.launch {
-            // All three switches feed one decision. Observing only the
-            // calendar's meant turning contacts on with calendar off looked
-            // like "all off", and the phone never registered at all.
+            // Every switch feeds one decision. Observing only the calendar's
+            // meant turning contacts on with calendar off looked like "all
+            // off", and the phone never registered at all.
             combine(
                 preferences.phoneCalendar,
                 preferences.phoneContacts,
                 preferences.phoneReminders,
-            ) { calendar, contacts, reminders -> Triple(calendar, contacts, reminders) }
+                preferences.phoneLocation,
+                preferences.phoneMessages,
+            ) { calendar, contacts, reminders, location, messages ->
+                Switches(calendar, contacts, reminders, location, messages)
+            }
                 .distinctUntilChanged()
-                .collectLatest { (calendar, contacts, remindersOn) ->
-                    if (!calendar && !contacts && !remindersOn) {
+                .collectLatest { switches ->
+                    if (!switches.any) {
                         session.unregisterPhone()
                         session.reportPhoneTools(Session.PhoneToolsStatus.Idle)
                         return@collectLatest
                     }
-                    runWhileEnabled(remindersOn)
+                    runWhileEnabled(switches)
                 }
         }
     }
 
-    private suspend fun runWhileEnabled(remindersOn: Boolean) {
+    private data class Switches(
+        val calendar: Boolean = false,
+        val contacts: Boolean = false,
+        val reminders: Boolean = false,
+        val location: Boolean = false,
+        val messages: Boolean = false,
+    ) {
+        val any: Boolean get() = calendar || contacts || reminders || location || messages
+    }
+
+    private suspend fun runWhileEnabled(switches: Switches) {
         val calendarAccess = calendar.access()
         val contactsAccess = contacts.access()
+        val locationAccess = location.access()
         // Enabled in Settings but the Android grants were revoked (or never
         // given): nothing to register, and the screen explains each switch.
-        if (!calendarAccess.canRead && !contactsAccess.canRead && !remindersOn) {
+        if (!calendarAccess.canRead && !contactsAccess.canRead && !switches.reminders &&
+            !locationAccess.canRead && !switches.messages
+        ) {
             session.reportPhoneTools(
-                Session.PhoneToolsStatus.Failed("系统权限尚未授予，请在系统设置中允许日历或联系人。"),
+                Session.PhoneToolsStatus.Failed("系统权限尚未授予，请在系统设置中允许日历、联系人或定位。"),
             )
             return
         }
@@ -88,7 +107,13 @@ internal class PhoneJobRunner(
             platform = "android",
             appVersion = appVersion,
             timeZone = ZoneId.systemDefault().id,
-            capabilities = PhoneToolCatalog.capabilities(calendarAccess, contactsAccess, remindersOn),
+            capabilities = PhoneToolCatalog.capabilities(
+                calendar = calendarAccess,
+                contacts = contactsAccess,
+                reminders = switches.reminders,
+                location = locationAccess,
+                messages = switches.messages,
+            ),
         )
         // Registration is retried instead of ending the run: the computer is
         // often asleep at the moment the switch is turned on.
@@ -104,7 +129,9 @@ internal class PhoneJobRunner(
         }
 
         while (currentCoroutineContext().isActive) {
-            if (!calendar.access().canRead && !contacts.access().canRead && !remindersOn) {
+            if (!calendar.access().canRead && !contacts.access().canRead && !switches.reminders &&
+                !location.access().canRead && !switches.messages
+            ) {
                 // Every permission was revoked under us; don't offer apps we
                 // can no longer read.
                 session.unregisterPhone()
@@ -131,13 +158,15 @@ internal class PhoneJobRunner(
             val tool = PhoneTool.fromWire(job.tool)
             val outcome = when {
                 tool == null -> PhoneToolOutcome.Failure(
-                    "这台 Android 手机目前只接了日历、联系人和提醒；" +
+                    "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
                         "${PhoneToolCatalog.capabilityOf(job.tool) ?: "这个应用"} 还不支持。",
                     code = "unsupported",
                 )
                 tool.capability == "calendar" -> calendar.execute(tool, job.arguments)
                 tool.capability == "contacts" -> contacts.execute(tool, job.arguments)
                 tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
+                tool.capability == "location" -> location.current()
+                tool.capability == "messages" -> messages.execute(tool, job.arguments)
                 else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
             }
             session.completePhoneJob(job.id, outcome.toJson())

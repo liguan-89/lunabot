@@ -8,6 +8,7 @@ import androidx.core.content.ContextCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import android.annotation.SuppressLint
 
 /** Platform permissions used by local discovery and composer dictation. */
 class CompanionPermissions(
@@ -47,6 +48,8 @@ class CompanionPermissions(
     /** Composer mic — checked at the button, never at cold start. */
     fun recordAudioGranted(): Boolean = granted(Manifest.permission.RECORD_AUDIO)
 
+    // NEARBY_WIFI_DEVICES is referenced only when sdkInt already allows it.
+    @SuppressLint("InlinedApi")
     private fun read(): Snapshot {
         val missingDiscovery = buildList {
             if (sdkInt >= 33 && !granted(Manifest.permission.NEARBY_WIFI_DEVICES)) {

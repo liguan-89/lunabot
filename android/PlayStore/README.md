@@ -1,4 +1,4 @@
-# MausBot Google Play release preparation
+# DEX BOT Google Play release preparation
 
 Use this guide with the [release checklist](CHECKLIST.md). It records repository
 inputs and checks to perform for each release; it does not supply approved Play
@@ -6,8 +6,8 @@ Console declarations or establish that a release is ready to publish.
 
 ## Release identity and build
 
-The Android app is **MausBot**; the desktop app remains **OpenMausBot**.
-The Android package is `com.openmausbot.companion`.
+The Android app is **DEX BOT**, the same product name as the desktop app.
+The Android package is `com.dexbot.companion`.
 
 Use the selected release commit's [Gradle configuration](../app/build.gradle.kts)
 for `appVersionName`, the derived `versionCode`, and SDK versions. The code is

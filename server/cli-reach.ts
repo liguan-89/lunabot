@@ -62,7 +62,7 @@ const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-dig
 const NOTE: Record<Route, string> = {
   "public-url": "",
   domain: "",
-  tunnel: "MausBot web address",
+  tunnel: "DEX BOT web address",
   tailscale: "your tailnet",
   lan: "this network only, not encrypted",
 };

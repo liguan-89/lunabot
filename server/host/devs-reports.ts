@@ -139,7 +139,7 @@ export const fixedLine = (version: string, language?: string) => serverLine(lang
 const fixedNote = (entry: Tracked, version: string) => `\n\n[From OpenMausBot, not the person: the problem they reported with @devs on ${new Date(entry.at).toISOString().slice(0, 10)}${
   entry.words ? ` ("${entry.words}")` : ""} is fixed in ${version}, which this app now runs. The chat told them so and asked whether they want to try again; if their message answers that, help them try it again.]`;
 /** A failure line names MausBot in every language: a bot reply that does has passed it on. */
-const FAILED_MARKER = "MausBot";
+const FAILED_MARKER = "DEX BOT";
 
 /** The person's own words: the text outside quotes and each quote's comment. Only a @devs there tags the message,
  * never one inside a message they quoted. */
@@ -166,7 +166,7 @@ function withoutPastes(message: string): string {
 }
 
 /** Rides on the turn that answers a @devs message. */
-const TURN_NOTE = "\n\n[From OpenMausBot, not the person: this message tags @devs, so it is a bug report for the MausBot team, OpenMausBot's developers. Call report_bug once, first: what the person says went wrong; what you saw yourself in this conversation (errors, failed tools, stuck steps), or that you saw nothing unusual; and steps to reproduce. Leave out passwords, keys, tokens and file contents; OpenMausBot adds the app's own diagnostics. Then tell the person, word for word, the line report_bug returns, and help with the problem if you can.]";
+const TURN_NOTE = "\n\n[From DEX BOT, not the person: this message tags @devs, so it is a bug report for the DEX BOT team, DEX BOT's developers. Call report_bug once, first: what the person says went wrong; what you saw yourself in this conversation (errors, failed tools, stuck steps), or that you saw nothing unusual; and steps to reproduce. Leave out passwords, keys, tokens and file contents; DEX BOT adds the app's own diagnostics. Then tell the person, word for word, the line report_bug returns, and help with the problem if you can.]";
 
 const iso = (at: number) => new Date(at).toISOString();
 const firstLine = (text: string | undefined) => (text ?? "").split("\n").map((line) => line.trim()).find(Boolean) ?? "";
@@ -386,9 +386,9 @@ export function createDevsReports(deps: DevsReportsDeps) {
 
   /** Why no bot wrote the summary, read once the conversation is quiet. */
   function why(entry: Waiting): string {
-    if (entry.restored) return "OpenMausBot restarted before a bot wrote one";
+    if (entry.restored) return "DEX BOT restarted before a bot wrote one";
     if (!entry.answered) return "no bot answered the message";
-    if (entry.offered === false) return "the bot's engine cannot use OpenMausBot's tools";
+    if (entry.offered === false) return "the bot's engine cannot use DEX BOT's tools";
     const path = store.activePath(entry.threadId);
     const after = path.slice(path.findIndex((line) => line.id === entry.messageId) + 1);
     if (after.some((line) => line.kind === "activity" && line.tool && failedTurnCause(line.tool.name) !== null)) return "the bot's turn failed";
@@ -451,7 +451,7 @@ export function createDevsReports(deps: DevsReportsDeps) {
     if (!bot || !entry) {
       const last = lastSent.get(threadId);
       if (last && now() - last.at < REPEAT_MS) return { status: 200, text: `Already sent as report ${last.reportId}: report_bug sends once per @devs message. Do not call it again for it.` };
-      return { status: 409, text: "report_bug sends only for a message that tags @devs, once per message. To report a problem to the MausBot team, the person types @devs and a few words about what went wrong." };
+      return { status: 409, text: "report_bug sends only for a message that tags @devs, once per message. To report a problem to the DEX BOT team, the person types @devs and a few words about what went wrong." };
     }
     const fallingBack = inFlight.has(entry.messageId);
     const said = await deliver(entry, { bot, summary });

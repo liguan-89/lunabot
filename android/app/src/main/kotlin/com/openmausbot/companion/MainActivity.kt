@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.graphics.Color
-import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -19,6 +18,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toDrawable
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.openmausbot.companion.dictation.SpeechDictation
@@ -41,6 +41,9 @@ import com.openmausbot.companion.ui.PermissionPreferences
 import com.openmausbot.companion.ui.PermissionRequests
 import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.ui.PendingThreadNavigation
+import androidx.core.content.edit
+import androidx.core.net.toUri
+import android.annotation.SuppressLint
 
 /**
  * The single Activity. It owns the permission launchers and the one thing that
@@ -105,7 +108,7 @@ class MainActivity : ComponentActivity() {
         val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
         val page = if (night) Color.BLACK else Color.WHITE
-        window.setBackgroundDrawable(ColorDrawable(page))
+        window.setBackgroundDrawable(page.toDrawable())
         @Suppress("DEPRECATION")
         window.statusBarColor = Color.TRANSPARENT
         @Suppress("DEPRECATION")
@@ -143,7 +146,7 @@ class MainActivity : ComponentActivity() {
         // "we have asked" flag cannot be missed by a path that forgot to write it.
         permissionRequests = PermissionRequests(
             markAsked = { permission ->
-                permissionPrefs.edit().putBoolean(askedKey(permission), true).apply()
+                permissionPrefs.edit { putBoolean(askedKey(permission), true) }
             },
             launchMultiple = { permissions -> permissionLauncher.launch(permissions) },
             launchSingle = { permission ->
@@ -202,6 +205,7 @@ class MainActivity : ComponentActivity() {
             discovery = app.discovery,
             onboarding = app.onboarding,
             chatPreferences = app.chatPreferences,
+            cloudAccount = app.cloudAccount,
             camera = camera,
             mic = mic,
             notifications = notifications,
@@ -340,11 +344,15 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // The paired computer must keep the socket alive when the screen is off;
+    // this is a companion app, not a general-purpose battery exemption. The app
+    // is distributed through its own update channel, not Play.
+    @SuppressLint("BatteryLife")
     private fun requestIgnoreBatteryOptimizations() {
         val powerManager = getSystemService(PowerManager::class.java) ?: return
         if (powerManager.isIgnoringBatteryOptimizations(packageName)) return
         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS)
-            .setData(Uri.parse("package:$packageName"))
+            .setData("package:$packageName".toUri())
         if (intent.resolveActivity(packageManager) != null) {
             startActivity(intent)
         }

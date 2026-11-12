@@ -7,6 +7,11 @@
   LAN-is-trusted-only. Hosted routes use certificate-validated HTTPS; permitting
   cleartext here does not make a local route an automatic credential fallback.
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true" />
+<network-security-config
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The product policy above is the reason; lint's generic warning does not
+         know that a LAN pairing is the only cleartext route. -->
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration" />
 </network-security-config>

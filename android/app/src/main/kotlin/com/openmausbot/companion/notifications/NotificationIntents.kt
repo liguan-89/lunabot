@@ -5,6 +5,7 @@ import android.net.Uri
 import com.openmausbot.companion.MainActivity
 import com.openmausbot.companion.core.NotificationFrame
 import com.openmausbot.companion.core.NotificationTarget
+import androidx.core.net.toUri
 
 /**
  * The two ids a notification tap carries — the same pair iOS reads from
@@ -43,7 +44,7 @@ object NotificationIntents {
         "openmaus://notification/${encode(botId)}/${encode(threadId)}"
 
     fun contentUri(botId: String, threadId: String): Uri =
-        Uri.parse(contentIdentity(botId, threadId))
+        contentIdentity(botId, threadId).toUri()
 
     fun contentIntent(
         packageContext: android.content.Context,
@@ -68,10 +69,10 @@ object NotificationIntents {
         allow: Boolean,
     ): Intent = Intent(packageContext, ApprovalActionReceiver::class.java).apply {
         action = if (allow) ACTION_APPROVE else ACTION_DENY
-        data = Uri.parse(
+        data = (
             "openmaus://notification/${if (allow) "approve" else "deny"}/" +
-                "${encode(notification.botId)}/${encode(notification.threadId)}",
-        )
+                "${encode(notification.botId)}/${encode(notification.threadId)}"
+            ).toUri()
         putExtra(LocalNotificationPoster.EXTRA_THREAD_ID, notification.threadId)
         putExtra(LocalNotificationPoster.EXTRA_BOT_ID, notification.botId)
     }

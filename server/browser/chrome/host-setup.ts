@@ -28,7 +28,7 @@ export function sandboxDisabled(env: Readonly<Record<string, string | undefined>
 
 /** Set on Ubuntu 23.10+: unprivileged user namespaces need an AppArmor profile. */
 export const USERNS_RESTRICTION = "/proc/sys/kernel/apparmor_restrict_unprivileged_userns";
-export const APPARMOR_PROFILE_NAME = "openmausbot-chrome";
+export const APPARMOR_PROFILE_NAME = "dexbot-chrome";
 export const APPARMOR_PROFILE_PATH = `/etc/apparmor.d/${APPARMOR_PROFILE_NAME}`;
 
 /**
@@ -37,14 +37,17 @@ export const APPARMOR_PROFILE_PATH = `/etc/apparmor.d/${APPARMOR_PROFILE_NAME}`;
  * write, or a pattern, would let any program claim the exemption.
  */
 export function appArmorProfile(executable: string): string {
-  if (!isAbsolute(executable) || /[\s*?[\]{}"'\\^]/.test(executable) || !executable.startsWith("/opt/")) {
+  if (!isAbsolute(executable) || /[\n\r\t*?[\]{}"'\\^]/.test(executable) || !executable.startsWith("/opt/")) {
     throw new Error(`The browser's AppArmor exemption is only for a root-owned path under /opt, not ${executable}.`);
   }
-  return `# Written for OpenMausBot: lets its Chrome use its sandbox.
+  // Spaces are valid in AppArmor rules when the path is quoted, and the
+  // packaged Linux app lives under /opt/<productName> (DEX BOT).
+  const quoted = `"${executable.replace(/[\\"]/g, "\\$&")}"`;
+  return `# Written for DEX BOT: lets its Chrome use its sandbox.
 abi <abi/4.0>,
 include <tunables/global>
 
-profile ${APPARMOR_PROFILE_NAME} ${executable} flags=(unconfined) {
+profile ${APPARMOR_PROFILE_NAME} ${quoted} flags=(unconfined) {
   userns,
 
   include if exists <local/${APPARMOR_PROFILE_NAME}>

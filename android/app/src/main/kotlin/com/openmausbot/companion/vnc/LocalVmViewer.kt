@@ -51,6 +51,7 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import okio.ByteString
 import okio.ByteString.Companion.toByteString
+import androidx.core.graphics.createBitmap
 
 internal sealed interface LocalVmState {
     data object Connecting : LocalVmState
@@ -174,7 +175,7 @@ internal class LocalVmViewer(
         for (event in events) {
             when (event) {
                 is RfbClient.Event.Ready -> {
-                    bitmap = Bitmap.createBitmap(event.width, event.height, Bitmap.Config.ARGB_8888)
+                    bitmap = createBitmap(event.width, event.height, Bitmap.Config.ARGB_8888)
                     state = LocalVmState.Live
                 }
                 is RfbClient.Event.Rectangle -> {

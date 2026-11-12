@@ -11,6 +11,8 @@ dist-server
 .DS_Store
 *.tsbuildinfo
 electron/resources/speech-helper
+electron/resources/DEX BOT Speech.app
+# stale helper from before the DEX BOT rename
 electron/resources/OpenMausBot Speech.app
 # stale helper from the removed Teach a skill recorder
 electron/resources/OpenMausBot Recorder.app

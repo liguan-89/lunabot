@@ -71,9 +71,9 @@ export async function discoverAgentEndpointModels(entry: InstanceConfig, fetchIm
   } catch (error) {
     const timeout = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
     const localHint = isLoopback(new URL(modelsUrl).hostname)
-      ? " localhost refers to OpenMausBot's server or container. If both apps run on this computer, try 127.0.0.1; otherwise use an address reachable from that server."
-      : " Check that the gateway address is reachable from OpenMausBot's server.";
-    throw failure((timeout ? "The request timed out." : "OpenMausBot's server could not reach the gateway.") + localHint);
+      ? " localhost refers to DEX BOT's server or container. If both apps run on this computer, try 127.0.0.1; otherwise use an address reachable from that server."
+      : " Check that the gateway address is reachable from DEX BOT's server.";
+    throw failure((timeout ? "The request timed out." : "DEX BOT's server could not reach the gateway.") + localHint);
   }
   if (!response.ok) await response.body?.cancel().catch(() => {});
   if (response.status === 401 || response.status === 403) {

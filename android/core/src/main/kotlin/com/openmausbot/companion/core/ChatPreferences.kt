@@ -153,6 +153,10 @@ internal fun previewText(message: Message): String = when (message.kind) {
     Message.Kind.GOAL_RUN -> message.goalRun?.goal.orEmpty()
     Message.Kind.DIGEST -> ""
     Message.Kind.COMPACTION -> message.compaction?.chipText ?: message.text.orEmpty()
+    Message.Kind.CALL -> message.call?.title?.takeIf { it.isNotBlank() } ?: "通话记录"
+    Message.Kind.WIDGET -> message.text.orEmpty().ifBlank { "小组件" }
+    Message.Kind.APP -> message.app?.title?.takeIf { it.isNotBlank() }
+        ?: message.text.orEmpty().ifBlank { "应用卡片" }
     Message.Kind.UNKNOWN -> message.text.orEmpty()
 }
 

@@ -119,7 +119,7 @@ function connectorChecks(report: ConnectorReport | null): HostCheck[] {
   if (!problems.length) return [ok("connector", `MausBot connector: its ${report.checks.length} checks pass, the bots' box among them`)];
   return problems.map((check) => check.ok
     ? warn(`connector-${check.id}`, `MausBot connector: ${check.id}`, check.fix)
-    : fail(`connector-${check.id}`, `MausBot connector: the ${check.id} check fails`, check.fix ?? "run MausBot's install command again"));
+    : fail(`connector-${check.id}`, `MausBot connector: the ${check.id} check fails`, check.fix ?? "run DEX BOT's install command again"));
 }
 
 function userNamespaceCheck(probe: HostProbe, connector: ConnectorReport | null): HostCheck {
@@ -131,10 +131,10 @@ function userNamespaceCheck(probe: HostProbe, connector: ConnectorReport | null)
   if (sysctl("kernel.apparmor_restrict_unprivileged_userns") === "1") {
     // A MausBot home runs under its own AppArmor profile (omb-home-narrow), which allows them for that container alone.
     if (connector?.checks.some((check) => check.id === "box" && check.ok)) {
-      return ok("userns", "Unprivileged user namespaces: AppArmor restricts them here, and MausBot's home has them through its own AppArmor profile");
+      return ok("userns", "Unprivileged user namespaces: AppArmor restricts them here, and DEX BOT's home has them through its own AppArmor profile");
     }
     return fail("userns", "Bot sandbox: AppArmor blocks unprivileged user namespaces", connector
-      ? "run MausBot's install command again: it loads the home's own AppArmor profile, so this server-wide switch can stay on"
+      ? "run DEX BOT's install command again: it loads the home's own AppArmor profile, so this server-wide switch can stay on"
       : keep("kernel.apparmor_restrict_unprivileged_userns=0"));
   }
   if (sysctl("kernel.unprivileged_userns_clone") === "0") {
@@ -242,7 +242,7 @@ async function clockCheck(probe: HostProbe): Promise<HostCheck> {
 export async function checkHost(probe: HostProbe, options: HostOptions): Promise<HostCheck[]> {
   if (probe.platform !== "linux") {
     const name = probe.platform === "darwin" ? "macOS" : probe.platform === "win32" ? "Windows" : probe.platform;
-    return [fail("platform", `doctor --host checks a Linux server, and this is ${name}`, "run it on the Linux server that will host OpenMausBot")];
+    return [fail("platform", `doctor --host checks a Linux server, and this is ${name}`, "run it on the Linux server that will host DEX BOT")];
   }
   const [containers, ports, clock, connector] = await Promise.all([containerCheck(probe), portChecks(probe, options), clockCheck(probe), connectorReport(probe)]);
   return [systemCheck(probe), archCheck(probe), containers, userNamespaceCheck(probe, connector), seccompCheck(probe), cgroupCheck(probe),

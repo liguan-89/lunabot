@@ -39,7 +39,7 @@ export interface FillLoginTurnDeps {
   turnActive?(turn: Turn): boolean;
 }
 
-const ONLY_IN_BROWSER = "fill_login types a password only into a page of your own browser, where OpenMausBot checks the page's site first";
+const ONLY_IN_BROWSER = "fill_login types a password only into a page of your own browser, where DEX BOT checks the page's site first";
 
 export function createFillLoginTurn(deps: FillLoginTurnDeps) {
   // Security: on a screen the server cannot prove which site a focused box belongs to, so a secret is never typed there.

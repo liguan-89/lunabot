@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
+import androidx.core.net.toUri
 
 /** What the release page says the newest build is. */
 data class UpdateInfo(
@@ -170,7 +171,7 @@ class AppUpdater(
         val directory = File(appContext.cacheDir, "updates").apply { mkdirs() }
         // One package at a time; a retry replaces the previous partial file.
         directory.listFiles()?.forEach { it.delete() }
-        val target = File(directory, "mausbot-${info.versionCode}.apk")
+        val target = File(directory, "dexbot-${info.versionCode}.apk")
         val connection = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 60_000
@@ -221,12 +222,10 @@ class AppUpdater(
         if (!file.isFile) return InstallResult.FAILED
         // Android 8+ gates sideloading per app. Sending the user to the switch
         // is more useful than an opaque "no activity found" later.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-            !appContext.packageManager.canRequestPackageInstalls()
-        ) {
+        if (!appContext.packageManager.canRequestPackageInstalls()) {
             val settings = Intent(
                 Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                Uri.parse("package:${appContext.packageName}"),
+                "package:${appContext.packageName}".toUri(),
             ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             runCatching { appContext.startActivity(settings) }
             return InstallResult.NEEDS_PERMISSION
@@ -270,7 +269,7 @@ class AppUpdater(
 
 /** Bytes as the row shows them; no localisation beyond the one decimal. */
 fun formatBytes(bytes: Long): String = when {
-    bytes >= 1_048_576 -> String.format("%.1f MB", bytes / 1_048_576.0)
+    bytes >= 1_048_576 -> String.format(java.util.Locale.getDefault(), "%.1f MB", bytes / 1_048_576.0)
     bytes >= 1_024 -> "${bytes / 1_024} KB"
     else -> "$bytes B"
 }

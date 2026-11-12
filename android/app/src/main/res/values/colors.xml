@@ -6,5 +6,4 @@
       on its grey page. The adaptive layers use `ic_launcher_background.xml`,
       a subtle vertical ramp ending on exactly this grey.
     -->
-    <color name="launcher_background">#FFF4F4F5</color>
 </resources>

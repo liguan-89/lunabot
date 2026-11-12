@@ -1,4 +1,4 @@
-# MausBot Play release checklist
+# DEX BOT Play release checklist
 
 Use with the [release preparation guide](README.md). Complete this for the exact
 commit and artifact being submitted; unchecked items remain release work.
@@ -7,8 +7,8 @@ commit and artifact being submitted; unchecked items remain release work.
 
 - [ ] Record the release commit and intended version from
   `android/app/build.gradle.kts`; confirm the version against Console uploads.
-- [ ] Confirm Android branding is MausBot and desktop references are OpenMausBot.
-- [ ] Confirm package `com.openmausbot.companion` and the release SDK settings.
+- [ ] Confirm Android and desktop branding is DEX BOT.
+- [ ] Confirm package `com.dexbot.companion` and the release SDK settings.
 - [ ] Have the release owner confirm signing configuration, certificate identity,
   key backups, and supported installation/upgrade paths.
 - [ ] Configure signing securely and run `./gradlew :app:bundleRelease` from

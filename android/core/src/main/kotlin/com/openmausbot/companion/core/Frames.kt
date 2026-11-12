@@ -73,6 +73,20 @@ sealed interface Frame {
     data class RoutineDeleted(val routineId: String) : Frame
     data class Screen(val botId: String, val png: String, val mime: String) : Frame
     data class Computer(val botId: String, val state: String) : Frame
+    /** A Live call started, moved or ended on the desktop. The phone cannot
+     *  join it, but a surface can say what is running and where. */
+    data class LiveCall(
+        val botId: String,
+        val threadId: String,
+        val call: com.openmausbot.companion.core.LiveCallRecord?,
+    ) : Frame
+    /** The computer lease changed, possibly from another device. */
+    data class ComputerControl(val botId: String, val held: Boolean, val helpReason: String?) : Frame
+    /** A tool server was changed on the desktop; the MCP card should reload. */
+    data object McpChanged : Frame
+    /** Desktop-only surfaces (webhooks, app triggers). Decoded so a newer
+     *  computer's frame is named, not Unknown; this phone has nothing to fold. */
+    data class DesktopOnly(val kind: String) : Frame
     data object Config : Frame
     /** The computer's routes changed mid-session (spec §3): the body is the
      * same snapshot `GET /api/companion/endpoints` returns. */
@@ -164,6 +178,27 @@ object FrameSerializer : KSerializer<Frame> {
                 botId = objectValue.requiredString("botId"),
                 state = objectValue["state"]?.jsonPrimitive?.contentOrNull ?: "",
             )
+            "live.call" -> Frame.LiveCall(
+                botId = objectValue["botId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                threadId = objectValue["threadId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                call = objectValue["call"]?.let { element ->
+                    runCatching {
+                        input.json.decodeFromJsonElement(LiveCallRecord.serializer(), element)
+                    }.getOrNull()
+                },
+            )
+            "computer-control" -> Frame.ComputerControl(
+                botId = objectValue["botId"]?.jsonPrimitive?.contentOrNull.orEmpty(),
+                held = objectValue["held"]?.jsonPrimitive?.booleanOrNull ?: false,
+                helpReason = objectValue["helpReason"]?.jsonPrimitive?.contentOrNull,
+            )
+            "mcp.changed" -> Frame.McpChanged
+            // Desktop-only surfaces. The phone does not render webhooks or app
+            // triggers, but naming them keeps a newer computer's frame out of
+            // Unknown (and out of crash logs that would look like a bug).
+            "webhook", "webhook.attempt", "webhook.deleted",
+            "app-trigger", "app-trigger.attempt", "app-trigger.deleted", "app-trigger.service",
+            -> Frame.DesktopOnly(kind)
             "config" -> Frame.Config
             "companion.endpoints" -> runCatching {
                 Frame.CompanionEndpoints(
@@ -319,6 +354,20 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
             put("botId", botId)
             put("state", state)
         }
+        is Frame.LiveCall -> {
+            put("kind", "live.call")
+            put("botId", botId)
+            put("threadId", threadId)
+            call?.let { put("call", output.json.encodeToJsonElement(LiveCallRecord.serializer(), it)) }
+        }
+        is Frame.ComputerControl -> {
+            put("kind", "computer-control")
+            put("botId", botId)
+            put("held", held)
+            helpReason?.let { put("helpReason", it) }
+        }
+        Frame.McpChanged -> put("kind", "mcp.changed")
+        is Frame.DesktopOnly -> put("kind", kind)
         Frame.Config -> put("kind", "config")
         is Frame.Runtime -> {
             put("kind", "runtime")

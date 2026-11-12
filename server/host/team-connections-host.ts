@@ -164,7 +164,7 @@ export function createTeamConnectionsHost(deps: TeamConnectionsHostDeps) {
       const where = ownPage(person);
       const again = people.appsElsewhere(person);
       return `${name} is connected by each person in ${teamName()}, and ${nameOf(person)} ${again ? `needs to connect theirs again: ${teamName()} changed where its apps connect, and connections don't carry over` : "hasn't connected theirs"}. ${noWorkaround} Reply with this one line and nothing more about it: `
-        + (where ? `"Connect your ${name} ${again ? "again " : ""}here: ${where}"` : `"Connect your own ${name} ${again ? "again " : ""}on your team's page in MausBot Cloud."`);
+        + (where ? `"Connect your ${name} ${again ? "again " : ""}here: ${where}"` : `"Connect your own ${name} ${again ? "again " : ""}on your team's page in DEX BOT Cloud."`);
     },
     /** No one person's own request is behind this work: say so, and how to get it done. */
     nobody: (name: string) => {
@@ -178,7 +178,7 @@ export function createTeamConnectionsHost(deps: TeamConnectionsHostDeps) {
     ownGone: (person: string) => {
       const where = ownPage(person);
       return `${nameOf(person)}'s own apps aren't connected here any more. ${noWorkaround} Reply with this one line and nothing more about it: `
-        + (where ? `"Connect your apps again here: ${where}"` : `"Connect your apps again on your team's page in MausBot Cloud."`);
+        + (where ? `"Connect your apps again here: ${where}"` : `"Connect your apps again on your team's page in DEX BOT Cloud."`);
     },
     teamApp: (name: string) => `${name} is ${team?.name ?? "the team"}'s, connected once for everyone: use it through the composio tools, not ${OWN_APPS_SERVER}. Nothing was run.`,
     /** A team app's connection card, asked for through a member's own bridge. An Owner or Admin can connect it for

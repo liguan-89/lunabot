@@ -1,6 +1,7 @@
 package com.openmausbot.companion.notifications
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -45,6 +46,10 @@ class LocalNotificationPoster(
         ensureChannels()
     }
 
+    // canPost() checks POST_NOTIFICATIONS up front, and the second notify below
+    // is inside runCatching; lint cannot see either and asks for a per-call
+    // guard on an asynchronous re-post whose permission can be revoked anyway.
+    @SuppressLint("MissingPermission")
     override fun deliver(notification: NotificationFrame, sequence: Int?) {
         if (!canPost()) return
         val channelId = NotificationMapping.channelId(notification)
@@ -184,7 +189,6 @@ class LocalNotificationPoster(
         private set
 
     fun ensureChannels() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val system = appContext.getSystemService(NotificationManager::class.java) ?: return
 
         // Re-creating a channel that already exists is supposed to be a no-op
@@ -291,7 +295,8 @@ class LocalNotificationPoster(
         const val EXTRA_BOT_ID = "openmaus.botId"
         const val EXTRA_KIND = "openmaus.kind"
 
-        /** Permission string for the UI pass's launcher contract. */
+        /** Permission string for the UI pass's launcher contract. Inlined, so safe on any API. */
+        @SuppressLint("InlinedApi")
         const val POST_NOTIFICATIONS_PERMISSION = Manifest.permission.POST_NOTIFICATIONS
 
         /** The channel id [NotificationMapping.CHANNEL_DONE] replaced. See its kdoc. */

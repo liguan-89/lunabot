@@ -11,6 +11,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 
 /**
  * Keystore-backed device-token storage — iOS Keychain analogue.
@@ -54,7 +55,11 @@ class KeystoreTokenStore(
     override suspend fun save(connectionId: String, token: String) {
         try {
             withContext(io) {
-                check(prefs.edit().putString(key(connectionId), token).commit()) {
+                // KTX's edit(commit = true) hides the boolean commit() returns,
+                // and a token that did not land must fail here rather than at
+                // the next request, so the read-back is the check.
+                prefs.edit(commit = true) { putString(key(connectionId), token) }
+                check(prefs.getString(key(connectionId), null) == token) {
                     "The device token write did not land."
                 }
             }
@@ -83,7 +88,7 @@ class KeystoreTokenStore(
 
     override suspend fun remove(connectionId: String) {
         try {
-            withContext(io) { prefs.edit().remove(key(connectionId)).commit() }
+            withContext(io) { prefs.edit(commit = true) { remove(key(connectionId)) } }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (_: Exception) {

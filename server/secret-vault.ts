@@ -74,7 +74,7 @@ function refText(ref: string, reason: "unknown" | "used" | "expired" | "owner"):
 }
 
 export const NOT_A_REF_TEXT =
-  "That is a secret file for your own commands, not a secretRef: it is deleted after 24 hours, and OpenMausBot's tools take only a secretRef. Ask again with request_credential and delivery ref.";
+  "That is a secret file for your own commands, not a secretRef: it is deleted after 24 hours, and DEX BOT's tools take only a secretRef. Ask again with request_credential and delivery ref.";
 
 export class SecretVault {
   private readonly refs = new Map<string, RefEntry>();

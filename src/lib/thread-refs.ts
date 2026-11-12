@@ -111,6 +111,9 @@ export interface ThreadRefAddress {
 
 const THREAD_URL_PREFIX = "dexbot://thread/";
 const BOT_URL_PREFIX = "dexbot://bot/";
+// Links written before the rebrand still have to open; only the new prefix is ever written.
+const LEGACY_THREAD_URL_PREFIX = "openmausbot://thread/";
+const LEGACY_BOT_URL_PREFIX = "openmausbot://bot/";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_LIMIT = 256;
 
@@ -126,7 +129,8 @@ export function threadRefUrl(ref: { botId: string; threadId: string }): string {
 
 export function parseThreadRefUrl(value: string): ThreadRefAddress | null {
   const raw = value.trim();
-  if (!raw.toLowerCase().startsWith(THREAD_URL_PREFIX)) return null;
+  const lower = raw.toLowerCase();
+  if (!lower.startsWith(THREAD_URL_PREFIX) && !lower.startsWith(LEGACY_THREAD_URL_PREFIX)) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -154,7 +158,8 @@ export function parseThreadRefUrl(value: string): ThreadRefAddress | null {
 
 export function parseBotRefUrl(value: string): { botId: string } | null {
   const raw = value.trim();
-  if (!raw.toLowerCase().startsWith(BOT_URL_PREFIX)) return null;
+  const lower = raw.toLowerCase();
+  if (!lower.startsWith(BOT_URL_PREFIX) && !lower.startsWith(LEGACY_BOT_URL_PREFIX)) return null;
   let url: URL;
   try {
     url = new URL(raw);

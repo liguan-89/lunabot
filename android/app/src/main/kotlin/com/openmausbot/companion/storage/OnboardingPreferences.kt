@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import androidx.core.content.edit
 
 /**
  * The three durable onboarding markers, and nothing else — the Android shape of
@@ -83,7 +84,7 @@ class OnboardingPreferences(
         // disk; committing that would be a synchronous disk write per launch for
         // no change at all.
         if (into.value == value && prefs.contains(key)) return
-        withContext(io) { prefs.edit().putBoolean(key, value).commit() }
+        withContext(io) { prefs.edit(commit = true) { putBoolean(key, value) } }
         into.value = value
     }
 

@@ -330,8 +330,13 @@ data class CompanionState(
         is Frame.Screen -> copy(screens = screens + (frame.botId to ScreenFrame(frame.png, frame.mime)))
 
         // The job nudge is a signal, not state: Session wakes the phone runner
-        // from the frame itself, and nothing in the fold changes.
-        is Frame.Computer, is Frame.DeviceJob, Frame.Config, is Frame.CompanionEndpoints, is Frame.Unknown -> this
+        // from the frame itself, and nothing in the fold changes. The same goes
+        // for a call/lease/tool-server change and the desktop-only surfaces:
+        // Session exposes them as flows for the screen that cares.
+        is Frame.Computer, is Frame.DeviceJob, Frame.Config, is Frame.CompanionEndpoints,
+        is Frame.LiveCall, is Frame.ComputerControl, Frame.McpChanged, is Frame.DesktopOnly,
+        is Frame.Unknown,
+        -> this
     }
 
     fun clearScreen(botId: String): CompanionState = copy(screens = screens - botId)

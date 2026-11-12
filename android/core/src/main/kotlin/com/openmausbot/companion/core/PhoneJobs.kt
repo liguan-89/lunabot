@@ -77,6 +77,9 @@ enum class PhoneTool(
     UPDATE_REMINDER("PHONE_UPDATE_REMINDER", "reminders", true),
     COMPLETE_REMINDER("PHONE_COMPLETE_REMINDER", "reminders", true),
     DELETE_REMINDER("PHONE_DELETE_REMINDER", "reminders", true),
+    GET_LOCATION("PHONE_GET_LOCATION", "location", false),
+    SEND_MESSAGE("PHONE_SEND_MESSAGE", "messages", true),
+    SEND_WHATSAPP("PHONE_SEND_WHATSAPP", "messages", true),
     ;
 
     companion object {
@@ -133,6 +136,8 @@ object PhoneToolCatalog {
         calendar: CalendarAccess,
         contacts: ContactsAccess = ContactsAccess.NONE,
         reminders: Boolean = false,
+        location: LocationAccess = LocationAccess.NONE,
+        messages: Boolean = false,
     ): Map<String, String> = buildMap {
         when (calendar) {
             CalendarAccess.NONE -> Unit
@@ -147,7 +152,25 @@ object PhoneToolCatalog {
         // Reminders are this app's own store, not an OS permission: the
         // Settings switch is the whole grant, so it is always full.
         if (reminders) put("reminders", "full")
+        when (location) {
+            LocationAccess.NONE -> Unit
+            LocationAccess.COARSE -> put("location", "limited")
+            LocationAccess.PRECISE -> put("location", "full")
+        }
+        // Sending is the whole of the messages capability; the SMS permission
+        // and the Settings switch are the grant.
+        if (messages) put("messages", "full")
     }
+}
+
+/** What the phone's own location permission state allows. */
+enum class LocationAccess {
+    NONE,
+    COARSE,
+    PRECISE,
+    ;
+
+    val canRead: Boolean get() = this != NONE
 }
 
 /** What the phone's own contacts permission state allows. */

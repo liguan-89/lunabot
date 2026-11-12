@@ -388,13 +388,26 @@ data class PairingInvite(val connection: Connection, val credential: String) {
     companion object {
         private const val MAX_ENDPOINTS = 8
 
+        /** The scheme the rebranded desktop writes. */
+        const val SCHEME = "dexbot"
+
+        /**
+         * The pre-rebrand scheme. Links and QR codes printed by an older
+         * desktop (or saved by a person) still have to pair, so both are read;
+         * only [SCHEME] is ever written.
+         */
+        const val LEGACY_SCHEME = "openmausbot"
+
+        fun isPairingUri(scheme: String?, host: String?): Boolean =
+            host.equals("pair", ignoreCase = true) &&
+                (scheme.equals(SCHEME, ignoreCase = true) ||
+                    scheme.equals(LEGACY_SCHEME, ignoreCase = true))
+
         fun parse(url: URI): PairingInvite? {
             if (url.scheme.equals("https", true) || url.scheme.equals("http", true)) {
                 return parseServerLink(url)
             }
-            if (!url.scheme.equals("openmausbot", ignoreCase = true) ||
-                !url.host.equals("pair", ignoreCase = true)
-            ) {
+            if (!isPairingUri(url.scheme, url.host)) {
                 return null
             }
 

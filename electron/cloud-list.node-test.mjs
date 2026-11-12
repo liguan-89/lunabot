@@ -71,7 +71,7 @@ test("a server or computer of the person's own that signed in with their account
   assert.deepEqual([loose.lastSeenAt, loose.version], [undefined, undefined], "a malformed last-seen time or version is left out");
   assert.deepEqual(parseCloudList([{ ...mini, lastSeenAt: null, version: null }])[0], parseCloudList([{ ...mini, lastSeenAt: undefined, version: undefined }])[0]);
   assert.equal(parseCloudList([cloud({ managed: true })])[0].managed, true);
-  assert.equal(parseCloudList([cloud({ status: "offline", origin: null })]).length, 0, "a Cloud DexBot runs still needs its address");
+  assert.equal(parseCloudList([cloud({ status: "offline", origin: null })]).length, 0, "a Cloud DEX BOT runs still needs its address");
   const list = parseCloudList([primary, mini, { ...mini, id: "s-vps", name: "VPS", status: "ready", origin: "https://vps.example.com", primary: true }]);
   assert.deepEqual(list.map(entry => entry.primary), [true, false, false], "never My Cloud");
   assert.deepEqual([otherOwnClouds(list), ownCloudPlaces(list)], [[], []], "nor another Cloud of theirs: nothing pairs with it by id or lends to it");

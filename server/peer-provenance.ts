@@ -121,7 +121,7 @@ const DELIVERED_NOTES = ["message from", "delegated by", "thread opened by", "re
 const NOTE_OPENINGS = [...DELIVERED_NOTES, "from", "messages this conversation", "delivered earlier by", "posted by", "assigned by",
   "report from", "teammate report", "teammate result", "thread you opened", "incident report", "escalation notice"].map(opening => opening.split(" "));
 const HEADER_WORDS = new Set(["openmausbot", "omb"]);
-const FIRST_WORDS = new Set([...NOTE_OPENINGS.map(words => words[0]!), ...HEADER_WORDS]);
+const FIRST_WORDS = new Set([...NOTE_OPENINGS.map(words => words[0]!), ...HEADER_WORDS, "dex"]);
 const LEADING_NOTE = new RegExp(`^\\[(?:${DELIVERED_NOTES.map(opening => opening.replace(/ /g, "\\s+")).join("|")})\\b[^\\]\\n]*\\]`, "iu");
 const OPENER = /[[［【〔〖〘〚⟦⁅⦋]/gu;
 const CLOSER = /[\]】〕〗〙〛⟧⁆⦌]/u;
@@ -162,6 +162,8 @@ function wordsAfter(text: string, from: number, max: number): Array<{ word: stri
 
 function opensNote(text: string, at: number): boolean {
   const words = wordsAfter(text, at, 3);
+  // The rebranded header is two words, so the one-word header rule below never sees it.
+  if (words[0]?.word === "dex" && words[1]?.word === "bot" && words[1]?.spaced) return true;
   if (words[0] && HEADER_WORDS.has(words[0].word)) return Boolean(words[1]?.spaced && /^\p{L}/u.test(words[1].word));
   return NOTE_OPENINGS.some(opening => opening.every((word, i) => words[i]?.word === word));
 }
@@ -192,6 +194,8 @@ export function labelledLine(line: ProvenanceLine, text: string, labels: LineLab
 }
 
 export function peerProvenanceAuthor(text: string): string | null {
-  const opening = /^\[(?:Message from @(.+?), another bot in this OpenMausBot workspace|From @(.+?) \(bot\) · message · )/.exec(text);
+  // Lines written before the rebrand say OpenMausBot; new lines say DEX BOT.
+  const normalized = text.split("another bot in this DEX BOT workspace").join("another bot in this OpenMausBot workspace");
+  const opening = normalized.match(/^\[(?:Message from @(.+?), another bot in this OpenMausBot workspace|From @(.+?) \(bot\) · message · )/);
   return opening?.[1] ?? opening?.[2] ?? null;
 }

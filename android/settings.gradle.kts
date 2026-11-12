@@ -20,3 +20,6 @@ dependencyResolutionManagement {
 rootProject.name = "dexbot-android"
 include(":core")
 include(":app")
+// The generator for app/src/main/baseline-prof.txt. It is a test-only module:
+// nothing from it ships, and it is run by hand when the profile is refreshed.
+include(":baselineprofile")

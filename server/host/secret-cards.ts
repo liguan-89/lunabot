@@ -127,7 +127,7 @@ function vmFileHome(botId: string, vm: string): SecretFileHome | null {
 
 /** What the bot hears when the mailbox card settles; it never hears the password. */
 function emailUpdateText(secret: SecretRequestCardData, outcome: "provided" | "dismissed", sendingProblem: string | undefined): string {
-  if (outcome === "dismissed") return "OpenMausBot secret update: the person chose not to connect a mailbox. Say briefly what you cannot do without it, and do not ask for the password in chat.";
+  if (outcome === "dismissed") return "DEX BOT secret update: the person chose not to connect a mailbox. Say briefly what you cannot do without it, and do not ask for the password in chat.";
   const address = secret.address ?? "they typed";
   return sendingProblem
     ? `OpenMausBot secret update: the person connected the mailbox ${address} for reading: EMAIL_LIST_MESSAGES, EMAIL_READ_MESSAGE and the other reading tools are ready. Sending from it doesn't work yet: ${sendingProblem} The mailbox card in this chat now shows its outgoing server for the person to fix. Continue the task as far as reading allows; don't try to send another way.`
@@ -167,10 +167,10 @@ function customRequest(body: Record<string, unknown>): { label: string; reason: 
     : "";
   const label = text(body.label, CUSTOM_SECRET_LABEL_MAX);
   const reason = text(body.reason, CUSTOM_SECRET_REASON_MAX);
-  if (!label) return { error: "request_credential needs credential_id for a key OpenMausBot keeps, or label for any other secret." };
+  if (!label) return { error: "request_credential needs credential_id for a key DEX BOT keeps, or label for any other secret." };
   if (!reason) return { error: "request_credential needs reason: one short line on what the secret is for and where the person finds it." };
   if (!SECRET_DELIVERIES.includes(body.delivery as SecretDelivery)) {
-    return { error: "request_credential needs delivery: ref for OpenMausBot's own tools such as mcp_server, or file for your own commands." };
+    return { error: "request_credential needs delivery: ref for DEX BOT's own tools such as mcp_server, or file for your own commands." };
   }
   return { label, reason, placeholder: text(body.placeholder, CUSTOM_SECRET_LABEL_MAX), delivery: body.delivery as SecretDelivery, replace: body.replace === true };
 }

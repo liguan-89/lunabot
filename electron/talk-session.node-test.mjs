@@ -48,15 +48,15 @@ const holdAsk = updates => {
 test("the box's words and timings are fixed", () => {
   assert.deepEqual(TALK_TIMING, { replyHideMs: 12_000, noticeHideMs: 4_000, stillWorkingMs: 120_000, hoverRecheckMs: 500, maxListenMs: 60_000 });
   assert.deepEqual(TALK_TEXT, {
-    busy: "Voice is in use in DexBot",
-    serverDown: "Open DexBot to talk",
-    starting: "DexBot is still starting. Try again in a moment.",
-    noMausbot: "Set up DexBot first, then try again.",
-    moved: "DexBot lives on My Cloud now — talk to it there",
+    busy: "Voice is in use in DEX BOT",
+    serverDown: "Open DEX BOT to talk",
+    starting: "DEX BOT is still starting. Try again in a moment.",
+    noMausbot: "Set up DEX BOT first, then try again.",
+    moved: "DEX BOT lives on My Cloud now — talk to it there",
     permission: "Talking needs Microphone + Speech Recognition access — System Settings → Privacy & Security.",
     dictationOff: "Turn on Dictation in System Settings → Keyboard, then try again.",
     unavailable: "Talking couldn't start. Try again.",
-    failed: "DexBot couldn't take that · Open chat",
+    failed: "DEX BOT couldn't take that · Open chat",
   });
   assert.ok(Object.isFrozen(TALK_TIMING));
   assert.ok(Object.isFrozen(TALK_TEXT));
@@ -135,7 +135,7 @@ test("voice in use refuses without listening", () => {
   const h = harness({ busy: true }); h.session.press();
   assert.deepEqual(h.starts, []);
   assert.equal(h.prepares, 0);
-  assert.deepEqual(h.views, [{ state: "error", text: "Voice is in use in DexBot", textCode: "native.talk.voiceBusy" }]);
+  assert.deepEqual(h.views, [{ state: "error", text: "Voice is in use in DEX BOT", textCode: "native.talk.voiceBusy" }]);
   mock.timers.tick(3_999); assert.equal(h.closed, 0);
   mock.timers.tick(1); assert.equal(h.closed, 1);
 });
@@ -179,12 +179,12 @@ test("permission and setup problems say what to fix, in the composer's words: on
   }
 });
 
-test("a server that can't take asks says why and stops listening: down, still starting, no DexBot, or moved to My Cloud", async () => {
+test("a server that can't take asks says why and stops listening: down, still starting, no DEX BOT, or moved to My Cloud", async () => {
   const notices = [
-    ["server-down", "Open DexBot to talk", "native.talk.openDexBot"],
+    ["server-down", "Open DEX BOT to talk", "native.talk.openMausBot"],
     ["starting", TALK_TEXT.starting, "native.talk.starting"],
     ["no-mausbot", TALK_TEXT.noMausbot, "native.talk.setUpFirst"],
-    ["moved", "DexBot lives on My Cloud now — talk to it there", "native.talk.movedToCloud"],
+    ["moved", "DEX BOT lives on My Cloud now — talk to it there", "native.talk.movedToCloud"],
   ];
   for (const [code, text, textCode] of notices) {
     const h = harness({ prepare: async () => { throw new TalkServerError(code); } });
@@ -199,7 +199,7 @@ test("a server that can't take asks says why and stops listening: down, still st
   }
 });
 
-test("a server that goes away as the words are sent says Open DexBot to talk", async () => {
+test("a server that goes away as the words are sent says Open DEX BOT to talk", async () => {
   let fail;
   const late = harness({ prepare: () => new Promise((_, reject) => { fail = reject; }) });
   late.session.press(); say(late, "hello"); release(late); await flush();
@@ -207,12 +207,12 @@ test("a server that goes away as the words are sent says Open DexBot to talk", a
   fail(new TalkServerError("server-down")); await flush();
   assert.deepEqual(late.stops, []);
   assert.equal(late.asks.length, 0);
-  assert.deepEqual(late.views.at(-1), { state: "error", text: TALK_TEXT.serverDown, textCode: "native.talk.openDexBot" });
+  assert.deepEqual(late.views.at(-1), { state: "error", text: TALK_TEXT.serverDown, textCode: "native.talk.openMausBot" });
   mock.timers.tick(TALK_TIMING.noticeHideMs); assert.equal(late.closed, 1);
 
   const gone = harness({ ask: async () => { throw new TalkServerError("server-down"); } });
   gone.session.press(); say(gone, "hello"); release(gone); await flush();
-  assert.deepEqual(gone.views.at(-1), { state: "error", text: TALK_TEXT.serverDown, textCode: "native.talk.openDexBot" });
+  assert.deepEqual(gone.views.at(-1), { state: "error", text: TALK_TEXT.serverDown, textCode: "native.talk.openMausBot" });
   mock.timers.tick(TALK_TIMING.noticeHideMs); assert.equal(gone.closed, 1);
 
   const moved = harness({ ask: async () => { throw new TalkServerError("moved"); } });
@@ -317,7 +317,7 @@ test("replaced while listening closes the box and nothing is sent", async () => 
   assert.equal(h.starts.length, 2);
 });
 
-test("clicking the box opens the chat; before the chat is known it only brings DexBot forward", async () => {
+test("clicking the box opens the chat; before the chat is known it only brings DEX BOT forward", async () => {
   const idle = harness(); idle.session.open();
   assert.deepEqual(idle.opened, []); assert.equal(idle.closed, 0);
 

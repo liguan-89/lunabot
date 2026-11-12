@@ -402,7 +402,7 @@ export class AppTriggerManager {
   async runNow(id: string): Promise<{ via: "service" | "here"; runId?: string } | null> {
     const trigger = this.triggers.find((candidate) => candidate.id === id);
     if (!trigger) return null;
-    const data = { omb_test: true, note: "A test run started from OpenMausBot." };
+    const data = { omb_test: true, note: "A test run started from DEX BOT." };
     if (trigger.remote.triggerId && trigger.remote.state === "active" && this.options.service().available) {
       try {
         await this.options.broker.testEvent(trigger.remote.triggerId, data);
@@ -753,7 +753,7 @@ export class AppTriggerManager {
     const service = this.options.service();
     if (service.available) return;
     throw new AppTriggerError(service.reason === "self-hosted"
-      ? "App events need OpenMausBot's connected apps. This server uses its own Composio key, so it cannot watch apps yet: use a schedule that checks the app, or a webhook."
+      ? "App events need DEX BOT's connected apps. This server uses its own Composio key, so it cannot watch apps yet: use a schedule that checks the app, or a webhook."
       : "Connected apps are not set up here, so app events are unavailable.", 409);
   }
 

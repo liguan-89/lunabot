@@ -4,6 +4,9 @@ import android.app.Application
 import androidx.lifecycle.ProcessLifecycleOwner
 import com.openmausbot.companion.audio.VoicePreviewPlayer
 import com.openmausbot.companion.audio.VoiceNotePlayer
+import com.openmausbot.companion.account.CloudAccountApi
+import com.openmausbot.companion.account.CloudAccountController
+import com.openmausbot.companion.account.CloudAccountStore
 import com.openmausbot.companion.avatar.AvatarImageStore
 import com.openmausbot.companion.core.Session
 import com.openmausbot.companion.discovery.NsdDiscovery
@@ -78,6 +81,10 @@ class OpenMausApp : Application() {
     internal lateinit var phoneJobs: PhoneJobRunner
         private set
 
+    /** The DEX account this phone signs in with; one account across the desktop and every Cloud. */
+    lateinit var cloudAccount: CloudAccountController
+        private set
+
     override fun onCreate() {
         super.onCreate()
         shareInbox = ShareInbox()
@@ -146,6 +153,16 @@ class OpenMausApp : Application() {
         val versionName = runCatching {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()
+        cloudAccount = CloudAccountController(
+            api = CloudAccountApi(),
+            store = CloudAccountStore(this),
+            scope = appScope,
+            deviceName = (android.provider.Settings.Global.getString(contentResolver, "device_name"))
+                ?.takeIf { it.isNotBlank() }
+                ?: android.os.Build.MODEL,
+            appVersion = versionName,
+        )
+        cloudAccount.start()
         phoneJobs = PhoneJobRunner(
             context = this,
             session = session,

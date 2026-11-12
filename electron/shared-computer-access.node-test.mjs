@@ -533,10 +533,10 @@ test("a protected directory spelled in another case is still refused", async t =
   grant.protectedPaths = [path.join(dir, "DEX BOT")];
   folder.write = true;
   await assert.rejects(run({ action: "read_file", path: "DEX BOT/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "read_file", path: "openmausbot/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "read_file", path: "OPENMAUSBOT/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "list_files", path: "openmausbot" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "write_file", path: "openmausbot/computer-sharing.json", content: "{}" }), /sharing settings/);
+  await assert.rejects(run({ action: "read_file", path: "dex bot/credentials.bin" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "read_file", path: "Dex Bot/credentials.bin" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "list_files", path: "dex bot" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "write_file", path: "dex bot/computer-sharing.json", content: "{}" }), /sharing settings/);
 });
 
 test("a protected directory spelled in another Unicode normalization is still refused", async t => {
@@ -674,6 +674,7 @@ test("with the whole home folder lent, keys, a browser profile and this app's da
     };
     const secrets = [".ssh/id_ed25519", "Library/Application Support/Google/Chrome/Default/Cookies", ".dexbot/config.json"];
     for (const relative of secrets) await put(relative, `fixture ${relative}`);
+    await put("Library/Application Support/DEX BOT/computer-sharing.json", "{}");
     await put("Documents/plan.txt", "an ordinary file");
     const stub = stubWorkspace();
     stub.state.work.push(...secrets.map(relative => ({ action: "read_file", path: relative })),
@@ -682,7 +683,7 @@ test("with the whole home folder lent, keys, a browser profile and this app's da
     // Wired as main wires it: the grants file under the app's own profile, and this app's data folder in protectedPaths.
     sharing = createComputerSharing({
       file: path.join(home, "Library", "Application Support", "DEX BOT", "computer-sharing.json"), fetch: stub.fetchImpl, home,
-      environments: () => [stub.env], enabled: async () => true, cuaConnection: async () => null, protectedPaths: [path.join(home, ".dexbot")],
+      environments: () => [stub.env], enabled: async () => true, cuaConnection: async () => null, protectedPaths: [path.join(home, ".dexbot"), path.join(home, "Library", "Application Support", "DEX BOT")],
     });
     const info = await sharing.identity(stub.env);
     // Lent as the picker lends it after its warning: the home folder itself, read only even when edits are asked for.

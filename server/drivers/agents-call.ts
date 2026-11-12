@@ -651,7 +651,7 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
         body: JSON.stringify({ fromBotId: BOT_ID, fromThreadId: THREAD_ID, text }),
       });
       if (r.attached !== true || typeof r.file !== "string" || !r.file) {
-        return { text: "Voice note not sent: OpenMausBot did not confirm the audio was saved. Tell the person the note did not go through; do not say it is attached.", isError: true };
+        return { text: "Voice note not sent: DEX BOT did not confirm the audio was saved. Tell the person the note did not go through; do not say it is attached.", isError: true };
       }
       return { text: "Voice note recorded. It will be attached to this turn's reply when the turn ends; the note text is also the visible caption." };
     } catch (error) {
@@ -954,8 +954,8 @@ async function requestEmailCard(args: Json, context: ToolCallContext): Promise<T
   });
   if (!r.ok) return { text: String(r.body.error ?? `request_credential failed (HTTP ${r.status}).`), isError: true };
   if (r.body.alreadyConfigured === true) return { text: typeof r.body.text === "string" ? r.body.text : `${String(r.body.label)} is already connected. Use the email tools.` };
-  if (r.body.outgoing === true) return { text: "A secure card for the mailbox's outgoing server is ready in OpenMausBot, on the computer and on a freshly QR-paired phone. End this turn now and say in one line that you are waiting for it; OpenMausBot resumes you when the person saves it or declines, and says whether sending works." };
-  return { text: "A secure card for the mailbox is ready in OpenMausBot, on the computer and on a freshly QR-paired phone. End this turn now and say in one line that you are waiting for it; OpenMausBot resumes you when the person connects it or declines." };
+  if (r.body.outgoing === true) return { text: "A secure card for the mailbox's outgoing server is ready in DEX BOT, on the computer and on a freshly QR-paired phone. End this turn now and say in one line that you are waiting for it; DEX BOT resumes you when the person saves it or declines, and says whether sending works." };
+  return { text: "A secure card for the mailbox is ready in DEX BOT, on the computer and on a freshly QR-paired phone. End this turn now and say in one line that you are waiting for it; DEX BOT resumes you when the person connects it or declines." };
 }
 
 /** Any other secret: from the Vault at once, or from a card the person answers; the bot gets a secretRef or a file path back. */

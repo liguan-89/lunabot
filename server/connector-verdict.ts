@@ -18,7 +18,7 @@ export const APP_SANDBOX_REFUSAL = "This call was not performed. A bot with its 
   + "COMPOSIO_MULTI_EXECUTE_TOOL). It never runs while the bot's settings limit its connected apps, such as an app set to read only, "
   + "because that code could reach past the limit. Use a direct app tool, or tell the person what this needs.";
 
-const OPAQUE_CODE_REFUSAL = "OpenMausBot cannot verify this code against this bot's tool grants. Use a direct app tool.";
+const OPAQUE_CODE_REFUSAL = "DEX BOT cannot verify this code against this bot's tool grants. Use a direct app tool.";
 
 /** A tools/call frame that calls the apps' sandbox directly. */
 function appSandboxCall(frame: unknown): boolean {
@@ -169,13 +169,13 @@ export function connectorRefusalText(denials: ConnectorDenial[]): string {
   return [
     named + " " + (one ? "is" : "are") + " not granted to this bot.",
     "This call was not performed.",
-    "Ask the person to grant " + (one ? "it" : "these tools") + " in OpenMausBot if they want " + (one ? "it" : "them") + " run.",
+    "Ask the person to grant " + (one ? "it" : "these tools") + " in DEX BOT if they want " + (one ? "it" : "them") + " run.",
   ].join(" ");
 }
 
 export function connectorUnrecognizedText(invoked: string, reason: string): string {
   return [
-    "A " + invoked + " call arrived in a shape OpenMausBot could not read (" + reason + "), so it was not performed.",
+    "A " + invoked + " call arrived in a shape DEX BOT could not read (" + reason + "), so it was not performed.",
     invoked === COMPOSIO_MULTI_EXECUTE_TOOL
       ? "Send it again with the tools to execute as tools: [{ tool_slug, arguments }]."
       : "Send a well-formed call that names the tools to execute.",

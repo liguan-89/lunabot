@@ -154,6 +154,18 @@ class Session(
     private val _deviceJobNudge = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val deviceJobNudge: SharedFlow<Unit> = _deviceJobNudge.asSharedFlow()
 
+    /** A tool server changed on the desktop; the MCP card reloads. */
+    private val _mcpChanged = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val mcpChanged: SharedFlow<Unit> = _mcpChanged.asSharedFlow()
+
+    /** The computer lease changed, possibly from another device. */
+    private val _computerControl = MutableSharedFlow<Frame.ComputerControl>(extraBufferCapacity = 8)
+    val computerControl: SharedFlow<Frame.ComputerControl> = _computerControl.asSharedFlow()
+
+    /** A Live call started or ended on the desktop. */
+    private val _liveCall = MutableSharedFlow<Frame.LiveCall>(extraBufferCapacity = 8)
+    val liveCall: SharedFlow<Frame.LiveCall> = _liveCall.asSharedFlow()
+
     private val _actionError = MutableStateFlow<String?>(null)
     var actionError: String?
         get() = _actionError.value
@@ -1030,8 +1042,12 @@ class Session(
                             is Frame.DeviceJob -> _deviceJobNudge.tryEmit(Unit)
                             else -> {
                                 _state.update { it.apply(frame) }
-                                if (payload is Frame.Notify) {
-                                    notificationSink.deliver(payload.notification, frame.seq)
+                                when (payload) {
+                                    is Frame.Notify -> notificationSink.deliver(payload.notification, frame.seq)
+                                    Frame.McpChanged -> _mcpChanged.tryEmit(Unit)
+                                    is Frame.ComputerControl -> _computerControl.tryEmit(payload)
+                                    is Frame.LiveCall -> _liveCall.tryEmit(payload)
+                                    else -> Unit
                                 }
                                 notificationSink.setBadge(_state.value.unreadCount)
                                 _state.update { it.advance(frame.seq) }
@@ -1445,7 +1461,7 @@ class Session(
                     activeClient.imageCapableInstanceIds()
                 } catch (error: APIError.Status) {
                     if (error.code != 404) throw error
-                    _actionError.value = "发送图片前请先在此电脑上更新 OpenMausBot。"
+                    _actionError.value = "发送图片前请先在此电脑上更新 DEX BOT。"
                     return false
                 }
                 if (!imageSupported(to, capable)) {
@@ -1651,7 +1667,7 @@ class Session(
         val endpoints = saved.automaticEndpoints
         if (endpoints.isEmpty()) {
             throw APIError.Transport(
-                "无法连接到 ${saved.name}。请保持 OpenMausBot 打开并开启手机访问，然后重试。",
+                "无法连接到 ${saved.name}。请保持 DEX BOT 打开并开启手机访问，然后重试。",
             )
         }
         var lastError: Throwable? = null
@@ -1667,7 +1683,7 @@ class Session(
             }
         }
         throw lastError ?: APIError.Transport(
-            "无法连接到 ${saved.name}。请保持 OpenMausBot 打开并开启手机访问，然后重试。",
+            "无法连接到 ${saved.name}。请保持 DEX BOT 打开并开启手机访问，然后重试。",
         )
     }
 
@@ -2322,7 +2338,7 @@ class Session(
      */
     private fun voiceWriteFailure(error: Throwable): String =
         if ((error as? APIError)?.isForbidden == true) {
-            "新版电脑端已不允许手机修改语音设置，请在电脑上的 OpenMausBot 中修改。"
+            "新版电脑端已不允许手机修改语音设置，请在电脑上的 DEX BOT 中修改。"
         } else {
             error.message ?: "无法修改语音设置。"
         }

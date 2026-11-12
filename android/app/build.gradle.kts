@@ -4,6 +4,7 @@ plugins {
     id("com.android.application")
     kotlin("plugin.compose")
     kotlin("plugin.serialization")
+    id("androidx.baselineprofile")
 }
 
 // The release signing key belongs to the maintainer and never enters this
@@ -154,40 +155,36 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             ndk {
                 abiFilters.clear()
+                //noinspection ChromeOsAbiSupport
                 abiFilters += "arm64-v8a"
             }
+            // The shipped update build wears the same R8 keeps as release: one
+            // ABI and shrinking keep the download small. The keeps live in
+            // proguard-rules.pro; a minified build is exercised by a real
+            // pairing and session before it goes to the channel.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
         release {
             // Null whenever no signing material was supplied — the unsigned
             // handover build — and the "release" config whenever it was.
             signingConfig = signingConfigs.findByName("release")
 
-            // R8 is off deliberately, and this line says so rather than letting
-            // the default imply it.
-            //
-            // `:core` carries 66 `@Serializable` classes, and
-            // kotlinx.serialization reaches their generated serializers
-            // reflectively: `Foo.Companion.serializer()`, looked up by name at
-            // the moment a frame is decoded. R8 sees no call site for those
-            // companions and no reference to the field names its descriptors
-            // carry, so without keep rules it renames and strips them. What
-            // comes out builds, installs, opens — and then fails the first time
-            // the phone talks to the computer, as a SerializationException on a
-            // frame off the socket, in release only, with a stack trace made of
-            // one-letter class names.
-            //
-            // Turning it on means writing and *testing* keep rules: the
-            // serializable surface in `:core` and `:app`, ML Kit's native
-            // barcode entry points, and Tink under androidx.security.crypto.
-            // Testing them means installing the minified APK and driving a real
-            // pairing and a real session against a real computer. None of that
-            // failure mode shows up in a unit test, and a minified APK that
-            // launches proves nothing. Until someone does that work, `false` is
-            // the tested state and ~34 MB is its price.
-            isMinifyEnabled = false
-            // Resource shrinking is R8's, and AGP rejects the build if it is
-            // turned on while the line above is false.
-            isShrinkResources = false
+            // R8 is on. The serialization, Tink and ML Kit entry points R8
+            // cannot see are kept in app/proguard-rules.pro; without those
+            // rules a minified build installs and opens and then fails the
+            // first frame off the socket. Resource shrinking is R8's and needs
+            // the line above to be true.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
 
@@ -217,6 +214,14 @@ android {
     }
 }
 
+// The committed profile is the one the generator produced; the plugin is what
+// compiles it into the APK's dexopt assets.
+baselineProfile {
+    // Keep the generated file in app/src/main so the profile is reviewable in
+    // the repository rather than living only in a build directory.
+    saveInSrc = true
+}
+
 kotlin {
     jvmToolchain(21)
     compilerOptions {
@@ -241,16 +246,20 @@ dependencies {
     // sheet and the composer's + use `AnimatedVisibility` and `animateFloatAsState`
     // directly, and a direct use deserves a direct dependency.
     implementation("androidx.compose.animation:animation")
-    implementation("androidx.activity:activity-compose:1.11.0")
-    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.9.4")
-    implementation("androidx.lifecycle:lifecycle-process:2.9.4")
-    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.9.4")
-    implementation("androidx.datastore:datastore-preferences:1.1.7")
-    implementation("androidx.security:security-crypto:1.1.0-alpha07")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("androidx.core:core-ktx:1.17.0")
+    implementation("androidx.activity:activity-compose:1.13.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-process:2.11.0")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+    implementation("androidx.datastore:datastore-preferences:1.3.0")
+    implementation("androidx.security:security-crypto:1.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+    implementation("androidx.core:core-ktx:1.19.1")
+    // Installs app/src/main/baseline-prof.txt on Android 11 and below; Android
+    // 12+ reads the profile out of the APK directly. The file itself is
+    // generated by :baselineprofile and committed.
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
     // Share inbound: apply EXIF orientation while downsampling shared photos.
-    implementation("androidx.exifinterface:exifinterface:1.3.7")
+    implementation("androidx.exifinterface:exifinterface:1.4.2")
 
     // Chrome Custom Tabs, for the cloud desktop's noVNC viewer — the Android
     // counterpart of the SFSafariViewController iOS uses. A hardened browser
@@ -258,7 +267,7 @@ dependencies {
     // rather than a WebView that would put the provider's session inside this
     // process and hide the origin from someone about to grant full control of a
     // cloud machine. ~200 KB, no transitive weight beyond androidx.core.
-    implementation("androidx.browser:browser:1.9.0")
+    implementation("androidx.browser:browser:1.10.0")
 
     // Pairing QR scanner. CameraX gives the preview and frame pipeline; ML Kit's
     // *bundled* barcode model reads them. Bundled rather than the Play-services
@@ -274,27 +283,27 @@ dependencies {
     // lever if it ever matters is `play-services-mlkit-barcode-scanning`, which
     // is a few hundred KB and downloads the model on demand. Scanning is
     // restricted to FORMAT_QR_CODE.
-    implementation("androidx.camera:camera-core:1.5.0")
-    implementation("androidx.camera:camera-camera2:1.5.0")
-    implementation("androidx.camera:camera-lifecycle:1.5.0")
-    implementation("androidx.camera:camera-view:1.5.0")
+    implementation("androidx.camera:camera-core:1.6.2")
+    implementation("androidx.camera:camera-camera2:1.6.2")
+    implementation("androidx.camera:camera-lifecycle:1.6.2")
+    implementation("androidx.camera:camera-view:1.6.2")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
 
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:2.2.21")
-    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
     testImplementation("junit:junit:4.13.2")
     // The approval card's two buttons are only correct in what they put on the
     // wire — one standing grant, one answer, never two grants — so the test that
     // pins them drives a real Session against a real socket rather than a stub
     // that could agree with the wrong thing. Same server the :core tests use.
-    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("com.squareup.okhttp3:mockwebserver:5.5.1")
     // The table card is only correct in the *order* a screen reader walks it,
     // and that order lives in the semantics tree — not in any value a pure
     // function could return. Robolectric stands the Android runtime up in the
     // JVM suite so `createComposeRule` can mount the card and the test can read
     // the tree it actually produces; without it the assertion would be about a
     // list the composable is free to ignore.
-    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation("org.robolectric:robolectric:4.17")
     testImplementation(composeBom)
     testImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation(composeBom)

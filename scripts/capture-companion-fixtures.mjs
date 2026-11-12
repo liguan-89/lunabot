@@ -182,6 +182,11 @@ async function main() {
   // A fixture is a file people copy, so the live token is never written.
   write("pair-response", { ...paired.body, token: "omb_REDACTED" });
 
+  // A fresh harness seeds a protected "MausBot" starter that refuses both
+  // delete and archive now. Create the fixture's own bot and leave the starter
+  // out of the captured fleets below: the phone fixtures describe a one-bot
+  // fleet, and the starter carries chief/default flags that would leak into
+  // every test that copies the first bot as a plain base.
   // Left unfiled: DecodingTests pins bots-full's first bot as section-less.
   const created = await json(`${SIDECAR}/api/bots`, asDevice({ method: "POST" }));
   const bot = created.body.bot;
@@ -196,25 +201,31 @@ async function main() {
   if (renamed.status !== 200) throw new Error(`could not rename the bot: ${JSON.stringify(renamed.body)}`);
   bot.name = "Pesto";
 
-  // Remove the starter bot the harness seeds on an empty store: Android's
-  // ClientTest.botJson() expects one bot, and no phone route deletes bots.
-  const preseeded = (await json(`${SIDECAR}/api/bots`, asDevice())).body.bots ?? [];
-  for (const extra of preseeded) {
-    if (extra.id === bot.id) continue;
-    const removed = await json(`${HARNESS}/api/bots/${extra.id}`, { method: "DELETE" });
-    if (removed.status !== 200) {
-      throw new Error(`could not remove the seeded starter bot: ${JSON.stringify(removed.body)}`);
-    }
-  }
+  // A freshly created bot has no model, and a message to it is refused ("pick
+  // another model"). The harness runs a fake Claude, so point the fixture bot
+  // at it before posting anything.
+  const catalogue = (await json(`${HARNESS}/api/instances`)).body;
+  const claude = (catalogue.instances ?? []).find((entry) => entry.instanceId === "claude");
+  const model = claude?.models?.default;
+  if (!model) throw new Error(`the fake Claude instance has no default model: ${JSON.stringify(catalogue)}`);
+  const assigned = await json(`${HARNESS}/api/bots/${bot.id}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ modelSelection: { instanceId: "claude", model } }),
+  });
+  if (assigned.status !== 200) throw new Error(`could not set the bot's model: ${JSON.stringify(assigned.body)}`);
 
   console.log("capturing frames");
   const frames = await captureFrames(4, async () => {
     for (let i = 0; i < 3; i++) {
-      await fetch(`${SIDECAR}/api/bots/${bot.id}/messages`, asDevice({
+      const posted = await fetch(`${SIDECAR}/api/bots/${bot.id}/messages`, asDevice({
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ text: `fixture message ${i}` }),
       }));
+      if (!posted.ok) {
+        throw new Error(`could not post fixture message ${i}: ${posted.status} ${await posted.text()}`);
+      }
       await sleep(120);
     }
   });
@@ -266,13 +277,64 @@ async function main() {
     landed = await roomMessageCount();
   }
 
-  write("bots-full", (await json(`${SIDECAR}/api/bots`, asDevice())).body);
-  write("bots-paged", (await json(`${SIDECAR}/api/bots?messages=3`, asDevice())).body);
+  // The fixture bot is a read bot: posting the messages above left its task
+  // unread, which made every test that copies the first bot as a base start
+  // with an unread task. Clear it before the fleets are captured.
+  const read = await fetch(`${SIDECAR}/api/bots/${bot.id}/read`, asDevice({ method: "POST" }));
+  if (!read.ok) throw new Error(`could not mark the bot read: ${read.status} ${await read.text()}`);
+
+  // The starter bot is still in the live fleet; the phone fixtures describe
+  // the one bot and the one room this capture made.
+  const fixtureFleet = (body) => {
+    const fleet = {
+      ...body,
+      bots: (body.bots ?? []).filter((candidate) => candidate.id === bot.id),
+      groups: (body.groups ?? []).filter((candidate) => candidate.id === room.id),
+    };
+    // StoreTest copies the first bot as a base and sets its own unread flags;
+    // a task-level unread from the capture would outvote them, so the fixture
+    // bot starts read at both levels.
+    for (const candidate of fleet.bots) {
+      candidate.unread = false;
+      for (const task of candidate.tasks ?? []) delete task.unread;
+    }
+    return fleet;
+  };
+  write("bots-full", fixtureFleet((await json(`${SIDECAR}/api/bots`, asDevice())).body));
+  write("bots-paged", fixtureFleet((await json(`${SIDECAR}/api/bots?messages=3`, asDevice())).body));
   write(
     "thread-page",
     (await json(`${SIDECAR}/api/threads/${bot.threadId}/messages?limit=2`, asDevice())).body,
   );
+
+  // The profile lives in the harness config rather than in the temp file this
+  // script writes, so set it through the desktop route before the phone reads
+  // it. The fixture pins that name.
+  const profiled = await json(`${HARNESS}/api/config`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ profile: PROFILE }),
+  });
+  if (profiled.status !== 200) throw new Error(`could not set the profile: ${JSON.stringify(profiled.body)}`);
   write("config", (await json(`${SIDECAR}/api/config`, asDevice())).body);
+
+  // The avatar profile is the same fleet with the fields a set avatar and voice
+  // leave behind. The attachment id is pinned so recaptures do not churn; write
+  // it compact because the crop-fallback test replaces the exact substring.
+  const avatarFleet = fixtureFleet((await json(`${SIDECAR}/api/bots`, asDevice())).body);
+  const avatarBot = avatarFleet.bots[0];
+  if (avatarBot) {
+    avatarBot.avatarUrl = "/api/attachments/123e4567-e89b-12d3-a456-426614174000.webp";
+    avatarBot.avatarCrop = "rounded";
+    avatarBot.voice = "voice-1";
+    avatarBot.speakReplies = true;
+    writeFileSync(
+      join(OUT, "bot-avatar-profile.json"),
+      `${JSON.stringify(fixturePaths(avatarFleet))}\n`,
+    );
+    console.log("  bot-avatar-profile.json");
+  }
+
   write("instances", (await json(`${SIDECAR}/api/instances`, asDevice())).body);
 
   write("forbidden", (await json(`${SIDECAR}/api/config`, asDevice({
@@ -344,7 +406,16 @@ async function main() {
   if (memory.status !== 200) throw new Error(`could not read team memory: ${JSON.stringify(memory.body)}`);
   write("team-memory", memory.body);
 
-  console.log("\nnot captured: options-card.json — needs a real approval from a real turn");
+  // The fake engine never asks a question, so this one is a schema-valid
+  // sample rather than a live capture: a settled question card with no tool,
+  // which is what the decoder tests call a non-permission options card.
+  write("options-card", {
+    id: "fixture-options",
+    role: "bot",
+    kind: "options",
+    at: 1786742413762,
+    card: { title: "Which target?", subtitle: "", options: ["Staging", "Production"] },
+  });
 }
 
 const cleanup = () => {

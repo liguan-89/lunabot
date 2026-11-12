@@ -199,6 +199,59 @@ data class CommChip(
     val withColor: String,
 )
 
+/**
+ * The record a finished Live call leaves (`kind == "call"`).
+ *
+ * The phone cannot join a call the desktop is running, but the receipt belongs
+ * in the transcript: without it a call just disappears from the conversation.
+ * Never carries speech, so there is nothing private to redact here.
+ */
+@Serializable
+data class LiveCallRecord(
+    val callId: String = "",
+    val botId: String = "",
+    val client: String = "",
+    val startedAt: Double = 0.0,
+    val endedAt: Double = 0.0,
+    val seconds: Double = 0.0,
+    val endReason: String = "",
+    val title: String? = null,
+)
+
+/**
+ * The part of a bot-authored widget (`kind == "widget"`) the phone needs.
+ *
+ * The tree itself is a ChatKit document the desktop renders with buttons and
+ * fields; the phone shows its readable `text` fallback plus the settled answer,
+ * so a widget row is a readable receipt rather than a gap. The full tree is
+ * deliberately not interpreted here: a press would have to go through the
+ * desktop's widget route, which the phone allowlist does not carry.
+ */
+@Serializable
+data class WidgetCardData(
+    val v: Int = 0,
+    val settled: WidgetSettledRef? = null,
+)
+
+@Serializable
+data class WidgetSettledRef(
+    val label: String = "",
+    val tone: String = "",
+)
+
+/**
+ * A bot page or MCP app (`kind == "app"`). `doc` names the stored document;
+ * the phone shows the readable fallback rather than mounting a sandboxed page,
+ * because the app's bridge is the desktop's to run.
+ */
+@Serializable
+data class AppCardData(
+    val v: Int = 0,
+    val source: String = "",
+    val title: String = "",
+    val doc: String = "",
+)
+
 @Serializable
 data class Message(
     val id: String,
@@ -244,6 +297,12 @@ data class Message(
     val goalRun: GroupGoalRunCardData? = null,
     /** `kind == SIGNIN`: the bot needs the person to sign in to a site themselves. */
     val signIn: SignInCardData? = null,
+    /** `kind == CALL`: the receipt of a finished Live call. */
+    val call: LiveCallRecord? = null,
+    /** `kind == WIDGET`: a bot-authored card's settled state, if any. */
+    val widget: WidgetCardData? = null,
+    /** `kind == APP`: a bot page or MCP app. */
+    val app: AppCardData? = null,
 ) {
     @Serializable(with = MessageKindSerializer::class)
     enum class Kind {
@@ -258,6 +317,9 @@ data class Message(
         GOAL_RUN,
         DIGEST,
         COMPACTION,
+        CALL,
+        WIDGET,
+        APP,
         UNKNOWN,
     }
 
@@ -419,6 +481,9 @@ object MessageKindSerializer : KSerializer<Message.Kind> {
         "goal.run" -> Message.Kind.GOAL_RUN
         "digest" -> Message.Kind.DIGEST
         "compaction" -> Message.Kind.COMPACTION
+        "call" -> Message.Kind.CALL
+        "widget" -> Message.Kind.WIDGET
+        "app" -> Message.Kind.APP
         else -> Message.Kind.UNKNOWN
     }
 

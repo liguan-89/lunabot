@@ -24,7 +24,7 @@ export function defaultBotRefusal(name: string): string {
 /** Why a PATCH may not change this bot so, or null. */
 export function defaultBotPatchRefusal(bot: BotRecord | null, body: Record<string, unknown>): string | null {
   for (const key of ["sidebarHidden", "welcomed"]) if (body[key] !== undefined && typeof body[key] !== "boolean") return `${key} must be true or false`;
-  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only DexBot is hidden this way; archive or delete other bots.";
+  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only DEX BOT is hidden this way; archive or delete other bots.";
   return body.hidden === true && bot?.defaultBot ? defaultBotRefusal(bot.name) : null;
 }
 
@@ -73,12 +73,12 @@ export function forgetDefaultBot(dataDir: string, person: string): void {
   writeFileAtomic(join(dataDir, LEDGER), JSON.stringify({ v: 1, places }), { mode: 0o600 });
 }
 
-/** A new install's own MausBot from before it was marked: the place's oldest bot, still live, outside any department,
+/** A new install's own DEX BOT from before it was marked: the place's oldest bot, still live, outside any department,
  * not installed from a package, and still named MausBot or still in the colour a new install gave it. */
 export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined {
   const oldest = bots.reduce<BotRecord | undefined>((first, bot) => !first || bot.createdAt < first.createdAt ? bot : first, undefined);
   if (!oldest || oldest.hidden || oldest.movedTo || oldest.section?.trim() || oldest.installedPackage) return undefined;
-  return oldest.name === DEFAULT_BOT_NAME || oldest.name === "MausBot" || oldest.color === STARTER_COLOR ? oldest : undefined;
+  return oldest.name === DEFAULT_BOT_NAME || oldest.name === "MausBot" || oldest.name === "DexBot" || oldest.color === STARTER_COLOR ? oldest : undefined;
 }
 
 /** Puts the intro where its person sees it next: in its open conversation while nobody has written there, else at the
@@ -157,7 +157,7 @@ export function takeArrivingDefaultBot(store: Pick<Store, "bots" | "patchBot" | 
   const kept = keptDefaultBot(store, id);
   if (kept) {
     const from = computer?.trim() || "another computer";
-    const plain = [DEFAULT_BOT_NAME, "MausBot", kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
+    const plain = [DEFAULT_BOT_NAME, "MausBot", "DexBot", kept.name].map((name) => name.trim().toLowerCase()).includes(arriving.name.trim().toLowerCase());
     store.patchBot(id, { defaultBot: undefined, sidebarHidden: undefined, ...(plain ? { name: `${DEFAULT_BOT_NAME} (from ${from})` } : {}) });
     return;
   }

@@ -3,6 +3,7 @@ package com.openmausbot.companion.vnc
 import java.io.ByteArrayOutputStream
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
+import android.annotation.SuppressLint
 
 /**
  * A minimal RFB (VNC) 3.8 client: enough to show a Local VM and drive its
@@ -360,6 +361,9 @@ class RfbClient(private val password: String? = null) {
          * carries the bytes. It is used for exactly this one challenge response
          * and nothing else.
          */
+        // DES/ECB is RFB 3.8's one password handshake, not a local cipher
+        // choice; the comment above records why there is no alternative.
+        @SuppressLint("GetInstance")
         fun vncDesResponse(password: String, challenge: ByteArray): ByteArray? = runCatching {
             val key = ByteArray(8)
             val bytes = password.toByteArray(Charsets.ISO_8859_1)
