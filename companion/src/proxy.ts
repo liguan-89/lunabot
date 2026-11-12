@@ -542,11 +542,13 @@ export function createProxyHandler(options: ProxyOptions) {
               return;
             }
             // SAFETY: identity is untrusted JSON; the assertion only permits
-            // reading one optional property compared to a fixed literal.
+            // reading one optional property compared to fixed literals. DEX BOT's
+            // harness answers "dexbot"; upstream builds answer "openmausbot".
+            const app = (identity as { app?: unknown } | null)?.app;
             if (
               (harness.statusCode ?? 500) < 200 ||
               (harness.statusCode ?? 500) >= 300 ||
-              (identity as { app?: unknown } | null)?.app !== "openmausbot"
+              (app !== "openmausbot" && app !== "dexbot")
             ) {
               fail();
               return;
