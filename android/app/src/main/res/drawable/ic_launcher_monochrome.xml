@@ -1,15 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  API 33 themed icon: the DEX BOT face as one evenOdd path. The eyes are
-  holes, so the system tint cannot fill them in and flatten the face.
+  API 33 themed icon: the same portrait as ic_launcher_foreground.xml, as one
+  evenOdd path — the disc with two tilted pill eyes as holes, so the system
+  tint cannot fill them in and flatten the face. Eye capsules are the rotated
+  outlines from build/icon.svg (-16.7° around each capsule's centre).
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
-    <path
-        android:fillColor="#FFFFFFFF"
-        android:fillType="evenOdd"
-        android:pathData="M 212.000 512.000 A 300.000 300.000 0 1 0 812.000 512.000 A 300.000 300.000 0 1 0 212.000 512.000 Z M 369.590 505.209 A 37.500 37.500 0 0 1 441.427 483.657 L 462.117 552.620 A 37.500 37.500 0 0 1 390.280 574.172 Z M 536.021 385.176 A 37.500 37.500 0 0 1 607.857 363.624 L 628.547 432.587 A 37.500 37.500 0 0 1 556.711 454.139 Z" />
+    <group
+        android:scaleX="0.6666667"
+        android:scaleY="0.6666667"
+        android:translateX="170.6667"
+        android:translateY="170.6667">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:fillType="evenOdd"
+            android:pathData="M 650.000 90.000 A 560.000 560.000 0 1 0 650.000 1210.000 A 560.000 560.000 0 1 0 650.000 90.000 Z M 429.597 497.256 A 70 70 0 0 1 516.760 544.188 L 555.381 672.919 A 70 70 0 0 1 421.286 713.150 L 382.665 584.419 A 70 70 0 0 1 429.597 497.256 Z M 791.551 371.918 A 70 70 0 0 1 878.714 418.850 L 917.335 547.581 A 70 70 0 0 1 783.240 587.812 L 744.619 459.081 A 70 70 0 0 1 791.551 371.918 Z" />
+    </group>
 </vector>

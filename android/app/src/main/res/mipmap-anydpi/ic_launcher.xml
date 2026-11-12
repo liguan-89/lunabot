@@ -2,8 +2,8 @@
 <!--
   Adaptive icon: the system masks the layers to whatever shape the launcher
   uses, so there is one definition and no per-density bitmaps. The foreground
-  is the bot-avatar face the roster draws (PresetAvatars.kt) — one flat
-  circle, two pill eyes — on the black tile.
+  is build/icon.svg — the desktop app's mark: the white disc bleeding off the
+  right and bottom of the black tile, with two tilted pill eyes.
 -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@drawable/ic_launcher_background" />
