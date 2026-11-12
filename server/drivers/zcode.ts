@@ -214,6 +214,20 @@ export function zcodeMcpServers(turn: SendTurnInput): Array<Record<string, unkno
   return servers;
 }
 
+/** What makes a mount set "different": which servers and how they start, not
+ * the credentials in their env. Turn-scoped tokens and generation ids rotate
+ * every turn; hashing them would rebuild the session (and lose the native
+ * conversation) on every message. */
+export function zcodeMcpKey(servers: Array<Record<string, unknown>>): string {
+  return JSON.stringify(
+    servers.map((server) =>
+      "type" in server
+        ? { type: server.type, name: server.name, url: server.url }
+        : { name: server.name, command: server.command, args: server.args },
+    ),
+  );
+}
+
 export interface ZcodeSession {
   sessionId: string;
   /** MCP mounts this session was created with; a changed turn recreates it. */
@@ -842,7 +856,7 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
     const ensureSession = async (turnInput: SendTurnInput, threadId: string): Promise<ZcodeSession> => {
       const live = ensureClient();
       const mcpServers = zcodeMcpServers(turnInput);
-      const mcpKey = JSON.stringify(mcpServers);
+      const mcpKey = zcodeMcpKey(mcpServers);
       const existing = sessions.get(threadId);
       // A live session keeps the mounts it was created with. A turn whose
       // tools changed (a bot switched a connector on, a scope narrowed) must

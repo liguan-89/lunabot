@@ -262,6 +262,26 @@ describe("ZcodeDriver (fake app-server)", () => {
     expect(created?.params.mcpServers[0].env).toContainEqual({ name: "A", value: "1" });
   });
 
+  it("keeps one native session when only MCP credentials rotate", async () => {
+    const { rows } = await create();
+    const send = async (text: string, token: string) => {
+      const { turnId } = await instance!.adapter.sendTurn({
+        threadId: "t-mcp-rotate",
+        text,
+        approvalMode: "full",
+        integrations: { agents: { command: "/bin/echo", args: ["agents"], env: { TOKEN: token } } },
+      });
+      await recorder!.until((event) => event.type === "turn.completed" && event.turnId === turnId);
+    };
+    await send("one", "a");
+    await send("two", "b");
+    const catalogWorkspace = join(DATA_DIR, "providers", "zcode-catalog");
+    const creates = rows().filter(
+      (row) => row.method === "session/create" && row.params?.workspace?.workspacePath !== catalogWorkspace,
+    );
+    expect(creates).toHaveLength(1);
+  });
+
   it("lists models before any turn so a bot can be switched onto the engine", async () => {
     const dump = join(mkdtempSync(join(tmpdir(), "omb-zcode-catalog-")), "dump.jsonl");
     const fresh = await ZcodeDriver.create({
