@@ -9,6 +9,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { DATA_DIR } from "../config.ts";
 import type { ProviderInstance } from "../contracts.ts";
 import { findCliCandidates } from "../env-path.ts";
 import { recordEvents, type EventRecorder } from "../testing/events.ts";
@@ -228,6 +229,27 @@ describe("ZcodeDriver (fake app-server)", () => {
     expect(instance!.models.options.map((option) => option.id)).toEqual(["fake/fake-model"]);
   });
 
+  it("lists models before any turn so a bot can be switched onto the engine", async () => {
+    const dump = join(mkdtempSync(join(tmpdir(), "omb-zcode-catalog-")), "dump.jsonl");
+    const fresh = await ZcodeDriver.create({
+      instanceId: "zcode-catalog-test",
+      displayName: "ZCode Catalog",
+      environment: { FAKE_ZCODE_DUMP: dump },
+      enabled: true,
+      config: { cli: FAKE_CLI, fullAuto: true },
+    });
+    try {
+      // No sendTurn: the throwaway catalog session is what filled the list.
+      expect(fresh.models.options.map((option) => option.id)).toEqual(["fake/fake-model"]);
+      const rows = readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, any>);
+      expect(rows.some((row) => row.method === "session/send")).toBe(false);
+      // The probe session was closed, not left running.
+      expect(rows.some((row) => row.method === "session/close")).toBe(true);
+    } finally {
+      await fresh.dispose();
+    }
+  });
+
   it("resumes the stored session instead of creating a second one", async () => {
     // One dump across both instances, so the second run's frames are visible
     // next to the first run's.
@@ -263,7 +285,12 @@ describe("ZcodeDriver (fake app-server)", () => {
 
     const session = recorder!.events.find((event) => event.type === "session.started") as { sessionId: string };
     expect(session.sessionId).toBe("sess_fake-1");
-    expect(rows().filter((row) => row.method === "session/create")).toHaveLength(1);
+    // The catalog probe is its own throwaway workspace; count real threads only.
+    const catalogWorkspace = join(DATA_DIR, "providers", "zcode-catalog");
+    const realCreates = rows().filter(
+      (row) => row.method === "session/create" && row.params?.workspace?.workspacePath !== catalogWorkspace,
+    );
+    expect(realCreates).toHaveLength(1);
     expect(rows().filter((row) => row.method === "session/resume")).toHaveLength(1);
   });
 

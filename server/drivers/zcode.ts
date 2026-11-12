@@ -7,10 +7,10 @@
 // thread; the session id is the resumeCursor the harness persists.
 //
 // The wire facts are documented in docs/zcode-engine-protocol.md.
-import { existsSync, statSync } from "node:fs";
+import { existsSync, mkdirSync, statSync } from "node:fs";
 import { isAbsolute, join } from "node:path";
 
-import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
+import { DATA_DIR, PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
 import { augmentedPath, findCliCandidates, userHome } from "../env-path.ts";
 import { describeSpawnFailure, execCli, killCliTree, spawnCli } from "../procs.ts";
 import type {
@@ -24,6 +24,7 @@ import type {
   SendTurnInput,
 } from "../contracts.ts";
 import { newEventId, newId } from "../contracts.ts";
+import { openStartupModelCatalog } from "../startup-model-catalog.ts";
 import { appendNative } from "./native.ts";
 import { parseAskQuestions, questionAnswersByQuestion, type AskQuestion } from "../../shared/ask-question.ts";
 
@@ -341,9 +342,17 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
      * the session id inside its preferences request, BEFORE the create
      * resolves, so that request is the only chance to answer it. */
     let creatingSessionFor: string | null = null;
+    /** A throwaway session created only to read the model catalog, plus the
+     * ids it announced. Its preferences request is answered like a real one,
+     * then it is closed. */
+    let creatingProbeSession = false;
+    const probeSessionIds = new Set<string>();
     /** resolved the first time the child publishes its model catalog */
     const catalogWaiters = new Set<() => void>();
     let models: ModelCatalog = EMPTY_ZCODE_CATALOG;
+    /** Background/delayed first catalog read; snapshot waits for it so the
+     * very first instance list already carries the engine's models. */
+    let startupModelRefresh: Promise<void> | null = null;
     /** Server→client permission asks still waiting for the harness. The answer
      * is one of the request's own `options[].response` objects, which is the
      * `{decision, reason?, permissionUpdates?}` shape ZCode validates. */
@@ -396,9 +405,11 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       });
     };
 
-    const applyModelState = (params: Record<string, unknown> | undefined) => {
-      const patch = params?.patch as { model?: Record<string, unknown> } | undefined;
-      const model = patch?.model;
+    /** Both a running session's `state.updated` patch and `session/create`'s
+     * answer carry the same catalog shape; the create answer is what lets the
+     * engine offer models before any turn (a bot cannot be moved onto an
+     * engine that lists nothing). */
+    const applyModelCatalog = (model: Record<string, any> | undefined) => {
       if (!model) return;
       const available = Array.isArray(model.available) ? (model.available as Array<Record<string, any>>) : [];
       const options: Array<{ id: string; label: string; custom: boolean; provider: string }> = [];
@@ -538,7 +549,10 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
           threadForSession.set(sessionId, creatingSessionFor);
           sessionIdForThread.set(creatingSessionFor, sessionId);
         }
-        if (threadForSession.has(sessionId)) client?.write(ZCODE_RUNTIME_PREFERENCES, frame.id);
+        if (!threadForSession.has(sessionId) && creatingProbeSession) probeSessionIds.add(sessionId);
+        if (threadForSession.has(sessionId) || probeSessionIds.has(sessionId)) {
+          client?.write(ZCODE_RUNTIME_PREFERENCES, frame.id);
+        }
         return;
       }
       if (method === "interaction/requestPermission") {
@@ -647,7 +661,8 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
         return;
       }
       if (method === "state.updated") {
-        applyModelState(frame.params);
+        const patch = (frame.params as { patch?: { model?: Record<string, any> } } | undefined)?.patch;
+        applyModelCatalog(patch?.model);
         return;
       }
       if (method === "session/event") {
@@ -697,6 +712,48 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       client = started.client;
       stopClient = started.close;
       return client;
+    };
+
+    /** Read the catalog without waiting for a person's turn. `session/create`
+     * answers with the same model block a running session patches in, so one
+     * throwaway session in the app's own data directory is enough; it is closed
+     * right away, and the startup catalog helper caches the result. */
+    let catalogProbe: Promise<void> | null = null;
+    const refreshModels = async (): Promise<void> => {
+      if (models.options.length) return;
+      if (catalogProbe) return catalogProbe;
+      const probe = (async () => {
+        const workspace = join(DATA_DIR, "providers", "zcode-catalog");
+        creatingProbeSession = true;
+        try {
+          const live = ensureClient();
+          try {
+            mkdirSync(workspace, { recursive: true });
+          } catch {
+            /* best effort: ZCode may still accept the path */
+          }
+          const created = (await live.send(
+            "session/create",
+            { workspace: { workspacePath: workspace, workspaceKey: workspace } },
+            // The answer is immediate when the CLI works; do not hold startup
+            // on a child that never replies.
+            15_000,
+          )) as { settings?: { model?: Record<string, any> } } | undefined;
+          applyModelCatalog(created?.settings?.model);
+          for (const sessionId of Array.from(probeSessionIds)) {
+            void live.send("session/close", { sessionId }).catch(() => undefined);
+          }
+        } catch {
+          // The engine still runs; the next Refresh (or start) tries again.
+        } finally {
+          creatingProbeSession = false;
+          probeSessionIds.clear();
+        }
+      })();
+      catalogProbe = probe.finally(() => {
+        catalogProbe = null;
+      });
+      return catalogProbe;
     };
 
     const closeSession = (threadId: string) => {
@@ -813,6 +870,9 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
     };
 
     const snapshot = async (): Promise<ProviderSnapshot> => {
+      // A cached catalog answers at once; when it is stale the read is
+      // deferred, and the first instance list should already offer models.
+      if (startupModelRefresh) await startupModelRefresh;
       const version = await new Promise<string | null>((resolve) => {
         try {
           execCli(executable, [...launch.args, "version"], { env: environment, timeout: 8_000, maxBuffer: 64 * 1024 }, (error, stdout) => {
@@ -828,6 +888,19 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       return { state: "available", version, authenticated: true };
     };
 
+    // A bot cannot be moved onto an engine that lists no models, and ZCode
+    // only publishes its list from a session. Read/cache it at start (and on
+    // Refresh) so the picker has something to offer before the first turn.
+    const startupCatalog = await openStartupModelCatalog({
+      instanceId,
+      use: (saved) => {
+        models = saved;
+      },
+      current: () => models,
+      refresh: refreshModels,
+    });
+    startupModelRefresh = startupCatalog?.pending ?? null;
+
     return {
       instanceId,
       driverKind: ZCODE_DRIVER_KIND,
@@ -836,8 +909,8 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       get models() {
         return models;
       },
-      // The catalog arrives with each session's `state.updated` patch.
-      refreshModels: async () => undefined,
+      refreshModels,
+      ...(startupModelRefresh ? { startupModelRefresh } : {}),
       snapshot,
       adapter: {
         provider: ZCODE_DRIVER_KIND,
