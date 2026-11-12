@@ -31,6 +31,7 @@ import {
 } from "../lib/companion-pairing";
 import {
   PHONE_SETUP_PROVISIONING_TIMEOUT_MS,
+  automaticPairingRouteMode,
   claimPhonePairingAttempt,
   closePhonePairingIfOwned,
   completePhonePairingAttempt,
@@ -346,10 +347,11 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           dispatchFlow({ type: "reset" });
           return;
         }
-        const explicitRoute = routeMode !== "automatic";
+        const effectiveMode = automaticPairingRouteMode(routeMode, started);
+        const explicitRoute = effectiveMode !== "automatic";
         const gate = phonePairingGate(accountOverride ?? account, started, explicitRoute);
         const remote = companionAccountBridge();
-        const prepare = remote?.prepare && shouldPrepareSecureAddress(routeMode, gate, accountOverride ?? account)
+        const prepare = remote?.prepare && shouldPrepareSecureAddress(effectiveMode, gate, accountOverride ?? account)
           ? remote.prepare
           : null;
         if (gate !== "open") {
@@ -361,9 +363,9 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           return;
         }
         if (prepare) void Promise.resolve().then(() => prepare()).catch(() => {});
-        if (explicitRoute && !companionPairingRoute(started, routeMode)) {
+        if (explicitRoute && !companionPairingRoute(started, effectiveMode)) {
           setProvisioning(false);
-          setError(routeMode === "tailscale"
+          setError(effectiveMode === "tailscale"
             ? t("phone.error.tailscaleUnavailable")
             : directPairingUnavailable());
           dispatchFlow({ type: "reset" });
@@ -392,7 +394,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           paired,
           started.pairing?.token ?? null,
         );
-        const routePin = pairingFailure ? null : companionPairingRoutePin(paired, routeMode);
+        const routePin = pairingFailure ? null : companionPairingRoutePin(paired, effectiveMode);
         if (pairingFailure || !routePin || !pairingWindow) {
           await closePhonePairingIfOwned(
             paired,
@@ -407,9 +409,9 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           publishPairingRoutePin(null);
           setState({ ...paired, pairing: null });
           setProvisioning(false);
-          setError(pairingFailure ?? (routeMode === "local"
+          setError(pairingFailure ?? (effectiveMode === "local"
             ? directPairingUnavailable()
-            : routeMode === "tailscale"
+            : effectiveMode === "tailscale"
               ? t("phone.error.tailscaleUnavailable")
               : protectedPairingUnavailable()));
           dispatchFlow({ type: "reset" });

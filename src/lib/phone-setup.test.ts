@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CompanionAccountState } from "../types/ogb";
 import {
+  automaticPairingRouteMode,
   claimPhonePairingAttempt,
   closePhonePairingIfOwned,
   completePhonePairingAttempt,
@@ -176,6 +177,29 @@ describe("phone setup flow", () => {
     expect(
       phonePairingGate({ available: false, status: "signed-out" }, companion, false),
     ).toBe("account-required");
+  });
+
+  it("opens automatic pairing through the encrypted relay without a hosted endpoint", () => {
+    const relay = {
+      enabled: true,
+      endpoints: [],
+      e2e: { enabled: true, descriptor: { r: ["cloud.dexai.vip"] } },
+    };
+    expect(phonePairingGate(account("ready"), relay, false)).toBe("open");
+    expect(phonePairingGate(account("connecting"), relay, false)).toBe("open");
+    expect(automaticPairingRouteMode("automatic", relay)).toBe("local");
+    expect(automaticPairingRouteMode("local", relay)).toBe("local");
+    expect(automaticPairingRouteMode("tailscale", relay)).toBe("tailscale");
+  });
+
+  it("prefers a hosted endpoint when one is advertised", () => {
+    const hosted = {
+      enabled: true,
+      endpoints: [{ kind: "hosted" as const, url: "https://c-x.cloud.dexai.vip", priority: 0 }],
+      e2e: { enabled: true, descriptor: { r: ["cloud.dexai.vip"] } },
+    };
+    expect(phonePairingGate(account("ready"), hosted, false)).toBe("open");
+    expect(automaticPairingRouteMode("automatic", hosted)).toBe("automatic");
   });
 
   it("tells the desktop about automatic pairing, which keeps or creates the secure address", () => {

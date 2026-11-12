@@ -114,6 +114,7 @@ export type CompanionPairingMode =
 export interface PhoneSetupCompanionSnapshot {
   enabled: boolean;
   endpoints?: CompanionEndpoint[];
+  e2e?: { enabled?: boolean; descriptor?: { r?: string[] } | null };
 }
 
 export async function preparePhonePairingRoute<State extends { enabled: boolean; error?: string }>(
@@ -145,12 +146,17 @@ export async function preparePhonePairingRoute<State extends { enabled: boolean;
   return state;
 }
 
-/** Automatic setup is hosted-HTTPS only, so a tailnet route cannot silently replace hosted access. */
+/** A relay descriptor is a secure automatic route even though no HTTPS endpoint is advertised. */
+export const relayPairingReady = (companion: PhoneSetupCompanionSnapshot | null): boolean =>
+  Boolean(companion?.e2e?.descriptor?.r?.length);
+
+/** Automatic setup is hosted-HTTPS or the encrypted relay; a relay-only computer uses the local address form,
+ * with the E2E descriptor carried in the same QR. */
 export const companionPairingMode = (
   account: CompanionAccountState | null,
   companion: PhoneSetupCompanionSnapshot | null,
 ): CompanionPairingMode => {
-  if (companion?.endpoints?.some((endpoint) => endpoint.kind === "hosted")) {
+  if (companion?.endpoints?.some((endpoint) => endpoint.kind === "hosted") || relayPairingReady(companion)) {
     return "hosted-ready";
   }
   if (!account?.available || account.status === "signed-out" || account.status === "error") {
@@ -159,6 +165,16 @@ export const companionPairingMode = (
   if (account.status === "ready" && !companion?.enabled) return "hosted-startable";
   return "hosted-connecting";
 };
+
+/** The route whose address form fills the QR: relay-ready automatic pairing reuses the local form. */
+export function automaticPairingRouteMode(
+  routeMode: CompanionPairingRouteMode,
+  companion: PhoneSetupCompanionSnapshot | null,
+): CompanionPairingRouteMode {
+  if (routeMode !== "automatic") return routeMode;
+  if (companion?.endpoints?.some((endpoint) => endpoint.kind === "hosted")) return "automatic";
+  return relayPairingReady(companion) ? "local" : "automatic";
+}
 
 export type PhonePairingGate = "open" | "start" | "wait" | "account-required";
 
