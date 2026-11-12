@@ -23,6 +23,20 @@ bare `zcode` from the augmented PATH first and falls back to that bundle on
 macOS; the Settings install card writes a `~/.local/bin/zcode` shim with the
 same invocation, so no separate download is expected.
 
+## Per-session MCP servers and images
+
+`session/create` (and `session/resume`) take `mcpServers`: stdio entries are
+`{name, command, args, env:[{name,value}], isolation?, alwaysLoad?}`, remote
+ones `{type:"http"|"sse", name, url, headers:[{name,value}]}`. They are scoped
+to that session, so the driver mounts DEX BOT's proxies when it creates it and
+recreates the session when the mount set changes.
+
+`session/send` takes prompt attachments in the composer's shape, not the
+resolved one: `{kind:"image", localPath, filename, mimeType, sizeBytes}` (or
+`dataBase64` instead of `localPath`). A `{type:"image", path}` object is
+silently dropped. ZCode reads the file, resizes it (20 MB cap) and inlines it
+as a model image block.
+
 ## Process
 
 ```
