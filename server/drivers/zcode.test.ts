@@ -247,6 +247,21 @@ describe("ZcodeDriver (fake app-server)", () => {
     });
   });
 
+  it("mounts the turn's MCP servers when it creates the session", async () => {
+    const { rows } = await create();
+    expect(instance!.adapter.capabilities).toMatchObject({ agentsMcp: true, browserMcp: true, customMcp: true });
+    await instance!.adapter.sendTurn({
+      threadId: "t-mcp",
+      text: "hi",
+      approvalMode: "full",
+      integrations: { agents: { command: "/bin/echo", args: ["agents"], env: { A: "1" } } },
+    });
+    await recorder!.until((event) => event.type === "turn.completed");
+    const created = rows().filter((row) => row.method === "session/create").at(-1);
+    expect(created?.params.mcpServers).toMatchObject([{ name: "agents", command: "/bin/echo", args: ["agents"] }]);
+    expect(created?.params.mcpServers[0].env).toContainEqual({ name: "A", value: "1" });
+  });
+
   it("lists models before any turn so a bot can be switched onto the engine", async () => {
     const dump = join(mkdtempSync(join(tmpdir(), "omb-zcode-catalog-")), "dump.jsonl");
     const fresh = await ZcodeDriver.create({
