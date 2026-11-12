@@ -25,6 +25,7 @@ import type {
 } from "../contracts.ts";
 import { newEventId, newId } from "../contracts.ts";
 import { appendNative } from "./native.ts";
+import { acpMcpServers } from "./turn-mcp.ts";
 import { parseAskQuestions, questionAnswersByQuestion, type AskQuestion } from "../../shared/ask-question.ts";
 
 export const ZCODE_DRIVER_KIND = "zcodeAgent";
@@ -186,8 +187,37 @@ export function splitZcodeModel(id: string): { providerId: string; modelId: stri
   return { providerId: id.slice(0, at), modelId: id.slice(at + 1) };
 }
 
+/** The turn's MCP servers in the shape `session/create` takes. The shared
+ * builder is what the ACP family uses, so tool scope, custom-server gates and
+ * the person's own servers behave the same; ZCode wants env as name/value
+ * pairs and starts a script proxy through Electron-as-node. */
+export function zcodeMcpServers(turn: SendTurnInput): Array<Record<string, unknown>> {
+  const nodeEnv = process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {};
+  type Pairs = Array<{ name: string; value: string }>;
+  const pairs = (env: Record<string, string> | Pairs | undefined): Pairs =>
+    Array.isArray(env) ? env : Object.entries(env ?? {}).map(([name, value]) => ({ name, value }));
+  const mount = (name: string, server: { command: string; args: string[]; env?: Record<string, string> | Pairs }) => {
+    // acpMcpServers already hands env over as pairs; the phone integration is
+    // still a record. ZCode takes pairs either way.
+    const env = new Map(pairs(server.env).map((pair) => [pair.name, pair.value]));
+    for (const [key, value] of Object.entries(nodeEnv)) env.set(key, value);
+    return { name, command: server.command, args: server.args, env: [...env].map(([key, value]) => ({ name: key, value })) };
+  };
+  const servers: Array<Record<string, unknown>> = acpMcpServers(turn, { engine: ZCODE_DRIVER_KIND }).map((server) =>
+    "type" in server
+      ? { type: server.type, name: server.name, url: server.url, headers: server.headers }
+      : mount(server.name, server),
+  );
+  // Not in the ACP set: the physical phone and the dweb daemon still mount here.
+  if (turn.integrations?.phone) servers.push(mount("phone", turn.integrations.phone));
+  if (turn.integrations?.dweb) servers.push({ type: "http", name: "dweb", url: turn.integrations.dweb.url, headers: [] });
+  return servers;
+}
+
 export interface ZcodeSession {
   sessionId: string;
+  /** MCP mounts this session was created with; a changed turn recreates it. */
+  mcpKey: string;
   /** model key last pinned on this session, so an unchanged turn skips the RPC */
   modelKey: string | null;
   mode: string | null;
@@ -811,17 +841,23 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
     /** Create or resume the session backing this thread. */
     const ensureSession = async (turnInput: SendTurnInput, threadId: string): Promise<ZcodeSession> => {
       const live = ensureClient();
+      const mcpServers = zcodeMcpServers(turnInput);
+      const mcpKey = JSON.stringify(mcpServers);
       const existing = sessions.get(threadId);
-      if (existing && !turnInput.sessionReset) return existing;
+      // A live session keeps the mounts it was created with. A turn whose
+      // tools changed (a bot switched a connector on, a scope narrowed) must
+      // start a session that mounts the new set, not keep the old one.
+      if (existing && !turnInput.sessionReset && existing.mcpKey === mcpKey) return existing;
       if (existing) closeSession(threadId);
       const cwd = turnInput.cwd ?? process.env.HOME ?? "/";
       const resumeId = typeof turnInput.resumeCursor === "string" ? turnInput.resumeCursor : null;
       creatingSessionFor = threadId;
+      const mounts = mcpServers.length ? { mcpServers } : {};
       let result: { sessionId?: string; projection?: { sessionId?: string } } | undefined;
       try {
         result = (resumeId
-          ? await live.send("session/resume", { sessionId: resumeId })
-          : await live.send("session/create", { workspace: { workspacePath: cwd, workspaceKey: cwd } })) as
+          ? await live.send("session/resume", { sessionId: resumeId, ...mounts })
+          : await live.send("session/create", { workspace: { workspacePath: cwd, workspaceKey: cwd }, ...mounts })) as
           | { sessionId?: string; projection?: { sessionId?: string } }
           | undefined;
       } finally {
@@ -832,7 +868,7 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       const announced = sessionIdForThread.get(threadId);
       const sessionId = announced ?? result?.sessionId ?? result?.projection?.sessionId;
       if (!sessionId || sessionId === "unknown") throw new Error("zcode did not return a session id");
-      const session: ZcodeSession = { sessionId, modelKey: null, mode: null, subscribed: false, idleTimer: null };
+      const session: ZcodeSession = { sessionId, mcpKey, modelKey: null, mode: null, subscribed: false, idleTimer: null };
       sessions.set(threadId, session);
       sessionIdForThread.set(threadId, sessionId);
       threadForSession.set(sessionId, threadId);
@@ -963,13 +999,17 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
         provider: ZCODE_DRIVER_KIND,
         capabilities: {
           sessionModelSwitch: "in-session",
-          // No MCP mounts yet: integrations reach zcode only through its own
-          // config, so never tell a bot it has tools this driver cannot hand it.
-          agentsMcp: false,
-          computerMcp: false,
-          composioMcp: false,
-          phoneMcp: false,
-          browserMcp: false,
+          // Mounted per session through session/create's mcpServers, from the
+          // same shared builder the ACP family uses.
+          agentsMcp: true,
+          computerMcp: true,
+          composioMcp: true,
+          phoneMcp: true,
+          browserMcp: true,
+          dataMcp: true,
+          emailMcp: true,
+          deviceMcp: true,
+          customMcp: true,
           // Images ride session/send's attachments; the prompt text carries no
           // attachment placeholder, so the harness must strip it.
           images: true,
