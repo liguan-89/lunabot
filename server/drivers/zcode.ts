@@ -8,7 +8,7 @@
 //
 // The wire facts are documented in docs/zcode-engine-protocol.md.
 import { existsSync, mkdirSync, statSync } from "node:fs";
-import { isAbsolute, join } from "node:path";
+import { basename, isAbsolute, join } from "node:path";
 
 import { DATA_DIR, PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
 import { augmentedPath, findCliCandidates, userHome } from "../env-path.ts";
@@ -858,9 +858,22 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       emit({ ...base(threadId, turnId), type: "turn.started" });
       emit({ ...base(threadId, turnId), type: "session.started", sessionId: session.sessionId, model: model ?? null });
 
+      // ZCode's wire attachment is the composer's own shape (`kind` +
+      // `localPath` + `dataBase64`), not the resolved `{type, path}` one: the
+      // app-server normalizes this form, reads the file, resizes it (20 MB cap)
+      // and inlines it as a model image block. Sending the resolved shape is
+      // silently dropped as an unknown attachment.
+      const attachments = (turnInput.images ?? []).map((image) => ({
+        kind: "image",
+        localPath: image.path,
+        filename: basename(image.path),
+        mimeType: image.mime,
+        sizeBytes: image.bytes,
+      }));
       const accepted = (await live.send("session/send", {
         sessionId: session.sessionId,
         content: turnInput.system ? `${turnInput.system}\n\n${turnInput.text}` : turnInput.text,
+        ...(attachments.length ? { attachments } : {}),
       })) as { accepted?: boolean } | undefined;
       if (accepted && accepted.accepted === false) {
         settleTurn(state, false, "failed");
@@ -923,8 +936,10 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
           composioMcp: false,
           phoneMcp: false,
           browserMcp: false,
-          images: false,
-          nativeImageInput: false,
+          // Images ride session/send's attachments; the prompt text carries no
+          // attachment placeholder, so the harness must strip it.
+          images: true,
+          nativeImageInput: true,
         },
         sendTurn,
         interruptTurn: async (threadId) => {
