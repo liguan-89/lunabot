@@ -1,4 +1,4 @@
-// What `openmausbot serve` and `openmausbot pair` print for a pairing code. A browser on this computer is no longer the
+// What `dexbot serve` and `dexbot pair` print for a pairing code. A browser on this computer is no longer the
 // owner just by being here, so it signs in once with the link printed for it.
 import qrcode from "qrcode-terminal";
 
@@ -84,13 +84,13 @@ const isStatus = (value: unknown): value is PhoneRelayStatus =>
   typeof value === "object" && value !== null && typeof (value as PhoneRelayStatus).grant === "string" && typeof (value as PhoneRelayStatus).relay === "string";
 
 /** Until the control plane tells a server from a desktop, a machine that takes a relay token gives back its tunnel. */
-export const RELAY_NOT_WITH_TUNNEL = "--relay cannot be used on a machine whose saved choice is a tunnel address: a relay token would make the tunnel go for good. Start with --local, or use the relay on a machine signed in with `openmausbot login --relay`.";
+export const RELAY_NOT_WITH_TUNNEL = "--relay cannot be used on a machine whose saved choice is a tunnel address: a relay token would make the tunnel go for good. Start with --local, or use the relay on a machine signed in with `dexbot login --relay`.";
 
 /** Why phones cannot pair through the relay yet, in words for the person at the terminal; empty when they can. */
 export function relayProblemLines(status: PhoneRelayStatus | null, prefix: string): string[] {
-  if (!status) return [`MausBot Relay is off on this server. Start it with: ${prefix} serve --relay`];
-  if (status.grant === "tunnel") return [`MausBot Relay stays off here: ${status.reason ?? "this machine holds a tunnel address"}. A relay token would make that tunnel go for good; use the relay on a machine signed in with ${prefix} login --relay.`];
-  if (status.grant === "signed-out") return [`MausBot Relay needs this machine signed in to a MausBot account: ${prefix} login --relay (then leave the server running; it connects within a minute).`];
+  if (!status) return [`DEX BOT Relay is off on this server. Start it with: ${prefix} serve --relay`];
+  if (status.grant === "tunnel") return [`DEX BOT Relay stays off here: ${status.reason ?? "this machine holds a tunnel address"}. A relay token would make that tunnel go for good; use the relay on a machine signed in with ${prefix} login --relay.`];
+  if (status.grant === "signed-out") return [`DEX BOT Relay needs this machine signed in to a DEX BOT account: ${prefix} login --relay (then leave the server running; it connects within a minute).`];
   if (status.grant === "unavailable") return ["DEX BOT Relay is not available for this machine right now. The server keeps working here; it asks again every half hour."];
   if (status.grant === "failed") return ["The DEX BOT account service did not answer. The server keeps working here and keeps trying."];
   if (status.grant === "waiting") return ["Still asking the DEX BOT account service for a relay pass…"];

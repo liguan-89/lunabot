@@ -121,7 +121,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
     if (method === "GET" && path === "/api/health/engines") {
       const described = await describeInstances();
       const available = Array.isArray(described) ? described.filter((instance) => Object(Object(instance).snapshot).state === "available").length : 0;
-      return json(res, 200, { app: "openmausbot", engines: available });
+      return json(res, 200, { app: "dexbot", engines: available });
     }
     const companyMutation = /^\/api\/instances\/(company\.[\w.-]+)(?:\/|$)/.exec(path);
     if (hostedModels && path.startsWith("/api/instances/") && method !== "GET") return json(res, 403, { error: HOSTED_PROVIDER_SETTINGS_ERROR });
@@ -528,7 +528,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
       if (providerInUse(instanceId)) {
         return json(res, 409, { error: "Choose another account for the bots and default model using this account before removing it." });
       }
-      // OpenMausBot keeps a ChatGPT account's sign-in in its own data folder: removing the account clears it.
+      // DEX BOT keeps a ChatGPT account's sign-in in its own data folder: removing the account clears it.
       const live = addedChatgpt ? registry.get(instanceId) : undefined;
       if (live?.signOut) {
         try { await providerAuthSessions.signOut(live, auth.kind === "session" ? auth.session.id : "loopback"); }

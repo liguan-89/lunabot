@@ -5,11 +5,9 @@ name: Connector image
 # Admin pins it by digest; the summary prints it. Only a release tag publishes:
 # no pull request starts this, and a manual run on a branch builds nothing.
 on:
-  # release.yml dispatches this on the tag it just published: a tag created
-  # with the workflow token never fires push events on its own.
+  # Upstream publishes this image as ghcr.io/milind-soni/mausbot-connector.
+  # DEX BOT does not publish that image from a version tag; keep this manual.
   workflow_dispatch:
-  push:
-    tags: ["v*"]
 
 permissions:
   contents: read

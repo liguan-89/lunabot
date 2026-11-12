@@ -60,7 +60,7 @@ export async function discoverAgentEndpointModels(entry: InstanceConfig, fetchIm
   // Same rule as checkProviderKey: the key goes out only over HTTPS, or over plain HTTP to this computer.
   const target = new URL(modelsUrl);
   if (target.protocol !== "https:" && !(target.protocol === "http:" && isLoopback(target.hostname))) {
-    throw failure(`OpenMausBot reads a model list only over HTTPS or from this computer, so your key is not sent in the clear.${TYPE_MODEL}`);
+    throw failure(`DEX BOT reads a model list only over HTTPS or from this computer, so your key is not sent in the clear.${TYPE_MODEL}`);
   }
   let response: Response;
   try {

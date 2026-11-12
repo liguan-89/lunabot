@@ -85,8 +85,25 @@ class OpenMausApp : Application() {
     lateinit var cloudAccount: CloudAccountController
         private set
 
+    /** The preference files moved from openmaus.* to dexbot.*; carry the old ones over once. */
+    private fun migrateLegacyPreferences() {
+        val directory = File(applicationInfo.dataDir, "shared_prefs")
+        val names = listOf(
+            "openmaus.permissions" to "dexbot.permissions",
+            "openmaus.onboarding" to "dexbot.onboarding",
+            "openmaus.chat-preferences" to "dexbot.chat-preferences",
+            "openmaus.always_on" to "dexbot.always_on",
+        )
+        for ((legacy, current) in names) {
+            val source = File(directory, "$legacy.xml")
+            val target = File(directory, "$current.xml")
+            if (!target.exists() && source.exists()) source.renameTo(target)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
+        migrateLegacyPreferences()
         shareInbox = ShareInbox()
         ShareInbox.cleanStale(cacheDir)
         // Launch stays non-blocking. The preview store awaits the shared

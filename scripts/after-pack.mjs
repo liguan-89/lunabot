@@ -111,14 +111,19 @@ async function thinMacPlatformTools(resources, arch) {
 // Electron's own ad-hoc signature carries no identifier: macOS reports the
 // bundle as "Electron", so privacy grants (screen recording, accessibility,
 // local network) and Keychain items do not survive a rebuild. Sign with the
-// bundle's real id; when a certificate does exist electron-builder signs after
-// this hook and its Developer ID signature replaces ours untouched.
-async function signAdHocIdentity(context) {
+// bundle's real id here, once; when a Developer ID certificate does exist
+// electron-builder signs after this hook and replaces ours untouched.
+//
+// A local development certificate (DEXBOT_CODESIGN_IDENTITY) is used when it is
+// set, so TCC sees one stable requirement across rebuilds instead of a new
+// ad-hoc hash each time.
+async function signBundleIdentity(context) {
   const app = path.join(
     context.appOutDir,
     `${context.packager?.appInfo?.productFilename ?? "OpenMausBot"}.app`,
   );
   const identifier = context.packager?.appInfo?.id ?? "com.openmausbot.app";
+  const identity = process.env.DEXBOT_CODESIGN_IDENTITY?.trim() || "-";
   const report = spawnSync("codesign", ["-dv", "--verbose=2", app], { encoding: "utf8" });
   if (/Authority=Developer ID Application/.test(`${report.stdout ?? ""}${report.stderr ?? ""}`)) return;
   const signed = spawnSync(
@@ -127,7 +132,7 @@ async function signAdHocIdentity(context) {
       "--force",
       "--deep",
       "--sign",
-      "-",
+      identity,
       "--identifier",
       identifier,
       "--entitlements",
@@ -139,9 +144,9 @@ async function signAdHocIdentity(context) {
     { encoding: "utf8" },
   );
   if (signed.status !== 0) {
-    throw new Error(`ad-hoc signing failed for ${app}: ${signed.stderr || signed.stdout}`);
+    throw new Error(`${identity === "-" ? "ad-hoc" : identity} signing failed for ${app}: ${signed.stderr || signed.stdout}`);
   }
-  console.log(`  • re-signed ${identifier} ad-hoc so the bundle keeps its identity`);
+  console.log(`  • re-signed ${identifier} ${identity === "-" ? "ad-hoc" : `with ${identity}`} so the bundle keeps its identity`);
 }
 
 // electron-builder normalizes copied resource directories to 0775. That is
@@ -170,7 +175,10 @@ export default async function afterPack(context) {
   await validateDuckdb(resources, context.electronPlatformName, arch, Boolean(context.packager));
   if (context.electronPlatformName === "darwin") {
     await thinMacPlatformTools(resources, arch);
-    await signAdHocIdentity(context);
+    // When a real identity is supplied electron-builder signs after this hook.
+    // A deep ad-hoc signature here would only make it re-sign every Electron
+    // resource one file at a time.
+    if (!process.env.CSC_NAME && !process.env.CSC_LINK) await signBundleIdentity(context);
   }
 
   if (context.electronPlatformName !== "linux") return;

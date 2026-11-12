@@ -43,7 +43,7 @@ describe("MCP JSON-RPC protocol", () => {
     })))!);
     expect(supported.result).toMatchObject({
       protocolVersion: "2024-11-05",
-      serverInfo: { name: "openmausbot-mcp", version: "1.1.0" },
+      serverInfo: { name: "dexbot-mcp", version: "1.1.0" },
       capabilities: { tools: {} },
     });
 
@@ -659,7 +659,7 @@ describe("waiting on a conversation's job", () => {
   it("names an older server that cannot report a job, and a conversation that is gone as gone", async () => {
     const answering = (body: string) => vi.fn(async (path: string) => {
       if (path === "/api/bots?messages=0") return bot();
-      throw new OpenMausBotApiError(404, `OpenMausBot API error (404): ${body}`);
+      throw new OpenMausBotApiError(404, `DEX BOT API error (404): ${body}`);
     });
     await expect(handleToolCall("wait_for_conversation", { target_type: "bot", target_id: "bot-1" }, answering("not found")))
       .rejects.toThrow("cannot report a conversation's job");
@@ -756,7 +756,7 @@ describe("connection security and discovery", () => {
 
   it("requires an explicit destination before sending a bearer token", async () => {
     process.env.OPENMAUSBOT_TOKEN = "proxy-token";
-    await expect(resolveBaseUrl()).rejects.toThrow("OPENMAUSBOT_URL or OMB_PORT");
+    await expect(resolveBaseUrl()).rejects.toThrow("DEXBOT_URL (or OPENMAUSBOT_URL) or OMB_PORT");
   });
 
   it("validates direct tool arguments", () => {

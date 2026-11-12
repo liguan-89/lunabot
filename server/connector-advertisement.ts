@@ -141,7 +141,7 @@ const FIND_PARAMETER = {
     + "Searches every app that can be connected and lists their slugs. Use it when you are not sure of an app's exact slug.",
 };
 
-/** COMPOSIO_MANAGE_CONNECTIONS as OpenMausBot's connection cards read it: Composio's schema has no auth config id and no
+/** COMPOSIO_MANAGE_CONNECTIONS as DEX BOT's connection cards read it: Composio's schema has no auth config id and no
  * search, and a search names no toolkits. */
 export function withConnectionParameters(frame: Record<string, unknown>): Record<string, unknown> {
   const result = frame.result;

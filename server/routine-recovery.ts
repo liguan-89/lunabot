@@ -115,7 +115,7 @@ export function dispatchRefusal(error: unknown): RoutineFailureFacts {
   return typeof code === "string" || (typeof status === "number" && status >= 400 && status < 500) ? { cause: "refused" } : {};
 }
 
-/** Whether OpenMausBot runs a failed teammate thread once more by itself before its Chief hears of it. */
+/** Whether DEX BOT runs a failed teammate thread once more by itself before its Chief hears of it. */
 export function retriesTeammateThread(failure: string, facts: RoutineFailureFacts = {}): boolean {
   return classifyRoutineFailure(failure, facts).kind === "retry";
 }
@@ -158,7 +158,7 @@ export function requeueOnce(run: RoutineRun, cause: RoutineRetryCause, failure: 
 
 /** The second start's own line, so a run that already did part of its work does not do it twice. */
 export function retryNote(cause: RoutineRetryCause): string {
-  return `[OpenMausBot: this run's first start ${FIRST_START[cause]} before it finished. If it already did part of the work, ` +
+  return `[DEX BOT: this run's first start ${FIRST_START[cause]} before it finished. If it already did part of the work, ` +
     "check what it did (files, messages sent, anything started) so nothing is done twice; then finish the routine.]";
 }
 

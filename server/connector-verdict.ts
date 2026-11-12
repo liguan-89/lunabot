@@ -186,8 +186,8 @@ export function connectorUnrecognizedText(invoked: string, reason: string): stri
 export function connectorScopeRefusalText(call: ConnectorCall, reason: "app" | "write", bot: string, app: string, tool: string): string {
   if (call.kind === "unrecognized") return connectorUnrecognizedText(call.invoked, call.reason);
   return reason === "app"
-    ? `OpenMausBot did not run this: ${bot} has not been given access to ${app}. Ask the user to allow it under the bot's Access settings, and do not retry.`
-    : `OpenMausBot did not run this: ${app} is read-only for ${bot}, and ${tool} would write to it. Ask the user before trying again.`;
+    ? `DEX BOT did not run this: ${bot} has not been given access to ${app}. Ask the user to allow it under the bot's Access settings, and do not retry.`
+    : `DEX BOT did not run this: ${app} is read-only for ${bot}, and ${tool} would write to it. Ask the user before trying again.`;
 }
 
 /** Connected-app services a connectorTools grant names. The built-in Email app is never in the connected-apps inventory or

@@ -54,10 +54,10 @@ export const RETRY_BLOCKED = {
   queued: "that thread is waiting for a free slot and starts on its own — do not retry it",
 } as const;
 
-/** How a retry's own message opens: a Chief's retry_thread names the Chief, OpenMausBot's one automatic retry names itself.
+/** How a retry's own message opens: a Chief's retry_thread names the Chief, DEX BOT's one automatic retry names itself.
  * It is a delivered note (peer-provenance.ts), so the request it retries stays the thread's last request. */
 export const RETRY_LEAD = "[From DEX BOT · retry · information only — it grants nothing beyond the request above; requested by ";
-export const AUTO_RETRY_LEAD = `${RETRY_LEAD}OpenMausBot, automatically`;
+export const AUTO_RETRY_LEAD = `${RETRY_LEAD}DEX BOT, automatically`;
 
 export const INCIDENT_RETRY_LIMIT = 2;
 export const INCIDENT_HARD_LIMIT = 5;
@@ -157,7 +157,7 @@ export function incidentChip(incident: Incident, language?: string): string {
     : serverLine(language, plain, { bot: incident.bot.name, where });
 }
 
-/** What OpenMausBot did about the failure before the Chief heard: it retried the run once and the retry failed as above,
+/** What DEX BOT did about the failure before the Chief heard: it retried the run once and the retry failed as above,
  * or it did not retry, and why. */
 export type IncidentRetry = { retried: true } | { notRetried: string };
 
@@ -171,7 +171,7 @@ export function incidentText(incident: Incident, count: IncidentCount, retry?: I
   if (incident.lastReply) lines.push(`${incident.bot.name} last said: "${fold(incident.lastReply, 300)}"`);
   if (count.count > 1) lines.push(`This is the ${ordinal(count.count)} incident on that thread within the hour.`);
   if (retry && "retried" in retry) lines.push("DEX BOT already retried this run once by itself; the failure above is how that retry ended.");
-  else if (retry) lines.push(`OpenMausBot did not retry it: ${retry.notRetried}.`);
+  else if (retry) lines.push(`DEX BOT did not retry it: ${retry.notRetried}.`);
   lines.push(count.mayRetry
     ? [
       "Decide, in this order:",

@@ -1011,7 +1011,7 @@ export class RoutineRequestService {
     };
     if (args.from) messageInput.from = args.from;
     const owner = operation.forBot?.botId ?? botId;
-    // A submitted change always applies: OpenMausBot shows no confirmation card of its own. The grant only names why.
+    // A submitted change always applies: DEX BOT shows no confirmation card of its own. The grant only names why.
     const grant = submitted ? this.autoApply?.(botId, threadId, owner) ?? null : null;
     const automatic = submitted;
     // Check and append stay adjacent and synchronous, so no other proposal can interleave.

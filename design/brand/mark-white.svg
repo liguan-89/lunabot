@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><defs>
+<radialGradient id="cream" cx="0.31" cy="0.16" r="0.78">
+  <stop offset="0" stop-color="#FCFAF6"/><stop offset="0.55" stop-color="#F7F3ED"/><stop offset="1" stop-color="#D6D2CA"/>
+</radialGradient>
+<radialGradient id="graphite" cx="0.31" cy="0.16" r="0.78">
+  <stop offset="0" stop-color="#2C2C2C"/><stop offset="0.55" stop-color="#111111"/><stop offset="1" stop-color="#000000"/>
+</radialGradient>
+</defs><circle cx="500.000" cy="500.000" r="500.000" fill="url(#cream)"/><g transform="rotate(-16.700 338.414 480.954)"><rect x="275.914" y="358.454" width="125.000" height="245.000" rx="62.500" fill="#1C1C1E"/></g><g transform="rotate(-16.700 661.586 369.046)"><rect x="599.086" y="246.546" width="125.000" height="245.000" rx="62.500" fill="#1C1C1E"/></g></svg>

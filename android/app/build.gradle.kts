@@ -104,6 +104,11 @@ android {
         targetSdk = 37
         versionCode = appVersionCode
         versionName = appVersionName
+        ndk {
+            // Development targets real phones only. x86/x86_64/armeabi-v7a
+            // natives only bloat every APK and every build; arm64 is enough.
+            abiFilters += "arm64-v8a"
+        }
     }
 
     signingConfigs {
@@ -140,24 +145,18 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
         /*
-         * The personal update-channel build: arm64 only, signed with the same
-         * debug key as the installed app so it upgrades in place.
+         * The personal update-channel build: arm64 (defaultConfig filters every
+         * build to arm64-v8a), signed with the same debug key as the installed
+         * app so it upgrades in place.
          *
-         * The 39 MB debug APK carries native libraries for x86, x86_64 and
-         * armeabi-v7a that a modern phone never loads; dropping them is what
-         * makes the download fit a static host's 25 MB per-file ceiling. R8
-         * stays off for the reason release documents above — this build is the
-         * same tested code, just for one ABI.
+         * One ABI and shrinking keep the download small. R8 stays off for the
+         * reason release documents above — this build is the same tested code,
+         * just for one ABI.
          */
         create("dist") {
             initWith(getByName("debug"))
             isDebuggable = false
             signingConfig = signingConfigs.getByName("debug")
-            ndk {
-                abiFilters.clear()
-                //noinspection ChromeOsAbiSupport
-                abiFilters += "arm64-v8a"
-            }
             // The shipped update build wears the same R8 keeps as release: one
             // ABI and shrinking keep the download small. The keeps live in
             // proguard-rules.pro; a minified build is exercised by a real

@@ -27,15 +27,15 @@ import {
 
 const service: ServiceInfo = {
   name: "Milind's computer",
-  type: "_openmausbot._tcp",
+  type: "_dexbot._tcp",
   port: 8800,
   host: "openmausbot-1a2b3c4d.local",
   addresses: ["192.168.1.42"],
   txt: ["v=1", "name=Milind's computer"],
 };
 
-const INSTANCE = "Milind's computer._openmausbot._tcp.local";
-const SERVICE_NAME = "_openmausbot._tcp.local";
+const INSTANCE = "Milind's computer._dexbot._tcp.local";
+const SERVICE_NAME = "_dexbot._tcp.local";
 
 function query(name: string, type: number, opts: { id?: number; unicast?: boolean } = {}): Buffer {
   const header = Buffer.alloc(12);
@@ -239,8 +239,8 @@ describe("naming", () => {
     expect(dnsLabel("Dr. Smith's computer")).toBe("Dr  Smith's computer");
     expect(dnsLabel("x".repeat(200)).length).toBeLessThanOrEqual(63);
     expect(Buffer.byteLength(dnsLabel("é".repeat(60)), "utf8")).toBeLessThanOrEqual(63);
-    expect(dnsLabel("")).toBe("OpenMausBot");
-    expect(dnsLabel("   ")).toBe("OpenMausBot");
+    expect(dnsLabel("")).toBe("DEX BOT");
+    expect(dnsLabel("   ")).toBe("DEX BOT");
   });
 
   it("claims a host name the system responder will not fight us for", () => {

@@ -2,7 +2,7 @@
 //
 // Adapted from pingdotgg/t3code@00cdceb1 apps/server/src/mcp/toolkits/preview/tools.ts and
 // packages/contracts/src/previewAutomation.ts, MIT License, Copyright (c) 2026 T3 Tools Inc. (full text in
-// third_party/t3-code/LICENSE); modified: zod schemas under OpenMausBot's tool names, refs instead of Playwright
+// third_party/t3-code/LICENSE); modified: zod schemas under DEX BOT's tool names, refs instead of Playwright
 // locators, and the names agent-browser advertised accepted as aliases.
 import { z } from "zod";
 

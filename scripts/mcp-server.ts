@@ -15,13 +15,13 @@ export function validateBaseUrl(url: string): string {
     throw new Error(`Invalid OpenMausBot URL: '${url}'. Start it with http:// or https://, like ${EXAMPLE_ADDRESS}`);
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("OpenMausBot URL must use http:// or https://");
+    throw new Error("DEX BOT URL must use http:// or https://");
   }
   if (parsed.username || parsed.password) {
-    throw new Error("OpenMausBot URL must not contain credentials; use OPENMAUSBOT_TOKEN instead");
+    throw new Error("DEX BOT URL must not contain credentials; use DEXBOT_TOKEN (or OPENMAUSBOT_TOKEN) instead");
   }
   if ((parsed.pathname !== "/" && parsed.pathname !== "") || parsed.search || parsed.hash) {
-    throw new Error("OpenMausBot URL must be an origin without a path, query, or fragment");
+    throw new Error("DEX BOT URL must be an origin without a path, query, or fragment");
   }
   if (!allowedServerOrigin(parsed.origin)) {
     throw new Error(`${parsed.origin} is on the open internet and plain http isn't encrypted. Use the server's https:// address, or put HTTPS in front (cloudflared, Caddy or Tailscale).`);
@@ -29,8 +29,9 @@ export function validateBaseUrl(url: string): string {
   return parsed.origin;
 }
 
-const configuredUrl = process.env.OPENMAUSBOT_URL ||
+const configuredUrl = process.env.DEXBOT_URL || process.env.OPENMAUSBOT_URL ||
   (process.env.OMB_PORT ? `http://127.0.0.1:${process.env.OMB_PORT}` : undefined);
+const configuredToken = () => (process.env.DEXBOT_TOKEN ?? process.env.OPENMAUSBOT_TOKEN)?.trim();
 
 export const OMB_BASE_URL = validateBaseUrl(configuredUrl || "http://127.0.0.1:8799");
 const DISCOVERY_URLS = configuredUrl
@@ -39,18 +40,18 @@ const DISCOVERY_URLS = configuredUrl
 let discoveredBaseUrl: string | undefined;
 
 export function log(msg: string) {
-  process.stderr.write(`[openmausbot-mcp] ${msg}\n`);
+  process.stderr.write(`[dexbot-mcp] ${msg}\n`);
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function requestTimeoutMs(): number {
-  const raw = Number(process.env.OPENMAUSBOT_MCP_TIMEOUT_MS);
+  const raw = Number(process.env.DEXBOT_MCP_TIMEOUT_MS ?? process.env.OPENMAUSBOT_MCP_TIMEOUT_MS);
   return Number.isFinite(raw) && raw >= 1_000 && raw <= 120_000 ? Math.floor(raw) : DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
 function requestHeaders(options: RequestInit): NonNullable<RequestInit["headers"]> {
-  const token = process.env.OPENMAUSBOT_TOKEN?.trim();
+  const token = configuredToken();
   const headers = new Headers(options.headers);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
@@ -75,10 +76,10 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
     const text = await response.text().catch(() => "");
     if (response.status === 403 && !new Headers(headers).has("Authorization")) {
       throw new OpenMausBotApiError(403, /on this shared server/.test(text) // the server says which kind refused it
-        ? "This is a shared server, so a program on it without a paired session token may only check its health. Set OPENMAUSBOT_TOKEN to a paired session (openmausbot connect), as described in docs/mcp-server.md."
-        : "OpenMausBot refused this request because the installed desktop app requires a paired session token. Set OPENMAUSBOT_TOKEN as described in docs/mcp-server.md.");
+        ? "This is a shared server, so a program on it without a paired session token may only check its health. Set DEXBOT_TOKEN to a paired session (dexbot connect), as described in docs/mcp-server.md."
+        : "DEX BOT refused this request because the installed desktop app requires a paired session token. Set DEXBOT_TOKEN as described in docs/mcp-server.md.");
     }
-    throw new OpenMausBotApiError(response.status, `OpenMausBot API error (${response.status}): ${text || response.statusText}`);
+    throw new OpenMausBotApiError(response.status, `DEX BOT API error (${response.status}): ${text || response.statusText}`);
   }
   try {
     return await response.json();
@@ -95,8 +96,8 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
       const health = await fetchJson(`${candidate}/api/health`, {
         signal: AbortSignal.timeout(Math.min(requestTimeoutMs(), 2_000)),
       });
-      if (health?.app !== "openmausbot") {
-        failures.push(`${candidate} answered, but it was not OpenMausBot`);
+      if (health?.app !== "dexbot" && health?.app !== "openmausbot") {
+        failures.push(`${candidate} answered, but it was not DEX BOT`);
         continue;
       }
       return candidate;
@@ -109,8 +110,8 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
 
 export async function resolveBaseUrl(): Promise<string> {
   if (discoveredBaseUrl) return discoveredBaseUrl;
-  if (process.env.OPENMAUSBOT_TOKEN?.trim() && !configuredUrl) {
-    throw new Error("Set OPENMAUSBOT_URL or OMB_PORT when using OPENMAUSBOT_TOKEN so credentials are never sent during port discovery");
+  if (configuredToken() && !configuredUrl) {
+    throw new Error("Set DEXBOT_URL (or OPENMAUSBOT_URL) or OMB_PORT when using a token so credentials are never sent during port discovery");
   }
   discoveredBaseUrl = await probeBaseUrls(DISCOVERY_URLS);
   return discoveredBaseUrl;
@@ -802,11 +803,11 @@ export async function handleToolCall(
   switch (name) {
     case "get_system_health": {
       const res = await fetcher("/api/health");
-      if (res?.app !== "openmausbot") throw new Error("The configured endpoint is not an OpenMausBot server");
+      if (res?.app !== "dexbot" && res?.app !== "openmausbot") throw new Error("The configured endpoint is not a DEX BOT server");
       return {
         status: "connected",
         endpoint: discoveredBaseUrl ?? OMB_BASE_URL,
-        app: "openmausbot",
+        app: res.app,
         packaged: Boolean(res.static),
       };
     }
@@ -873,7 +874,7 @@ export async function handleToolCall(
         }),
       });
       if (!isRecord(created?.bot) || typeof created.bot.id !== "string") {
-        throw new Error("OpenMausBot did not return the created bot");
+        throw new Error("DEX BOT did not return the created bot");
       }
       return { success: true, bot: projectBot(created.bot) };
     }
@@ -891,7 +892,7 @@ export async function handleToolCall(
         body: JSON.stringify(patch),
       });
       if (!isRecord(result?.bot)) {
-        throw new Error("OpenMausBot did not return the updated bot");
+        throw new Error("DEX BOT did not return the updated bot");
       }
       return { success: true, bot: projectBot(result.bot) };
     }
@@ -960,7 +961,7 @@ export async function handleToolCall(
         }),
       });
       if (!isRecord(created?.group) || typeof created.group.id !== "string") {
-        throw new Error("OpenMausBot did not return the created channel");
+        throw new Error("DEX BOT did not return the created channel");
       }
       return { success: true, channel: projectChannel(created.group) };
     }
@@ -984,7 +985,7 @@ export async function handleToolCall(
         body: JSON.stringify(patch),
       });
       if (!isRecord(result?.group)) {
-        throw new Error("OpenMausBot did not return the updated channel");
+        throw new Error("DEX BOT did not return the updated channel");
       }
       return { success: true, channel: projectChannel(result.group) };
     }
@@ -995,7 +996,7 @@ export async function handleToolCall(
       const route = taskRoute(args.target_type, targetId);
       const result = await fetcher(route, { method: "POST", body: JSON.stringify(title ? { title } : {}) });
       if (!isRecord(result?.task) || typeof result.task.threadId !== "string") {
-        throw new Error("OpenMausBot did not return the created task");
+        throw new Error("DEX BOT did not return the created task");
       }
       const activeTaskId = result.bot?.threadId ?? result.group?.threadId ?? result.task?.threadId;
       return {
@@ -1033,7 +1034,7 @@ export async function handleToolCall(
         body: JSON.stringify({ title }),
       });
       if (!isRecord(result?.task)) {
-        throw new Error("OpenMausBot did not return the renamed task");
+        throw new Error("DEX BOT did not return the renamed task");
       }
       return {
         success: true,
@@ -1106,7 +1107,7 @@ export async function handleToolCall(
           method: "PATCH",
           body: JSON.stringify({ modelSelection: selection, requireAvailableModel: true }),
         });
-        if (!isRecord(res?.task)) throw new Error("OpenMausBot did not return the updated task");
+        if (!isRecord(res?.task)) throw new Error("DEX BOT did not return the updated task");
         return { success: true, botId, task: projectTask(res.task, bot.threadId) };
       }
       if (bot.busy) throw new Error("Interrupt the bot or let it finish before changing its model");
@@ -1277,10 +1278,10 @@ export async function processMcpMessage(
           tools: {},
         },
         serverInfo: {
-          name: "openmausbot-mcp",
+          name: "dexbot-mcp",
           version: "1.1.0",
         },
-        instructions: "Use bounded read tools before mutating the OpenMausBot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",
+        instructions: "Use bounded read tools before mutating the DEX BOT team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",
       });
     }
 

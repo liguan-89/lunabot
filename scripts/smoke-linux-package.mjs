@@ -283,7 +283,7 @@ try {
     location,
     title,
   } = result;
-  if (health?.app !== "openmausbot" || health.static !== true) {
+  if ((health?.app !== "dexbot" && health?.app !== "openmausbot") || health.static !== true) {
     throw new Error(`unexpected embedded health response: ${JSON.stringify(health)}`);
   }
   if (!/\bMausBot\b/.test(String(title))) throw new Error(`unexpected renderer title: ${title}`);

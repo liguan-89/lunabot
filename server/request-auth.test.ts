@@ -767,7 +767,7 @@ describe("loopback trust: owner on one person's machine, service on a shared wor
     expect(pick({ OMB_LOOPBACK_TRUST: "service" })).toEqual({ trust: "service", reason: "DEX BOT Cloud home", localBrowsers: false });
     const forced = pick({ OMB_LOOPBACK_TRUST: "owner" });
     expect(forced.trust).toBe("service");
-    expect(forced.warning).toMatch(/ignored on a MausBot Cloud home/);
+    expect(forced.warning).toMatch(/ignored on a DEX BOT Cloud home/);
   });
 
   it("lets only the CLI that started the server, holding its secret, mint a pairing code under service trust", () => {

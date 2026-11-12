@@ -31,7 +31,7 @@ export interface WarmSummaryTarget {
   instanceId: string;
 }
 
-/** `native`: the engine's own compaction (Claude Code's /compact on a fork); `harness`: OpenMausBot's fold, for engines
+/** `native`: the engine's own compaction (Claude Code's /compact on a fork); `harness`: DEX BOT's fold, for engines
  * whose context it rebuilds. `soon`: the next turn would summarize at its start anyway. */
 export interface WarmSummaryPlan {
   way: "native" | "harness";

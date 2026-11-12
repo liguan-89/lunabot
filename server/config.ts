@@ -694,15 +694,20 @@ export function changedInstanceIds(before: Record<string, unknown>, after: Recor
 }
 
 export const DATA_DIR = process.env.OMB_DATA_DIR || join(dataHome(), ".dexbot");
-const LEGACY_DATA_DIR = join(dataHome(), ".opengrokbot");
+/** Earlier names this workspace may have used. The closest predecessor wins. */
+const LEGACY_DATA_DIRS = [join(dataHome(), ".openmausbot"), join(dataHome(), ".opengrokbot")];
 export const EVENTS_DIR = join(DATA_DIR, "events");
 export const NATIVE_DIR = join(DATA_DIR, "native");
 
 export function ensureDirs() {
-  if (!existsSync(DATA_DIR) && existsSync(LEGACY_DATA_DIR)) {
-    try {
-      renameSync(LEGACY_DATA_DIR, DATA_DIR);
-    } catch {
+  if (!process.env.OMB_DATA_DIR && !existsSync(DATA_DIR)) {
+    for (const legacy of LEGACY_DATA_DIRS) {
+      if (!existsSync(legacy)) continue;
+      try {
+        renameSync(legacy, DATA_DIR);
+        break;
+      } catch {
+      }
     }
   }
   for (const dir of [DATA_DIR, EVENTS_DIR, NATIVE_DIR]) mkdirSync(dir, { recursive: true });

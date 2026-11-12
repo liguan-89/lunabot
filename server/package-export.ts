@@ -231,7 +231,7 @@ export function createBotPackageExport(input: {
     id,
     release: "1.0.0",
     name: input.name,
-    tagline: `A portable OpenMausBot setup with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
+    tagline: `A portable DEX BOT setup with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
     summary: "Exported from DEX BOT. Review the roles, rooms, playbooks, connector requirements, and paused routines before sharing or publishing.",
     category: "Community",
     author: { name: input.authorName?.trim() || "DEX BOT user" },
@@ -663,7 +663,7 @@ export function createTeamPackageExport(input: TeamExportInput): TeamExportResul
     id: packageId,
     release,
     name: displayName,
-    tagline: input.tagline?.trim() || `A portable OpenMausBot team with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
+    tagline: input.tagline?.trim() || `A portable DEX BOT team with ${bots.length} ${bots.length === 1 ? "bot" : "bots"}.`,
     summary: input.summary?.trim() ||
       "Shared from DEX BOT. Bots, skills, group chats and routines arrive as new copies; routines start paused and chat history never travels.",
     ...(notes ? { notes } : {}),

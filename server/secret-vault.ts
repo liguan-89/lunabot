@@ -1,6 +1,6 @@
 // How a bot is handed a secret from a card or the Vault without seeing it.
 // Security: a `ref` value stays in this process's memory, behind a one-use reference bound to the asking bot and
-// conversation that only OpenMausBot's own tools accept. A `file` value goes to an owner-only file in a private folder
+// conversation that only DEX BOT's own tools accept. A `file` value goes to an owner-only file in a private folder
 // of that bot's own workspace (or the Local VM workspace its turn runs in); nothing that syncs, backs up, moves, links,
 // attaches, publishes or uploads workspace files carries that folder (inSecretFolder). Neither value is ever logged,
 // and while either lives, held-secret redaction masks it in transcripts, events and logs.
@@ -69,7 +69,7 @@ function refText(ref: string, reason: "unknown" | "used" | "expired" | "owner"):
     case "owner":
       return `${ref} was given to another bot or conversation. Ask the person here with request_credential.`;
     default:
-      return `${ref} is not a secretRef OpenMausBot holds: it is mistyped, or OpenMausBot restarted before it was used. Ask again with request_credential.`;
+      return `${ref} is not a secretRef DEX BOT holds: it is mistyped, or DEX BOT restarted before it was used. Ask again with request_credential.`;
   }
 }
 

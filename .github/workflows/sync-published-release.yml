@@ -1,8 +1,9 @@
 name: Sync published release
 
 on:
-  release:
-    types: [published]
+  # Upstream mirrors releases to milind-soni/openmausbot-releases. DEX BOT
+  # distributes from cloud.dexai.vip and must not run that mirror; keep this
+  # workflow manual-only so publishing a GitHub release cannot trigger it.
   workflow_dispatch:
     inputs:
       tag:

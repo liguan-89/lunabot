@@ -17,10 +17,10 @@ DEX BOT 与 xAI、Meta、OpenAI、Manus 或 OpenMausBot 维护者无关联。</s
 
 | 平台 | 安装包 | 说明 |
 |---|---|---|
-| macOS（Apple 芯片 / Intel） | [下载页](https://cloud.dexai.vip/download) | 选择对应的 arm64 或 x64 DMG，拖到「应用程序」即可 |
-| Android | [dexbot.apk](https://cloud.dexai.vip/download/dexbot.apk) | 手机伴侣应用，可与桌面端配对 |
+| macOS（Apple 芯片） | [下载页](https://cloud.dexai.vip/download) | arm64 DMG，拖到「应用程序」即可 |
+| Android（arm64） | [dexbot.apk](https://cloud.dexai.vip/download/dexbot.apk) | 手机伴侣应用，可与桌面端配对 |
 
-当前发布 macOS 与 Android 构建。Windows / Linux 的打包配置已保留，但尚未发布安装包。
+开发阶段只构建 macOS arm64 与 Android arm64；Windows / Linux 和 macOS x64 的配置保留，但暂不产出。
 
 > macOS 构建目前使用 ad-hoc 签名，尚未使用 Developer ID 公证。首次打开若被 Gatekeeper
 > 拦截，请在「系统设置 → 隐私与安全性」中允许，或右键应用选择「打开」。
@@ -70,14 +70,14 @@ pnpm dev:desktop    # Electron 外壳（保持上面两个命令运行）
 pnpm typecheck
 pnpm test
 pnpm build
-pnpm package:mac    # macOS DMG + ZIP，需要 Xcode / Swift 工具
+pnpm package:mac    # macOS arm64 DMG + ZIP，需要 Xcode / Swift 工具
 ```
 
 Android：
 
 ```sh
 cd android
-./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug
+./gradlew :core:test :app:testDebugUnitTest :app:assembleDebug :app:assembleDist
 ```
 
 更多开发说明见 [`docs/`](docs/) 与 [`android/README.md`](android/README.md)。这些文档中

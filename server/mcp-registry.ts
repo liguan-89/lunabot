@@ -9,7 +9,7 @@ export { importedMcpServerName } from "../shared/mcp-name.ts";
 /** The computer a server runs on when its program, files or address are that computer's own: kept with its entry so a
  * bot can reach it through that computer, and never started anywhere else. */
 export interface McpRunsOn {
-  /** That computer's OpenMausBot environment id. */
+  /** That computer's DEX BOT environment id. */
   environmentId: string;
   /** Its name, as the person knows it. */
   label: string;
@@ -129,8 +129,8 @@ function environmentEntryError(name: string, value: string): string | null {
   if (!ENV_NAME.test(name)) return `Environment variable “${name}” is not valid.`;
   if (isReservedMcpEnvEntry(name, value)) {
     return name === "ELECTRON_RUN_AS_NODE"
-      ? `Environment variable “${name}” is reserved by OpenMausBot; a custom server may set it to “1” only.`
-      : `Environment variable “${name}” is reserved by OpenMausBot.`;
+      ? `Environment variable “${name}” is reserved by DEX BOT; a custom server may set it to “1” only.`
+      : `Environment variable “${name}” is reserved by DEX BOT.`;
   }
   return null;
 }

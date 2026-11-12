@@ -33,7 +33,7 @@ export function indicatorText({ clouds, using, paused, pauseError, screen = null
 /** How long lending has to stay broken before a notification says so: a blip is no news. */
 const NOTICE_AFTER_MS = 10 * 60_000;
 
-export function createLendingIndicator({ Tray, Menu, nativeImage, iconPath, onPause, onResume, onActivity, onTerminal, onStartScreen = () => {}, device = deviceWord(), t = nativeText.englishText.t, Notification = null, setTimer = setTimeout, clearTimer = clearTimeout }) {
+export function createLendingIndicator({ Tray, Menu, nativeImage, iconPath, trayIconPath = iconPath, onPause, onResume, onActivity, onTerminal, onStartScreen = () => {}, device = deviceWord(), t = nativeText.englishText.t, Notification = null, setTimer = setTimeout, clearTimer = clearTimeout }) {
   let tray = null;
   let shown = null;
   /** Each problem now, by what it says, until the notification for it goes out or it clears. */
@@ -89,7 +89,9 @@ export function createLendingIndicator({ Tray, Menu, nativeImage, iconPath, onPa
       followProblems(next.problems);
       if (!next.clouds.length && !next.problems.length) { if (tray && !tray.isDestroyed()) tray.destroy(); tray = null; return; }
       if (!tray || tray.isDestroyed()) {
-        tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 18, height: 18 }));
+        const image = nativeImage.createFromPath(trayIconPath).resize({ width: 18, height: 18 });
+        if (process.platform === "darwin" && typeof image.setTemplateImage === "function") image.setTemplateImage(true);
+        tray = new Tray(image);
         tray.on("click", () => tray?.popUpContextMenu?.());
       }
       draw(next);

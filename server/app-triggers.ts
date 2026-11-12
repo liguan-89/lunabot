@@ -265,7 +265,7 @@ export class AppTriggerManager {
     if (this.options.botState(input.botId) === "missing") throw new AppTriggerError("That bot no longer exists.", 404);
     const app = input.app.trim().toLowerCase();
     const type = await this.remote(() => this.options.broker.triggerType(input.event.trim()));
-    if (!type) throw new AppTriggerError(`${input.event} is not an event OpenMausBot can watch. Call trigger_info action=events to see the events this app offers.`, 404);
+    if (!type) throw new AppTriggerError(`${input.event} is not an event DEX BOT can watch. Call trigger_info action=events to see the events this app offers.`, 404);
     if (type.toolkit !== app) throw new AppTriggerError(`${type.slug} is a ${appLabel(type.toolkit)} event, not ${appLabel(app)}.`);
     const account = await this.resolveAccount(app, input.account);
     const filter = cleanFilter(input.filter);

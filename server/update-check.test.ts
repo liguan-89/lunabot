@@ -54,7 +54,7 @@ describe("server update check", () => {
       channel: "stable",
       latest: "0.1.93",
       available: true,
-      releaseUrl: "https://github.com/milind-soni/DEX BOT/releases/tag/v0.1.93",
+      releaseUrl: "https://github.com/milind-soni/OpenMausBot/releases/tag/v0.1.93",
       command: "git pull && ./update.sh",
       restart: false,
     });

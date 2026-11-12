@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The DEX BOT mark: the bot face as a single-colour vector. White on
+  transparent, which is the notification small-icon contract (the system
+  tints it), and tintable anywhere else it is used. The eyes are evenOdd
+  holes, so they read on the status bar too.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M 2.000 12.000 A 10.000 10.000 0 1 0 22.000 12.000 A 10.000 10.000 0 1 0 2.000 12.000 Z M 7.253 11.774 A 1.250 1.250 0 0 1 9.648 11.055 L 10.337 13.354 A 1.250 1.250 0 0 1 7.943 14.072 Z M 12.801 7.773 A 1.250 1.250 0 0 1 15.195 7.054 L 15.885 9.353 A 1.250 1.250 0 0 1 13.490 10.071 Z" />
+</vector>

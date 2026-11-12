@@ -553,10 +553,10 @@ export interface ResolveOptions {
   scopeRefusal?(method: string, path: string): string | null;
 }
 
-const CLI_OWNER_HEADER = "x-openmausbot-cli-owner";
+const CLI_OWNER_HEADERS = ["x-dexbot-cli-owner", "x-openmausbot-cli-owner"] as const;
 const CLI_OWNER_ROUTE = /^\/api\/auth\/pairing$/;
 
-const DESKTOP_OWNER_HEADER = "x-openmausbot-desktop-owner";
+const DESKTOP_OWNER_HEADERS = ["x-dexbot-desktop-owner", "x-openmausbot-desktop-owner"] as const;
 
 function mutatingPublicRoute(method: string, path: string): boolean {
   const upper = method.toUpperCase();
@@ -649,16 +649,18 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
       ) return deny(403, "forbidden: invalid companion request");
       return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES, companionDevice: headerValue(req.headers["x-openmausbot-companion-device"]) }, status: 401, error: "" };
     }
-    const desktopOwner = options.loopbackMutationToken !== undefined &&
-      secureTokenMatch(headerValue(req.headers[DESKTOP_OWNER_HEADER]), options.loopbackMutationToken) && fromOwnPage(req);
+    const mutationToken = options.loopbackMutationToken;
+    const desktopOwner = mutationToken !== undefined &&
+      DESKTOP_OWNER_HEADERS.some((name) => secureTokenMatch(headerValue(req.headers[name]), mutationToken)) && fromOwnPage(req);
     if (fromBrowser(req) && !desktopOwner && !options.trustLocalBrowser) return deny(401, BROWSER_SIGN_IN);
     if (options.loopbackMutationToken !== undefined && mutatingPublicRoute(method, path) && !desktopOwner) {
       return deny(403, "forbidden: this change must come from the desktop app or a paired device");
     }
     if (options.loopbackMutationToken === undefined && options.loopbackTrust === "service") {
+      const cliOwnerToken = options.cliOwnerToken;
       if (
-        options.cliOwnerToken && CLI_OWNER_ROUTE.test(path) && ["GET", "POST"].includes(method.toUpperCase()) &&
-        secureTokenMatch(headerValue(req.headers[CLI_OWNER_HEADER]), options.cliOwnerToken)
+        cliOwnerToken && CLI_OWNER_ROUTE.test(path) && ["GET", "POST"].includes(method.toUpperCase()) &&
+        CLI_OWNER_HEADERS.some((name) => secureTokenMatch(headerValue(req.headers[name]), cliOwnerToken))
       ) {
         return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES }, status: 401, error: "" };
       }

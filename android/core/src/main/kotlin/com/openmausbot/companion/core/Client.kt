@@ -265,7 +265,7 @@ class CompanionClient(
         connection.requireServerTransport()
         val publicClient = CompanionClient(connection, null, actionClient)
         return publicClient.send(
-            publicClient.makeRequest("GET", "/.well-known/openmausbot/environment"),
+            publicClient.makeRequest("GET", "/.well-known/dexbot/environment"),
             publicClient.actionClient.newBuilder().followRedirects(false).followSslRedirects(false).build(),
         )
     }
@@ -1594,7 +1594,7 @@ class CompanionClient(
                     companion.makeRequest("GET", "/api/health"),
                     probeClient,
                 )
-                identity.app == "openmausbot"
+                identity.app == "dexbot" || identity.app == "openmausbot"
             } catch (error: CancellationException) {
                 throw error
             } catch (_: Exception) {

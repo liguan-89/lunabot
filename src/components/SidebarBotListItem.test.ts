@@ -304,9 +304,9 @@ describe("BotListItem", () => {
 
   it("previews the last reply as plain text, without its markdown", () => {
     const markup = renderRow(bot({
-      messages: [{ id: "b1", role: "bot", kind: "text", text: "I read **[Prudctual/DEX BOT](https://github.com/Prudctual/DEX BOT)**. Run `pnpm install` first.", at: 1 }] as Bot["messages"],
+      messages: [{ id: "b1", role: "bot", kind: "text", text: "I read **[Prudctual/dexbot](https://github.com/Prudctual/dexbot)**. Run `pnpm install` first.", at: 1 }] as Bot["messages"],
     }));
-    expect(markup).toContain(">I read Prudctual/DEX BOT. Run pnpm install first.<");
+    expect(markup).toContain(">I read Prudctual/dexbot. Run pnpm install first.<");
     expect(markup).not.toContain("**");
     expect(markup).not.toContain("](https://");
   });

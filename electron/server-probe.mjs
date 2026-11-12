@@ -2,8 +2,8 @@
 // failure is sorted into one thing the person can fix.
 import { EXAMPLE_ADDRESS, isLoopbackHost, parseServerInput, serverTransport } from "./server-address.mjs";
 
-const DESCRIPTOR = "/.well-known/openmausbot/environment";
-/** A MausBot desktop app's Remote access (companion/src/routes.ts) refuses the descriptor with this until a phone pairs. */
+const DESCRIPTOR = "/.well-known/dexbot/environment";
+/** A DEX BOT desktop app's Remote access (companion/src/routes.ts) refuses the descriptor with this until a phone pairs. */
 const DESKTOP_APP_REFUSAL = /^pair this device from Remote access settings/;
 
 /** The sentence for each problem, in the window's catalog and main's alike ({host}, {example} filled in). */

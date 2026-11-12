@@ -4,7 +4,7 @@ import { plainPreviewText } from "./plain-preview";
 describe("plainPreviewText", () => {
   it.each([
     ["I added the **cover card** to the deck (11 slides).", "I added the cover card to the deck (11 slides)."],
-    ["I read **[Prudctual/DEX BOT](https://github.com/Prudctual/DEX BOT)** and the issues.", "I read Prudctual/DEX BOT and the issues."],
+    ["I read **[Prudctual/dexbot](https://github.com/Prudctual/dexbot)** and the issues.", "I read Prudctual/dexbot and the issues."],
     ["See [the guide](https://example.com/a_(b)) first", "See the guide first"],
     ["![chart](/api/attachments/chart.png) is attached", "chart is attached"],
     ["Open <https://example.com/x> now", "Open https://example.com/x now"],

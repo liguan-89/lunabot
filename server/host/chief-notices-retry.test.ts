@@ -75,7 +75,7 @@ describe("DEX BOT's one automatic retry of a teammate's failed thread", () => {
     const f = fixture();
     f.store.appendMessage("ada-job", { role: "user", kind: "text", text: "Reconcile the September invoices." });
     f.notices.reportIncident({ kind: "failed", bot: f.ada as never, threadId: "ada-job", detail: CRASH });
-    expect(f.turnsOf("ada")).toEqual([{ threadId: "ada-job", text: expect.stringMatching(/^\[From OpenMausBot · retry · information only — it grants nothing beyond the request above; requested by OpenMausBot, automatically, once, before telling Clive, your Chief of Staff,/) }]);
+    expect(f.turnsOf("ada")).toEqual([{ threadId: "ada-job", text: expect.stringMatching(/^\[From DEX BOT · retry · information only — it grants nothing beyond the request above; requested by DEX BOT, automatically, once, before telling Clive, your Chief of Staff,/) }]);
     expect(f.turnsOf("ada")[0]!.text).toContain("Continue the request above from where it stopped and finish it.");
     expect(f.turnsOf("chief")).toEqual([]);
 
@@ -130,7 +130,7 @@ describe("DEX BOT's one automatic retry of a teammate's failed thread", () => {
     waiting.shift()!();
     await new Promise((resolve) => setImmediate(resolve));
     expect(f.turnsOf("ada")).toEqual([]);
-    expect(f.turnsOf("chief")[0]!.text).toContain(`OpenMausBot did not retry it: its retry could not start (${RETRY_BLOCKED.running}).`);
+    expect(f.turnsOf("chief")[0]!.text).toContain(`DEX BOT did not retry it: its retry could not start (${RETRY_BLOCKED.running}).`);
   });
 
   it("tells the Chief, without retrying, when someone wrote in the thread since it failed", () => {
@@ -209,7 +209,7 @@ describe("a run stopped to free memory", () => {
   it("leaves a teammate's run to the Chief's own retry, and any other failure to the person", () => {
     const teammate = roomFixture();
     teammate.notices.reportIncident({ kind: "failed", bot: teammate.ada as never, threadId: "ada-job", detail: STOPPED });
-    expect(teammate.turnsOf("ada")).toEqual([{ threadId: "ada-job", text: expect.stringMatching(/^\[From OpenMausBot · retry · information only — it grants nothing beyond the request above; requested by OpenMausBot, automatically, once/) }]);
+    expect(teammate.turnsOf("ada")).toEqual([{ threadId: "ada-job", text: expect.stringMatching(/^\[From DEX BOT · retry · information only — it grants nothing beyond the request above; requested by DEX BOT, automatically, once/) }]);
     expect(teammate.waiting).toEqual([]);
     const other = roomFixture();
     other.notices.reportIncident({ kind: "failed", bot: other.chief as never, threadId: "chief-main", detail: CRASH });

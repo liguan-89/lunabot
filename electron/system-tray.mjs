@@ -1,9 +1,11 @@
 import nativeText from "./native-text.cjs";
 
 // Retain the Windows notification-area identity across app restarts.
-export function createSystemTray({ Tray, Menu, nativeImage, iconPath, getWindow, onQuit, t = nativeText.englishText.t }) {
-  const tray = new Tray(nativeImage.createFromPath(iconPath).resize({ width: 20, height: 20 }),
-    "889af657-21b5-4ec9-b5d0-cb798cbdfd30");
+export function createSystemTray({ Tray, Menu, nativeImage, iconPath, trayIconPath = iconPath, getWindow, onQuit, t = nativeText.englishText.t }) {
+  const image = nativeImage.createFromPath(trayIconPath).resize({ width: 20, height: 20 });
+  // A template image follows the menu bar's light/dark appearance.
+  if (process.platform === "darwin" && typeof image.setTemplateImage === "function") image.setTemplateImage(true);
+  const tray = new Tray(image, "889af657-21b5-4ec9-b5d0-cb798cbdfd30");
   let hidden = false;
   const show = () => {
     const win = getWindow();
