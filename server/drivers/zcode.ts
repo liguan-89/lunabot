@@ -8,10 +8,10 @@
 //
 // The wire facts are documented in docs/zcode-engine-protocol.md.
 import { existsSync, statSync } from "node:fs";
-import { isAbsolute } from "node:path";
+import { isAbsolute, join } from "node:path";
 
 import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
-import { augmentedPath } from "../env-path.ts";
+import { augmentedPath, findCliCandidates, userHome } from "../env-path.ts";
 import { describeSpawnFailure, execCli, killCliTree, spawnCli } from "../procs.ts";
 import type {
   DriverCreateInput,
@@ -41,8 +41,9 @@ export const ZCODE_RUNTIME_PREFERENCES = { nativeSearchEnhancementsEnabled: fals
 const SAFE_EXECUTABLE = /^[A-Za-z0-9._/@+-]+$/;
 
 export interface ZcodeConfig {
-  /** CLI executable or absolute path. The app ships its CLI inside the
-   * bundle, so a path is the normal configuration. */
+  /** CLI executable or absolute path. There is no standalone installer: the
+   * desktop app ships the CLI as `ZCode.app/.../zcode.cjs`, which is why the
+   * default falls back to that bundle on macOS. */
   cli: string;
   /** Ask/Auto is not wired to ZCode's approval surface: a session only runs
    * unattended in `yolo` mode, so a bot must opt into full access. */
@@ -70,6 +71,58 @@ export function zcodeExecutable(raw: string): string {
     throw new Error(`zcode config \`cli\` is not a file: ${cli}`);
   }
   return cli;
+}
+
+/** How to actually start the CLI: a command word and any fixed leading args.
+ * The bundled CLI is a CommonJS file, not an executable, so it is started as
+ * `node zcode.cjs …` rather than spawned on its own. */
+export interface ZcodeLaunch {
+  command: string;
+  args: string[];
+  /** Extra child env the launch needs (`ELECTRON_RUN_AS_NODE` in the app). */
+  env: Record<string, string>;
+}
+
+const NODE_SCRIPT = /\.(?:cjs|mjs|js)$/i;
+
+function viaNode(script: string): ZcodeLaunch {
+  return {
+    command: process.execPath,
+    args: [script],
+    // The packaged server runs on Electron, whose binary only acts as node
+    // with this flag; in a checkout process.execPath already is node.
+    env: process.versions.electron ? { ELECTRON_RUN_AS_NODE: "1" } : {},
+  };
+}
+
+/** Where the ZCode desktop app bundles its CLI. Only the macOS layout is
+ * known; elsewhere a `zcode` on PATH or an explicit path is the route. */
+export function zcodeBundlePaths(env: Record<string, string | undefined> = process.env): string[] {
+  if (process.platform !== "darwin") return [];
+  return [
+    "/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs",
+    join(userHome(env), "Applications/ZCode.app/Contents/Resources/glm/zcode.cjs"),
+  ];
+}
+
+/** Resolve the configured CLI to something spawnable. A bare `zcode` is
+ * looked up on the augmented PATH first; when that finds nothing, the macOS
+ * app bundle takes over — the desktop app is already installed, so asking the
+ * person to "install the CLI" has no command behind it. */
+export function resolveZcodeLaunch(cli: string, env: Record<string, string | undefined> = process.env): ZcodeLaunch {
+  const executable = zcodeExecutable(cli);
+  const direct = (file: string): ZcodeLaunch =>
+    NODE_SCRIPT.test(file) ? viaNode(file) : { command: file, args: [], env: {} };
+
+  if (isAbsolute(executable)) return direct(executable);
+  const onPath = findCliCandidates(executable)[0];
+  if (onPath) return direct(onPath);
+  if (executable === "zcode") {
+    const bundled = zcodeBundlePaths(env).find((path) => existsSync(path));
+    if (bundled) return viaNode(bundled);
+  }
+  // Not found: hand the name back so the spawn reports its own ENOENT.
+  return { command: executable, args: [], env: {} };
 }
 
 export const EMPTY_ZCODE_CATALOG: ModelCatalog = { default: "", options: [] };
@@ -132,12 +185,14 @@ export interface ZcodeClient {
  */
 export function startZcodeClient(input: {
   executable: string;
+  /** Fixed args before `app-server` (the script path when launched via node). */
+  argsPrefix?: string[];
   env: Record<string, string | undefined>;
   onFrame: (frame: Record<string, any>) => void;
   onExit: (error: Error) => void;
   onLog?: (dir: "in" | "out", msg: unknown) => void;
 }): { client: ZcodeClient; close: () => void } {
-  const spawned = spawnCli(input.executable, ["app-server"], {
+  const spawned = spawnCli(input.executable, [...(input.argsPrefix ?? []), "app-server"], {
     stdio: ["pipe", "pipe", "pipe"],
     env: input.env,
   });
@@ -235,10 +290,14 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
   driverKind: ZCODE_DRIVER_KIND,
   metadata: { displayName: "ZCode", supportsMultipleInstances: true, access: "custom" },
   install: {
+    // There is no published zcode package: the CLI lives inside ZCode.app and
+    // is started through the app's own Electron runtime. This one-liner puts
+    // a working `zcode` shim on the augmented PATH (no Node.js needed), which
+    // is also what `cli: "zcode"` resolves to. macOS only — the bundle layout
+    // on other platforms is not known, and a path can be set by hand.
     command: {
-      darwin: "install the zcode CLI on PATH, or point the engine at ZCode.app's bundled zcode.cjs",
-      linux: "install the zcode CLI on PATH",
-      win32: "install the zcode CLI on PATH",
+      darwin:
+        `mkdir -p ~/.local/bin && printf '#!/bin/sh\\nELECTRON_RUN_AS_NODE=1 exec "/Applications/ZCode.app/Contents/MacOS/ZCode" "/Applications/ZCode.app/Contents/Resources/glm/zcode.cjs" "$@"\\n' > ~/.local/bin/zcode && chmod +x ~/.local/bin/zcode && ~/.local/bin/zcode version`,
     },
     needsNode: false,
   },
@@ -249,8 +308,10 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
   async create(input: DriverCreateInput<ZcodeConfig>): Promise<ProviderInstance> {
     const { instanceId } = input;
     const config = decodeZcodeConfig(input.config);
-    const executable = zcodeExecutable(config.cli);
-    const environment = zcodeEnvironment({ ...process.env, ...input.environment });
+    const sourceEnv = { ...process.env, ...input.environment };
+    const launch = resolveZcodeLaunch(config.cli, sourceEnv);
+    const executable = launch.command;
+    const environment = { ...zcodeEnvironment(sourceEnv), ...launch.env };
     const listeners = new Set<RuntimeEventListener>();
     const emit = (event: RuntimeEvent) => {
       for (const listener of Array.from(listeners)) listener(event);
@@ -622,6 +683,7 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
       if (client) return client;
       const started = startZcodeClient({
         executable,
+        argsPrefix: launch.args,
         env: environment,
         onFrame,
         onExit: () => {
@@ -753,14 +815,14 @@ export const ZcodeDriver: ProviderDriver<ZcodeConfig> = {
     const snapshot = async (): Promise<ProviderSnapshot> => {
       const version = await new Promise<string | null>((resolve) => {
         try {
-          execCli(executable, ["version"], { env: environment, timeout: 8_000, maxBuffer: 64 * 1024 }, (error, stdout) => {
+          execCli(executable, [...launch.args, "version"], { env: environment, timeout: 8_000, maxBuffer: 64 * 1024 }, (error, stdout) => {
             resolve(error ? null : String(stdout).trim() || null);
           });
         } catch {
           resolve(null);
         }
       });
-      if (!version) return { state: "unavailable", reason: `\`${executable}\` CLI not found` };
+      if (!version) return { state: "unavailable", reason: `\`${config.cli}\` CLI not found (the ZCode desktop app ships it)` };
       // ZCode manages its own login (~/.zcode); there is no separate sign-in
       // step the harness can probe, so treat it as authed.
       return { state: "available", version, authenticated: true };

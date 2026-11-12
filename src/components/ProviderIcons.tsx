@@ -170,6 +170,20 @@ export function ModelgoMark({ size = 16, className }: IconProps) {
   </svg>;
 }
 
+/** Official ZCode app-icon mark: white Z on the black tile. The tile is the
+ * brand surface, not a skin colour, so it stays black everywhere; `white` (not
+ * an ink utility) keeps the official contrast on every theme. */
+export function ZCodeMark({ size = 16, className }: IconProps) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" className={className} aria-hidden>
+      <rect x="1" y="1" width="22" height="22" rx="5.6" fill="#161616" />
+      <path fill="white" d="M5.7 5.8h8.2l-1.6 1.9H5.7z" />
+      <path fill="white" d="M14.1 5.8h5.5l-8.9 11.9H5.1z" />
+      <path fill="white" d="M12.2 15.8h6.9v1.9h-6.9z" />
+    </svg>
+  );
+}
+
 export function ProviderMark({ driverKind, size, className }: IconProps & { driverKind: string }) {
   switch (driverKind) {
     case "grok":
@@ -202,6 +216,8 @@ export function ProviderMark({ driverKind, size, className }: IconProps & { driv
       return <DeepSeekMark size={size} className={className} />;
     case "piAgent":
       return <PiMark size={size} className={className} />;
+    case "zcodeAgent":
+      return <ZCodeMark size={size} className={className} />;
     case "copilotAgent":
       return <CopilotMark size={size} className={className} />;
     case "commandCodeAgent":
