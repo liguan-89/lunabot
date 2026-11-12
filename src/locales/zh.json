@@ -9849,7 +9849,6 @@
   "server.routines.cron.nthWeekend.last": "每月最后一个{weekday} {time}",
   "attach.imagesLeftOutOne": "一条消息最多包含 {count} 张图片，总计 {megabytes} MB。{names} 未附加。",
   "attach.imagesLeftOutMany": "一条消息最多包含 {count} 张图片，总计 {megabytes} MB。{names} 未附加。",
-  "attach.archivesUnsupported": "无法附加压缩包：请解压 {names}，再附加其中的文件。",
   "native.home.ownCopyNotReady": "这台电脑上的 DEX BOT 暂时无法回到自己的副本。",
   "native.home.ownCopyNotRunning": "这台电脑自己的副本未在运行。",
   "native.cloud.connectedAppsStay": "你的已连接应用会留在这台电脑：那台服务器没有自己的已连接应用服务。之后可在那里的「应用」中重新连接。",

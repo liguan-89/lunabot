@@ -33467,7 +33467,6 @@
       "server.routines.cron.nthWeekend.last": "046ffe9386c0b114850e60f39089b81d443c4a6490b183b550db7d5192cc7d29",
       "attach.imagesLeftOutOne": "402e21d809621935f18273f84e146eaf628bcf4876ff041bb53452570a338070",
       "attach.imagesLeftOutMany": "e71ffd37f0f2b5342652c635957c44a9b13c0db6ef30129618960a524875bf8f",
-      "attach.archivesUnsupported": "b12cc0cb95d16bba1e3ebc915466c1bf00632807ee80572d8ed16b39cc27c71c",
       "native.home.ownCopyNotReady": "8ff7fb5b88c3a04fb5c9573c838570226b4247e70cfcd5763e91ed1614be1e00",
       "native.home.ownCopyNotRunning": "5fd02c26e265964371db2ef1579da50d97ab84471c5f8ea5b72d5fdfcdb6ce5c",
       "native.cloud.connectedAppsStay": "c3a421ad14dca5dfd60cbabc57adef08f915dbafd17b810f32183caae51c25ab",
@@ -33868,7 +33867,9 @@
       "baiduMap.notice": "c77d73d0f16973a6132f47f9ad93416748860cf68f97ca0a3bf5930f8d9cb2da",
       "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde",
       "settings.vault.memberSubtitle": "8c168e2b50487ce44bff1e44b06f7a74771650ed20eaf138ac4540028d8a9fc4",
-      "settings.vault.memberEmpty": "0b981e9a0ad8b4a2bf317822c9b1e4df265ff0ad73a1e53c8486009e1b7253af"
+      "settings.vault.memberEmpty": "0b981e9a0ad8b4a2bf317822c9b1e4df265ff0ad73a1e53c8486009e1b7253af",
+      "markdown.refused": "79c6e197cba71d3c55a6879a61e30d513b1a37ca147dd8882270b66bad62f533",
+      "markdown.notText": "ab38bec0447a1fc5c6a28694413fc059163f2c92a41aeb824070039bde8d9083"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -43615,7 +43616,6 @@
       "server.routines.cron.nthWeekend.last": "046ffe9386c0b114850e60f39089b81d443c4a6490b183b550db7d5192cc7d29",
       "attach.imagesLeftOutOne": "402e21d809621935f18273f84e146eaf628bcf4876ff041bb53452570a338070",
       "attach.imagesLeftOutMany": "e71ffd37f0f2b5342652c635957c44a9b13c0db6ef30129618960a524875bf8f",
-      "attach.archivesUnsupported": "b12cc0cb95d16bba1e3ebc915466c1bf00632807ee80572d8ed16b39cc27c71c",
       "native.home.ownCopyNotReady": "8ff7fb5b88c3a04fb5c9573c838570226b4247e70cfcd5763e91ed1614be1e00",
       "native.home.ownCopyNotRunning": "5fd02c26e265964371db2ef1579da50d97ab84471c5f8ea5b72d5fdfcdb6ce5c",
       "native.cloud.connectedAppsStay": "c3a421ad14dca5dfd60cbabc57adef08f915dbafd17b810f32183caae51c25ab",
@@ -53559,7 +53559,6 @@
       "server.routines.cron.nthWeekend.last": "046ffe9386c0b114850e60f39089b81d443c4a6490b183b550db7d5192cc7d29",
       "attach.imagesLeftOutOne": "402e21d809621935f18273f84e146eaf628bcf4876ff041bb53452570a338070",
       "attach.imagesLeftOutMany": "e71ffd37f0f2b5342652c635957c44a9b13c0db6ef30129618960a524875bf8f",
-      "attach.archivesUnsupported": "b12cc0cb95d16bba1e3ebc915466c1bf00632807ee80572d8ed16b39cc27c71c",
       "native.home.ownCopyNotReady": "8ff7fb5b88c3a04fb5c9573c838570226b4247e70cfcd5763e91ed1614be1e00",
       "native.home.ownCopyNotRunning": "5fd02c26e265964371db2ef1579da50d97ab84471c5f8ea5b72d5fdfcdb6ce5c",
       "native.cloud.connectedAppsStay": "c3a421ad14dca5dfd60cbabc57adef08f915dbafd17b810f32183caae51c25ab",
