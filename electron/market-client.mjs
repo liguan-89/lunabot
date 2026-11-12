@@ -425,8 +425,9 @@ export function createMarketClient({
     },
 
     async signOut() {
+      let access = null;
+      try { access = await accessToken(); } catch {}
       const refresh = tokens?.refresh ?? null;
-      const access = tokens?.access ?? null;
       if (refresh || access) {
         try {
           await fetcher(new URL("/api/market/oauth/revoke", apiOrigin), {

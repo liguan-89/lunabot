@@ -297,6 +297,27 @@ test("signs out by revoking and forgetting the stored tokens", async () => {
   }
 });
 
+test("refreshes an expired access token before revoking on sign-out", async () => {
+  const mock = await mockMarket();
+  try {
+    let clock = 1_000_000;
+    const saved = store();
+    const client = createMarketClient({
+      store: saved, openBrowser: browserFor(mock), origin: mock.base, fixture: true, apiOrigin: mock.base,
+      fetch, now: () => clock, waitMs: 1_000,
+    });
+    await client.start();
+    await client.signIn();
+    clock += 3_600_000;
+    const state = await client.signOut();
+    assert.deepEqual(state, { status: "signed-out" });
+    assert.equal(saved.value, null);
+    assert.equal(mock.state.revoked, REFRESH_2, "the rotated refresh token is the one revoked");
+  } finally {
+    await mock.close();
+  }
+});
+
 test("rejects an unsupported plan code before any request", async () => {
   const mock = await mockMarket();
   try {
