@@ -229,6 +229,24 @@ describe("ZcodeDriver (fake app-server)", () => {
     expect(instance!.models.options.map((option) => option.id)).toEqual(["fake/fake-model"]);
   });
 
+  it("hands images to ZCode as the composer's attachment shape", async () => {
+    const { rows } = await create();
+    const image = join(mkdtempSync(join(tmpdir(), "omb-zcode-image-")), "shot.png");
+    writeFileSync(image, Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+    await instance!.adapter.sendTurn({
+      threadId: "t-image",
+      text: "what is this",
+      images: [{ path: image, mime: "image/png", bytes: 4 }],
+      approvalMode: "full",
+    });
+    await recorder!.until((event) => event.type === "turn.completed");
+    expect(rows().find((row) => row.method === "session/send")?.params).toMatchObject({
+      content: "what is this",
+      // The composer's shape; ZCode drops the resolved `{type, path}` one.
+      attachments: [{ kind: "image", localPath: image, filename: "shot.png", mimeType: "image/png", sizeBytes: 4 }],
+    });
+  });
+
   it("lists models before any turn so a bot can be switched onto the engine", async () => {
     const dump = join(mkdtempSync(join(tmpdir(), "omb-zcode-catalog-")), "dump.jsonl");
     const fresh = await ZcodeDriver.create({
