@@ -192,6 +192,19 @@ pnpm vitest run server/main-thread.e2e.test.ts
   question cards answered in the chat or by 👍, and the images a tool returned
   plus the files it attached. pi reports a tool's image content as a tool-made
   image of the turn.
+- `server/fresh-start.e2e.test.ts` — a divider sends nothing from before it,
+  a warm session continues, a fresh start opens a new pi session, and a repeat
+  press adds nothing. The old codex switch section is gone with that engine;
+  pi re-anchors once after a divider because the rewound cursor is cleared.
+- `server/context-compaction.e2e.test.ts` — a forced `/compact` is durable,
+  keeps corrections, starts a fresh session and survives a restart; auto-fold
+  keeps the two latest exchanges. The stalled-summary and native-autocompact
+  subtests are gone: pi has no one-shot text call and no provider context
+  measurement, so the summary is local.
+- `server/delta-context.e2e.test.ts` — per-thread prompt counts from pi's own
+  RPC log, restarts that rerun cut turns, and steered messages. The
+  rejected-resume ledger, Codex and file-gated steer groups are gone: no driver
+  declares strict resume and the single engine cannot be swapped.
 
 ## Not migrated yet
 
@@ -201,9 +214,13 @@ the retired `openaiCompat` / ACP engine instances. Most can now move by reading
 `fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
 assertions with the launch, turn and transcript events. `server/direct-coordination.e2e.test.ts` observes Claude argv and launch dumps;
 `server/room-context.e2e.test.ts` needs a context-window measurement pi does not
-report; `server/parallel-threads.e2e.test.ts` is a per-engine matrix of engines
-this build no longer has. Until then `pnpm test:e2e` (the old suite) is expected
-to fail.
+report; `server/parallel-threads.e2e.test.ts` and the `group-goal-run*`,
+`thread-aware-bots`, `long-running-chief` and `reply-behaviour` recipes are
+per-engine matrices or scripted orchestration written against engines this
+build no longer has; `server/digest-control.e2e.test.ts` needs the Claude Code
+hooks that produced `hookCoverage: "full"` and spill files (pi delivers bounded
+preview results and no hooks). Until then `pnpm test:e2e` (the old suite) is
+expected to fail.
 
 Two engine-specific recipes were left alone rather than rewritten around a
 fixture that no longer exists: `server/key-rejected.e2e.test.ts` observes the
@@ -212,8 +229,8 @@ pi and has no instance snapshot of its own, and `server/openai-boat.e2e.test.ts`
 drives turns on that retired engine instance.
 
 One more recipe exposes a product gap rather than a fixture gap:
-`server/context-compaction.e2e.test.ts` asserts Claude Code's native
-`--autocompact` argv and a 1M-token window, neither of which pi has.
+`server/digest-control.e2e.test.ts` asserts hook-based digest evidence that pi
+has no path for today.
 
 ## Retired engine tests
 
