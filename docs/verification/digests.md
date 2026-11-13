@@ -8,7 +8,7 @@ actions transactional, nor authorize a deployment.
 
 ```sh
 pnpm exec vitest run server/digest-control.e2e.test.ts
-pnpm exec vitest run server/commands.test.ts server/store.test.ts server/message-db.test.ts server/digest.test.ts server/checkpoints.test.ts server/hooks/omb-hook.test.ts server/hooks.e2e.test.ts server/digest.e2e.test.ts
+pnpm exec vitest run server/commands.test.ts server/store.test.ts server/message-db.test.ts server/digest.test.ts server/checkpoints.test.ts server/hooks/omb-hook.test.ts server/digest.e2e.test.ts
 ```
 
 The first test starts `launchVerificationServer`, then uses the shared
@@ -28,23 +28,20 @@ behavior rather than treating a local macOS run as Windows verification.
 
 ## Shell calls that hit their time limit
 
-Claude Code stops a Bash call after 2 minutes unless the call passes a larger
-`timeout` (the driver pins the cap at 600000 ms through `BASH_MAX_TIMEOUT_MS`;
-native background tasks stay off). Engines with a shell get a "Long-running
-commands" prompt section, and a timed-out call's `PostToolUseFailure` hook gets
-`additionalContext` telling the model to rerun with a longer timeout or
-detached, or to use `mdfind`/a scoped folder instead of `find /`.
+pi owns its bash tool and reports a call that hit the limit in the tool result;
+the harness no longer sees a `PostToolUseFailure` hook (there is no hook channel
+on pi). The "Long-running commands" prompt section still tells a shell-capable
+engine to rerun with a longer `timeout` or detached, or to use
+`mdfind`/a scoped folder instead of `find /`.
 
 ```sh
-pnpm exec vitest run server/shell-timeout-hint.test.ts server/hooks.e2e.test.ts
-FAKE_CLAUDE_HOOKS=1 FAKE_CLAUDE_TOOL_CALLS='[{"name":"Bash","input":{"command":"find / -name x"},"ok":false,"output":"Exit code 143\nCommand timed out after 2m 0s"}]' \
-  node --experimental-strip-types scripts/control-omb.ts launch
+pnpm exec vitest run server/shell-timeout-hint.test.ts
+pnpm exec vitest run server/digest-control.e2e.test.ts
 ```
 
-Send one direct turn and one channel turn, then wait for each to settle. The fake echoes each
-failure hook's context into its reply, so the transcript shows the hint. The
-fixture's `fake-claude-dump.json` shows the prompt section, `BASH_MAX_TIMEOUT_MS`
-and the `PostToolUseFailure` hook registration. Last exercised 2026-10-13
+Send one direct turn and one channel turn with a scripted failing Bash call
+(`FAKE_PI_TOOL_CALLS`), then wait for each to settle; the transcript and digest
+show the call's outcome from pi's tool result. Last exercised 2026-10-13
 (direct and channel turns).
 
 ## Replies with no recorded work

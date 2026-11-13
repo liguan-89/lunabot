@@ -6,7 +6,7 @@ domain, or configuration to verify these controls.
 ## Automated checks
 
 ```sh
-pnpm exec vitest run server/custom-domain.test.ts server/provider-auth-sessions.test.ts server/grok-sign-in-api.test.ts server/request-auth.test.ts src/components/DeviceSignIn.test.ts src/components/CustomDomainSettings.test.ts src/components/EngineSetup.test.ts
+pnpm exec vitest run server/custom-domain.test.ts server/provider-auth-sessions.test.ts server/request-auth.test.ts src/components/DeviceSignIn.test.ts src/components/CustomDomainSettings.test.ts src/components/EngineSetup.test.ts
 pnpm typecheck
 pnpm build
 pnpm build:server
