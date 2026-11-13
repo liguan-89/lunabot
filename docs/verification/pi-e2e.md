@@ -269,11 +269,14 @@ pnpm vitest run server/main-thread.e2e.test.ts
   (`engineBridgeRefusal`), so the recipe proves the switch never mounts it:
   the whole catalog, no bridge prompt, the tool-selection gate and the
   Chief-only refusal.
-- `server/automatic-recovery.e2e.test.ts` — the settings contract plus pi's
-  own behavior: a failed turn stays failed and never moves to a configured
-  backup model. The old recovery-turn subtests needed an engine that refuses
-  before accepting a prompt (`TurnNotStartedError`) and a second engine; pi
-  produces neither.
+- `server/automatic-recovery.e2e.test.ts` — the settings contract, a real
+  recovery, and pi's own failure boundary. `FAKE_PI_EXIT_ON_FIRST_MODEL=1`
+  kills the fake while it selects the bot's model, before the prompt frame;
+  the driver classifies that pre-prompt exit as `TurnNotStartedError` and the
+  harness replays the turn once on the configured backup model of the same
+  instance. A turn whose prompt pi already accepted (`turn-error`) stays
+  failed and is never replayed. The retired sign-out and usage-limit refusal
+  classes still have no pi equivalent.
 - `server/bot-visibility.e2e.test.ts` — per-bot visibility on a shared
   workspace, with the closed and hidden bots' prompts read from
   `FAKE_PI_PROMPTS` instead of a second echo engine.

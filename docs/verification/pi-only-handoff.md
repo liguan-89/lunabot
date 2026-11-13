@@ -30,6 +30,12 @@ Grok/Copilot 等驱动已删除。
 | `npx tsc -b && npx tsc -p tsconfig.server.json --noEmit` | 通过 |
 | `npx oxlint --deny-warnings <改动文件>` | 通过 |
 
+自动恢复修复后的复验（同口径）：`pi.test.ts` 93/93（含 3 个新用例）、
+`automatic-recovery.e2e` 3/3（含真实恢复用例）、`incidents.e2e` 10/10、
+两个棘轮与 `tsc -b`/`tsc --noEmit`/oxlint 均通过；全量非 e2e 套件
+28,459 通过、3 失败（基线 2 个已知项 + `vps-ssh-init` 在与 e2e 并行
+负载下的一次时序抖动，单跑 6/6 通过）。
+
 棘轮现状：
 
 - `server/drivers/pi.ts` 1039 行（上限 1167）
@@ -72,12 +78,18 @@ Grok/Copilot 等驱动已删除。
    destroy；监听 `close` 时 headers 段能结束，但请求体段仍不结束。属于 companion mux
    的既有问题，未在本次引擎改造中处理。
 2. **`server/drivers/pi.test.ts` 的 willRetry 用例在 4 路并发下偶发失败**；
-   单跑 90/90 通过。是时序抖动，不是逻辑失败。
+   单跑 90/90 通过。是时序抖动，不是逻辑失败。后续在 `awaitResponse` 加了
+   死亡子进程即时拒绝（waiter 注册晚于 `close` 事件时原先会挂到超时），
+   连续复跑未见复发；未做全量并发复现，不宣称根除。
 3. **Mimosa 深度审计未封存**：深度扫描在 audit 阶段停留约 55 分钟无进展，已取消。
    因此**不能声称项目安全**；合并前需要重跑一次完整审计。
-4. **pi 下自动恢复不可达**：pi adapter 不会在接收 prompt 前抛出
-   `TurnNotStartedError`，所以 `automaticRecovery` / bot fallback 永远不会触发。
-   相关 e2e 已如实改为“失败就是失败”。
+4. ~~**pi 下自动恢复不可达**~~（已修）：pi adapter 现在把"prompt 帧发出之前"
+   的失败（子进程死亡、set_model 失败、prompt 帧写出失败）分类为
+   `TurnNotStartedError` 并在 `startupRecovery` 下安静结算，harness 的
+   `automaticRecovery` 因此在同实例的备用模型上重放一次。prompt 已被接受
+   之后的失败仍一律报告、绝不重放（e2e 两面都有覆盖：
+   `automatic-recovery.e2e.test.ts`，fixture 旋钮 `FAKE_PI_EXIT_ON_FIRST_MODEL`）。
+   退休的签名拒绝/限额拒绝类别仍然没有 pi 等价物。
 5. **agents tool bridge 对 pi 永远拒绝**：`engineBridgeRefusal` 对 `piAgent` 一律返回
    拒绝，bridge 在本 build 不可能启用；测试已改为断言这个拒绝。
 6. **pi 不报告 plan usage / reset / 登录状态**：`limit-reset` 从 11 个子测试收敛为 1 个
@@ -97,8 +109,9 @@ Grok/Copilot 等驱动已删除。
 
 1. 合并前重跑完整 Mimosa 审计并取得封存结论。
 2. 单独定位 `phone-relay` 停顿流用例（companion mux 的 reset 传播），不要和 pi 改造混在一起。
-3. 若要恢复自动恢复能力，需要在 pi adapter 里区分“prompt 前的失败”并抛
-   `TurnNotStartedError`（或等价分类），这是产品改动，先补单测。
+3. ~~若要恢复自动恢复能力~~（已做）：pi adapter 在 `startupRecovery` 下把
+   pre-prompt 失败以 `TurnNotStartedError` 拒绝，`automaticRecovery` 在备用
+   模型上重放；单测与 e2e 均覆盖。
 4. 若要恢复 plan 限额/登录状态，需要 pi 或自定义 provider 暴露对应读数；目前没有。
 5. 剩余旧 e2e 按需分批迁移（每批 5 个、并行子代理）；不必一次性清完。
 
@@ -107,10 +120,12 @@ Grok/Copilot 等驱动已删除。
 - Mimosa PreToolUse 会拦截通过 Bash 直接写源码/配置；改文件请用 Write/Edit。
 - commit hook 可能报 `scanner_no_output`；这只表示没有完整扫描结论，不代表安全。
 - 不要对用户正在运行的 app/data 做验证；所有 e2e 都应在隔离 fixture 里跑。
-- 工作区里的 Android 改动不是本次改造产生的，提交时不要带上。
+- 工作区里的 Android 改动已单独提交（`8175faabc`，DEX BOT 品牌与设置页重构），
+  与本改造无关。
 - 本阶段提交（新→旧）：
   `c8e7eb791`、`9172ed512`、`fec063c12`、`8875fc118`、`b9da64152`、
   `fa0377360`、`4efb88076`。
+- 后续修复（自动恢复 + willRetry 竞态防护）见最新提交记录。
 
 ## 8. 关键文件索引
 

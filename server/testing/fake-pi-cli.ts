@@ -775,6 +775,12 @@ function handle(cmd: any) {
           appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ setModel: { provider: cmd.provider, modelId: cmd.modelId } }) + "\n");
         } catch {}
       }
+      // FAKE_PI_EXIT_ON_FIRST_MODEL=1: the primary model's engine dies before
+      // the prompt, so a backup model on the same instance can take the turn —
+      // automatic recovery's fixture.
+      if (process.env.FAKE_PI_EXIT_ON_FIRST_MODEL === "1" && `${cmd.provider}/${cmd.modelId}` === `${modelPairs[0]?.provider}/${modelPairs[0]?.id}`) {
+        process.exit(1);
+      }
       send({ type: "response", command: "set_model", success: true, data: { id: cmd.modelId, provider: cmd.provider } });
       return;
     }

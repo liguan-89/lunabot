@@ -53,7 +53,7 @@ import type {
   SteerOutcome,
 } from "../contracts.ts";
 import { EFFORT_LEVELS } from "../../shared/wire.ts";
-import { newEventId, newId } from "../contracts.ts";
+import { newEventId, newId, TurnNotStartedError } from "../contracts.ts";
 import { ASK_USER_TOOL, MAX_QUESTION_TEXT, parseAskQuestions, parseChoices, questionAnswersByQuestion } from "../../shared/ask-question.ts";
 import { appendNative } from "./native.ts";
 import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
@@ -331,9 +331,21 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         throw new Error("local computer control requires the interactive approval broker");
       }
       const turnId = newId();
+      // Whether the prompt frame went out: past this point the attempt may have
+      // reached a model, so it is the turn's, and never replayed on a backup.
+      let promptSent = false;
+      /** What ended the child before the prompt, for the startup-recovery reject. */
+      let prePromptFailure: string | undefined;
+      // Automatic recovery replays only a turn that provably never started; the
+      // harness asks for that with startupRecovery, and every pre-prompt exit
+      // below then rejects the dispatch instead of settling a failed turn.
+      const recoverOnStart = turn.startupRecovery === true;
+      const prePromptQuiet = () => recoverOnStart && !promptSent;
       const pending = new Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>();
       const askTimers = new Set<ReturnType<typeof setTimeout>>();
       let settled = false;
+      /** Mirrors the settle outcome; read at the pre-prompt checkpoints. */
+      let settledOk = true;
       /** Whether the child may outlive this turn (pooling); stop() clears it. */
       let keepChild = true;
       let completion: Promise<void> | null = null;
@@ -452,6 +464,12 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       };
       const awaitResponse = (command: string, timeoutMs = 20_000, key = command) =>
         new Promise<unknown>((resolve, reject) => {
+          // A child that died before this waiter was registered has nobody left
+          // to reject it: answer from the death the handlers already recorded.
+          if (child.exitCode !== null || child.signalCode !== null) {
+            reject(new Error(prePromptFailure ?? "pi process exited before replying"));
+            return;
+          }
           const timer = timeoutMs === Infinity ? undefined : setTimeout(() => {
             responseWaiters.delete(key);
             reject(new Error(`pi ${command} timed out`));
@@ -484,6 +502,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           ...(runUsage.cost === undefined ? {} : { cost: runUsage.cost }),
         };
         settled = true;
+        settledOk = ok;
         if (agentEndTimer) {
           clearTimeout(agentEndTimer);
           agentEndTimer = null;
@@ -512,11 +531,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             warm.idleTimer.unref?.();
             warmSessions.set(threadId, warm);
             active.delete(threadId);
-            emit({
-              ...base(threadId, turnId),
-              type: "turn.completed",
-              ...outcome,
-            });
+            // The same quiet rule as the kill path below: a pre-prompt failure
+            // under startup recovery is the dispatch's rejection to report.
+            if (!(ok === false && prePromptQuiet())) {
+              emit({
+                ...base(threadId, turnId),
+                type: "turn.completed",
+                ...outcome,
+              });
+            }
             return;
           }
           try {
@@ -533,11 +556,18 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // confirmed leaves it owned (and the next start reconciles it).
           active.delete(threadId);
           flushAssistantText();
-          emit({
-            ...base(threadId, turnId),
-            type: "turn.completed",
-            ...outcome,
-          });
+          // A pre-prompt failure under startup recovery stays quiet: the
+          // dispatch rejects with TurnNotStartedError and the harness owns the
+          // failure row and the replay, so no completion may publish first. A
+          // Stop in the same window is a cancellation, not a failure, and still
+          // publishes.
+          if (!(ok === false && prePromptQuiet())) {
+            emit({
+              ...base(threadId, turnId),
+              type: "turn.completed",
+              ...outcome,
+            });
+          }
         })();
         void completion.catch((error: Error) => {
           completion = null;
@@ -783,11 +813,16 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       });
       const onChildError = (err: NodeJS.ErrnoException) => {
         const fail = describeSpawnFailure(err, config.cli, turn.cwd);
+        prePromptFailure = fail.message;
         rejectWaiters(new Error(fail.message));
-        emit({ ...base(threadId, turnId), type: "runtime.error", message: fail.message, setup: fail.setup });
+        // Quiet: the message rides the TurnNotStartedError the dispatch rejects with.
+        if (!prePromptQuiet()) {
+          emit({ ...base(threadId, turnId), type: "runtime.error", message: fail.message, setup: fail.setup });
+        }
         settle(false);
       };
       const onChildClose = () => {
+        prePromptFailure ??= "pi process exited before replying";
         rejectWaiters(new Error("pi process exited before replying"));
         settle(false);
       };
@@ -827,7 +862,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // pi --no-session accepts a prompt without an explicit session.
         }
       }
-      if (settled) return { turnId };
+      if (settled) {
+        // The child ended the attempt before the prompt went out: a recoverable
+        // start-up failure, so the dispatch rejects and the harness replays it.
+        // A Stop in the same window settled ok and stays a cancellation.
+        if (prePromptQuiet() && !settledOk) {
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+        }
+        return { turnId };
+      }
 
       const chosen = typeof turn.model === "string" ? splitPiModel(turn.model) : null;
       if (chosen && (freshSpawn || !confirmedModel)) {
@@ -837,6 +880,13 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           confirmedModel = piModelId(await modelPromise);
           if (!confirmedModel) throw new RuntimeNoticeError("Pi did not confirm the selected model", "chat.notice.piModelNotConfirmed");
         } catch (error) {
+          const message = prePromptFailure ?? String((error as Error).message);
+          if (prePromptQuiet()) {
+            if (!settled) await settle(false);
+            // The model refusal is a setup failure: the harness replays the
+            // turn on its backup instead of reporting a dead turn.
+            throw new TurnNotStartedError(turnId, message);
+          }
           if (!settled) {
             emit({ ...base(threadId, turnId), type: "runtime.error", message: String((error as Error).message), text: runtimeErrorText(error) });
             await settle(false);
@@ -852,7 +902,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           confirmedModel = piModelId(state?.model);
         } catch {}
       }
-      if (settled) return { turnId };
+      if (settled) {
+        // The child ended the attempt before the prompt went out: a recoverable
+        // start-up failure, so the dispatch rejects and the harness replays it.
+        // A Stop in the same window settled ok and stays a cancellation.
+        if (prePromptQuiet() && !settledOk) {
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+        }
+        return { turnId };
+      }
       if (sessionOpened) emit({ ...base(threadId, turnId), type: "session.started", sessionId, model: confirmedModel });
 
       // After the model: the supported level set is model-dependent.
@@ -863,7 +921,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           await levelPromise;
         } catch {}
       }
-      if (settled) return { turnId };
+      if (settled) {
+        // The child ended the attempt before the prompt went out: a recoverable
+        // start-up failure, so the dispatch rejects and the harness replays it.
+        // A Stop in the same window settled ok and stays a cancellation.
+        if (prePromptQuiet() && !settledOk) {
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+        }
+        return { turnId };
+      }
 
       if (scopeReadyPath) {
         let ready = false;
@@ -912,6 +978,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // pi answers the prompt only after preflight accepts it, and rejects it while a compaction runs.
         const accepted = awaitResponse("prompt", 120_000);
         send({ type: "prompt", message, ...(images.length ? { images } : {}) });
+        // The attempt is on the record from here: a refusal or a crash past this
+        // point is the turn's own failure, never a backup replay.
+        promptSent = true;
         void accepted.then(
           () => {
             if (!pendingReceipt || compactionObserved) return;
@@ -930,10 +999,17 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           },
         );
       } catch (err) {
+        const message = String((err as Error)?.message ?? err).slice(0, 2_000);
+        // The frame never went out: a recoverable start-up failure, same as a
+        // child that died earlier in the setup.
+        if (prePromptQuiet()) {
+          if (!settled) await settle(false);
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? message);
+        }
         emit({
           ...base(threadId, turnId),
           type: "runtime.error",
-          message: String((err as Error)?.message ?? err).slice(0, 2_000),
+          message,
         });
         settle(false);
       }

@@ -1,19 +1,20 @@
 // Automatic recovery in the one-agent build.
 //
-// The feature's start-up path needed an engine that refuses a turn *before* accepting its prompt
-// (TurnNotStartedError) and a second engine to take the work. pi reports no such pre-prompt
-// refusal, and it is the only engine, so a failing pi turn is reported and never replayed on the
-// configured backup. What is still engine-agnostic is the settings contract, which this recipe
-// drives against the fixture's pi instance with a second pi model as the backup.
+// The feature's start-up path needs an engine that fails a turn *before* its prompt is accepted
+// (TurnNotStartedError) and a second model to take the work. pi now classifies exactly those
+// failures — a child that dies or a model selection that fails before the prompt frame goes out —
+// so the fixture drives one with FAKE_PI_EXIT_ON_FIRST_MODEL and the recovery replays the turn on
+// the configured backup model of the same instance. What pi still never produces are the retired
+// refusal classes (sign-out, usage limit): a turn that fails after its prompt was accepted is
+// reported and never replayed, which the turn-error recipe covers.
 //
 // Subtests removed with the multi-engine fixtures, and why:
-// - "recovers once on the same thread…", "keeps a Set me up request a setup turn on the backup",
-//   "recovers a coordinated specialist…", "uses the ordered bot list only for proven pre-prompt
-//   failures", "does not automatically replay when …", "stops after one failed backup…",
-//   "uses the configured … backup when Claude refuses a turn because it is signed out",
-//   "preserves the sign-in error…" and "does not recover a superseded turn after …" all drove a
-//   primary CLI that failed during start-up and a different backup engine. That refusal class and
-//   second engine no longer exist: pi always accepts the prompt and reports failures as turn errors.
+// - "keeps a Set me up request a setup turn on the backup", "recovers a coordinated specialist…",
+//   "uses the ordered bot list only for proven pre-prompt failures", "does not automatically
+//   replay when …", "stops after one failed backup…", "uses the configured … backup when Claude
+//   refuses a turn because it is signed out", "preserves the sign-in error…" and "does not
+//   recover a superseded turn after …" all drove a primary CLI of a *different engine* failing
+//   during start-up. That second engine no longer exists: the backup is a second pi model.
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
@@ -62,7 +63,9 @@ async function withRecoveryFixture(
     };
     const pi = instances.find((instance) => instance.instanceId === "pi")!;
     const model = pi.models.default;
-    const backup = pi.models.options.map((option) => option.id).find((id) => id !== model) ?? model;
+    // "default" is the synthetic always-selectable option (pi's own default
+    // model): selecting it sends no set_model, so it is no recovery evidence.
+    const backup = pi.models.options.map((option) => option.id).find((id) => id !== model && id !== "default") ?? model;
     expect(backup, "the fake pi offers a second model to recover onto").not.toBe(model);
     // Chief first makes the starter its team's Chief, which answers a teammate's failed run with a
     // "Problems to look at" turn of its own. Stepped down, only the runs under test run.
@@ -103,9 +106,43 @@ it("rejects missing or unavailable backup settings through the API without chang
   });
 }, 90_000);
 
+it("replays a turn once on the configured backup when pi dies before its prompt", async () => {
+  // FAKE_PI_EXIT_ON_FIRST_MODEL kills the child while it selects the bot's model,
+  // before the prompt frame: a provably un-started turn, which the driver rejects
+  // with TurnNotStartedError and the harness replays on the backup model.
+  await withRecoveryFixture({ FAKE_PI_EXIT_ON_FIRST_MODEL: "1" }, async ({ api, control, model, backup, turns, modelsSet, evidence }) => {
+    await api("PUT", "/api/config", { automaticRecovery: { enabled: true, backup: { instanceId: "pi", model: backup } } });
+    const { bot } = await control("new-bot", "--name", "Recovered");
+    const threadId = bot.activeTaskId;
+    await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, {
+      modelSelection: { instanceId: "pi", model }, updateBotDefault: true,
+    });
+    await control("send", "--bot", bot.id, "--task", threadId, "--text", MARKER);
+    expect((await control("wait", "--bot", bot.id, "--task", threadId, "--timeout", "30")).status).toBe("settled");
+
+    // The backup model was selected and answered; the primary never got the prompt.
+    const switched = modelsSet().map((entry) => `${entry.provider}/${entry.modelId}`);
+    expect(switched).toContain(backup);
+    expect(turns().map(piTurnText).filter((text) => text.includes(MARKER))).toHaveLength(1);
+
+    const { messages } = (await api("GET", `/api/threads/${threadId}/messages?limit=100`)) as { messages: any[] };
+    // The person's words once, a recovery row explaining the switch, and the backup's answer.
+    expect(messages.filter((message) => message.role === "user" && message.text === MARKER)).toHaveLength(1);
+    expect(messages.some((message) => message.tool?.name?.startsWith("recovery:"))).toBe(true);
+    expect(messages.some((message) => message.role === "bot" && message.kind === "text")).toBe(true);
+
+    // The thread now runs on its backup, and the bot is idle, not failed.
+    const state = (await api("GET", "/api/bots")).bots.find((entry: any) => entry.id === bot.id);
+    expect(state.tasks.find((task: any) => task.threadId === threadId)).toMatchObject({
+      modelSelection: { instanceId: "pi", model: backup }, busy: false,
+    });
+    evidence.push({ switched });
+  });
+}, 90_000);
+
 it("reports a failed pi turn once and never replays it on the configured backup", async () => {
-  // The turn is accepted, then fails as pi reports it. With Automatic recovery on and a second pi
-  // model configured, the failed turn still stands: pi produces no pre-prompt refusal to recover.
+  // The turn's prompt was accepted, then failed as pi reported it: past the prompt
+  // the attempt is the turn's own, so it is reported and never replayed, backup or not.
   await withRecoveryFixture({ FAKE_PI_MODE: "turn-error" }, async ({ api, control, model, backup, turns, modelsSet }) => {
     const allowed = { enabled: true, backup: { instanceId: "pi", model: backup } };
     await api("PUT", "/api/config", { automaticRecovery: allowed });

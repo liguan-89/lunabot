@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ensureDirs, NATIVE_DIR } from "../config.ts";
-import type { ProviderInstance, RuntimeEvent } from "../contracts.ts";
+import { TurnNotStartedError, type ProviderInstance, type RuntimeEvent } from "../contracts.ts";
 import { recordEvents, type EventRecorder } from "../testing/events.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { encodeInjectId, localHost } from "./local-inject.ts";
@@ -375,6 +375,45 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(rows.find((row) => row.argv?.includes("-e"))?.mcpConfig?.toolScope).toEqual({ allow: [] });
     expect(rows.some((row) => row.prompt !== undefined)).toBe(false);
   });
+
+  it("rejects a startup-recovery turn whose child died before the prompt, and publishes nothing", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-exit-early-"));
+    const dump = join(dir, "dump.jsonl");
+    await create("exit-early", { FAKE_PI_DUMP: dump });
+    const pending = instance.adapter.sendTurn({
+      threadId: "t-exit-early", text: "hi", model: "ollama-cloud/glm-5.2", startupRecovery: true,
+    });
+    await expect(pending).rejects.toBeInstanceOf(TurnNotStartedError);
+    // Quiet: the harness's recovery owns the failure row, so the driver
+    // published neither a completion nor a runtime error of its own.
+    expect(recorder.events.some((e) => e.type === "turn.completed")).toBe(false);
+    expect(recorder.events.some((e) => e.type === "runtime.error")).toBe(false);
+    // And the prompt never reached the CLI the harness would replay onto.
+    expect(readFileSync(dump, "utf8").includes('"prompt"')).toBe(false);
+  });
+
+  it("still reports a pre-prompt exit as a failed turn when recovery is off", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-exit-early-no-recovery-"));
+    const dump = join(dir, "dump.jsonl");
+    await create("exit-early", { FAKE_PI_DUMP: dump });
+    const { turnId } = await instance.adapter.sendTurn({ threadId: "t-exit-plain", text: "hi", model: "ollama-cloud/glm-5.2" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(recorder.events.at(-1)).toMatchObject({ type: "turn.completed", ok: false, stopReason: "failed" });
+    expect(readFileSync(dump, "utf8").includes('"prompt"')).toBe(false);
+  });
+
+  it("never replays a prompt the preflight rejected, even under startup recovery", async () => {
+    await create("prompt-reject");
+    const { turnId } = await instance.adapter.sendTurn({
+      threadId: "t-prompt-reject", text: "hi", model: "ollama-cloud/glm-5.2", startupRecovery: true,
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    // The frame went out, so the refusal is the turn's own failure, not a
+    // start-up one: reported once, with no quiet window and no replay.
+    expect(recorder.events.at(-1)).toMatchObject({ type: "turn.completed", ok: false, stopReason: "failed" });
+    expect(recorder.events.some((e) => e.type === "runtime.error")).toBe(true);
+  });
+
   afterEach(async () => {
     recorder?.stop();
     await instance?.dispose();
