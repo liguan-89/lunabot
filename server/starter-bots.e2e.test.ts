@@ -9,11 +9,12 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cloudPairingSignature, cloudRequestSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piTurnsForThread } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
 const FORWARDED = { host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" };
-const CLAUDE = { instanceId: "claude", model: "claude-sonnet-5" };
+const PI = { instanceId: "pi", model: "ollama-cloud/glm-5.2" };
 const PACKAGE = JSON.parse(readFileSync(join(SERVER_DIR, "..", "shared", "package-fixtures", "full-team.v2.json"), "utf8"));
 const manifest = (name: string) => ({ format: "openmaus.team", version: 2, team: { name, members: [{ key: "helper", name: `${name} helper`, appearance: { color: "blue" } }] } });
 
@@ -21,7 +22,7 @@ class Cloud {
   home = mkdtempSync(join(tmpdir(), "omb-starter-bots-"));
   dataDir = join(this.home, ".openmausbot");
   gate = join(this.home, "finish");
-  dump = join(this.home, "claude.json");
+  dump = join(this.home, "pi-dump.jsonl");
   secret = randomBytes(32).toString("base64url");
   base = "";
   token = "";
@@ -39,22 +40,18 @@ class Cloud {
   }
   async start() {
     mkdirSync(this.dataDir, { recursive: true });
-    const claude = join(this.home, "held-claude.mjs");
-    writeFileSync(claude, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") {
-  process.env.FAKE_CLAUDE_MODE = "slow";
-  process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = ${JSON.stringify(this.gate)};
-  process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(this.dump)};
-}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
+    const pi = join(this.home, "held-pi.mjs");
+    writeFileSync(pi, `#!/usr/bin/env node
+process.env.FAKE_PI_MODE = "slow";
+process.env.FAKE_PI_SLOW_FINISH_GATE = ${JSON.stringify(this.gate)};
+process.env.FAKE_PI_DUMP = ${JSON.stringify(this.dump)};
+await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi-cli.ts")).href)});
 `, { mode: 0o755 });
     writeFileSync(join(this.dataDir, "config.json"), JSON.stringify({
       features: { smartSetupChoices: false },
       instances: {
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", displayName: "Claude", config: { cli: claude } },
+        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "qwen", "hermes"].map((id) => [id, { driver: "not-a-real-driver" }])),
+        pi: { driver: "piAgent", displayName: "pi", config: { cli: pi } },
       },
     }));
     this.port = await freePortBlock([0, 1]);
@@ -95,7 +92,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   }
   async bots() { return (await this.api("GET", "/api/bots?messages=0")).body.bots as any[]; }
   async config() { return (await this.api("GET", "/api/config")).body; }
-  create(name: string) { return this.api("POST", "/api/bots", { name, modelSelection: CLAUDE, useDefaults: false }); }
+  create(name: string) { return this.api("POST", "/api/bots", { name, modelSelection: PI, useDefaults: false }); }
   async fill(count: number, prefix = "Bot") {
     for (let i = 0; i < count; i++) {
       const made = await this.create(`${prefix} ${i + 1}`);
@@ -108,9 +105,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     expect(chief, "a new Cloud's DEX BOT is its Chief").toBeTruthy();
     const sent = await this.api("POST", `/api/bots/${chief.id}/messages`, { text: "Add a specialist." });
     expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-    await expect.poll(() => existsSync(this.dump), { timeout: 20_000 }).toBe(true);
-    const agents = JSON.parse(readFileSync(this.dump, "utf8")).mcpConfig.mcpServers.agents;
-    const env = agents.env.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents.env;
+    await expect.poll(() => piTurnsForThread(this.dump, chief.threadId).length, { timeout: 20_000 }).toBeGreaterThan(0);
+    const agents = piTurnsForThread(this.dump, chief.threadId).at(-1)?.launch?.mcpConfig?.mcpServers?.agents;
+    const env = agents?.env?.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents?.env ?? {};
     return { chief, token: env.OMB_COMMS_TOKEN as string };
   }
   async internal(path: string, token: string, body: unknown) {
@@ -200,7 +197,7 @@ describe("a Starter Cloud's bots, on a real server", () => {
     expect(tool.body.paused).toMatch(/^@Scout was created, and is paused: this Cloud's Starter plan keeps 5 bots awake/);
     expect(await paused()).toEqual([tool.body.id]);
     const setup = await cloud.internal("/api/internal/team-setup-requests", token, { plan: { reason: "Add a specialist", newTeams: [],
-      operations: [{ action: "create", key: "writer", fields: { name: "Writer", title: "Specialist", soul: "Work.", modelSelection: CLAUDE } }] } });
+      operations: [{ action: "create", key: "writer", fields: { name: "Writer", title: "Specialist", soul: "Work.", modelSelection: PI } }] } });
     expect(setup.status, JSON.stringify(setup.body)).not.toBe(409);
     expect(JSON.stringify(setup.body)).not.toContain("bot_limit");
   }, 120_000);

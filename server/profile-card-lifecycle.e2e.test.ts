@@ -1,9 +1,10 @@
-import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding, piTurnsForThread } from "./testing/pi-dump.ts";
 
 it("applies the bot's own alert and voice changes at once, refuses a stale Undo, and supersedes credential requests in an isolated conversation", async () => {
   const gates = mkdtempSync(join(tmpdir(), "omb-profile-cards-"));
@@ -30,11 +31,9 @@ it("applies the bot's own alert and voice changes at once, refuses a stale Undo,
     const bot = (await api("POST", "/api/bots", { name: "Profile fixture" }, 201)).bot;
     await control("send", "--bot", bot.id, "--task", bot.threadId, "--text", "Review my profile preferences.");
     let token = "";
-    await expect.poll(() => {
-      try { token = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN; }
-      catch { return false; }
-      return Boolean(token);
-    }, { timeout: 15_000 }).toBe(true);
+    const dumpPath = piDumpPath(fixture.info.dataDir);
+    await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(dumpPath, "Review my profile preferences.")) ?? ""),
+      { timeout: 15_000 }).toBe(true);
     const propose = (changes: unknown) => api("POST", "/api/internal/profile-requests", {
       fromBotId: bot.id, fromThreadId: bot.threadId, changes, reason: "Requested fixture preferences",
     }, 201, token);
@@ -48,12 +47,11 @@ it("applies the bot's own alert and voice changes at once, refuses a stale Undo,
     const undo = (requestId: string, expected = 200) => api("POST", `/api/threads/${bot.threadId}/undo`, { requestId }, expected);
     expect(await undo(applied.at(-1)!.requestId, 409)).toMatchObject({ code: "changed-since" });
     expect((await control("wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "20")).status).toBe("settled");
-    const previousPid = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).pid;
+    const turnsBefore = piTurnsForThread(dumpPath, bot.threadId).length;
     unlinkSync(gate);
     await control("send", "--bot", bot.id, "--task", bot.threadId, "--text", "Propose fresh preferences after the old cards expired.");
-    await expect.poll(() => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).pid,
-      { timeout: 15_000 }).not.toBe(previousPid);
-    token = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
+    await expect.poll(() => piTurnsForThread(dumpPath, bot.threadId).length, { timeout: 15_000 }).toBeGreaterThan(turnsBefore);
+    token = piAgentsToken(piTurnsForThread(dumpPath, bot.threadId).at(-1))!;
     const toggle = await propose({ notifications: false, speakReplies: true });
     const credential = (reason: string) => api("POST", "/api/internal/request-credential", {
       fromBotId: bot.id, fromThreadId: bot.threadId, credentialId: "openaiImageApiKey", reason,

@@ -151,6 +151,17 @@ pnpm vitest run server/main-thread.e2e.test.ts
   capability and a long peer ask answered without waking its engine.
 - `server/skill-commands.e2e.test.ts` — pi loads a turn folder's `.pi/skills`
   and its own config home's, and only a person's words call them.
+- `server/routine-results.e2e.test.ts` — every run reports into the bot's main
+  thread while a run parks on its native question card; the replaced CLI makes
+  only the parked run ask.
+- `server/profile-card-lifecycle.e2e.test.ts` — the bot's own alert and voice
+  changes, stale Undo, and superseding credential requests.
+- `server/starter-bots.e2e.test.ts` — a Starter Cloud's limits and a Chief's
+  create_bot/team setup past five bots.
+- `server/routine-unanswered-wait.e2e.test.ts` — an unanswered sign-in wait is
+  stopped and the next scheduled run starts.
+- `server/routine-model.e2e.test.ts` — each run opens on its own model, which
+  pi is told over its RPC (`piModelsSet`), and refuses an unknown effort.
 
 ## Not migrated yet
 
@@ -170,6 +181,13 @@ fixture that no longer exists: `server/key-rejected.e2e.test.ts` observes the
 `openaiCompat` instance's Ready state, which is now the custom provider behind
 pi and has no instance snapshot of its own, and `server/openai-boat.e2e.test.ts`
 drives turns on that retired engine instance.
+
+Two more recipes expose product gaps rather than fixture gaps:
+`server/automation-reports.e2e.test.ts` expects a tool's returned images and
+files in the run's transcript, which the pi driver does not surface (its
+`tool_execution_end` carries a text preview only), and
+`server/context-compaction.e2e.test.ts` asserts Claude Code's native
+`--autocompact` argv and a 1M-token window, neither of which pi has.
 
 ## Retired engine tests
 

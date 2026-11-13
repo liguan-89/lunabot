@@ -7,12 +7,11 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
-import { workerPort } from "./testing/worker-port.ts";
+import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
-const PORT = workerPort(18800, 10_000);
-const BASE = `http://127.0.0.1:${PORT}`;
+let BASE = "";
 const posixOnly = describe.skipIf(process.platform === "win32");
 
 posixOnly("bulk delete tasks e2e", () => {
@@ -47,6 +46,10 @@ posixOnly("bulk delete tasks e2e", () => {
   };
 
   beforeAll(async () => {
+    // Probing the OS for a free port, rather than a worker slot a running suite may already hold, keeps this
+    // suite's server up when files run side by side.
+    const PORT = await freePortBlock([0, 1]);
+    BASE = `http://127.0.0.1:${PORT}`;
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-bulk-delete-"));
     mkdirSync(join(home, ".openmausbot"), { recursive: true });

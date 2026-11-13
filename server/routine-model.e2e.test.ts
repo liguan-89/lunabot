@@ -1,6 +1,6 @@
-import { existsSync, readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piModelsSet, piTurnsForThread } from "./testing/pi-dump.ts";
 
 it("opens each run of a routine with its own model in the run's thread, and refuses a model it cannot check", async () => {
   const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
@@ -14,7 +14,7 @@ it("opens each run of a routine with its own model in the run's thread, and refu
   const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
   try {
     const { bot } = await cli("new-bot", "--name", "Routine model fixture");
-    const own = { instanceId: bot.modelSelection.instanceId, model: `${bot.modelSelection.model}-routine` };
+    const own = { instanceId: "pi", model: "openai/gpt-4o" };
     const created = await api("POST", "/api/routines", { name: "Inbox sweep", prompt: "Sweep the inbox", botId: bot.id,
       schedule: { type: "daily", time: "09:00", weekdays: [1] }, modelSelection: own });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
@@ -25,9 +25,10 @@ it("opens each run of a routine with its own model in the run's thread, and refu
     const threadId = (await api("GET", "/api/routines")).body.runs.find((item: any) => item.id === run.id).threadId;
     const task = (await api("GET", "/api/bots")).body.bots.find((each: any) => each.id === bot.id).tasks.find((item: any) => item.threadId === threadId);
     expect(task.modelSelection).toEqual(own);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 30_000 }).toBe(true);
-    const { argv } = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { argv: string[] };
-    expect(argv[argv.indexOf("--model") + 1]).toBe(own.model);
+    const dumpPath = piDumpPath(fixture.info.dataDir);
+    await expect.poll(() => piTurnsForThread(dumpPath, threadId).length, { timeout: 30_000 }).toBeGreaterThan(0);
+    // pi switches a turn's model over its RPC, so the dump records the model it was told to run.
+    expect(piModelsSet(dumpPath).at(-1)).toEqual({ provider: "openai", modelId: "gpt-4o" });
     const refused = await api("POST", "/api/routines", { name: "Inbox sweep", prompt: "Sweep the inbox", botId: bot.id,
       schedule: { type: "daily", time: "09:00", weekdays: [1] }, modelSelection: { instanceId: own.instanceId, model: own.model, effort: "galaxy" } });
     expect(refused).toMatchObject({ status: 400, body: { error: 'effort "galaxy" is not recognized' } });

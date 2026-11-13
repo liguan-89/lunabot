@@ -59,6 +59,22 @@ export function piTurns(path: string): PiTurn[] {
 export const piTurnHolding = (path: string, text: string): PiTurn | undefined =>
   piTurns(path).filter((turn) => turn.prompt.includes(text)).at(-1);
 
+/** The model each turn asked pi to switch to, in order. */
+export function piModelsSet(path: string): Array<{ provider: string; modelId: string }> {
+  if (!existsSync(path)) return [];
+  const applied: Array<{ provider: string; modelId: string }> = [];
+  for (const line of readFileSync(path, "utf8").split("\n")) {
+    if (!line.trim()) continue;
+    try {
+      const row = JSON.parse(line) as { setModel?: { provider?: unknown; modelId?: unknown } };
+      if (typeof row.setModel?.provider === "string" && typeof row.setModel.modelId === "string") {
+        applied.push({ provider: row.setModel.provider, modelId: row.setModel.modelId });
+      }
+    } catch {}
+  }
+  return applied;
+}
+
 /** The turns the fixture ran on one conversation, whichever bot's shell they launched. */
 export function piTurnsForThread(path: string, threadId: string): PiTurn[] {
   return piTurns(path).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);

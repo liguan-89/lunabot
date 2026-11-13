@@ -8,6 +8,7 @@ import { launchVerificationServer, runControlOmb, verificationServerEnvironment,
 import { ROUTINE_SUPERSEDED } from "./routine-execution.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
+import { piAgentsToken, piTurns } from "./testing/pi-dump.ts";
 
 let fixture: VerificationServer | undefined;
 let restarted: ChildProcess | undefined;
@@ -38,16 +39,14 @@ it("starts the next scheduled run of a routine whose sign-in nobody answered, an
   const wrapper = join(dataDir, "routine-gated.mjs");
   writeFileSync(wrapper, [
     "#!/usr/bin/env node",
-    'import { readFileSync } from "node:fs";',
     'import { join } from "node:path";',
-    'const at = process.argv.indexOf("--mcp-config");',
-    'const thread = at < 0 ? "probe" : JSON.parse(readFileSync(process.argv[at + 1], "utf8")).mcpServers?.agents?.env?.OMB_THREAD_ID ?? "probe";',
-    'process.env.FAKE_CLAUDE_MODE = thread === "probe" ? "happy" : "slow";',
-    `process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = join(${JSON.stringify(dataDir)}, thread + ".gate");`,
-    `process.env.FAKE_CLAUDE_DUMP = join(${JSON.stringify(dataDir)}, thread + ".json");`,
-    `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href)});`,
+    'const thread = process.env.OMB_THREAD_ID ?? "probe";',
+    'process.env.FAKE_PI_MODE = thread === "probe" ? "happy" : "slow";',
+    `process.env.FAKE_PI_SLOW_FINISH_GATE = join(${JSON.stringify(dataDir)}, thread + ".gate");`,
+    `process.env.FAKE_PI_DUMP = join(${JSON.stringify(dataDir)}, thread + ".jsonl");`,
+    `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-pi-cli.ts")).href)});`,
   ].join("\n"), { mode: 0o700 });
-  await api("PATCH", "/api/instances/claude", { cli: wrapper });
+  await api("PATCH", "/api/instances/pi", { cli: wrapper });
   await api("PATCH", "/api/config", { features: { browser: true } });
   await api("PATCH", `/api/bots/${bot.id}`, { computer: "browser" });
   const { routine } = await api("POST", "/api/routines", {
@@ -58,11 +57,10 @@ it("starts the next scheduled run of a routine whose sign-in nobody answered, an
   const { run: first } = await api("POST", `/api/routines/${routine.id}/run`);
   await expect.poll(async () => (await runs()).find((run) => run.id === first.id)?.status, { timeout: 15_000 }).toBe("running");
   const threadId = (await runs()).find((run) => run.id === first.id).threadId as string;
-  let launch: any;
-  await expect.poll(() => {
-    try { launch = JSON.parse(readFileSync(join(dataDir, `${threadId}.json`), "utf8")); return true; } catch { return false; }
-  }, { timeout: 15_000 }).toBe(true);
-  const asked = await raw("POST", "/api/internal/request-sign-in", { site: "example.com" }, launch.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN);
+  let token = "";
+  const launchFile = join(dataDir, `${threadId}.jsonl`);
+  await expect.poll(() => Boolean(token = piAgentsToken(piTurns(launchFile).at(-1)) ?? ""), { timeout: 15_000 }).toBe(true);
+  const asked = await raw("POST", "/api/internal/request-sign-in", { site: "example.com" }, token);
   expect(asked.status, JSON.stringify(asked.body)).toBe(201);
   writeFileSync(join(dataDir, `${threadId}.gate`), "finish");
   await expect.poll(async () => (await runs()).find((run) => run.id === first.id)?.status, { timeout: 15_000 }).toBe("waiting");
