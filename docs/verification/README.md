@@ -1,5 +1,11 @@
 # Verifying OpenMausBot
 
+> Engine teardown: this build runs pi as its only agent. The end-to-end fixtures
+> below still drive the retired Claude/Codex test CLIs, so `pnpm test:e2e` is
+> expected to fail until they are ported to the fake pi CLI. `pnpm test` runs the
+> unit and renderer suites only; `pnpm dev` / the desktop smoke checks cover the
+> hand-driven paths.
+
 OpenMausBot has one development control surface: `pnpm control:omb`. It runs
 the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP
 tools in `scripts/mcp-server.ts`, so verification uses the same URL
