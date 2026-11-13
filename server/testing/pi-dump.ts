@@ -59,6 +59,11 @@ export function piTurns(path: string): PiTurn[] {
 export const piTurnHolding = (path: string, text: string): PiTurn | undefined =>
   piTurns(path).filter((turn) => turn.prompt.includes(text)).at(-1);
 
+/** The turns the fixture ran on one conversation, whichever bot's shell they launched. */
+export function piTurnsForThread(path: string, threadId: string): PiTurn[] {
+  return piTurns(path).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);
+}
+
 /** The agents server's token the turn's MCP config carries, for a recipe that calls the harness's internal routes. */
 export const piAgentsToken = (turn: PiTurn | undefined): string | undefined =>
   turn?.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_COMMS_TOKEN;

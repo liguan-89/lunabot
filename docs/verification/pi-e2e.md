@@ -16,13 +16,12 @@ pnpm vitest run server/main-thread.e2e.test.ts
 
 ## What the fixture covers
 
+- Every `launchVerificationServer` fixture ships one agent, the fake pi, and the startup
+  migration keeps only that instance. `OMB_TEST_FIXTURE_ENGINE=pi` is still accepted
+  and changes nothing.
 - `launchRestartableServer({ engine: "pi" })` starts a disposable home with one
   `pi` instance whose CLI is the fake, prints its URL, and can stop and restart
   it on the same data.
-- `launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" })`
-  adds a pi instance to the control-omb fixture and the startup migration keeps
-  only that instance. With `{ scripted: true }` the pi instance receives
-  `FAKE_PI_ROOM_PLAN`, the same `room-plan.json` the retired Claude fixture used.
 - A scripted pi turn mounts its MCP servers through the **real**
   `pi-mcp-extension.ts`, then runs the plan's `steps` through those mounted
   tools (`start_thread`, `coordinate_bots`, `request_sign_in`, and so on). Tests
@@ -38,9 +37,20 @@ pnpm vitest run server/main-thread.e2e.test.ts
 - `FAKE_PI_HOLD_ON`, `FAKE_PI_STALL_ON` and `FAKE_PI_DELAY_ON` /
   `FAKE_PI_DELAY_MS` script held, half-spoken and delayed turns for Stop and
   queue recipes. `FAKE_PI_STEER_REFUSE=1` forces the queued path.
-- The fake still accepts the older `FAKE_CLAUDE_REPLIES`,
-  `FAKE_CLAUDE_TOOL_CALLS` and `FAKE_CLAUDE_MODE=hang|exit-early` knobs through
-  `FAKE_PI_CLAUDE_COMPAT=1`. These emit pi RPC events, not Claude stream-json.
+- The fake still accepts the older `FAKE_CLAUDE_*` names while
+  `FAKE_PI_CLAUDE_COMPAT=1` (the launcher sets it whenever a recipe passes one):
+  `MODE=happy|slow|hang`, `REPLIES`, `REPLY_FILE`, `REPLY_STATE`,
+  `MARKER_REPLIES`, `TOOL_CALLS`, `TOOL_CALLS_FILE`, `SLOW_FINISH_GATE`,
+  `RELEASE`, `PROMPTS`, `STEER_RECEIVED` and `EXIT_AFTER_TURN`. A scripted
+  `{ server, name, input }` call runs through the tool the turn mounted, so a
+  recipe can make a bot really call `report_bug` or `mcp_server`.
+- `FAKE_PI_MOUNT_TOOLS=1` makes the fake mount its MCP servers at boot, which
+  a scripted server call needs: the driver deletes the config once the real
+  extension has mounted it.
+- The driver writes the launch it gave the child (argv, MCP config, pid) and
+  each prompt into `fake-pi-dump.jsonl`; `server/testing/pi-dump.ts` reads that
+  file back as launches, turns, the instructions in effect and the agents
+  token, replacing the retired per-turn Claude dump.
 
 ## Migrated recipes
 
@@ -103,19 +113,63 @@ pnpm vitest run server/main-thread.e2e.test.ts
   recovered at boot.
 - `server/room-missing-folder.e2e.test.ts` — a deleted room folder is named in
   the failure, not the bot's own settings.
-- `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
-  launch dumps or the retired `openaiCompat` engine.
-- `server/room-context.e2e.test.ts` — not yet: pi reports no context-window
-  measurement of its own, so the room's context chips have nothing to read.
+- `server/loop-guard.e2e.test.ts` — the repeated-failure note reaches the turn,
+  and the stop count ends it on its own failed row. pi cancels cleanly, so the
+  provider event says the turn ended while the transcript keeps the guard's row.
+- `server/bulk-delete-tasks.e2e.test.ts` — running tasks are refused, the rest
+  deleted, with a slow turn held open.
+- `server/chief-level-every-hop.e2e.test.ts` and
+  `server/chief-level-delegation.e2e.test.ts` — a Chief's level rides every hop,
+  in threads and rooms; plan evidence reports the level the driver booted at.
+- `server/teammate-follow-ups.e2e.test.ts` — a correction steered into a running
+  teammate's turn, whose one result carries it.
+- `server/verification-fixture.e2e.test.ts`, `server/request-auth.e2e.test.ts`,
+  `server/new-bot-defaults.e2e.test.ts`, `server/mascot-face-color.e2e.test.ts`,
+  `server/notification-read.e2e.test.ts`, `server/no-omb-cards.e2e.test.ts`,
+  `server/live-config-auth.e2e.test.ts`, `server/group-thread-usage.e2e.test.ts`,
+  `server/delete-bot-memory.e2e.test.ts`,
+  `server/bot-deletion-write-failure.e2e.test.ts`,
+  `server/skills-library-config.e2e.test.ts`, `server/team-share.e2e.test.ts`,
+  `server/presets.e2e.test.ts`, `server/org-library.e2e.test.ts`,
+  `server/saved-login.e2e.test.ts`, `server/app-events.ui.e2e.test.ts` — fixture
+  visibility, pairing, defaults, routes and config through the real server.
+- `server/mcp-cards.e2e.test.ts`, `server/mcp-own-servers.e2e.test.ts`,
+  `server/mcp-restart.e2e.test.ts` — parked MCP cards, a bot's own server kept in
+  its folder, and a restart that replaces the warm process.
+- `server/chat-apps.e2e.test.ts`, `server/chat-apps-mcp.e2e.test.ts`,
+  `server/chat-widgets.e2e.test.ts` — pages, MCP apps and widgets, and the
+  prompt the engine was handed.
+- `server/create-bot-model.e2e.test.ts` and `server/bot-setup.e2e.test.ts` —
+  model selection on creation, and setup/standing instructions as the model
+  actually receives them.
+- `server/devs-reports.e2e.test.ts` — a report the bot sends through the agents
+  `report_bug` tool, and the server's own facts when it never calls it.
+- `server/engine-limits.e2e.test.ts` — a turn reads its engine's usage through
+  its own capability; pi reports none of its own.
+- `server/external-runtime.e2e.test.ts` and
+  `server/external-runtime-timeout.e2e.test.ts` — the standing external
+  capability and a long peer ask answered without waking its engine.
+- `server/skill-commands.e2e.test.ts` — pi loads a turn folder's `.pi/skills`
+  and its own config home's, and only a person's words call them.
 
 ## Not migrated yet
 
 The remaining `*.e2e.test.ts` recipes still assume the fake Claude CLI's dump
-file, scripted room plans, one-shot text mode and Claude-specific argv. Most can
-now move by setting `OMB_TEST_FIXTURE_ENGINE: "pi"` (plus `room: { scripted: true }`
-where they use a plan) and replacing dump assertions with the evidence file or
-pi's `session.started` / transcript events. Until then `pnpm test:e2e` (the old
-suite) is expected to fail.
+file, Claude-specific argv (`--permission-mode`, `--restricted`, `--model`) or
+the retired `openaiCompat` / ACP engine instances. Most can now move by reading
+`fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
+assertions with the launch, turn and transcript events. `server/direct-
+coordination.e2e.test.ts` observes Claude argv and launch dumps;
+`server/room-context.e2e.test.ts` needs a context-window measurement pi does not
+report; `server/parallel-threads.e2e.test.ts` is a per-engine matrix of engines
+this build no longer has. Until then `pnpm test:e2e` (the old suite) is expected
+to fail.
+
+Two engine-specific recipes were left alone rather than rewritten around a
+fixture that no longer exists: `server/key-rejected.e2e.test.ts` observes the
+`openaiCompat` instance's Ready state, which is now the custom provider behind
+pi and has no instance snapshot of its own, and `server/openai-boat.e2e.test.ts`
+drives turns on that retired engine instance.
 
 ## Retired engine tests
 

@@ -13,7 +13,10 @@ import type { BusyFlag, ConfigStatus } from "./config.ts";
 import { PASS, type RouteHandler } from "./table.ts";
 
 export interface InstanceRouteDeps {
-  store: Pick<{ bots: readonly { id: string; modelSelection: ModelSelection; fallback?: Array<{ instanceId: string }> }[] }, "bots">;
+  store: Pick<{
+    bots: readonly { id: string; modelSelection: ModelSelection; fallback?: Array<{ instanceId: string }>; busy?: boolean }[];
+    tasks?(botId: string): readonly { threadId: string; modelSelection?: ModelSelection }[];
+  }, "bots"> & { tasks?(botId: string): readonly { threadId: string; modelSelection?: ModelSelection }[] };
   cfg: AppConfig;
   registry: Pick<ProviderRegistry, "get" | "refreshModels" | "installRuntime" | "cliTarget" | "forgetSnapshots" | "onWrongCli">;
   sessions?: unknown;
@@ -44,12 +47,26 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
     store, cfg, registry, providerConfigBusy, providerInstancesChanging,
     persistProviderInstance, configStatus, broadcast, testCliBinary,
   } = deps;
-  const inUse = (instanceId: string): boolean => cfg.defaultModelSelection?.instanceId === instanceId ||
-    store.bots.some((bot) => bot.modelSelection.instanceId === instanceId || bot.fallback?.some((candidate) => candidate.instanceId === instanceId));
+  const botTasks = (botId: string) => deps.store.tasks ? deps.store.tasks(botId) : [];
+  /** The selections of turns running right now: the only thing a CLI change has to wait for. */
+  const busySelections = (): ModelSelection[] => store.bots.flatMap((bot) => {
+    const busyTasks = botTasks(bot.id).filter((task) => deps.threadBusy?.(bot.id, task.threadId));
+    const selections = busyTasks.flatMap((task) => {
+      const at = deps.botForThread?.(bot.id, task.threadId)?.modelSelection;
+      return at ? [at] : [];
+    });
+    if (deps.activeGroupTurnForBot?.(bot.id) || (bot.busy && busyTasks.length === 0)) selections.push(bot.modelSelection);
+    return selections;
+  });
+  const busyOn = (instanceId: string): boolean => busySelections().some((selection) => selection.instanceId === instanceId);
+  /** Bots, their backups and threads, the new-bot default, or a turn on it: an account in use cannot go away or hide. */
+  const inUse = (instanceId: string): boolean => cfg.defaultModelSelection?.instanceId === instanceId || store.bots.some((bot) =>
+    bot.modelSelection.instanceId === instanceId || bot.fallback?.some((candidate) => candidate.instanceId === instanceId) ||
+    botTasks(bot.id).some((task) => task.modelSelection?.instanceId === instanceId)) || busyOn(instanceId);
   /** After the app installed its own copy of an engine whose CLI found a copy that does not start: point the engine at the
-   * app's copy, as Set CLI would. Not while provider settings are changing or a bot is using the engine. */
+   * app's copy, as Set CLI would. Not while provider settings are changing or a turn runs on the engine. */
   const useAppCopy = async (instanceId: string, cli: string): Promise<boolean> => {
-    if (providerConfigBusy.get() || inUse(instanceId)) return false;
+    if (providerConfigBusy.get() || busyOn(instanceId)) return false;
     providerConfigBusy.set(true);
     providerInstancesChanging.add(instanceId);
     try {
@@ -167,7 +184,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
       const body = parsed.data;
       const instanceId = instancePatch[1];
       if (providerConfigBusy.get()) return json(res, 409, { error: "provider settings are already being updated" });
-      if (inUse(instanceId)) {
+      if (busyOn(instanceId)) {
         return json(res, 409, { error: "Wait for bots using this account to finish before changing its settings." });
       }
       providerConfigBusy.set(true);

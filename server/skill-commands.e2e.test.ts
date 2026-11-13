@@ -1,6 +1,6 @@
 // A skill past the very start of a message runs only from words a person typed. Everything else reaches the engine through
 // the same turn, so this drives the real server and reads what the engine was handed.
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 const CALLED = /The user ran/;
 
@@ -25,32 +26,35 @@ it("calls a skill mid-message from what a person typed, never from a webhook, an
     expect(response.status, `${method} ${path}: ${JSON.stringify(result).slice(0, 400)}`).toBeLessThan(300);
     return result;
   };
-  const dump = (): any => { try { return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); } catch { return {}; } };
+  const dumpPath = piDumpPath(fixture.info.dataDir);
   const prompt = (): string => {
-    const content = dump().prompt?.message?.content;
-    return Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("\n") : String(content ?? "");
+    const last = piTurns(dumpPath).at(-1);
+    return last ? piTurnText(last) : "";
   };
   const reached = (marker: string) => expect.poll(prompt, { timeout: hostTimeout(30_000) }).toContain(marker);
   const quiet = () => expect.poll(async () => (await api("GET", "/api/bots?messages=0")).bots.some((bot: { busy?: boolean }) => bot.busy), { timeout: hostTimeout(30_000) }).toBe(false);
   let sends = 0;
   const sendId = () => `skill-e2e-send-${String(++sends).padStart(10, "0")}`;
   try {
-    for (const name of ["standup", "review"]) {
-      const home = join(fixture.info.dataDir, "task-workspaces", ".claude", "skills", name);
-      mkdirSync(home, { recursive: true });
-      writeFileSync(join(home, "SKILL.md"), `---\nname: ${name}\ndescription: Writes the ${name}.\n---\n\nSummarize {input}.\n`);
-    }
     const opened = await api("POST", "/api/auth/pairing", { label: "Ada's phone", scopes: ["client"] });
     const person: string = (await api("POST", "/api/auth/pair", { code: opened.code, label: "Ada's phone" })).token;
     const asker = (await api("POST", "/api/bots", { name: "Asker" })).bot;
     const scout = (await api("POST", "/api/bots", { name: "Scout" })).bot;
+    // pi loads a turn folder's `.pi/skills`, the way Claude Code loaded its `.claude/skills`.
+    for (const bot of [asker, scout]) {
+      for (const name of ["standup", "review"]) {
+        const home = join(fixture.info.dataDir, "task-workspaces", bot.id, bot.threadId, ".pi", "skills", name);
+        mkdirSync(home, { recursive: true });
+        writeFileSync(join(home, "SKILL.md"), `---\nname: ${name}\ndescription: Writes the ${name}.\n---\n\nSummarize {input}.\n`);
+      }
+    }
     const say = (text: string, token?: string, extra: Record<string, unknown> = {}) =>
       api("POST", `/api/bots/${scout.id}/messages`, { threadId: scout.threadId, sendId: sendId(), text, ...extra }, token);
 
     // Another bot's words, while its own turn holds a live capability.
     await api("POST", `/api/bots/${asker.id}/messages`, { threadId: asker.threadId, sendId: sendId(), text: "asker-start" });
     await reached("asker-start");
-    const comms: string = dump().mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
+    const comms: string = piAgentsToken(piTurnHolding(dumpPath, "asker-start"))!;
     const page = await api("POST", "/api/internal/options-card", { tool: "show_html", html: "<p>Pick a slot</p>", title: "Booking" }, comms);
     await api("POST", "/api/internal/coordinate-bots", { botIds: [scout.id], reply: "none", message: "/standup peer-marker please /standup now\n/standup again" }, comms);
     await reached("peer-marker");

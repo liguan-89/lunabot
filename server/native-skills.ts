@@ -25,6 +25,11 @@ function projectSkillFolders(cwd: string, home: string): string[] {
   return folders;
 }
 
+/** pi loads `.pi/skills` from the turn's own folder only, never a parent's. */
+function piProjectSkillFolders(cwd: string): string[] {
+  return [join(resolve(cwd), ".pi", "skills")];
+}
+
 /** A skill folder may be a link, as the engine follows it; SKILL.md itself must be a plain file of a skill's size. As in
  * Claude Code (2.1.304), the folder names the command, frontmatter is optional, and `user-invocable: false` keeps a
  * skill out of `/`. */
@@ -52,7 +57,9 @@ export function nativeSkills(
   engine: SkillTurnEngine,
   options: { claudeUserSkills: boolean; cwd: string | null; home?: string },
 ): NativeSkill[] {
-  const project = engine.driverKind === "claudeAgent" && options.cwd ? projectSkillFolders(options.cwd, options.home ?? homedir()) : [];
+  const project = engine.driverKind === "claudeAgent" && options.cwd
+    ? projectSkillFolders(options.cwd, options.home ?? homedir())
+    : engine.driverKind === "piAgent" && options.cwd ? piProjectSkillFolders(options.cwd) : [];
   const seen = new Set<string>();
   return [...nativeSkillFolders(engine, options), ...project].flatMap((root) => {
     let names: string[];

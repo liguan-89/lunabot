@@ -1,18 +1,16 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { splitLaunchNote } from "./testing/launch-note.ts";
+import { piDumpPath, piTurnText, piTurnsForThread } from "./testing/pi-dump.ts";
 
 it("reports every run into the bot's main thread while fresh executions, approvals, deletion and unread stay reachable", async () => {
   const fixture = await launchVerificationServer();
   const evidence: unknown[] = [{ fixture: fixture.info }];
-  let broker: Socket | undefined;
   const api = async (method: string, path: string, body?: unknown, status = 200) => {
     const response = await fetch(`${fixture.info.url}${path}`, {
       method, headers: { "content-type": "application/json", origin: fixture.info.url },
@@ -42,10 +40,11 @@ it("reports every run into the bot's main thread while fresh executions, approva
       await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("completed");
       const finished = await runState(run.id);
       completed.push(finished);
-      const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-      expect(dump.argv).not.toContain("--resume");
-      // Its recent-work instructions may name the last run; the message itself carries no earlier transcript.
-      expect(JSON.stringify(splitLaunchNote(dump.prompt).prompt)).not.toContain("hello from fake claude");
+      const turns = piTurnsForThread(piDumpPath(fixture.info.dataDir), finished.threadId);
+      // The run's turn is a fresh pi process, never a resumed session carrying the last run's reply.
+      expect(turns.length).toBeGreaterThan(0);
+      expect(turns.at(-1)!.launch?.argv).not.toContain("--resume");
+      expect(piTurnText(turns.at(-1)!)).not.toContain("Hello from pi");
       evidence.push(await control(["wait", "--bot", bot.id, "--task", finished.threadId]));
       evidence.push(await control(["messages", "--bot", bot.id, "--task", finished.threadId, "--limit", "10"]));
     }
@@ -56,7 +55,7 @@ it("reports every run into the bot's main thread while fresh executions, approva
     const reports = (await messages(destination)).filter((message) => message.automation);
     expect(reports).toHaveLength(2);
     for (const run of completed) expect(reports.find((message) => message.automation.runId === run.id)).toMatchObject({
-      role: "bot", kind: "text", text: "hello from fake claude",
+      role: "bot", kind: "text", text: "Hello from pi",
       automation: { name: "Persistent report", scheduledFor: run.scheduledFor, executionThreadId: run.threadId },
     });
     expect((await messages(destination)).some((message) => message.kind === "routine.run")).toBe(false);
@@ -95,32 +94,35 @@ it("reports every run into the bot's main thread while fresh executions, approva
     await api("PATCH", `/api/routines/${routine.id}`, { resultsThreadId: dedicated });
 
     const gate = join(fixture.info.dataDir, "results-finish");
+    const question = "Allow the routine's fixture run?";
+    // Only the run under test asks; the calls file is read again every turn, so removing it frees later runs.
+    const callsFile = join(fixture.info.dataDir, "results-ask.json");
+    writeFileSync(callsFile, JSON.stringify([{ server: "agents", name: "ask_user",
+      input: { questions: [{ question, options: [{ label: "Deny" }, { label: "Allow" }] }] } }]));
     const wrapper = join(fixture.info.dataDir, "results-slow.mjs");
     writeFileSync(wrapper, [
       "#!/usr/bin/env node",
-      'process.env.FAKE_CLAUDE_MODE = "slow";',
-      `process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = ${JSON.stringify(gate)};`,
-      `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href)});`,
+      'process.env.FAKE_PI_MODE = "slow";',
+      'process.env.FAKE_PI_MOUNT_TOOLS = "1";',
+      `process.env.FAKE_PI_SLOW_FINISH_GATE = ${JSON.stringify(gate)};`,
+      `process.env.FAKE_PI_TOOL_CALLS_FILE = ${JSON.stringify(callsFile)};`,
+      `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-pi-cli.ts")).href)});`,
     ].join("\n"), { mode: 0o700 });
-    await api("PATCH", "/api/instances/claude", { cli: wrapper });
+    // The account's settings change only while nothing on it runs.
+    await expect.poll(async () => (await api("GET", "/api/bots?messages=0")).bots.every((candidate: any) => !candidate.busy), { timeout: 30_000 }).toBe(true);
+    await api("PATCH", "/api/instances/pi", { cli: wrapper });
     const { run: pending } = await api("POST", `/api/routines/${routine.id}/run`, undefined, 201);
     await expect.poll(async () => (await runState(pending.id))?.status, { timeout: 15_000 }).toBe("running");
     const active = await runState(pending.id);
-    await expect.poll(() => {
-      if (!existsSync(fixture.fixtureDumpPath)) return false;
-      return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === active.threadId;
-    }, { timeout: 15_000 }).toBe(true);
-    const launched = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-    const socketPath = launched.mcpConfig.mcpServers.ogb.args.at(-1);
-    broker = connect(socketPath);
-    broker.on("error", () => {});
-    await new Promise<void>((resolve, reject) => { broker!.once("connect", resolve); broker!.once("error", reject); });
-    broker.write(JSON.stringify({ t: "ask", id: "results-approval", kind: "permission", tool: "Bash", input: { command: "echo fixture-approval" } }) + "\n");
+    // The turn mounted the agents server and asked through its native question card, so the run parks on it.
+    await expect.poll(() => piTurnsForThread(piDumpPath(fixture.info.dataDir), active.threadId).length, { timeout: 15_000 }).toBeGreaterThan(0);
+    let approval: any;
+    await expect.poll(async () => Boolean(approval = (await messages(active.threadId)).find((message) => message.card && !message.card.answered)?.card),
+      { timeout: 15_000 }).toBe(true);
+    expect(approval.subtitle ?? approval.tool).toBe(question);
     await expect.poll(async () => (await runState(pending.id))?.status, { timeout: 15_000 }).toBe("waiting");
-    const approval = (await messages(active.threadId)).find((message) => message.card && !message.card.answered);
-    expect(approval?.card.tool).toBe("Bash");
     await expect.poll(async () => (await messages(dedicated)).find((message) => message.automation?.runId === pending.id), { timeout: 15_000 })
-      .toMatchObject({ kind: "options", card: { tool: "Bash", requestId: approval.card.requestId }, automation: { needsYou: true, executionThreadId: active.threadId } });
+      .toMatchObject({ kind: "options", card: { requestId: approval.requestId }, automation: { needsYou: true, executionThreadId: active.threadId } });
     expect((await currentBot()).tasks.find((task: any) => task.threadId === active.threadId)).toMatchObject({ routineRunId: pending.id, unread: false });
 
     await api("DELETE", `/api/bots/${bot.id}/tasks/${dedicated}`);
@@ -128,9 +130,11 @@ it("reports every run into the bot's main thread while fresh executions, approva
     expect(fallback.routineRunId).toBeUndefined();
     expect(fallback.unread).toBe(true);
     expect((await runState(pending.id)).resultsThreadId).toBe(dedicated);
-    await api("POST", `/api/bots/${bot.id}/respond`, { threadId: active.threadId, requestId: approval.card.requestId, behavior: "deny" });
+    const answered = await api("POST", `/api/bots/${bot.id}/respond`, { threadId: active.threadId, requestId: approval.requestId, behavior: "answer", message: "Deny" });
+    expect(answered).toMatchObject({ ok: true, outcome: "answered" });
     writeFileSync(gate, "complete the isolated turn");
     await expect.poll(async () => (await runState(pending.id))?.status, { timeout: 15_000 }).toBe("completed");
+    rmSync(callsFile, { force: true });
     const { run: replacement } = await api("POST", `/api/routines/${routine.id}/run`, undefined, 201);
     expect(replacement.resultsThreadId).toBe(live);
     await expect.poll(async () => (await runState(replacement.id))?.status, { timeout: 15_000 }).toBe("completed");
@@ -140,7 +144,6 @@ it("reports every run into the bot's main thread while fresh executions, approva
     expect((await currentBot()).tasks.some((task: any) => task.title.endsWith("· Results") && task.threadId !== legacy.threadId)).toBe(false);
     evidence.push({ reports, final: await api("GET", "/api/routines"), bot: await currentBot(), fallback });
   } finally {
-    broker?.destroy();
     const evidencePath = `${fixture.info.logPath}.results.json`;
     writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
     console.info(JSON.stringify({ logPath: fixture.info.logPath, evidencePath }));

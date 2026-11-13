@@ -16,11 +16,12 @@ import { TASK_WORKSPACES_DIR } from "./workspace.ts";
 const HOME = join(DATA_DIR, "..");
 const USER_SKILLS = join(HOME, ".claude", "skills");
 const CODEX_SKILLS = join(HOME, ".codex", "skills");
+const PI_SKILLS = join(HOME, ".pi", "agent", "skills");
 const SHARED = join(TASK_WORKSPACES_DIR, ".claude", "skills");
 const PROJECTS = join(HOME, "projects");
 afterEach(() => {
   if (!DATA_DIR.startsWith(join(tmpdir(), "omb-test-home-"))) throw new Error(`refusing to clean ${DATA_DIR}: not this test's home`);
-  for (const dir of [TASK_WORKSPACES_DIR, USER_SKILLS, CODEX_SKILLS, PROJECTS, join(DATA_DIR, "skill-state")]) {
+  for (const dir of [TASK_WORKSPACES_DIR, USER_SKILLS, CODEX_SKILLS, join(HOME, ".pi"), PROJECTS, join(DATA_DIR, "skill-state")]) {
     rmSync(dir, { recursive: true, force: true });
   }
 });
@@ -142,6 +143,19 @@ describe("skills the engine loads by itself", () => {
     expect(host.listBotSkills(bot)).toEqual([]);
     expect(host.readBotSkillFile(bot, "linked")).toBeNull();
     expect(host.expandSkillCommand(bot, "main", "/linked go", undefined, [], true)).toBe("/linked go");
+  });
+
+  it("reach a pi bot's / menu and /name from its config home and the turn folder's .pi/skills", () => {
+    const { host, bot } = hostFor("piAgent");
+    const personal = plant(PI_SKILLS, "triage");
+    const project = plant(join(TASK_WORKSPACES_DIR, bot.id, bot.threadId, ".pi", "skills"), "release-notes");
+    plant(SHARED, "claude-only");
+
+    expect(listed(host.listBotSkills(bot))).toEqual(["triage:native", "release-notes:native"]);
+    expect(host.expandSkillCommand(bot, "main", "/release-notes draft", undefined, [], true)).toContain(`Read ${JSON.stringify(project)}`);
+    expect(host.expandSkillCommand(bot, "main", "/triage", undefined, [], true)).toContain(`Read ${JSON.stringify(personal)}`);
+    // A parent folder's .pi/skills is not pi's: it reads its own agent home and the turn folder's.
+    expect(host.expandSkillCommand(bot, "main", "/claude-only", undefined, [], true)).toBe("/claude-only");
   });
 
   it("include ~/.claude/skills only with \"Also use my Claude Code skills\", and no task folders for other engines", () => {

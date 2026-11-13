@@ -418,6 +418,15 @@ export function nativeSkillFolders(
     // A ChatGPT-plan instance signs in on a CODEX_HOME of its own, with the person's skills folder linked into it.
     return [join(absolute(env.CODEX_HOME) ?? join(home, ".codex"), "skills")];
   }
+  if (engine.driverKind === "piAgent") {
+    // pi reads the person's skills from its own config home: PI_CODING_AGENT_DIR/skills, else ~/.pi/agent/skills.
+    const folder = join(absolute(env.PI_CODING_AGENT_DIR) ?? join(home, ".pi", "agent"), "skills");
+    try {
+      return statSync(folder).isDirectory() ? [folder] : [];
+    } catch {
+      return [];
+    }
+  }
   return [];
 }
 
