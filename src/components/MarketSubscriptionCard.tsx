@@ -3,7 +3,7 @@ import { Check, CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import type { MarketBillingPeriod, MarketCheckout, MarketPlan, MarketSessionState, MarketSubscription } from "../../electron/market-client.mjs";
 import { activeLocale, t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
-import { formatUsd, MARKET_PERIODS, marketTiers, monthlyEquivalent, planFor, remainingPercent, sortSubscriptions, usableSubscription } from "@/lib/market-plans";
+import { formatUsd, MARKET_PERIODS, marketTiers, monthlyEquivalent, paymentMethodFor, planFor, remainingPercent, sortSubscriptions, usableSubscription } from "@/lib/market-plans";
 import { Card } from "./SettingsPrimitives";
 
 const STATUS_KEY = {
@@ -17,6 +17,11 @@ const PERIOD_KEY = {
   month: "market.period.month",
   quarter: "market.period.quarter",
   year: "market.period.year",
+} as const;
+
+const PAYMENT_KEY = {
+  epay: "market.payEpay",
+  balance: "market.payBalance",
 } as const;
 
 const PAYMENT_POLL_MS = 2_000;
@@ -126,10 +131,25 @@ export function MarketSubscriptionCard() {
 
   const subscribe = async (plan: MarketPlan) => {
     if (!bridge) return;
+    const paymentMethod = paymentMethodFor(plan);
+    if (!paymentMethod) {
+      setError(t("market.paymentUnavailable"));
+      return;
+    }
     setBusy(plan.plan_code);
     setError(null);
     try {
-      const opened = await bridge.checkout(plan.plan_code, "epay");
+      const opened = await bridge.checkout(plan.plan_code, paymentMethod);
+      if (opened.status === "active") {
+        setBusy(null);
+        await refreshSubscriptions();
+        return;
+      }
+      if (opened.status === "failed" || opened.status === "expired" || opened.status === "canceled") {
+        setBusy(null);
+        setError(t("market.checkoutFailed"));
+        return;
+      }
       setCheckout(opened);
       watchCheckout(opened);
     } catch (failure) {
@@ -217,6 +237,7 @@ export function MarketSubscriptionCard() {
               {tiers.map((tier) => {
                 const plan = planFor(tier, period);
                 if (!plan) return null;
+                const method = paymentMethodFor(plan);
                 return (
                   <div key={tier.tier_code} className="flex flex-col rounded-xl border-[0.5px] border-(--settings-edge) p-3">
                     <div className="flex items-center justify-between gap-2">
@@ -231,10 +252,11 @@ export function MarketSubscriptionCard() {
                       <span className="text-[12px] text-ink-secondary">{t("market.monthly", { amount: formatUsd(monthlyEquivalent(plan)) })}</span>
                     </div>
                     <div className="mt-1 text-[12px] text-ink-secondary">{t("market.usage", { amount: formatUsd(plan.quota_usd) })}</div>
+                    {method && <div className="mt-1 text-[11px] text-ink-secondary">{t("market.paymentMethod", { method: t(PAYMENT_KEY[method]) })}</div>}
                     <button
                       type="button"
                       className="ui-button ui-button-primary mt-3 w-full"
-                      disabled={busy !== null || checkout !== null}
+                      disabled={busy !== null || checkout !== null || !method}
                       onClick={() => void subscribe(plan)}
                     >
                       {busy === plan.plan_code && <Loader2 size={13} className="animate-spin" aria-hidden="true" />}

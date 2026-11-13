@@ -52,11 +52,19 @@ export function marketOrigin(value = MARKET_ORIGIN, fixture = false) {
   return value;
 }
 
+/** The API host is a separate origin from the web host in production. */
+export function marketApiOrigin(value = MARKET_API_ORIGIN, fixture = false) {
+  const url = new URL(value);
+  const loopback = url.protocol === "http:" && ["127.0.0.1", "[::1]"].includes(url.hostname);
+  if (value !== url.origin || (value !== MARKET_API_ORIGIN && !(fixture && loopback))) throw new Error("Invalid TK1688 API address.");
+  return value;
+}
+
 export function marketTarget(env = process.env) {
   const fixture = typeof env?.OMB_MARKET_FIXTURE === "string" ? env.OMB_MARKET_FIXTURE.trim() : "";
   if (!fixture) return { origin: MARKET_ORIGIN, apiOrigin: MARKET_API_ORIGIN, fixture: false };
   const apiFixture = typeof env?.OMB_MARKET_API_FIXTURE === "string" ? env.OMB_MARKET_API_FIXTURE.trim() : "";
-  return { origin: marketOrigin(fixture, true), apiOrigin: marketOrigin(apiFixture || fixture, true), fixture: true };
+  return { origin: marketOrigin(fixture, true), apiOrigin: marketApiOrigin(apiFixture || fixture, true), fixture: true };
 }
 
 export function createPkce() {
@@ -215,7 +223,7 @@ export function createMarketClient({
   waitMs = DEFAULT_WAIT_MS,
 }) {
   origin = marketOrigin(origin, fixture);
-  apiOrigin = marketOrigin(apiOrigin, fixture);
+  apiOrigin = marketApiOrigin(apiOrigin, fixture);
   const cleanCheckoutUrl = (value) => {
     if (typeof value !== "string" || value.length > 2048) return null;
     let url;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { MarketPlan, MarketSubscription } from "../../electron/market-client.mjs";
-import { formatUsd, marketTiers, monthlyEquivalent, planFor, remainingPercent, sortSubscriptions, usableSubscription } from "./market-plans";
+import { formatUsd, marketTiers, monthlyEquivalent, paymentMethodFor, planFor, remainingPercent, sortSubscriptions, usableSubscription } from "./market-plans";
 
 function plan(tier: string, period: MarketPlan["billing_period"], sort: number): MarketPlan {
   const months = period === "month" ? 1 : period === "quarter" ? 3 : 12;
@@ -40,6 +40,13 @@ describe("market plan cards", () => {
     expect(monthlyEquivalent(plan("t20", "year", 0))).toBe(16);
     expect(formatUsd(13.5)).toBe("$13.50");
     expect(formatUsd(48)).toBe("$48");
+  });
+
+  it("prefers online checkout and falls back to wallet balance", () => {
+    const both = plan("t20", "month", 0);
+    expect(paymentMethodFor(both)).toBe("epay");
+    expect(paymentMethodFor({ ...both, payment_methods: ["balance"] })).toBe("balance");
+    expect(paymentMethodFor({ ...both, payment_methods: [] })).toBeUndefined();
   });
 
   it("keeps quota percentages inside 0 to 100", () => {

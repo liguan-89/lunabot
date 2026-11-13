@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { createServer } from "node:http";
 import { test } from "node:test";
-import { createMarketClient, MarketError, MARKET_CLIENT_ID, MARKET_SCOPES } from "./market-client.mjs";
+import { createMarketClient, MarketError, MARKET_API_ORIGIN, MARKET_CLIENT_ID, MARKET_ORIGIN, MARKET_SCOPES, marketApiOrigin, marketOrigin } from "./market-client.mjs";
 
 const ACCESS_1 = "mkt_test_access_0000000000000001";
 const ACCESS_2 = "mkt_test_access_0000000000000002";
@@ -385,4 +385,12 @@ test("accepts an order that settled without a checkout page", async () => {
   } finally {
     await mock.close();
   }
+});
+
+test("builds the production client with the web and API hosts", () => {
+  assert.equal(marketOrigin(MARKET_ORIGIN), MARKET_ORIGIN);
+  assert.equal(marketApiOrigin(MARKET_API_ORIGIN), MARKET_API_ORIGIN);
+  assert.throws(() => marketApiOrigin("https://api.example.com"), /Invalid TK1688 API address/);
+  const client = createMarketClient({ store: { read: async () => null, write: async () => {} }, openBrowser: async () => {} });
+  assert.equal(typeof client.plans, "function");
 });

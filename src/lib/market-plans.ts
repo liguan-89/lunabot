@@ -1,4 +1,4 @@
-import type { MarketBillingPeriod, MarketPlan, MarketSubscription } from "../../electron/market-client.mjs";
+import type { MarketBillingPeriod, MarketPaymentMethod, MarketPlan, MarketSubscription } from "../../electron/market-client.mjs";
 
 export const MARKET_PERIODS: readonly MarketBillingPeriod[] = ["month", "quarter", "year"];
 
@@ -28,6 +28,11 @@ export function planFor(tier: MarketTier, period: MarketBillingPeriod): MarketPl
 
 export function monthlyEquivalent(plan: MarketPlan): number {
   return plan.months > 0 ? plan.price_usd / plan.months : plan.price_usd;
+}
+
+/** Prefer the hosted checkout (epay) when the plan offers it; otherwise fall back to wallet balance. */
+export function paymentMethodFor(plan: MarketPlan, preferred: MarketPaymentMethod = "epay"): MarketPaymentMethod | undefined {
+  return plan.payment_methods.includes(preferred) ? preferred : plan.payment_methods[0];
 }
 
 export function formatUsd(value: number): string {
