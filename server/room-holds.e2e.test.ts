@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,15 +11,19 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const HELD = (name: string) => `${name} is held (stopped by you) — @mention it or say resume`;
+// The re-ask's own line, so its marker wins over the first question's marker: the re-ask prompt replays the
+// conversation and contains both texts, and the first match in the file picks the reply.
+const REASK = "ended without a final message to the room";
 
 let child: ChildProcess;
 let home = "";
+// The server's runtime files (config, groups.json) live under .dexbot.
 let data = "";
 let base = "";
 let stderr = "";
-let slowGate = "";
+let model = "";
 
 type StateMessage = {
   id: string;
@@ -40,39 +44,41 @@ const api = async (method: string, path: string, body?: unknown): Promise<{ stat
   return { status: response.status, body: await response.json() };
 };
 
-const fixture = (displayName: string, environment: Record<string, string>) => ({
-  driver: "claudeAgent",
-  displayName,
-  environment,
-  config: { cli: FAKE_CLAUDE },
-});
-
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-room-holds-"));
-  data = join(home, ".openmausbot");
+  data = join(home, ".dexbot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Room holds test</title>");
   writeFileSync(join(staticDir, "assets", "smoke.css"), "body{}");
-  slowGate = join(home, "slow-finish");
+  // One pi instance serves every bot, so the per-bot flavors come from what each turn is told. The marker file keys
+  // a turn's reply on its prompt, the hold knob keeps Bee's long job open, and the delay knob makes a resume turn
+  // echo the prompt it was given (the words it missed included). First match wins, so the re-ask marker leads, and
+  // every plain reply is a marker too: Nora's narrated turn is the only one that may consume the scripted list.
+  writeFileSync(join(home, "marker-replies.json"), JSON.stringify({
+    [REASK]: "Result: the title is fixed.",
+    "Did the title get fixed?": "(pass)",
+    "Hello team": "Hello from pi",
+  }));
   writeFileSync(join(data, "config.json"), JSON.stringify({
     instances: {
-      // Holds its turn open until the gate file exists; its closing reply echoes the prompt it was given.
-      patient: fixture("Patient fixture", { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: slowGate }),
-      quick: fixture("Quick fixture", { FAKE_CLAUDE_MODE: "happy" }),
-      // a working note that names a teammate, then the actual answer
-      narrator: fixture("Narrating fixture", {
-        FAKE_CLAUDE_MODE: "happy",
-        FAKE_CLAUDE_REPLIES: JSON.stringify([["Let me check with @Ann later.", "All done here."]]),
-        FAKE_CLAUDE_REPLY_STATE: join(home, "narrator-replies.txt"),
-      }),
-      // a turn that ends on "(pass)", then the re-ask's answer
-      passer: fixture("Passing fixture", {
-        FAKE_CLAUDE_MODE: "happy",
-        FAKE_CLAUDE_REPLIES: JSON.stringify(["(pass)", "Result: the title is fixed."]),
-        FAKE_CLAUDE_REPLY_STATE: join(home, "passer-replies.txt"),
-      }),
+      pi: {
+        driver: "piAgent",
+        displayName: "Verification pi",
+        environment: {
+          FAKE_PI_CLAUDE_COMPAT: "1",
+          // The hold marker is the job message as the turn's LAST line: every later turn in this room replays it
+          // mid-history, and only the turn that was given the job ends on it.
+          FAKE_PI_HOLD_ON: `User: "@Bee start the long job"\n\n(Reply to the conversation above as Bee.)`,
+          FAKE_PI_DELAY_ON: "While you were held",
+          FAKE_PI_MARKER_REPLIES: join(home, "marker-replies.json"),
+          // a working note that names a teammate, then the actual answer: two assistant messages of one turn
+          FAKE_PI_REPLIES: JSON.stringify([["Let me check with @Ann later.", "All done here."]]),
+          FAKE_PI_REPLY_STATE: join(home, "narrator-replies.txt"),
+        },
+        config: { cli: FAKE_PI },
+      },
     },
   }));
   const port = await freePortBlock([0, 1]);
@@ -101,6 +107,21 @@ beforeAll(async () => {
     if (Date.now() >= deadline) throw new Error(`server never became healthy: ${stderr}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  // The fake pi reports the models every bot must select from.
+  const modelsDeadline = Date.now() + 15_000;
+  for (;;) {
+    try {
+      const state = await (await fetch(`${base}/api/instances`)).json() as { instances?: Array<{ instanceId: string; models?: { default?: string } }> };
+      const found = (state.instances ?? []).find((instance) => instance.instanceId === "pi");
+      if (found?.models?.default) {
+        model = found.models.default;
+        break;
+      }
+    } catch {
+    }
+    if (Date.now() >= modelsDeadline) throw new Error(`the pi instance never reported a default model: ${stderr}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 }, 30_000);
 
 afterAll(async () => {
@@ -108,10 +129,10 @@ afterAll(async () => {
   if (home) await removeTempDir(home);
 });
 
-const createBot = async (name: string, instanceId: string) =>
+const createBot = async (name: string) =>
   (await api("POST", "/api/bots", {
     name,
-    modelSelection: { instanceId, model: "claude-sonnet-5" },
+    modelSelection: { instanceId: "pi", model },
     requireAvailableModel: true,
   })).body.bot;
 
@@ -135,7 +156,6 @@ const chips = (messages: StateMessage[], name: string) =>
   messages.filter((message) => message.kind === "activity" && message.tool?.name === name);
 
 const cleanup = async (roomId: string | undefined, botIds: string[]) => {
-  writeFileSync(slowGate, "cleanup");
   if (roomId) await api("POST", `/api/groups/${roomId}/interrupt`, {}).catch(() => undefined);
   if (roomId) await api("DELETE", `/api/groups/${roomId}`).catch(() => undefined);
   for (const botId of botIds) await api("DELETE", `/api/bots/${botId}`).catch(() => undefined);
@@ -143,11 +163,10 @@ const cleanup = async (roomId: string | undefined, botIds: string[]) => {
 
 describe("stop @Bot holds one room member", { timeout: 60_000 }, () => {
   it("ends that member's turn, skips it on every route, saves the hold, and brings it back with what it missed", async () => {
-    const ann = await createBot("Ann", "quick");
-    const bee = await createBot("Bee", "patient");
+    const ann = await createBot("Ann");
+    const bee = await createBot("Bee");
     const room = await createRoom("Hold room", [ann.id, bee.id], { kind: "everyone" });
     try {
-      rmSync(slowGate, { force: true });
       await send(room.id, "@Bee start the long job");
       await expect.poll(async () => (await snapshot(room.id)).room?.busyBotId, { timeout: 15_000 }).toBe(bee.id);
 
@@ -175,7 +194,6 @@ describe("stop @Bot holds one room member", { timeout: 60_000 }, () => {
       expect(Object.keys(savedRoom.holds)).toEqual([bee.id]);
       expect(savedRoom.heldMessages[bee.id]).toHaveLength(1);
 
-      writeFileSync(slowGate, "finish");
       await send(room.id, "@Bee resume");
       await expect.poll(async () => {
         const { room: current, messages } = await snapshot(room.id);
@@ -194,8 +212,8 @@ describe("stop @Bot holds one room member", { timeout: 60_000 }, () => {
   });
 
   it("holds and releases one member from its own control", async () => {
-    const ann = await createBot("Ann", "quick");
-    const bee = await createBot("Bee", "quick");
+    const ann = await createBot("Ann");
+    const bee = await createBot("Bee");
     const room = await createRoom("Control room", [ann.id, bee.id], { kind: "member", botId: bee.id });
     try {
       const held = await api("POST", `/api/groups/${room.id}/holds`, { botId: bee.id, held: true });
@@ -221,8 +239,8 @@ describe("stop @Bot holds one room member", { timeout: 60_000 }, () => {
 
 describe("a member's room reply is its final message", { timeout: 60_000 }, () => {
   it("keeps working notes out of the reply: a teammate named in one is not summoned", async () => {
-    const nora = await createBot("Nora", "narrator");
-    const ann = await createBot("Ann", "quick");
+    const nora = await createBot("Nora");
+    const ann = await createBot("Ann");
     const room = await createRoom("Notes room", [nora.id, ann.id], { kind: "member", botId: nora.id });
     try {
       await send(room.id, "How is it going?");
@@ -243,8 +261,8 @@ describe("a member's room reply is its final message", { timeout: 60_000 }, () =
   });
 
   it("re-asks once for a short result when a turn ends without one", async () => {
-    const pat = await createBot("Pat", "passer");
-    const ann = await createBot("Ann", "quick");
+    const pat = await createBot("Pat");
+    const ann = await createBot("Ann");
     const room = await createRoom("Pass room", [pat.id, ann.id], { kind: "member", botId: pat.id });
     try {
       await send(room.id, "Did the title get fixed?");

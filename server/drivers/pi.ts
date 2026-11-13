@@ -499,9 +499,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       idleTimer: ReturnType<typeof setTimeout> | null;
     }
     const warmSessions = new Map<string, PiWarmSession>();
-    /** Server shutdown: turns end with the process, silently. A restart reconciles what was persisted as running, so
-     * settling them here would pass a cut turn off as finished and its work would never be rerun. */
-    let shuttingDown = false;
     const { idleMs: SESSION_IDLE_MS } = sessionIdlePolicy("PI");
 
     const closeWarmSession = (threadId: string, reason: string) => {
@@ -717,10 +714,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         const keep = keepChild && child.exitCode === null && child.signalCode === null;
         completion = (async () => {
           rejectWaiters(new Error("pi turn ended"));
-          active.delete(threadId);
           if (keep) {
             detachHandlers();
-            if (!shuttingDown) flushAssistantText();
+            flushAssistantText();
             const warm: PiWarmSession = {
               child,
               key: poolKey,
@@ -732,7 +728,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             warm.idleTimer = setTimeout(() => closeWarmSession(threadId, "idle"), SESSION_IDLE_MS);
             warm.idleTimer.unref?.();
             warmSessions.set(threadId, warm);
-            if (!shuttingDown) emit({
+            active.delete(threadId);
+            emit({
               ...base(threadId, turnId),
               type: "turn.completed",
               ...outcome,
@@ -749,7 +746,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               rmSync(mcpTempDir, { recursive: true, force: true });
             } catch {}
           }
-          if (shuttingDown) return;
+          // Ownership outlasts the stop: this thread has no turn again until its CLI is gone, so a stop that cannot be
+          // confirmed leaves it owned (and the next start reconciles it).
+          active.delete(threadId);
           flushAssistantText();
           emit({
             ...base(threadId, turnId),
@@ -759,7 +758,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         })();
         void completion.catch((error: Error) => {
           completion = null;
-          if (shuttingDown) return;
           emit({ ...base(threadId, turnId), type: "runtime.error", message: error.message });
         });
         return completion;
@@ -827,7 +825,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           case "message_update": {
             const e = evt.assistantMessageEvent;
             if (!e) return;
-            if (e.type === "text_delta" && typeof e.delta === "string") {
+            // A turn can say a working note and later its answer as separate assistant messages: a new text block
+            // ends the one before it, as a tool call does.
+            if (e.type === "text_start") {
+              flushAssistantText();
+            } else if (e.type === "text_delta" && typeof e.delta === "string") {
               assistantText += e.delta;
               emit({ ...base(threadId, turnId), type: "content.delta", streamKind: "assistant_text", delta: e.delta });
             } else if (e.type === "thinking_delta" && typeof e.delta === "string") {
@@ -1239,7 +1241,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       },
       dispose: async () => {
         try {
-          shuttingDown = true;
           await stopAll();
         } finally {
           listeners.clear();

@@ -1,9 +1,10 @@
-import { readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
+import { piAgentsToken, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const SETTLED = "Your downstream room requests have settled.";
 const REPORT_FROM_PEER = "[From @Routine peer (bot) · report on assignment";
@@ -30,17 +31,17 @@ describe("routine delegation through the isolated harness", () => {
   const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
   const file = (threadId: string, extension: string) => join(fixture.info.dataDir, `${threadId}.${extension}`);
   const finish = (threadId: string) => writeFileSync(file(threadId, "gate"), "finish isolated turn");
-  const dump = async (threadId: string) => {
-    let parsed: any;
-    await expect.poll(() => {
-      try {
-        parsed = JSON.parse(readFileSync(file(threadId, "json"), "utf8"));
-        return true;
-      } catch {
-        return false;
-      }
-    }, { timeout: 15_000 }).toBe(true);
-    return parsed;
+  // The fake pi appends its launches and prompts to a per-thread JSONL log (the wrapper points FAKE_PI_DUMP here),
+  // so a turn whose prompt has arrived is a turn under way, where the retired fixture waited for a dump file.
+  const turns = (threadId: string) => piTurns(file(threadId, "jsonl"));
+  const dump = async (threadId: string, atLeast = 1) => {
+    await expect.poll(() => turns(threadId).length, { timeout: 15_000 }).toBeGreaterThanOrEqual(atLeast);
+    return turns(threadId);
+  };
+  /** The instructions in effect on the thread's `index`th turn (default: the newest). */
+  const instructions = (threadId: string, index?: number) => {
+    const threadTurns = turns(threadId);
+    return piInstructionsFor(threadTurns, index ?? threadTurns.length - 1);
   };
   const runState = async (id: string) => (await api("GET", "/api/routines")).runs.find((run: any) => run.id === id);
   const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
@@ -51,7 +52,7 @@ describe("routine delegation through the isolated harness", () => {
     await expect.poll(() => Boolean(peerWork(threadId)), { timeout: 15_000 }).toBe(true);
     return peerWork(threadId)!;
   };
-  const token = async (threadId: string) => (await dump(threadId)).mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN as string;
+  const token = async (threadId: string) => piAgentsToken((await dump(threadId)).at(-1)) as string;
   const start = async () => {
     const { routine } = await api("POST", "/api/routines", {
       name: "Delegated report", prompt: "Ask the peer for evidence, then report its result.", botId: source.id,
@@ -75,20 +76,28 @@ describe("routine delegation through the isolated harness", () => {
     evidence = [{ fixture: fixture.info }];
     source = (await control(["new-bot", "--name", "Routine owner"]) as any).bot;
     peer = (await control(["new-bot", "--name", "Routine peer"]) as any).bot;
+    // The resumed routine turn answers with this reply once the peer's report reaches its prompt (the fake pi's
+    // whole-prompt echo would push the settled line past the run output's recorded first 2 000 characters).
+    writeFileSync(join(fixture.info.dataDir, "marker-replies.json"), JSON.stringify({
+      [REPORT_FROM_PEER]: `${SETTLED} ${REPORT_FROM_PEER}] The peer's fixture report is recorded and the run is complete.`,
+    }));
     const wrapper = join(fixture.info.dataDir, "routine-gated.mjs");
     writeFileSync(wrapper, [
       "#!/usr/bin/env node",
-      'import { readFileSync } from "node:fs";',
       'import { join } from "node:path";',
-      'const at = process.argv.indexOf("--mcp-config");',
-      'const thread = at < 0 ? "probe" : JSON.parse(readFileSync(process.argv[at + 1], "utf8")).mcpServers?.agents?.env?.OMB_THREAD_ID ?? "probe";',
-      // Every bot turn carries the agents server, so each is gated on its own thread's gate file.
-      'process.env.FAKE_CLAUDE_MODE = thread === "probe" ? "happy" : "slow";',
-      `process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".gate");`,
-      `process.env.FAKE_CLAUDE_DUMP = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".json");`,
-      `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href)});`,
+      // The driver hands every pi child its thread id in the env, so each bot turn hangs on its own thread's gate
+      // file (model probes, which have no thread, run happy). pi keeps one warm process per thread: the gate path and
+      // the agents token are fixed at its first launch and stay the thread's for later turns. The marker replies are
+      // what let a resumed routine turn answer with its report instead of the whole-prompt echo.
+      'process.env.FAKE_PI_CLAUDE_COMPAT = "1";',
+      'const thread = process.env.OMB_THREAD_ID ?? "probe";',
+      'process.env.FAKE_PI_MODE = thread === "probe" ? "happy" : "hang";',
+      `process.env.FAKE_PI_RELEASE = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".gate");`,
+      `process.env.FAKE_PI_MARKER_REPLIES = join(${JSON.stringify(fixture.info.dataDir)}, "marker-replies.json");`,
+      `process.env.FAKE_PI_DUMP = join(${JSON.stringify(fixture.info.dataDir)}, thread + ".jsonl");`,
+      `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-pi-cli.ts")).href)});`,
     ].join("\n"), { mode: 0o700 });
-    await api("PATCH", "/api/instances/claude", { cli: wrapper });
+    await api("PATCH", "/api/instances/pi", { cli: wrapper });
   }, 30_000);
   afterEach(async () => {
     if (!fixture) return;
@@ -103,11 +112,14 @@ describe("routine delegation through the isolated harness", () => {
     await oneSlotPerBot();
     const peerThread = (await botState(peer.id)).threadId;
     await control(["send", "--bot", peer.id, "--text", "An existing task occupies the peer."]);
-    expect((await dump(peerThread)).systemPrompt).not.toContain("Execute this routine now:");
+    await dump(peerThread);
+    expect(instructions(peerThread, 0)).not.toContain("Execute this routine now:");
     const run = await start();
-    expect((await dump(run.threadId)).systemPrompt).toContain("Execute this routine now:");
-    expect((await dump(run.threadId)).systemPrompt).toContain("use coordinate_bots for required handoffs");
-    expect((await dump(run.threadId)).systemPrompt).toContain("after an accepted hand-off, end this turn for automatic resumption");
+    await dump(run.threadId);
+    const kickoff = instructions(run.threadId, 0);
+    expect(kickoff).toContain("Execute this routine now:");
+    expect(kickoff).toContain("use coordinate_bots for required handoffs");
+    expect(kickoff).toContain("after an accepted hand-off, end this turn for automatic resumption");
     const { receipts } = await delegate(run.threadId);
     finish(run.threadId);
     await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("waiting");
@@ -127,7 +139,9 @@ describe("routine delegation through the isolated harness", () => {
     const finished = await runState(run.id);
     expect(finished.output).toContain(SETTLED);
     expect(finished.output).toContain(REPORT_FROM_PEER);
-    expect((await dump(run.threadId)).systemPrompt).toContain("Execute this routine now:");
+    // The resumed routine turn still runs under the routine's instructions.
+    await dump(run.threadId, 2);
+    expect(instructions(run.threadId)).toContain("Execute this routine now:");
     expect(peerWork(run.threadId)).toMatchObject({ status: "completed" });
     expect(rows().find((node) => node.id === work.parentId)?.status).toBe("completed");
     evidence.push({ waitedForBusyPeer: true, resumedRoutine: run.id, threadId: run.threadId, transcript });
@@ -182,9 +196,11 @@ describe("routine delegation through the isolated harness", () => {
     await expect.poll(async () => (await runState(run.id))?.status, { timeout: 15_000 }).toBe("completed");
     const finished = await runState(run.id);
     await expect.poll(async () => (await botState(source.id)).tasks.find((task: any) => task.threadId === run.threadId)?.busy).toBe(false);
+    // Retire the finished turn's gate, so the thread's warm pi holds the new request until this test finishes it.
     unlinkSync(file(run.threadId, "gate"));
-    unlinkSync(file(run.threadId, "json"));
     await api("POST", `/api/bots/${source.id}/messages`, { threadId: run.threadId, text: "A new request: ask the peer for a fresh report." });
+    // The coordinate call rides the thread's turn capability, so it waits until that new turn is under way.
+    await dump(run.threadId, 2);
     const coordinated = await api("POST", "/api/internal/coordinate-bots", {
       botIds: [peer.id], message: "Produce a fresh fixture report.",
     }, await token(run.threadId));
@@ -212,8 +228,9 @@ describe("routine delegation through the isolated harness", () => {
     const { receipts } = await delegate(run.threadId);
     const work = await awaitPeerWork(run.threadId);
     expect(work).toMatchObject({ id: receipts[0].requestId, status: "queued" });
-    // A workspace Anthropic key reaches the fixture's Claude engine, so the save rebuilds it without a credential probe.
-    await api("PUT", "/api/config", { anthropic: { key: "fixture-anthropic-key" } });
+    // A workspace provider key reaches the fixture's pi engine (its custom provider rides the instance's injected
+    // env), so the save rebuilds it without a credential probe and interrupts the turn it was running.
+    await api("PUT", "/api/config", { openaiCompat: { key: "fixture-pi-key" } });
     await expect.poll(async () => (await runState(run.id))?.status).toBe("failed");
     const failed = await runState(run.id);
     const health = (await api("GET", "/api/routines")).routines.find((routine: any) => routine.id === run.routineId);
@@ -247,9 +264,8 @@ describe("routine delegation through the isolated harness", () => {
     await expect.poll(() => peerWork(run.threadId)?.status, { timeout: 10_000 }).toBe("cancelled");
     await expect.poll(async () => Boolean((await botState(peer.id)).busy), { timeout: 15_000 }).toBe(false);
     unlinkSync(file(run.threadId, "gate"));
-    unlinkSync(file(run.threadId, "json"));
     await api("POST", `/api/bots/${source.id}/messages`, { threadId: run.threadId, text: "A new independent request after cancellation." });
-    await dump(run.threadId);
+    await dump(run.threadId, 2);
     // Past the moment the peer would have answered, during the later user work.
     finish(work.threadId);
     finish(run.threadId);

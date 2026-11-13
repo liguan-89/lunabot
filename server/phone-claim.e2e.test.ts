@@ -1,9 +1,10 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { piTurnsForThread, type PiTurn } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
@@ -31,26 +32,26 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
     await new Promise(r => setTimeout(r, 40));
   }
 }
-// The fake CLI writes its dump in one go; a poll can land mid-write, so a partial file is "not yet".
-const dump = () => until(() => {
-  if (!existsSync(dumpFile)) return null;
-  try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
-}, Boolean);
+// The fake pi's launch log keeps one launch line per process and one prompt line per turn. A turn reusing its
+// thread's warm process runs on that recorded launch (the driver only reuses an unchanged contract), so a turn's
+// own entry always carries the mounts it ran with. Turns are picked per thread: other bots' turns stay out.
+const turnFor = (threadId: string, before: number): Promise<PiTurn> =>
+  until(() => piTurnsForThread(dumpFile, threadId)[before], Boolean);
 const idle = (botId: string) => until(() => api("GET", "/api/bots?messages=0"), s => !s.bots.find((b: any) => b.id === botId)?.busy);
 const busy = (botId: string) => until(() => api("GET", "/api/bots?messages=0"), s => s.bots.find((b: any) => b.id === botId)?.busy === true);
-const phoneSpec = (d: any) => {
-  expect(d.mcpConfig?.mcpServers?.phone, "phone tools should be mounted").toBeTruthy();
-  return d.mcpConfig.mcpServers.phone;
+const phoneSpec = (turn: PiTurn): any => {
+  expect(turn.launch?.mcpConfig?.mcpServers?.phone, "phone tools should be mounted").toBeTruthy();
+  return turn.launch!.mcpConfig!.mcpServers!.phone;
 };
-const holdDirectTurn = async (botId: string, text: string) => {
-  rmSync(dumpFile, { force: true });
-  await api("POST", `/api/bots/${botId}/messages`, { text });
-  return phoneSpec(await dump());
+const holdDirectTurn = async (bot: { id: string; threadId: string }, text: string) => {
+  const before = piTurnsForThread(dumpFile, bot.threadId).length;
+  await api("POST", `/api/bots/${bot.id}/messages`, { text });
+  return phoneSpec(await turnFor(bot.threadId, before));
 };
-const holdRoomTurn = async (groupId: string, text: string) => {
-  rmSync(dumpFile, { force: true });
-  await api("POST", `/api/groups/${groupId}/messages`, { text });
-  return phoneSpec(await dump());
+const holdRoomTurn = async (group: { id: string; threadId: string }, text: string) => {
+  const before = piTurnsForThread(dumpFile, group.threadId).length;
+  await api("POST", `/api/groups/${group.id}/messages`, { text });
+  return phoneSpec(await turnFor(group.threadId, before));
 };
 const noPhoneConflict = async (...botIds: string[]) => {
   const state = await api("GET", "/api/bots?messages=50");
@@ -116,9 +117,9 @@ beforeAll(async () => {
   mkdirSync(data); mkdirSync(join(ui, "assets"), { recursive: true });
   writeFileSync(join(ui, "index.html"), "<title>Phone claim</title>");
   writeFileSync(join(ui, "assets", "test.css"), "body{}");
-  writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-    driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-    environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
+  writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+    driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+    environment: { FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile },
   } } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -169,7 +170,7 @@ describe("Lazy phone claim on the real server", () => {
   it("rejects a retained proxy after its turn settles, before and after a new owner claims", async () => {
     rmSync(finishFile, { force: true });
     const holder = await makeBot("Old retained phone caller");
-    const spec = await holdDirectTurn(holder.id, "read my phone");
+    const spec = await holdDirectTurn(holder, "read my phone");
     await withPhoneProxy(spec, async (oldCall) => {
       expect((await oldCall("status")).result.isError).toBeUndefined();
       writeFileSync(finishFile, "finish");
@@ -179,7 +180,7 @@ describe("Lazy phone claim on the real server", () => {
       expect(afterSettlement.result.content[0].text).toContain("no longer has phone access");
       rmSync(finishFile, { force: true });
       const next = await makeBot("New phone caller");
-      const nextSpec = await holdDirectTurn(next.id, "read my phone");
+      const nextSpec = await holdDirectTurn(next, "read my phone");
       await withPhoneProxy(nextSpec, async (newCall) => {
         expect((await newCall("status")).result.isError).toBeUndefined();
         const response = await oldCall("status");
@@ -191,17 +192,17 @@ describe("Lazy phone claim on the real server", () => {
   it("mounts the phone for trigger words on both turn paths without claiming it", async () => {
     rmSync(finishFile, { force: true });
     const holder = await makeBot("Android words holder");
-    const holderSpec = await holdDirectTurn(holder.id, "help me review this android build log");
+    const holderSpec = await holdDirectTurn(holder, "help me review this android build log");
     expect(holderSpec.env.OMB_PHONE_TOKEN).toBeTruthy();
     await busy(holder.id);
 
     const roomBot = await makeBot("Room phone words");
     const room = await makeRoom("Phone words room", roomBot.id);
-    await holdRoomTurn(room.id, "draft a note about my mobile app plans");
+    await holdRoomTurn(room, "draft a note about my mobile app plans");
     await until(() => api("GET", "/api/bots?messages=0"), s => s.groups.find((g: any) => g.id === room.id)?.working === true);
 
     const second = await makeBot("Second phone asker");
-    await holdDirectTurn(second.id, "open uber on my phone");
+    await holdDirectTurn(second, "open uber on my phone");
     await busy(second.id);
     await noPhoneConflict(holder.id, roomBot.id, second.id);
   });
@@ -210,16 +211,16 @@ describe("Lazy phone claim on the real server", () => {
     rmSync(finishFile, { force: true });
     const roomBot = await makeBot("Room history android");
     const room = await makeRoom("Room history phone room", roomBot.id);
-    await holdRoomTurn(room.id, "help me fix this android gradle error");
+    await holdRoomTurn(room, "help me fix this android gradle error");
     writeFileSync(finishFile, "finish");
     await roomIdle(room.id);
 
     rmSync(finishFile, { force: true });
-    await holdRoomTurn(room.id, "now give a short status update");
+    await holdRoomTurn(room, "now give a short status update");
     await until(() => api("GET", "/api/bots?messages=0"), s => s.groups.find((g: any) => g.id === room.id)?.working === true);
 
     const other = await makeBot("Unrelated phone user");
-    await holdDirectTurn(other.id, "open uber on my phone");
+    await holdDirectTurn(other, "open uber on my phone");
     await busy(other.id);
     await noPhoneConflict(roomBot.id, other.id);
   });
@@ -227,9 +228,9 @@ describe("Lazy phone claim on the real server", () => {
   it("claims at the first tool call, blocks the concurrent caller, and releases at turn end", async () => {
     rmSync(finishFile, { force: true });
     const holder = await makeBot("First phone caller");
-    const holderSpec = await holdDirectTurn(holder.id, "read what is on my phone");
+    const holderSpec = await holdDirectTurn(holder, "read what is on my phone");
     const other = await makeBot("Concurrent phone caller");
-    const otherSpec = await holdDirectTurn(other.id, "open uber on my phone");
+    const otherSpec = await holdDirectTurn(other, "open uber on my phone");
 
     await withPhoneProxy(holderSpec, async (call) => {
       const status = await call("status");

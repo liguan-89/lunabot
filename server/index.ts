@@ -15436,6 +15436,9 @@ const gracefulShutdown = createGracefulShutdown({
       // Before any provider is torn down, so what the teardown fails stays cut for the next start.
       coordinator.close();
       noteTurnsCutByShutdown();
+      // A provider ends its turns as it is disposed; with the bus detached that completion cannot turn the cut state
+      // kept above into a finished one, and the next start reconciles the work itself.
+      for (const instance of registry.instances()) bus.detach(instance.instanceId);
       if (workspaceAccessTimer) clearInterval(workspaceAccessTimer);
       // Invalidate turn bearers before any cleanup reaches an await: child MCP processes and the listener may outlive it.
       revokeAllInternalCapabilities();

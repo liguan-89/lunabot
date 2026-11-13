@@ -13,6 +13,7 @@ import { createControlClient } from "./control-client.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piDumpPath, piTurns, piTurnsForThread, piTurnText } from "./testing/pi-dump.ts";
 import { ownTurnText } from "./testing/room-handoff-agent.ts";
 import { withAnswer } from "./testing/your-computer.ts";
 
@@ -23,7 +24,7 @@ const SECRET_PROVIDED = "DEX BOT credential update: the user securely provided";
 const CONNECTED = "DEX BOT connection update: the user securely connected";
 const STEP_CAP_CONTINUES = "stopped at the step limit";
 const SEAT_FREE = "the computer this conversation waited for is free again";
-const SIGNED_IN = "DEX BOT sign-in update: the person finished signing in to";
+const SIGNED_IN = "OpenMausBot sign-in update: the person finished signing in to";
 const INTERRUPTED_OUTWARD = "Interrupted by an DEX BOT restart after it already";
 const SETTLED = "Your downstream room requests have settled.";
 const REPORT_FROM_MIRA = "[From @Mira (bot) · report on assignment";
@@ -184,9 +185,16 @@ async function scenario(test: (f: any) => Promise<void>, options: { env?: Record
     const open = (name: string) => writeFileSync(gate(name), "open");
     const ready = (name: string) => join(dataDir, `${name}.ready`);
     const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const token = (server: "agents" | "composio" = "agents") => {
-      const env = JSON.parse(readFileSync(session.fixtureDumpPath, "utf8")).mcpConfig.mcpServers[server].env;
-      return (server === "agents" ? env.OMB_COMMS_TOKEN : env.OMB_CONNECTOR_TOKEN) as string;
+    const token = async (server: "agents" | "composio" = "agents"): Promise<string> => {
+      // The fake pi's launch log carries each turn's MCP config: the tokens ride the agents and composio servers' env.
+      const dump = piDumpPath(dataDir);
+      let env: Record<string, string> | undefined;
+      await expect.poll(() => {
+        env = piTurns(dump).map((turn) => turn.launch?.mcpConfig?.mcpServers?.[server]?.env)
+          .find((candidate) => candidate && (server === "agents" ? candidate.OMB_COMMS_TOKEN : candidate.OMB_CONNECTOR_TOKEN));
+        return Boolean(env);
+      }, { timeout: 20_000 }).toBe(true);
+      return (server === "agents" ? env!.OMB_COMMS_TOKEN : env!.OMB_CONNECTOR_TOKEN) as string;
     };
     const internal = async (path: string, body: unknown, bearer: string) => {
       const response = await fetch(`${url}${path}`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
@@ -292,7 +300,7 @@ it("T3 parks the root on connector cards and runs it again once when both connec
       const job = f.clive.activeTaskId;
       await f.say(f.clive.id, job, "T3-JOB: wire up my mail and chat.");
       await expect.poll(() => existsSync(f.ready("c0")), { timeout: 30_000 }).toBe(true);
-      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t3-resume-key-0001", items: ["gmail", "slack"] }, f.token("composio"));
+      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t3-resume-key-0001", items: ["gmail", "slack"] }, await f.token("composio"));
       expect(requested.status, JSON.stringify(requested.body)).toBe(200);
       const [gmail, slack] = requested.body.messageIds as string[];
       f.open("c0");
@@ -358,7 +366,9 @@ it("T5 reruns a person's cut turn once after a restart, with the restart note fi
   expect(f.turns(f.clive.id).filter((record: any) => record.planKey === "C-RERUN")).toHaveLength(1);
 }), hostTimeout(90_000));
 
-it("T6 continues a person's step-capped turn in place on the same root", async () => {
+// This build runs pi only: the 64-request step cap and the continuation handoff it exercises lived in the
+// OpenAI-compatible driver, which is gone. Kept for the day a pi-side step cap exists.
+it.skip("T6 continues a person's step-capped turn in place on the same root", async () => {
   const model = await loopbackModel();
   try {
     await scenario(async (f) => {
@@ -421,8 +431,8 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
     }
   };
   const dumpFor = (botId: string): Promise<any> => until((): any => {
-    if (!existsSync(dumpFile)) return null;
-    try { const sent = JSON.parse(readFileSync(dumpFile, "utf8")); return sent.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId) ? sent : null; } catch { return null; }
+    // pi's launch log appends one launch line per process boot; the latest one for this bot's seat carries the gate.
+    return piTurns(dumpFile).filter((turn) => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId)).at(-1)?.launch ?? null;
   }, Boolean);
   const gate = (sent: any) => createControlClient({ url: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_URL, token: sent.mcpConfig.mcpServers.computer.env.OMB_CONTROL_TOKEN }).state(true);
   const taskOf = (botId: string, threadId: string) => api("GET", "/api/bots?messages=0").then(({ body }) =>
@@ -439,9 +449,9 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
     writeFileSync(join(home, "user-data", "cua-connection.json"), JSON.stringify({
       mode: "embedded", status: "ready", socketPath: join(home, "cua.sock"), mcpCommand: "/fixture/cua-driver", mcpArgs: ["mcp"], mcpEnv: {},
     }), { mode: 0o600 });
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+      driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+      environment: { FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile },
     } } }));
     const proc = spawn(process.execPath, ["--import", pathToFileURL(join(ROOT, "server/testing/group-local-vm-hooks.mjs")).href,
       "--import", pathToFileURL(join(ROOT, "server/testing/desktop-parent.mjs")).href, join(ROOT, "server/index.ts")], {
@@ -461,13 +471,15 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
       try { return (await fetch(base + "/api/health")).ok; } catch { return false; }
     }, Boolean);
 
-    const { bot: holder } = await apiOk("POST", "/api/bots", { name: "Seat Holder", settings: { approvalMode: "ask" } });
+    const { bot: holder } = await apiOk("POST", "/api/bots", { name: "Seat Holder", settings: { approvalMode: "ask" },
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const { task: held } = await apiOk("POST", `/api/bots/${holder.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${holder.id}/messages`, { text: "Hold the screen slowly.", threadId: held.threadId });
     await until(() => taskOf(holder.id, held.threadId), (task) => task?.busy === true);
     // Below Full access (these bots ask), the person is asked once before each turn first uses their computer.
     expect(await withAnswer(base, held.threadId, gate(await dumpFor(holder.id)))).toEqual({ held: false, helpOpen: false });
-    const { bot: waiter } = await apiOk("POST", "/api/bots", { name: "Seat Waiter", settings: { approvalMode: "ask" } });
+    const { bot: waiter } = await apiOk("POST", "/api/bots", { name: "Seat Waiter", settings: { approvalMode: "ask" },
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const { task: wait } = await apiOk("POST", `/api/bots/${waiter.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${waiter.id}/messages`, { text: "T7-JOB: use the screen too.", threadId: wait.threadId });
     await until(() => taskOf(waiter.id, wait.threadId), (task) => task?.busy === true);
@@ -481,7 +493,8 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
     const parkedChip = chat.find((message) => chipText(message).includes("Parked — it continues automatically when the computer is free"));
     expect(parkedChip, JSON.stringify(chat.map(chipText))).toBeDefined();
     expect(chipText(parkedChip)).toContain("Seat Holder");
-    const { bot: second } = await apiOk("POST", "/api/bots", { name: "Seat Second", settings: { approvalMode: "ask" } });
+    const { bot: second } = await apiOk("POST", "/api/bots", { name: "Seat Second", settings: { approvalMode: "ask" },
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const { task: wait2 } = await apiOk("POST", `/api/bots/${second.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${second.id}/messages`, { text: "T7-JOB-2: use the screen as well.", threadId: wait2.threadId });
     await until(() => taskOf(second.id, wait2.threadId), (task) => task?.busy === true);
@@ -504,8 +517,8 @@ itHost("T7 queues a root on the computer seat at the wait ceiling and continues 
       && events.slice(0, index).some((prior) => prior.assignmentId === id && prior.kind === "started"));
     expect(secondStart(root.id)).toBeGreaterThan(-1);
     expect(secondStart(root.id)).toBeLessThan(secondStart(root2.id));
-    const resumed = await dumpFor(second.id);
-    expect(JSON.stringify(resumed.prompt)).toContain(SEAT_FREE);
+    // pi's launch log records the continuation as the turn the waiter's seat process was given: its own words lead with the note.
+    await expect.poll(() => piTurnsForThread(dumpFile, wait.threadId).some((turn) => piTurnText(turn).includes(SEAT_FREE)), { timeout: 45_000 }).toBe(true);
     const after = (await api("GET", `/api/threads/${wait.threadId}/messages?limit=100`)).body.messages as any[];
     expect(after.filter((message) => chipText(message).includes("Parked — it continues automatically")).length).toBe(1);
     await until(() => taskOf(waiter.id, wait.threadId), (task) => task?.busy === false && task.activity === "idle");
@@ -567,7 +580,7 @@ it("T8 Stop while parked on connector cards cancels the root and stops the cards
       const job = f.clive.activeTaskId;
       await f.say(f.clive.id, job, "T8C-JOB: wire up my mail and chat.");
       await expect.poll(() => existsSync(f.ready("c0")), { timeout: 30_000 }).toBe(true);
-      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t8-resume-key-0001", items: ["gmail", "slack"] }, f.token("composio"));
+      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t8-resume-key-0001", items: ["gmail", "slack"] }, await f.token("composio"));
       expect(requested.status, JSON.stringify(requested.body)).toBe(200);
       const [gmail, slack] = requested.body.messageIds as string[];
       f.open("c0");
@@ -725,9 +738,9 @@ it("T11 does not rerun a cut turn that already pushed: the root ends with what i
       const rows = (await f.messages(job)).filter((message: any) => !["digest", "compaction", "call"].includes(message.kind));
       expect(rows.at(-1).id).toBe(line.id);
     }, { scripted: false, fake: {
-      FAKE_CLAUDE_MODE: "slow",
-      FAKE_CLAUDE_SLOW_FINISH_GATE: join(home, "finish"),
-      FAKE_CLAUDE_TOOL_CALLS: JSON.stringify([{ name: "Bash", input: { command: "git push origin release" }, ok: true, output: [{ type: "text", text: "pushed" }] }]),
+      FAKE_PI_MODE: "slow",
+      FAKE_PI_SLOW_FINISH_GATE: join(home, "finish"),
+      FAKE_PI_TOOL_CALLS: JSON.stringify([{ name: "Bash", input: { command: "git push origin release" }, ok: true, output: "pushed" }]),
     } });
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -795,7 +808,7 @@ it("T12 a turn the watchdog stops after it posted connector cards fails as stall
       const job = f.clive.activeTaskId;
       await f.say(f.clive.id, job, "T12C-JOB: wire up my mail and chat.");
       await expect.poll(() => existsSync(f.ready("c0")), { timeout: 30_000 }).toBe(true);
-      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t12-resume-key-0001", items: ["gmail", "slack"] }, f.token("composio"));
+      const requested = await f.internal("/api/internal/connectors/request", { botId: f.clive.id, threadId: job, resumeKey: "t12-resume-key-0001", items: ["gmail", "slack"] }, await f.token("composio"));
       expect(requested.status, JSON.stringify(requested.body)).toBe(200);
       const [gmail, slack] = requested.body.messageIds as string[];
       await stallOverCards(f, job, [gmail, slack]);

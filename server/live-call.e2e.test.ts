@@ -5,7 +5,7 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:f
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { LIVE_COPY } from "../shared/live-approval.ts";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { CLOUD_HOME_PLACE } from "./system-prompt.ts";
@@ -16,9 +16,7 @@ import { freePortBlock } from "./testing/ports.ts";
 import { openSse } from "./testing/sse.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
-const FAKE_ACP = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
-const FAKE_CODEX = join(SERVER_DIR, "testing", "fake-codex-app-server.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const LIVE_KEY = "sk-fake-e2e";
 const SDP = "v=0\r\no=- 1 1 IN IP4 127.0.0.1\r\n";
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -29,12 +27,10 @@ posixOnly("Live call e2e", () => {
   let base = "";
   let output = "";
   let live: FakeOpenAiLive;
-  /** while missing, the `steer` engine holds its turn open after its tool result */
-  let steerGate = "";
-  /** the fake claude's one-shot replies, by a marker in the prompt */
-  let titleRoutes = "";
-  /** while present, the `codexQueue` engine refuses a live steer */
-  let queueSteerGate = "";
+  /** the turn script the fake pi reads again each turn: empty unless a test parks its turn */
+  let toolCallsFile = "";
+  /** while present, a scripted held tool call ends */
+  let releaseFile = "";
 
   const serverOutput = () => output;
   const post = async (path: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: unknown }> => {
@@ -45,13 +41,16 @@ posixOnly("Live call e2e", () => {
     });
     return { status: res.status, body: await res.json() };
   };
-  const createBot = async (instanceId = "claude", model = "claude-fake"): Promise<{ id: string; threadId: string; name: string }> => {
+  const instances = async (): Promise<Array<{ instanceId: string; models: { default: string } }>> =>
+    ((await (await fetch(`${base}/api/instances`)).json()) as { instances: Array<{ instanceId: string; models: { default: string } }> }).instances;
+  const createBot = async (instanceId = "pi", model?: string): Promise<{ id: string; threadId: string; name: string }> => {
     const { bot } = (await post("/api/bots", {})).body as { bot: { id: string; threadId: string; name: string } };
+    const chosen = model ?? (await instances()).find((instance) => instance.instanceId === instanceId)!.models.default;
     const res = await fetch(`${base}/api/bots/${bot.id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
       // On Ask: the calls read cards aloud, and the Slack-style relay expects Ask.
-      body: JSON.stringify({ modelSelection: { instanceId, model }, approvalMode: "ask" }),
+      body: JSON.stringify({ modelSelection: { instanceId, model: chosen }, approvalMode: "ask" }),
     });
     expect(res.status).toBe(200);
     return bot;
@@ -60,7 +59,6 @@ posixOnly("Live call e2e", () => {
     const { bots } = (await (await fetch(`${base}/api/bots`)).json()) as { bots: Array<{ id: string; busy?: boolean }> };
     return bots.find((bot) => bot.id === botId)?.busy === true;
   };
-  const spokenTurnsLogged = () => serverOutput().split("text=(spoken)").length - 1;
   const startCall = async (botId: string, client: LiveCallState["client"] = "desktop") => {
     const before = live.sessions.length;
     const started = await post("/api/live/session", { botId, sdp: SDP, client });
@@ -70,52 +68,31 @@ posixOnly("Live call e2e", () => {
     expect(session).toBeDefined();
     return { started, call, session };
   };
-  const setGeneratedTitles = async (on: boolean) => {
-    const res = await fetch(`${base}/api/config`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ features: { llmThreadTitles: on } }),
-    });
-    expect(res.status).toBe(200);
-  };
-
   beforeAll(async () => {
-    chmodSync(FAKE_CLAUDE, 0o755);
-    chmodSync(FAKE_ACP, 0o755);
-    chmodSync(FAKE_CODEX, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-call-"));
     mkdirSync(join(home, ".openmausbot"), { recursive: true });
-    steerGate = join(home, "steer.gate");
-    titleRoutes = join(home, "title-routes.json");
-    writeFileSync(titleRoutes, JSON.stringify({ "Requests:\nwhat is six times seven": "Times table question" }));
-    queueSteerGate = join(home, "queue-steer.gate");
+    toolCallsFile = join(home, "turn-tool-calls.json");
+    releaseFile = join(home, "release");
     writeFileSync(
       join(home, ".openmausbot", "config.json"),
       JSON.stringify({
+        // The product runs one pi instance; a test that must park its turn writes the turn's script into
+        // toolCallsFile (a held tool call, or ask_user through the mounted agents tools) and releases it after.
         instances: {
-          claude: {
-            driver: "claudeAgent",
-            environment: { FAKE_CLAUDE_REPLIES: JSON.stringify(["Six times seven is 42."]), FAKE_CLAUDE_TEXT_ROUTES: titleRoutes },
-            config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" },
+          pi: {
+            driver: "piAgent",
+            // The compat bridge is what scripts a turn's reply; happy pi otherwise always says "Hello from pi".
+            environment: {
+              FAKE_PI_CLAUDE_COMPAT: "1",
+              FAKE_PI_REPLIES: JSON.stringify(["Six times seven is 42."]),
+              FAKE_PI_MOUNT_TOOLS: "1",
+              FAKE_PI_TOOL_CALLS_FILE: toolCallsFile,
+              FAKE_PI_RELEASE: releaseFile,
+            },
+            config: { cli: FAKE_PI },
           },
-          // pauses after its tool result until steerGate exists, so a request spoken then is steered into the running turn
-          steer: {
-            driver: "claudeAgent",
-            environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: steerGate },
-            config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" },
-          },
-          // cannot steer and never finishes: a request made while it works waits in the queue
-          acp: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "hang" }, config: { cli: FAKE_ACP, fullAuto: true } },
-          // parks its turn on a question and can steer, but refuses while queueSteerGate exists
-          codexQueue: {
-            driver: "codex",
-            environment: { FAKE_CODEX_MODE: "question", FAKE_CODEX_ASK_HOLD: "1", FAKE_CODEX_STEER_ERROR_FILE: queueSteerGate },
-            config: { cli: FAKE_CODEX },
-          },
-          // every turn asks permission to run a command
-          asks: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "permission" }, config: { cli: FAKE_ACP, fullAuto: false } },
-          questions: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "question" }, config: { cli: FAKE_ACP, fullAuto: false } },
         },
       }),
     );
@@ -148,6 +125,11 @@ posixOnly("Live call e2e", () => {
       await new Promise((r) => setTimeout(r, 150));
     }
   }, 120_000);
+
+  afterEach(async () => {
+    rmSync(toolCallsFile, { force: true });
+    rmSync(releaseFile, { force: true });
+  });
 
   afterAll(async () => {
     await waitForExit(child, { signal: "SIGTERM" });
@@ -217,74 +199,11 @@ posixOnly("Live call e2e", () => {
     expect(ended).toMatchObject({ status: 200, body: { call: { callId: call.callId, status: "ended" } } });
   }, 40_000);
 
-  it("queues a spoken request while the bot is busy, and the drained turn still keeps the words out of the log", async () => {
-    const bot = await createBot("acp", "fake-model");
-    const sse = await openSse(`${base}/api/events`);
-    try {
-      expect((await post(`/api/bots/${bot.id}/messages`, { text: "first" })).status).toBe(202);
-      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(true);
-      const { call, session } = await startCall(bot.id);
-      await live.waitForAttach(session.id);
-
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "spell the word banana", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_q", target: "client", type: "delegation" } });
-      await sse.until(
-        (frame) => frame.kind === "bot.queued" && (frame.queues?.[bot.threadId] ?? []).some((item: { text?: string }) => item.text === "spell the word banana"),
-        20_000,
-      );
-
-      const logged = spokenTurnsLogged();
-      await post(`/api/bots/${bot.id}/interrupt`, {});
-      const drained = await sse.until(
-        (frame) => frame.kind === "message" && frame.threadId === bot.threadId && frame.message?.text === "spell the word banana",
-        20_000,
-      );
-      expect(drained.message).toMatchObject({ role: "user", via: "call", callId: call.callId });
-      await expect.poll(spokenTurnsLogged, { timeout: 10_000 }).toBeGreaterThan(logged);
-      expect(serverOutput()).not.toMatch(/banana/i);
-
-      await post(`/api/bots/${bot.id}/interrupt`, {});
-      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(false);
-      expect(await post("/api/live/call/end", { callId: call.callId })).toMatchObject({ status: 200 });
-    } finally {
-      sse.close();
-    }
-  }, 60_000);
-
-  it("stops waiting for a queued spoken request once it is cancelled in the chat", async () => {
-    const bot = await createBot("acp", "fake-model");
-    const sse = await openSse(`${base}/api/events`);
-    try {
-      const { call, session } = await startCall(bot.id);
-      await live.waitForAttach(session.id);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "check the build", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_a", target: "client", type: "delegation" } });
-      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(true);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "and the tests", start_ms: 2_000, end_ms: 2_800 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 2_850, delegation: { id: "del_b", target: "client", type: "delegation" } });
-      const waiting = await sse.until(
-        (frame) => frame.kind === "bot.queued" && (frame.queues?.[bot.threadId] ?? []).some((item: { text?: string }) => item.text === "and the tests"),
-        20_000,
-      );
-      const { queueId } = (waiting.queues[bot.threadId] as Array<{ queueId: string; text: string }>).find((item) => item.text === "and the tests")!;
-
-      const cancelled = await fetch(`${base}/api/bots/${bot.id}/queue/${queueId}`, {
-        method: "DELETE",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ threadId: bot.threadId }),
-      });
-      expect(cancelled.status).toBe(200);
-      await post(`/api/bots/${bot.id}/interrupt`, {});
-      await live.waitForCommand(session.id, (c) => c.type === "session.commentary.append" && c.content === LIVE_COPY.noAnswer, 20_000);
-      expect(await post("/api/live/call/end", { callId: call.callId })).toMatchObject({ status: 200 });
-    } finally {
-      sse.close();
-    }
-  }, 60_000);
-
   it("steers a request spoken while the bot works into its turn, with the call's id", async () => {
-    rmSync(steerGate, { force: true });
-    const bot = await createBot("steer", "claude-fake");
+    // A held tool call keeps the turn open after its result until the release file exists.
+    writeFileSync(toolCallsFile, JSON.stringify([{ name: "Bash", input: { command: "echo starting the report" }, hold: true }]));
+    rmSync(releaseFile, { force: true });
+    const bot = await createBot();
     const sse = await openSse(`${base}/api/events`);
     let callId = "";
     try {
@@ -301,51 +220,15 @@ posixOnly("Live call e2e", () => {
       );
       expect(steered.message).toMatchObject({ text: "and add the totals", via: "call", callId: call.callId });
     } finally {
-      writeFileSync(steerGate, "finish");
+      writeFileSync(releaseFile, "finish");
       await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(false);
       if (callId) await post("/api/live/call/end", { callId });
       sse.close();
     }
   }, 60_000);
 
-  it("keeps the call's id on a queued spoken request that is steered from the queue", async () => {
-    writeFileSync(queueSteerGate, "refuse live steers until this test clears the gate");
-    const { instances } = (await (await fetch(`${base}/api/instances`)).json()) as { instances: Array<{ instanceId: string; models: { default: string } }> };
-    const bot = await createBot("codexQueue", instances.find((instance) => instance.instanceId === "codexQueue")!.models.default);
-    type Line = { id: string; role: string; text?: string; steered?: boolean; via?: string; callId?: string; card?: { requestId?: string } };
-    const lines = async (): Promise<Line[]> => ((await (await fetch(`${base}/api/threads/${bot.threadId}/messages`)).json()) as { messages: Line[] }).messages;
-    const sse = await openSse(`${base}/api/events`);
-    let callId = "";
-    try {
-      expect((await post(`/api/bots/${bot.id}/messages`, { text: "first gated turn" })).status).toBe(202);
-      await expect.poll(async () => (await lines()).some((line) => line.card?.requestId), { timeout: 20_000 }).toBe(true);
-      const { call, session } = await startCall(bot.id);
-      callId = call.callId;
-      await live.waitForAttach(session.id);
-
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "steer these queued words", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_queue_steer", target: "client", type: "delegation" } });
-      const waiting = await sse.until(
-        (frame) => frame.kind === "bot.queued" && (frame.queues?.[bot.threadId] ?? []).some((item: { text?: string }) => item.text === "steer these queued words"),
-        20_000,
-      );
-      const { queueId } = (waiting.queues[bot.threadId] as Array<{ queueId: string; text: string }>).find((item) => item.text === "steer these queued words")!;
-      expect((await lines()).some((line) => line.text === "steer these queued words")).toBe(false);
-
-      rmSync(queueSteerGate, { force: true });
-      const steered = await post(`/api/bots/${bot.id}/queue/${queueId}/steer`, { threadId: bot.threadId });
-      expect(steered).toMatchObject({ status: 200, body: { ok: true, steered: true, queueIds: [queueId] } });
-      const line = { text: "steer these queued words", steered: true, via: "call", callId: call.callId };
-      expect((steered.body as { messages: unknown[] }).messages).toEqual([expect.objectContaining(line)]);
-      expect((await lines()).find((m) => m.text === "steer these queued words")).toMatchObject(line);
-    } finally {
-      await post(`/api/bots/${bot.id}/interrupt`, { threadId: bot.threadId });
-      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(false);
-      if (callId) await post("/api/live/call/end", { callId });
-      sse.close();
-    }
-  }, 60_000);
-
+  // Removed with the retired engines: steering a queued call line needs a live steer the fixture refuses first and
+  // accepts later; the fake pi refuses steers only statically, so the queue-steer endpoint can never confirm one.
   it("ends a phone's call, and refuses it another, once the companion says it was unpaired", async () => {
     const bot = await createBot();
     const phone = { "x-openmausbot-companion": "1", "x-openmausbot-companion-device": "phone-e2e" };
@@ -407,65 +290,19 @@ posixOnly("Live call e2e", () => {
     }
   }, 60_000);
 
-  it("approves a card by voice and marks it as decided on the call", async () => {
-    const bot = await createBot("asks", "fake-model");
-    const { call, session } = await startCall(bot.id);
-    try {
-      await live.waitForAttach(session.id);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "run the check", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_p", target: "client", type: "delegation" } });
-      await live.waitForCommand(session.id, (c) => c.type === "session.instructions.append" && String(c.content).includes("May I?"), 20_000);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "yes", start_ms: 5_000, end_ms: 5_300 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 5_400, delegation: { id: "del_y", target: "client", type: "delegation" } });
-      type Card = { requestId?: string; answered?: string; answeredBy?: unknown };
-      const approved = async () => {
-        const { messages } = (await (await fetch(`${base}/api/threads/${bot.threadId}/messages`)).json()) as { messages: Array<{ card?: Card }> };
-        return messages.find((m) => m.card?.requestId && m.card.answered === "allow")?.card;
-      };
-      await expect.poll(approved, { timeout: 20_000 }).toMatchObject({ answeredBy: { kind: "loopback", via: "call" } });
-      const requestId = (await approved())!.requestId;
-      const decision = async () => ((await (await fetch(`${base}/api/decisions`)).json()) as { decisions: Array<{ requestId?: string; decision: string; via?: string }> })
-        .decisions.find((row) => row.requestId === requestId && row.decision === "user-approved");
-      await expect.poll(decision, { timeout: 10_000 }).toMatchObject({ via: "call" });
-    } finally {
-      await post("/api/live/call/end", { callId: call.callId });
-    }
-  }, 60_000);
-
-  it("reports a rejected question answer honestly and can retry it after the provider settles", async () => {
-    const bot = await createBot("questions", "fake-model");
-    const { call, session } = await startCall(bot.id);
-    try {
-      await live.waitForAttach(session.id);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "ask me which color", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_question", target: "client" } });
-      await live.waitForCommand(session.id, (c) => c.type === "session.instructions.append" && String(c.content).includes("Which color"), 20_000);
-      type Line = { id: string; role: string; replyToId?: string; via?: string; callId?: string; card?: { requestId?: string; answered?: string; answeredText?: string; answeredBy?: unknown } };
-      const lines = async (): Promise<Line[]> => ((await (await fetch(`${base}/api/threads/${bot.threadId}/messages`)).json()) as { messages: Line[] }).messages;
-      const original = (await lines()).find((m) => m.card?.requestId)!;
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "Purple", start_ms: 5_000, end_ms: 5_300 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 5_400, delegation: { id: "del_rejected", target: "client" } });
-      await live.waitForCommand(session.id, (c) => c.type === "session.commentary.append" && String(c.content).includes("could not be saved"), 5_000);
-      expect((await lines()).find((m) => m.id === original.id)?.card).not.toHaveProperty("answeredText");
-      expect(session.commands.some((c) => c.type === "session.thinking.append" && c.content === LIVE_COPY.answerPassed)).toBe(false);
-      await expect.poll(() => isBusy(bot.id), { timeout: 5_000 }).toBe(false);
-
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "Blue", start_ms: 8_000, end_ms: 8_300 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 8_400, delegation: { id: "del_retry", target: "client" } });
-      await expect.poll(async () => (await lines()).find((m) => m.id === original.id)?.card, { timeout: 10_000 }).toMatchObject({ answered: "answer", answeredText: "Blue", answeredBy: { kind: "loopback", via: "call" } });
-      expect((await lines()).find((m) => m.role === "user" && m.replyToId === original.id)).toMatchObject({ via: "call", callId: call.callId });
-      expect(serverOutput()).not.toContain("text=Blue");
-    } finally {
-      await post("/api/bots/" + bot.id + "/interrupt", { threadId: bot.threadId });
-      await post("/api/live/call/end", { callId: call.callId });
-    }
-  }, 40_000);
-
+  // Removed with the retired engines: a provider permission ask spoken as "May I?" needed an engine that raises
+  // permission cards; pi asks through question cards, which a call answers as text, not as an allow/deny decision.
+  // Removed with the retired engines: rejecting an answer that is not one of the question's options was the old
+  // engine's own validation; the fake pi accepts any answer, so the honest-refusal path has nothing to observe.
   it("delivers a spoken answer to a persistent question after its turn is stopped", async () => {
-    const bot = await createBot("questions", "fake-model");
+    const bot = await createBot();
     const { call, session } = await startCall(bot.id);
     try {
       await live.waitForAttach(session.id);
+      // The turn parks on the agents extension's ask_user question, asked through the mounted tools.
+      writeFileSync(toolCallsFile, JSON.stringify([
+        { server: "agents", name: "ask_user", input: { question: "Which color?", choices: ["Blue", "Green"] } },
+      ]));
       live.emit(session.id, { type: "session.input_transcript.delta", delta: "ask me which color", start_ms: 100, end_ms: 900 });
       live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_stopped_question", target: "client" } });
       await live.waitForCommand(session.id, (c) => c.type === "session.instructions.append" && String(c.content).includes("Which color"), 20_000);
@@ -530,47 +367,8 @@ posixOnly("Live call e2e", () => {
     }
   }, 40_000);
 
-  // The first call's missing title is checked only after the second's title arrives: an event, not a clock.
-  it("names a call from what was asked on it when generated titles are on, and never one that ended while they were off", async () => {
-    const quiet = await createBot();
-    const named = await createBot();
-    const sse = await openSse(`${base}/api/events`);
-    let callId = "";
-    const askAndHangUp = async (bot: { id: string; threadId: string }) => {
-      const { call, session } = await startCall(bot.id);
-      callId = call.callId;
-      await live.waitForAttach(session.id);
-      live.emit(session.id, { type: "session.input_transcript.delta", delta: "what is six times seven", start_ms: 100, end_ms: 900 });
-      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: `del_${bot.id}`, target: "client", type: "delegation" } });
-      await live.waitForCommand(session.id, (c) => c.type === "session.commentary.append" && String(c.content).includes("42"), 20_000);
-      expect(await post("/api/live/call/end", { callId })).toMatchObject({ status: 200 });
-      return sse.until((frame) => frame.kind === "message" && frame.threadId === bot.threadId && frame.message?.kind === "call", 10_000);
-    };
-    try {
-      const first = await askAndHangUp(quiet);
-      expect(first.message.call.title).toBeUndefined();
-
-      await setGeneratedTitles(true);
-      const second = await askAndHangUp(named);
-      expect(second.message.call.title).toBeUndefined();
-      const titled = await sse.until(
-        (frame) => frame.kind === "message.patch" && frame.message?.id === second.message.id && typeof frame.message?.call?.title === "string",
-        15_000,
-      );
-      expect(titled.message.call).toMatchObject({ callId: second.message.call.callId, title: "Times table question" });
-      expect(titled.message.text).toBe(second.message.text);
-
-      const { messages } = (await (await fetch(`${base}/api/threads/${quiet.threadId}/messages`)).json()) as { messages: Array<{ id: string; call?: { title?: string } }> };
-      expect(messages.find((message) => message.id === first.message.id)?.call?.title).toBeUndefined();
-      expect(sse.frames.some((frame) => frame.kind === "message.patch" && frame.message?.id === first.message.id)).toBe(false);
-    } finally {
-      await setGeneratedTitles(false);
-      if (callId) await post("/api/live/call/end", { callId });
-      for (const bot of [quiet, named]) await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(false);
-      sse.close();
-    }
-  }, 90_000);
-
+  // Removed with the retired engines: generated thread titles ride the engine's one-shot text call, which pi's
+  // driver does not have, so no call row ever gains a generated title to check.
   it("keeps a finished call's row out of the next call's voice history", async () => {
     const bot = await createBot();
     const first = await startCall(bot.id);
@@ -621,6 +419,175 @@ posixOnly("Live call e2e", () => {
   }, 40_000);
 });
 
+// The queue posture needs live steers refused, and the product's single pi instance serves one steer posture per
+// server, so the busy-bot queue scenarios run on their own fixture: every turn holds until Stop (the hold marker is
+// the spoken words themselves), and a request spoken while it works waits in the queue.
+posixOnly("Live calls on a busy bot", () => {
+  let child: ChildProcess;
+  let home = "";
+  let base = "";
+  let output = "";
+  let live: FakeOpenAiLive;
+
+  const serverOutput = () => output;
+  const post = async (path: string, body: unknown, headers: Record<string, string> = {}): Promise<{ status: number; body: unknown }> => {
+    const res = await fetch(`${base}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, body: await res.json() };
+  };
+  const createBot = async (): Promise<{ id: string; threadId: string; name: string }> => {
+    const { bot } = (await post("/api/bots", {})).body as { bot: { id: string; threadId: string; name: string } };
+    const { instances } = (await (await fetch(`${base}/api/instances`)).json()) as { instances: Array<{ instanceId: string; models: { default: string } }> };
+    const res = await fetch(`${base}/api/bots/${bot.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ modelSelection: { instanceId: "pi", model: instances.find((instance) => instance.instanceId === "pi")!.models.default }, approvalMode: "ask" }),
+    });
+    expect(res.status).toBe(200);
+    return bot;
+  };
+  const isBusy = async (botId: string): Promise<boolean> => {
+    const { bots } = (await (await fetch(`${base}/api/bots`)).json()) as { bots: Array<{ id: string; busy?: boolean }> };
+    return bots.find((bot) => bot.id === botId)?.busy === true;
+  };
+  const spokenTurnsLogged = () => serverOutput().split("text=(spoken)").length - 1;
+  const startCall = async (botId: string, client: LiveCallState["client"] = "desktop") => {
+    const before = live.sessions.length;
+    const started = await post("/api/live/session", { botId, sdp: SDP, client });
+    expect(started.status).toBe(201);
+    const { call } = started.body as { call: LiveCallState };
+    const session = live.sessions[before];
+    expect(session).toBeDefined();
+    return { started, call, session };
+  };
+
+  beforeAll(async () => {
+    chmodSync(FAKE_PI, 0o755);
+    live = await startFakeOpenAiLive();
+    home = mkdtempSync(join(tmpdir(), "omb-live-queue-"));
+    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    writeFileSync(
+      join(home, ".openmausbot", "config.json"),
+      JSON.stringify({
+        instances: {
+          pi: {
+            driver: "piAgent",
+            environment: {
+              FAKE_PI_STEER_REFUSE: "1",
+              FAKE_PI_HOLD_ON: "check the build",
+              FAKE_PI_DELAY_ON: "first",
+              FAKE_PI_DELAY_MS: "8000",
+            },
+            config: { cli: FAKE_PI },
+          },
+        },
+      }),
+    );
+    const port = await freePortBlock([0, 1]);
+    base = `http://127.0.0.1:${port}`;
+    child = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], {
+      cwd: join(SERVER_DIR, ".."),
+      env: {
+        ...(process.env.PATH ? { PATH: process.env.PATH } : {}),
+        HOME: home,
+        USERPROFILE: home,
+        OMB_PORT: String(port),
+        OMB_WEBHOOK_PORT: String(port + 1),
+        OMB_OPENAI_LIVE_URL: live.url,
+        OMB_OPENAI_LIVE_KEY: LIVE_KEY,
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    child.stdout!.on("data", (chunk) => (output += chunk));
+    child.stderr!.on("data", (chunk) => (output += chunk));
+    const deadline = Date.now() + 90_000;
+    for (;;) {
+      try {
+        if ((await fetch(`${base}/api/health`)).ok) break;
+      } catch {
+      }
+      if (Date.now() > deadline) throw new Error(`server never came up. output:\n${output}`);
+      if (child.exitCode !== null) throw new Error(`server exited ${child.exitCode}. output:\n${output}`);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  }, 120_000);
+
+  afterAll(async () => {
+    await waitForExit(child, { signal: "SIGTERM" });
+    await live?.stop();
+    if (home) await removeTempDir(home);
+  });
+
+  it("queues a spoken request while the bot is busy, and the drained turn still keeps the words out of the log", async () => {
+    const bot = await createBot();
+    const sse = await openSse(`${base}/api/events`);
+    try {
+      expect((await post(`/api/bots/${bot.id}/messages`, { text: "first" })).status).toBe(202);
+      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(true);
+      const { call, session } = await startCall(bot.id);
+      await live.waitForAttach(session.id);
+
+      live.emit(session.id, { type: "session.input_transcript.delta", delta: "spell the word banana", start_ms: 100, end_ms: 900 });
+      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_q", target: "client", type: "delegation" } });
+      await sse.until(
+        (frame) => frame.kind === "bot.queued" && (frame.queues?.[bot.threadId] ?? []).some((item: { text?: string }) => item.text === "spell the word banana"),
+        20_000,
+      );
+
+      const logged = spokenTurnsLogged();
+      await post(`/api/bots/${bot.id}/interrupt`, {});
+      const drained = await sse.until(
+        (frame) => frame.kind === "message" && frame.threadId === bot.threadId && frame.message?.text === "spell the word banana",
+        20_000,
+      );
+      expect(drained.message).toMatchObject({ role: "user", via: "call", callId: call.callId });
+      await expect.poll(spokenTurnsLogged, { timeout: 10_000 }).toBeGreaterThan(logged);
+      expect(serverOutput()).not.toMatch(/banana/i);
+
+      await post(`/api/bots/${bot.id}/interrupt`, {});
+      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(false);
+      expect(await post("/api/live/call/end", { callId: call.callId })).toMatchObject({ status: 200 });
+    } finally {
+      sse.close();
+    }
+  }, 60_000);
+
+  it("stops waiting for a queued spoken request once it is cancelled in the chat", async () => {
+    const bot = await createBot();
+    const sse = await openSse(`${base}/api/events`);
+    try {
+      const { call, session } = await startCall(bot.id);
+      await live.waitForAttach(session.id);
+      live.emit(session.id, { type: "session.input_transcript.delta", delta: "check the build", start_ms: 100, end_ms: 900 });
+      live.emit(session.id, { type: "session.delegation.created", offset_ms: 950, delegation: { id: "del_a", target: "client", type: "delegation" } });
+      await expect.poll(() => isBusy(bot.id), { timeout: 20_000 }).toBe(true);
+      live.emit(session.id, { type: "session.input_transcript.delta", delta: "and the tests", start_ms: 2_000, end_ms: 2_800 });
+      live.emit(session.id, { type: "session.delegation.created", offset_ms: 2_850, delegation: { id: "del_b", target: "client", type: "delegation" } });
+      const waiting = await sse.until(
+        (frame) => frame.kind === "bot.queued" && (frame.queues?.[bot.threadId] ?? []).some((item: { text?: string }) => item.text === "and the tests"),
+        20_000,
+      );
+      const { queueId } = (waiting.queues[bot.threadId] as Array<{ queueId: string; text: string }>).find((item) => item.text === "and the tests")!;
+
+      const cancelled = await fetch(`${base}/api/bots/${bot.id}/queue/${queueId}`, {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ threadId: bot.threadId }),
+      });
+      expect(cancelled.status).toBe(200);
+      await post(`/api/bots/${bot.id}/interrupt`, {});
+      await live.waitForCommand(session.id, (c) => c.type === "session.commentary.append" && c.content === LIVE_COPY.noAnswer, 20_000);
+      expect(await post("/api/live/call/end", { callId: call.callId })).toMatchObject({ status: 200 });
+    } finally {
+      sse.close();
+    }
+  }, 60_000);
+
+});
+
 // Booted as a Cloud home behind its edge, with only loopback reachable.
 posixOnly("Live call on the person's Cloud", () => {
   const HOST = "omb-t-0123456789ab.fly.dev";
@@ -650,7 +617,7 @@ posixOnly("Live call on the person's Cloud", () => {
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLAUDE, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-cloud-"));
     const dataDir = join(home, ".openmausbot");
@@ -658,8 +625,8 @@ posixOnly("Live call on the person's Cloud", () => {
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({
       instances: {
         // Pin the fleet's other defaults so this never probes an installed CLI.
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
+        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes"].map((id) => [id, { driver: "not-a-real-driver" }])),
+        pi: { driver: "piAgent", config: { cli: FAKE_PI } },
       },
     }));
     mkdirSync(join(home, "web"));
@@ -717,7 +684,7 @@ posixOnly("Live call on the person's Cloud", () => {
   it("saves the owner's OpenAI key on the Cloud, and a Live call starts with it", async () => {
     const before = await request("GET", "/api/config");
     expect(before.body).toMatchObject({ cloudHome: true, live: { configured: false } });
-    const created = await request("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "claude", model: "claude-fake" } });
+    const created = await request("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const { id: botId, threadId } = created.body.bot as { id: string; threadId: string };
 
@@ -769,7 +736,7 @@ posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLAUDE, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-byok-"));
     const dataDir = join(home, ".openmausbot");
@@ -777,8 +744,8 @@ posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({
       instances: {
         // Pin the fleet's other defaults so this never probes an installed CLI.
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
+        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes"].map((id) => [id, { driver: "not-a-real-driver" }])),
+        pi: { driver: "piAgent", config: { cli: FAKE_PI } },
       },
     }));
     const port = await freePortBlock([0, 1]);
@@ -815,7 +782,7 @@ posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
   });
 
   it("asks a phone for a key, never a plan; then calls with the OpenAI key from API keys, and a separate Live key wins", async () => {
-    const created = await request("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "claude", model: "claude-fake" } });
+    const created = await request("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const botId = created.body.bot.id as string;
     const start = (client: LiveCallState["client"], headers: Record<string, string> = {}) =>

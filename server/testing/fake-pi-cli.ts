@@ -506,11 +506,14 @@ function exitAfterTurn(): void {
 }
 
 function finishCompatTurn(replies: string[]): void {
-  const text = replies.join("\n");
   const context = Number(process.env.FAKE_PI_CONTEXT_TOKENS ?? process.env.FAKE_CLAUDE_CONTEXT_TOKENS);
   const usage = Number.isSafeInteger(context) && context > 0 ? { input: context, output: 3 } : { input: 12, output: 3 };
-  send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
-  send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: text } });
+  // As the retired fixture did: each scripted entry is an assistant message of its own, so a working note and the
+  // answer that follows are separate rows of the turn.
+  for (const reply of replies) {
+    send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+    send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: reply } });
+  }
   send({ type: "turn_end", message: { stopReason: "end_turn", usage }, usage });
   send({ type: "agent_end", isTerminal: true });
   exitAfterTurn();

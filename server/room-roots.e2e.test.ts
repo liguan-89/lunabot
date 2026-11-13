@@ -360,13 +360,15 @@ itHost("R5 queues a member's root on the computer seat at the wait ceiling, FIFO
       try { return (await fetch(base + "/api/health")).ok; } catch { return false; }
     }, Boolean);
 
-    const { bot: holder } = await apiOk("POST", "/api/bots", { name: "Seat Holder", settings: { approvalMode: "ask" } });
+    const { bot: holder } = await apiOk("POST", "/api/bots", { name: "Seat Holder", settings: { approvalMode: "ask" },
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const { task: held } = await apiOk("POST", `/api/bots/${holder.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${holder.id}/messages`, { text: "Hold the screen slowly.", threadId: held.threadId });
     await until(() => taskOf(holder.id, held.threadId), (task) => task?.busy === true);
     // Below Full access (these bots ask), the person is asked once before each turn first uses their computer.
     expect(await withAnswer(base, held.threadId, gate(await dumpFor(holder.id)))).toEqual({ held: false, helpOpen: false });
-    const { bot: waiter } = await apiOk("POST", "/api/bots", { name: "Seat Waiter", settings: { approvalMode: "ask" } });
+    const { bot: waiter } = await apiOk("POST", "/api/bots", { name: "Seat Waiter", settings: { approvalMode: "ask" },
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const { task: wait } = await apiOk("POST", `/api/bots/${waiter.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${waiter.id}/messages`, { text: "R5-DIRECT: use the screen too.", threadId: wait.threadId });
     await until(() => taskOf(waiter.id, wait.threadId), (task) => task?.busy === true);
@@ -374,7 +376,8 @@ itHost("R5 queues a member's root on the computer seat at the wait ceiling, FIFO
     const direct = (await until(() => rootIn(wait.threadId), (row) => row?.status === "queued"))!;
     expect(direct).toMatchObject({ status: "queued", continuation: { note: expect.stringContaining(SEAT_FREE), count: 1 } });
     rmSync(dumpFile, { force: true });
-    const { bot: member } = await apiOk("POST", "/api/bots", { name: "Seat Member" });
+    const { bot: member } = await apiOk("POST", "/api/bots", { name: "Seat Member",
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     // A room turn reaches a desktop only through the member's own setting (no Auto fallback in a room).
     await apiOk("PATCH", `/api/bots/${member.id}`, { computer: "local" });
     const { group: room } = await apiOk("POST", "/api/groups", { name: "Screen room", memberIds: [member.id], setup: { bulletin: "", defaultResponder: { kind: "member", botId: member.id } } });
@@ -409,12 +412,12 @@ itHost("R5 queues a member's root on the computer seat at the wait ceiling, FIFO
       && events.slice(0, index).some((prior) => prior.assignmentId === id && prior.kind === "started"));
     expect(secondStart(direct.id)).toBeGreaterThan(-1);
     expect(secondStart(direct.id)).toBeLessThan(secondStart(root.id));
-    // Read from the transcript, not the fake's launch dump: the dump keeps only the latest launch, and the continuations launch in parallel.
+    // Read from the transcript: pi boots no engine turn for a parked attempt, so the member's one visible reply is the continuation turn's own.
     const rows = await chat(room.threadId);
     const replies = rows.filter((message) => message.role === "bot" && message.kind === "text" && message.from?.botId === member.id);
     const shown = JSON.stringify(rows.map((message) => [message.kind, message.from?.name, message.turnId, chipText(message).slice(0, 80)]));
-    expect(new Set(replies.map((message) => message.turnId)).size, shown).toBe(2);
-    expect(replies.some((message) => String(message.text).includes(SEAT_FREE)), shown).toBe(true);
+    expect(replies, shown).toHaveLength(1);
+    expect(String(replies[0]!.text).includes(SEAT_FREE), shown).toBe(true);
     expect(rows.filter((message) => chipText(message).includes("Parked — it continues automatically")).length).toBe(1);
     await until(() => roomOf(room.id), (group) => group?.working === false && group.busyBotId === null);
     await until(() => botOf(member.id), (bot) => bot?.busy === false);
@@ -487,9 +490,9 @@ it("R6 does not rerun a member's cut turn that already pushed: the root ends wit
       expect((await f.roomView(room.id))).toMatchObject({ working: false, busyBotId: null });
       expect((await f.bots()).find((candidate: any) => candidate.id === f.clive.id).busy).toBe(false);
     }, { scripted: false, fake: {
-      FAKE_CLAUDE_MODE: "slow",
-      FAKE_CLAUDE_SLOW_FINISH_GATE: join(home, "finish"),
-      FAKE_CLAUDE_TOOL_CALLS: JSON.stringify([{ name: "Bash", input: { command: "git push origin release" }, ok: true, output: [{ type: "text", text: "pushed" }] }]),
+      FAKE_PI_MODE: "slow",
+      FAKE_PI_SLOW_FINISH_GATE: join(home, "finish"),
+      FAKE_PI_TOOL_CALLS: JSON.stringify([{ name: "Bash", input: { command: "git push origin release" }, ok: true, output: "pushed" }]),
     } });
   } finally {
     rmSync(home, { recursive: true, force: true });

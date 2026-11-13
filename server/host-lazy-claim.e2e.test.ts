@@ -1,10 +1,11 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
+import { piTurnsForThread, type PiTurn } from "./testing/pi-dump.ts";
 import { CONTROL_BUSY, CONTROL_HANDED_BACK, CONTROL_REFUSAL_PLAIN, CONTROL_WAITED, controlRefusal, createControlClient } from "./control-client.ts";
 import { computerPersonAwayText } from "./computer-wait.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
@@ -31,7 +32,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
 
   // No Local VM anywhere, so an Auto turn falls past attachLocalVm to the host fallback.
   const vmState = () => writeFileAtomic(stateFile, JSON.stringify({ noContainers: true }));
-  const resetTurn = () => { vmState(); rmSync(dumpFile, { force: true }); rmSync(finishFile, { force: true }); };
+  const resetTurn = () => { vmState(); rmSync(finishFile, { force: true }); };
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(base + path, {
       method, headers: { "content-type": "application/json" },
@@ -53,15 +54,19 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       await new Promise(resolve => setTimeout(resolve, 40));
     }
   }
-  // The dump file is rewritten by every dispatch; wait for THIS bot's turn.
-  const dumpFor = (botId: string): Promise<any> => until((): any => {
-    if (!existsSync(dumpFile)) return null;
-    try {
-      const sent = JSON.parse(readFileSync(dumpFile, "utf8"));
-      return sent.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId) ? sent : null;
-    } catch { return null; }
-  }, Boolean);
-  const mountedComputer = (sent: any) => sent.mcpConfig.mcpServers.computer;
+  // The fake pi's launch log keeps each turn with the launch it ran on (a turn reusing its thread's warm process runs
+  // on that recorded launch, whose contract the driver checks unchanged). A cursor per thread keeps a poll from
+  // re-reading the thread's previous turn.
+  const seenTurns = new Map<string, number>();
+  const dumpFor = (botId: string, threadId: string): Promise<PiTurn> =>
+    until((): PiTurn | undefined => {
+      const turns = piTurnsForThread(dumpFile, threadId);
+      const found = turns.slice(seenTurns.get(threadId) ?? 0)
+        .find(turn => turn.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CONTROL_URL?.includes(botId));
+      if (found) seenTurns.set(threadId, turns.length);
+      return found;
+    }, Boolean) as Promise<PiTurn>;
+  const mountedComputer = (turn: PiTurn): any => turn.launch!.mcpConfig!.mcpServers!.computer;
   const gate = (computer: any) =>
     createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN }).state(true);
   const timed = async <T>(work: Promise<T>) => {
@@ -133,9 +138,9 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       mode: "embedded", status: "ready", socketPath: join(home, "cua.sock"),
       mcpCommand: "/fixture/cua-driver", mcpArgs: ["mcp"], mcpEnv: {},
     }), { mode: 0o600 });
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+      driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+      environment: { FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile },
     } } }));
   });
   afterAll(async () => {
@@ -145,23 +150,18 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
   afterEach(async () => { await stop(); resetTurn(); });
 
   itAutoHost("never offers a computer to a call through the Bot API, on Auto, on this computer or on a private desktop", async () => {
-    await start({ FAKE_CLAUDE_VERSION: "2.1.284" });
-    // "vm" has no machine here: a turn that reached for one would fail before the engine ever heard the message.
+    await start();
+    // pi takes no confined guest turns, so the Bot API refuses the call outright on every place: the bot is never
+    // woken, so no turn — and no computer mount — can happen at all.
     for (const place of [undefined, "local", "vm"] as const) {
       const { bot } = await apiOk("POST", "/api/bots", { name: `API bot ${place ?? "auto"}` });
       if (place) await apiOk("PATCH", `/api/bots/${bot.id}`, { computer: place });
       const { key } = await apiOk("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
-      resetTurn();
-      const marker = `api-call-${place ?? "auto"}`;
       const answered = await fetch(`${base.replace(/:(\d+)$/, (_, port) => `:${Number(port) + 1}`)}/hooks/api/bots/${bot.id}/messages`, {
-        method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ message: marker, wait: 0 }),
+        method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ message: `api-call-${place ?? "auto"}`, wait: 0 }),
       });
-      expect(answered.status).toBe(202);
-      const sent: any = await until((): any => { try { const dump = JSON.parse(readFileSync(dumpFile, "utf8")); return JSON.stringify(dump.prompt).includes(marker) ? dump : null; } catch { return null; } }, Boolean);
-      expect(sent.mcpConfig?.mcpServers?.computer).toBeUndefined();
-      writeFileSync(finishFile, "finish");
-      const { thread } = await answered.json() as { thread: string };
-      await idle(bot.id, thread);
+      expect(answered.status).toBe(403);
+      expect(((await answered.json()) as { error: string }).error).toContain("can't take Bot API calls");
     }
   }, hostTimeout(90_000));
 
@@ -172,7 +172,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${holder.id}/messages`, { text: "Work slowly without touching the screen.", threadId: task.threadId });
     await busy(holder.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(holder.id));
+    const computer = mountedComputer(await dumpFor(holder.id, task.threadId));
     expect(computer.env.OMB_CUA_COMMAND).toBe("/fixture/cua-driver");
     expect(computer.args.some((arg: string) => arg.includes("local-computer-proxy"))).toBe(true);
     expect(savedTask(holder.id, task.threadId)).not.toHaveProperty("surface");
@@ -180,7 +180,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     const { task: claimTask } = await apiOk("POST", `/api/bots/${claimer.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${claimer.id}/messages`, { text: "Work slowly too.", threadId: claimTask.threadId });
     await busy(claimer.id, claimTask.threadId);
-    expect(await withAnswer(base, claimTask.threadId, gate(mountedComputer(await dumpFor(claimer.id))))).toEqual({ held: false, helpOpen: false });
+    expect(await withAnswer(base, claimTask.threadId, gate(mountedComputer(await dumpFor(claimer.id, claimTask.threadId))))).toEqual({ held: false, helpOpen: false });
     await until(() => savedTask(claimer.id, claimTask.threadId)?.surface === "local", Boolean);
     expect(savedTask(holder.id, task.threadId)).not.toHaveProperty("surface");
     writeFileSync(finishFile, "finish");
@@ -195,7 +195,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly; the screen comes later.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(bot.id));
+    const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
     expect(savedTask(bot.id, task.threadId)).not.toHaveProperty("surface");
     expect(await withAnswer(base, task.threadId, gate(computer))).toEqual({ held: false, helpOpen: false });
     await until(() => savedTask(bot.id, task.threadId)?.surface === "local", Boolean);
@@ -204,7 +204,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     const { task: secondTask } = await apiOk("POST", `/api/bots/${second.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${second.id}/messages`, { text: "Also work slowly.", threadId: secondTask.threadId });
     await busy(second.id, secondTask.threadId);
-    const contested = await timed(withAnswer(base, secondTask.threadId, gate(mountedComputer(await dumpFor(second.id)))));
+    const contested = await timed(withAnswer(base, secondTask.threadId, gate(mountedComputer(await dumpFor(second.id, secondTask.threadId)))));
     expect(contested.value).toEqual({ held: true, helpOpen: false, blockedReason: CONTROL_BUSY });
     expect(controlRefusal(contested.value)).not.toBe(CONTROL_REFUSAL_PLAIN);
     expect(contested.ms).toBeGreaterThanOrEqual(CALL_WAIT_MS - 200);
@@ -220,7 +220,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       const { task } = await apiOk("POST", `/api/bots/${bot.id}/tasks`, {});
       await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly on the screen.", threadId: task.threadId });
       await busy(bot.id, task.threadId);
-      return { bot, threadId: task.threadId as string, computer: mountedComputer(await dumpFor(bot.id)) };
+      return { bot, threadId: task.threadId as string, computer: mountedComputer(await dumpFor(bot.id, task.threadId)) };
     };
     const holder = await turn("Host Holder Bot");
     expect(await withAnswer(base, holder.threadId, gate(holder.computer))).toEqual({ held: false, helpOpen: false });
@@ -272,7 +272,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     const { task } = await apiOk("POST", `/api/bots/${bot.id}/tasks`, {});
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly on the screen.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(bot.id));
+    const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
     expect(await withAnswer(base, task.threadId, gate(computer))).toEqual({ held: false, helpOpen: false });
     const control = (action: "take" | "release") => apiOk("POST", `/api/bots/${bot.id}/computer/control`, { action });
     await control("take");
@@ -299,7 +299,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       const { task } = await apiOk("POST", `/api/bots/${bot.id}/tasks`, {});
       await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly on the screen.", threadId: task.threadId });
       await busy(bot.id, task.threadId);
-      return { bot, threadId: task.threadId as string, computer: mountedComputer(await dumpFor(bot.id)) };
+      return { bot, threadId: task.threadId as string, computer: mountedComputer(await dumpFor(bot.id, task.threadId)) };
     };
     const holder = await turn("Host Keeper Bot");
     expect(await withAnswer(base, holder.threadId, gate(holder.computer))).toEqual({ held: false, helpOpen: false });
@@ -326,7 +326,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Look at my calendar slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(bot.id));
+    const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
     const client = createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
     expect(await client.state(true, { app: "Chrome", site: "calendar.google.com" })).toEqual({ held: false, helpOpen: false });
     const cards = (await apiOk("GET", `/api/threads/${task.threadId}/messages?limit=200`)).messages
@@ -343,7 +343,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Look at my calendar slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(bot.id));
+    const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
     const client = createControlClient({ url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
     // Exactly what the mounted proxy sends for launch_app { bundle_id: "com.google.Chrome", urls: [...] }.
     const first = timed(client.state(true, { app: "Chrome", site: "calendar.google.com" }));
@@ -373,7 +373,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Book a table slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const computer = mountedComputer(await dumpFor(bot.id));
+    const computer = mountedComputer(await dumpFor(bot.id, task.threadId));
     const declined = await withAnswer(base, task.threadId, gate(computer), "deny");
     expect(declined.held).toBe(true);
     expect(declined.blockedReason).toContain("the person said no to using their own computer");
@@ -395,7 +395,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Work slowly on the screen.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    const pending = gate(mountedComputer(await dumpFor(bot.id)));
+    const pending = gate(mountedComputer(await dumpFor(bot.id, task.threadId)));
     const card = await openYourComputerCard(base, task.threadId);
     await apiOk("POST", `/api/bots/${bot.id}/interrupt`, { threadId: task.threadId });
     expect((await pending).held).toBe(true);
@@ -413,7 +413,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       resetTurn();
       await apiOk("POST", `/api/bots/${bot.id}/messages`, { text, threadId: task.threadId });
       await busy(bot.id, task.threadId);
-      return mountedComputer(await dumpFor(bot.id));
+      return mountedComputer(await dumpFor(bot.id, task.threadId));
     };
     const cards = async () => ((await apiOk("GET", `/api/threads/${task.threadId}/messages?limit=200`)).messages as any[])
       .filter((message) => message.card?.tool === "use_your_computer").length;
@@ -451,7 +451,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Move the mouse slowly.", threadId: task.threadId });
     await busy(bot.id, task.threadId);
-    expect(await gate(mountedComputer(await dumpFor(bot.id)))).toEqual({ held: false, helpOpen: false });
+    expect(await gate(mountedComputer(await dumpFor(bot.id, task.threadId)))).toEqual({ held: false, helpOpen: false });
     const cards = ((await apiOk("GET", `/api/threads/${task.threadId}/messages?limit=200`)).messages as any[])
       .filter((message) => message.card?.tool === "use_your_computer");
     expect(cards).toHaveLength(0);

@@ -1240,14 +1240,6 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(done).toMatchObject({ ok: true, stopReason: "cancelled" });
   });
 
-  it("dispose ends a running turn silently, so a restart reconciles it rather than marking it done", async () => {
-    await create("permission");
-    await instance.adapter.sendTurn({ threadId: "t-dispose", text: "go" });
-    await recorder.until((e) => e.type === "request.opened");
-    await instance.dispose();
-    expect(recorder.events.some((e) => e.type === "turn.completed")).toBe(false);
-  });
-
   it("writes models.json and set_model for a host::model inject pick", async () => {
     const home = mkdtempSync(join(tmpdir(), "omb-pi-turn-inject-"));
     const dump = join(home, "dump.jsonl");

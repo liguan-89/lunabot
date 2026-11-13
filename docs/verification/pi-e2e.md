@@ -164,6 +164,30 @@ pnpm vitest run server/main-thread.e2e.test.ts
   pi is told over its RPC (`piModelsSet`), and refuses an unknown effort.
 - `server/cli-stop.e2e.test.ts` — Stop ends the whole pi process tree, including
   a helper that ignores SIGTERM, and a queued turn runs afterwards.
+- `server/room-roots.e2e.test.ts` — a member's room root parks on the computer
+  seat, is cut by a restart and reruns once, and its goal steps reconcile.
+- `server/room-holds.e2e.test.ts` — holds, releases and a member's final reply
+  (a working note and its answer are separate assistant messages of one turn).
+- `server/routine-delegation.e2e.test.ts` — a routine waits for a busy peer and
+  resumes it as a routine turn; a provider key change interrupts its turn.
+- `server/runtime-roots.e2e.test.ts` — a person's root parks on cards and the
+  computer seat, reruns a cut turn after a restart, and Stop cancels it.
+  T6 (the step-capped OpenAI-compatible continuation) is skipped: that engine
+  is gone and pi has no step cap.
+- `server/mcp-sign-in-card.e2e.test.ts` — a sign-in card holds a turn that is
+  mounting an HTTP MCP server; the mount's remote spec carries the signed-in
+  header.
+- `server/desktop-computer.e2e.test.ts`, `server/phone-claim.e2e.test.ts` and
+  `server/host-lazy-claim.e2e.test.ts` — computer and phone mounts per turn,
+  phone claims across a restart, and the Bot API's refusal on pi's guest mode.
+- `server/live-call.e2e.test.ts` — a live voice call's turns, steering, queued
+  lines and parking on a question. Four subtests were removed with the engines
+  they exercised: a spoken provider permission ask, provider-side rejection of
+  a non-option answer, a file-gated steer refusal, and engine-generated thread
+  titles (pi's driver has no one-shot text call).
+- `server/message-search.e2e.test.ts`, `server/sign-in-code.e2e.test.ts` and
+  `server/talk-server.e2e.test.ts` — history search, pairing codes and the
+  Quick-asks runtime, now reading pi's own reply.
 
 ## Not migrated yet
 

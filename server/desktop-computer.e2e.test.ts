@@ -8,6 +8,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
@@ -52,10 +53,9 @@ describe("this computer belongs to the desktop app's own server", () => {
       await new Promise(resolve => setTimeout(resolve, 40));
     }
   }
-  const dump = (): Promise<any> => until((): any => {
-    if (!existsSync(dumpFile)) return null;
-    try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
-  }, Boolean);
+  // The fake pi appends its launch log as JSONL; a turn is a prompt line carrying the launch it ran on.
+  const dump = (): Promise<ReturnType<typeof piTurns>> => until(() => (existsSync(dumpFile) ? piTurns(dumpFile) : []), (turns) => turns.length > 0);
+  const dumpText = () => { try { return readFileSync(dumpFile, "utf8"); } catch { return ""; } };
   const threadState = (botId: string, threadId: string) =>
     api("GET", "/api/bots?messages=0").then(({ body }) =>
       body.bots.find((bot: any) => bot.id === botId)?.tasks.find((task: any) => task.threadId === threadId));
@@ -117,9 +117,9 @@ describe("this computer belongs to the desktop app's own server", () => {
       mkdirSync(folder, { recursive: true, mode: 0o700 });
       writeFileSync(join(folder, "cua-connection.json"), JSON.stringify(record), { mode: 0o600 });
     }
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+      driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+      environment: { FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile },
     } } }));
   });
   afterAll(async () => {
@@ -134,9 +134,9 @@ describe("this computer belongs to the desktop app's own server", () => {
     const { task } = await apiOk("POST", `/api/bots/${bot.id}/tasks`, {});
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Plan my week using my calendar.", threadId: task.threadId });
-    const sent = await dump();
-    expect(sent.mcpConfig?.mcpServers?.computer).toBeUndefined();
-    expect(JSON.stringify(sent)).not.toContain("/fixture/cua-driver");
+    const sent = (await dump()).at(-1)!;
+    expect(sent.launch?.mcpConfig?.mcpServers?.computer).toBeUndefined();
+    expect(dumpText()).not.toContain("/fixture/cua-driver");
     writeFileSync(finishFile, "finish");
     await idle(bot.id, task.threadId);
   });
@@ -150,7 +150,8 @@ describe("this computer belongs to the desktop app's own server", () => {
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on this computer.", threadId: task.threadId });
     const failed = await until(() => rows(task.threadId), (lines) => lines.some((line) => line.includes(NOT_THE_APP)));
     expect(failed.join("\n")).not.toMatch(/CUA|Cua Driver|DevTools|descriptor/);
-    expect(existsSync(dumpFile)).toBe(false);
+    // The engine never heard the request: the pi log records no turn (catalog probes write launch lines without prompts).
+    expect(existsSync(dumpFile) ? piTurns(dumpFile) : []).toEqual([]);
     await idle(bot.id, task.threadId);
   });
 
@@ -161,8 +162,8 @@ describe("this computer belongs to the desktop app's own server", () => {
     await apiOk("PATCH", `/api/bots/${bot.id}/tasks/${task.threadId}`, { surface: "local" });
     resetTurn();
     await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on this computer.", threadId: task.threadId });
-    const sent = await dump();
-    expect(sent.mcpConfig.mcpServers.computer.env.OMB_CUA_COMMAND).toBe("/fixture/cua-driver");
+    const sent = (await dump()).at(-1)!;
+    expect(sent.launch?.mcpConfig?.mcpServers?.computer?.env?.OMB_CUA_COMMAND).toBe("/fixture/cua-driver");
     writeFileSync(finishFile, "finish");
     await idle(bot.id, task.threadId);
   });

@@ -26,7 +26,7 @@ it("asks DEX BOT in its own Quick asks chat, as the desktop app does, and follow
   const updates: TalkUpdate[] = [];
   expect(await talk.ask({ chat, text: "What can you do?", sendId: randomUUID(), signal: AbortSignal.timeout(60_000), onUpdate: u => updates.push(u) })).toBe("done");
   expect(updates[0]).toEqual({ kind: "thinking" });
-  expect(updates.at(-1)).toMatchObject({ kind: "done", ok: true, text: expect.stringContaining("hello from fake claude") });
+  expect(updates.at(-1)).toMatchObject({ kind: "done", ok: true, text: expect.stringContaining("Hello from pi") });
   const after = (await (await request("/api/bots?messages=0")).json() as any).bots.find((b: any) => b.id === chat.botId);
   expect(after.threadId).toBe(before.threadId);
   expect(after.tasks.find((t: any) => t.threadId === chat.threadId).title).toBe(QUICK_ASKS_TITLE);
