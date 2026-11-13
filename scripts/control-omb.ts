@@ -21,6 +21,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
  * starter. */
 export const FIXTURE_STARTER_BOT_NAME = "Fixture Starter";
 const FAKE_CLI = join(ROOT, "server", "testing", "fake-claude-cli.ts");
+const FAKE_PI_CLI = join(ROOT, "server", "testing", "fake-pi-cli.ts");
 
 export class ControlOmbError extends HeadlessError {
   constructor(message: string, hint?: string) {
@@ -166,7 +167,7 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   // The fake engines' knobs are the one thing a caller may script into the child.
   for (const [key, value] of Object.entries(parentEnv)) {
     // FAKE_CLAUDE_DUMP stays the launcher's: assertions read fixtureDumpPath.
-    if ((key.startsWith("FAKE_CLAUDE_") || key.startsWith("FAKE_CODEX_TEXT_") || key.startsWith("FAKE_CODEX_COMMAND") || key === "FAKE_ACP_HANG_ON") && key !== "FAKE_CLAUDE_DUMP" && value) childEnv[key] = value;
+    if ((key.startsWith("FAKE_CLAUDE_") || key.startsWith("FAKE_PI_") || key.startsWith("FAKE_CODEX_TEXT_") || key.startsWith("FAKE_CODEX_COMMAND") || key === "FAKE_ACP_HANG_ON") && key !== "FAKE_CLAUDE_DUMP" && value) childEnv[key] = value;
   }
   // Enables POST /api/testing/org-library; the route does not exist without it.
   if (parentEnv.OMB_TEST_ORG_LIBRARY_KEY) childEnv.OMB_TEST_ORG_LIBRARY_KEY = parentEnv.OMB_TEST_ORG_LIBRARY_KEY;
@@ -241,6 +242,14 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   }
   // The driver record the app hands its own server: without it, no server may use this computer.
   if (parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION) childEnv.OMB_TEST_DESKTOP_CUA_CONNECTION = parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION;
+  // A pi fixture borrows the retired Claude knobs only when the caller set one.
+  if (parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi") {
+    childEnv.OMB_TEST_FIXTURE_ENGINE = "pi";
+    if (parentEnv.FAKE_CLAUDE_MODE !== undefined || parentEnv.FAKE_CLAUDE_REPLIES !== undefined
+      || parentEnv.FAKE_CLAUDE_TOOL_CALLS !== undefined || parentEnv.FAKE_CLAUDE_REPLY_FILE !== undefined) {
+      childEnv.FAKE_PI_CLAUDE_COMPAT = "1";
+    }
+  }
   return childEnv;
 }
 
@@ -332,6 +341,9 @@ export async function launchVerificationServer(
         driver: "customAcp", displayName: "Verification custom ACP",
         config: { cli: fileURLToPath(new URL("../server/testing/fake-acp-cli.ts", import.meta.url)) },
         environment: { FAKE_ACP_MODELS: "fixture-fast,fixture-deep", FAKE_ACP_DUMP: join(dataDir, "custom-acp-launch.json") },
+      } } : {}),
+      ...(parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi" ? { pi: {
+        driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI_CLI },
       } } : {}),
       claude: {
         driver: "claudeAgent",

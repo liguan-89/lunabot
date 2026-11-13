@@ -27,14 +27,18 @@ export interface RestartableServer {
   close(): Promise<void>;
 }
 
-export async function launchRestartableServer(options: { scripted?: boolean; dataDirRoot?: string } = {}): Promise<RestartableServer> {
+export async function launchRestartableServer(options: { scripted?: boolean; dataDirRoot?: string; engine?: "claude" | "pi" } = {}): Promise<RestartableServer> {
   const port = await freePortBlock([0, 1]);
   // Native browser daemons use UNIX sockets, and a macOS temp home can exceed their path limit.
   const dataDir = mkdtempSync(join(options.dataDirRoot ?? tmpdir(), "omb-restartable-"));
   mkdirSync(join(dataDir, "tmp"), { recursive: true });
   const planPath = join(dataDir, "room-plan.json");
   if (options.scripted) writeFileSync(planPath, "{}");
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ language: "en", instances: { claude: {
+  const pi = options.engine === "pi";
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ language: "en", instances: pi ? { pi: {
+    driver: "piAgent", displayName: "Verification pi", config: { cli: join(ROOT, "server", "testing", "fake-pi-cli.ts") },
+    ...(options.scripted ? { environment: { FAKE_PI_ROOM_PLAN: planPath } } : {}),
+  } } : { claude: {
     driver: "claudeAgent", displayName: "Verification fixture", config: { cli: join(ROOT, "server", "testing", "fake-claude-cli.ts") },
     ...(options.scripted ? { environment: { FAKE_CLAUDE_ROOM_PLAN: planPath } } : {}),
   } } }, null, 2));

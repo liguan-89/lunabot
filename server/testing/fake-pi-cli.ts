@@ -11,6 +11,7 @@
 
 import { appendFileSync, readFileSync } from "node:fs";
 
+const claudeCompat = process.env.FAKE_PI_CLAUDE_COMPAT === "1";
 const mode = process.env.FAKE_PI_MODE ?? "happy";
 const modelPairs = (process.env.FAKE_PI_MODELS ?? "ollama-cloud/glm-5.2,openai/gpt-4o")
   .split(",")
@@ -54,6 +55,10 @@ if (argv[0] === "update" && argv.includes("--models")) {
 }
 
 if (mode === "exit-early") {
+  process.exit(1);
+}
+
+if (claudeCompat && process.env.FAKE_CLAUDE_MODE === "exit-early") {
   process.exit(1);
 }
 
@@ -267,6 +272,61 @@ const finishPermissionTurn = () => {
   send({ type: "agent_end" });
 };
 
+// A retired-Claude-fixture bridge: same reply/tool/mode knobs, rendered as pi RPC events.
+let compatReplyIndex = 0;
+
+const compatReplies = (() => {
+  try {
+    const parsed = JSON.parse(process.env.FAKE_CLAUDE_REPLIES ?? "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+})();
+
+function compatReply(): string[] {
+  const reply = compatReplies[compatReplyIndex++];
+  if (Array.isArray(reply)) return reply.map(String);
+  if (typeof reply === "string") return [reply];
+  return ["hello from fake claude"];
+}
+
+function compatToolCalls(): Array<{ name: string; input: Record<string, unknown>; ok: boolean }> {
+  try {
+    const parsed = JSON.parse(process.env.FAKE_CLAUDE_TOOL_CALLS ?? "");
+    if (Array.isArray(parsed) && parsed.length) {
+      return parsed
+        .filter((call): call is Record<string, unknown> => Boolean(call) && typeof call === "object")
+        .map((call) => ({ name: String(call.name ?? "Bash"), input: (call.input as Record<string, unknown>) ?? {}, ok: call.ok !== false }));
+    }
+  } catch {}
+  return [{ name: "Bash", input: { command: "echo hi" }, ok: true }];
+}
+
+function finishCompatTurn(replies: string[]): void {
+  const text = replies.join("\n");
+  send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+  send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: text } });
+  send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 3 } }, usage: { input: 12, output: 3 } });
+  send({ type: "agent_end", isTerminal: true });
+}
+
+function compatPrompt(): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  for (const [index, call] of compatToolCalls().entries()) {
+    const id = `compat-${index}`;
+    send({ type: "tool_execution_start", toolCallId: id, toolName: call.name, args: call.input });
+    send({ type: "tool_execution_end", toolCallId: id, toolName: call.name, isError: !call.ok, result: { content: [{ type: "text", text: call.ok ? "ok" : "failed" }] } });
+  }
+  const replies = compatReply();
+  if (process.env.FAKE_CLAUDE_MODE === "hang") {
+    setInterval(() => {}, 1_000);
+    return;
+  }
+  finishCompatTurn(replies);
+}
+
 let buf = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => {
@@ -383,6 +443,10 @@ function handle(cmd: any) {
         } catch {}
       }
       send({ type: "response", command: "prompt", success: true });
+      if (claudeCompat) {
+        compatPrompt();
+        return;
+      }
       if (mode === "tooluse") streamToolTurn();
       else if (mode === "priced") streamPricedTurn();
       else if (mode === "priced-stop") startPricedToolTurn();
