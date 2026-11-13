@@ -1,9 +1,14 @@
+// Trust controls end to end: outbound approval and Send without asking at Full access, draft reservations, scopes,
+// team facts and task activity, through the real server and the fixture's one pi instance. The engine's own turns are
+// scripted from a single plan file (the tests rewrite it), and the connected-app actions they call are pi's plain app
+// tools (gmail.create_draft, gmail.send_email); the broker below sees each as its Composio tool. The old per-case
+// engine instances went with the deleted drivers; the Claude-account fallback test is gone with those accounts.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, expect, it } from "vitest";
 import { launchVerificationServer, verificationServerEnvironment, type VerificationServer } from "../scripts/control-omb.ts";
 import { SessionRegistry } from "./sessions.ts";
 import { waitForExit } from "./testing/cleanup.ts";
@@ -23,9 +28,15 @@ let sandboxBot: any;
 const gmailDrafts = new Map<string, Record<string, unknown>>();
 let brokerOrigin = "";
 const relayed: unknown[] = [];
+/** Calls the broker really ran; the mounted agent MCP also initializes and lists tools per turn, which are not sends. */
+const brokerCalls = () => relayed.filter((frame: any) => frame.method === "tools/call").length;
 const evidence: unknown[] = [];
 let blockSession: (() => void) | undefined;
 let sessionEntered = false;
+let piModel = "";
+let piAltModel = "";
+/** The one pi instance's plan: each test that scripts turns rewrites it, and every test starts from an empty one. */
+const planFile = () => join(fixture.info.dataDir, "room-plan.json");
 const api = async (method: string, path: string, body?: unknown, token = admin) => {
   const response = await fetch(fixture.info.url + path, {
     method, headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -132,10 +143,8 @@ beforeAll(async () => {
   const config = JSON.parse(readFileSync(configFile, "utf8"));
   config.signIn = { admins: ["admin@fixture.test"], members: ["member@fixture.test"] };
   config.composio = { apiKey: "ak_isolated_fixture", userId: "fixture-user", sessionId: "fixture-session" };
-  config.instances.activityFixture = { ...config.instances.claude, displayName: "Exact task activity fixture",
-    environment: { FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_RELEASE: join(fixture.info.dataDir, "activity-release") } };
-  config.instances.gmailFixture = { ...config.instances.claude, displayName: "Gmail continuation fixture",
-    environment: { FAKE_CLAUDE_ROOM_PLAN: join(fixture.info.dataDir, "gmail-plan.json") } };
+  // One engine serves every bot, and its turns are scripted from one plan file the tests rewrite per case.
+  config.instances.pi = { ...config.instances.pi, environment: { ...config.instances.pi?.environment, FAKE_PI_ROOM_PLAN: join(fixture.info.dataDir, "room-plan.json") } };
   writeFileSync(configFile, JSON.stringify(config));
   const sessions = new SessionRegistry({ file: join(fixture.info.dataDir, "sessions.json"),
     emailScopes: email => email === "admin@fixture.test" ? ["admin", "client"] : ["client"] });
@@ -151,12 +160,20 @@ beforeAll(async () => {
   });
   closeSync(log);
   const deadline = Date.now() + 20_000;
+  let healthy = false;
   while (Date.now() < deadline) {
-    try { if ((await fetch(fixture.info.url + "/api/health")).ok) return; } catch {}
+    try { if ((await fetch(fixture.info.url + "/api/health")).ok) { healthy = true; break; } } catch {}
     await new Promise(resolve => setTimeout(resolve, 20));
   }
-  throw new Error("isolated trust server did not start");
+  if (!healthy) throw new Error("isolated trust server did not start");
+  const instances = (await (await fetch(fixture.info.url + "/api/instances", { headers: { authorization: `Bearer ${admin}` } })).json() as any).instances;
+  const pi = instances.find((instance: any) => instance.instanceId === "pi");
+  piModel = pi.models.default as string;
+  piAltModel = (pi.models.options as Array<{ id: string }>).map((option) => option.id).find((id) => id !== piModel) ?? piModel;
 }, 40_000);
+
+// A scripted plan from the previous test's bots must not hold this one's turns.
+beforeEach(() => writeFileSync(planFile(), "{}"));
 
 afterAll(async () => {
   blockSession?.();
@@ -179,7 +196,7 @@ it("keeps activity, shared memory and policy changes admin-only", async () => {
   for (const patch of [{ outbound: { policy: "allow" } }, { connectorScopes: null }, { fallback: [] }]) {
     expect((await api("PATCH", `/api/bots/${b.id}`, patch, member)).status).toBe(403);
   }
-  expect((await api("PATCH", `/api/bots/${b.id}`, { fallback: [{ instanceId: "claude", model: " " }] })).status).toBe(400);
+  expect((await api("PATCH", `/api/bots/${b.id}`, { fallback: [{ instanceId: "pi", model: " " }] })).status).toBe(400);
 });
 
 it("honors outbound approval and Send without asking at Full access, and still refuses apps outside scope", async () => {
@@ -221,14 +238,14 @@ it("honors Ask every time at Full access before the first send for any prompt la
   expect((await api("GET", "/api/bots")).body.bots.find((bot: any) => bot.id === b.id).outbound).toEqual({ policy: "ask" });
   expect((await api("PATCH", `/api/bots/${b.id}`, { outbound: { policy: "invalid" } })).status).toBe(400);
   expect((await api("PATCH", `/api/bots/${b.id}`, { outbound: { policy: "allow" } }, member)).status).toBe(403);
-  const before = relayed.length;
+  const before = brokerCalls();
   for (const text of ["Responde a Sam, no lo envíes", "Sam को जवाब लिखो, भेजना मत", "Réponds à Sam sans envoyer", "Samに返信を書いて、送信しないで", "Send the email now"]) {
     expect((await api("POST", `/api/bots/${b.id}/messages`, { text, threadId: b.threadId })).status).toBe(202);
     await expect.poll(async () => (await api("GET", "/api/bots")).body.bots.find((bot: any) => bot.id === b.id).busy, { timeout: 10_000 }).toBe(false);
     const token = await mint(b.id, b.threadId);
     const send = relay(token, "GMAIL_REPLY_TO_THREAD", { thread_id: "ask-policy", body: "Never sent without consent" });
     const card = await pending(b.threadId);
-    expect(relayed).toHaveLength(before);
+    expect(brokerCalls()).toBe(before);
     await api("POST", `/api/threads/${b.threadId}/respond`, { requestId: card.card.requestId, behavior: "deny" });
     expect((await send).body.result.isError).toBe(true);
   }
@@ -236,7 +253,7 @@ it("honors Ask every time at Full access before the first send for any prompt la
   for (const name of ["GMAIL_SEND_EMAIL", "GMAIL_SEND_DRAFT", "GMAIL_FORWARD_MESSAGE", "SLACK_SEND_MESSAGE", "COMPOSIO_REMOTE_WORKBENCH"]) {
     const send = relay(token, name);
     const card = await pending(b.threadId);
-    expect(relayed).toHaveLength(before);
+    expect(brokerCalls()).toBe(before);
     await api("POST", `/api/threads/${b.threadId}/respond`, { requestId: card.card.requestId, behavior: "deny" });
     expect((await send).body.result.isError).toBe(true);
   }
@@ -244,10 +261,10 @@ it("honors Ask every time at Full access before the first send for any prompt la
   const card = await pending(b.threadId);
   await api("POST", `/api/threads/${b.threadId}/respond`, { requestId: card.card.requestId, behavior: "allow" });
   expect((await allowed).body.result.isError).not.toBe(true);
-  expect(relayed).toHaveLength(before + 1);
+  expect(brokerCalls()).toBe(before + 1);
   const repeated = relay(token, "GMAIL_SEND_EMAIL", { to: "sam@example.test" });
   const repeatedCard = await pending(b.threadId);
-  expect(relayed).toHaveLength(before + 1);
+  expect(brokerCalls()).toBe(before + 1);
   await api("POST", `/api/threads/${b.threadId}/respond`, { requestId: repeatedCard.card.requestId, behavior: "deny" });
   expect((await repeated).body.result.isError).toBe(true);
 });
@@ -255,7 +272,7 @@ it("honors Ask every time at Full access before the first send for any prompt la
 it("honors Send without asking for explicit draft-and-send requests without classifying their wording", async () => {
   const b = outboundPolicyBot;
   expect((await api("PATCH", `/api/bots/${b.id}`, { outbound: { policy: "allow" } })).status).toBe(200);
-  const before = relayed.length;
+  const before = brokerCalls();
   const cardCount = (await cards(b.threadId)).filter(row => row.card?.outboundRequest).length;
   for (const text of ["Draft a reply to Sam and send it", "Edit the draft to fix the typo and send it", "Write a draft and then send it to the team"]) {
     expect((await api("POST", `/api/bots/${b.id}/messages`, { text, threadId: b.threadId })).status).toBe(202);
@@ -263,7 +280,7 @@ it("honors Send without asking for explicit draft-and-send requests without clas
     const token = await mint(b.id, b.threadId);
     expect((await relay(token, "GMAIL_SEND_DRAFT", { draft_id: "fixture-draft" })).body.result.isError).not.toBe(true);
   }
-  expect(relayed).toHaveLength(before + 3);
+  expect(brokerCalls()).toBe(before + 3);
   expect((await cards(b.threadId)).filter(row => row.card?.outboundRequest)).toHaveLength(cardCount);
   expect((await api("PATCH", `/api/bots/${b.id}`, { outbound: { policy: "ask" } })).status).toBe(200);
 });
@@ -278,10 +295,10 @@ it("holds sends under Ask every time at Full access and revises the same Gmail d
     return mint(b.id, b.threadId);
   };
   const token = await begin("Create exactly one reply draft for MEGA. If a draft already exists, update it instead of creating another. Do not send it.");
-  const before = relayed.length;
+  const before = brokerCalls();
   const deny = async (request: Promise<any>) => {
     const card = await pending(b.threadId);
-    expect(relayed).toHaveLength(before);
+    expect(brokerCalls()).toBe(before);
     await api("POST", `/api/threads/${b.threadId}/respond`, { requestId: card.card.requestId, behavior: "deny" });
     expect((await request).body.result.isError).toBe(true);
   };
@@ -291,7 +308,7 @@ it("holds sends under Ask every time at Full access and revises the same Gmail d
   const draft = { thread_id: "mega-thread", recipient_email: "support@example.test", subject: "Re: MEGA", body: "Original reply" };
   const batch = (tools: any[]) => relay(token, "COMPOSIO_MULTI_EXECUTE_TOOL", { tools });
   await deny(batch([{ tool_slug: "GMAIL_CREATE_EMAIL_DRAFT", arguments: draft }, { tool_slug: "GMAIL_SEND_EMAIL", arguments: draft }]));
-  expect(relayed).toHaveLength(before);
+  expect(brokerCalls()).toBe(before);
   expect((await relay(token, "GMAIL_CREATE_EMAIL_DRAFT", draft)).body.result.isError).not.toBe(true);
   expect((await relay(token, "GMAIL_CREATE_EMAIL_DRAFT", draft)).body.result.isError).toBe(true);
   expect(gmailDrafts.size).toBe(1);
@@ -300,25 +317,28 @@ it("holds sends under Ask every time at Full access and revises the same Gmail d
   expect((await relay(revision, "GMAIL_UPDATE_DRAFT", { ...draft, draft_id: draftId, body: "Revised reply" })).body.result.isError).not.toBe(true);
   expect(gmailDrafts.size).toBe(1);
   expect(gmailDrafts.get(draftId)).toMatchObject({ body: "Revised reply", thread_id: "mega-thread" });
-  const reached = relayed.slice(before).flatMap((frame: any) => frame.params?.arguments?.tools ?? [{ tool_slug: frame.params?.name }]);
+  const reached = relayed.filter((frame: any) => frame.method === "tools/call").slice(before)
+    .flatMap((frame: any) => frame.params?.arguments?.tools ?? [{ tool_slug: frame.params?.name }]);
   expect(reached.map((tool: any) => tool.tool_slug)).toEqual(["GMAIL_CREATE_EMAIL_DRAFT", "GMAIL_UPDATE_DRAFT"]);
   await api("PATCH", `/api/bots/${b.id}`, { outbound: { policy: "allow" } });
   const cardCount = (await cards(b.threadId)).filter(row => row.card?.outboundRequest).length;
   expect((await relay(revision, "GMAIL_SEND_DRAFT", { draft_id: draftId })).body.result.isError).not.toBe(true);
-  expect(relayed).toHaveLength(before + 3);
+  expect(brokerCalls()).toBe(before + 3);
   expect((await cards(b.threadId)).filter(row => row.card?.outboundRequest)).toHaveLength(cardCount);
 });
 
 it("retains Gmail draft limits through delegated work and the requester's resumed turn", async () => {
   const b = draftBot;
   const helper = draftHelper;
+  const draftsBefore = gmailDrafts.size;
   for (const bot of [b, helper]) {
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "gmailFixture", model: "claude-sonnet-5" }, threadId: bot.threadId, outbound: { policy: "ask" } })).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "pi", model: piModel }, threadId: bot.threadId, outbound: { policy: "ask" } })).status).toBe(200);
   }
   const draft = { thread_id: "continued-thread", recipient_email: "sam@example.test", subject: "Re: Continuation", body: "Draft response" };
-  const write = { server: "composio", tool: "GMAIL_CREATE_EMAIL_DRAFT", arguments: draft };
-  const send = { server: "composio", tool: "GMAIL_REPLY_TO_THREAD", arguments: { thread_id: draft.thread_id }, expectError: true };
-  writeFileSync(join(fixture.info.dataDir, "gmail-plan.json"), JSON.stringify({
+  // pi exposes the connected-app actions under their plain names; each one relays as its Composio tool.
+  const write = { server: "composio", tool: "gmail_create_draft", arguments: draft };
+  const send = { server: "composio", tool: "gmail_send_email", arguments: { to: "sam@example.test", subject: "Re: Continuation", body: "Draft response" }, expectError: true };
+  writeFileSync(planFile(), JSON.stringify({
     [b.id]: {
       timeoutMs: 60_000,
       steps: [write, { arguments: { bot_ids: [helper.id], message: "Check the proposed response", thread: "new" } }],
@@ -342,20 +362,21 @@ it("retains Gmail draft limits through delegated work and the requester's resume
     await api("POST", `/api/threads/${threadId}/respond`, { requestId: card.card.requestId, behavior: "deny" });
   }
   await expect.poll(async () => (await cards(b.threadId)).some(row => row.text === "Draft remains unsent"), { timeout: 15_000 }).toBe(true);
-  const planEvidence = readFileSync(join(fixture.info.dataDir, "gmail-plan.json.evidence.jsonl"), "utf8");
+  const planEvidence = readFileSync(planFile() + ".evidence.jsonl", "utf8");
   evidence.push({ gmailContinuation: planEvidence });
   expect(planEvidence).toContain("already attempted");
-  expect(gmailDrafts.size).toBe(2);
+  // The reservation refuses the retried draft before it reaches the broker, so this turn leaves the one draft it made.
+  expect(gmailDrafts.size).toBe(draftsBefore + 1);
 }, 90_000);
 
 it("honors Ask every time on Full-access delegated and resumed turns without relying on wording or a draft write", async () => {
   const b = outboundPolicyBot;
   const helper = draftHelper;
   for (const bot of [b, helper]) {
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "gmailFixture", model: "claude-sonnet-5" }, threadId: bot.threadId, outbound: { policy: "ask" } })).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "pi", model: piModel }, threadId: bot.threadId, outbound: { policy: "ask" } })).status).toBe(200);
   }
-  const send = { server: "composio", tool: "GMAIL_REPLY_TO_THREAD", arguments: { thread_id: "ask-delegation" }, expectError: true };
-  writeFileSync(join(fixture.info.dataDir, "gmail-plan.json"), JSON.stringify({
+  const send = { server: "composio", tool: "gmail_send_email", arguments: { to: "sam@example.test", subject: "Re: delegation", body: "Checked" }, expectError: true };
+  writeFileSync(planFile(), JSON.stringify({
     [b.id]: { timeoutMs: 60_000, steps: [{ arguments: { bot_ids: [helper.id], message: "Check the response", thread: "new" } }],
       reply: "Waiting for review", resumeSteps: [send], resumeReply: "Outbound policy retained" },
     [helper.id]: { timeoutMs: 60_000, steps: [send], reply: "Reviewed" },
@@ -374,7 +395,7 @@ it("honors Ask every time on Full-access delegated and resumed turns without rel
     await api("POST", `/api/threads/${threadId}/respond`, { requestId: card.card.requestId, behavior: "deny" });
   }
   await expect.poll(async () => (await cards(b.threadId)).some(row => row.text === "Outbound policy retained"), { timeout: 15_000 }).toBe(true);
-  evidence.push({ outboundPolicyDelegation: readFileSync(join(fixture.info.dataDir, "gmail-plan.json.evidence.jsonl"), "utf8") });
+  evidence.push({ outboundPolicyDelegation: readFileSync(planFile() + ".evidence.jsonl", "utf8") });
 }, 90_000);
 
 it("sends 35 in a day at Full access with no sending rule, with no refusal and no card, and a routine sends too", async () => {
@@ -386,9 +407,9 @@ it("sends 35 in a day at Full access with no sending rule, with no refusal and n
   for (let count = 0; count < 35; count++) expect((await relay(token, "GMAIL_SEND_EMAIL", email(`person${count}@example.test`))).body.result.isError).not.toBe(true);
   expect(sent()).toBe(35);
 
-  expect((await api("PATCH", `/api/bots/${b.id}`, { modelSelection: { instanceId: "gmailFixture", model: "claude-sonnet-5" }, threadId: b.threadId })).status).toBe(200);
-  writeFileSync(join(fixture.info.dataDir, "gmail-plan.json"), JSON.stringify({ [b.id]: { timeoutMs: 60_000,
-    steps: [{ server: "composio", tool: "GMAIL_SEND_EMAIL", arguments: email("team@example.test") }],
+  expect((await api("PATCH", `/api/bots/${b.id}`, { modelSelection: { instanceId: "pi", model: piModel }, threadId: b.threadId })).status).toBe(200);
+  writeFileSync(planFile(), JSON.stringify({ [b.id]: { timeoutMs: 60_000,
+    steps: [{ server: "composio", tool: "gmail_send_email", arguments: email("team@example.test") }],
     reply: "Report: the reminder was sent." } }));
   const created = await api("POST", "/api/routines", { name: "Morning reminder", prompt: "Send the morning reminder email to the team.", botId: b.id, schedule: { type: "interval", everyMinutes: 1440, anchorAt: Date.now() + 86_400_000 } });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
@@ -630,7 +651,8 @@ it("puts a bot's fact into every teammate's prompt at once, and Undo takes it ba
 it("settles only the source task after approval or Stop, leaving the selected sibling unchanged", async () => {
   for (const stop of [true, false]) {
     const b = await bot("Task activity " + stop);
-    await api("PATCH", `/api/bots/${b.id}/tasks/${b.threadId}`, { modelSelection: { instanceId: "activityFixture", model: "claude-sonnet-5" } });
+    // The one pi instance's turn is held at its plan gate until the approval or Stop has been decided.
+    writeFileSync(planFile(), JSON.stringify({ [b.id]: { reply: "Fixture completion", gateFile: join(fixture.info.dataDir, "activity-release") } }));
     const sibling = await api("POST", `/api/bots/${b.id}/tasks`, { title: "Selected idle sibling" });
     const siblingId = sibling.body.task.threadId;
     expect((await api("POST", `/api/bots/${b.id}/messages`, { text: "WAIT_FOR_ACTIVITY_FIXTURE", threadId: b.threadId })).status).toBe(202);
@@ -656,21 +678,12 @@ it("settles only the source task after approval or Stop, leaving the selected si
 
 it("keeps two backups on one account with different models, and drops an exact repeat", async () => {
   const b = await bot("Same-account backups");
-  const sonnet = { instanceId: "claude", model: "claude-sonnet-5" }, opus = { instanceId: "claude", model: "claude-opus-5" };
-  const saved = await api("PATCH", `/api/bots/${b.id}`, { fallback: [sonnet, opus, { ...sonnet, model: " claude-sonnet-5 " }] });
+  const first = { instanceId: "pi", model: piModel }, second = { instanceId: "pi", model: piAltModel };
+  const saved = await api("PATCH", `/api/bots/${b.id}`, { fallback: [first, second, { ...first, model: ` ${piModel} ` }] });
   expect(saved.status, JSON.stringify(saved.body)).toBe(200);
   const fleet = await api("GET", "/api/bots");
-  expect(fleet.body.bots.find((row: any) => row.id === b.id).fallback).toEqual([sonnet, opus]);
+  expect(fleet.body.bots.find((row: any) => row.id === b.id).fallback).toEqual([first, second]);
 });
 
-it("preserves accounts referenced by a fallback chain before delete or credential-directory change", async () => {
-  const account = await api("POST", "/api/instances/claude-accounts", { displayName: "Fallback fixture account" });
-  expect(account.status, JSON.stringify(account.body)).toBe(201);
-  const instanceId = account.body.instanceId;
-  const b = await bot("Referenced fallback");
-  expect((await api("PATCH", `/api/bots/${b.id}`, { fallback: [{ instanceId, model: "claude-sonnet-5" }] })).status).toBe(200);
-  expect((await api("DELETE", `/api/instances/${instanceId}`)).status).toBe(409);
-  expect((await api("PATCH", `/api/instances/${instanceId}`, { configDir: join(fixture.info.dataDir, "synthetic-account-directory") })).status).toBe(409);
-  await api("PATCH", `/api/bots/${b.id}`, { fallback: [] });
-  expect((await api("DELETE", `/api/instances/${instanceId}`)).status).toBe(200);
-});
+// The fallback-chain account test is gone with the Claude account instances it created: this build saves one pi instance
+// and no per-account engines, so there is no account to delete or move.

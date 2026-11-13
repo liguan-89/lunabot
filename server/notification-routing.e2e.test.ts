@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -16,16 +16,25 @@ import { openSse } from "./testing/sse.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
-const FAKE_ACP = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const TEST_CAPABILITY_KEY = "notification-routing-fixture-capability";
 const TAGGED_REPLY = "Draft is up.\n\n@you three open questions are blocking Section 2 & 3.";
+/** The one delegated turn the asker's own bot is scripted to make, as the retired ACP asker mode did. */
+const ASKER_CALL = { name: "coordinate_bots", server: "agents" };
 
 let child: ChildProcess;
 let home = "";
 let base = "";
 let stderr = "";
-let dumpFile = "";
+let model = "";
+let askerBotFile = "";
+let askerCallsFile = "";
+
+/** Which bot's turns consult a teammate, and the call it makes. Empty means no bot is scripted. */
+const scriptAsker = (botId: string | undefined, call: unknown = ASKER_CALL) => {
+  writeFileSync(askerBotFile, botId ?? "");
+  writeFileSync(askerCallsFile, JSON.stringify(botId ? [call] : []));
+};
 
 const api = async (
   method: string,
@@ -62,13 +71,14 @@ const botState = async (botId: string) =>
 const groupState = async (groupId: string) =>
   (await state(40)).groups.find((candidate: { id: string }) => candidate.id === groupId);
 
-const createBot = async (name: string, instanceId: string, model = "claude-sonnet-5") => {
+// One pi instance serves every bot; a flavor is the words a turn is given, so the fixture's knobs key on prompts.
+const createBot = async (name: string) => {
   const created = (await api("POST", "/api/bots", {})).body.bot;
   // notifications on, explicitly: a silent bot would pass the "no banner" assertions for the wrong reason
   const patched = await api("PATCH", `/api/bots/${created.id}`, {
     name,
     notifications: true,
-    modelSelection: { instanceId, model },
+    modelSelection: { instanceId: "pi", model },
   });
   expect(patched.status).toBe(200);
   return patched.body.bot;
@@ -86,52 +96,50 @@ const cleanup = async (groupIds: Array<string | undefined>, botIds: string[]) =>
 };
 
 beforeAll(async () => {
-  chmodSync(FAKE_CLAUDE, 0o755);
-  chmodSync(FAKE_ACP, 0o755);
   home = mkdtempSync(join(tmpdir(), "omb-notification-routing-"));
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".dexbot");
   mkdirSync(data, { recursive: true });
-  dumpFile = join(home, "quick-dump.json");
+  askerBotFile = join(home, "asker-bot.txt");
+  askerCallsFile = join(home, "asker-calls.json");
+  scriptAsker(undefined);
+  const markers = join(home, "marker-replies.json");
+  writeFileSync(markers, JSON.stringify({
+    "where are we?": TAGGED_REPLY,
+    "Your downstream room requests have settled": "woke after delegation: saw the result",
+  }));
+  // One pi child per conversation, so a flavor is a prompt's own words: the shared instance holds the "take the wheel"
+  // room, asks "Sage's" question and tags the person only when a prompt says so. A wrapper scripts the asker bot's
+  // turns to consult a teammate, as the retired ACP asker mode did.
+  const wrapper = join(home, "notify-cli.mjs");
+  writeFileSync(wrapper, [
+    "#!/usr/bin/env node",
+    'import { readFileSync } from "node:fs";',
+    `try {`,
+    `  const asker = readFileSync(${JSON.stringify(askerBotFile)}, "utf8").trim();`,
+    `  if (asker && process.env.OMB_BOT_ID === asker) {`,
+    `    process.env.FAKE_PI_MOUNT_TOOLS = "1";`,
+    `    process.env.FAKE_PI_TOOL_CALLS_FILE = ${JSON.stringify(askerCallsFile)};`,
+    `  }`,
+    `} catch {}`,
+    `await import(${JSON.stringify(pathToFileURL(FAKE_PI).href)});`,
+  ].join("\n"), { mode: 0o700 });
   writeFileSync(join(data, "config.json"), JSON.stringify({
     // These tests compare whole conversations; a setup card refreshing after a rename would change under them.
     features: { smartSetupChoices: false },
     instances: {
-      // answers at once; its dump is the only place to read the per-boot comms token the internal endpoints need
-      quick: {
-        driver: "claudeAgent",
-        displayName: "Quick fixture",
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: dumpFile },
-        config: { cli: FAKE_CLAUDE },
-      },
-      tagger: {
-        driver: "claudeAgent",
-        displayName: "Tagger fixture",
+      pi: {
+        driver: "piAgent",
+        displayName: "Verification pi",
         environment: {
-          FAKE_CLAUDE_MODE: "happy",
-          FAKE_CLAUDE_REPLIES: JSON.stringify(Array.from({ length: 8 }, () => TAGGED_REPLY)),
+          // The retired fixture's default reply, so a quiet turn still says what these assertions read.
+          FAKE_PI_CLAUDE_COMPAT: "1",
+          FAKE_PI_MARKER_REPLIES: markers,
+          // never finishes, so a bot is held mid-room long enough to ask for hands
+          FAKE_PI_HOLD_ON: "take the wheel",
+          // stops mid-turn to ask the person a question no rule may answer
+          FAKE_PI_QUESTION_ON: "Sage, which colour?",
         },
-        config: { cli: FAKE_CLAUDE },
-      },
-      // never finishes, so a bot is held mid-room long enough to ask for hands
-      stuck: {
-        driver: "claudeAgent",
-        displayName: "Stuck fixture",
-        environment: { FAKE_CLAUDE_MODE: "hang" },
-        config: { cli: FAKE_CLAUDE },
-      },
-      // stops mid-turn to ask the person a question no rule may answer
-      curious: {
-        driver: "grokAgent",
-        displayName: "Curious fixture",
-        environment: { FAKE_ACP_MODE: "question" },
-        config: { cli: FAKE_ACP, fullAuto: true },
-      },
-      // consults the first teammate list_bots shows through the real agents proxy, and its resume says it saw the result
-      asker: {
-        driver: "grokAgent",
-        displayName: "Asker fixture",
-        environment: { FAKE_ACP_MODE: "ask-peer" },
-        config: { cli: FAKE_ACP, fullAuto: true },
+        config: { cli: wrapper },
       },
     },
   }));
@@ -162,6 +170,21 @@ beforeAll(async () => {
     if (Date.now() >= deadline) throw new Error(`server never became healthy: ${stderr}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  // A new bot selects one of pi's models, which the fake reports.
+  const modelsDeadline = Date.now() + 15_000;
+  for (;;) {
+    try {
+      const state = await (await fetch(`${base}/api/instances`)).json() as { instances?: Array<{ instanceId: string; models?: { default?: string } }> };
+      const found = (state.instances ?? []).find((instance) => instance.instanceId === "pi");
+      if (found?.models?.default) {
+        model = found.models.default;
+        break;
+      }
+    } catch {
+    }
+    if (Date.now() >= modelsDeadline) throw new Error(`the pi instance never reported a default model: ${stderr}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 
 }, 45_000);
 
@@ -172,7 +195,7 @@ afterAll(async () => {
 
 describe("an ordinary turn still announces itself", () => {
   it("badges the bot and banners the person when a person asked", async () => {
-    const bot = await createBot("Herald", "quick");
+    const bot = await createBot("Herald");
     const stream = await openSse(`${base}/api/events`);
     try {
       expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "how did it go?" })).status).toBe(202);
@@ -197,7 +220,7 @@ describe("an ordinary turn still announces itself", () => {
 
 describe("a room turn belongs to the room", () => {
   it("leaves the speaking bot's own thread unread-free while the room lights up", async () => {
-    const bot = await createBot("Roomie", "quick");
+    const bot = await createBot("Roomie");
     let roomId: string | undefined;
     try {
       const room = (await api("POST", "/api/groups", {
@@ -224,7 +247,7 @@ describe("a room turn belongs to the room", () => {
   }, 40_000);
 
   it("sends a sign-in request raised mid-room to the room, not to the bot's DM", async () => {
-    const bot = await createBot("Handsy", "stuck");
+    const bot = await createBot("Handsy");
     let roomId: string | undefined;
     try {
       // a sign-in needs a place to sign in on: this bot works in its built-in browser
@@ -275,7 +298,7 @@ describe("a room turn belongs to the room", () => {
 
 describe("a reply that tags the person", () => {
   it("buzzes once from a room, as a mention that names the room", async () => {
-    const bot = await createBot("Tagger", "tagger");
+    const bot = await createBot("Tagger");
     let roomId: string | undefined;
     const stream = await openSse(`${base}/api/events`);
     try {
@@ -315,7 +338,7 @@ describe("a reply that tags the person", () => {
   }, 45_000);
 
   it("stays an ordinary finished notice in a 1:1 thread", async () => {
-    const bot = await createBot("Solo Tagger", "tagger");
+    const bot = await createBot("Solo Tagger");
     const stream = await openSse(`${base}/api/events`);
     try {
       expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "where are we?" })).status).toBe(202);
@@ -340,15 +363,15 @@ describe("a reply that tags the person", () => {
 });
 
 describe("bot-to-bot coordination is recorded, not announced", () => {
-  const handoffs = () => readHandoffs(join(home, ".openmausbot"));
+  const handoffs = () => readHandoffs(join(home, ".dexbot"));
   const consultation = async (requestId: string) => {
     await expect.poll(() => handoffs().some((node) => node.id === requestId), { timeout: 15_000 }).toBe(true);
     return handoffs().find((node) => node.id === requestId)!;
   };
 
   it("runs a consultation round trip with no badge or banner for the peer, and resumes the asker once", async () => {
-    const peer = await createBot("Ink", "quick");
-    const asker = await createBot("Pen", "asker");
+    const peer = await createBot("Ink");
+    const asker = await createBot("Pen");
     const stream = await openSse(`${base}/api/events`);
     try {
       // Seeded unread, or the "no badge" checks below would pass for a hop that had just cleared it.
@@ -356,11 +379,16 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
       expect((await botState(peer.id))?.unread).toBe(true);
       const peerConversation = (await botState(peer.id)).messages;
 
+      // The asker's own turn consults the teammate through the real agents proxy, as the retired ACP fixture did.
+      scriptAsker(asker.id, { ...ASKER_CALL, input: { bot_ids: [peer.id], message: "ping from fake", consult: true } });
       expect((await api("POST", `/api/bots/${asker.id}/messages`, { text: "Pen, ask Ink whether it can take the deploy." })).status).toBe(202);
       await expect.poll(async () => ((await botState(asker.id))?.messages ?? []).some(
         (message: { text?: string }) => message.text === "woke after delegation: saw the result",
       ), { timeout: 40_000 }).toBe(true);
       const exchange = () => handoffs().filter((node) => node.botId === asker.id || node.botId === peer.id);
+      // Once the peer's assignment exists the asker's next turn is the resume, which must not consult again.
+      await expect.poll(() => exchange().length, { timeout: 20_000 }).toBe(2);
+      scriptAsker(undefined);
       await expect.poll(() => exchange().map((node) => node.status), { timeout: 20_000 }).toEqual(["completed", "completed"]);
       const [root, consult] = exchange() as [HandoffView, HandoffView];
       expect(root).toMatchObject({ botId: asker.id, threadId: asker.threadId });
@@ -401,11 +429,13 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
   }, 60_000);
 
   it("does not announce results coming back into a thread a bot opened", async () => {
-    const boss = await createBot("Ledger", "quick");
-    const asker = await createBot("Stylus", "asker");
-    const peer = await createBot("Quill", "quick");
+    const boss = await createBot("Ledger");
+    const asker = await createBot("Stylus");
+    const peer = await createBot("Quill");
     const stream = await openSse(`${base}/api/events`);
     try {
+      // The assigned turn is the asker's: it consults the peer, whose work thread is nested under the boss's request.
+      scriptAsker(asker.id, { ...ASKER_CALL, input: { bot_ids: [peer.id], message: "ping from fake", consult: true } });
       const assigned = await api(
         "POST",
         "/api/internal/coordinate-bots",
@@ -416,6 +446,7 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
       const work = await consultation(assigned.body.receipts[0].requestId);
       expect(work.threadId).not.toBe(asker.threadId);
       await expect.poll(() => handoffs().some((node) => node.parentId === work.id && node.botId === peer.id), { timeout: 30_000 }).toBe(true);
+      scriptAsker(undefined);
       await expect.poll(async () => ((await state(40)).bots.find((bot: { id: string }) => bot.id === asker.id)?.tasks ?? [])
         .find((task: { threadId: string }) => task.threadId === work.threadId)?.busy, { timeout: 30_000 }).toBeFalsy();
       await expect.poll(() => handoffs().find((node) => node.id === work.id)?.status, { timeout: 30_000 }).toBe("completed");
@@ -433,7 +464,7 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
   }, 90_000);
 
   it("announces a thread a bot opened for itself only once the person asks in it", async () => {
-    const bot = await createBot("Margin", "quick");
+    const bot = await createBot("Margin");
     const stream = await openSse(`${base}/api/events`);
     try {
       const opened = await api("POST", "/api/internal/threads", { title: "Sort the notes", message: "Sort the notes by date." }, await capability(bot.id, bot.threadId));
@@ -456,8 +487,8 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
   }, 45_000);
 
   it("still announces the person's own next message after a hop that finished", async () => {
-    const asker = await createBot("Nib", "quick");
-    const peer = await createBot("Vellum", "quick");
+    const asker = await createBot("Nib");
+    const peer = await createBot("Vellum");
     const stream = await openSse(`${base}/api/events`);
     try {
       const asked = await api(
@@ -490,8 +521,8 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
   }, 45_000);
 
   it("still announces the person's own next message after a hop that never started", async () => {
-    const asker = await createBot("Quire", "quick");
-    const peer = await createBot("Folio", "quick");
+    const asker = await createBot("Quire");
+    const peer = await createBot("Folio");
     const stream = await openSse(`${base}/api/events`);
     try {
       // An engine that is not there: the consultation is accepted, and its turn cannot start.
@@ -511,7 +542,7 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
       expect((await botState(peer.id))?.unread).toBeFalsy();
 
       expect((await api("PATCH", `/api/bots/${peer.id}`, {
-        modelSelection: { instanceId: "quick", model: "claude-sonnet-5" },
+        modelSelection: { instanceId: "pi", model },
       })).status).toBe(200);
       expect((await api("POST", `/api/bots/${peer.id}/messages`, { text: "back? tell me when" })).status).toBe(202);
       const frame = await stream.until(
@@ -530,8 +561,8 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
   }, 45_000);
 
   it("still buzzes when a peer's turn stops to ask the person a question", async () => {
-    const asker = await createBot("Quill", "quick");
-    const peer = await createBot("Sage", "curious", "fake-model");
+    const asker = await createBot("Quill");
+    const peer = await createBot("Sage");
     // On "Ask me first" a peer's question is the person's; at Full access its asker answers it instead.
     for (const bot of [asker, peer]) expect((await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask", applyToAllThreads: true })).status).toBe(200);
     const stream = await openSse(`${base}/api/events`);
@@ -559,9 +590,9 @@ describe("bot-to-bot coordination is recorded, not announced", () => {
       const card = ((await api("GET", `/api/threads/${workThread}/messages`)).body.messages as any[]).findLast(
         (message: { kind: string; card?: { title?: string } }) => message.kind === "options" && Boolean(message.card),
       );
-      expect(card?.card).toMatchObject({ title: "Your bot has a question", subtitle: "Which color?" });
+      expect(card?.card).toMatchObject({ title: "Your bot has a question", subtitle: "Which colour?" });
       expect(((await botState(peer.id))?.messages ?? []).some(
-        (message: { kind: string; card?: { subtitle?: string } }) => message.kind === "options" && message.card?.subtitle === "Which color?",
+        (message: { kind: string; card?: { subtitle?: string } }) => message.kind === "options" && message.card?.subtitle === "Which colour?",
       )).toBe(false);
     } finally {
       stream.close();

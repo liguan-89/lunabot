@@ -1,30 +1,15 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+// A thread saved on an engine this build no longer has runs on its bot's model instead, and the thread follows it.
+// The old per-engine matrix and its two signed-out cases are gone with those engines: the product fleet is the single
+// pi instance, which can be neither disabled nor signed out, so there is no second engine for a thread to fall back to
+// and none whose sign-in failure could still be kept. What remains is the product's own fallback: a thread whose saved
+// engine is unknown gives way to the bot's model with a notice, once per turn, and the thread then follows the bot.
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
-import { waitForExit } from "./testing/cleanup.ts";
+import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 
-const SPARE = "spare";
-const FAKE_CLI = fileURLToPath(new URL("./testing/fake-claude-cli.ts", import.meta.url));
-const lines = (path: string): unknown[] => existsSync(path)
-  ? readFileSync(path, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
-const notice = (message: any) => typeof message.tool?.name === "string" && message.tool.name.includes("isn't available, so it now uses");
-
-type Engines = { spare?: "missing" | "disabled" | "signed-out"; claude?: "signed-out" };
-type Fixture = {
-  api: (method: string, path: string, body?: unknown) => Promise<any>;
-  control: (...args: string[]) => Promise<any>;
-  restart: (engines: Engines) => Promise<void>;
-  prompts: (instance: "claude" | typeof SPARE) => unknown[];
-};
-
-async function withEngines(check: (fixture: Fixture) => Promise<void>) {
+async function withPi(check: (fixture: Fixture) => Promise<void>) {
   const fixture = await launchVerificationServer();
-  const { dataDir, url, logPath } = fixture.info;
-  let server: ChildProcess | undefined;
-  const promptFile = (instance: string) => join(dataDir, `${instance}-prompts.jsonl`);
+  const { dataDir, url } = fixture.info;
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(url + path, {
       method, headers: { "content-type": "application/json", origin: url },
@@ -35,51 +20,29 @@ async function withEngines(check: (fixture: Fixture) => Promise<void>) {
     return result;
   };
   const control = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
-  const restart = async (engines: Engines) => {
-    await waitForExit(server ?? fixture.child, { signal: "SIGTERM" });
-    const configPath = join(dataDir, "config.json");
-    const config = JSON.parse(readFileSync(configPath, "utf8"));
-    const signedOut = { FAKE_CLAUDE_AUTH: "out", FAKE_CLAUDE_MODE: "not-logged-in" };
-    config.instances.claude = { ...config.instances.claude, environment: {
-      FAKE_CLAUDE_PROMPTS: promptFile("claude"), ...(engines.claude === "signed-out" ? signedOut : {}),
-    } };
-    delete config.instances[SPARE];
-    if (engines.spare !== "missing") {
-      const configDir = join(dataDir, "spare-claude");
-      mkdirSync(configDir, { recursive: true });
-      config.instances[SPARE] = {
-        driver: "claudeAgent", displayName: "Spare Claude", config: { cli: FAKE_CLI, configDir },
-        ...(engines.spare === "disabled" ? { enabled: false } : {}),
-        environment: { FAKE_CLAUDE_PROMPTS: promptFile(SPARE), ...(engines.spare === "signed-out" ? signedOut : {}) },
-      };
-    }
-    writeFileSync(configPath, JSON.stringify(config));
-    const log = openSync(logPath, "a", 0o600);
-    server = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
-      cwd: fileURLToPath(new URL("..", import.meta.url)),
-      env: verificationServerEnvironment({}, dataDir, Number(new URL(url).port)), stdio: ["ignore", log, log],
-    });
-    closeSync(log);
-    await expect.poll(async () => {
-      try { return (await fetch(url + "/api/health", { signal: AbortSignal.timeout(1_000) })).ok; } catch { return false; }
-    }, { timeout: 20_000 }).toBe(true);
-    // Reading the engines is where the server learns who is signed in.
-    await api("GET", "/api/instances");
-  };
   try {
-    await restart({});
-    // Chief first makes the starter its team's Chief, which answers a teammate's failed run with a Problems to look at turn
-    // of its own on Claude, whose prompts these tests count. Stepped down, only the threads under test run.
-    const { bots } = await api("GET", "/api/bots") as { bots: Array<{ id: string; chiefOfStaff?: boolean }> };
-    const starter = bots.find((bot) => bot.chiefOfStaff)!;
-    await api("PATCH", `/api/bots/${starter.id}`, { chiefOfStaff: false });
-    await check({ api, control, restart, prompts: (instance) => lines(promptFile(instance)) });
+    const instances = ((await api("GET", "/api/instances")) as { instances: Array<{ instanceId: string; displayName: string;
+      models: { default: string; options: Array<{ id: string; label: string }> } }> }).instances;
+    const pi = instances.find((instance) => instance.instanceId === "pi")!;
+    expect(pi, "the fixture runs one pi instance").toBeTruthy();
+    const label = pi.models.options.find((option) => option.id === pi.models.default)?.label ?? pi.models.default;
+    const promptCount = (threadId: string) => piTurnsForThread(piDumpPath(dataDir), threadId)
+      .filter((turn) => turn.prompt.includes("FOLLOW")).length;
+    await check({ api, control, promptCount, botModel: { instanceId: "pi", model: pi.models.default }, botModelName: `Verification pi · ${label}` });
   } finally {
-    await waitForExit(server, { signal: "SIGTERM" });
     await fixture.close();
-    console.info(JSON.stringify({ logPath }));
   }
 }
+
+type Fixture = {
+  api: (method: string, path: string, body?: unknown) => Promise<any>;
+  control: (...args: string[]) => Promise<any>;
+  promptCount: (threadId: string) => number;
+  botModel: { instanceId: string; model: string };
+  botModelName: string;
+};
+
+const notice = (message: any) => typeof message.tool?.name === "string" && message.tool.name.includes("isn't available, so it now uses");
 
 async function botWithOwnModel(fixture: Fixture, own: { instanceId: string; model: string }) {
   const { bot: created } = await fixture.control("new-bot", "--name", "Ada");
@@ -91,57 +54,27 @@ async function botWithOwnModel(fixture: Fixture, own: { instanceId: string; mode
   return { bot: await profile(), threadId: task.threadId as string, thread };
 }
 
-async function sendAndSettle(fixture: Fixture, botId: string, threadId: string, text: string, status = "settled") {
+async function sendAndSettle(fixture: Fixture, botId: string, threadId: string, text: string) {
   await fixture.control("send", "--bot", botId, "--task", threadId, "--text", text);
-  expect((await fixture.control("wait", "--bot", botId, "--task", threadId, "--timeout", "30")).status).toBe(status);
+  expect((await fixture.control("wait", "--bot", botId, "--task", threadId, "--timeout", "30")).status).toBe("settled");
   return (await fixture.api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
 }
 
-it.each([
-  ["missing", "claude-opus-5"],
-  ["disabled", "Spare Claude · Claude Opus 5"],
-] as const)("runs a thread whose engine is %s on its bot's model, once, and the thread follows the bot", async (state, ownName) => {
-  await withEngines(async (fixture) => {
-    const { bot, threadId, thread } = await botWithOwnModel(fixture, { instanceId: SPARE, model: "claude-opus-5" });
-    await fixture.restart({ spare: state });
+it("runs a thread whose engine is gone on its bot's model, once per turn, and the thread follows the bot", async () => {
+  await withPi(async (fixture) => {
+    // A thread saved on an engine this build deleted: the instance is unknown, so its model gives way.
+    const { bot, threadId, thread } = await botWithOwnModel(fixture, { instanceId: "spare", model: "claude-opus-5" });
     const messages = await sendAndSettle(fixture, bot.id, threadId, "FOLLOW_THE_BOT_4K");
-    expect(fixture.prompts("claude")).toHaveLength(1);
-    expect(fixture.prompts(SPARE)).toHaveLength(0);
+    expect(fixture.promptCount(threadId)).toBe(1);
     expect(messages.filter(notice)).toHaveLength(1);
     expect(messages.find(notice).tool.name).toBe(
-      `notice: This thread's model (${ownName}) isn't available, so it now uses Ada's model (Verification fixture · Claude Sonnet 5).`,
+      `notice: This thread's model (claude-opus-5) isn't available, so it now uses Ada's model (${fixture.botModelName}).`,
     );
     expect(messages.findLast((message) => message.role === "bot" && message.kind === "text")).toMatchObject({ turnSucceeded: true });
-    expect(bot.modelSelection).toEqual({ instanceId: "claude", model: "claude-sonnet-5" });
+    expect(bot.modelSelection).toEqual(fixture.botModel);
     expect(await thread()).toMatchObject({ modelSelection: bot.modelSelection, followsBotModel: true });
     const again = await sendAndSettle(fixture, bot.id, threadId, "STILL_FOLLOWING_5L");
     expect(again.filter(notice)).toHaveLength(1);
-    expect(fixture.prompts("claude")).toHaveLength(2);
-  });
-}, 120_000);
-
-it("gives way to a signed-out engine when the bot's model is on another engine that can run", async () => {
-  await withEngines(async (fixture) => {
-    const { bot, threadId, thread } = await botWithOwnModel(fixture, { instanceId: SPARE, model: "claude-opus-5" });
-    await fixture.restart({ spare: "signed-out" });
-    const messages = await sendAndSettle(fixture, bot.id, threadId, "SIGNED_OUT_ELSEWHERE_6M");
-    expect(fixture.prompts(SPARE)).toHaveLength(0);
-    expect(fixture.prompts("claude")).toHaveLength(1);
-    expect(messages.filter(notice)).toHaveLength(1);
-    expect(messages.find(notice).tool.name).toContain("This thread's model (Spare Claude · Claude Opus 5) isn't available");
-    expect((await thread()).followsBotModel).toBe(true);
-  });
-}, 120_000);
-
-it("keeps the sign-in failure when the bot's model is on the same signed-out engine", async () => {
-  await withEngines(async (fixture) => {
-    const { bot, threadId, thread } = await botWithOwnModel(fixture, { instanceId: "claude", model: "claude-opus-5" });
-    await fixture.restart({ claude: "signed-out" });
-    const messages = await sendAndSettle(fixture, bot.id, threadId, "SAME_ENGINE_SIGN_IN_7N", "failed");
-    expect(messages.filter(notice)).toHaveLength(0);
-    expect(messages.findLast((message) => message.kind === "activity" && message.tool?.name?.startsWith("error:"))?.tool)
-      .toMatchObject({ ok: false, setup: true });
-    expect(fixture.prompts("claude")).toHaveLength(1);
-    expect(await thread()).toMatchObject({ modelSelection: { instanceId: "claude", model: "claude-opus-5" }, followsBotModel: false });
+    expect(fixture.promptCount(threadId)).toBe(2);
   });
 }, 120_000);

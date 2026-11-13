@@ -9,6 +9,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
+import { piAgentsToken, piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 
 it("applies requested Full Access workflows through MCP without duplicate approvals, and the same changes apply in an Ask task with Undo", async () => {
   const fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, { scripted: true });
@@ -83,7 +84,8 @@ it("applies requested Full Access workflows through MCP without duplicate approv
       XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
       TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
       OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1), PATH: dirname(process.execPath),
-      FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: fixture.fixtureDumpPath,
+      // The fake pi writes the launch log restarted turns append to, as the fixture's own env does.
+      FAKE_PI_DUMP: piDumpPath(dataDir),
     });
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
@@ -176,8 +178,9 @@ it("applies requested Full Access workflows through MCP without duplicate approv
       .map((row: any) => `${row.tool}:${row.decision}:${row.source}`).sort())
       .toEqual(["schedule_routine:auto-approved:full-access", "stage_skill:auto-approved:full-access", "update_profile:auto-approved:full-access"]);
 
-    const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-    const lateToken = dump.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
+    // The agents token rides the turn's launch (pi's MCP config), as the Claude fixture's last dump carried it.
+    const lateToken = piAgentsToken(piTurnsForThread(piDumpPath(dataDir), chief.activeTaskId).at(-1));
+    expect(lateToken).toBeTruthy();
     await api("POST", "/api/internal/team-setup-requests", { plan: { reason: "Late fixture token", operations: [specialist("Must not exist", "Operations")] } }, 401, lateToken);
 
     await run(chief, chief.activeTaskId, "Update the named monthly skill, pause the report, update Mira, then delete Mira as requested.", [

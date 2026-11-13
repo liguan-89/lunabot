@@ -1,14 +1,17 @@
 // "Move to Acme" end to end: the person's My Cloud (OMB_CLOUD_ROLE=home) and their team's Cloud (OMB_CLOUD_ROLE=team)
 // as real servers (scripts/testing/cloud-send-fixture.ts), the Admin's signed team pairing faked as the fixture fakes it,
 // and main's own wiring (team-move-main.mjs through one-home-main.mjs) moving one bot between them. The engine is the
-// synthetic Claude CLI, so this proves the plumbing, not a model's judgement.
+// fixture's synthetic pi, so this proves the plumbing, not a model's judgement.
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { personKey } from "./person-key.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 
 const OWNER = { email: "olive@acme.test", role: "owner" as const };
 const ADMIN = { email: "ben@acme.test", role: "admin" as const };
@@ -18,25 +21,64 @@ const ACME = { id: "team-acme-1", name: "Acme" };
 // Facts only Ada's notes on My Cloud hold: they must never reach Acme.
 const NOTE = "Ada drinks oolong-7731 every morning.";
 const ABOUT = "Ada's partner is Fernando-4471.";
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";`;
+const FAKE_PI = fileURLToPath(new URL("./testing/fake-pi-cli.ts", import.meta.url));
 
 let fx: CloudSendFixture, team: CloudTeamFixture;
+let binDir = "";
+let dumpDir = "";
+let priorPath = "";
+let piModel = "";
+/** Every pi child of every home writes its launch log here, so the test reads one file whatever HOME it ran under. */
+const piDumpFile = () => join(dumpDir, "fake-pi-dump.jsonl");
 const tokens: Record<string, string> = {};
 const adaKey = personKey({ id: "", email: ADA.email });
 type Bot = { id: string; threadId: string; name: string; tasks?: Array<{ threadId: string; private?: true; title?: string }>; movedTo?: { team: { id: string; name: string }; state: string }; hidden?: boolean };
 
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-move-${randomBytes(8).toString("hex")}`, team: { ...ACME, engine: ENGINE } });
+  // Every home resolves the one pi instance from PATH; a stand-in `pi` on PATH runs the repository's fake and writes
+  // each home's launch log where server/testing/pi-dump.ts reads it.
+  binDir = mkdtempSync(join(tmpdir(), "omb-team-move-pi-"));
+  dumpDir = mkdtempSync(join(tmpdir(), "omb-team-move-dump-"));
+  writeFileSync(join(binDir, "pi"), [
+    "#!/usr/bin/env node",
+    'const { mkdirSync } = require("node:fs");',
+    'const { join } = require("node:path");',
+    'const dir = join(process.env.HOME || process.cwd(), ".openmausbot");',
+    "mkdirSync(dir, { recursive: true });",
+    'process.env.FAKE_PI_DUMP = process.env.FAKE_PI_DUMP || join(dir, "fake-pi-dump.jsonl");',
+    `import(${JSON.stringify(pathToFileURL(FAKE_PI).href)}).catch((error) => { process.stderr.write(String(error) + "\\n"); process.exit(1); });`,
+  ].join("\n"), { mode: 0o755 });
+  priorPath = process.env.PATH ?? "";
+  process.env.PATH = [binDir, priorPath].filter(Boolean).join(delimiter);
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-move-${randomBytes(8).toString("hex")}`, team: { ...ACME },
+    env: { FAKE_PI_DUMP: piDumpFile() } });
   team = fx.team!;
   for (const [who, member] of Object.entries({ olive: OWNER, ben: ADMIN, ada: ADA, cleo: CLEO })) tokens[who] = (await team.pair(member)).token!;
   // Ada's MausBot Cloud sign-in lists Acme, and the Admin pairs her there as herself.
   fx.account.state.teams = [{ ...ACME, role: "member", machine: { origin: team.base, status: "ready", state: "ready" } }];
   fx.account.pairTeam = async (id) => { if (id !== ACME.id) throw Object.assign(new Error("not in that team"), { gone: true }); return team.grant(ADA); };
   expect((await fx.onCloud("PATCH", "/api/config", { profile: { name: "Ada", aboutMe: ABOUT } })).status).toBe(200);
+  // The fake pi reports the models bots select from; a moved bot keeps the same one in Acme.
+  const modelsDeadline = Date.now() + 30_000;
+  while (!piModel) {
+    try {
+      const listed = (await fx.onCloud("GET", "/api/instances")).body.instances as Array<{ instanceId: string; models?: { default?: string } }>;
+      piModel = listed.find((instance) => instance.instanceId === "pi")?.models?.default ?? "";
+    } catch {}
+    if (piModel) break;
+    if (Date.now() >= modelsDeadline) throw new Error("My Cloud's pi instance never reported a model");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
   await nameSeededChiefs();
 }, hostTimeout(180_000));
 const watchers: Array<() => void> = [];
-afterAll(async () => { for (const stop of watchers) stop(); await fx?.close(); }, hostTimeout(60_000));
+afterAll(async () => {
+  for (const stop of watchers) stop();
+  await fx?.close();
+  if (priorPath) process.env.PATH = priorPath;
+  if (binDir) rmSync(binDir, { recursive: true, force: true });
+  if (dumpDir) rmSync(dumpDir, { recursive: true, force: true });
+}, hostTimeout(60_000));
 /** Main's channel as My Cloud's page calls it, a refusal as the page gets it. */
 const ask = <T>(channel: string, page: "local" | "cloud", ...args: unknown[]) => (async () => fx.call<T>(channel, page, ...args))();
 
@@ -55,7 +97,7 @@ const teamHome = (...rest: string[]) => join(team.home, ".openmausbot", ...rest)
 
 /** A bot on My Cloud with two chats, a routine that is on, two files and notes about Ada. */
 async function botWithEverything(name: string) {
-  const created = await fx.onCloud("POST", "/api/bots", { name, soul: `You are ${name}. You plan trips.`, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } });
+  const created = await fx.onCloud("POST", "/api/bots", { name, soul: `You are ${name}. You plan trips.`, modelSelection: { instanceId: "pi", model: piModel } });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const bot = created.body.bot as Bot;
   await say(bot, bot.threadId, `${name}: plan Lisbon for May.`);
@@ -171,13 +213,14 @@ it("moves Scout with its two chats, its routine and its files; its notes about A
   const teamNotes = teamHome("workspaces", scout.bot.id, "MEMORY.md");
   expect(existsSync(teamNotes) ? readFileSync(teamNotes, "utf8") : "").not.toContain("oolong");
   expect((await onTeam("ada")("GET", "/api/me")).body?.aboutMe ?? "").not.toContain("Fernando");
-  rmSync(join(team.home, "dump.json"), { force: true });
+  // Its turn in Acme is handed only Acme's facts: the launch log keeps the prompt the fake pi was given.
+  const asked = () => piTurns(piDumpFile()).filter((turn) => turn.prompt.includes("What do I drink in the morning?"));
   expect((await onTeam("ada")("POST", `/api/bots/${scout.bot.id}/messages`, { text: "What do I drink in the morning?", threadId: scout.main })).status).toBe(202);
-  await expect.poll(() => existsSync(join(team.home, "dump.json")), { timeout: 60_000, interval: 100 }).toBe(true);
+  await expect.poll(() => asked().length, { timeout: 60_000, interval: 100 }).toBeGreaterThan(0);
   await expect.poll(async () => idle(onTeam("ada")), { timeout: 60_000, interval: 100 }).toBe(true);
-  const turn = readFileSync(join(team.home, "dump.json"), "utf8");
-  expect(turn).not.toContain("oolong-7731");
-  expect(turn).not.toContain("Fernando-4471");
+  const turnPrompt = asked().at(-1)!.prompt;
+  expect(turnPrompt).not.toContain("oolong-7731");
+  expect(turnPrompt).not.toContain("Fernando-4471");
 
   // My Cloud keeps Scout as the line that opens it in Acme, and Scout takes no turn there.
   const kept = (await cloudBots()).find((bot) => bot.id === scout.bot.id)!;

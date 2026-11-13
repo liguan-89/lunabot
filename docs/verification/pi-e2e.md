@@ -265,15 +265,62 @@ pnpm vitest run server/main-thread.e2e.test.ts
   over" replay half is gone with the second engine. Its file digest restarts
   the fixture with git on PATH: the sealed PATH has only node's folder.
 
+- `server/agents-bridge.e2e.test.ts` — pi refuses the agents tool bridge
+  (`engineBridgeRefusal`), so the recipe proves the switch never mounts it:
+  the whole catalog, no bridge prompt, the tool-selection gate and the
+  Chief-only refusal.
+- `server/automatic-recovery.e2e.test.ts` — the settings contract plus pi's
+  own behavior: a failed turn stays failed and never moves to a configured
+  backup model. The old recovery-turn subtests needed an engine that refuses
+  before accepting a prompt (`TurnNotStartedError`) and a second engine; pi
+  produces neither.
+- `server/bot-visibility.e2e.test.ts` — per-bot visibility on a shared
+  workspace, with the closed and hidden bots' prompts read from
+  `FAKE_PI_PROMPTS` instead of a second echo engine.
+- `server/computer-engine-removal.e2e.test.ts` — a retired Claude instance is
+  retargeted to pi at boot, and a Boat screenshot is a scripted
+  `{ server: "computer" }` call through the mounted pi extension.
+- `server/decider-rooms.e2e.test.ts` — room deciders on pi; engine-generated
+  thread titles are gone with pi's missing one-shot text call.
+- `server/full-access-workflows.e2e.test.ts` and
+  `server/room-sessions.e2e.test.ts` — full-access plans and room sessions,
+  with turns read from `piTurnsForThread`/`piTurnText`. Room delta turns and
+  Claude Code's compaction hooks are gone; failure/stop recovery and
+  cross-member replay stay.
+- `server/incidents.e2e.test.ts` — a crashed run, the Chief's retry, and the
+  same-failure-once note, with a per-thread pi wrapper and per-thread dump so
+  interleaved warm children stay attributable.
+- `server/limit-reset.e2e.test.ts` — pi reports no plan usage, reset time or
+  sign-in state, so the honest coverage is one test: a usage-limit refusal
+  fails the turn, keeps the provider's words, invents no reset, and creates
+  the one-time `limit_reset` automation.
+- `server/notification-routing.e2e.test.ts` — one pi instance whose per-bot
+  flavors come from prompt-keyed `FAKE_PI_HOLD_ON`/`FAKE_PI_QUESTION_ON` and
+  marker replies.
+- `server/openai-tools.e2e.test.ts` — the custom-provider key/catalog path
+  plus a mounted MCP `write_file` and pi's permission card; the old
+  chat-completions argument-streaming matrix went with that transport.
+- `server/team-move.e2e.test.ts` — a moved team's homes all run the pi
+  stand-in, read from one `FAKE_PI_DUMP`.
+- `server/thread-model-follow.e2e.test.ts` — a thread saved on a deleted
+  engine gives way to the bot's pi model with a notice on every turn, then
+  follows the bot.
+- `server/trust-controls.e2e.test.ts` — delegated and routine plans call pi's
+  plain app tools, relayed as their Composio tools; account-fallback
+  instances are gone with the accounts.
+- `server/voice-notes.e2e.test.ts` — a held voice-note turn detected from pi's
+  launch log, and Stop keeping the partial that is then not spoken.
+
 ## Not migrated yet
 
-The remaining old e2e recipes still assume the fake Claude CLI's dump
-file, Claude-specific argv (`--permission-mode`, `--restricted`, `--model`) or
-the retired `openaiCompat` / ACP engine instances. Most can now move by reading
-`fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
-assertions with the launch, turn and transcript events. The `group-goal-run*`
-recipes are per-engine matrices written against engines this build no longer
-has. Until then `pnpm test:e2e` (the old suite) is expected to fail.
+The remaining old e2e recipes are the upstream cross-engine and
+cloud/browser/UI suites: they configure the retired `claudeAgent`/`grokAgent`/
+ACP instances, assert Claude argv or read `fake-claude-dump.json`, and many
+need live cloud or browser infrastructure. They are not part of this build's
+acceptance suite: `pnpm test:e2e:pi` is the e2e suite for the pi-only product.
+They remain as source material and can move by reading `fake-pi-dump.jsonl`
+through `server/testing/pi-dump.ts` and replacing argv assertions with the
+launch, turn and transcript events.
 
 ## Retired engine tests
 

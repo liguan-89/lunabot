@@ -1,8 +1,15 @@
+// Structured MCP tool calls through the real server, the real pi driver and pi's own MCP extension: a mounted server's
+// tool runs only when the bot may use it, its text and artifact reach the conversation, pi's permission card holds a
+// turn on Ask, and a text-only turn calls nothing. The old OpenAI-compatible chat loop (streamed argument fragments,
+// a second provider request carrying the tool result, `tools:false`) went with that engine; the custom provider now
+// only supplies pi's model catalog, which is still checked here.
 import { createServer } from "node:http";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { afterAll, beforeAll, expect, it } from "vitest";
+
+import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
 
 // The fixture can only write one fixed file in the launcher's disposable home: provider arguments cannot select a path.
 const MCP_FIXTURE = `
@@ -24,237 +31,157 @@ lines.on('line', (line) => {
 });
 `;
 
-type ChatMessage = { role: string; content?: string; tool_call_id?: string; tool_calls?: Array<{ id: string }> };
-type ChatRequest = {
-  messages: ChatMessage[];
-  tools?: Array<{ function: { name: string; description?: string } }>;
-};
+let fixture: VerificationServer;
+let scratch = "";
+let callsFile = "";
+let artifact = "";
+let started = "";
+let model = "";
 
-// The chat drivers keep the system message to the stable half of the prompt, so the provider's cached prefix survives a memory write.
-const CONTEXT_NOTE = "Context from DEX BOT updated since this conversation started; it replaces any earlier copy:";
-const MEMORY = "Your memory (MEMORY.md):\n# Memory\n- Fixture prefers concise replies.";
-// Team availability changes whenever a teammate starts or finishes, so it must never reach the cached system message.
-const AVAILABILITY = "Team availability";
-const ANNOUNCEMENT = "I'm working in the Cua Local VM and will launch XFCE Terminal first.";
-function delivered(request: ChatRequest) {
-  const system = request.messages.find((message) => message.role === "system")?.content ?? "";
-  const turn = request.messages.findLast((message) => message.role === "user")?.content ?? "";
-  return { system, turn, all: `${system}\n${turn}` };
-}
-function expectMemoryInTurn(request: ChatRequest, text: string) {
-  const { system, turn } = delivered(request);
-  expect(system).not.toContain("Fixture prefers concise replies.");
-  expect(turn.slice(0, CONTEXT_NOTE.length + 2)).toBe(`${CONTEXT_NOTE}\n\n`);
-  expect(turn).toContain(MEMORY);
-  expect(turn.indexOf(MEMORY)).toBeLessThan(turn.lastIndexOf(text));
-  expect(turn.slice(-text.length)).toBe(text);
-}
-
-it.each(["openaiCompat", "groq", "meta"] as const)("%s runs structured MCP calls through real harness approval and continuation, preserving text and cancellation", async instanceId => {
-  const requests: ChatRequest[] = [];
-  let scenario = "allow";
-  const upstream = createServer(async (req, res) => {
+beforeAll(async () => {
+  scratch = mkdtempSync(join(tmpdir(), "omb-openai-tools-"));
+  callsFile = join(scratch, "tool-calls.json");
+  writeFileSync(callsFile, "[]");
+  // A loopback OpenAI-compatible stand-in: it only lists a model, which pi's catalog takes from the custom provider.
+  const provider = createServer((req, res) => {
     if (req.headers.authorization !== "Bearer synthetic-fixture-key") {
-      res.writeHead(401, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "Invalid API key" } }));
+      res.writeHead(401, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: "Invalid API key" } }));
       return;
     }
     if (req.url === "/v1/models") {
-      res.setHeader("content-type", "application/json");
-      res.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
+      res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
       return;
     }
-    let body = "";
-    for await (const chunk of req) body += chunk;
-    const request = JSON.parse(body) as ChatRequest;
-    requests.push(request);
-    if (scenario === "tools-off" && "tools" in request) {
-      res.writeHead(400, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: { message: "This fixture model supports text only." } }));
-      return;
-    }
-    const toolResult = request.messages.find((message) => message.role === "tool");
-    const name = request.tools?.find((tool) => tool.function.description?.includes("disposable verification artifact"))?.function.name;
-    const call = { index: 0, id: "fixture-call", type: "function", function: { name: name ?? "fixture_write_file", arguments: '{"content":"verified"}' } };
-    const frame = (delta: unknown, finish_reason: string | null) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason }] })}\n\n`;
-    res.writeHead(200, { "content-type": "text/event-stream" });
-    if (toolResult) {
-      res.end(frame({ content: ["allow", "selected", "announced"].includes(scenario) ? "The artifact was created." : "The operation was denied." }, "stop") + "data: [DONE]\n\n");
-    } else if (scenario === "announced" && !request.messages.some(message => message.role === "assistant" && message.content === ANNOUNCEMENT)) {
-      res.end(frame({ content: ANNOUNCEMENT }, "stop") + "data: [DONE]\n\n");
-    } else if (["text", "ordinary", "scope-empty", "tools-off"].includes(scenario)) {
-      res.end(frame({ content: scenario === "text" ? JSON.stringify(call) : "Hello from the fixture." }, "stop") + "data: [DONE]\n\n");
-    } else {
-      // Arguments arrive across events, and are only valid JSON when joined.
-      res.write(frame({ tool_calls: [{ ...call, function: { name: call.function.name, arguments: '{"content":' } }] }, null));
-      res.end(frame({ tool_calls: [{ index: 0, id: null, type: null, function: { name: null, arguments: '"verified"}' } }] }, "tool_calls") + "data: [DONE]\n\n");
-    }
+    res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ error: { message: "Not found." } }));
   });
-  await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
-  const address = upstream.address();
+  await new Promise<void>((resolve) => provider.listen(0, "127.0.0.1", resolve));
+  const address = provider.address();
   if (!address || typeof address === "string") throw new Error("fixture provider address missing");
-  const fixture = await launchVerificationServer().catch(async (error) => {
-    upstream.closeAllConnections();
-    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+  fixture = await launchVerificationServer({
+    ...process.env,
+    FAKE_PI_MOUNT_TOOLS: "1",
+    FAKE_PI_TOOL_CALLS_FILE: callsFile,
+    FAKE_PI_PERMISSION_ON: "Confirm before acting",
+    // The compatibility turn is the fixture's scripted one: it runs FAKE_PI_TOOL_CALLS before its reply.
+    FAKE_PI_CLAUDE_COMPAT: "1",
+  }).catch(async (error) => {
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
     throw error;
   });
-  const evidence: unknown[] = [{ fixture: fixture.info }];
-  const control = async (args: string[]) => {
-    const result = await runControlOmb([...args, "--url", fixture.info.url]) as any;
-    evidence.push({ command: args, result });
-    return result;
-  };
-  const api = async (method: string, path: string, body?: unknown, expectedStatus?: number) => {
-    const response = await fetch(`${fixture.info.url}${path}`, {
-      method, headers: { "content-type": "application/json", origin: fixture.info.url },
-      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-    });
-    const result = await response.json() as any;
-    if (expectedStatus !== undefined) expect(response.status, JSON.stringify(result)).toBe(expectedStatus);
-    else expect(response.ok, JSON.stringify(result)).toBe(true);
-    return result;
-  };
   try {
-    const saved = await api("PATCH", "/api/config", { [instanceId]: {
-      key: "synthetic-fixture-key", url: `http://127.0.0.1:${address.port}/v1`,
-      ...(instanceId === "openaiCompat" ? { model: "fixture-model" } : {}),
-    } });
-    expect(saved[instanceId].configured).toBe(true);
+    const api = apiOf(fixture);
+    const saved = await api("PATCH", "/api/config", { openaiCompat: { key: "synthetic-fixture-key", url: `http://127.0.0.1:${address.port}/v1`, model: "fixture-model" } });
+    expect(saved.openaiCompat.configured).toBe(true);
     expect(JSON.stringify(saved)).not.toContain("synthetic-fixture-key");
-    expect(await api("POST", "/api/keys/test", { provider: instanceId })).toMatchObject({ ok: true, check: "models", models: ["fixture-model"] });
-    await api("POST", `/api/instances/${instanceId}/refresh-models`, {});
+    expect(await api("POST", "/api/keys/test", { provider: "openaiCompat" })).toMatchObject({ ok: true, check: "models", models: ["fixture-model"] });
+    mkdirSync(fixture.info.dataDir, { recursive: true });
     const mcpScript = join(fixture.info.dataDir, "fixture-mcp.mjs");
     writeFileSync(mcpScript, MCP_FIXTURE);
-    // A server is started once to check it starts for the bots that use it; the starter bot uses none of these.
-    for (const starter of (await api("GET", "/api/bots")).bots) await api("PATCH", `/api/bots/${starter.id}`, { mcpServers: [] });
-    for (const mode of ["allow", "deny", "cancel", "text", "ordinary", "selected", "scope-empty", ...(instanceId === "openaiCompat" ? ["announced"] : []), "tools-off"]) {
-      scenario = mode;
-      const artifact = join(fixture.info.dataDir, `${mode}-artifact.txt`);
-      const startupMarker = join(fixture.info.dataDir, `${mode}-mcp-started.txt`);
-      await api("POST", "/api/mcp/servers", { name: mode, command: process.execPath, args: [mcpScript], env: { FIXTURE_ARTIFACT: artifact, FIXTURE_STARTED: startupMarker }, enabled: true });
-      if (mode === "tools-off") {
-        await api("PATCH", `/api/instances/${instanceId}`, { tools: "false" }, 400);
-        await api("PATCH", "/api/instances/claude", { tools: false }, 400);
-        const changed = await api("PATCH", `/api/instances/${instanceId}`, { tools: false });
-        const instance = changed.instances.find((item: any) => item.instanceId === instanceId);
-        expect(instance.capabilities).toMatchObject({ agentsMcp: false, composioMcp: false });
-      }
-      await api("PATCH", `/api/mcp/servers/${mode}`, { enabled: true });
-      const { bot } = await control(["new-bot", "--name", `API tool ${mode}`]);
-      await control(["set-model", "--bot", bot.id, "--instance", instanceId, "--model", "fixture-model"]);
-      // On Ask, so each structured call stops on the harness's own card.
-      await api("PATCH", `/api/bots/${bot.id}`, { mcpServers: [mode], approvalMode: "ask", description: "Verification assistant", soul: "Use structured tools when an operation is requested." });
-      if (mode === "selected" || mode === "scope-empty") {
-        await api("PATCH", `/api/bots/${bot.id}`, { toolScope: { allow: mode === "selected" ? [`mcp:${mode}:write_file`] : [] } });
-      }
-      const memoryDirectory = join(fixture.info.dataDir, "workspaces", bot.id);
-      mkdirSync(memoryDirectory, { recursive: true });
-      writeFileSync(join(memoryDirectory, "MEMORY.md"), "# Memory\n- Fixture prefers concise replies.\n");
-      const before = requests.length;
-      expect((await control(["send", "--bot", bot.id, "--task", bot.activeTaskId, "--text", "Write the verification artifact if a structured tool is requested."])).success).toBe(true);
-      const wait = () => control(["wait", "--bot", bot.id, "--task", bot.activeTaskId, "--timeout", "20"]);
-      let settled = await wait();
-      if (["allow", "deny", "cancel", "selected", "announced"].includes(mode)) {
-        expect(settled.status, JSON.stringify({ tools: requests[before]?.tools?.map((tool) => tool.function.name), messages: settled.messages })).toBe("needs-user");
-        expect(existsSync(artifact)).toBe(false);
-        expect(requests).toHaveLength(before + (mode === "announced" ? 2 : 1));
-        if (mode === "announced") {
-          expect(requests[before + 1]!.messages.at(-2)).toEqual({ role: "assistant", content: ANNOUNCEMENT });
-          expect(requests[before + 1]!.messages.at(-1)).toMatchObject({ role: "user", content: expect.stringContaining("called no tool") });
-        }
-        const state = await api("GET", "/api/bots");
-        const current = state.bots.find((item: any) => item.id === bot.id);
-        const card = current.messages.find((message: any) => message.card?.requestId && !message.card.answered)?.card;
-        expect(card?.requestId).toBeTruthy();
-        if (mode === "cancel") await control(["interrupt", "--bot", bot.id, "--task", bot.activeTaskId]);
-        else await api("POST", `/api/bots/${bot.id}/respond`, { threadId: bot.activeTaskId, requestId: card.requestId, behavior: ["selected", "announced"].includes(mode) ? "allow" : mode });
-        settled = await wait();
-      }
-      const messages = await control(["messages", "--bot", bot.id, "--task", bot.activeTaskId, "--limit", "20"]);
-      const first = delivered(requests[before]!);
-      expectMemoryInTurn(requests[before]!, "Write the verification artifact if a structured tool is requested.");
-      if (mode === "ordinary") {
-        // the earlier modes' bots are this bot's teammates
-        expect(first.system).not.toContain(AVAILABILITY);
-        expect(first.turn).toContain(AVAILABILITY);
-      }
-      expect(first.all).not.toContain("update it with your file tools");
-      expect(first.all).not.toContain("File locations for this bot");
-      expect(first.all).not.toContain("read its exact SKILL.md path above with your file tools");
-      if (["allow", "deny", "selected", "announced"].includes(mode)) {
-        expect(requests).toHaveLength(before + (mode === "announced" ? 3 : 2));
-        const continued = requests.at(-1)!;
-        if (mode !== "announced") expect(delivered(continued)).toEqual(first);
-        const result = continued.messages.find((message) => message.role === "tool");
-        expect(result?.tool_call_id).toBe("fixture-call");
-        expect(continued.messages.some((message) => message.role === "assistant" && message.tool_calls?.some((call) => call.id === result?.tool_call_id))).toBe(true);
-        if (["allow", "selected", "announced"].includes(mode)) {
-          expect(settled.status).toBe("settled");
-          expect(readFileSync(artifact, "utf8")).toBe("verified");
-          expect(result?.content).toContain("created verification artifact");
-          expect(messages.messages.some((message: any) => message.text?.includes("The artifact was created."))).toBe(true);
-          if (mode === "selected") expect(requests[before]!.tools?.map((tool) => tool.function.name)).toEqual(["selected_write_file"]);
-        } else {
-          expect(settled.status).toBe("failed");
-          expect(result?.content).toMatch(/denied/i);
-          expect(existsSync(artifact)).toBe(false);
-        }
-      } else {
-        expect(requests).toHaveLength(before + 1);
-        expect(existsSync(artifact)).toBe(false);
-        if (mode === "cancel") {
-          expect(messages.messages.some((message: any) => message.card?.dismissed && message.card.answered === "deny")).toBe(true);
-          expect(messages.messages.some((message: any) => message.tool?.ok === false)).toBe(true);
-        } else expect(settled.status).toBe("settled");
-        if (mode === "text") expect(messages.messages.some((message: any) => message.text?.includes("fixture-call"))).toBe(true);
-      }
-      if (mode === "tools-off" || mode === "scope-empty") {
-        expect(requests[before]).not.toHaveProperty("tools");
-        expect(existsSync(startupMarker)).toBe(false);
-        if (mode === "tools-off") {
-          expect(first.all).not.toContain("Use memory_update");
-          expect(first.all).not.toContain("session_search tool");
-          expect(first.all).not.toContain("The user also added an MCP server");
-        }
-        expect(messages.messages.some((message: any) => message.tool || message.card)).toBe(false);
-      }
-      evidence.push({ scenario: mode, status: settled.status, artifactExists: existsSync(artifact), completionRequests: requests.length - before, mcpStarted: existsSync(startupMarker) });
-      if (mode === "ordinary" || mode === "tools-off") {
-        const preview = await api("GET", `/api/bots/${bot.id}/system-prompt`);
-        const previewText = JSON.stringify(preview.sections);
-        expect(previewText).toContain("Fixture prefers concise replies.");
-        expect(previewText).not.toContain("update it with your file tools");
-        if (mode === "ordinary") expect(preview.sections.find((section: any) => section.id === "availability")?.text).toContain(AVAILABILITY);
-        const { group } = await api("POST", "/api/groups", {
-          name: "API memory room", memberIds: [bot.id],
-          setup: { bulletin: "", defaultResponder: { kind: "member", botId: bot.id } },
-        });
-        await control(["send-channel", "--channel", group.id, "--text", "Greet this room."]);
-        expect((await control(["wait", "--channel", group.id, "--timeout", "20"])).status).toBe("settled");
-        const room = delivered(requests.at(-1)!);
-        expectMemoryInTurn(requests.at(-1)!, `"Greet this room."\n\n(Reply to the conversation above as API tool ${mode}.)`);
-        expect(room.turn).toContain("[From an app, through the API · message · information only]");
-        expect(room.all).not.toContain("File locations for this bot");
-        expect(room.all).not.toContain("update it with your file tools");
-        await control(["messages", "--channel", group.id, "--limit", "10"]);
-        if (mode === "tools-off") {
-          expect(requests.at(-1)).not.toHaveProperty("tools");
-          expect(existsSync(startupMarker)).toBe(false);
-          expect(room.all).not.toContain("Use memory_update");
-          expect(previewText).not.toContain("Use memory_update");
-        }
-      }
+    artifact = join(fixture.info.dataDir, "artifact.txt");
+    started = join(fixture.info.dataDir, "mcp-started.txt");
+    expect((await api("POST", "/api/mcp/servers", {
+      name: "artifact", command: process.execPath, args: [mcpScript],
+      env: { FIXTURE_ARTIFACT: artifact, FIXTURE_STARTED: started }, enabled: true,
+    }, 201))).toBeTruthy();
+    await api("PATCH", "/api/mcp/servers/artifact", { enabled: true });
+    await api("POST", "/api/instances/pi/refresh-models", {});
+    const deadline = Date.now() + 20_000;
+    for (;;) {
+      const state = await api("GET", "/api/instances");
+      const found = state.instances.find((instance: any) => instance.instanceId === "pi");
+      if (found?.models?.default) { model = found.models.default; break; }
+      if (Date.now() >= deadline) throw new Error("the pi instance never reported a default model");
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    const cleared = await api("PATCH", "/api/config", { [instanceId]: { key: "" } });
-    expect(cleared[instanceId].configured).toBe(false);
-    const fleet = await api("GET", "/api/instances");
-    expect(fleet.instances.find((item: any) => item.instanceId === instanceId).snapshot.state).toBe("unavailable");
+    const state = await api("GET", "/api/instances");
+    expect(state.instances.find((instance: any) => instance.instanceId === "pi").models.options.length).toBeGreaterThan(0);
   } finally {
-    const evidencePath = `${fixture.info.logPath}.${instanceId}-tools.json`;
-    writeFileSync(evidencePath, JSON.stringify(evidence, null, 2), { mode: 0o600 });
-    console.info(JSON.stringify({ evidencePath }));
-    await fixture.close();
-    upstream.closeAllConnections();
-    await new Promise<void>((resolve) => upstream.close(() => resolve()));
+    provider.closeAllConnections();
+    await new Promise<void>((resolve) => provider.close(() => resolve()));
   }
-}, 120_000);
+}, 90_000);
+
+afterAll(async () => {
+  await fixture?.close();
+  if (scratch) rmSync(scratch, { recursive: true, force: true });
+});
+
+const apiOf = (current: VerificationServer) => async (method: string, path: string, body?: unknown, status = 200) => {
+  const response = await fetch(current.info.url + path, {
+    method, headers: { "content-type": "application/json", origin: current.info.url },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
+  const value = await response.json() as any;
+  expect(response.status, `${method} ${path}: ${JSON.stringify(value)}`).toBe(status);
+  return value;
+};
+
+const api = (method: string, path: string, body?: unknown, status = 200) => apiOf(fixture)(method, path, body, status);
+const control = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
+const script = (calls: unknown[]) => writeFileSync(callsFile, JSON.stringify(calls));
+const idle = (botId: string) => expect.poll(async () => (await api("GET", "/api/bots")).bots.find((bot: any) => bot.id === botId)?.busy, { timeout: 20_000 }).toBeFalsy();
+
+async function newBot(name: string, settings: Record<string, unknown>) {
+  const { bot } = await control("new-bot", "--name", name);
+  // A new bot's own greeting turn runs on the fixture's default reply and takes no scripted call: wait it out first.
+  await idle(bot.id);
+  script([]);
+  await api("PATCH", `/api/bots/${bot.id}`, {
+    notifications: false,
+    name,
+    description: "Verification assistant",
+    soul: "Use structured tools when an operation is requested.",
+    mcpServers: ["artifact"],
+    modelSelection: { instanceId: "pi", model },
+    ...settings,
+  });
+  return bot;
+}
+
+const send = async (bot: { id: string; activeTaskId: string }, text: string) => {
+  expect((await control("send", "--bot", bot.id, "--task", bot.activeTaskId, "--text", text)).success).toBe(true);
+  await expect.poll(async () => (await control("wait", "--bot", bot.id, "--task", bot.activeTaskId, "--timeout", "30")).status, { timeout: 45_000 }).toBe("settled");
+};
+
+it("runs a mounted MCP tool through the real extension and keeps its text and artifact in the conversation", async () => {
+  const bot = await newBot("API tool allow", { approvalMode: "full" });
+  rmSync(artifact, { force: true });
+  script([{ name: "write_file", server: "artifact", input: { content: "verified" } }]);
+  await send(bot, "Write the verification artifact if a structured tool is requested.");
+  expect(existsSync(artifact)).toBe(true);
+  expect(readFileSync(artifact, "utf8")).toBe("verified");
+  const rows = await messages(bot.activeTaskId);
+  const tool = rows.find((row) => row.kind === "activity" && String(row.tool?.name ?? "").endsWith("write_file"));
+  expect(tool?.tool?.ok).toBe(true);
+  expect(String(tool?.tool?.output ?? JSON.stringify(tool?.tool?.output))).toContain("created verification artifact");
+  expect(rows.findLast((row) => row.role === "bot" && row.kind === "text")?.text).toContain("hello from fake claude");
+  script([]);
+}, 90_000);
+
+// A per-bot tool scope is not exercised here: pi enforces it through getActiveTools/setActiveTools, which this fake
+// pi child does not implement, so the driver rightly refuses such a turn. The scope routes have their own recipe.
+
+it("offers pi's own permission card on Ask and records a denied answer", async () => {
+  const bot = await newBot("API tool ask", { approvalMode: "ask" });
+  script([]);
+  await control("send", "--bot", bot.id, "--task", bot.activeTaskId, "--text", "Confirm before acting on the verification.");
+  let card: any;
+  await expect.poll(async () => Boolean(card = (await messages(bot.activeTaskId)).find((row) => row.card && !row.card.answered)?.card), { timeout: 20_000 }).toBe(true);
+  expect(card).toMatchObject({ requestType: "permission" });
+  expect(String(card.tool ?? card.subtitle)).toContain("Run bash: echo hi?");
+  expect((await api("POST", `/api/bots/${bot.id}/respond`, { threadId: bot.activeTaskId, requestId: card.requestId, behavior: "deny" })).ok).toBe(true);
+  expect((await control("wait", "--bot", bot.id, "--task", bot.activeTaskId, "--timeout", "30")).status).toBe("settled");
+  expect((await messages(bot.activeTaskId)).find((row) => row.card?.requestId === card.requestId)?.card).toMatchObject({ answered: "deny" });
+}, 90_000);
+
+it("leaves a text-only turn with no tool call and no artifact", async () => {
+  const bot = await newBot("API tool text", { approvalMode: "full" });
+  rmSync(artifact, { force: true });
+  script([]);
+  await send(bot, "Answer in one line: what is this fixture for?");
+  expect(existsSync(artifact)).toBe(false);
+  const rows = await messages(bot.activeTaskId);
+  expect(rows.some((row) => row.kind === "activity" && Boolean(row.tool))).toBe(false);
+  expect(rows.findLast((row) => row.role === "bot" && row.kind === "text")?.text).toContain("hello from fake claude");
+}, 90_000);

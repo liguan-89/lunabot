@@ -549,6 +549,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const finishRun = () => {
         const sr = endStopReason;
         if (sr === "error" || sr === "failed") {
+          // What the turn already said is part of its transcript, so it lands above the failure row rather than after it.
+          flushAssistantText();
           emit({
             ...base(threadId, turnId),
             type: "runtime.error",

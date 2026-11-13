@@ -8,6 +8,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { request } from "../scripts/mcp-server.ts";
 import { lastNonReceipt } from "../src/lib/receipts.ts";
+import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 import { listSystemVoices } from "./tts/system-voices.ts";
 
 const execFileAsync = promisify(execFile);
@@ -466,9 +467,14 @@ it("speaks every reply when the Voice setting is on: failed turns too with how t
   expect((await f.messages(failing.activeTaskId)).some((m: any) => String(m.tool?.name ?? "").startsWith("error:"))).toBe(true);
 
   await f.cli("send", "--bot", stopped.id, "--task", stopped.activeTaskId, "--text", "Start the long job.");
-  await expect.poll(async () => (await f.messages(stopped.activeTaskId)).some((m: any) => m.text === "Starting the long job."), { timeout: 20_000 }).toBe(true);
+  // The fake streams the working note but pi keeps it as the turn's text only when the turn settles, so the turn is
+  // known under way by its prompt in the launch log rather than by a stored line.
+  await expect.poll(() => piTurnsForThread(piDumpPath(f.dataDir), stopped.activeTaskId)
+    .some((turn) => turn.prompt.includes("Start the long job.")), { timeout: 20_000 }).toBe(true);
   await f.api("/api/bots/" + stopped.id + "/interrupt", { threadId: stopped.activeTaskId });
   await f.cli("wait", "--bot", stopped.id, "--task", stopped.activeTaskId, "--timeout", "30");
+  // The person's Stop keeps what was said, and the Voice setting still does not speak it.
+  expect((await f.messages(stopped.activeTaskId)).some((m: any) => m.role === "bot" && m.text === "Starting the long job.")).toBe(true);
   await settle(f, plain, "Once more.");
   await expect.poll(() => f.seen.filter((call: any) => call.input === "The report is ready.").length, { timeout: 20_000 }).toBe(2);
   const spoken = f.seen.map((call: any) => call.input);
