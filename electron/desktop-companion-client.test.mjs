@@ -60,47 +60,47 @@ describe("desktop companion endpoint", () => {
     expect(normalizeTailscaleCompanionEndpoint("http://HOST.example-tailnet.ts.net:9910/")).toBe(
       "http://host.example-tailnet.ts.net:9910",
     );
-    expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.openmausbot.com`)).toBe(
-      `https://${LABEL}.openmausbot.com`,
+    expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.dexai.vip`)).toBe(
+      `https://${LABEL}.dexai.vip`,
     );
-    expect(normalizeDesktopCompanionEndpoint(`${LABEL}.openmausbot.com`)).toBe(
-      `https://${LABEL}.openmausbot.com`,
+    expect(normalizeDesktopCompanionEndpoint(`${LABEL}.dexai.vip`)).toBe(
+      `https://${LABEL}.dexai.vip`,
     );
-    // The control plane's second Cloudflare account gives addresses here.
-    expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.mausbot.si`)).toBe(
-      `https://${LABEL}.mausbot.si`,
+    // The control plane's managed zone carries the long-lived companion addresses.
+    expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.dexai.vip`)).toBe(
+      `https://${LABEL}.dexai.vip`,
     );
-    expect(normalizeDesktopCompanionEndpoint(` ${LABEL.toUpperCase()}.Mausbot.SI/ `)).toBe(
-      `https://${LABEL}.mausbot.si`,
+    expect(normalizeDesktopCompanionEndpoint(` ${LABEL.toUpperCase()}.DEXAI.VIP/ `)).toBe(
+      `https://${LABEL}.dexai.vip`,
     );
     for (const endpoint of [
       "https://unrelated.example.com",
-      `http://${LABEL}.openmausbot.com`,
+      `http://${LABEL}.dexai.vip`,
       "http://10.0.0.4:8810",
       "http://host.local:8810",
       "https://10.0.0.4",
       "http://host.example-tailnet.ts.net/path",
-      `https://${LABEL}.openmausbot.com/path`,
+      `https://${LABEL}.dexai.vip/path`,
       "http://user@host.example-tailnet.ts.net",
       "http://host.example-tailnet.ts.net.evil.test",
-      `https://${LABEL}.openmausbot.com.evil.test`,
-      `http://${LABEL}.mausbot.si`,
-      `https://${LABEL}.mausbot.si/path`,
-      `https://${LABEL}.mausbot.si.evil.test`,
-      "https://mausbot.si",
-      "mausbot.si",
-      "https://evilmausbot.si",
-      `https://${LABEL}.evilmausbot.si`,
-      "https://www.mausbot.si",
-      "https://app.mausbot.si",
-      "https://accounts.openmausbot.com",
-      "https://c-opaque.openmausbot.com",
-      "https://c-opaque.mausbot.si",
-      `https://${LABEL.slice(0, -1)}.mausbot.si`,
-      `https://${LABEL}0.mausbot.si`,
-      `https://${LABEL.replace("c-", "d-")}.mausbot.si`,
-      `https://${LABEL}.extra.mausbot.si`,
-      `https://www.${LABEL}.mausbot.si`,
+      `https://${LABEL}.dexai.vip.evil.test`,
+      `http://${LABEL}.dexai.vip`,
+      `https://${LABEL}.dexai.vip/path`,
+      `https://${LABEL}.dexai.vip.evil.test`,
+      "https://dexai.vip",
+      "dexai.vip",
+      "https://evildexai.vip",
+      `https://${LABEL}.evildexai.vip`,
+      "https://www.dexai.vip",
+      "https://app.dexai.vip",
+      "https://accounts.dexai.vip",
+      "https://c-opaque.dexai.vip",
+      "https://c-opaque.dexai.vip",
+      `https://${LABEL.slice(0, -1)}.dexai.vip`,
+      `https://${LABEL}0.dexai.vip`,
+      `https://${LABEL.replace("c-", "d-")}.dexai.vip`,
+      `https://${LABEL}.extra.dexai.vip`,
+      `https://www.${LABEL}.dexai.vip`,
     ]) {
       expect(normalizeDesktopCompanionEndpoint(endpoint), endpoint).toBe("");
     }
@@ -109,7 +109,7 @@ describe("desktop companion endpoint", () => {
   it("accepts one c-<32 hex> label under each listed domain, and only those", () => {
     // The third domain is a one-line change; until the owner names it, nothing new is accepted.
     expect(NEXT_MANAGED_COMPANION_HOST_SUFFIX).toBe("");
-    expect(MANAGED_COMPANION_HOST_SUFFIXES).toEqual(["openmausbot.com", "mausbot.si"]);
+    expect(MANAGED_COMPANION_HOST_SUFFIXES).toEqual(["dexai.vip"]);
     expect(Object.isFrozen(MANAGED_COMPANION_HOST_SUFFIXES)).toBe(true);
     for (const suffix of MANAGED_COMPANION_HOST_SUFFIXES) {
       expect(suffix).toMatch(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/);
@@ -133,16 +133,16 @@ describe("desktop companion endpoint", () => {
   });
 
   it("validates, adds, and removes the encrypted credential document field", () => {
-    const hostedAccess = { ...access, endpoint: `https://${LABEL}.openmausbot.com` };
+    const hostedAccess = { ...access, endpoint: `https://${LABEL}.dexai.vip` };
     expect(desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: hostedAccess })).toEqual(
       hostedAccess,
     );
-    const secondDomain = { ...access, endpoint: `https://${LABEL}.mausbot.si` };
+    const secondDomain = { ...access, endpoint: `https://${LABEL}.dexai.vip` };
     expect(desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: secondDomain })).toEqual(
       secondDomain,
     );
     expect(
-      desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: { ...access, endpoint: "https://app.mausbot.si" } }),
+      desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: { ...access, endpoint: "https://app.dexai.vip" } }),
     ).toBeNull();
 
     expect(desktopCompanionAccess({ [DESKTOP_COMPANION_FIELD]: access })).toEqual(access);
@@ -193,34 +193,34 @@ describe("desktop companion pairing", () => {
       }),
     );
     const paired = await pairDesktopCompanion({
-      endpoint: `https://${LABEL}.openmausbot.com`,
+      endpoint: `https://${LABEL}.dexai.vip`,
       code: "654321",
       deviceName: "Desktop client",
       requestId: "request-https-01",
       fetchImpl,
     });
-    expect(paired).toEqual({ ...access, endpoint: `https://${LABEL}.openmausbot.com` });
+    expect(paired).toEqual({ ...access, endpoint: `https://${LABEL}.dexai.vip` });
     expect(fetchImpl).toHaveBeenCalledWith(
-      `https://${LABEL}.openmausbot.com/api/pair`,
+      `https://${LABEL}.dexai.vip/api/pair`,
       expect.objectContaining({ method: "POST" }),
     );
 
     const secondDomain = await pairDesktopCompanion({
-      endpoint: `${LABEL}.mausbot.si`,
+      endpoint: `${LABEL}.dexai.vip`,
       code: "654321",
       deviceName: "Desktop client",
       requestId: "request-https-02",
       fetchImpl,
     });
-    expect(secondDomain).toEqual({ ...access, endpoint: `https://${LABEL}.mausbot.si` });
+    expect(secondDomain).toEqual({ ...access, endpoint: `https://${LABEL}.dexai.vip` });
     expect(fetchImpl).toHaveBeenLastCalledWith(
-      `https://${LABEL}.mausbot.si/api/pair`,
+      `https://${LABEL}.dexai.vip/api/pair`,
       expect.objectContaining({ method: "POST" }),
     );
 
     await expect(
       pairDesktopCompanion({
-        endpoint: "https://app.mausbot.si",
+        endpoint: "https://app.dexai.vip",
         code: "654321",
         deviceName: "Desktop client",
         requestId: "request-https-03",
