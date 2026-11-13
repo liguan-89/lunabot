@@ -99,6 +99,10 @@ pnpm vitest run server/main-thread.e2e.test.ts
 - `server/runtime-paths.e2e.test.ts` — routine, consultation, one-way and
   external-runtime paths, plus a crash rerun; the agents token comes from the
   fake pi launch dump (`fake-pi-dump.jsonl`).
+- `server/room-recovery.e2e.test.ts` — interrupted routines and cut room work
+  recovered at boot.
+- `server/room-missing-folder.e2e.test.ts` — a deleted room folder is named in
+  the failure, not the bot's own settings.
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
 - `server/room-context.e2e.test.ts` — not yet: pi reports no context-window

@@ -9,7 +9,7 @@ import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
 
 it("boots, starts an interrupted routine once more, and reports it back to its source room", async () => {
-  const fixture = await launchVerificationServer();
+  const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   try {
@@ -34,7 +34,7 @@ it("boots, starts an interrupted routine once more, and reports it back to its s
       XDG_DATA_HOME: join(dataDir, ".local", "share"), HERMES_HOME: join(dataDir, ".hermes"),
       TEMP: join(dataDir, "tmp"), TMP: join(dataDir, "tmp"), TMPDIR: join(dataDir, "tmp"),
       OMB_PORT: new URL(url).port, OMB_WEBHOOK_PORT: String(Number(new URL(url).port) + 1),
-      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy",
+      PATH: dirname(process.execPath), FAKE_CLAUDE_MODE: "happy", OMB_TEST_FIXTURE_ENGINE: "pi",
     });
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
@@ -63,7 +63,7 @@ it("boots, starts an interrupted routine once more, and reports it back to its s
 }, 60_000);
 
 it("keeps a routine waiting through a restart, reruns its cut teammate once, and completes it", async () => {
-  const fixture = await launchVerificationServer();
+  const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" });
   const { url, dataDir, logPath } = fixture.info;
   let restarted: ChildProcess | undefined;
   try {
@@ -85,7 +85,7 @@ it("keeps a routine waiting through a restart, reruns its cut teammate once, and
     const log = openSync(logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("..", import.meta.url)),
-      env: { ...verificationServerEnvironment(process.env, dataDir, Number(new URL(url).port)), FAKE_CLAUDE_MODE: "happy" },
+      env: { ...verificationServerEnvironment({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, dataDir, Number(new URL(url).port)), FAKE_CLAUDE_MODE: "happy", OMB_TEST_FIXTURE_ENGINE: "pi" },
       stdio: ["ignore", log, log],
     });
     closeSync(log);
@@ -99,11 +99,11 @@ it("keeps a routine waiting through a restart, reruns its cut teammate once, and
     expect(await run()).toMatchObject({ status: "waiting" });
     expect((await run()).error).toBeUndefined();
     await expect.poll(() => nodes().find((n: any) => n.id === "cut-work")?.status, { timeout: 20_000 }).toBe("completed");
-    expect(nodes().find((n: any) => n.id === "cut-work")).toMatchObject({ restarts: 1, executions: 1, result: expect.stringContaining("hello from fake claude") });
+    expect(nodes().find((n: any) => n.id === "cut-work")).toMatchObject({ restarts: 1, executions: 1, result: expect.stringContaining("Hello from pi") });
     const mates = (await request(`/api/threads/${mate.activeTaskId}/messages`, {}, url) as any).messages as any[];
     expect(mates.filter((m) => m.tool?.name === "Resuming after a restart")).toHaveLength(1);
     await expect.poll(async () => (await run())?.status, { timeout: 30_000 }).toBe("completed");
-    expect((await run()).output).toContain("hello from fake claude");
+    expect((await run()).output).toContain("Hello from pi");
     await expect.poll(() => nodes().find((n: any) => n.id === "cut-root")?.status, { timeout: 15_000 }).toBe("completed");
     const chiefs = (await request(`/api/threads/${chief.activeTaskId}/messages`, {}, url) as any).messages as any[];
     expect(chiefs.some((m) => m.tool?.name === "Mira was cut off by a restart; resuming")).toBe(true);

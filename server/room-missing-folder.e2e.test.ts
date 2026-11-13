@@ -5,7 +5,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 
 it("a room whose folder was deleted names that folder when work handed there fails, not the bot's settings", async () => {
-  const session = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true }, ["codex"]);
+  const session = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
   const { url, dataDir } = session.info;
   const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {
@@ -21,8 +21,8 @@ it("a room whose folder was deleted names that folder when work handed there fai
   try {
     const lead = (await cli("new-bot", "--name", "Sam")).bot;
     const cliff = (await cli("new-bot", "--name", "Cliff")).bot;
-    const codexModel = (await cli("models")).instances.find((item: any) => item.instanceId === "codex").models.options[0].id;
-    await cli("set-model", "--bot", cliff.id, "--instance", "codex", "--model", codexModel);
+    const piModel = (await cli("models")).instances.find((item: any) => item.instanceId === "pi").models.default;
+    await cli("set-model", "--bot", cliff.id, "--instance", "pi", "--model", piModel);
     // Cliff's own folder is fine: a direct message would run there.
     const own = join(dataDir, "cliff-own");
     mkdirSync(own);
