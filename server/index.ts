@@ -280,10 +280,9 @@ import { lentCopies, noteSyncBotTurn } from "./routes/cloud-sync.ts"; import { m
 import { type CloudOwnership } from "./cloud-owner.ts"; import { memberLoginRefusal, personalMoveRefusal } from "./cloud-team.ts"; import { createCloudTeamHost, type MemberProfile } from "./host/cloud-team-host.ts"; import { engineHomes } from "./engine-homes/engine-homes.ts"; import { audienceMember, layerId, memberAudience } from "./audience.ts"; import { createPersonRooms, createRoomReads, type OwnGroupFrames } from "./host/room-reads.ts"; import { createPersonBotOrder } from "./host/person-bot-order.ts"; import { createMeRoutes } from "./routes/me.ts"; import { createTeamPhoneRoutes } from "./routes/team-phone.ts"; import { settleCloudHome } from "./cloud-home-settle.ts"; import { CLOUD_NOBODY_KEY, CLOUD_OUTSIDE_KEY } from "./cloud-sharing.ts";
 import { createCloudMoveRoutes } from "./cloud-move-http.ts";
 import { RESTART_EXIT_CODE } from "./restart.ts";
-import { applyIncludedXMessage, holdIncludedServices, researchCredential, trialCreditCredential, xCredential, xResearchStatus } from "./included-services.ts"; import { createResearchAvailability } from "./research.ts";
-import { CloudCreditProvider } from "./cloud-credit-provider.ts";
-import { createCreditMoves } from "./cloud-credit-moves.ts"; import { createRoutineHoldsHost } from "./host/routine-holds-host.ts";
-import { TRIAL_CREDIT_OWN_AI, TRIAL_KEY_HELD } from "./trial-credit.ts"; import { createHeldKeys } from "./cloud-held-keys.ts";
+import { applyIncludedXMessage, holdIncludedServices, researchCredential, xCredential, xResearchStatus } from "./included-services.ts"; import { createResearchAvailability } from "./research.ts";
+import { createRoutineHoldsHost } from "./host/routine-holds-host.ts";
+import { TRIAL_CREDIT_OWN_AI, TRIAL_KEY_HELD } from "./trial-credit.ts";
 import type { ProviderInstance } from "./contracts.ts";
 import { readyToRun, selectDefaultModelSelection, withInstanceConfig, withNewBotEffort, type SelectableInstance } from "./default-model-selection.ts"; import { configIdentity, createTestedAi } from "./tested-ai.ts"; import { instanceLook } from "./provider-icon.ts";
 import { threadModelFallback, type ThreadEngine } from "./thread-model.ts";
@@ -772,14 +771,10 @@ let desktopMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 let companionMutationToken: string | undefined = DESKTOP_MANAGED ? "" : undefined;
 const FALLBACK_PUBLIC_URL = process.env.OMB_PUBLIC_URL?.trim().replace(/\/+$/, "") || null;
 const cfg = loadConfig();
-const hostedModels = hostedModelPolicy(DATA_DIR);
-const providerConfigs = () => hostedModels ? hostedModels.configs() : instanceConfigs(cfg);
-const decorateHostedProvider = hostedModels ? (instance: ProviderInstance) => hostedModels.decorate(instance) : undefined;
-if (hostedModels) {
-  const selection = hostedModels.select(cfg.defaultModelSelection);
-  if (selection.instanceId && JSON.stringify(selection) !== JSON.stringify(cfg.defaultModelSelection)) saveConfig({ defaultModelSelection: selection });
-  cfg.defaultModelSelection = selection;
-}
+// Company/hosted model fleets are gone: pi plus the one custom provider is the only routing.
+const hostedModels = null as unknown as ReturnType<typeof hostedModelPolicy>;
+const providerConfigs = () => instanceConfigs(cfg);
+const decorateHostedProvider = undefined;
 bindThreadLogCapProvider(() => threadEventLogMaxBytes(cfg));
 bindDecisionRetention(() => decisionRetentionDays(cfg.decisions?.retentionDays));
 bindSafetyFloor(() => cfg);
@@ -1509,18 +1504,13 @@ const managedDesktop = new ManagedDesktopProviders({
     resyncOpenCodeProviderKeys();
   },
 });
-const cloudCredit = CLOUD_HOME ? new CloudCreditProvider({
-  registry, dataDirectory: DATA_DIR, credential: trialCreditCredential(),
-  onChange: ids => {
-    registry.forgetSnapshots(); bus.attach(ids.flatMap(id => { const instance = registry.get(id); return instance ? [instance] : []; }));
-    void companyRuntimeStarted.then(() => { broadcast({ kind: "config", ...configStatus() }); return refreshUnsetModelSelections(); }).catch(() => {});
-  },
-  onDefault: (from, to) => void companyRuntimeStarted.then(() => creditMoves?.followDefault(from, to)),
-  log: line => console.warn(line),
-}) : null; const heldKeys = cloudCredit && createHeldKeys({ dataDir: DATA_DIR, lasts: () => cloudCredit.lasts() });
-const cloudCreditStarted = (cloudCredit?.start() ?? Promise.resolve()).catch((error) => {
-  console.warn(`[trial credit] could not start: ${error instanceof Error ? error.message : String(error)}`);
-});
+// The custom provider saved in Settings is the only model source now; the old Cloud trial engine is gone.
+type RetiredCloudCredit = { owns(instanceId: string): boolean; status(): "active" | "used_up" | "ended"; lasts(): boolean };
+type RetiredHeldKeys = { refusal(instanceId: string): string | undefined; due(...args: unknown[]): unknown; hold(engines: readonly string[]): boolean };
+type RetiredCreditMoves = { settle(instances: unknown): void; away(instances: unknown): unknown; due(...args: unknown[]): unknown };
+const cloudCredit = null as unknown as RetiredCloudCredit;
+const heldKeys = null as unknown as RetiredHeldKeys;
+const cloudCreditStarted = Promise.resolve();
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; identity?: unknown } | undefined;
   if (message?.type !== "openmausbot:managed-desktop-identity") return;
@@ -2849,9 +2839,7 @@ const imageTools = createImageToolRoutes({ config: () => cfg, dataDir: DATA_DIR,
 const noAiNotice = createNoAiNotice({ team: CLOUD_TEAM, dataDir: DATA_DIR, people: () => teamOwners.people?.list() ?? [], personName: teamHost.personName, inbox: () => teamMessages.inbox, language: personLanguages.forLine, threadLanguage: conversationLanguage });
 const botNameClash = createBotNameClash({ store, people: () => teamMessages.people(), profileName: () => cfg.profile?.name });
 const refusedHandoffs = createRefusedHandoffs({ bots: () => store.bots, hides: (from, target) => personalReach.hides(from, target), runOf: (threadId) => (routines?.isActiveThread(threadId) ? routines.runForThread(threadId) ?? undefined : undefined), writerOf: (routineId) => cloudRoutineAuthors?.writer(routineId), askedPerson: teamOwners.routing.askedPerson, theirOwn: (threadId, person) => audienceMember(teamHost.audienceOf(threadId)) === person, inbox: () => teamMessages.inbox, language: conversationLanguage }); const devsReports = createDevsReports({ dataDir: DATA_DIR, store, installId: ENVIRONMENT_ID, appVersion: serverVersion(), runsOn: CLOUD_TEAM ? "Team Cloud" : CLOUD_HOME ? "My Cloud" : DESKTOP_MANAGED ? "desktop app" : HOSTED_WORKSPACE ? "hosted server" : "self-hosted server", recentLog: captureRecentLog(), send: devsReportSender(bugReportEndpoint(process.env, CLOUD_HOME?.adminOrigin)), askStatus: devsStatusAsker(bugReportEndpoint(process.env, CLOUD_HOME?.adminOrigin), CLOUD_HOME), statusEveryMs: Number(process.env.OMB_DEVS_STATUS_MS) || undefined, tell: (threadId, text, person) => { const group = store.groupByThread(threadId), bot = group ? store.bot(group.memberIds[0] ?? "") : store.botByThread(threadId); if (bot) notify({ ...buildNoticeNotification(bot, threadId, text), ...(group ? { groupId: group.id } : {}), ...(CLOUD_TEAM && person ? { forPerson: person } : {}) }); }, working: (threadId) => { const group = store.groupByThread(threadId), bot = group ? null : store.botByThread(threadId); return group ? Boolean(group.busyBotId) || groupThreadIsWorking(group.id, threadId) : Boolean(bot && threadBusy(bot.id, threadId)); }, automated: (threadId) => Boolean(routines?.isActiveThread(threadId)), engine: (instanceId) => (registry.get(instanceId) ? { name: engineName(instanceId), snapshot: registry.lastSnapshot(instanceId) } : null), appsReady: () => composio.configured(cfg), sessions: () => sessions.list(), ownerKey: CLOUD_OWNER_KEY, team: Boolean(CLOUD_TEAM), profileEmail: () => cfg.profile?.email, language: appLanguage, lineLanguage: personLanguages.forLine });
-const creditMoves = cloudCredit && createCreditMoves({ credit: cloudCredit, store, context: selectionContext, threadBusy, saveDefault: saveNewBotModel,
-  defaults: () => [cfg.defaultModelSelection, cfg.newBotDefaults?.profile.modelSelection], engineName: id => registry.get(id)?.displayName ?? id,
-  log: line => console.warn(line) });
+const creditMoves = null as unknown as RetiredCreditMoves;
 const routineHolds = CLOUD_HOME ? createRoutineHoldsHost({ dataDir: DATA_DIR, store, mcpServers: () => Object.keys(cfg.mcpServers ?? {}).length, log: (line) => console.warn(line),
   appsConnected: async () => composio.configured(cfg) ? Object.values(await composio.connectedServices(cfg)).some((service) => service.connected) : false }) : null;
 const skillsHost = createSkillsLibraryHost({ store, cfg, appendSkillRequestCard, engineConfig: (instanceId) => providerConfigs()[instanceId], instanceOf: (instanceId) => { const instance = registry.get(instanceId); return instance ? { instanceId, driverKind: instance.driverKind } : undefined; } });
