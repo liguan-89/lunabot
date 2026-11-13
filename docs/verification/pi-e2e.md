@@ -72,8 +72,14 @@ pnpm vitest run server/main-thread.e2e.test.ts
   delegating bot's folder.
 - `server/webhook-post-thread.e2e.test.ts` and
   `server/webhook-room-post.e2e.test.ts` — webhook posts and their transcript.
+- `server/active-routines-context.e2e.test.ts` — a routine's monitor in the
+  work conversation and its pause.
+- `server/memory-order.e2e.test.ts` — memory-gated starts, queueing and a typed
+  stop.
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
+- `server/room-context.e2e.test.ts` — not yet: pi reports no context-window
+  measurement of its own, so the room's context chips have nothing to read.
 
 ## Not migrated yet
 

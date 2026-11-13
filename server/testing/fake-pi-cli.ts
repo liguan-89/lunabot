@@ -374,9 +374,11 @@ function compatToolCalls(): Array<{ name: string; input: Record<string, unknown>
 
 function finishCompatTurn(replies: string[]): void {
   const text = replies.join("\n");
+  const context = Number(process.env.FAKE_PI_CONTEXT_TOKENS ?? process.env.FAKE_CLAUDE_CONTEXT_TOKENS);
+  const usage = Number.isSafeInteger(context) && context > 0 ? { input: context, output: 3 } : { input: 12, output: 3 };
   send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
   send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: text } });
-  send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 3 } }, usage: { input: 12, output: 3 } });
+  send({ type: "turn_end", message: { stopReason: "end_turn", usage }, usage });
   send({ type: "agent_end", isTerminal: true });
 }
 
@@ -398,9 +400,11 @@ function streamRoomTurn(message: string): void {
   send({ type: "agent_start" });
   send({ type: "turn_start" });
   const integration = roomIntegration();
-  // The time line leads each turn's own text; everything before it on the first turn is the system prompt.
+  // The time line leads each turn's own text; the words before it are the system prompt on a session's first
+  // turn, or the volatile-context note that replaced part of it on a later one. Either is what the model reads now.
   const clockAt = message.indexOf(TURN_CLOCK_LEAD);
-  if (clockAt >= 0) roomSystemPrompt ??= message.slice(0, clockAt).trimEnd();
+  const prefix = clockAt >= 0 ? message.slice(0, clockAt).trimEnd() : "";
+  if (prefix) roomSystemPrompt = prefix;
   const text = clockAt >= 0 ? message.slice(clockAt) : message;
   const system = roomSystemPrompt ?? message;
   void runRoomHandoffAgent([], process.env.FAKE_PI_ROOM_PLAN!, { message: { content: text } },
