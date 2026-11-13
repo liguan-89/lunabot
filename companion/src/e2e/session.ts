@@ -124,7 +124,13 @@ export class MuxStream extends Duplex {
   }
 
   remoteReset(): void {
-    if (!this.destroyed) this.destroy(new Error("stream reset"));
+    if (this.destroyed) return;
+    // A clean destroy, not one carrying an Error: the client that adopted this
+    // stream may have stripped the constructor's error listener on its way out,
+    // and an unwatched 'error' — the reset arriving between the client's own
+    // teardown steps — took the process down. The stream's pending write still
+    // hears "stream reset" from _destroy, so nobody is left waiting.
+    this.destroy();
   }
 
   flush(): void {
@@ -405,7 +411,13 @@ export class E2ESession<Id> {
         this.#mux?.accept(streamId);
         socket.on("error", () => stream.destroy());
         socket.on("close", () => {
-          if (!socket.readableEnded) stream.destroy();
+          // The origin hung up. Unread replies (socket.readableEnded) matter, but
+          // so does an exchange that never finished on the stream: a request body
+          // still arriving (stream.readableEnded) leaves the phone's upload waiting
+          // on a mux window nobody will grant again, and an unsent reply tail
+          // (writableFinished) the same in reverse. Reset the stream so the peer's
+          // pending work fails instead of stalling.
+          if (!socket.readableEnded || !stream.readableEnded || !stream.writableFinished) stream.destroy();
         });
         stream.on("close", () => socket.destroy());
         stream.pipe(socket);

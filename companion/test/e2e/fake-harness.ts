@@ -10,6 +10,8 @@ export interface FakeHarness {
   emit(data: unknown): number;
   /** How long the secret-card `provide` route waits before answering. */
   provideWaitMs: number;
+  /** One-shot: the next `/api/files` upload accepts nothing and answers nothing. */
+  muteNextFiles: boolean;
   keepaliveMs: number;
   close(): Promise<void>;
 }
@@ -20,13 +22,14 @@ export const attachmentByte = (index: number) => (index * 7) % 256;
 export async function startFakeHarness(): Promise<FakeHarness> {
   const log: Array<{ id: number; text: string }> = [];
   const streams = new Set<ServerResponse>();
-  const state = { provideWaitMs: 0, keepaliveMs: 200 };
+  const state = { provideWaitMs: 0, muteNextFiles: false, keepaliveMs: 200 };
   const write = (res: ServerResponse, event: { id: number; text: string }) => res.write(`id: ${event.id}\ndata: ${event.text}\n\n`);
 
   const server = createServer((req, res) => {
     const url = new URL(req.url ?? "/", "http://harness");
     const path = url.pathname;
     if (path === "/api/health") return void res.writeHead(200, { "content-type": "application/json" }).end('{"app":"openmausbot"}');
+    if (path === "/api/config") return void res.writeHead(200, { "content-type": "application/json" }).end('{"computerName":"Test Mac"}');
     if (path === "/api/config") return void res.writeHead(200, { "content-type": "application/json" }).end('{"computerName":"Test Mac"}');
     if (path === "/api/events") {
       const since = Number(req.headers["last-event-id"] ?? url.searchParams.get("since") ?? 0) || 0;
@@ -41,6 +44,12 @@ export async function startFakeHarness(): Promise<FakeHarness> {
       return;
     }
     if (req.method === "POST" && path === "/api/files") {
+      // One scripted quiet upload: never reads, never answers, until the proxy's
+      // headers deadline gives up on this connection.
+      if (state.muteNextFiles) {
+        state.muteNextFiles = false;
+        return;
+      }
       const hash = createHash("sha256");
       let bytes = 0;
       req.on("data", (chunk: Buffer) => {
@@ -100,6 +109,12 @@ export async function startFakeHarness(): Promise<FakeHarness> {
     },
     set provideWaitMs(value: number) {
       state.provideWaitMs = value;
+    },
+    get muteNextFiles() {
+      return state.muteNextFiles;
+    },
+    set muteNextFiles(value: boolean) {
+      state.muteNextFiles = value;
     },
     get keepaliveMs() {
       return state.keepaliveMs;

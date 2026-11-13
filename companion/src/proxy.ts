@@ -757,6 +757,11 @@ export function createProxyHandler(options: ProxyOptions) {
     // `writableEnded` so a finished response keeps its keep-alive socket.
     res.on("close", () => {
       if (!res.writableEnded) upstream.destroy();
+      // A response that ended before the phone's body finished arriving (a
+      // refused route, a headers deadline) leaves the stream half-open: the
+      // phone's pending write waits on a mux window nobody will grant again.
+      // Each stream is one exchange, so reset it instead of leaking it.
+      else if (!req.readableEnded) req.destroy();
     });
     req.on("error", () => upstream.destroy());
 

@@ -73,18 +73,24 @@ Grok/Copilot 等驱动已删除。
 
 ## 5. 已知问题与产品缺口
 
-1. **`phone-relay` 的「停顿流」用例在本机挂起**：生产代码与 `main` 逐字一致
-   （`companion/src/e2e/` 无本分支改动）。已确认 origin 的 headers 截止计时器会触发并
-   destroy；监听 `close` 时 headers 段能结束，但请求体段仍不结束。属于 companion mux
-   的既有问题，未在本次引擎改造中处理。
+1. ~~**`phone-relay` 的「停顿流」用例在本机挂起**~~（已修，2026-11-14）：三层叠加的
+   泄漏链——① 响应先于请求体结束时代理不销毁请求（`proxy.ts`）；② `duplexPair` 的
+   destroy 不传播到对端，origin 关闭后 `near` 永远等不到写完成（`origin.ts`）；
+   ③ 会话桥只看 `socket.readableEnded`，漏掉「流没读到 FIN」的半开形态
+   （`session.ts`）。修复后 mux RST 能一路传回手机，`activeStreams` 归零；顺带把
+   `remoteReset` 改为干净销毁（RST 到达时 Node client 可能已剥掉 error 监听，
+   带 error 的 destroy 偶发炸掉进程，约 50% 复现于并行跑）。回归用例在
+   `sidecar.test.ts`（"resets an upload whose harness goes quiet"）。另修配方自身的
+   两处 rebrand 遗留（health `openmausbot`→`dexbot`、节点 `*.openmausbot.com`→
+   `*.dexai.vip`），`phone-relay.e2e` 2/2 恢复。
 2. **`server/drivers/pi.test.ts` 的 willRetry 用例在 4 路并发下偶发失败**；
    单跑 90/90 通过。是时序抖动，不是逻辑失败。后续在 `awaitResponse` 加了
    死亡子进程即时拒绝（waiter 注册晚于 `close` 事件时原先会挂到超时），
    连续复跑未见复发；未做全量并发复现，不宣称根除。
 3. **Mimosa 深度审计未封存**：深度扫描在 audit 阶段停留约 55 分钟无进展，已取消。
-   2026-11-14 复测两次（`scan-job-mwfd551z-c3021b99232f1d73`，attempt 1 与 2）：
-   均在进入 audit 后 `updatedAt` 立即冻结（分别为 26 分钟、10 分钟零进展），
-   取消后重启 attempt 亦然——停滞可复现，属扫描器侧问题，与本仓库改动无关。
+   2026-11-14 复测三次：deep 两次（`scan-job-mwfd551z-…`，attempt 1/2 在 audit 冻结
+   26/10 分钟）+ normal 一次（`scan-job-mwfen16k-…`，audit 冻结 65+ 分钟）——
+   停滞与深度无关，可复现，属扫描器侧问题，与本仓库改动无关。
    因此**不能声称项目安全**；合并前需要在扫描器修复后重跑完整审计。
 4. ~~**pi 下自动恢复不可达**~~（已修）：pi adapter 现在把"prompt 帧发出之前"
    的失败（子进程死亡、set_model 失败、prompt 帧写出失败）分类为

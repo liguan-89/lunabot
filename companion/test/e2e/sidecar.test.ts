@@ -59,6 +59,22 @@ describe("the sidecar's end-to-end connection, through the real relay", () => {
     session.shutdown();
   }, 60_000);
 
+  it("resets an upload whose harness goes quiet, and the session carries on", async () => {
+    const session = await rig.viaRelay(await state(), deviceToken);
+    // The harness accepts the upload's connection and goes quiet; the sidecar's
+    // headers deadline then answers 504 while the body — bigger than the mux
+    // receive window — is still arriving.
+    rig.harness.muteNextFiles = true;
+    const upload = randomBytes(8 * 1024 * 1024);
+    const reply = await http(session, "POST", "/api/files", { token: deviceToken, body: upload, headers: { "content-type": "application/octet-stream" } });
+    expect(reply.status).toBe(504);
+    // The response ended while the body was still arriving: the stream must be
+    // torn down, not left half-open with a write the mux window will never grant.
+    await waitFor(() => session.activeStreams === 0, 10_000);
+    expect((await http(session, "GET", "/api/health", { token: deviceToken })).status).toBe(200);
+    session.shutdown();
+  }, 90_000);
+
   it("is reached directly on /v1/e2e, labelled Wi-Fi, and the plain listener then refuses the device", async () => {
     const session = await rig.direct(await state(), deviceToken);
     expect((await http(session, "GET", "/api/health", { token: deviceToken })).status).toBe(200);

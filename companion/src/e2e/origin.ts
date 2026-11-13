@@ -103,6 +103,14 @@ export function createE2EOrigin(
       const serverSide = socketLike(far);
       contexts.set(serverSide, context);
       guard?.(serverSide);
+      // A duplexPair does not propagate a destroy to its peer: the origin
+      // tearing an exchange down early (a reply to a request whose body is
+      // still arriving) would leave `near` alive, waiting on writes nobody
+      // reads, and the mux stream half-open behind it. Close the peer with the
+      // server side whenever the exchange did not finish both ways.
+      serverSide.on("close", () => {
+        if (!serverSide.readableEnded || !near.writableFinished) near.destroy();
+      });
       server.emit("connection", serverSide);
       return Promise.resolve(near);
     },
