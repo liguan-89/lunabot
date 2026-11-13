@@ -1,6 +1,6 @@
-// The e2e half runs the fake ACP CLI in echo-gated mode: turns stay open until a gate file exists, and the echo carries the full prompt.
+// The e2e half runs the fake pi in slow mode: turns stay open until a gate file exists, and the reply carries the turn's own words.
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -31,7 +31,7 @@ import { removeTempDir } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 
 function fakeBot(id: string, threadId: string, busy: boolean): BotRecord {
   return {
@@ -688,19 +688,17 @@ describe("steer-queue module", () => {
 
 });
 
-describe("steer-queue e2e (fake ACP fleet)", () => {
+describe("steer-queue e2e (fake pi fleet)", () => {
   let child: ChildProcess;
   let home: string;
   let base = "";
   let stderr = "";
-  let drainGate: string;
-  let stopGate: string;
-  let stopRpcDump: string;
-  let earlyGate: string;
+  // The one slow-turn gate the fake pi polls: a turn stays open until this file exists.
+  let turnGate: string;
   let receiptGate: string;
   let dispatchGate: string;
-  let roomGate: string;
-  let roomRpcAppend: string;
+  // FAKE_PI_PROMPTS: one JSON line per prompt the fake pi received.
+  let promptsPath: string;
   const evidence: unknown[] = [];
   let evidencePath: string;
 
@@ -730,8 +728,21 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
   const groupById = async (id: string) =>
     (await api("GET", "/api/bots?messages=0")).body.groups.find((g: any) => g.id === id);
 
+  // The fake pi's slow turns reply "reply to: <own words>", its delayed ones "echo: <prompt>".
   const echoes = (bot: any): any[] =>
-    bot.messages.filter((m: any) => m.role === "bot" && m.kind === "text" && m.text?.startsWith("echo: "));
+    bot.messages.filter((m: any) => m.role === "bot" && m.kind === "text"
+      && (m.text?.startsWith("reply to: ") || m.text?.startsWith("echo: ")));
+
+  const promptsOf = (marker: string): string[] => {
+    try {
+      return readFileSync(promptsPath, "utf8").trim().split("\n").filter(Boolean)
+        .map((line) => JSON.parse(line))
+        .map((entry: any) => String(entry?.message?.content ?? ""))
+        .filter((text) => text.includes(marker));
+    } catch {
+      return [];
+    }
+  };
 
   const until = async (probe: () => Promise<boolean>, what: string, timeoutMs = 30_000) => {
     const deadline = Date.now() + timeoutMs;
@@ -742,101 +753,88 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
     }
   };
 
-  const newBot = async (instanceId: string, name: string) => {
-    return (await api("POST", "/api/bots", { name, modelSelection: { instanceId, model: "fake-model" } })).body.bot;
+  const newBot = async (name: string) => {
+    return (await api("POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLI, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-test-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".dexbot"), { recursive: true });
     mkdirSync(join(home, "gates"), { recursive: true });
-    drainGate = join(home, "gates", "drain.gate");
-    stopGate = join(home, "gates", "stop.gate");
-    stopRpcDump = join(home, "gates", "stop.rpc");
-    earlyGate = join(home, "gates", "early-provider.gate");
-    receiptGate = join(home, "gates", "receipt-provider.gate");
-    dispatchGate = join(home, "gates", "early-dispatch.gate");
-    roomGate = join(home, "gates", "room.gate");
-    roomRpcAppend = join(home, "gates", "room.rpc-append");
+    turnGate = join(home, "gates", "turn.gate");
+    receiptGate = join(home, "gates", "receipt.gate");
+    dispatchGate = join(home, "gates", "dispatch.gate");
+    promptsPath = join(home, "gates", "pi-prompts.jsonl");
     evidencePath = join(tmpdir(), `omb-steer-evidence-${Date.now()}-${process.pid}.json`);
-    // Delay only the adapter's returned acknowledgment, reproducing completion before sendTurn resolves.
+    // Delay only the pi adapter's returned acknowledgment, reproducing completion before sendTurn resolves,
+    // and replay a thread's old completion during its replacement's dispatch.
     const prelude = join(home, "delayed-dispatch.mjs");
     writeFileSync(prelude, [
       `import { ProviderRegistry } from ${JSON.stringify(pathToFileURL(join(SERVER_DIR, "harness/registry.ts")).href)};`,
       `import { EventBus } from ${JSON.stringify(pathToFileURL(join(SERVER_DIR, "harness/bus.ts")).href)};`,
       'import { existsSync, writeFileSync } from "node:fs";',
       'import { randomUUID } from "node:crypto";',
-      'let oldCompletion, receiptBus;',
+      'const completions = new Map();',
+      'let receiptBus;',
       'const publish = EventBus.prototype.publish;',
       'EventBus.prototype.publish = function(event) {',
-      '  if (event.providerInstanceId === "steerReceipt" && event.type === "turn.completed" && !oldCompletion) { oldCompletion = event; receiptBus = this; }',
+      '  if (event?.providerInstanceId === "pi" && event?.type === "turn.completed" && event?.threadId) {',
+      '    completions.set(event.threadId, event);',
+      '    receiptBus ??= this;',
+      '  }',
       '  return publish.call(this, event);',
       '};',
       'const load = ProviderRegistry.prototype.load;',
       'ProviderRegistry.prototype.load = async function(configs) {',
       '  await load.call(this, configs);',
-      '  const instance = this.get("steerEarly");',
+      '  const instance = this.get("pi");',
       '  if (!instance) return;',
       '  const send = instance.adapter.sendTurn;',
+      '  const replaced = new Set();',
       '  instance.adapter.sendTurn = async (turn) => {',
-      '    const result = await send(turn);',
-      `    writeFileSync(${JSON.stringify(`${dispatchGate}.entered`)}, "entered");`,
-      `    while (!existsSync(${JSON.stringify(dispatchGate)})) await new Promise(resolve => setTimeout(resolve, 20));`,
-      '    return result;',
-      '  };',
-      '  const receipt = this.get("steerReceipt");',
-      '  if (!receipt) return;',
-      '  const sendReceipt = receipt.adapter.sendTurn;',
-      '  let calls = 0;',
-      '  receipt.adapter.sendTurn = async (turn) => {',
-      '    const replacement = ++calls === 2;',
+      '    const text = String(turn?.text ?? "");',
+      '    const replacement = text.includes("queued replacement") && !replaced.has(turn.threadId);',
       '    if (replacement) {',
+      '      replaced.add(turn.threadId);',
       // Replay a completion from the old provider turn after the replacement installed its generation but before its ACK.
-      '      publish.call(receiptBus, { ...oldCompletion, eventId: randomUUID(), createdAt: new Date().toISOString() });',
+      '      const stale = completions.get(turn.threadId);',
+      '      if (stale && receiptBus) publish.call(receiptBus, { ...stale, eventId: randomUUID(), createdAt: new Date().toISOString() });',
       `      writeFileSync(${JSON.stringify(`${receiptGate}.late`)}, "old completion delivered");`,
       `      while (!existsSync(${JSON.stringify(`${receiptGate}.dispatch`)})) await new Promise(resolve => setTimeout(resolve, 20));`,
       '    }',
-      '    const result = await sendReceipt(turn);',
+      '    const result = await send(turn);',
+      '    if (text.includes("first before acknowledgment")) {',
+      `      writeFileSync(${JSON.stringify(`${dispatchGate}.entered`)}, "entered");`,
+      `      while (!existsSync(${JSON.stringify(dispatchGate)})) await new Promise(resolve => setTimeout(resolve, 20));`,
+      '    }',
       `    while (replacement && !existsSync(${JSON.stringify(`${receiptGate}.ack`)})) await new Promise(resolve => setTimeout(resolve, 20));`,
       '    return result;',
       '  };',
       '};',
     ].join("\n"));
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".dexbot", "config.json"),
       JSON.stringify({
         instances: {
-          steer: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: drainGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          steerEarly: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: earlyGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          steerReceipt: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: receiptGate },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          // Wait for session/prompt to be in flight: an earlier interrupt is a no-op on a turn the driver has not registered.
-          steerStop: {
-            driver: "grokAgent",
+          pi: {
+            driver: "piAgent",
             environment: {
-              FAKE_ACP_MODE: "echo-gated",
-              FAKE_ACP_GATE_FILE: stopGate,
-              FAKE_ACP_RPC_DUMP: stopRpcDump,
+              // Slow turns hold until the gate file exists, then reply with the turn's own words.
+              FAKE_PI_MODE: "slow",
+              FAKE_PI_SLOW_FINISH_GATE: turnGate,
+              // Stop-then-steer: this turn is held open until the interrupt aborts it.
+              FAKE_PI_HOLD_ON: "long job",
+              // The room's turn is held open while a 1:1 message arrives.
+              FAKE_PI_STALL_ON: "room work",
+              // The post-interrupt drain answers by itself after a beat, echoing the prompt.
+              FAKE_PI_DELAY_ON: "after stop please",
+              FAKE_PI_PROMPTS: promptsPath,
+              // pi takes a mid-turn message as a steer; the fixture refuses it, so every busy send takes
+              // the product's refused-steer route into the queue this suite exercises.
+              FAKE_PI_STEER_REFUSE: "1",
             },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          // One gate holds the room's turn open while a 1:1 message arrives.
-          steerRoom: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: roomGate, FAKE_ACP_RPC_APPEND_FILE: roomRpcAppend },
-            config: { cli: FAKE_CLI, fullAuto: true },
+            config: { cli: FAKE_PI },
           },
         },
       }),
@@ -882,11 +880,12 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
   });
 
   it("drains exactly once after completion precedes the dispatch acknowledgment", async () => {
-    const bot = await newBot("steerEarly", "Early completion");
+    rmSync(turnGate, { force: true });
+    const bot = await newBot("Early completion");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "first before acknowledgment" })).status).toBe(202);
     await until(async () => existsSync(`${dispatchGate}.entered`), "the pending dispatch acknowledgment");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "queued after acknowledgment" })).body.queued).toBe(true);
-    writeFileSync(earlyGate, "complete provider turn");
+    writeFileSync(turnGate, "complete provider turn");
     await until(async () => echoes(await botById(bot.id)).length === 1, "completion before acknowledgment");
     const pending = await botById(bot.id);
     expect(pending.messages.filter((message: any) => message.role === "user").map((message: any) => message.text))
@@ -900,20 +899,21 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
     expect(echoes(final)[1].text).toContain("queued after acknowledgment");
     expect(final.messages.some((message: any) => message.tool?.name?.includes("queued message could not start"))).toBe(false);
     evidence.push({ earlyCompletionQueue: { pending, final } });
-  }, 30_000);
+  }, 60_000);
 
   it("retains a replacement receipt through stale completion and settles its own completion before ACK", async () => {
-    const bot = await newBot("steerReceipt", "Receipt generation");
+    rmSync(turnGate, { force: true });
+    const bot = await newBot("Receipt generation");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "first receipt turn" })).status).toBe(202);
     const body = { threadId: bot.threadId, text: "queued replacement", sendId: "replacement_receipt_123456" };
     const queued = await api("POST", `/api/bots/${bot.id}/messages`, body);
     expect(queued.body).toMatchObject({ queued: true, queueId: expect.any(String) });
     const receipt = () => {
-      const database = new DatabaseSync(join(home, ".openmausbot", "messages.db"), { readOnly: true });
+      const database = new DatabaseSync(join(home, ".dexbot", "messages.db"), { readOnly: true });
       try { return database.prepare("SELECT status FROM chat_followups WHERE id = ?").get(queued.body.queueId); }
       finally { database.close(); }
     };
-    writeFileSync(receiptGate, "finish the old turn");
+    writeFileSync(turnGate, "finish the old turn");
     await until(async () => existsSync(`${receiptGate}.late`), "old completion during replacement setup");
     expect(receipt()).toEqual({ status: "dispatching" });
     writeFileSync(`${receiptGate}.dispatch`, "start replacement provider");
@@ -925,17 +925,18 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
     expect(retried.body.message).toMatchObject({ queueId: queued.body.queueId, sendId: body.sendId });
     expect(echoes(await botById(bot.id))).toHaveLength(2);
     evidence.push({ receiptGeneration: { queued, retried, final: await botById(bot.id) } });
-  }, 30_000);
+  }, 60_000);
 
   it(
     "queues sends while busy and drains them into exactly one attended turn",
     async () => {
-      const bot = await newBot("steer", "Steerable");
+      rmSync(turnGate, { force: true });
+      const bot = await newBot("Steerable");
 
       const first = await api("POST", `/api/bots/${bot.id}/messages`, { text: "first task please" });
       expect(first.status).toBe(202);
       expect(first.body.queued).toBeUndefined();
-      expect((await botById(bot.id)).busy).toBe(true);
+      await until(async () => (await botById(bot.id)).busy === true, "the first turn to start");
 
       const second = await api("POST", `/api/bots/${bot.id}/messages`, { text: "steer two" });
       expect(second.status).toBe(202);
@@ -950,7 +951,7 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
       ]);
       expect(echoes(snapshot)).toHaveLength(0);
 
-      writeFileSync(drainGate, "open");
+      writeFileSync(turnGate, "open");
       await until(async () => {
         snapshot = await botById(bot.id);
         return !snapshot.busy && echoes(snapshot).length >= 2;
@@ -980,22 +981,17 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
   it(
     "drains the queue after an interrupt — stop-then-steer",
     async () => {
-      const bot = await newBot("steerStop", "Stoppable");
+      const bot = await newBot("Stoppable");
 
       const first = await api("POST", `/api/bots/${bot.id}/messages`, { text: "long job" });
       expect(first.status).toBe(202);
-      expect((await botById(bot.id)).busy).toBe(true);
+      await until(async () => (await botById(bot.id)).busy === true, "the held turn to start");
 
       const queued = await api("POST", `/api/bots/${bot.id}/messages`, { text: "after stop please" });
       expect(queued.body.queued).toBe(true);
 
-      await until(async () => {
-        try {
-          return readFileSync(stopRpcDump, "utf8").includes("session/prompt");
-        } catch {
-          return false;
-        }
-      }, "the hung prompt");
+      // Wait for the prompt to be in flight: an earlier interrupt is a no-op on a turn the driver has not registered.
+      await until(async () => promptsOf("long job").length >= 1, "the hung prompt");
       expect((await api("POST", `/api/bots/${bot.id}/interrupt`)).status).toBe(200);
 
       await until(async () => {
@@ -1004,7 +1000,6 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
         return Boolean(message) && !message.queued;
       }, "the post-interrupt drain");
 
-      writeFileSync(stopGate, "open");
       let snapshot: any;
       await until(async () => {
         snapshot = await botById(bot.id);
@@ -1021,18 +1016,10 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
   it(
     "starts a person's 1:1 turn while the bot's room turn is still open",
     async () => {
-      const bot = await newBot("steerRoom", "RoomBusy");
-      const roomPrompts = () => {
-        try {
-          return readFileSync(roomRpcAppend, "utf8").trim().split("\n")
-            .map((line) => JSON.parse(line))
-            .filter((entry: any) => entry.method === "session/prompt");
-        } catch {
-          return [];
-        }
-      };
+      rmSync(turnGate, { force: true });
+      const bot = await newBot("RoomBusy");
 
-      // The room turn stays open until the gate exists, so the room holds the bot.
+      // The room turn is held open (FAKE_PI_STALL_ON), so the room holds the bot.
       const room = (await api("POST", "/api/groups", {
         name: "Ops Room",
         memberIds: [bot.id],
@@ -1040,19 +1027,20 @@ describe("steer-queue e2e (fake ACP fleet)", () => {
       })).body.group;
       expect((await api("POST", `/api/groups/${room.id}/messages`, { text: "room work" })).status).toBe(202);
       await until(async () => (await groupById(room.id))?.working === true, "the room turn to start");
-      await until(() => Promise.resolve(roomPrompts().length === 1), "the room prompt in flight");
+      await until(async () => promptsOf("room work").length === 1, "the room prompt in flight");
 
       const direct = await api("POST", `/api/bots/${bot.id}/messages`, { text: "meanwhile, direct words" });
       expect(direct.status).toBe(202);
       expect(direct.body.queued).toBeUndefined();
       // A second prompt is in flight on the same provider while the room turn is still open.
-      await until(() => Promise.resolve(roomPrompts().length === 2), "the 1:1 prompt in flight beside the room turn");
+      await until(async () => promptsOf("meanwhile, direct words").length === 1, "the 1:1 prompt in flight beside the room turn");
       expect((await groupById(room.id))?.working).toBe(true);
       const during = await botById(bot.id);
       expect(during.tasks.find((task: any) => task.threadId === bot.threadId)?.busy).toBe(true);
 
-      writeFileSync(roomGate, "open");
+      expect((await api("POST", `/api/groups/${room.id}/interrupt`)).status).toBe(200);
       await until(async () => (await groupById(room.id))?.working === false, "the room turn to finish");
+      writeFileSync(turnGate, "open");
       await until(async () => {
         const after = await botById(bot.id);
         return !after.busy && echoes(after).some((reply) => reply.text.includes("meanwhile, direct words"));

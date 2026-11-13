@@ -22,7 +22,7 @@ import type { RoutineSchedule } from "../shared/routines.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(18800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const IMAGE_ID = `sha256:${"a".repeat(64)}`;
@@ -152,15 +152,13 @@ case "$*" in
 esac
 `;
 
-posixOnly("VPS turn routing e2e (fake ACP fleet + fake docker over SSH)", () => {
+posixOnly("VPS turn routing e2e (fake pi fleet + fake docker over SSH)", () => {
   let child: ChildProcess;
   let home: string;
   let stderr = "";
   let gateFile: string;
-  let acpDump: string;
-  // A second engine with its own gate: a teammate that stays mid-turn while the VPS bot answers it.
-  let askerGate: string;
-  let askerDump: string;
+  // The fake pi's launch log: launch rows carry the mounted MCP servers, prompt rows the whole prompt.
+  let piDump: string;
   let dockerLog: string;
 
   type ApiBody = Record<string, string | boolean | null | RoutineSchedule | { instanceId: string; model: string } | { sshAlias: string }>;
@@ -177,6 +175,27 @@ posixOnly("VPS turn routing e2e (fake ACP fleet + fake docker over SSH)", () => 
   const botById = async (id: string) =>
     (await api("GET", "/api/bots")).body.bots.find((b: any) => b.id === id);
 
+  /** The MCP servers of the latest pi launch, in the shape the ACP fixture's mcp dump had. */
+  const mountedServers = (): Array<{ name: string; command?: string; args?: string[]; env?: Array<{ name: string; value: string }> }> => {
+    const rows = readFileSync(piDump, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    const launch = rows.filter((row: any) => row.argv).at(-1);
+    const servers = (launch?.mcpConfig?.mcpServers ?? {}) as Record<string, { command?: string; args?: string[]; env?: Record<string, string> }>;
+    return Object.entries(servers).map(([name, spec]) => ({ name, command: spec.command, args: spec.args,
+      env: Object.entries(spec.env ?? {}).map(([entryName, value]) => ({ name: entryName, value })) }));
+  };
+
+  /** Every prompt a pi process was given, whole (system halves and the turn's own words together). */
+  const promptRows = (): string[] => {
+    try {
+      return readFileSync(piDump, "utf8").trim().split("\n").filter(Boolean)
+        .map((line) => JSON.parse(line))
+        .filter((row: any) => row.prompt)
+        .map((row: any) => String(row.prompt.message ?? ""));
+    } catch {
+      return [];
+    }
+  };
+
   const until = async (probe: () => Promise<boolean>, what: string, timeoutMs = 30_000) => {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -187,15 +206,13 @@ posixOnly("VPS turn routing e2e (fake ACP fleet + fake docker over SSH)", () => 
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLI, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-vps-routing-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".dexbot"), { recursive: true });
     const fakeBin = join(home, "fakebin");
     mkdirSync(fakeBin, { recursive: true });
     gateFile = join(home, "turn.gate");
-    acpDump = join(home, "acp.dump.json");
-    askerGate = join(home, "asker.gate");
-    askerDump = join(home, "asker.dump.json");
+    piDump = join(home, "pi.dump.jsonl");
     dockerLog = join(fakeBin, "docker.log");
 
     writeFileSync(join(fakeBin, "docker"), FAKE_DOCKER, { mode: 0o755 });
@@ -220,18 +237,20 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     writeFileSync(dockerLog, "");
 
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".dexbot", "config.json"),
       JSON.stringify({
         instances: {
-          vps: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: gateFile, FAKE_ACP_DUMP: acpDump },
-            config: { cli: FAKE_CLI, fullAuto: true },
-          },
-          asker: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "echo-gated", FAKE_ACP_GATE_FILE: askerGate, FAKE_ACP_DUMP: askerDump },
-            config: { cli: FAKE_CLI, fullAuto: true },
+          pi: {
+            driver: "piAgent",
+            environment: {
+              // Slow turns hold until the gate file exists, then reply with the turn's own words.
+              FAKE_PI_MODE: "slow",
+              FAKE_PI_SLOW_FINISH_GATE: gateFile,
+              FAKE_PI_DUMP: piDump,
+              // Mount the turn's MCP servers at boot, so a scoped turn's tool-scope receipt is written.
+              FAKE_PI_MOUNT_TOOLS: "1",
+            },
+            config: { cli: FAKE_PI },
           },
         },
       }),
@@ -317,11 +336,11 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     const configured = JSON.stringify(container);
     writeFileSync(template, configured);
     writeFileSync(gateFile, "open");
-    rmSync(`${acpDump}.mcp.json`, { force: true });
+    rmSync(piDump, { force: true });
     const offset = readFileSync(dockerLog, "utf8").length;
     try {
       expect((await api("PATCH", `/api/bots/${bot.id}`, {
-        computer, cloudBackend: "vps", modelSelection: { instanceId: "vps", model: "fake-model" },
+        computer, cloudBackend: "vps", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       })).status).toBe(200);
       const status = await api("GET", `/api/bots/${bot.id}/computer`);
       expect(status.status).toBe(200);
@@ -329,9 +348,9 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Use the existing VPS desktop" })).status).toBe(202);
       await until(async () => {
         const saved = await botById(bot.id);
-        return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("echo: "));
+        return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("reply to: "));
       }, "the turn on the customized VPS");
-      const mounted = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+      const mounted = mountedServers();
       expect(mounted.find((tool: any) => tool.name === "computer")?.args).toContain(CONTAINER_ID);
       const calls = readFileSync(dockerLog, "utf8").slice(offset);
       expect(calls).not.toMatch(/ssh:\/\/production-vps (run|start|stop|rm|pull|build|update) /);
@@ -405,13 +424,13 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const bot = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${bot.id}`, {
-      computer, cloudBackend: "vps", modelSelection: { instanceId: "vps", model: "fake-model" },
+      computer, cloudBackend: "vps", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
     });
     const fixtureDir = dirname(dockerLog);
     const hold = join(fixtureDir, "hold-capture");
     const started = join(fixtureDir, "capture-started");
     writeFileSync(gateFile, "open");
-    rmSync(`${acpDump}.mcp.json`, { force: true });
+    rmSync(piDump, { force: true });
     rmSync(started, { force: true });
     writeFileSync(hold, "hold");
     const preview = api("POST", `/api/bots/${bot.id}/computer/screenshot`, {});
@@ -428,9 +447,9 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect((await preview).status).toBe(200);
       await until(async () => {
         const saved = await botById(bot.id);
-        return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("echo: "));
+        return !saved.busy && saved.messages.some((message: any) => message.text?.startsWith("reply to: "));
       }, "the recovered VPS turn");
-      const mounted = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+      const mounted = mountedServers();
       expect(mounted.find((tool: any) => tool.name === "computer")?.args).toContain(CONTAINER_ID);
     } finally {
       rmSync(hold, { force: true });
@@ -451,29 +470,29 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         if (state === "stopped") writeFileSync(template, original.replace('"Running":true', '"Running":false'));
         else if (state === "missing") writeFileSync(missing, "missing");
         writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(bot.id));
-        rmSync(gateFile, { force: true }); rmSync(`${acpDump}.mcp.json`, { force: true });
+        rmSync(gateFile, { force: true }); rmSync(piDump, { force: true });
         await api("PATCH", `/api/bots/${bot.id}`, { browser: false, cloudBackend: "vps", computer: null,
-          modelSelection: { instanceId: "vps", model: "fake-model" } });
+          modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open Chrome on the available remote VM" })).status).toBe(202);
-        await until(async () => existsSync(`${acpDump}.mcp.json`), "the discovery turn");
-        const first = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+        await until(async () => existsSync(piDump), "the discovery turn");
+        const first = mountedServers();
         if (state === "stopped-during-turn") {
           expect(first.find((tool: { name: string }) => tool.name === "computer")).toBeTruthy();
           writeFileSync(template, original.replace('"Running":true', '"Running":false'));
         } else expect(first.find((tool: { name: string }) => tool.name === "computer")).toBeUndefined();
         const agents = first.find((tool: { name: string }) => tool.name === "agents");
-        const token = agents.env.find((entry: { name: string }) => entry.name === "OMB_COMMS_TOKEN").value;
+        const token = agents!.env!.find((entry) => entry.name === "OMB_COMMS_TOKEN")!.value;
         const availability = await (await fetch(`${BASE}/api/internal/computer/select`, { headers: { authorization: `Bearer ${token}` } })).json() as any;
         expect(availability.options.find((option: any) => option.surface === "cloud")).toMatchObject({ available: true, ready: false,
           canStart: state !== "missing", canCreate: state === "missing" });
         const selected = await fetch(`${BASE}/api/internal/computer/select`, { method: "POST",
           headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify({ surface: "auto" }) });
         expect(await selected.json()).toMatchObject({ status: "pending", surface: "cloud" });
-        rmSync(`${acpDump}.mcp.json`, { force: true });
+        rmSync(piDump, { force: true });
         const before = readFileSync(dockerLog, "utf8").length;
         writeFileSync(gateFile, "open");
-        await until(async () => existsSync(`${acpDump}.mcp.json`) && !(await botById(bot.id))?.busy, "the switched VPS turn");
-        const next = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+        await until(async () => existsSync(piDump) && !(await botById(bot.id))?.busy, "the switched VPS turn");
+        const next = mountedServers();
         expect(next.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
         const commands = readFileSync(dockerLog, "utf8").slice(before);
         expect(commands).toContain(state === "missing" ? " run " : " start ");
@@ -502,7 +521,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(bot.id));
       await api("PATCH", `/api/bots/${bot.id}`, {
         name: "Remote hand",
-        modelSelection: { instanceId: "vps", model: "fake-model" },
+        modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       });
       expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" })).status).toBe(200);
@@ -541,18 +560,19 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         snapshot = await botById(bot.id);
         return (
           snapshot?.busy === false &&
-          snapshot.messages.some((m: any) => m.kind === "text" && m.text?.startsWith("echo: "))
+          snapshot.messages.some((m: any) => m.kind === "text" && m.text?.startsWith("reply to: "))
         );
       }, "the echoed turn");
 
-      const echo = snapshot.messages.find((m: any) => m.kind === "text" && m.text?.startsWith("echo: ")).text;
-      expect(echo).toContain("self-hosted remote Linux computer");
-      expect(echo).toContain("This is the user's own VPS");
-      expect(echo).toContain("using it does not require a Boat API key");
-      expect(echo).toContain("wiped whenever its container is recreated");
+      // What the model was told: the turn's whole prompt, as the fake pi recorded it.
+      const told = promptRows().at(-1)!;
+      expect(told).toContain("self-hosted remote Linux computer");
+      expect(told).toContain("This is the user's own VPS");
+      expect(told).toContain("using it does not require a Boat API key");
+      expect(told).toContain("wiped whenever its container is recreated");
 
-      // SAFETY: the fake ACP CLI wrote this dump from session/new's mcpServers; fake-acp-cli.ts pins the shape.
-      const mcpServers = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8")) as Array<{
+      // SAFETY: the fake pi wrote this launch row from its boot MCP config; fake-pi-cli.ts pins the shape.
+      const mcpServers = mountedServers() as Array<{
         name: string;
         command: string;
         args?: string[];
@@ -580,11 +600,11 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
 
       expect((await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" })).status).toBe(200);
       const explicitThread = (await api("POST", `/api/bots/${bot.id}/tasks`, {})).body.task.threadId;
-      rmSync(`${acpDump}.mcp.json`, { force: true });
+      rmSync(piDump, { force: true });
       const cloudTurn = await api("POST", `/api/bots/${bot.id}/messages`, { threadId: explicitThread, text: "Open Chrome on the VPS and inspect the page" });
       expect(cloudTurn.status, JSON.stringify(cloudTurn.body)).toBe(202);
-      await until(async () => existsSync(`${acpDump}.mcp.json`) && (await botById(bot.id))?.busy === false, "the explicit VPS turn");
-      const explicitTools = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+      await until(async () => existsSync(piDump) && (await botById(bot.id))?.busy === false, "the explicit VPS turn");
+      const explicitTools = mountedServers();
       expect(explicitTools.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
       const threadPreview = await api("GET", `/api/bots/${bot.id}/computer?threadId=${explicitThread}`);
       expect(threadPreview.body).toMatchObject({ surface: "cloud", backend: "vps", ready: true });
@@ -595,7 +615,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       });
       expect(created.status, JSON.stringify(created.body)).toBe(201);
       expect(created.body.routine.runOn).toBe("maus");
-      rmSync(`${acpDump}.mcp.json`, { force: true });
+      rmSync(piDump, { force: true });
       const started = await api("POST", `/api/routines/${created.body.routine.id}/run`);
       expect(started.status, JSON.stringify(started.body)).toBe(201);
       let completed: any;
@@ -603,10 +623,11 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
         completed = (await api("GET", "/api/routines")).body.runs.find((run: any) => run.id === started.body.run.id);
         return completed?.status === "completed";
       }, "the routine on the existing VPS");
-      const routineTools = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8"));
+      const routineTools = mountedServers();
       expect(routineTools.find((tool: { name: string }) => tool.name === "computer")?.args).toContain("production-vps");
-      const routineMessages = (await api("GET", `/api/threads/${completed.threadId}/messages?limit=100`)).body.messages;
-      expect(routineMessages.some((message: any) => message.text?.includes("This is the user's own VPS"))).toBe(true);
+      // What the model was told on the routine's turn: the VPS is named as the user's own computer.
+      const routineTold = promptRows().filter((text) => text.includes("Check the existing VPS.")).at(-1)!;
+      expect(routineTold).toContain("This is the user's own VPS");
 
       const released = await api("PUT", "/api/config", { vps: { sshAlias: "other-vps" } });
       expect(released.status, JSON.stringify(released.body)).toBe(409);
@@ -639,15 +660,15 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     async () => {
       writeFileSync(dockerLog, "");
       rmSync(gateFile, { force: true });
-      rmSync(`${acpDump}.mcp.json`, { force: true });
+      rmSync(piDump, { force: true });
       expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
       const bot = (await api("POST", "/api/bots")).body.bot;
       writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(bot.id));
-      await api("PATCH", `/api/bots/${bot.id}`, { name: "TCPR operator", modelSelection: { instanceId: "vps", model: "fake-model" } });
+      await api("PATCH", `/api/bots/${bot.id}`, { name: "TCPR operator", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
       expect((await api("PATCH", `/api/bots/${bot.id}`, { cloudBackend: "vps" })).status).toBe(200);
       expect((await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud" })).status).toBe(200);
       const mountedComputer = () => {
-        const servers = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8")) as Array<{ name: string; args?: string[]; env?: Array<{ name: string; value: string }> }>;
+        const servers = mountedServers() as Array<{ name: string; args?: string[]; env?: Array<{ name: string; value: string }> }>;
         const computer = servers.find((server) => server.name === "computer");
         expect(computer, "no computer MCP server reached the agent").toBeTruthy();
         const env = (name: string) => computer!.env?.find((entry) => entry.name === name)?.value ?? "";
@@ -664,13 +685,13 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       const check = (await api("POST", `/api/bots/${bot.id}/tasks`, { title: "Queue check" })).body.task;
       try {
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { threadId: refill.threadId, text: "Refill capacity on the VPS" })).status).toBe(202);
-        await until(async () => existsSync(`${acpDump}.mcp.json`) && await taskBusy(refill.threadId), "the long VPS turn");
+        await until(async () => existsSync(piDump) && await taskBusy(refill.threadId), "the long VPS turn");
         const refillMount = mountedComputer();
         expect(refillMount.args).toContain("production-vps");
-        rmSync(`${acpDump}.mcp.json`, { force: true });
+        rmSync(piDump, { force: true });
 
         expect((await api("POST", `/api/bots/${bot.id}/messages`, { threadId: check.threadId, text: "Check the queue on the VPS" })).status).toBe(202);
-        await until(async () => existsSync(`${acpDump}.mcp.json`) && await taskBusy(check.threadId), "the second VPS turn, while the first still runs");
+        await until(async () => existsSync(piDump) && await taskBusy(check.threadId), "the second VPS turn, while the first still runs");
         const checkMount = mountedComputer();
         expect(checkMount.args).toContain("production-vps");
         expect(checkMount.token).not.toBe(refillMount.token);
@@ -708,22 +729,20 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
   it("runs a teammate turn whose Auto VPS is unavailable, telling the model why instead of failing it", async () => {
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "production-vps" } })).status).toBe(200);
     const asker = (await api("POST", "/api/bots")).body.bot;
-    await api("PATCH", `/api/bots/${asker.id}`, { name: "Asker", browser: false, modelSelection: { instanceId: "asker", model: "fake-model" } });
+    await api("PATCH", `/api/bots/${asker.id}`, { name: "Asker", browser: false, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     const teammate = (await api("POST", "/api/bots")).body.bot;
     await api("PATCH", `/api/bots/${teammate.id}`, { name: "VPS teammate", browser: false, cloudBackend: "vps", computer: null,
-      modelSelection: { instanceId: "vps", model: "fake-model" } });
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     writeFileSync(join(dirname(dockerLog), "container.name"), vpsContainerName(teammate.id));
     const template = join(dirname(dockerLog), "container.json.tpl");
     const original = readFileSync(template, "utf8");
     writeFileSync(template, original.replace('"Running":true', '"Running":false'));
-    writeFileSync(gateFile, "open");
-    rmSync(askerGate, { force: true });
-    rmSync(`${askerDump}.mcp.json`, { force: true });
+    rmSync(gateFile, { force: true });
+    rmSync(piDump, { force: true });
     try {
       expect((await api("POST", `/api/bots/${asker.id}/messages`, { text: "Ask your teammate for the queue summary" })).status).toBe(202);
-      await until(async () => existsSync(`${askerDump}.mcp.json`), "the asker's turn");
-      const agents = (JSON.parse(readFileSync(`${askerDump}.mcp.json`, "utf8")) as Array<{ name: string; env?: Array<{ name: string; value: string }> }>)
-        .find((server) => server.name === "agents");
+      await until(async () => existsSync(piDump), "the asker's turn");
+      const agents = mountedServers().find((server) => server.name === "agents");
       const token = agents?.env?.find((entry) => entry.name === "OMB_COMMS_TOKEN")?.value ?? "";
       const sent = await fetch(`${BASE}/api/internal/coordinate-bots`, {
         method: "POST",
@@ -733,17 +752,19 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       const queued = await sent.json() as { receipts?: Array<{ threadId?: string }> };
       expect(sent.status, JSON.stringify(queued)).toBe(200);
       const workThread = queued.receipts?.[0]?.threadId ?? "";
+      // Delegated work runs once the delegating turn settles, so the asker finishes here and the teammate runs.
+      writeFileSync(gateFile, "open");
       const replies = async () => ((await api("GET", `/api/threads/${workThread}/messages?limit=100`)).body.messages as any[]) ?? [];
       await until(async () => (await replies()).some((message) =>
-        message.text?.startsWith("echo: ") || String(message.tool?.name ?? "").startsWith("error:")), "the teammate's turn");
+        message.text?.startsWith("reply to: ") || String(message.tool?.name ?? "").startsWith("error:")), "the teammate's turn");
       const thread = await replies();
       expect(thread.filter((message) => String(message.tool?.name ?? "").startsWith("error:"))).toEqual([]);
-      const echo = thread.find((message) => message.text?.startsWith("echo: ")).text as string;
-      expect(echo).toContain("This bot's VPS computer is unavailable this turn (The DEX BOT VPS container is stopped)");
-      expect(echo).toContain("Open Computer and enable Start VPS automatically");
+      // What the teammate's turn was told: the VPS is unavailable, with the way to enable it.
+      const told = promptRows().filter((text) => text.includes("Summarise the queue numbers from this morning.")).at(-1)!;
+      expect(told).toContain("This bot's VPS computer is unavailable this turn (The DEX BOT VPS container is stopped)");
+      expect(told).toContain("Open Computer and enable Start VPS automatically");
     } finally {
       writeFileSync(template, original);
-      writeFileSync(askerGate, "open");
       await api("POST", `/api/bots/${asker.id}/interrupt`, {});
     }
   }, 45_000);
@@ -817,12 +838,12 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect((await api("PATCH", `/api/bots/${free.id}`, { vpsAlias: "bad alias!" })).status).toBe(400);
 
       // A real turn mounts the computer bridge against the bot's own server.
-      expect((await api("PATCH", `/api/bots/${alpha.id}`, { browser: false, modelSelection: { instanceId: "vps", model: "fake-model" } })).status).toBe(200);
-      rmSync(`${acpDump}.mcp.json`, { force: true });
+      expect((await api("PATCH", `/api/bots/${alpha.id}`, { browser: false, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).status).toBe(200);
+      rmSync(piDump, { force: true });
       try {
         expect((await api("POST", `/api/bots/${alpha.id}/messages`, { text: "Check the desk on my own server" })).status).toBe(202);
-        await until(async () => existsSync(`${acpDump}.mcp.json`), "the alpha turn's computer mount");
-        const servers = JSON.parse(readFileSync(`${acpDump}.mcp.json`, "utf8")) as Array<{ name: string; args?: string[] }>;
+        await until(async () => existsSync(piDump), "the alpha turn's computer mount");
+        const servers = mountedServers();
         const computer = servers.find((server) => server.name === "computer");
         expect(computer, "no computer MCP server reached the agent").toBeTruthy();
         expect(computer!.args).toContain("alpha-vps");

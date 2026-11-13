@@ -18,7 +18,7 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
   await waitForExit(fixture.child, { signal: "SIGTERM" });
   const dataDir = fixture.info.dataDir;
   const config = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8"));
-  assert.equal(resolve(config.instances.claude.config.cli), join(ROOT, "server", "testing", "fake-claude-cli.ts"));
+  assert.equal(resolve(config.instances.pi.config.cli), join(ROOT, "server", "testing", "fake-pi-cli.ts"));
   const env: NodeJS.ProcessEnv = {};
   for (const key of ["SYSTEMROOT", "WINDIR", "COMSPEC", "PATHEXT", "LANG", "LC_ALL", "TZ"]) {
     if (process.env[key]) env[key] = process.env[key];
@@ -34,7 +34,6 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
     TEMP: temp, TMP: temp, TMPDIR: temp, HERMES_HOME: join(home, ".hermes"),
     OMB_DATA_DIR: dataDir, OMB_PORT: new URL(fixture.info.url).port,
     OMB_WEBHOOK_PORT: String(Number(new URL(fixture.info.url).port) + 1),
-    FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: fixture.fixtureDumpPath,
     PATH: dirname(process.execPath),
   });
   const log = openSync(fixture.info.logPath, "a", 0o600);
@@ -49,7 +48,7 @@ async function restartFixture(fixture: VerificationServer): Promise<ChildProcess
       try {
         const response = await fetch(`${fixture.info.url}/api/health`, { signal: AbortSignal.timeout(1_000) });
         const health = await response.json() as { app?: string; pid?: number };
-        if (response.ok && health.app === "openmausbot" && health.pid === child.pid) return child;
+        if (response.ok && health.app === "dexbot" && health.pid === child.pid) return child;
       } catch { /* Only this owned child can satisfy the PID handshake. */ }
       if (Date.now() >= deadline) throw new Error(`Restored fixture did not start; see ${fixture.info.logPath}`);
       await new Promise((done) => setTimeout(done, 100));
@@ -147,7 +146,7 @@ export async function verifyWorkspaceBackup(report: (event: unknown) => void = (
     await control(source, "messages", "--bot", bot.id, "--limit", "20");
     const before = (await api(source, "GET", "/api/bots?messages=200")).body;
     const original = before.bots.find((candidate: { id: string }) => candidate.id === bot.id);
-    assert.ok(original.messages.some((message: { text?: string }) => message.text?.includes("hello from fake claude")));
+    assert.ok(original.messages.some((message: { text?: string }) => message.text?.includes("Hello from pi")));
     const oldBytes = readFileSync(join(destination.info.dataDir, "bots.json"));
     const clientState = { "omb-skin": "default", "omb-drafts": JSON.stringify({ [bot.threadId]: "Keep draft" }), "omb-webhook-credentials": "private-source-webhook-url", "unrelated-auth-token": "must-not-transfer" };
     const exported = await api(source, "POST", "/api/workspace-backup/export", { password: PASSWORD, clientState });

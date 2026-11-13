@@ -1,10 +1,12 @@
-import { mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piTurns, piTurnText } from "./testing/pi-dump.ts";
 
 it("pins an explicitly chosen new-thread folder without moving existing sessions or the bot default", async () => {
-  const fixture = await launchVerificationServer();
+  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" },
+    undefined, undefined, undefined, undefined, { scripted: true });
   const evidence: unknown[] = [];
   const api = async (method: string, path: string, body?: unknown, token?: string) => {
     const response = await fetch(`${fixture.info.url}${path}`, {
@@ -50,12 +52,19 @@ it("pins an explicitly chosen new-thread folder without moving existing sessions
     expect((await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, { cwd: later })).status).toBe(400);
     expect((await api("PATCH", `/api/bots/${bot.id}`, { cwd: later })).status).toBe(200);
 
+    // The fake pi writes its proof into its own working folder, so each turn names the folder the server pinned.
+    const PROOF = "cwd-proof.txt";
+    writeFileSync(join(fixture.info.dataDir, "room-plan.json"), JSON.stringify({
+      [bot.id]: { script: [{ key: "mark-cwd", match: [], repeat: true, writeFiles: { [PROOF]: "pinned" } }] },
+    }));
+    const dumpPath = piDumpPath(fixture.info.dataDir);
     const run = async (task: string, text: string, expectedCwd: string) => {
+      for (const folder of [original, chosen, later]) rmSync(join(folder, PROOF), { force: true });
       await control(["send", "--bot", bot.id, "--task", task, "--text", text]);
       expect((await control(["wait", "--bot", bot.id, "--task", task, "--timeout", "30"])).status).toBe("settled");
-      const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-      expect(realpathSync(dump.cwd)).toBe(realpathSync(expectedCwd));
-      evidence.push({ receipt: { cwd: dump.cwd, prompt: dump.prompt } });
+      expect(existsSync(join(expectedCwd, PROOF)), `the turn must run in ${expectedCwd}`).toBe(true);
+      const turn = piTurns(dumpPath).at(-1);
+      evidence.push({ receipt: { cwd: expectedCwd, prompt: turn ? piTurnText(turn) : null } });
     };
     await run(threadId, "Check the explicitly chosen project", chosen);
     expect((await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, { cwd: original })).status).toBe(400);

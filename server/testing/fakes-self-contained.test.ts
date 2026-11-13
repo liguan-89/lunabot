@@ -10,6 +10,18 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 /** Fakes a test copies out of the repo: nothing relative may be imported, not even a sibling. */
 const COPIED_OUT = new Set(["fake-codex-app-server.ts"]);
 
+/** The pi fixture always runs from this folder (no test copies it out) and shares the product's own
+ * modules on purpose: it mounts the real pi MCP extension and speaks the real prompt split, turn
+ * clock and tool names, so its evidence says what a real turn would have seen. Nothing else may import. */
+const SHARED_WITH_PRODUCT: Record<string, readonly string[]> = {
+  "fake-pi-cli.ts": [
+    "../drivers/pi-mcp-extension.ts",
+    "../drivers/prompt-split.ts",
+    "../turn-clock.ts",
+    "../../shared/agents-tool-names.ts",
+  ],
+};
+
 /** Value imports only: `import type` is erased before the file runs. */
 const importSpecifiers = (source: string): string[] =>
   [...source.matchAll(/^\s*import\s+(?!type\s)[^;]*?\sfrom\s+["']([^"']+)["']/gm), ...source.matchAll(/^\s*import\s+["']([^"']+)["']/gm)]
@@ -29,7 +41,8 @@ describe("provider fakes stay self-contained", () => {
 
   it.each(fakes)("%s imports nothing from outside server/testing", (file) => {
     const specifiers = importSpecifiers(readFileSync(join(HERE, file), "utf8"));
-    const outside = specifiers.filter((specifier) => specifier.startsWith("../"));
+    const allowed = SHARED_WITH_PRODUCT[file] ?? [];
+    const outside = specifiers.filter((specifier) => specifier.startsWith("../") && !allowed.includes(specifier));
     expect(
       outside,
       `${file} imports ${outside.join(", ")} from outside server/testing. Fakes run as bare node subprocesses, some copied out of the repo; inline the helper instead.`,
