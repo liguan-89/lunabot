@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -10,7 +10,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 let BASE: string;
 const posixOnly = describe.skipIf(process.platform === "win32");
 const BOSS = "boss@example.test";
@@ -22,6 +22,10 @@ const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 let child: ChildProcess;
 let home: string;
 let log = "";
+/** The pi model the fixture's one engine offers. */
+let model = "";
+/** Every prompt a pi child was given, so a recipe can read what a bot was actually told. */
+let promptLog = "";
 const tokens: Record<string, string> = {};
 
 const headers = (as?: string, json = true) => ({
@@ -115,7 +119,7 @@ const ids = { pub: "", pubThread: "", hr: "", hrThread: "", board: "", roomPub: 
 async function makeBot(name: string, section?: string) {
   const created = await api("POST", "/api/bots", { name, ...(section ? { section } : {}) }, BOSS);
   expect(created.status, JSON.stringify(created.body)).toBe(201);
-  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "grok", model: "fake-model" } }, BOSS);
+  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "pi", model } }, BOSS);
   expect(patched.status).toBe(200);
   return created.body.bot as { id: string; threadId: string };
 }
@@ -134,18 +138,38 @@ const settledReply = (threadId: string, text: string) => waitFor(async () => {
   return asked >= 0 && messages.slice(asked + 1).some((m) => m.role === "bot" && m.text) ? messages : null;
 });
 
+async function piModel(): Promise<string> {
+  const deadline = Date.now() + 15_000;
+  for (;;) {
+    try {
+      const state = await (await fetch(`${BASE}/api/instances`)).json() as {
+        instances?: Array<{ instanceId: string; models?: { default?: string } }>;
+      };
+      const found = (state.instances ?? []).find((instance) => instance.instanceId === "pi");
+      if (found?.models?.default) return found.models.default;
+    } catch {
+    }
+    if (Date.now() >= deadline) throw new Error(`the pi instance never reported a default model:\n${log}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+}
+
 posixOnly("per-bot visibility on a shared workspace", () => {
   beforeAll(async () => {
-    chmodSync(FAKE_CLI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-bot-visibility-"));
-    const data = join(home, ".openmausbot");
+    // The workspace's current data folder (a saved `.openmausbot` is renamed to this at boot).
+    const data = join(home, ".dexbot");
+    promptLog = join(home, "pi-prompts.jsonl");
     mkdirSync(data, { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({
       signIn: { admins: [BOSS], members: [ADA, BOB] },
+      // The one agent this build runs: the fake pi. Its prompt log shows exactly what a bot was told,
+      // which is what the retired echo engine used to repeat back in its reply.
       instances: {
-        grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } },
-        // repeats its whole prompt back, so a test can read what a bot was told
-        grokecho: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "echo-gated" }, config: { cli: FAKE_CLI, fullAuto: false } },
+        pi: {
+          driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI },
+          environment: { FAKE_PI_PROMPTS: promptLog },
+        },
       },
     }));
     const role = (email: string) => (email === BOSS ? ["admin", "client"] as const : ["client"] as const);
@@ -153,6 +177,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     for (const email of [BOSS, ADA, BOB]) tokens[email] = registry.issue({ label: `${email.split("@")[0]}'s laptop`, email, scopes: [...role(email)] }).token;
     registry.close();
     await start();
+    model = await piModel();
 
     const pub = await makeBot("Helpdesk Otter", "Ops");
     const hr = await makeBot("Payroll Zebra", "People");
@@ -328,7 +353,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
   });
 
   it("withdraws real scan results when an audience changes before the response", async () => {
-    const hold = join(home, ".openmausbot", "hold-search-result");
+    const hold = join(home, ".dexbot", "hold-search-result");
     let pending: Promise<{ status: number; body: any }> | undefined;
     try {
       expect((await api("GET", "/api/search?q=Zebra", undefined, ADA)).body.hits).toEqual(expect.arrayContaining([
@@ -475,17 +500,20 @@ posixOnly("per-bot visibility on a shared workspace", () => {
   });
 
   it("keeps a room fewer people can see out of a visible bot's recall, and refuses to mix audiences in a room", async () => {
-    // An engine that repeats its prompt shows exactly what the helpdesk was told.
-    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "grokecho", model: "fake-model" } }, BOSS)).status).toBe(200);
+    // The fake pi logs every prompt it is given, so the prompt shows exactly what the helpdesk was told
+    // (the retired echo engine used to repeat it back in its reply).
     const sent = await api("POST", `/api/bots/${ids.pub}/messages`, { text: "What have you been up to?", threadId: ids.pubThread }, BOB);
     expect(sent.status, JSON.stringify(sent.body)).toBe(202);
     const reply = await settledReply(ids.pubThread, "What have you been up to?");
     expect(reply).not.toBeNull();
-    const answer = JSON.stringify(reply!.slice(reply!.findIndex((m) => m.text?.includes("What have you been up to?"))));
-    expect(answer).toContain("echo: ");
-    expect(answer).not.toContain("Pay questions");
-    expect(answer).not.toContain("SECRET-ROOM-42");
-    expect((await api("PATCH", `/api/bots/${ids.pub}`, { modelSelection: { instanceId: "grok", model: "fake-model" } }, BOSS)).status).toBe(200);
+    const told = await waitFor(() => {
+      if (!existsSync(promptLog)) return null;
+      return readFileSync(promptLog, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as { message?: { content?: string } })
+        .find((entry) => entry.message?.content?.includes("What have you been up to?"))?.message?.content ?? null;
+    });
+    expect(told, log.slice(-2_000)).toBeTruthy();
+    expect(told).not.toContain("Pay questions");
+    expect(told).not.toContain("SECRET-ROOM-42");
     const minted = await fetch(`${BASE}/api/testing/internal-capability`, {
       method: "POST", headers: { "content-type": "application/json", "x-openmausbot-test-capability": CAPABILITY_KEY },
       body: JSON.stringify({ botId: ids.pub, threadId: ids.pubThread }),
@@ -497,7 +525,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     expect(found.hits.map((hit) => hit.threadId)).not.toContain(ids.roomMixedThread);
 
     const logLines = () => {
-      const dir = join(home, ".openmausbot", "workspaces", ids.pub, "memory", "log");
+      const dir = join(home, ".dexbot", "workspaces", ids.pub, "memory", "log");
       let text = "";
       try {
         for (const file of readdirSync(dir)) text += readFileSync(join(dir, file), "utf8");
@@ -563,11 +591,11 @@ posixOnly("per-bot visibility on a shared workspace", () => {
         body: JSON.stringify({ botId: ids.board, threadId: boardThread }),
       });
       const { token } = await minted.json() as { token: string };
-      const engine = (await api("GET", "/api/instances", undefined, BOSS)).body.instances.find((instance: any) => instance.instanceId === "grok");
+      const engine = (await api("GET", "/api/instances", undefined, BOSS)).body.instances.find((instance: any) => instance.instanceId === "pi");
       const created = await fetch(`${BASE}/api/internal/create-bot`, {
         method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: "Layoff Modeler", role: "Models RIF scenarios", instructions: "SECRET-INSTR model the reduction",
-          modelSelection: { instanceId: "grok", model: engine.models.default } }),
+          modelSelection: { instanceId: "pi", model: engine.models.default } }),
       });
       // Applies at Ask too: OpenMausBot adds no card of its own.
       const made = await created.json() as { id: string; state: string };

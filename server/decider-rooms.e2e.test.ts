@@ -16,7 +16,7 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const KEY = "tsk_e2e_secret_value_7f3a9c2e41d8";
 
 type JevRequest = { auth?: string; body: any };
@@ -30,8 +30,7 @@ let data = "";
 let base = "";
 let output = "";
 let engineDump = "";
-let titleDump = "";
-let fallbackTitleDump = "";
+let model = "";
 const jevRequests: JevRequest[] = [];
 const openrouterRequests: JevRequest[] = [];
 let script: RouteScript = {};
@@ -85,28 +84,22 @@ beforeAll(async () => {
   const jevUrl = `http://127.0.0.1:${(jev.address() as AddressInfo).port}`;
 
   home = mkdtempSync(join(tmpdir(), "omb-decider-rooms-"));
-  data = join(home, ".openmausbot");
+  // The workspace's current data folder; the server renames a legacy `.openmausbot` here at boot.
+  data = join(home, ".dexbot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Decider rooms test</title>");
   writeFileSync(join(staticDir, "assets", "smoke.css"), "body{}");
-  engineDump = join(home, "engine-dump.json");
-  titleDump = join(home, "title-dump.json");
-  fallbackTitleDump = join(home, "fallback-title-dump.json");
-  const titleFile = join(home, "title.txt");
-  writeFileSync(titleFile, "Safari footer fix");
+  engineDump = join(home, "fake-pi-dump.jsonl");
   writeFileSync(join(data, "config.json"), JSON.stringify({
-    // a room task's first message is titled by the engine of whoever answers it
-    features: { llmThreadTitles: true },
+    // The one agent this build runs: the fake pi. Its dump proves no decision key reaches it.
+    // Generated thread titles were a one-shot text call the driver no longer has, so
+    // features.llmThreadTitles and its dumped title files are gone from this recipe.
     instances: {
-      quick: {
-        driver: "claudeAgent", displayName: "Quick fixture", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: engineDump, FAKE_CLAUDE_TEXT_DUMP: fallbackTitleDump, FAKE_CLAUDE_TEXT_FILE: titleFile },
-      },
-      titled: {
-        driver: "claudeAgent", displayName: "Titled fixture", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_TEXT_DUMP: titleDump, FAKE_CLAUDE_TEXT_FILE: titleFile },
+      pi: {
+        driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI },
+        environment: { FAKE_PI_DUMP: engineDump },
       },
     },
     decider: { enabled: true, baseUrl: jevUrl, jobs: { roomRouting: true } },
@@ -137,6 +130,20 @@ beforeAll(async () => {
     } catch {
     }
     if (Date.now() >= deadline) throw new Error(`server never became healthy: ${output}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  // The fixture's one engine learns its models from the fake pi's catalog at boot.
+  const modelsDeadline = Date.now() + 15_000;
+  for (;;) {
+    try {
+      const state = await (await fetch(`${base}/api/instances`)).json() as {
+        instances?: Array<{ instanceId: string; models?: { default?: string } }>;
+      };
+      const found = (state.instances ?? []).find((instance) => instance.instanceId === "pi");
+      if (found?.models?.default) { model = found.models.default; break; }
+    } catch {
+    }
+    if (Date.now() >= modelsDeadline) throw new Error(`the pi instance never reported a default model: ${output}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }, 30_000);
@@ -182,7 +189,7 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
 
     for (const name of ["Maya", "Theo", "Ravi"]) {
       bots[name] = (await api("POST", "/api/bots", {
-        name, title: `${name} title`, modelSelection: { instanceId: name === "Theo" ? "titled" : "quick", model: "claude-sonnet-5" }, requireAvailableModel: true,
+        name, title: `${name} title`, modelSelection: { instanceId: "pi", model }, requireAvailableModel: true,
       })).body.bot;
     }
     const created = await api("POST", "/api/groups", { name: "Launch", memberIds: [bots.Maya!.id, bots.Theo!.id, bots.Ravi!.id] });
@@ -226,8 +233,8 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
     expect([...new Set(replies.map((reply) => reply.from!.name))]).toEqual(["Theo"]);
     expect(replies[0]!.routedBy).toEqual({ provider: "jev", probability: 0.94 });
     expect(replies.slice(1).every((reply) => reply.routedBy === undefined)).toBe(true);
-    await expect.poll(() => existsSync(titleDump), { timeout: 10_000 }).toBe(true);
-    expect(existsSync(fallbackTitleDump)).toBe(false);
+    // Generated thread titles and their one-shot text files are gone with the engine that had a
+    // one-shot text call; pi has none, so there is no title request to make here.
 
     const request = routeRequests().at(-1)!;
     expect(request.auth).toBe(`Bearer ${KEY}`);
@@ -280,7 +287,7 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
   it("engines never see the key; the decision log holds no text and no key", async () => {
     expect(existsSync(engineDump)).toBe(true);
     const dump = readFileSync(engineDump, "utf8");
-    expect(JSON.parse(dump).env).not.toHaveProperty("OMB_JEV_API_KEY");
+    expect(dump).not.toContain("OMB_JEV_API_KEY");
     expect(dump).not.toContain(KEY);
     const dir = join(data, "decider-log");
     const log = readdirSync(dir).map((name) => readFileSync(join(dir, name), "utf8")).join("");
@@ -459,7 +466,7 @@ describe("Auto rooms ask the decision model who answers", { timeout: 90_000 }, (
 
     it("engines never see the OpenRouter decision key", () => {
       const dump = readFileSync(engineDump, "utf8");
-      expect(JSON.parse(dump).env).not.toHaveProperty("OMB_OPENROUTER_DECIDER_KEY");
+      expect(dump).not.toContain("OMB_OPENROUTER_DECIDER_KEY");
       expect(dump).not.toContain(OR_KEY);
     });
   });

@@ -1,26 +1,26 @@
-// Real server, fake Claude CLI, and a loopback Boat that fails the test on any call to Boat's own agent
+// Real server, the fake pi CLI, and a loopback Boat that fails the test on any call to Boat's own agent
 // (/prompt, /prompts/{id}, /events, /interrupt).
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runControlOmb } from "../scripts/control-omb.ts";
-import { SNAPSHOT_REUSE_MS } from "./harness/registry.ts";
+import { piModelsSet, piTurns, type PiTurn } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLI = join(ROOT, "server/testing/fake-claude-cli.ts");
-const ENGINE_NAME = "Verification Claude";
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
+const ENGINE_NAME = "Verification pi";
 const REMOVED = "The Computer choice in the model list was removed.";
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8qqKKKAP/2Q==", "base64");
 
 function install(home: string, boatPort: () => number) {
   const data = join(home, "data");
-  const dumpFile = join(home, "dump.json");
+  const dumpFile = join(home, "fake-pi-dump.jsonl");
   let child: ChildProcess | null = null;
   let base = "";
   let output = "";
@@ -60,20 +60,20 @@ function install(home: string, boatPort: () => number) {
     (await api("GET", `/api/threads/${threadId}/messages?limit=50`)).messages
       .filter((message: any) => message.kind === "activity").map((message: any) => String(message.tool?.name));
   const moveLines = async (threadId: string) => (await lines(threadId)).filter(line => line.includes(REMOVED));
-  const dump = async () => {
-    let parsed: any = null;
-    await expect.poll(() => {
-      if (!existsSync(dumpFile)) return false;
-      try { parsed = JSON.parse(readFileSync(dumpFile, "utf8")); return true; } catch { return false; }
-    }, { timeout: 15_000 }).toBe(true);
-    return parsed;
-  };
+  /** The pi launch and prompt a turn ran on: the fake appends one launch line per process and one per prompt. */
   const turn = async (botId: string, threadId: string, text: string) => {
-    rmSync(dumpFile, { force: true });
+    const before = piTurns(dumpFile).length;
     await control(["send", "--bot", botId, "--task", threadId, "--text", text]);
     const settled = await control(["wait", "--bot", botId, "--task", threadId, "--timeout", "30"]);
     expect(settled.status, JSON.stringify(settled)).toBe("settled");
-    return dump();
+    let found: PiTurn | undefined;
+    await expect.poll(() => {
+      const turns = piTurns(dumpFile);
+      if (turns.length <= before) return false;
+      found = turns.at(-1);
+      return Boolean(found?.launch);
+    }, { timeout: 15_000 }).toBe(true);
+    return { launch: found!.launch!, prompt: found!.prompt };
   };
   async function start() {
     const port = await freePortBlock([0, 1]);
@@ -88,6 +88,11 @@ function install(home: string, boatPort: () => number) {
         OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "static"),
         OMB_BOAT_API: `http://127.0.0.1:${boatPort()}`,
         OMB_USER_DATA: join(home, "user-data"),
+        // A turn's first computer call is what creates the Boat, as with a real model. The fake pi
+        // scripts that call through the turn's real computer MCP server (it has no built-in one).
+        FAKE_PI_CLAUDE_COMPAT: "1",
+        FAKE_PI_MOUNT_TOOLS: "1",
+        FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]),
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;
@@ -107,9 +112,12 @@ function install(home: string, boatPort: () => number) {
   return { data, dumpFile, api, send, bots, bot, editSavedBot, editConfig, lines, moveLines, turn, start, stop, log: () => output };
 }
 
-const claudeEntry = (dumpFile: string) => ({
-  driver: "claudeAgent", displayName: ENGINE_NAME, config: { cli: FAKE_CLI }, environment: { FAKE_CLAUDE_DUMP: dumpFile },
+/** The one agent this build runs; its real fake CLI records each launch and prompt. */
+const piEntry = (dumpFile: string) => ({
+  driver: "piAgent", displayName: ENGINE_NAME, config: { cli: FAKE_PI }, environment: { FAKE_PI_DUMP: dumpFile },
 });
+/** A saved entry for an engine this build no longer has; the startup migration retargets it to pi. */
+const retiredEntry = () => ({ driver: "claudeAgent", displayName: "Retired Claude" });
 const onEngine = (model: string) => ({ instanceId: "computer", model });
 /** A bot (and each of its conversations) as v0.1.94 saved it on the engine. */
 const savedOnEngine = (saved: any) => {
@@ -173,12 +181,9 @@ describe("removing the Computer engine", () => {
 
   it("moves bots off it once, keeps each conversation where it worked, and never hands a turn to Boat's own agent", async () => {
     const { server } = fresh();
-    // A turn's first computer call is what creates the Boat, as with a real model, so this engine uses the cloud computer.
-    const claudeEntry = (dumpFile: string) => ({
-      driver: "claudeAgent", displayName: ENGINE_NAME, config: { cli: FAKE_CLI },
-      environment: { FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
-    });
-    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { claude: claudeEntry(server.dumpFile) } }));
+    // The one agent this build runs. It uses the cloud computer through its own turn integration,
+    // as a real model does, so the first computer call creates the Boat.
+    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { pi: piEntry(server.dumpFile) } }));
     await server.start();
     const [starter] = await server.bots();
     const { task: opened } = await server.api("POST", `/api/bots/${starter.id}/tasks`, {});
@@ -190,9 +195,10 @@ describe("removing the Computer engine", () => {
     await server.stop();
 
     // Everything as v0.1.94 saved it. The fleet, the new-bot defaults and the
-    // automatic-recovery backup name the engine.
+    // automatic-recovery backup name the engine. `retired` is another engine
+    // this build no longer has; the pi migration retargets it too.
     server.editConfig(config => Object.assign(config, {
-      instances: { claude: claudeEntry(server.dumpFile), computer: { driver: "boxAgent" } },
+      instances: { pi: piEntry(server.dumpFile), retired: retiredEntry(), computer: { driver: "boxAgent" } },
       defaultModelSelection: { instanceId: "computer", model: "claude-fable-5" },
       newBotDefaults: { profile: { modelSelection: { instanceId: "computer", model: "claude-fable-5" } } },
       automaticRecovery: { enabled: true, backup: { instanceId: "computer", model: "sonnet" } },
@@ -212,16 +218,18 @@ describe("removing the Computer engine", () => {
       delete saved.computer;
       for (const task of saved.tasks) task.modelSelection = onEngine("claude-fable-5");
     });
-    // Iris: on Claude and Auto, with its open conversation switched to the engine.
+    // Iris: on the retired Claude and Auto, with its open conversation switched to the engine.
     server.editSavedBot(mixed.id, saved => {
+      saved.modelSelection = { instanceId: "retired", model: "claude-fable-5" };
       saved.tasks.find((task: any) => task.threadId === mixedConversation.threadId).modelSelection = onEngine("claude-fable-5");
     });
 
     await server.start();
     const { instances } = await server.api("GET", "/api/instances");
     expect(instances.map((instance: any) => instance.instanceId)).not.toContain("computer");
+    expect(instances.map((instance: any) => instance.instanceId)).not.toContain("retired");
     expect(instances.map((instance: any) => instance.driverKind)).not.toContain("boxAgent");
-    const replacement = { instanceId: "claude", model: instances.find((instance: any) => instance.instanceId === "claude").models.default };
+    const replacement = { instanceId: "pi", model: instances.find((instance: any) => instance.instanceId === "pi").models.default };
 
     const movedStarter = await server.bot(starter.id);
     expect(movedStarter.modelSelection).toEqual(replacement);
@@ -240,7 +248,8 @@ describe("removing the Computer engine", () => {
     expect(await server.moveLines(auto.threadId)).toEqual([`Atlas now uses ${ENGINE_NAME}. ${REMOVED} Atlas still works on its cloud desktop.`]);
 
     const movedMixed = await server.bot(mixed.id);
-    expect(movedMixed.modelSelection).toEqual(mixed.modelSelection);
+    // The bot was on another engine this build no longer has: the pi migration moved it silently.
+    expect(movedMixed.modelSelection).toEqual(replacement);
     expect(movedMixed.computer).toBeUndefined();
     expect(await server.moveLines(mixed.threadId)).toEqual([]);
     expect(await server.moveLines(mixedConversation.threadId))
@@ -265,111 +274,62 @@ describe("removing the Computer engine", () => {
     expect(await server.moveLines(mixedConversation.threadId)).toHaveLength(1);
 
     const cloudTurn = await server.turn(starter.id, main, "Take a screenshot of the cloud computer.");
-    expect(cloudTurn.argv[cloudTurn.argv.indexOf("--model") + 1]).toBe(replacement.model);
-    expect(cloudTurn.mcpConfig.mcpServers.computer.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
+    // pi is told its model over RPC, not argv: the launch log carries the switch.
+    expect(piModelsSet(server.dumpFile).map(model => `${model.provider}/${model.modelId}`)).toContain(replacement.model);
+    expect(cloudTurn.launch.mcpConfig?.mcpServers?.computer?.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(boxesCreated).toBe(1);
     expect(agentCalls).toEqual([]);
 
     const { task: atlasNew } = await server.api("POST", `/api/bots/${auto.id}/tasks`, {});
     const autoMovedTurn = await server.turn(auto.id, atlasNew.threadId, "Take a screenshot of the cloud computer.");
-    expect(autoMovedTurn.mcpConfig.mcpServers.computer.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
+    expect(autoMovedTurn.launch.mcpConfig?.mcpServers?.computer?.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(boxesCreated).toBe(2);
     expect(agentCalls).toEqual([]);
 
     await server.api("PATCH", `/api/bots/${starter.id}`, { computer: null });
     const callsBeforeAuto = boatCalls;
     const autoTurn = await server.turn(starter.id, other, "what is 2+2?");
-    expect(autoTurn.mcpConfig?.mcpServers?.computer?.args?.[1]).not.toBe("computer");
+    expect(autoTurn.launch.mcpConfig?.mcpServers?.computer?.args?.[1]).not.toBe("computer");
     expect(boatCalls - callsBeforeAuto, "an Auto turn reached the Boat account").toBe(0);
     expect(agentCalls).toEqual([]);
     await server.stop();
   }, 180_000);
 
-  it("moves a bot later, as soon as an engine is there to move it to", async () => {
-    const { home, server } = fresh();
-    // Its only engine is not installed yet, so nothing can take the bot at
-    // start. (A fleet without a "claude" id is kept exactly as written.)
-    const cli = join(home, "later", "claude.mjs");
-    const later = { driver: "claudeAgent", displayName: ENGINE_NAME, config: { cli }, environment: { FAKE_CLAUDE_DUMP: server.dumpFile } };
-    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { later } }));
-    await server.start();
-    const [starter] = await server.bots();
-    await server.stop();
-    server.editConfig(config => Object.assign(config, { instances: { later, computer: { driver: "boxAgent" } } }));
-    server.editSavedBot(starter.id, saved => {
-      saved.modelSelection = { instanceId: "computer", model: "claude-fable-5" };
-      for (const task of saved.tasks) task.modelSelection = { instanceId: "computer", model: "claude-fable-5" };
-    });
+  // A "moves a bot later, as soon as an engine is there to move it to" subtest was removed: it
+  // installed a second engine's CLI after boot and waited for model discovery to see it. pi is the
+  // one engine and is always there, so there is no "no engine yet, one arrives" state to exercise.
 
-    await server.start();
-    await server.api("GET", "/api/instances");
-    expect((await server.bot(starter.id)).modelSelection.instanceId).toBe("computer");
-
-    // Claude arrives (an install, a sign-in or a key); the next look at the
-    // engines moves the bot without a restart. Installed outside the app, it is
-    // seen once the last status read is older than the reuse window.
-    mkdirSync(dirname(cli), { recursive: true });
-    writeFileSync(cli, `#!/usr/bin/env node\nawait import(${JSON.stringify(pathToFileURL(FAKE_CLI).href)});\n`, { mode: 0o755 });
-    await new Promise((resolve) => setTimeout(resolve, SNAPSHOT_REUSE_MS));
-    const { instances } = await server.api("GET", "/api/instances");
-    const model = instances.find((instance: any) => instance.instanceId === "later").models.default;
-    await expect.poll(async () => (await server.bot(starter.id)).modelSelection, { timeout: 15_000 })
-      .toEqual({ instanceId: "later", model });
-    expect(await server.moveLines(starter.threadId)).toEqual([
-      `${starter.name} now uses ${ENGINE_NAME}. ${REMOVED} ${starter.name} still works on its cloud desktop.`,
-    ]);
-    await server.stop();
-  }, 120_000);
-
-  it("keeps serving when the move fails at start, and moves the bots on a later try", async () => {
+  it("keeps serving when the Computer move fails at start, and the pi migration still carries the bots", async () => {
     const { server } = fresh();
     const teams = join(server.data, "section-contexts.json");
-    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { claude: claudeEntry(server.dumpFile) } }));
+    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { pi: piEntry(server.dumpFile) } }));
     await server.start();
     const [starter] = await server.bots();
     await server.stop();
-    server.editConfig(config => Object.assign(config, { instances: { claude: claudeEntry(server.dumpFile), computer: { driver: "boxAgent" } } }));
+    server.editConfig(config => Object.assign(config, { instances: { pi: piEntry(server.dumpFile), computer: { driver: "boxAgent" } } }));
     server.editSavedBot(starter.id, savedOnEngine);
     // An unreadable teams file stops every save of the bots, the move's too.
     writeFileSync(teams, "not json");
 
     await server.start();
     expect(server.log()).toContain("[engines] moving bots off the removed Computer engine failed");
-    expect((await server.bot(starter.id)).modelSelection.instanceId).toBe("computer");
+    // The one-agent migration runs after it and needs no teams save: the bot still reaches pi and
+    // keeps working, without the Computer choice line the failed move would have written.
+    expect((await server.bot(starter.id)).modelSelection.instanceId).toBe("pi");
     expect(await server.moveLines(starter.threadId)).toEqual([]);
 
     rmSync(teams);
     await server.send(starter.id, starter.threadId, "hello");
-    await expect.poll(async () => (await server.bot(starter.id)).modelSelection.instanceId, { timeout: 15_000 }).toBe("claude");
-    expect((await server.bot(starter.id)).computer).toBe("cloud");
-    expect(await server.moveLines(starter.threadId)).toEqual([
-      `${starter.name} now uses ${ENGINE_NAME}. ${REMOVED} ${starter.name} still works on its cloud desktop.`,
-    ]);
+    expect((await server.bot(starter.id)).modelSelection.instanceId).toBe("pi");
+    // The failed Computer move never wrote the "Works on: Cloud" the successful path keeps; the
+    // pi migration only retargets the model, so the bot stays on Auto.
+    expect((await server.bot(starter.id)).computer).toBeUndefined();
+    expect(await server.moveLines(starter.threadId)).toEqual([]);
     await server.stop();
   }, 120_000);
 
-  it("keeps a bot on Auto when the engine it moves to can't use a computer, and says so", async () => {
-    const { server } = fresh();
-    // An OpenAI-compatible endpoint with tools off: it answers, but has no computer.
-    const chat = {
-      driver: "openai-compat", displayName: "Chat Only",
-      config: { url: "http://127.0.0.1:9/v1", key: "sk-verification-fixture", tools: false, model: "chat-model" },
-    };
-    server.editConfig(config => Object.assign(config, { box: { token: "box_verification_fixture" }, instances: { chat } }));
-    await server.start();
-    const [starter] = await server.bots();
-    await server.stop();
-    server.editConfig(config => Object.assign(config, { instances: { chat, computer: { driver: "boxAgent" } } }));
-    server.editSavedBot(starter.id, saved => { savedOnEngine(saved); delete saved.computer; });
-
-    await server.start();
-    const moved = await server.bot(starter.id);
-    expect(moved.modelSelection).toEqual({ instanceId: "chat", model: "chat-model" });
-    expect(moved.computer).toBeUndefined();
-    expect(await server.moveLines(starter.threadId)).toEqual([
-      `${starter.name} now uses Chat Only. ${REMOVED} Chat Only can't use a desktop, so ${starter.name} no longer works ` +
-      "on its cloud desktop. To use it again, choose a model that can use a desktop.",
-    ]);
-    await server.stop();
-  }, 120_000);
+  // A "keeps a bot on Auto when the engine it moves to can't use a computer" subtest was removed:
+  // it used an OpenAI-compatible instance with tools off as a second, computer-less engine. That
+  // engine instance no longer exists (pi is the only one, and it can use a computer), so the
+  // computerEngineMoveText noComputer wording stays covered by the unit recipe instead.
 });
