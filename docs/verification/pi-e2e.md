@@ -191,12 +191,11 @@ pnpm vitest run server/main-thread.e2e.test.ts
 
 ## Not migrated yet
 
-The remaining `*.e2e.test.ts` recipes still assume the fake Claude CLI's dump
+The remaining old e2e recipes still assume the fake Claude CLI's dump
 file, Claude-specific argv (`--permission-mode`, `--restricted`, `--model`) or
 the retired `openaiCompat` / ACP engine instances. Most can now move by reading
 `fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
-assertions with the launch, turn and transcript events. `server/direct-
-coordination.e2e.test.ts` observes Claude argv and launch dumps;
+assertions with the launch, turn and transcript events. `server/direct-coordination.e2e.test.ts` observes Claude argv and launch dumps;
 `server/room-context.e2e.test.ts` needs a context-window measurement pi does not
 report; `server/parallel-threads.e2e.test.ts` is a per-engine matrix of engines
 this build no longer has. Until then `pnpm test:e2e` (the old suite) is expected

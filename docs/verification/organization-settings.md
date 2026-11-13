@@ -60,8 +60,8 @@ responses. It substitutes an in-memory credential store, captured browser-open
 requests and a fake utility-process acknowledgement. It does **not** prove
 real Admin consent, OS keychain persistence, private runtime synchronization,
 native provider execution, cloud backups, public DNS/TLS or paid model calls.
-Provider isolation, expiry and no-personal-fallback behavior are separately
-covered by `server/managed-desktop.test.ts`. Read-only Company engine settings
+Provider isolation, expiry and no-personal-fallback behavior have separate
+server-side coverage. Read-only Company engine settings
 and preservation of personal controls have focused renderer regressions.
 
 ## Returning from a hosted workspace
@@ -124,8 +124,9 @@ used.
   saved under the old device-scoped key is adopted (not turned off) on upgrade
   and on re-enrolment; losing the connection pauses it; another organization
   or account still clears it.
-- `pnpm vitest run server/managed-policy.test.ts server/managed-desktop.test.ts
-  server/store-rename-instances.test.ts`: refusal sentences, MCP name/address
+- `pnpm vitest run server/managed-policy.test.ts
+  server/store-rename-instances.test.ts` (the managed-desktop provider-registry
+  suite retired with the engine teardown): refusal sentences, MCP name/address
   matching, computer-kind mapping, the real `bindTurnComputer` guard from
   `index.ts`, expiry of the last policy; renewal and licence suspension applied
   without restarting Company instances; stable Company ids across re-enrolment
@@ -174,7 +175,8 @@ engine account or paid model call was used.
   signed-in Codex. An engine the organization's policy refuses (company models
   only, or an engine allow-list) is never picked, and a refused saved default
   sends new bots to setup.
-- `pnpm vitest run server/managed-desktop.test.ts`: against the real provider
+- The managed-desktop provider-registry suite (since retired from the tree):
+  against the real provider
   registry with fake engines, new bots land on Company Claude while enrolled
   and on the personal engine again after disconnect; disconnecting leaves a
   personal bot's selection untouched and keeps a Company bot's stable id for

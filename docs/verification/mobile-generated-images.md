@@ -38,14 +38,13 @@ No paired computer, live account, or user conversation was used.
   URLProtocol intercepts all traffic and only returns the PNG for the exact
   message-scoped POST, synthetic bearer, and file path. The same test fails with
   the original renderer and passes with the image row, then waits for the full-screen image canvas and closes the preview.
-- Real HTTP regressions in `server/index.test.ts` use its disposable home/server.
-  They reproduce the prior 403 for an image-only attachment, prove image download,
-  and reject another message/path, a path outside the private attachment directory,
-  and a non-image file. The targeted run also checks existing file/image previews.
+- Server-side image handling in `server/generated-image.test.ts` accepts raster
+  data URLs and provider base64 output, and rejects non-image or malformed
+  provider output.
 
-The iOS protocol fixture and Android HTTP stubs test the native request and UI;
-the separate real-server tests test server authorization. They do not constitute
-a physical phone connected end to end to a released desktop build.
+The iOS protocol fixture and Android HTTP stubs test the native request and UI.
+They do not constitute a physical phone connected end to end to a released
+desktop build.
 
 ## Commands and evidence
 
@@ -54,7 +53,7 @@ From the repository root, with Node 24, Android SDK and the repository's JDK set
 ```sh
 swift test --package-path ios
 android/gradlew -p android :core:test :app:testDebugUnitTest :app:assemblePreview --max-workers=2
-pnpm exec vitest run server/index.test.ts -t 'structured generated image|downloads only a file|downloads an image|streams an authorized|shared in a user|user attachment|preview'
+pnpm exec vitest run server/generated-image.test.ts
 pnpm typecheck
 pnpm test
 ```

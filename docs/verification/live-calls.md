@@ -116,8 +116,6 @@ without the admin scope `live.provider`, never `azureEndpoint` or
 `azureDeployment`. `server/live-access.test.ts` runs each caller above through
 the sign-in gate and the limit. `server/live-azure-access.e2e.test.ts` does it on
 the full server with a made-up key and its `fetch` stubbed.
-`server/hosted-access.test.ts` does it for a shared workspace, with no key saved,
-so a caller who gets through stops at the setup prompt.
 
 ## User path
 
@@ -131,7 +129,7 @@ The server paths, including steer, queue, restart and late answers, need a
 scripted voice, so their recipe is the end-to-end test:
 
 ```sh
-pnpm exec vitest run server/live-call.e2e.test.ts server/chat-followups-restart.test.ts
+pnpm exec vitest run server/live-call.e2e.test.ts
 pnpm exec vitest run server/live-call-record.test.ts server/live-call-controller.test.ts server/steer-queue.test.ts server/thread-title.test.ts server/delta-context.test.ts server/live-call.test.ts server/store.test.ts
 pnpm exec vitest run src/lib/call-record.test.ts src/lib/live-activity.test.ts src/lib/activity-runs.test.ts src/components/CallRecordRow.test.ts src/components/ChatView.via-call.test.ts src/components/ChatView.rows.test.ts
 pnpm typecheck
@@ -149,9 +147,6 @@ did or whose bot was deleted; the title patch with generated titles on, and
 none while they are off; the row's absence from the next call's startup
 history; and that the row and the server log hold none of the spoken words and
 neither the log nor the event stream holds the key.
-`server/chat-followups-restart.test.ts` kills a fixture server in the middle of
-a dispatch and checks the recovered lines: one spoken on a call comes back with
-its call id, a typed one that carried a stray call id comes back without it.
 
 By hand, a call with no spoken request shows the row and the record. The
 standalone fake cannot be scripted from the shell, so nothing is asked on it:
@@ -262,7 +257,8 @@ repository, that called `startFakeOpenAiLive` and `emit` the way the e2e does.
   nor the key anywhere.
 - Ctrl-C stopped the fixture and removed its data directory; no fixture, preview
   or driver process was left. The log stays at its printed path.
-- `pnpm exec vitest run server/live-call.e2e.test.ts server/chat-followups-restart.test.ts`:
+- `pnpm exec vitest run server/live-call.e2e.test.ts` (run then alongside the
+  since-retired follow-up restart suite):
   2 files, 18 tests passed in 258 s with the machine's load average above 150.
   The 13 unit files in the second and third commands above: 404 passed.
 - Since that run the final fix wave changed what the renderer draws: the record

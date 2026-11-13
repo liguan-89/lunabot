@@ -26,7 +26,7 @@ Run from the repository root:
 
 ```sh
 pnpm exec vitest run server/tts server/routes/tts-openai.test.ts server/routes/tts.test.ts src/lib/tts src/components/VoiceSettings.test.ts
-pnpm exec vitest run server/config.test.ts server/voice-notes.e2e.test.ts
+pnpm exec vitest run server/voice-notes.e2e.test.ts
 pnpm typecheck
 pnpm lint
 pnpm i18n:check

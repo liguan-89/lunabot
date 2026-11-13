@@ -18,7 +18,7 @@ runner it checks that nothing is applied, and stops there.
 
 ```sh
 pnpm exec vitest run server/safety-floor.test.ts server/safety-floor-gate.test.ts server/auto-approve-undelivered.test.ts
-pnpm exec vitest run server/drivers/openai-chat-safety-floor.test.ts server/drivers/self-answer-safety-floor.test.ts
+pnpm exec vitest run server/drivers/openai-chat-safety-floor.test.ts
 pnpm exec vitest run server/safety-floor.e2e.test.ts
 pnpm exec vitest run server/auto-approve.test.ts server/command-allowlist.e2e.test.ts
 ```
@@ -59,17 +59,6 @@ pnpm exec vitest run server/auto-approve.test.ts server/command-allowlist.e2e.te
   allow this session" the never-list command never reaches the tool; at Ask
   the card reaches a person and their Allow stands; with the floor off
   nothing changes.
-- `server/drivers/self-answer-safety-floor.test.ts` drives the Codex and ACP
-  drivers against their scripted fakes, which send a permission request and
-  record the answer. Codex at Full access accepts a request inside the
-  driver; with the floor on it raises a never-list command as a request
-  instead, carrying the exact command, and goes on accepting every other one.
-  An ACP agent's kept "Always allow this session" repeats for an ordinary
-  command and asks again for a never-list one, and a legacy full-auto
-  instance does not answer one by itself. Two cases join the driver to the
-  fold's own check: a Codex request with no working directory and an ACP
-  request not typed as a shell command both reach it with their command
-  line, and it denies them.
 - `server/safety-floor.e2e.test.ts` launches the real server in an isolated
   home with the fake Claude CLI parked, and raises Bash requests through its
   actual permission socket. A saved command answers `rm -rf /` while the

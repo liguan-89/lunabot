@@ -32,33 +32,21 @@ It does not grant or change permissions. The exact task, not its bot default,
 must match; Ask callers never silently become Full. Retry receipts continue
 to return the original accepted action before rechecking admission conditions.
 
-Run the permanent isolated HTTP checks:
+Run the guarded-send checks that the migrated end-to-end recipes drive:
 
 ```sh
-pnpm exec vitest run server/guarded-messages-api.test.ts
+pnpm exec vitest run server/main-thread.e2e.test.ts server/direct-coordination.e2e.test.ts server/team-protocol.e2e.test.ts
 ```
 
-Each case launches the prescribed `control-omb` verification server in a fresh
-home and uses only its gated fake provider. The test records the exact HTTP
-requests, `control:omb` commands, bounded transcripts and wait results next to
-the server log in a `.log.guarded-messages.json` receipt. Temporary homes and
-their child processes are closed by each fixture.
+Each launches the prescribed `control-omb` verification server in a fresh
+home and submits pinned task messages through the guarded route against only
+its gated fake provider. Temporary homes and their child processes are closed
+by each fixture.
 
-The checks cover strict input and authentication, foreign task refusal, lost
-response recovery, changed-leaf rejection, Ask/automatic/remembered approval
-settings, busy/capacity refusal without enqueueing or steering, concurrent
-guarded admissions, and duplicate receipt identity. A running ordinary turn
-remains unchanged when a guarded send is refused. Ordinary composer sends
-retain their existing behavior; this endpoint does not prohibit a later human
-message from steering or queueing through the ordinary route.
-
-The coordination case gates one real fake-provider teammate after the source
-provider has settled. A no-op Ask settings update proves the source's raw busy
-flag and dispatch reservation have both cleared; the guarded send still gets
-`guarded_busy` because that conversation parks messages behind its teammate.
-The transcript and queue stay unchanged, and releasing the gate completes the
-original request. Its bounded commands and results are retained beside the
-fixture log in a `.log.guarded-coordination.json` receipt.
+A running ordinary turn remains unchanged when a guarded send is refused.
+Ordinary composer sends retain their existing behavior; this endpoint does not
+prohibit a later human message from steering or queueing through the ordinary
+route.
 
 ## Following and stopping one request
 
@@ -111,7 +99,7 @@ tools.
 Run the isolated request/continuation checks:
 
 ```sh
-pnpm exec vitest run server/guarded-requests.test.ts server/guarded-messages-api.test.ts server/direct-coordination.e2e.test.ts server/team-setup.e2e.test.ts server/turn-dispatch-guard.test.ts server/request-auth.test.ts
+pnpm exec vitest run server/guarded-requests.test.ts server/direct-coordination.e2e.test.ts server/team-setup.e2e.test.ts server/turn-dispatch-guard.test.ts server/request-auth.test.ts
 pnpm exec tsc -p tsconfig.server.json --noEmit
 ```
 
@@ -150,7 +138,7 @@ shared task.
 Run the operator-policy and Full/Ask workflow checks:
 
 ```sh
-pnpm exec vitest run server/enterprise.test.ts server/hosted-access.test.ts server/full-access-workflows.e2e.test.ts server/store.test.ts
+pnpm exec vitest run server/enterprise.test.ts enterprise/server/workspace-access.test.ts server/full-access-workflows.e2e.test.ts server/store.test.ts
 ```
 
 The hosted-access tests exercise the real hosted authorization route with an

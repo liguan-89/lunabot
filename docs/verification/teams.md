@@ -16,7 +16,6 @@ OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/team-lifecycle-ui.e2e.test.ts 
 OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/team-canvas-ui.e2e.test.ts --maxWorkers=1
 OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/team-computers-ui.e2e.test.ts --maxWorkers=1
 pnpm exec vitest run scripts/testing/team-computers-fixture.test.ts
-pnpm exec vitest run server/index.test.ts -t "creates team computers|shares one team computer" --maxWorkers=1
 ```
 
 The server test uses `launchVerificationServer`, sends a sample conversation,
@@ -72,25 +71,16 @@ The **Add → Boat computer** entry explains provider charges and cannot create 
 machine while this credential-free fixture is disconnected. Opening and
 cancelling it leaves the server's computer inventory unchanged.
 
-The focused `server/index.test.ts` cases run the real server against a local
-HTTP Boat stand-in, with a disposable fake token and no paid account or container
-engine. They verify explicit cost acknowledgement, invalid/foreign-origin
-request denial, read-only inventory, durable failed-create records, same-id
-retry without a second machine, concurrent provisioning rejection, and busy-team
-assignment rejection. Assignment consent and the resulting registry file are
-checked; this is not a full server-restart assertion. Opening a shared desktop
-requires taking human control first.
+The focused server cases that drove a real server against a local HTTP Boat
+stand-in (explicit cost acknowledgement, request denial, read-only inventory,
+failed-create records, same-id retry, concurrent provisioning and busy-team
+rejections, and the shared-resource lock) were retired with the engine
+teardown. The surviving coverage is the `team-computers-ui` recipe below and
+the computer resource suites (`server/shared-computers.e2e.test.ts`,
+`server/turn-resources.test.ts`). Opening a shared desktop requires taking
+human control first.
 
-A second case confirms that Auto bots' direct and room turns receive the same
-Boat ID, while an explicit Off bot receives no computer. The real shared-resource
-lock rejects overlapping work and lifecycle changes; human control is shared
-across the team's bots, while a bot's control capability cannot impersonate
-another bot and is revoked after its turn. Removing the simulated provider
-machine causes a clear failure, never an automatic paid replacement. These
-checks prove server routing and ownership, not actual Boat provisioning or
-remote desktop operation.
-
-The separate `team-computers-ui` test uses a real OMB server and renderer with
+The `team-computers-ui` test uses a real OMB server and renderer with
 an owned loopback HTTP Boat provider. It creates a named machine through **Add →
 Boat computer**, verifies opening the shelf never provisions a machine, cancels
 and confirms a pointer drop, explicitly unassigns before moving to another team,

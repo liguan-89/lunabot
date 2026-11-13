@@ -118,8 +118,8 @@ pairing route. Print each failed item's error, never a value.
 ## The move to My Cloud, by itself
 
 ```sh
-pnpm exec vitest run server/one-home.e2e.test.ts server/one-home-retry.e2e.test.ts server/one-home-trial-key.e2e.test.ts
-pnpm exec vitest run server/move-freeze.test.ts server/cloud-send-arrived.test.ts server/cloud-held-keys.test.ts
+pnpm exec vitest run server/one-home.e2e.test.ts server/one-home-retry.e2e.test.ts
+pnpm exec vitest run server/move-freeze.test.ts server/cloud-send-arrived.test.ts
 node --test electron/one-home.node-test.mjs
 ```
 

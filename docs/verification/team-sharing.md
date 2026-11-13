@@ -123,7 +123,7 @@ save dialog or packaged app was involved, and the organization channel
 
 On macOS (arm64) against disposable fixtures only: `pnpm typecheck`,
 `pnpm lint`, `pnpm i18n:check`, the commands above (including the
-headless-renderer run with `OMB_UI_E2E=1`), `server/index.test.ts`, and the
+headless-renderer run with `OMB_UI_E2E=1`), and the
 neighbouring team, package, backup, visibility, store and sign-in test files
 all passed. Each of these was mutation-checked (broken, the named test seen
 failing, restored): the route never asking for "all"; the per-bot fit

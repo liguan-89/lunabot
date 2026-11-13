@@ -29,22 +29,19 @@ send is refused with the limit message once the cap is reached.
 ## Driving it
 
 ```sh
-pnpm exec vitest run --no-file-parallelism server/spend-cap-api.test.ts
+pnpm exec vitest run --no-file-parallelism server/spend-cap-goal.e2e.test.ts
 ```
 
-The test writes a stand-in enterprise layer (the folder shape core loads,
-granting `budgets` and `billing`) and launches the `control-omb` fixture with
-it through `launchVerificationServer(..., { dir, licenseKey })`. It sets a
-$0.015 cap and a default price list, sends two turns that the fake engine
-books at $0.01 each, and checks the third is refused with 409 `spend_cap`,
-that `/api/usage` reports the cap exceeded, warned, and priced, that the CSV
-carries `billable_usd`, and that raising the cap lets the next turn through.
-It also holds an admin and a chat-only event stream open across the two turns
-and checks the admin gets exactly one warning and one cap notice and the
-chat-only device gets neither.
-It prints the fixture's server log path and removes its temporary homes.
-The memory regression also proves that one helper reaching the cap blocks
-the next step in that same upkeep pass, and that raising the cap resumes it.
+The goal fixture writes a stand-in enterprise layer (the folder shape core
+loads, granting `budgets` and `billing`) and launches the `control-omb`
+fixture with it through `launchVerificationServer(..., { dir, licenseKey })`.
+A capped team goal and a capped one-on-one goal each end as a blocked run
+carrying the cap detail, without retrying the refusal, and `/api/usage` is
+read in that state. The turn-level refusal shape (409 `spend_cap`), the
+warning threshold, the priced and billable summaries and CSV, estimated
+costs counting against the cap, and the once-a-month notices are covered by
+the unit suites below. (The former API fixture that held admin and chat-only
+event streams open across booked turns was retired with the engine teardown.)
 
 For the same by hand, launch a fixture with `OMB_ENTERPRISE_DIR` pointing at a
 folder whose `server/index.js` exports such a `register()`, and
@@ -53,7 +50,7 @@ folder whose `server/index.js` exports such a `register()`, and
 ## Unit regressions
 
 ```sh
-pnpm exec vitest run server/spend.test.ts server/model-prices.test.ts server/prices.ts server/config.test.ts src/components/UsageBudget.test.ts server/usage-ledger.test.ts src/lib/notify.test.ts
+pnpm exec vitest run server/spend.test.ts server/model-prices.test.ts server/prices.ts src/components/UsageBudget.test.ts server/usage-ledger.test.ts src/lib/notify.test.ts
 ```
 
 These cover price precedence and cached-input pricing, month-to-date sums

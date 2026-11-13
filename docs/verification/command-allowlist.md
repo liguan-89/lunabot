@@ -77,16 +77,13 @@ The printed server log and screenshots remain.
 
 ```sh
 pnpm exec vitest run server/command-allowlist.e2e.test.ts server/command-allowlist.test.ts server/auto-approve.test.ts server/workspace-backup-policy.test.ts
-pnpm exec vitest run server/drivers/claude.test.ts server/drivers/codex.test.ts server/drivers/acp/acp.test.ts
 ```
 
 The first test launches the real server in an isolated home, sends prompts to
-its fake Claude CLI and raises requests through its actual native permission
+its fake CLI and raises requests through its actual native permission
 socket. It asserts remembered/repeated/revoked commands, exact-match negatives,
 folder isolation, owner/member permissions, stale cards, restart persistence
-and decision receipts. Provider tests cover complete command transport,
-questions/MCP exclusion and actual allow/deny outcomes (including ACP requests
-with no allow option). Storage tests exercise bot/provider scope, disk failures
+and decision receipts. Storage tests exercise bot/provider scope, disk failures
 and malformed files. Backup policy tests exclude these installation-local rules.
 
 These checks do not prove live-account model behavior or the Electron privileged

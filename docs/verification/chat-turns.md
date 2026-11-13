@@ -70,8 +70,7 @@ must hold no computer server. The task in `GET /api/bots?messages=0` carries
 
 ### Last exercised
 
-Not yet exercised against a live fixture. Covered by `server/surface.test.ts`
-and the `pins where a conversation works` case in `server/index.test.ts`.
+Not yet exercised against a live fixture. Covered by `server/surface.test.ts`.
 
 ## Surface gating: Works on = Off
 
@@ -131,16 +130,16 @@ Cancellation receipts survive restart. Importing a workspace backup pauses all
 of its queued work for review, even when restoring to the original directory.
 
 ```sh
-pnpm exec vitest run server/chat-followups.test.ts server/chat-followups-restart.test.ts server/workspace-backup.test.ts
+pnpm exec vitest run server/chat-followups.test.ts server/workspace-backup.test.ts
 ```
 
-The restart test launches an isolated real server with the fake engine, accepts
-queued bot/channel sends, kills only that fixture server, and starts a replacement
-against the same disposable home. It checks original receipts, native image
-content, reply targets, cancellation conflicts, one uncertain-dispatch notice,
-and a second restart without replay. It records the fixture log and a retained
-`.log.chat-followups-restart.json` receipt before removing the temporary home.
-This does not prove resumption or cleanup of real provider sessions after a crash.
+The durable follow-up tests restore accepted work without replaying an
+unsettled claim whose dispatch may have started: original receipts, reply
+targets, channel provenance, cancellation tombstones, and failed dispatches
+settled before the durable rows return. The workspace-backup suite pauses an
+imported workspace's queued work for review. These check the same journal the
+server commits before acknowledgement; they do not prove resumption or cleanup
+of real provider sessions after a crash.
 
 ## Concurrent-task regression
 
@@ -163,9 +162,7 @@ waits on; it is read-only and refuses an id handed out in the same turn.
 
 ```sh
 pnpm exec vitest run server/runtime-paths.e2e.test.ts server/runtime-coordinator.test.ts server/runtime/import-legacy.test.ts
-pnpm exec vitest run server/independent-threads-api.test.ts -t "holds coordinated work behind a peer's approval"
-pnpm exec vitest run server/independent-threads-api.test.ts -t "unanswered|what became of each teammate approval"
-pnpm exec vitest run server/comms.test.ts server/thread-capacity-api.test.ts -t "free slot"
+pnpm exec vitest run server/comms.test.ts server/teammate-follow-ups.e2e.test.ts server/crossed-handoffs.e2e.test.ts server/room-coordination.e2e.test.ts
 ```
 
 The approval fixtures use the isolated launcher and per-model fake-engine
@@ -193,26 +190,18 @@ claim real-provider performance.
 ### Independent tasks
 
 ```sh
-pnpm exec vitest run server/independent-threads-api.test.ts
+pnpm exec vitest run server/room-queue.e2e.test.ts
 ```
 
-This test launches a fresh `control-omb` fixture for each case, wraps only its
-fake engine with per-model completion gates, and uses the shared MCP/CLI surface
-for pinned sends, waits, model changes, reads, and interrupts. It verifies two
-tasks running under one bot, switching and creating while busy, separate model
-and approval settings, stopping A without stopping B, transcript isolation, and
-an unattended task remaining approval-blocked while its attended sibling runs.
-It also exercises live provider capabilities against the memory-update route:
-both sibling appends survive, stale replacements conflict, foreign ownership is
-refused, and stopped-turn tokens expire without revoking the running sibling.
-Provider working directories are checked against each task's private directory;
-an explicitly shared project folder cannot launch a second engine until its
-owner stops. On macOS, an inert computer descriptor inside the disposable home
-checks lazy first-use ownership and exact-generation release through the real
-control gate. It does not launch a desktop driver or prove actual UI actions.
-The fixture prints its server log and a retained `.log.json` evidence path with
-the exact control commands, wait results, and bounded transcripts. Its temporary
-home is removed after the test.
+The same-room queue fixture runs members' jobs in turn, and with parallel
+threads on it runs each job in its own thread at once and posts the results
+back. Two tasks running under one bot must stay independent across switching
+and creating while busy, separate model and approval settings, stopping A
+without stopping B, transcript isolation, and an unattended task remaining
+approval-blocked while its attended sibling runs; sibling appends to memory
+both survive, stale replacements conflict, foreign ownership is refused, and
+stopped-turn tokens expire without revoking the running sibling. An explicitly
+shared project folder cannot launch a second engine until its owner stops.
 
 See the [Threads renderer recipe](threads.md) for the real sidebar, composer,
 optional folders, and group-history navigation checks.

@@ -115,15 +115,9 @@ Store/API regressions also verify fresh provider context, retained generated
 files and rejection of running/stale deletes. Renderer regressions cover both
 orders of the full response and slim event, including late old-thread messages.
 
-For approval verification, new fake-provider launches also write fixture-only
-`<thread-id>.launch.json` receipts inside the printed disposable data directory.
-The live broker in their `mcpConfig.mcpServers.ogb` entry can be exercised using
-the same `permission` recipe in `server/thread-capacity-api.test.ts`. Request a
-synthetic approval, switch away, and navigate back using an activity control
-with Show threads off. Answer **Allow once** and verify that broker receives
-the matching answer. This proves the app's approval routing, not a real model
-or command execution. Never publish the raw launch receipt: it contains
-short-lived fixture capabilities.
+Approval cards on a background thread are exercised end to end by the migrated
+pi recipes (see [the pi fixture](pi-e2e.md)); this recipe checks the sidebar
+and threading behavior around them.
 
 ### Optional-thread display walkthrough
 
@@ -176,7 +170,7 @@ operating-system folder picker.
 ## Permanent regression checks
 
 ```sh
-pnpm exec vitest run server/independent-threads-api.test.ts server/paired-thread-targets-api.test.ts server/direct-screen-settlement-api.test.ts server/bot-projects-api.test.ts server/thread-capacity-api.test.ts src/components/BotThreads.test.ts src/components/BotProjects.test.ts src/components/ThreadConcurrencySettings.test.ts src/components/ComposerQueuedMessages.test.ts src/lib/folder-order.test.ts src/state/store.test.ts
+pnpm exec vitest run server/paired-thread-targets-api.test.ts src/components/BotThreads.test.ts src/components/BotProjects.test.ts src/components/ThreadConcurrencySettings.test.ts src/components/ComposerQueuedMessages.test.ts src/lib/folder-order.test.ts src/state/store.test.ts
 ```
 
 These cover thread-pinned tools and permissions, stale legacy phone requests,

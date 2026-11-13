@@ -134,7 +134,7 @@ Focused automated coverage:
 ```sh
 pnpm exec vitest run server/browser-engine.test.ts server/browser-runtime.test.ts server/browser-page-size.test.ts \
   server/harness-mcp-proxy.test.ts server/browser-live.test.ts server/browser-dialogs.test.ts \
-  server/browser-live-routes.test.ts server/browser-codex-path.integration.test.ts \
+  server/browser-live-routes.test.ts \
   src/lib/browser-stream-v1.test.ts src/lib/browser-stream-client.test.ts src/lib/browser-control.test.ts \
   src/lib/browser-profiles.test.ts src/components/BrowserProfilesManager.test.ts \
   src/components/browser/StreamSurface.test.ts server/routes/browser-viewers.test.ts \
@@ -228,6 +228,5 @@ composer and panel must keep the real destination highlighted during sends.
 
 Ctrl-C closes the exact fixture and removes the copied sign-in and browser
 data. VM/cloud transport and turn-bound switching are separately covered by
-`server/group-local-vm.e2e.test.ts`, `server/vps-routing.test.ts` and
-`server/index.test.ts` with
+`server/group-local-vm.e2e.test.ts` and `server/vps-routing.test.ts` with
 isolated providers. These are not evidence of real cloud provisioning.

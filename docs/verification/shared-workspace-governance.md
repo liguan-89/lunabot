@@ -94,18 +94,18 @@ pnpm exec vitest run server/bot-visibility.test.ts server/bot-visibility.e2e.tes
 On a disposable worktree stacked on #1708 and rebased onto OpenMausBot main
 `0b132aec`: `pnpm typecheck`, `pnpm lint`, `pnpm i18n:check` and the files
 above passed. Before that rebase (main `0bb37982` plus #1708),
-`pnpm test:packaged-server` and `server/index.test.ts`,
-`server/independent-threads-api.test.ts`,
+`pnpm test:packaged-server` and the then-present index, independent-threads,
+notification-routing, comms, guarded-messages, capacity,
+and hosted-access API suites together with
 `server/notification-routing.e2e.test.ts`, `server/comms.test.ts`,
-`server/guarded-messages-api.test.ts`,
 `server/paired-thread-targets-api.test.ts`, `server/chief-rooms.e2e.test.ts`,
 `server/direct-coordination.e2e.test.ts`, `server/request-auth.test.ts`,
 `server/decision-log.test.ts`, `server/decision-log-wiring.test.ts`,
 `server/card-answerers.e2e.test.ts`,
 `server/runtime-coordinator.test.ts`, `server/chief-of-staff.test.ts`,
-`server/thread-capacity-api.test.ts`, `server/cli-service-trust.e2e.test.ts`
+`server/cli-service-trust.e2e.test.ts`
 and the Settings/People/session UI tests passed on macOS.
-`server/hosted-access.test.ts` passed except once for its 8-second licence
+The hosted-access suite passed except once for its 8-second licence
 expiry case, which failed under load and passed when rerun alone.
 
 Mutation checks, each restored afterwards, turned a named test red: the
@@ -158,7 +158,7 @@ A review of #1717 reproduced eight problems; each is now covered.
 
 Observed on a disposable worktree on OpenMausBot main `3eb90469`:
 `pnpm typecheck`, `pnpm lint`, `pnpm i18n:check`, the files above and their
-neighbours (`server/index.test.ts`, card answerers, CLI, recent work, room
+neighbours (card answerers, CLI, recent work, room
 and team suites) passed on macOS. Mutation checks, each restored afterwards,
 turned a named test red: recent-work or `session_search` reading every room;
 mixed rooms allowed; creation ignoring `visibility`; the member response hook

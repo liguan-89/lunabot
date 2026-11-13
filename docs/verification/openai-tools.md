@@ -47,11 +47,11 @@ existence, and provider request counts. It does not retain the provider's
 headers, MCP environment, or configuration payloads. The launcher stops its
 own child and removes its disposable data on exit.
 
-Driver contract tests cover the three shared adapters, protocol errors,
-non-streaming responses, tool errors, and lifecycle edge cases:
+Driver contract tests cover adapter registration, model catalogs, protocol
+errors, non-streaming responses, and lifecycle edge cases:
 
 ```sh
-pnpm exec vitest run server/drivers/openai-chat-tools.test.ts server/workspace.test.ts
+pnpm exec vitest run server/drivers/openai-compat.test.ts server/drivers/openai-chat-protocol.test.ts server/workspace.test.ts
 ```
 
 OpenAI-compatible and Cerebras turns recover explicit unfinished action
@@ -79,7 +79,7 @@ last budget is read at `GET /api/bots/ID/tool-budget`. The driver tests
 cover it with real stdio servers:
 
 ```sh
-pnpm exec vitest run server/drivers/chat-mcp-tools.test.ts server/drivers/openai-chat-tools.test.ts
+pnpm exec vitest run server/drivers/chat-mcp-tools.test.ts
 ```
 
 The harness proves the OpenAI-compatible adapter and the shared execution

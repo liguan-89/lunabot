@@ -12,7 +12,7 @@ when no model wrote the summary, it says the agent continues from recent excerpt
 pnpm exec vitest run server/context-compaction.e2e.test.ts
 pnpm exec vitest run server/context-rebuild.test.ts server/compaction-summary.test.ts server/context-budget.test.ts server/delta-context.e2e.test.ts
 pnpm exec vitest run server/side-jobs.test.ts server/helper-model.e2e.test.ts
-pnpm exec vitest run server/store.test.ts server/config.test.ts src/components/DigestChip.test.ts
+pnpm exec vitest run server/store.test.ts src/components/DigestChip.test.ts
 pnpm test:packaged-server
 ```
 
@@ -81,7 +81,7 @@ the next turn starts small.
 
 ```sh
 pnpm exec vitest run server/warm-summary.e2e.test.ts
-pnpm exec vitest run server/warm-summary.test.ts server/host/warm-summary-host.test.ts server/drivers/claude-warm-summary.test.ts server/thread-presence.test.ts server/routes/presence.test.ts
+pnpm exec vitest run server/warm-summary.test.ts server/host/warm-summary-host.test.ts server/thread-presence.test.ts server/routes/presence.test.ts
 ```
 
 The fixture runs the real server with the fake Claude Code:
@@ -261,25 +261,6 @@ CLI compacts the session (its hooks reach the harness with the room's thread
 and the member) the next turn is the whole window again. No real engine
 runs: what a live Claude Code session costs across a resume is not measured
 here.
-## ACP agents' own readings
-
-An ACP agent reports how full its context is (`usage_update`: `used`, and the
-window as `size` when it sends one). A 1:1 conversation shows those figures,
-and they are for the meter only: the ACP driver marks its reading
-`contextReading: "meter"`, so the fold before a 1:1 turn is still timed from
-the transcript estimate and the model's window, and a room keeps no reading
-for an ACP member (no mark, no automatic fresh session, 409 from the room's
-Compact now). The 1:1 header's warning and its button follow the shown figure.
-
-```sh
-pnpm exec vitest run server/acp-context-reports.e2e.test.ts server/context-budget.test.ts
-```
-
-The fixture runs each 1:1 scenario twice, with the fake agent silent and with
-it reporting, and requires the same compaction at the same turns: a 95% report
-folds nothing at the default threshold, a near-empty report does not postpone
-a fold the transcript has reached, and a room member reporting 95% keeps its
-session.
 
 Evidence covers:
 
@@ -311,7 +292,7 @@ off by default, and off the replay is byte-for-byte what it was.
 
 ```sh
 pnpm exec vitest run server/replay-tool-history.e2e.test.ts
-pnpm exec vitest run server/context-rebuild.test.ts server/replay-settings.test.ts server/turn-context.test.ts server/config.test.ts
+pnpm exec vitest run server/context-rebuild.test.ts server/replay-settings.test.ts server/turn-context.test.ts
 ```
 
 The fixture's engine runs a command and reads a file each turn. The test rewinds

@@ -1,11 +1,12 @@
 # Verifying OpenMausBot
 
-> Engine teardown: this build runs pi as its only agent. The pi fixture lives in
-> [pi-e2e.md](pi-e2e.md) (`pnpm test:e2e:pi`) and a growing set of recipes has
-> moved onto it. The recipes still driving the retired Claude/Codex test CLIs
-> make `pnpm test:e2e` expected to fail until they are ported. `pnpm test` runs
-> the unit and renderer suites only; `pnpm dev` / the desktop smoke checks cover
-> the hand-driven paths.
+> Engine teardown: this build runs pi as its only agent, backed by the one
+> custom provider. The pi fixture lives in [pi-e2e.md](pi-e2e.md)
+> (`pnpm test:e2e:pi`) and the end-to-end recipes that have moved onto it are
+> listed there. The remaining old-suite recipes still make `pnpm test:e2e`
+> expected to fail until they are ported. `pnpm test` runs the unit and
+> renderer suites only; `pnpm dev` / the desktop smoke checks cover the
+> hand-driven paths.
 
 OpenMausBot has one development control surface: `pnpm control:omb`. It runs
 the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP
@@ -25,12 +26,15 @@ Run the foreground launcher directly rather than through `pnpm`; this ensures
 it receives Ctrl-C and can stop its child before removing the temporary data.
 
 It gives the child a temporary data directory and home, chooses a free
-harness/webhook port pair, installs only the repository's fake engine, prints
-the URL, PID, data directory, and persistent log path, then stays attached to
-that exact child. The parent shell and the user's OpenMausBot data are
-untouched. Only `FAKE_CLAUDE_*` variables cross from the launcher's
-environment into that child, so a recipe can script the fake engine's mode,
-replies and tool calls without writing a wrapper CLI. Live calls add one
+harness/webhook port pair, installs the repository's fake pi CLI
+(`server/testing/fake-pi-cli.ts`) as the child's only agent, prints the URL,
+PID, data directory, and persistent log path, then stays attached to that
+exact child. The parent shell and the user's OpenMausBot data are untouched.
+Only `FAKE_PI_*` variables cross from the launcher's environment into that
+child, so a recipe can script the fake's mode, replies and tool calls without
+writing a wrapper CLI (the older `FAKE_CLAUDE_*` names still work: the
+launcher then sets `FAKE_PI_CLAUDE_COMPAT=1`); the driver records the launch
+and each prompt in the child's `fake-pi-dump.jsonl`. Live calls add one
 exception: `OMB_OPENAI_LIVE_URL` crosses when it is a loopback
 `http://127.0.0.1:PORT` (the fake GPT-Live that
 `node --experimental-strip-types server/testing/fake-openai-live.ts` prints),
@@ -57,7 +61,6 @@ Use only mapped, tested commands:
 - [Work summaries and engine hooks](digests.md)
 - [OpenAI-compatible structured tools](openai-tools.md)
 - [Per-bot tool selection and local-model checks](tool-selection.md)
-- [OpenCode model variants through ACP](opencode-variants.md)
 - [Bot setup, model scope, and file continuity](bot-continuity.md)
 - [Reviewed Chief team setup and scoped deletion](team-setup.md)
 - [MausBot, everyone's helper](mausbot.md)
@@ -86,13 +89,6 @@ Use only mapped, tested commands:
 - [In-chat team coordination](room-coordination.md)
 - [Question cards: a teammate's question, in its chat and the person's inbox](question-cards.md)
 - [Chief authority over additional departments](team-access.md)
-- [Engines and Doctor](engines.md)
-- [Cline engine and native loopback qualification](cline.md)
-- [Claude coordination and turn-scoped tools](claude-tool-lifecycle.md)
-- [Codex bot instructions](codex-instructions.md)
-- [Codex browser routing and native search](codex-browser-routing.md)
-- [Codex helper event isolation](codex-helpers.md)
-- [Qwen model route selection](qwen-models.md)
 - [Team backups](team-backups.md)
 - [Sharing a whole team](team-sharing.md)
 - [The organization library](org-library.md)
@@ -263,14 +259,6 @@ keyless local generation, saved-key handling, and safe errors with a local fake 
 The [independent threads fixture](threads.md) checks nested sidebar navigation,
 per-thread models, simultaneous direct conversations and thread-scoped Stop.
 
-The [custom ACP model fixture](custom-acp-models.md) checks native model and
-thinking choices, independent bot defaults and thread overrides, and retained
-settings and catalogs after restart with an offline ACP engine.
-
-The [GitHub Copilot engine checks](copilot-engine.md) cover its ACP catalog,
-model and effort selection, sign-in detection, and moving a bot or conversation
-between Claude, Copilot and a custom ACP agent with fake engines.
-
 The [mobile generated-image checks](mobile-generated-images.md) cover native image
 attachments and message-scoped download authorization using isolated fixtures.
 
@@ -304,34 +292,9 @@ rule with the person's own turn, in the real renderer and end to end.
 The [server settings recipe](server-settings.md) checks browser provider sign-in
 with an offline CLI and custom-domain validation without touching live accounts.
 
-The [engine library fixture](engines-ui.md) checks onboarding and Settings cards,
-responsive layouts, theme contrast, and status refreshes without losing drafts.
-
-The [Claude account recipe](claude-account.md) checks sign-out, cancellation and
-retry against an offline Claude CLI confined to a disposable home.
-
-The [Claude custom endpoints](claude-endpoint.md) checks a per-bot DeepSeek/GLM
-endpoint in Settings and its turn against the fake Claude CLI: its own
-directory, its model and routing, the token kept out of the engine list, and
-edits that keep the saved token.
-
-The [provider recovery recipe](provider-recovery.md) verifies real Grok image
-transport and Claude authentication against loopback APIs, plus scoped thread
-approvals and provider safety errors in an isolated desktop UI.
-
-The [automatic recovery fixture](automatic-recovery.md) checks opt-in, one-shot
-backup model dispatch after proven pre-prompt ACP failures, preserving the
-conversation, approval level and Stop/new-message precedence.
-
 The [skill approval lifecycle recipe](skill-approval-lifecycle.md) checks Deny,
 missing staged records and active-thread deletion in two isolated app windows,
 including the surviving conversation and sending again without deleting the bot.
-
-The [Codex account recipe](codex-account.md) checks account switching against an
-offline Codex CLI whose identity is synthetic and whose credential directory is empty.
-
-The [ChatGPT plan recipe](chatgpt-plan.md) checks the separate official OAuth
-flow, credential rotation, account ownership, and native Responses routing.
 
 The [mention fixture](mentions.md) checks candidate selection, composer highlighting,
 sent mentions, multiline scrolling and responsive wrapping in real chat views.

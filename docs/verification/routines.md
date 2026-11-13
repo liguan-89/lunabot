@@ -24,7 +24,7 @@ This guard only applies to agent creation proposals; intentional duplicates
 in the manual editor remain possible. Existing routines are never removed.
 
 ```sh
-pnpm exec vitest run shared/routine-schedule.test.ts server/routine-cron.e2e.test.ts server/routine-requests.test.ts server/routines.test.ts server/routines-startup.test.ts src/components/routines/cron-editor.test.ts src/lib/routine-calendar.test.ts src/lib/schedule-label.test.ts server/bot-package.test.ts server/package-export.test.ts
+pnpm exec vitest run shared/routine-schedule.test.ts server/routine-cron.e2e.test.ts server/routine-requests.test.ts server/routines.test.ts src/components/routines/cron-editor.test.ts src/lib/routine-calendar.test.ts src/lib/schedule-label.test.ts server/bot-package.test.ts server/package-export.test.ts
 OMB_UI_E2E=1 pnpm exec vitest run scripts/testing/cron-routines-ui.e2e.test.ts
 ```
 
@@ -147,9 +147,9 @@ result and scheduled/manual trigger must agree with the saved server record.
 A repeating routine's **Advanced** section offers **Also run when OpenMausBot
 starts**. In the isolated renderer, create a daily routine with it ticked, then
 reopen the editor: the box stays ticked. A one-time routine does not offer it.
-Startup needs a restart on the same data, which this launcher does not do;
-`server/routines-startup.test.ts` restarts a real fixture server on its own
-store and requires exactly one completed **On startup** run.
+Startup needs a restart on the same data, which this launcher does not do; no
+in-tree suite keeps a dedicated **On startup** run count since the engine
+teardown removed that fixture suite.
 
 The desktop gives every server child of one launch the same
 `OMB_DESKTOP_LAUNCH_ID`, and `routines.json` records the launch whose startup
@@ -158,7 +158,7 @@ that launch queues none; the next launch does. A server without the variable,
 such as a standalone one, counts every process start.
 
 ```sh
-pnpm exec vitest run server/routines.test.ts server/routines-startup.test.ts server/routine-requests.test.ts server/drivers/agents-proxy.test.ts shared/package-format.test.ts server/package-export.test.ts server/package-import.test.ts
+pnpm exec vitest run server/routines.test.ts server/routine-requests.test.ts server/drivers/agents-proxy.test.ts shared/package-format.test.ts server/package-export.test.ts server/package-import.test.ts
 node --test electron/server-child-launch.node-test.mjs
 ```
 
@@ -226,7 +226,7 @@ pnpm exec vitest run server/vps-routing.test.ts server/routine-cron.e2e.test.ts
 ```
 
 ```sh
-pnpm exec vitest run server/routines.test.ts server/routines-startup.test.ts server/routine-results.e2e.test.ts server/routine-delegation.e2e.test.ts server/drivers/agents-proxy.test.ts
+pnpm exec vitest run server/routines.test.ts server/routine-results.e2e.test.ts server/routine-delegation.e2e.test.ts server/drivers/agents-proxy.test.ts
 pnpm exec vitest run src/components/routines/RoutineViews.test.ts src/components/routines/ResultsDestination.test.ts src/components/bot-settings/RoutinesSection.test.ts src/components/RoutineRunCard.test.ts src/components/BotProjects.test.ts src/lib/folder-read.test.ts src/lib/computer-panel-view.test.ts src/state/store.test.ts
 ```
 
@@ -239,7 +239,7 @@ busy peer delaying completion until its result resumes the same run as a
 routine turn, a denied hand-off refused with that outcome and no assignment
 written, a run that stays waiting through a restart while its cut teammate
 turn runs again once (§5), and the one-time import of a pre-runtime
-`delegations.json` at boot (`server/routines-startup.test.ts`). They print
+`delegations.json` at boot (`server/runtime/import-legacy.test.ts`). They print
 retained server-log and JSON evidence paths. These complement the scheduler,
 proposal and renderer tests; they do not prove real-provider tool selection,
 actual desktop work, or packaged Electron behavior.

@@ -13,7 +13,7 @@ stopped, teammate included, by `--on-timeout stop`.
 
 ```sh
 pnpm exec vitest run server/headless-cli.e2e.test.ts
-pnpm exec vitest run server/headless/ server/job-view.test.ts server/routes/jobs.test.ts server/mcp-server.test.ts server/control-omb.test.ts
+pnpm exec vitest run server/headless/ server/job-view.test.ts server/routes/jobs.test.ts server/mcp-server.test.ts scripts/control-omb.test.ts
 pnpm typecheck
 pnpm lint
 ```
