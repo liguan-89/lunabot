@@ -120,9 +120,12 @@ async function thinMacPlatformTools(resources, arch) {
 async function signBundleIdentity(context) {
   const app = path.join(
     context.appOutDir,
-    `${context.packager?.appInfo?.productFilename ?? "OpenMausBot"}.app`,
+    `${context.packager?.appInfo?.productFilename ?? "DEX BOT"}.app`,
   );
-  const identifier = context.packager?.appInfo?.id ?? "com.openmausbot.app";
+  // Only a real bundle can be signed; electron-builder always writes Info.plist, so its absence means this is not
+  // an app to sign (fixtures call the hook directly).
+  if (!await lstat(path.join(app, "Contents", "Info.plist")).then(() => true, () => false)) return;
+  const identifier = context.packager?.appInfo?.id ?? "com.dexbot.app";
   const identity = process.env.DEXBOT_CODESIGN_IDENTITY?.trim() || "-";
   const report = spawnSync("codesign", ["-dv", "--verbose=2", app], { encoding: "utf8" });
   if (/Authority=Developer ID Application/.test(`${report.stdout ?? ""}${report.stderr ?? ""}`)) return;

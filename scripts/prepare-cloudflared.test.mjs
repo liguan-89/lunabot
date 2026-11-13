@@ -164,12 +164,14 @@ describe("pinned cloudflared packaging", () => {
     expect(() => parsePrepareCloudflaredArgs(["--root", "/a", "--root", "/b"])).toThrow(/Usage:/);
   });
 
-  it("stages the current target for development without narrowing package preparation", () => {
+  it("stages only the current target for development and for packaging", () => {
+    // Development builds are arm64-only and each packaging script runs on its own platform, so staging the host's
+    // target is what both need; the pinned assets for every target stay declared below.
     expect(packageJson.scripts["dev:desktop"]).toBe(
       "node scripts/prepare-cloudflared.mjs --current && electron .",
     );
     expect(packageJson.scripts["build:cloudflared"]).toBe(
-      "node scripts/prepare-cloudflared.mjs",
+      "node scripts/prepare-cloudflared.mjs --current",
     );
   });
 
