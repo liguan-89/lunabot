@@ -30,7 +30,9 @@ describe.skipIf(process.platform === "win32")("Stop through the isolated server"
         "import { spawn } from 'node:child_process';",
         "import { once } from 'node:events';",
         "import { writeFileSync } from 'node:fs';",
-        "if (!process.argv.includes('--version') && !process.argv.includes('-v') && !process.argv.includes('update')) {",
+        // Only a turn's child carries OMB_THREAD_ID; the catalog probe's wrapper records nothing, so the pids read
+        // here are the turn's own root and helper rather than a probe's, which the driver has already stopped.
+        "if (process.env.OMB_THREAD_ID && !process.argv.includes('--version') && !process.argv.includes('-v') && !process.argv.includes('update')) {",
         stubbornRoot ? "process.on('SIGTERM', () => {});" : "",
         `const child = spawn(process.execPath, ['-e', ${JSON.stringify(helper)}], { stdio: ['ignore', 'pipe', 'ignore'] });`,
         "await once(child.stdout, 'data');",
