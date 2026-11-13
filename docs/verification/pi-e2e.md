@@ -162,6 +162,8 @@ pnpm vitest run server/main-thread.e2e.test.ts
   stopped and the next scheduled run starts.
 - `server/routine-model.e2e.test.ts` — each run opens on its own model, which
   pi is told over its RPC (`piModelsSet`), and refuses an unknown effort.
+- `server/cli-stop.e2e.test.ts` — Stop ends the whole pi process tree, including
+  a helper that ignores SIGTERM, and a queued turn runs afterwards.
 
 ## Not migrated yet
 
