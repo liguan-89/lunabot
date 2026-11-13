@@ -75,7 +75,7 @@ export function ArchivedBotRow({
 }) {
   return (
     <div className="flex min-h-[82px] items-center gap-3 border-b border-hairline/35 px-1 py-3">
-      <BotAvatar bot={bot} state="happy" size={42} animated={false} />
+      <BotAvatar bot={bot} state="happy" size={42} fallback="preset" animated={false} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-medium text-ink">{bot.name}</div>
         <div className="mt-0.5 truncate text-[13px] text-ink-secondary">{bot.title || t("sidebar.archived.botFallback")}</div>

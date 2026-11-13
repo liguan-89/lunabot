@@ -619,6 +619,7 @@ function PeerLabel({ peer }: { peer: PeerLine }) {
         bot={author ?? { name: peer.name, color: "blue" }}
         state={normalizeState(author?.mascotExpression) ?? "happy"}
         size={16}
+        fallback="preset"
         motion="none"
         motionKey={0}
         animated={false}
@@ -1040,6 +1041,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
                   bot={bot}
                   state={stateForBot({ ...bot, messages })}
                   size={24}
+                  fallback="preset"
                   motion={mascotMotion?.kind ?? "none"}
                   motionKey={mascotMotion?.nonce ?? 0}
                   animated={headerAnimated}
@@ -1073,7 +1075,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
               aria-label={t("chat.openProfileAria", { name: bot.name })}
               className={cn("group flex h-9 min-w-0 items-center gap-2.5 rounded-full py-0.5 pl-2 pr-3.5 text-ink", ELEVATED_FLOAT, ELEVATED_HOVER)}
             >
-              <BotAvatar bot={bot} state={stateForBot({ ...bot, messages })} size={24}
+              <BotAvatar bot={bot} state={stateForBot({ ...bot, messages })} size={24} fallback="preset"
                 motion={mascotMotion?.kind ?? "none"} motionKey={mascotMotion?.nonce ?? 0} animated={headerAnimated} />
               <span className="min-w-0 truncate text-[14px] font-medium text-ink">{bot.name}</span>
               {chiefOfStaffBadge(bot)}
@@ -1112,8 +1114,9 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           )}
           <ThreadContextWarning bot={bot} messages={messages} />
           {phone && <UsageAlert engine={bot.modelSelection?.instanceId} />}
-          {/* The model and the bot's computer stay in view in both modes; Simple mode moves only ⋯ into the bot panel. */}
-          {!phone && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
+          {/* The bot's computer stays in view in both modes. Simple mode leaves the model to the bot panel (its
+              name, avatar or chevron opens it); Advanced keeps the picker beside the chat. */}
+          {!phone && !simpleHead && <ModelPicker key={bot.threadId} bot={bot} threadId={bot.threadId} />}
           <LiveCallChip currentBotId={bot.id} onOpen={(botId, threadId) => openThread(dispatch, { botId, threadId }, state, showThreads)} />{!phoneMenu && <WatchScreenButton botId={bot.id} messages={messages} liveTools={liveTools} place={place} />}
           {!phoneMenu && <button
             data-tour="computer"

@@ -14,7 +14,7 @@ vi.mock("./DesktopCapabilities", async (importOriginal) => ({
 }));
 vi.mock("@/lib/analytics", () => ({ track: vi.fn() }));
 vi.mock("@/lib/cloud-guest", () => ({ useCanWriteIn: () => true, useReactor: () => "user" }));
-vi.mock("./ModelPicker", () => ({ ModelPicker: () => null }));
+vi.mock("./ModelPicker", () => ({ ModelPicker: () => createElement("span", { "data-test-model-control": true }) }));
 
 const { ChatView } = await import("./ChatView");
 const { readAdvancedMode, setAdvancedMode } = await import("@/lib/interface-mode");
@@ -65,14 +65,16 @@ describe("Simple as the only mode", () => {
     expect(readAdvancedMode()).toBe(false);
   });
 
-  it("keeps a paired remote client's chat menu and other-activity picker, which this computer's Simple chat leaves out", async () => {
+  it("keeps a paired remote client's chat menu, model picker and other-activity picker, which this computer's Simple chat leaves out", async () => {
     await draw();
     expect(head().querySelector('[data-testid="chat-more"]')).toBeNull();
+    expect(head().querySelector('[data-test-model-control]')).toBeNull();
     expect(document.querySelector("[data-background-activity]")).toBeNull();
 
     window.ogb = { remoteClient: { active: true } } as NonNullable<Window["ogb"]>;
     await draw();
     expect(head().querySelector('[data-testid="chat-more"]')).not.toBeNull();
+    expect(head().querySelector('[data-test-model-control]')).not.toBeNull();
     expect(document.querySelector("[data-background-activity]")).not.toBeNull();
   });
 

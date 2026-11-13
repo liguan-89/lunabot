@@ -58,7 +58,7 @@ describe("the setup card in the chat", () => {
   it("is drawn under a blank bot's greeting and sends a pick's words for this conversation", async () => {
     await draw(profile());
     expect(card()?.textContent).toContain("Pick a starting point");
-    expect(firstAnswer()?.textContent).toBe("Research and digging into topicsA");
+    expect(firstAnswer()?.textContent).toBe("Research and digging into topics");
     sent.length = 0;
     flushSync(() => firstAnswer()!.click());
     await settle();
@@ -70,7 +70,7 @@ describe("the setup card in the chat", () => {
     const said: Message = { id: "u1", parentId: "g1", role: "user", kind: "text", at: greeting.at + 1, text: "hello", setupRequest: true };
     await draw(profile({ messages: [greeting, said], activeLeafId: "u1" }));
     expect(card()?.textContent).toContain("Your answer");
-    expect(firstAnswer()?.disabled).toBe(true);
+    expect(firstAnswer()).toBeNull();
     await draw(profile({ soul: "Only water the garden." }));
     expect(card()).toBeNull();
   });

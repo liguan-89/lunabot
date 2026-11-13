@@ -123,7 +123,7 @@ export function RoomToolChip({ message, roomId, threadId, live = false }: { mess
           tool.ok === false && "text-danger",
         )}
       >
-        {comm && <BotAvatar bot={state.bots.find(b => b.id === comm.withBotId) ?? { name: comm.withName, color: comm.withColor }} state="happy" size={16} animated={false} />}
+        {comm && <BotAvatar bot={state.bots.find(b => b.id === comm.withBotId) ?? { name: comm.withName, color: comm.withColor }} state="happy" size={16} fallback="preset" animated={false} />}
         <span className={cn("max-w-[480px] truncate", !comm && "font-mono")}>{tool.name}</span>
       </div>
     </div>
@@ -765,6 +765,7 @@ function RoomSetup({ group, members }: { group: Group; members: Bot[] }) {
                             bot={member}
                             state={normalizeState(member.mascotExpression) ?? "happy"}
                             size={24}
+                            fallback="preset"
                             animated={false}
                           />
                           <span className="min-w-0 flex-1">
@@ -1111,6 +1112,7 @@ export function GroupView({ group }: { group: Group }) {
                     bot={b}
                     state="happy"
                     size={44}
+                    fallback="preset"
                     motion="none"
                     motionKey={0}
                     animated={false}

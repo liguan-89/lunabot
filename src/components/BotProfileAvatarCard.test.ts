@@ -43,9 +43,10 @@ describe("BotProfileAvatarCard body picker", () => {
     const markup = renderCard(makeBot());
 
     expect(markup).toContain(">Body<");
-    for (const id of MASCOT_BODY_IDS) {
+    for (const id of MASCOT_BODY_IDS.filter((id) => id !== "cursor")) {
       expect(markup).toContain(`aria-label="Use the ${MASCOT_BODIES[id].name} body"`);
     }
+    expect(markup, "the old cursor default is the preset face now, not a body option").not.toContain(`aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
   });
 
   it("offers each festival's bodies in their own row", () => {
@@ -60,10 +61,10 @@ describe("BotProfileAvatarCard body picker", () => {
     expect(markup).toContain(`aria-pressed="false" aria-label="Use the ${CARVED_BODIES.witch.name} body"`);
   });
 
-  it("marks the current body pressed and the rest unpressed, defaulting to cursor", () => {
+  it("leaves every body unpressed until one is chosen; the old cursor means the preset face", () => {
     const markup = renderCard(makeBot());
 
-    expect(markup).toContain(`aria-pressed="true" aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
+    expect(markup).not.toContain(`aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
     expect(markup).toContain(`aria-pressed="false" aria-label="Use the ${MASCOT_BODIES.star.name} body"`);
   });
 
@@ -71,7 +72,7 @@ describe("BotProfileAvatarCard body picker", () => {
     const markup = renderCard(makeBot({ mascotBody: "star" }));
 
     expect(markup).toContain(`aria-pressed="true" aria-label="Use the ${MASCOT_BODIES.star.name} body"`);
-    expect(markup).toContain(`aria-pressed="false" aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
+    expect(markup).not.toContain(`aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
   });
 
   it("offers zoom and drag framing for a custom image", () => {
@@ -95,7 +96,7 @@ describe("BotProfileAvatarCard body picker", () => {
     const markup = renderCard(makeBot({ avatarCrop: "circle" }));
 
     expect(markup).not.toContain(">Body<");
-    expect(markup).not.toContain(`aria-label="Use the ${MASCOT_BODIES.cursor.name} body"`);
+    expect(markup).not.toContain(`aria-label="Use the ${MASCOT_BODIES.blob.name} body"`);
   });
 
   it("hides the body picker for every flat crop, not just circle", () => {

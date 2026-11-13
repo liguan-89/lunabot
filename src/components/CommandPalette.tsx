@@ -192,7 +192,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
               i,
               () => void activate({ kind: "bot", bot }),
               <>
-                <BotAvatar bot={bot} state="happy" size={22} animated={false} />
+                <BotAvatar bot={bot} state="happy" size={22} fallback="preset" animated={false} />
                 <span className="truncate text-[14px] text-ink">{bot.name}</span>
                 {bot.title && (
                   <span className="min-w-0 truncate text-[13px] text-ink-secondary">{bot.title}</span>

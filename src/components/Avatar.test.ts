@@ -14,9 +14,9 @@ import { MASCOT_BODIES } from "../../shared/mascot-bodies";
 const render = (props: Partial<MausAvatarProps>) =>
   renderToStaticMarkup(createElement(MausAvatar, { color: "green", animated: false, ...props }));
 
-const renderBot = (bot: Partial<BotAvatarProps["bot"]>) =>
+const renderBot = (bot: Partial<BotAvatarProps["bot"]>, fallback?: BotAvatarProps["fallback"]) =>
   renderToStaticMarkup(
-    createElement(BotAvatar, { bot: { color: "green", ...bot }, animated: false }),
+    createElement(BotAvatar, { bot: { color: "green", ...bot }, animated: false, ...(fallback ? { fallback } : {}) }),
   );
 
 describe("MausAvatar body", () => {
@@ -68,6 +68,43 @@ describe("mascot facial feature colors", () => {
     const markup = renderBot({ mascotFaceColor: "black", avatarUrl: "/api/attachments/photo.png", avatarCrop: "circle" });
     expect(markup).toContain("<img");
     expect(markup).not.toContain("<svg");
+  });
+});
+
+describe("the flat preset portrait", () => {
+  it.each([
+    ["chrome", "white"],
+    ["silver", "white"],
+    ["green", "mint"],
+    ["coral", "coral"],
+    ["red", "coral"],
+    ["orange", "orange"],
+    ["yellow", "orange"],
+    ["purple", "purple"],
+    ["blue", "blue"],
+  ] as const)("maps %s to the phone's %s face", (color, preset) => {
+    const markup = renderBot({ color }, "preset");
+    expect(markup).toContain(`data-preset-face="${preset}"`);
+    expect(markup).toContain("<svg");
+    expect(markup).not.toContain("<img");
+  });
+
+  it("is the fallback only where a caller asks for it", () => {
+    expect(renderBot({ color: "chrome" })).toContain("linearGradient");
+    expect(renderBot({ color: "chrome" }, "preset")).toContain('data-preset-face="white"');
+    expect(renderBot({ color: "chrome" }, "preset")).not.toContain("linearGradient");
+  });
+
+  it("still shows an uploaded image ahead of the preset", () => {
+    const markup = renderBot({ color: "chrome", avatarUrl: "/api/attachments/photo.png", avatarCrop: "circle" }, "preset");
+    expect(markup).toContain("<img");
+    expect(markup).not.toContain("data-preset-face");
+  });
+
+  it("treats the old cursor default as the preset, while a chosen body keeps its mascot", () => {
+    expect(renderBot({ mascotBody: "cursor" }, "preset")).toContain("data-preset-face");
+    expect(renderBot({ mascotBody: "star" }, "preset")).not.toContain("data-preset-face");
+    expect(renderBot({ mascotBody: "star" }, "preset")).toContain("linearGradient");
   });
 });
 
