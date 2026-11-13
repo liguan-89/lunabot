@@ -92,6 +92,10 @@ pnpm vitest run server/main-thread.e2e.test.ts
   event.
 - `server/chat-pages.e2e.test.ts` — a jsx page, pointed-at records, replace and
   publish.
+- `server/webhook-restart.e2e.test.ts` — a delivery committed once across a
+  crash and restart.
+- `server/routine-continuity.e2e.test.ts` — a routine's previous report reaches
+  the next turn only when continuity is on.
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
 - `server/room-context.e2e.test.ts` — not yet: pi reports no context-window
