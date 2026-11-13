@@ -97,3 +97,12 @@ now move by setting `OMB_TEST_FIXTURE_ENGINE: "pi"` (plus `room: { scripted: tru
 where they use a plan) and replacing dump assertions with the evidence file or
 pi's `session.started` / transcript events. Until then `pnpm test:e2e` (the old
 suite) is expected to fail.
+
+## Retired engine tests
+
+Recipes whose only subject was a removed engine were deleted rather than ported:
+`acp-context-reports`, `acp-recovery`, `acp-shutdown`, `claude-haiku`,
+`claude-turn-failures`, `cline-engine`, `codex-review`, `copilot-engine`,
+`custom-acp-models`, and the three `opencode-*` suites. They configured the
+`opencodeGo`, `codex`, `claudeAgent`, `copilotAgent`, `clineAgent` or
+`customAcp` drivers, which no longer exist.
