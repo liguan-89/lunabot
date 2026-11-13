@@ -1,7 +1,6 @@
 // Automations report into the bot's chat, end to end: the real server and Claude driver, the scripted fake engine
 // answering each turn by what it was sent, and the permission broker reached the way the CLI's proxy reaches it.
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
@@ -13,15 +12,13 @@ import { openSse, type SseRecorder } from "./testing/sse.ts";
 
 let fixture: VerificationServer | undefined;
 let events: SseRecorder | undefined;
-let broker: Socket | undefined;
 afterEach(async () => {
-  broker?.destroy();
   events?.close();
   if (fixture) {
     console.info(JSON.stringify({ logPath: fixture.info.logPath }));
     await fixture.close();
   }
-  fixture = events = broker = undefined;
+  fixture = events = undefined;
 });
 
 type ScriptEntry = {
@@ -75,28 +72,6 @@ async function server(env: NodeJS.ProcessEnv = {}) {
     return `${turn!.system}\n${JSON.stringify(turn!.prompt)}`.includes(AUTOMATION_REPLY_PROMPT.trim());
   };
   return { url, dataDir, api, cli, bot, main, script, messages, lines, runs, run, routine, runNow, settled, reported, savedBot, notified, header, chiefRows, toldOnlyReplyLeaves };
-}
-
-/** The run's permission broker, reached the way the CLI's proxy reaches it; what it answers lands in the returned list. */
-async function brokerOf(s: Awaited<ReturnType<typeof server>>, threadId: string): Promise<any[]> {
-  const dump = join(s.dataDir, "fake-claude-dump.json");
-  await expect.poll(() => {
-    try { return JSON.parse(readFileSync(dump, "utf8")).mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId; } catch { return false; }
-  }, { timeout: 20_000 }).toBe(true);
-  const socketPath = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.ogb.args.at(-1);
-  const socket = broker = connect(socketPath);
-  socket.on("error", () => {});
-  await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("error", reject); });
-  const answers: any[] = [];
-  let buffered = "";
-  socket.on("data", (chunk) => {
-    buffered += chunk.toString();
-    for (let at = buffered.indexOf("\n"); at >= 0; at = buffered.indexOf("\n")) {
-      answers.push(JSON.parse(buffered.slice(0, at)));
-      buffered = buffered.slice(at + 1);
-    }
-  });
-  return answers;
 }
 
 it("reports each run into the main chat as the bot's own line, writes nothing for a quiet run, and keeps every run one click away", async () => {
@@ -191,13 +166,14 @@ it("holds a report while the person's own turn runs in the main chat, never dela
 it("copies a question a run waits on into the main chat, and the answer given there carries the run on", async () => {
   const s = await server();
   const gate = join(s.dataDir, "finish-run");
-  s.script([{ key: "run", match: [s.header("Inbox watch")], reply: "Used the Work account: two new orders.", gateFile: gate }]);
+  s.script([{ key: "run", match: [s.header("Inbox watch")],
+    // The run's tool asks through pi's native question card, which the harness copies into the main chat.
+    steps: [{ server: "agents", tool: "ask_user", arguments: { question: "Which account should I check?", choices: ["Work", "Personal"] } }],
+    reply: "Used the Work account: two new orders.", gateFile: gate }]);
   const routineId = await s.routine("Inbox watch");
   const id = await s.runNow(routineId);
   await s.settled(id, "running");
   const { threadId } = await s.run(id);
-  const answers = await brokerOf(s, threadId);
-  broker!.write(JSON.stringify({ t: "ask", kind: "question", id: "which-account", tool: "ask_user", input: { question: "Which account should I check?" } }) + "\n");
   await s.settled(id, "waiting");
   await expect.poll(async () => (await s.messages(s.main)).find((message) => message.kind === "options")?.card?.requestId, { timeout: 20_000 }).toBeTruthy();
   const copy = (await s.messages(s.main)).find((message) => message.kind === "options");
@@ -207,7 +183,6 @@ it("copies a question a run waits on into the main chat, and the answer given th
   expect(s.notified().some((notification) => notification.kind === "question" && notification.threadId === s.main)).toBe(true);
 
   await s.api("POST", `/api/threads/${s.main}/respond`, { requestId: copy.card.requestId, behavior: "answer", message: "Work" });
-  await expect.poll(() => answers.find((answer) => answer.id === "which-account"), { timeout: 20_000 }).toMatchObject({ t: "answer", behavior: "answer", message: "Work", source: "user" });
   await s.settled(id, "running");
   await expect.poll(async () => (await s.messages(s.main)).find((message) => message.id === copy.id)?.card?.answered, { timeout: 20_000 }).toBeTruthy();
   expect((await s.messages(threadId)).find((message) => message.id === original.id)?.card?.answered).toBeTruthy();
@@ -256,15 +231,14 @@ it("takes a 👍 on a run's question in the chat as the answer, with that report
 it("answers the run itself when the person gives a 👍 to the copy of the question it waits on", async () => {
   const s = await server();
   const gate = join(s.dataDir, "finish-run");
-  s.script([{ key: "run", match: [s.header("Inbox watch")], reply: "Checked the Work account: two new orders.", gateFile: gate }]);
+  s.script([{ key: "run", match: [s.header("Inbox watch")],
+    steps: [{ server: "agents", tool: "ask_user", arguments: { question: "Should I check the Work account?", choices: ["Yes", "No"] } }],
+    reply: "Checked the Work account: two new orders.", gateFile: gate }]);
   const id = await s.runNow(await s.routine("Inbox watch"));
   await s.settled(id, "running");
-  const answers = await brokerOf(s, (await s.run(id)).threadId);
-  broker!.write(JSON.stringify({ t: "ask", kind: "question", id: "work-account", tool: "ask_user", input: { question: "Should I check the Work account?" } }) + "\n");
   await expect.poll(async () => (await s.lines()).find((message) => message.kind === "options")?.card?.requestId, { timeout: 20_000 }).toBeTruthy();
   const copy = (await s.lines()).find((message) => message.kind === "options");
   expect(await s.api("POST", `/api/threads/${s.main}/messages/${copy.id}/reactions`, { emoji: "👍", on: true })).toMatchObject({ delivery: "answered" });
-  await expect.poll(() => answers.find((answer) => answer.id === "work-account"), { timeout: 20_000 }).toMatchObject({ t: "answer", behavior: "answer", source: "user" });
   await s.settled(id, "running");
   writeFileSync(gate, "done");
   await s.reported(id, "posted");
@@ -432,7 +406,7 @@ it("brings the files a run sent with attach_file into its report", async () => {
 
 it("leaves the images a run's tools returned in the run, and reports the files it sent", async () => {
   const calls = join(mkdtempSync(join(tmpdir(), "omb-report-files-")), "tool-calls.json");
-  fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_TOOL_CALLS_FILE: calls });
+  fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_TOOL_CALLS_FILE: calls, FAKE_PI_MOUNT_TOOLS: "1" });
   const { url, dataDir } = fixture.info;
   const api = async (method: string, path: string, body?: unknown) => (await fetch(`${url}${path}`, {
     method, headers: { "content-type": "application/json", origin: url }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),

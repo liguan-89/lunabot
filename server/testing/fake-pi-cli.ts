@@ -311,6 +311,25 @@ const streamToolTurn = () => {
   send({ type: "agent_end" });
 };
 
+// A tool that returns an image alongside its text, as an MCP tool that renders a chart does.
+const streamImageToolTurn = () => {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  send({ type: "tool_execution_start", toolCallId: "call_1", toolName: "chart", args: { series: [1, 2, 3] } });
+  send({
+    type: "tool_execution_end", toolCallId: "call_1", toolName: "chart", isError: false,
+    result: { content: [
+      { type: "text", text: "chart rendered" },
+      { type: "image", data: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", mimeType: "image/png" },
+    ] },
+  });
+  send({ type: "turn_end", message: { stopReason: "toolUse", usage: { input: 5, output: 1 } }, usage: { input: 5, output: 1 } });
+  send({ type: "turn_start" });
+  send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: "charted" } });
+  send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 2 } }, usage: { input: 12, output: 2 } });
+  send({ type: "agent_end" });
+};
+
 // pi's real Usage shape (pi-ai): cached tokens and the priced cost ride on message.usage, not a top-level usage.
 const piUsage = (input: number, output: number, cacheRead: number, cacheWrite: number, total: number) =>
   ({ input, output, cacheRead, cacheWrite, totalTokens: input + output + cacheRead + cacheWrite,
@@ -436,7 +455,7 @@ function nextReplies(promptText: string): string[] {
   return [claudeCompat ? "hello from fake claude" : "Hello from pi"];
 }
 
-interface ScriptedCall { name: string; input: Record<string, unknown>; ok: boolean; output?: string; server?: string; hold?: boolean }
+interface ScriptedCall { name: string; input: Record<string, unknown>; ok: boolean; output?: string; parts?: unknown[]; server?: string; hold?: boolean }
 
 /** The calls a turn makes before its reply, read again each turn so a warm process's turns can differ. */
 function scriptedToolCalls(): ScriptedCall[] {
@@ -453,6 +472,7 @@ function scriptedToolCalls(): ScriptedCall[] {
         input: (call.input as Record<string, unknown>) ?? {},
         ok: call.ok !== false,
         ...(typeof call.output === "string" ? { output: call.output } : {}),
+        ...(Array.isArray(call.output) ? { parts: call.output } : {}),
         ...(typeof call.server === "string" ? { server: call.server } : {}),
         ...(call.hold === true ? { hold: true } : {}),
       }));
@@ -492,8 +512,8 @@ async function playScriptedCalls(calls: ScriptedCall[], index = 0): Promise<void
   }
   send({
     type: "tool_execution_end", toolCallId: id, toolName: call.name, isError: !ok,
-    // Text, as the real engine hands a shell result up: the transcript shows what the command printed, not a JSON envelope.
-    result: text,
+    // A scripted content list keeps its images (a chart a tool rendered); otherwise the text, as a shell result is.
+    result: call.parts ? { content: call.parts } : text,
   });
   // A model takes a moment to write its next call; back-to-back frames would only test the coalescing.
   await new Promise((resolve) => setTimeout(resolve, 50));
@@ -812,6 +832,7 @@ function handle(cmd: any) {
         return;
       }
       if (mode === "tooluse") streamToolTurn();
+      else if (mode === "image-tool") streamImageToolTurn();
       else if (mode === "priced") streamPricedTurn();
       else if (mode === "priced-stop") startPricedToolTurn();
       else if (mode === "permission") streamPermissionTurn();

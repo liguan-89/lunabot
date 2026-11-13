@@ -1033,6 +1033,16 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(instance.adapter.hasSession("t-tool")).toBe(false);
   });
 
+  it("attaches an image a tool returned to the turn", async () => {
+    await create("image-tool");
+    await instance.adapter.sendTurn({ threadId: "t-image", text: "chart it" });
+    await recorder.until((e) => e.type === "turn.completed");
+
+    expect(recorder.events.find((e) => e.type === "item.completed" && e.itemType === "assistant_image"))
+      .toMatchObject({ fromTool: true, data: expect.stringContaining("iVBORw0KGgo") });
+    expect(recorder.events.find((e) => e.type === "item.completed" && e.itemType === "tool")).toMatchObject({ ok: true });
+  });
+
   it("emits each assistant text block before the tool that follows it", async () => {
     await create("interleave");
     await instance.adapter.sendTurn({ threadId: "t-interleave", text: "go", model: "ollama-cloud/glm-5.2" });

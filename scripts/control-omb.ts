@@ -245,8 +245,10 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   // including the agents server's env, for recipes that need its token.
   childEnv.FAKE_PI_DUMP ??= join(dataDir, "fake-pi-dump.jsonl");
   // A pi fixture borrows the retired Claude knobs only when the caller set one.
-  if (parentEnv.FAKE_CLAUDE_MODE !== undefined || parentEnv.FAKE_CLAUDE_REPLIES !== undefined
-    || parentEnv.FAKE_CLAUDE_TOOL_CALLS !== undefined || parentEnv.FAKE_CLAUDE_REPLY_FILE !== undefined) {
+  if (["FAKE_CLAUDE_MODE", "FAKE_CLAUDE_REPLIES", "FAKE_CLAUDE_REPLY_FILE", "FAKE_CLAUDE_REPLY_STATE",
+    "FAKE_CLAUDE_TOOL_CALLS", "FAKE_CLAUDE_TOOL_CALLS_FILE", "FAKE_CLAUDE_MARKER_REPLIES", "FAKE_CLAUDE_PROMPTS",
+    "FAKE_CLAUDE_SLOW_FINISH_GATE", "FAKE_CLAUDE_RELEASE", "FAKE_CLAUDE_STEER_RECEIVED", "FAKE_CLAUDE_EXIT_AFTER_TURN"]
+    .some((key) => parentEnv[key] !== undefined)) {
     childEnv.FAKE_PI_CLAUDE_COMPAT = "1";
   }
   if (parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi") childEnv.OMB_TEST_FIXTURE_ENGINE = "pi";

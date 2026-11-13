@@ -188,6 +188,10 @@ pnpm vitest run server/main-thread.e2e.test.ts
 - `server/message-search.e2e.test.ts`, `server/sign-in-code.e2e.test.ts` and
   `server/talk-server.e2e.test.ts` — history search, pairing codes and the
   Quick-asks runtime, now reading pi's own reply.
+- `server/automation-reports.e2e.test.ts` — reports copied into the main chat,
+  question cards answered in the chat or by 👍, and the images a tool returned
+  plus the files it attached. pi reports a tool's image content as a tool-made
+  image of the turn.
 
 ## Not migrated yet
 
@@ -207,10 +211,7 @@ fixture that no longer exists: `server/key-rejected.e2e.test.ts` observes the
 pi and has no instance snapshot of its own, and `server/openai-boat.e2e.test.ts`
 drives turns on that retired engine instance.
 
-Two more recipes expose product gaps rather than fixture gaps:
-`server/automation-reports.e2e.test.ts` expects a tool's returned images and
-files in the run's transcript, which the pi driver does not surface (its
-`tool_execution_end` carries a text preview only), and
+One more recipe exposes a product gap rather than a fixture gap:
 `server/context-compaction.e2e.test.ts` asserts Claude Code's native
 `--autocompact` argv and a 1M-token window, neither of which pi has.
 
