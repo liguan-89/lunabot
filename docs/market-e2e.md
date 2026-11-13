@@ -9,6 +9,12 @@ It is a development tool. Run it against `scripts/mock-market-api.mjs` or a
 local/staging tk1688; never against production without the station owner's
 explicit approval.
 
+Verified 2026-11-13 against a fresh local backend: real `/oauth/authorize`
+shell (refresh cookie → access token → JSON consent), 12 seeded SKUs, balance
+checkout, subscription, key reveal, `/v1/models`, and one chat turn through a
+loopback fake upstream — `E2E OK`. The shell path and the older form-based
+authorize path are both handled.
+
 ## Mock
 
 ```sh
@@ -35,8 +41,12 @@ Prerequisites:
    model whitelist.
 3. The test account has enough wallet quota for `balance`, or a working epay
    checkout for `epay`.
-4. A signed-in browser session cookie for that account; the authorize and consent
-   pages need it. Paste the raw `Cookie` header value into `MARKET_E2E_COOKIE`.
+4. A signed-in browser session cookie for that account. Paste the raw `Cookie`
+   header value into `MARKET_E2E_COOKIE`; normally that is
+   `new_api_refresh=…; new_api_has_session=1` from the login response.
+5. For the chat turn: a channel whose models cover the plan whitelist. A
+   loopback fake upstream also needs `fetch_setting.allow_private_ip=true` and
+   its port in `allowed_ports` (local development only).
 
 ```sh
 MARKET_E2E_BASE=http://127.0.0.1:3005 \
