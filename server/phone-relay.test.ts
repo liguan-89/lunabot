@@ -20,7 +20,8 @@ import { SessionRegistry } from "./sessions.ts";
 
 const signingKey = generateKeyPairSync("ed25519").privateKey;
 const keys = new Map([["k1", ed25519RawPublicKey(signingKey)]]);
-const NODE = "relay1.openmausbot.com";
+// The relay hosts the product's grant may name: relay N or the Cloud itself, on the dexai.vip zone.
+const NODE = "relay1.dexai.vip";
 
 const cleanup: Array<() => unknown> = [];
 afterEach(async () => {
@@ -158,7 +159,7 @@ describe("phones through DEX BOT Relay on a server", () => {
     expect(server.logs).toContain(`phone relay: connected via ${NODE}`);
     const opened = server.sessions.openPairing({ scopes: ["client"] });
     const link = server.phoneRelay.invite(opened.credential, "VPS", null)!;
-    expect(link).toMatch(/^openmausbot:\/\/pair\?address=relay-only\.invalid%3A443&token=omb_pair_/);
+    expect(link).toMatch(/^dexbot:\/\/pair\?address=relay-only\.invalid%3A443&token=omb_pair_/);
     const descriptor = descriptorOf(link);
     expect(descriptor).toEqual({ v: 1, k: expect.any(String), h: b64u(server.hostId), r: [NODE] });
     const k = fromB64u(descriptor.k)!;

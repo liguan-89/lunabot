@@ -20,7 +20,7 @@ describe("paired thread targets through an isolated HTTP fixture", () => {
     return result;
   };
   const paired = (method: string, path: string, body?: unknown) => api(method, path, body, { authorization: `Bearer ${token}` });
-  const selection = (model: string) => ({ instanceId: "claude", model });
+  const selection = (model: string) => ({ instanceId: "pi", model });
   const botState = async (id: string) => (await api("GET", "/api/bots?messages=30")).body.bots.find((bot: any) => bot.id === id);
   const page = async (id: string) => (await api("GET", `/api/threads/${id}/messages?limit=100`)).body;
   const idle = (id: string) => expect.poll(async () => (await botState(id)).busy, { timeout: 15_000 }).toBe(false);
@@ -32,7 +32,7 @@ describe("paired thread targets through an isolated HTTP fixture", () => {
     const accepted = await api("POST", "/api/auth/pair", { code: invitation.body.code, label: "Old paired client" });
     expect(accepted.status).toBe(200);
     token = accepted.body.token;
-    const catalog = (await api("GET", "/api/instances")).body.instances.find((instance: any) => instance.instanceId === "claude");
+    const catalog = (await api("GET", "/api/instances")).body.instances.find((instance: any) => instance.instanceId === "pi");
     models = catalog.models.options.map((model: any) => model.id);
     expect(models.length).toBeGreaterThanOrEqual(3);
   });
@@ -69,7 +69,7 @@ describe("paired thread targets through an isolated HTTP fixture", () => {
     for (const [method, suffix, body] of actions) {
       const result = await paired(method, `/api/bots/${bot.id}${suffix}`, body);
       expect(result.status, `${method} ${suffix}`).toBe(409);
-      expect(result.body.error).toMatch(/Update the OpenMausBot app on this device.*choose a thread/);
+      expect(result.body.error).toMatch(/Update the DEX BOT app on this device.*choose a thread/);
     }
     const legacyPhone = await api("POST", `/api/bots/${bot.id}/read`, undefined, { "x-openmausbot-companion": "1", "x-openmausbot-companion-device": "fixture-phone" });
     expect(legacyPhone.status).toBe(409);

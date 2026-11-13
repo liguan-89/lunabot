@@ -17,12 +17,12 @@ type Rec = Record<string, any>;
 
 function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; config?: Rec } = {}) {
   const state = {
-    bots: (seed.bots ?? []).map((bot) => ({ busy: false, title: "", description: "", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" }, ...bot })) as Rec[],
+    bots: (seed.bots ?? []).map((bot) => ({ busy: false, title: "", description: "", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, ...bot })) as Rec[],
     groups: seed.groups ?? [],
     sections: seed.sections ?? [],
     briefs: {} as Record<string, string>,
     skills: {} as Record<string, Record<string, { text: string; enabled: boolean }>>,
-    config: seed.config ?? { anthropic: { configured: false, everyClaudeBot: true } },
+    config: seed.config ?? { openaiCompat: { configured: false } },
   };
   const writes: string[] = [];
   let ids = 0;
@@ -34,11 +34,11 @@ function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; co
     const url = new URL(path, "http://omb");
     const m = url.pathname.split("/").slice(1);
     if (url.pathname === "/api/config") {
-      if (method === "PUT") for (const [name, value] of Object.entries(body as Rec)) state.config[name] = { ...state.config[name], configured: true, ...(value.everyClaudeBot !== undefined ? { everyClaudeBot: value.everyClaudeBot } : {}) };
+      if (method === "PUT") for (const [name, value] of Object.entries(body as Rec)) state.config[name] = { ...state.config[name], configured: true, ...(value.url !== undefined ? { url: value.url } : {}) };
       return state.config;
     }
-    if (url.pathname === "/api/bot-defaults") return { modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } };
-    if (url.pathname === "/api/instances") return { instances: [{ instanceId: "claude", driverKind: "claudeAgent", snapshot: { state: "available" }, models: { default: "claude-sonnet-5", options: [{ id: "claude-sonnet-5" }, { id: "claude-haiku-5" }] } }] };
+    if (url.pathname === "/api/bot-defaults") return { modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } };
+    if (url.pathname === "/api/instances") return { instances: [{ instanceId: "pi", driverKind: "piAgent", snapshot: { state: "available" }, models: { default: "ollama-cloud/glm-5.2", options: [{ id: "ollama-cloud/glm-5.2" }, { id: "openai/gpt-4o" }] } }] };
     if (url.pathname === "/api/sidebar-sections") {
       if (method === "POST") state.sections.push(body.name);
       return { sections: state.sections };
@@ -51,7 +51,7 @@ function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; co
     if (url.pathname === "/api/bots" && method === "GET") return { bots: state.bots, groups: state.groups };
     if (url.pathname === "/api/bots" && method === "POST") {
       const bot = { id: `bot-${++ids}`, busy: false, name: body.name, title: body.title ?? "", description: body.description ?? "",
-        ...(body.section ? { section: body.section } : {}), modelSelection: body.modelSelection ?? { instanceId: "claude", model: "claude-sonnet-5" } };
+        ...(body.section ? { section: body.section } : {}), modelSelection: body.modelSelection ?? { instanceId: "pi", model: "ollama-cloud/glm-5.2" } };
       state.bots.push(bot);
       return { bot };
     }
@@ -92,7 +92,7 @@ function workspace(seed: { bots?: Rec[]; groups?: Rec[]; sections?: string[]; co
 
 const lead: DesiredBot = {
   name: "Room Lead", team: "Launch Room", chief: true, manages: [], title: "Launch rehearsal lead", soul: "Lead the rehearsal.\n",
-  model: { instanceId: "claude", model: "claude-sonnet-5" }, approval: "full", computer: "off", cwd: "/work/room", tools: { deny: [] },
+  model: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, approval: "full", computer: "off", cwd: "/work/room", tools: { deny: [] },
   skills: [{ name: "launch-report", description: "Write it.", text: "---\nname: launch-report\ndescription: Write it.\n---\nBody\n", enabled: true, file: "skills/launch-report/SKILL.md" }],
 };
 const priya: DesiredBot = { name: "Priya", team: "Launch Room", manages: [], title: "Skeptical buyer", approval: "full", computer: "browser",
@@ -111,7 +111,7 @@ describe("team apply", () => {
     const plan = await reconcile(client, file(), options({ apply: false }));
     expect(plan.lines).toEqual([
       'team "Launch Room": create · brief set (1 line)',
-      'bot "Room Lead": create (Chief of Launch Room · claude/claude-sonnet-5 · Full access · computer off)',
+      'bot "Room Lead": create (Chief of Launch Room · pi/ollama-cloud/glm-5.2 · Full access · computer off)',
       'bot "Priya": create (team Launch Room · Full access · computer browser)',
       'room "Rehearsal": create (2 members, team Launch Room)',
     ]);
@@ -180,31 +180,21 @@ describe("team apply", () => {
     expect(state.skills["bot-1"]!["own-skill"]).toEqual({ text: "mine", enabled: true });
   });
 
-  it("writes an engine key only when none is set (or to rotate it), and never says it", async () => {
-    const engine = { kind: "claude", key: { env: "ANTHROPIC_API_KEY" } };
-    const env = { ANTHROPIC_API_KEY: "sk-ant-test-0123456789abcdefghij" };
+  it("writes an engine key and base URL only when none is set (or to rotate them), and never says them", async () => {
+    // The pi-only build keeps one configurable engine: openai-compatible, which always takes a base URL.
+    const engine = { kind: "openai-compatible", key: { env: "OPENAI_COMPAT_KEY" }, baseUrl: { env: "OPENAI_COMPAT_BASE_URL" } };
+    const env = { OPENAI_COMPAT_KEY: "sk-test-0123456789abcdef0123456789abcd", OPENAI_COMPAT_BASE_URL: "https://gw.example.com/v1/team-7f3a9c" };
     const { client, writes } = workspace();
     const first = await reconcile(client, file({ engines: [engine] }), options({ env }));
-    expect(first.lines[0]).toBe("engine claude: key «redacted 32 chars»");
-    expect(JSON.stringify(first)).not.toContain("sk-ant-test");
+    expect(first.lines[0]).toBe("engine openai-compatible: key «redacted 38 chars» · base URL set");
+    expect(JSON.stringify(first)).not.toContain("sk-test-0123456789");
+    expect(JSON.stringify(first)).not.toContain("team-7f3a9c");
     expect(writes[0]).toBe("PUT /api/config");
     writes.length = 0;
-    expect((await reconcile(client, file({ engines: [engine] }), options({ env: {} }))).lines).toEqual([]);
+    expect((await reconcile(client, file({ engines: [engine] }), options({ env }))).lines).toEqual([]);
     expect(writes).toEqual([]);
-    expect((await reconcile(client, file({ engines: [engine] }), options({ env, rotateSecrets: true }))).lines[0]).toMatch(/^engine claude: key «redacted 32 chars»/);
-    await expect(reconcile(client, file({ engines: [engine] }), options({ env: {}, rotateSecrets: true }))).rejects.toThrow("ANTHROPIC_API_KEY is not set");
-  });
-
-  it("keeps a base URL given as a secret out of the plan, and reads it only when the key is written", async () => {
-    const engine = { kind: "claude", key: { env: "ANTHROPIC_API_KEY" }, baseUrl: { env: "ANTHROPIC_BASE_URL" } };
-    const env = { ANTHROPIC_API_KEY: "sk-ant-test-0123456789abcdefghij", ANTHROPIC_BASE_URL: "https://gw.example.com/v1/team-7f3a9c" };
-    const { client } = workspace();
-    const first = await reconcile(client, file({ engines: [engine] }), options({ env }));
-    expect(first.lines[0]).toBe("engine claude: key «redacted 32 chars» · base URL set");
-    expect(JSON.stringify(first)).not.toContain("team-7f3a9c");
-    const again = await reconcile(client, file({ engines: [engine] }), options({ env: {} }));
-    expect(again.lines).toEqual(["engine claude: its key is already set and the server does not show its base URL, so the file's was not compared (--rotate-secrets writes both)"]);
-    expect(again).toMatchObject({ created: 0, changed: 0, writes: 0 });
+    expect((await reconcile(client, file({ engines: [engine] }), options({ env, rotateSecrets: true }))).lines[0]).toMatch(/^engine openai-compatible: key «redacted 38 chars»/);
+    await expect(reconcile(client, file({ engines: [engine] }), options({ env: {}, rotateSecrets: true }))).rejects.toThrow("OPENAI_COMPAT_KEY is not set");
   });
 
   it("of two bots with the file's name, changes the one in the file's team, never the other team's", async () => {
@@ -215,7 +205,7 @@ describe("team apply", () => {
     const applied = await reconcile(client, file(), options());
     expect(applied.lines).toContain('bot "Priya": update title "Buyer" → "Skeptical buyer"; approval Ask → Full access; computer auto → browser; browser profile its own → guest; tools changed');
     expect(state.bots.find((bot) => bot.id === "sales-priya")).toEqual({ id: "sales-priya", name: "Priya", section: "Sales", title: "Account manager", soul: "Sell.",
-      busy: false, description: "", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } });
+      busy: false, description: "", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     expect(state.bots.find((bot) => bot.id === "room-priya")).toMatchObject({ title: "Skeptical buyer", approvalMode: "full" });
     writes.length = 0;
     expect(await reconcile(client, file(), options())).toMatchObject({ lines: [], writes: 0 });
@@ -244,34 +234,24 @@ describe("team apply", () => {
       .rejects.toThrow('"Priya" is still working after 0s, so it was not changed');
   });
 
-  it("refuses a tool selection the bot's engine cannot hold, before anything is written", async () => {
-    const { client, writes } = workspace();
-    // Claude limits MCP tools only: a built-in one in the selection would stop every turn it runs
-    for (const visitor of [{ ...priya, tools: { deny: ["native:Bash"] } }, { ...priya, model: { instanceId: "claude", model: "claude-haiku-5" }, tools: { deny: ["native:Bash"] } }]) {
-      await expect(reconcile(client, file({ bots: [lead, visitor] }), options({ apply: false })))
-        .rejects.toThrow('bot "Priya": claudeAgent: native tool selection is not supported by this engine');
-    }
-    expect(writes).toEqual([]);
-    expect((await reconcile(client, file(), options({ apply: false }))).created).toBe(4);
-  });
-
   it("refuses an engine or model the server does not have", async () => {
     const { client } = workspace();
+    // The pi-only fleet has no codex instance, so a bot pinned to a removed engine is refused.
     await expect(reconcile(client, file({ bots: [{ ...priya, model: { instanceId: "codex", model: "gpt-6" } }] }), options({ apply: false })))
       .rejects.toThrow('bot "Priya": no engine "codex" here');
-    await expect(reconcile(client, file({ bots: [{ ...priya, model: { instanceId: "claude", model: "claude-opus-9" } }] }), options({ apply: false })))
-      .rejects.toThrow('claude offers no model "claude-opus-9"');
+    await expect(reconcile(client, file({ bots: [{ ...priya, model: { instanceId: "pi", model: "glm-9" } }] }), options({ apply: false })))
+      .rejects.toThrow('pi offers no model "glm-9"');
   });
 });
 
 describe("botPatch", () => {
   const echo = { id: "b1", name: "Priya", section: "Launch Room", title: "Skeptical buyer", description: "", approvalMode: "full",
-    computer: "browser", browserProfile: "guest", toolScope: { deny: ["native:Bash", "native:Write"] }, modelSelection: { instanceId: "claude", model: "claude-sonnet-5", effort: "high" } };
+    computer: "browser", browserProfile: "guest", toolScope: { deny: ["native:Bash", "native:Write"] }, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2", effort: "high" } };
 
   const same: DesiredBot = { ...priya, tools: { deny: ["native:Write", "native:Bash"] } };
 
   it("finds nothing to change when the echo already matches, whatever the order of tool selectors", () => {
-    expect(botPatch({ ...same, model: { instanceId: "claude", model: "claude-sonnet-5" } }, echo, "Launch Room")).toEqual({ patch: {}, changes: [] });
+    expect(botPatch({ ...same, model: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } }, echo, "Launch Room")).toEqual({ patch: {}, changes: [] });
     expect(botPatch(priya, echo, "Launch Room")).toEqual({ patch: { toolScope: { deny: ["mcp:mail:*"] } }, changes: ["tools changed"] });
   });
 
@@ -295,11 +275,11 @@ describe("botPatch", () => {
   });
 
   it("changes the model, keeps an effort the file does not name, and moves a bot to Auto computer with null", () => {
-    expect(botPatch({ ...same, model: { instanceId: "claude", model: "claude-haiku-5" } }, echo, "Launch Room")).toEqual({
-      patch: { modelSelection: { instanceId: "claude", model: "claude-haiku-5", effort: "high" }, requireAvailableModel: true },
-      changes: ["model claude/claude-sonnet-5 (high) → claude/claude-haiku-5 (high)"] });
+    expect(botPatch({ ...same, model: { instanceId: "pi", model: "openai/gpt-4o" } }, echo, "Launch Room")).toEqual({
+      patch: { modelSelection: { instanceId: "pi", model: "openai/gpt-4o", effort: "high" }, requireAvailableModel: true },
+      changes: ["model pi/ollama-cloud/glm-5.2 (high) → pi/openai/gpt-4o (high)"] });
     expect(botPatch({ ...same, model: { instanceId: "codex", model: "gpt-6" } }, echo, "Launch Room").patch.modelSelection).toEqual({ instanceId: "codex", model: "gpt-6" });
-    expect(botPatch({ ...same, effort: "low" }, echo, "Launch Room").patch.modelSelection).toEqual({ instanceId: "claude", model: "claude-sonnet-5", effort: "low" });
+    expect(botPatch({ ...same, effort: "low" }, echo, "Launch Room").patch.modelSelection).toEqual({ instanceId: "pi", model: "ollama-cloud/glm-5.2", effort: "low" });
     expect(botPatch({ ...same, computer: "auto" }, echo, "Launch Room")).toEqual({ patch: { computer: null }, changes: ["computer browser → auto"] });
   });
 });

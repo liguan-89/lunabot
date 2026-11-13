@@ -104,8 +104,9 @@ describe("PhoneSecretBridge", () => {
       messageId: "message-1",
       target: "ttsKey",
       requestKey: "credential-request-1",
-      encapsulatedKey: "BDhy_5hMSvVIy3zGSmBwBECAedYBAwwFLvbWoXCGTJyLRH1cItoQXo9NBcEG0cTQV_VwaEf5judXcsJlh2jfW7Q",
-      ciphertext: "CjM0CnBT8NYd_BHAXJRKFrbYrSw6OgMIlJLAKs8VUPSSCsa2",
+      // Sealed by Apple CryptoKit (HPKE P256_SHA256_AES_GCM_256) with this server's PHONE_SECRET_INFO, as the iOS app does.
+      encapsulatedKey: "BH693m3BP8PFvSvhNjX7Y6wqliRvHoeabIWlAKDin5ltDoh29R2NNJaj4F1jCo-2JH9plmBvDwUVDg8u2kNCXA8",
+      ciphertext: "DHanpLjxXORBAWEhco0nI06P7tdx70tp9E15Kfxx-tBF6Jh6",
     })).resolves.toBeUndefined();
     expect(send).toHaveBeenCalledTimes(1);
   });
@@ -284,7 +285,7 @@ describe("phoneSecretAAD", () => {
   it("refuses a 1Password token from a phone, saying where to paste it", () => {
     const context = { ...baseContext("AAAAAAAAAAAAAAAAAAAAAA"), target: "onePasswordToken" };
     expect(() => assertPhoneSecretRequestMatches(context, "paired-device-1", { target: "onePasswordToken", requestKey: "credential-request-1" }))
-      .toThrow(expect.objectContaining({ status: 409, message: expect.stringMatching(/^Paste the 1Password token in OpenMausBot on your computer, or in My Cloud/u) }));
+      .toThrow(expect.objectContaining({ status: 409, message: expect.stringMatching(/^Paste the 1Password token in DEX BOT on your computer, or in My Cloud/u) }));
   });
 
   it("gives an exact encrypted retry one stable desktop operation id", async () => {
