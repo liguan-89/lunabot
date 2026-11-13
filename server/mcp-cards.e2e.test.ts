@@ -5,12 +5,13 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
 const FAKE_MCP = fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url));
 
 async function onAsk(run: (f: {
   api: (method: string, path: string, body?: unknown, expected?: number, token?: string) => Promise<any>;
-  dump: () => any; config: () => any; iris: { id: string; threadId: string }; card: () => Promise<any>; parkOnCard: () => Promise<any>; idle: () => Promise<void>;
+  turn: (text: string) => ReturnType<typeof piTurnHolding>; config: () => any; iris: { id: string; threadId: string }; card: () => Promise<any>; parkOnCard: () => Promise<any>; idle: () => Promise<void>;
 }) => Promise<void>) {
   const scratch = mkdtempSync(join(tmpdir(), "omb-mcp-card-"));
   const gate = join(scratch, "finish");
@@ -24,7 +25,7 @@ async function onAsk(run: (f: {
     expect(response.status, `${method} ${path}: ${JSON.stringify(result).slice(0, 400)}`).toBe(expected);
     return result;
   };
-  const dump = () => { try { return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); } catch { return null; } };
+  const turn = (text: string) => piTurnHolding(piDumpPath(fixture.info.dataDir), text);
   const config = () => JSON.parse(readFileSync(join(fixture.info.dataDir, "config.json"), "utf8"));
   try {
     const iris = (await api("POST", "/api/bots", { name: "Iris" }, 201)).bot;
@@ -33,9 +34,9 @@ async function onAsk(run: (f: {
     const idle = () => expect.poll(async () => (await api("GET", "/api/bots")).bots.every((bot: any) => !bot.busy), { timeout: 20_000 }).toBe(true);
     const parkOnCard = async () => {
       await api("POST", `/api/bots/${iris.id}/messages`, { threadId: iris.threadId, text: "Add the notes server", sendId: "mcp-card-e2e-send-0001" }, 202);
-      let first: any;
-      await expect.poll(() => { first = dump(); return JSON.stringify(first?.prompt ?? "").includes("Add the notes server"); }, { timeout: 20_000 }).toBe(true);
-      const token: string = first.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
+      let first: ReturnType<typeof turn>;
+      await expect.poll(() => Boolean(first = turn("Add the notes server")), { timeout: 20_000 }).toBe(true);
+      const token = piAgentsToken(first)!;
       const added = await api("POST", "/api/internal/mcp-servers", { action: "add", name: "notes", command: process.execPath, args: ["--experimental-strip-types", "--no-warnings", FAKE_MCP] }, 201, token);
       expect(added.text).toContain("A card is now visible to the person. End this turn and wait for the decision.");
       expect(config().mcpServers.notes.enabled).toBe(false);
@@ -45,14 +46,14 @@ async function onAsk(run: (f: {
       await idle();
       return shown;
     };
-    await run({ api, dump, config, iris, card, parkOnCard, idle });
+    await run({ api, turn, config, iris, card, parkOnCard, idle });
   } finally {
     await fixture.close();
     rmSync(scratch, { recursive: true, force: true });
   }
 }
 
-it("a bot on Ask adds a server switched off, the person taps Turn on, and the bot resumes with the test result and the server's tools", () => onAsk(async ({ api, dump, config, iris, card, parkOnCard, idle }) => {
+it("a bot on Ask adds a server switched off, the person taps Turn on, and the bot resumes with the test result and the server's tools", () => onAsk(async ({ api, turn, config, iris, card, parkOnCard, idle }) => {
   const shown = await parkOnCard();
   expect(shown.card).toMatchObject({ options: ["Turn on", "Cancel"], tool: "mcp_server", mcpRequest: { action: "enable", name: "notes" } });
   expect(shown.card.subtitle).toMatch(/fake-mcp-server\.ts\nRuns on this computer\.$/u);
@@ -61,10 +62,10 @@ it("a bot on Ask adds a server switched off, the person taps Turn on, and the bo
   expect(answered).toMatchObject({ ok: true, alreadySettled: false, result: { state: "applied" } });
   expect(config().mcpServers.notes.enabled).toBe(true);
 
-  let resumed: any;
-  await expect.poll(() => { resumed = dump(); return JSON.stringify(resumed?.prompt ?? "").includes("DEX BOT MCP server decision"); }, { timeout: 20_000 }).toBe(true);
-  expect(JSON.stringify(resumed.prompt)).toContain("Test: it started and listed its tools: read_notes.");
-  expect(resumed.mcpConfig.mcpServers.notes, "the resumed turn already has the server").toBeDefined();
+  let resumed: ReturnType<typeof turn>;
+  await expect.poll(() => Boolean(resumed = turn("DEX BOT MCP server decision")), { timeout: 20_000 }).toBe(true);
+  expect(resumed!.prompt).toContain("Test: it started and listed its tools: read_notes.");
+  expect(resumed!.launch?.mcpConfig?.mcpServers?.notes, "the resumed turn already has the server").toBeDefined();
   await expect.poll(async () => (await card()).card.mcpRequest.resumed, { timeout: 20_000 }).toBe(true);
   expect((await card()).card.answered).toBe("allow");
   // A local browser's approval is refused while any bot works, and the resumed turn may still be working.

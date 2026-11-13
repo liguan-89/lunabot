@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { BOT_HTML_CSP } from "../shared/app-frame/csp.ts";
 import { CSP_META_PREFIX } from "../shared/app-frame/document.ts";
 import { APP_SAMPLES } from "../shared/app-samples.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding, piTurns } from "./testing/pi-dump.ts";
 
 it("shows, replaces and serves a bot's page, and carries its context and its message to the engine", async () => {
   const gates = mkdtempSync(join(tmpdir(), "omb-chat-apps-"));
@@ -24,11 +25,8 @@ it("shows, replaces and serves a bot's page, and carries its context and its mes
     expect(response.status, JSON.stringify(result).slice(0, 400)).toBe(expected);
     return result;
   };
-  const dump = () => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-  const turnPrompt = (): string => {
-    const content = dump().prompt?.message?.content;
-    return Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("\n") : String(content ?? "");
-  };
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  const turnPrompt = (): string => piTurns(dumpPath).at(-1)?.prompt ?? "";
   try {
     const bot = (await api("POST", "/api/bots", { name: "Scout" }, 201)).bot;
     const settledTurn = () => expect.poll(async () => (await api("GET", "/api/bots?messages=0")).bots.find((candidate: any) => candidate.id === bot.id).busy,
@@ -38,10 +36,7 @@ it("shows, replaces and serves a bot's page, and carries its context and its mes
 
     await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text: "Count my coffees", sendId: "apps-e2e-send-000000001" }, 202);
     let token = "";
-    await expect.poll(() => {
-      try { token = dump().mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN; } catch { return false; }
-      return Boolean(token);
-    }, { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(dumpPath, "Count my coffees")) ?? ""), { timeout: 15_000 }).toBe(true);
     expect(await card({ tool: "show_html", html: "", title: "Empty" }, 400, token)).toMatchObject({ error: expect.stringMatching(/^html:/) });
     const shown = await card({ tool: "show_html", ...APP_SAMPLES.counter }, 201, token);
     expect(shown).toEqual({ messageId: expect.any(String) });

@@ -1,10 +1,11 @@
-import { readFileSync, writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
 it("a bot's turn reads its accounts' usage limits through its own capability, and nothing else may", async () => {
   const folder = mkdtempSync(join(tmpdir(), "omb-engine-limits-"));
@@ -15,20 +16,17 @@ it("a bot's turn reads its accounts' usage limits through its own capability, an
     const { bot } = await (await request("/api/bots", { method: "POST", body: JSON.stringify({ name: "Scout" }) })).json() as { bot: { id: string; threadId: string } };
     await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "How much Claude is left?", "--url", fixture.info.url]);
     let token = "";
-    await expect.poll(() => {
-      try { token = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN; } catch { return false; }
-      return Boolean(token);
-    }, { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(piDumpPath(fixture.info.dataDir), "How much Claude is left?")) ?? ""), { timeout: 15_000 }).toBe(true);
 
     expect((await request("/api/internal/engine-limits", { headers: { authorization: "Bearer wrong" } })).status).toBeGreaterThanOrEqual(400);
     const answer = await request("/api/internal/engine-limits", { headers: { authorization: `Bearer ${token}` } });
     expect(answer.status).toBe(200);
     const { text } = await answer.json() as { text: string };
     const accounts = JSON.parse(text).accounts as Array<{ engine: string; status: string; windows: unknown[]; why?: string }>;
-    const claude = accounts.find((account) => account.engine === "claudeAgent");
-    // The Claude Code login is never read for usage, so Claude reports no limits; a refused turn still fails over.
-    expect(claude, text).toMatchObject({ status: "unsupported", windows: [] });
-    expect(claude!.why, text).toBeTruthy();
+    const pi = accounts.find((account) => account.engine === "piAgent");
+    // pi reports no usage windows of its own; a refused turn still fails over on the server's side.
+    expect(pi, text).toMatchObject({ status: "unsupported", windows: [] });
+    expect(pi!.why, text).toBeTruthy();
     writeFileSync(gate, "finish");
   } finally {
     await fixture.close();

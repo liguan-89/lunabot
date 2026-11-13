@@ -20,7 +20,6 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 /** Outside the bot name pool, so no suite can plan a bot that collides with the
  * starter. */
 export const FIXTURE_STARTER_BOT_NAME = "Fixture Starter";
-const FAKE_CLI = join(ROOT, "server", "testing", "fake-claude-cli.ts");
 const FAKE_PI_CLI = join(ROOT, "server", "testing", "fake-pi-cli.ts");
 
 export class ControlOmbError extends HeadlessError {
@@ -242,16 +241,15 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   }
   // The driver record the app hands its own server: without it, no server may use this computer.
   if (parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION) childEnv.OMB_TEST_DESKTOP_CUA_CONNECTION = parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION;
+  // The one agent every fixture runs: the fake pi. Its dump carries the launch it was given,
+  // including the agents server's env, for recipes that need its token.
+  childEnv.FAKE_PI_DUMP ??= join(dataDir, "fake-pi-dump.jsonl");
   // A pi fixture borrows the retired Claude knobs only when the caller set one.
-  if (parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi") {
-    childEnv.OMB_TEST_FIXTURE_ENGINE = "pi";
-    // The fake pi writes the launch it was given, including the agents server's env, for recipes that need its token.
-    childEnv.FAKE_PI_DUMP ??= join(dataDir, "fake-pi-dump.jsonl");
-    if (parentEnv.FAKE_CLAUDE_MODE !== undefined || parentEnv.FAKE_CLAUDE_REPLIES !== undefined
-      || parentEnv.FAKE_CLAUDE_TOOL_CALLS !== undefined || parentEnv.FAKE_CLAUDE_REPLY_FILE !== undefined) {
-      childEnv.FAKE_PI_CLAUDE_COMPAT = "1";
-    }
+  if (parentEnv.FAKE_CLAUDE_MODE !== undefined || parentEnv.FAKE_CLAUDE_REPLIES !== undefined
+    || parentEnv.FAKE_CLAUDE_TOOL_CALLS !== undefined || parentEnv.FAKE_CLAUDE_REPLY_FILE !== undefined) {
+    childEnv.FAKE_PI_CLAUDE_COMPAT = "1";
   }
+  if (parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi") childEnv.OMB_TEST_FIXTURE_ENGINE = "pi";
   return childEnv;
 }
 
@@ -344,15 +342,9 @@ export async function launchVerificationServer(
         config: { cli: fileURLToPath(new URL("../server/testing/fake-acp-cli.ts", import.meta.url)) },
         environment: { FAKE_ACP_MODELS: "fixture-fast,fixture-deep", FAKE_ACP_DUMP: join(dataDir, "custom-acp-launch.json") },
       } } : {}),
-      ...(parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi" ? { pi: {
+      pi: {
         driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI_CLI },
         ...(room?.scripted ? { environment: { FAKE_PI_ROOM_PLAN: join(dataDir, "room-plan.json") } } : {}),
-      } } : {}),
-      claude: {
-        driver: "claudeAgent",
-        displayName: "Verification fixture",
-        config: { cli: FAKE_CLI },
-        ...(room?.scripted ? { environment: { FAKE_CLAUDE_ROOM_PLAN: join(dataDir, "room-plan.json") } } : {}),
       },
     },
   }, null, 2));

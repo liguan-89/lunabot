@@ -10,7 +10,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(18800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -47,7 +47,7 @@ posixOnly("bulk delete tasks e2e", () => {
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLAUDE, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-bulk-delete-"));
     mkdirSync(join(home, ".openmausbot"), { recursive: true });
     finishGate = join(home, "finish-turn.gate");
@@ -55,10 +55,10 @@ posixOnly("bulk delete tasks e2e", () => {
       join(home, ".openmausbot", "config.json"),
       JSON.stringify({
         instances: {
-          claudeSlow: {
-            driver: "claudeAgent",
-            environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finishGate },
-            config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" },
+          pi: {
+            driver: "piAgent",
+            environment: { FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: finishGate },
+            config: { cli: FAKE_PI },
           },
         },
       }),
@@ -121,7 +121,7 @@ posixOnly("bulk delete tasks e2e", () => {
 
   it("refuses a running task per id but still deletes the others", async () => {
     rmSync(finishGate, { force: true });
-    const bot = await newBot("Bulk C", { instanceId: "claudeSlow", model: "claude-fake" });
+    const bot = await newBot("Bulk C", { instanceId: "pi", model: "ollama-cloud/glm-5.2" });
     const running = bot.threadId;
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "go" })).status).toBe(202);
     await waitUntil(async () => (await getBot(bot.id))?.busy === true, 15_000, "turn never started");
@@ -186,7 +186,7 @@ posixOnly("bulk delete tasks e2e", () => {
 
   it("refuses a channel thread with a running turn per id but still deletes the others", async () => {
     rmSync(finishGate, { force: true });
-    const bot = await newBot("Bulk J", { instanceId: "claudeSlow", model: "claude-fake" });
+    const bot = await newBot("Bulk J", { instanceId: "pi", model: "ollama-cloud/glm-5.2" });
     const room = await newRoom("Bulk room busy", bot);
     const second = (await api("POST", `/api/groups/${room.id}/tasks`, {})).body.task.threadId;
     const third = (await api("POST", `/api/groups/${room.id}/tasks`, {})).body.task.threadId;

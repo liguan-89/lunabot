@@ -1,7 +1,8 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 it("dispatches setup and canonical standing instructions through the real isolated app", async () => {
   const fixture = await launchVerificationServer();
@@ -20,7 +21,8 @@ it("dispatches setup and canonical standing instructions through the real isolat
     const turn = async (text: string) => {
       await runControlOmb(["send", "--bot", bot.id, "--text", text], { env });
       await runControlOmb(["wait", "--bot", bot.id, "--timeout", "30"], { env });
-      return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
+      const turns = piTurns(piDumpPath(fixture.info.dataDir));
+      return { systemPrompt: piInstructionsFor(turns, turns.length - 1), prompt: turns.at(-1)?.prompt ?? "" };
     };
     const setup = await turn("/setup Help me track garden watering");
     expect(setup.systemPrompt).toContain("The user explicitly asked you to set yourself up");
@@ -40,7 +42,7 @@ it("dispatches setup and canonical standing instructions through the real isolat
       expect.objectContaining({ field: "soul" }),
     ]));
     const messages = await runControlOmb(["messages", "--bot", bot.id, "--limit", "10"], { env });
-    expect(JSON.stringify(messages)).toContain("hello from fake claude");
+    expect(JSON.stringify(messages)).toContain("Hello from pi");
   } finally {
     await fixture.close();
   }

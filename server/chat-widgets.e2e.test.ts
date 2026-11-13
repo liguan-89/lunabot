@@ -1,5 +1,5 @@
 // The fixture's engine resumes its session (a CLI new enough for strictResume), so the press turn also shows what a resumed session is handed.
-import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -7,6 +7,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { WIDGET_SAMPLES } from "../shared/widget-samples.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding, piTurns } from "./testing/pi-dump.ts";
 
 it("shows, replaces and answers a widget on a bot's own conversation, once per press", async () => {
   const gates = mkdtempSync(join(tmpdir(), "omb-chat-widgets-"));
@@ -29,11 +30,8 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
     evidence.push({ command: args, result });
     return result;
   };
-  const dump = () => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-  const turnPrompt = (): string => {
-    const content = dump().prompt?.message?.content;
-    return Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("\n") : String(content ?? "");
-  };
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  const turnPrompt = (): string => piTurns(dumpPath).at(-1)?.prompt ?? "";
   try {
     const bot = (await api("POST", "/api/bots", { name: "Scout" }, 201)).bot;
     const settledTurn = () => expect.poll(async () => (await api("GET", "/api/bots?messages=0")).bots.find((candidate: any) => candidate.id === bot.id).busy,
@@ -43,11 +41,7 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
 
     await control("send", "--bot", bot.id, "--task", bot.threadId, "--text", "What is open?");
     let token = "";
-    await expect.poll(() => {
-      try { token = dump().mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN; }
-      catch { return false; }
-      return Boolean(token);
-    }, { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(dumpPath, "What is open?")) ?? ""), { timeout: 15_000 }).toBe(true);
     expect(await card({ tool: "show_widget", widget: { type: "Card", children: [{ type: "Carousel" }] } }, 400, token))
       .toMatchObject({ error: expect.stringMatching(/^widget\.children\[0\]: unknown type "Carousel"/) });
     expect(await card({ tool: "show_widget", widget: { type: "Card", children: [{ type: "Input", name: "pw", inputType: "password" }] } }, 400, token))
@@ -123,7 +117,7 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
       expect(await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, sendId: "widget-press-another-01", widgetAction }, 409))
         .toEqual({ error: "This was already answered." });
     }
-    token = dump().mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
+    token = piAgentsToken(piTurns(dumpPath).at(-1))!;
     expect(await card({ tool: "update_widget", widget_id: draft.messageId, widget: WIDGET_SAMPLES.buildStatus }, 409, token))
       .toEqual({ error: "The person already answered that widget. Show a new one." });
     const next = await card({ tool: "show_widget", widget: WIDGET_SAMPLES.buildStatus, fallback_text: "  Build 25 is uploading.  " }, 201, token);

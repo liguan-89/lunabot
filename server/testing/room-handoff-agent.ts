@@ -30,6 +30,12 @@ export function ownTurnText(prompt: unknown): string {
     .replace(/Recalled for this message[\s\S]*?\[end of recalled passages[^\]]*\]/g, "");
 }
 
+/** Claude's argv spelling of an approval level, which is what plan evidence has always reported. */
+function permissionModeOf(approval: string | null | undefined, fromArgv: string | undefined): string | undefined {
+  if (approval === undefined) return fromArgv;
+  return approval === "full" ? "bypassPermissions" : approval === "auto" ? "auto" : approval === "edits" ? "acceptEdits" : "default";
+}
+
 async function askPermission(server: AgentsIntegration, ask: { tool_name: string; input: Record<string, unknown> }): Promise<{ behavior: string; message?: string }> {
   const child = spawn(server.command, server.args, { env: { ...process.env, ...server.env }, stdio: ["pipe", "pipe", "pipe"] });
   child.stderr.resume();
@@ -115,6 +121,8 @@ export interface RoomEngineView {
   ownText?: string;
   /** System plus prompt, for `byPrompt` and the resumed check (defaults to Claude's shape). */
   context?: string;
+  /** The approval level the engine booted the turn at, reported as the mode Claude's argv used to carry. */
+  approvalMode?: string | null;
   onToolStart?: (trace: { id: string; name: string; args: unknown }) => void;
   onToolEnd?: (trace: { id: string; name: string; args: unknown; result: unknown; ok: boolean }) => void;
 }
@@ -295,7 +303,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
     await waitForExit(child, { signal: "SIGTERM", graceMs: 500 });
     appendFileSync(`${planPath}.evidence.jsonl`, JSON.stringify({ botId, turnIndex, threadId: agent.OMB_THREAD_ID, pid: process.pid,
       model: argv.includes("--model") ? arg("--model") : undefined,
-      permissionMode: argv.includes("--permission-mode") ? arg("--permission-mode") : undefined,
+      permissionMode: permissionModeOf(view.approvalMode, argv.includes("--permission-mode") ? arg("--permission-mode") : undefined),
       restricted: argv.includes("--restricted"), permissionPromptTool: argv.includes("--permission-prompt-tool"),
       snapshotMode: argv.includes("--system-prompt-snapshot") ? arg("--system-prompt-snapshot") : undefined,
       resumed, system, prompt, evidence, ...(entry ? { planKey: entry.key } : {}), ...(approval ? { approval } : {}), ...(screen ? { screen } : {}), ...launch?.evidence }) + "\n");

@@ -7,6 +7,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { piAgentsToken, piDumpPath, piTurnHolding, type PiTurn } from "./testing/pi-dump.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 
 const FAKE_MCP = fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url));
@@ -22,11 +23,10 @@ it("restart keeps the key and replaces the warm process, and so does turning the
     });
     return { status: response.status, body: await response.json() as any };
   };
-  const dump = () => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
   /** The key the server itself starts with, behind the tool gate the turn mounts it through. */
-  const mailKey = (started: any): string | undefined => {
-    const mounted = started.mcpConfig.mcpServers.mail;
-    return (mounted.env.OMB_GATE_UPSTREAM ? JSON.parse(mounted.env.OMB_GATE_UPSTREAM) : mounted).env.MAIL_KEY;
+  const mailKey = (turn: PiTurn): string | undefined => {
+    const mounted = turn.launch?.mcpConfig?.mcpServers?.mail;
+    return (mounted?.env?.OMB_GATE_UPSTREAM ? JSON.parse(String(mounted.env.OMB_GATE_UPSTREAM)) : mounted)?.env?.MAIL_KEY;
   };
   let sends = 0;
   let bot: { id: string; threadId: string };
@@ -36,9 +36,9 @@ it("restart keeps the key and replaces the warm process, and so does turning the
     const text = `Use your tools, take ${sends}`;
     rmSync(gate, { force: true });
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text, sendId: `restart-e2e-send-${String(sends).padStart(4, "0")}` })).status).toBe(202);
-    await expect.poll(() => { try { return JSON.stringify(dump().prompt).includes(text); } catch { return false; } }, { timeout: 30_000 }).toBe(true);
-    const started = dump();
-    const internal = (path: string, body: unknown) => api("POST", path, body, started.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN);
+    await expect.poll(() => Boolean(piTurnHolding(piDumpPath(fixture.info.dataDir), text)), { timeout: 30_000 }).toBe(true);
+    const started = piTurnHolding(piDumpPath(fixture.info.dataDir), text)!;
+    const internal = (path: string, body: unknown) => api("POST", path, body, piAgentsToken(started));
     const done = async () => {
       writeFileSync(gate, "");
       await expect.poll(async () => (await api("GET", "/api/bots?messages=0")).body.bots.find((one: any) => one.id === bot.id).busy, { timeout: 20_000 }).toBe(false);
@@ -61,14 +61,14 @@ it("restart keeps the key and replaces the warm process, and so does turning the
     await setup.done();
     // Saving the key answered the card the setup turn asked with, so that turn goes on once more. It runs now, while nothing
     // else is sent: later it would take the thread or the warm process from a turn this test checks.
-    await expect.poll(() => { try { return JSON.stringify(dump().prompt).includes("DEX BOT secret update"); } catch { return false; } }, { timeout: 30_000 }).toBe(true);
+    await expect.poll(() => Boolean(piTurnHolding(piDumpPath(fixture.info.dataDir), "DEX BOT secret update")), { timeout: 30_000 }).toBe(true);
     await setup.done();
 
     const launched = await turn();
     await launched.done();
     expect(mailKey(launched.started)).toBe("kept-key-value");
     const warm = await turn();
-    expect(warm.started.pid, "with nothing changed the warm process takes the next turn").toBe(launched.started.pid);
+    expect(warm.started.launch?.pid, "with nothing changed the warm process takes the next turn").toBe(launched.started.launch?.pid);
     const restarted = await warm.internal("/api/internal/mcp-servers", { action: "restart", name: "mail" });
     expect(restarted.status, JSON.stringify(restarted.body)).toBe(200);
     expect(restarted.body.text).toContain("Its saved keys stay");
@@ -78,7 +78,7 @@ it("restart keeps the key and replaces the warm process, and so does turning the
     await warm.done();
 
     const fresh = await turn();
-    expect(fresh.started.pid, "a restart starts a new process").not.toBe(warm.started.pid);
+    expect(fresh.started.launch?.pid, "a restart starts a new process").not.toBe(warm.started.launch?.pid);
     expect(mailKey(fresh.started)).toBe("kept-key-value");
     expect((await fresh.internal("/api/internal/mcp-servers", { action: "disable", name: "mail" })).status).toBe(200);
     expect((await fresh.internal("/api/internal/mcp-servers", { action: "enable", name: "mail" })).status).toBe(200);
@@ -86,7 +86,7 @@ it("restart keeps the key and replaces the warm process, and so does turning the
 
     const cycled = await turn();
     await cycled.done();
-    expect(cycled.started.pid, "off and on in one turn starts a new process too").not.toBe(fresh.started.pid);
+    expect(cycled.started.launch?.pid, "off and on in one turn starts a new process too").not.toBe(fresh.started.launch?.pid);
     expect(mailKey(cycled.started)).toBe("kept-key-value");
     const onDisk = readFileSync(join(fixture.info.dataDir, "config.json"), "utf8");
     expect(JSON.parse(onDisk).mcpServers.mail.env).toEqual({ MAIL_KEY: expect.stringMatching(/^vault:[0-9a-f-]{36}$/u) });

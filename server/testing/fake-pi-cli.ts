@@ -8,8 +8,23 @@
 //   FAKE_PI_DUMP  path to append {argv, env} JSON to
 //   FAKE_PI_STEER_REFUSE  answer a steer with an explicit success:false
 //   FAKE_PI_STEER_OUT_OF_ORDER  hold the first steer until a second arrives, then refuse the first and accept the second
+//   FAKE_PI_REPLIES  JSON array of replies (string, or string[] for several items) used in order
+//   FAKE_PI_REPLY_FILE  path whose text is the reply while it exists, read again each turn
+//   FAKE_PI_REPLY_STATE  counter file keeping FAKE_PI_REPLIES in order across processes
+//   FAKE_PI_MARKER_REPLIES  path of {"marker": "reply"}: the first marker a prompt contains picks the reply
+//   FAKE_PI_TOOL_CALLS  JSON [{name, input?, ok?, output?, hold?}] the turn calls before replying; `hold` waits for
+//     FAKE_PI_RELEASE
+//   FAKE_PI_TOOL_CALLS_FILE  path of the same JSON, read again each turn
+//   FAKE_PI_RELEASE  path: a held call, or a hang/slow turn, ends once it exists
+//   FAKE_PI_MODE=slow  calls its scripted tools, then replies once FAKE_PI_SLOW_FINISH_GATE exists (a body of "fail"
+//     ends the turn in error); FAKE_PI_SLOW_TAIL_TOOL=1 adds one more call before the reply
+//   FAKE_PI_STEER_RECEIVED  path: written once a steer arrives inside a turn
+//   FAKE_PI_PROMPTS  JSON-lines file of {message: {content}} for every prompt the process receives
+//   FAKE_PI_MOUNT_TOOLS  1: mount the turn's MCP servers at boot, so a scripted call with `server` reaches their tools
+//   FAKE_PI_EXIT_AFTER_TURN  1: exit once the turn is answered, so the next turn relaunches on its session file
+// The retired Claude fixture's FAKE_CLAUDE_* names drive the same knobs while FAKE_PI_CLAUDE_COMPAT=1.
 
-import { appendFileSync, readFileSync } from "node:fs";
+import { appendFileSync, existsSync, readFileSync, writeFileSync } from "node:fs";
 
 import piMcpExtension from "../drivers/pi-mcp-extension.ts";
 import { VOLATILE_CONTEXT_CLEARED_NOTE, VOLATILE_CONTEXT_NOTE_PREFIX } from "../drivers/prompt-split.ts";
@@ -28,6 +43,8 @@ const modelPairs = (process.env.FAKE_PI_MODELS ?? "ollama-cloud/glm-5.2,openai/g
   });
 
 const argv = process.argv.slice(2);
+/** The level the driver booted this child at, for plan evidence that says what a turn ran under. */
+const approvalModeAtBoot: string | null = process.env.OMB_APPROVAL_MODE ?? null;
 
 interface MountedTool {
   name: string;
@@ -59,7 +76,19 @@ async function mountMcpTools(): Promise<MountedTool[]> {
   }
 }
 
-const mountedTools = process.env.FAKE_PI_ROOM_PLAN && !argv.includes("--version") && !argv.includes("-v") ? await mountMcpTools() : [];
+// A scripted turn that calls through an MCP server needs its tools mounted at boot: the driver removes the config once
+// the real extension has mounted it, so a later mount would find nothing. FAKE_PI_MOUNT_TOOLS=1 asks for that.
+let mountedTools: MountedTool[] = (process.env.FAKE_PI_ROOM_PLAN || process.env.FAKE_PI_MOUNT_TOOLS === "1") && !argv.includes("--version") && !argv.includes("-v")
+  ? await mountMcpTools()
+  : [];
+let mountPromise: Promise<MountedTool[]> | null = null;
+/** Mount the turn's MCP servers on first use through the real extension, as pi does before it runs any tool. */
+async function ensuredTools(): Promise<MountedTool[]> {
+  if (mountedTools.length) return mountedTools;
+  mountPromise ??= mountMcpTools();
+  mountedTools = await mountPromise;
+  return mountedTools;
+}
 let planStep = 0;
 const uiWaiters = new Map<string, (value: string | undefined) => void>();
 let uiSeq = 0;
@@ -85,8 +114,9 @@ function askArgs(args: unknown): unknown {
 async function callMountedTool(name: string, args: unknown): Promise<unknown> {
   // Plans may speak a retired alias ("list_triggers", "create_trigger"); the proxy maps it to today's action tool.
   const call = resolveAgentsCall(name, (args ?? {}) as Record<string, unknown>);
-  const tool = mountedTools.find((candidate) => candidate.label === `agents:${call.name}` || candidate.name === call.name || candidate.name.endsWith(`_${call.name}`));
-  if (!tool) throw new Error(`the pi fixture mounted no agents tool named ${call.name} (mounted: ${mountedTools.map((candidate) => candidate.name).join(", ")})`);
+  const tools = await ensuredTools();
+  const tool = tools.find((candidate) => candidate.label === `agents:${call.name}` || candidate.name === call.name || candidate.name.endsWith(`_${call.name}`));
+  if (!tool) throw new Error(`the pi fixture mounted no agents tool named ${call.name} (mounted: ${tools.map((candidate) => candidate.name).join(", ")})`);
   return tool.invoke(`plan-${++planStep}`, call.name === "ask_user" ? askArgs(call.arguments) : call.arguments, undefined, undefined, {
     ui: {
       confirm: async () => true,
@@ -113,6 +143,7 @@ if (process.env.FAKE_PI_DUMP) {
     appendFileSync(
       process.env.FAKE_PI_DUMP,
       JSON.stringify({
+        pid: process.pid,
         argv,
         envConfigured: ["PATH", "HOME", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY", "BOX_TOKEN"].filter(
           (k) => process.env[k] !== undefined,
@@ -345,35 +376,133 @@ const finishPermissionTurn = () => {
   send({ type: "agent_end" });
 };
 
-// A retired-Claude-fixture bridge: same reply/tool/mode knobs, rendered as pi RPC events.
-let compatReplyIndex = 0;
+let turnAborted = false;
 
-const compatReplies = (() => {
+// The retired Claude fixture's knobs, read under the fake pi's own names too: a scripted turn says what to call,
+// what to answer, and how long to stay open, whatever process or respawn delivers it.
+const knob = (name: string, legacy: string): string | undefined =>
+  process.env[`FAKE_PI_${name}`] ?? (claudeCompat ? process.env[`FAKE_CLAUDE_${legacy}`] : undefined);
+
+const scriptedReplies = (() => {
   try {
-    const parsed = JSON.parse(process.env.FAKE_CLAUDE_REPLIES ?? "[]");
+    const parsed = JSON.parse(knob("REPLIES", "REPLIES") ?? "[]");
     return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
 })();
+let scriptedReplyIndex = 0;
 
-function compatReply(): string[] {
-  const reply = compatReplies[compatReplyIndex++];
-  if (Array.isArray(reply)) return reply.map(String);
-  if (typeof reply === "string") return [reply];
-  return ["hello from fake claude"];
+/** A prompt's own text: pi's first turn carries the system prompt before the time line. */
+function ownPromptText(promptText: string): string {
+  const clockAt = promptText.indexOf(TURN_CLOCK_LEAD);
+  return clockAt >= 0 ? promptText.slice(clockAt) : ownTurnText({ message: { content: promptText } });
 }
 
-function compatToolCalls(): Array<{ name: string; input: Record<string, unknown>; ok: boolean }> {
+function markerReply(promptText: string): string | undefined {
+  const path = knob("MARKER_REPLIES", "MARKER_REPLIES");
+  if (!path) return undefined;
   try {
-    const parsed = JSON.parse(process.env.FAKE_CLAUDE_TOOL_CALLS ?? "");
-    if (Array.isArray(parsed) && parsed.length) {
-      return parsed
-        .filter((call): call is Record<string, unknown> => Boolean(call) && typeof call === "object")
-        .map((call) => ({ name: String(call.name ?? "Bash"), input: (call.input as Record<string, unknown>) ?? {}, ok: call.ok !== false }));
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+    const found = Object.entries(parsed ?? {}).find(([marker, reply]) => typeof reply === "string" && promptText.includes(marker));
+    return found?.[1] as string | undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** The next reply: a file's text while it exists, a marker's reply, or the scripted list's next entry — kept in
+ * order across processes by a state file when a recipe drives several launches. */
+function nextReplies(promptText: string): string[] {
+  const replyFile = knob("REPLY_FILE", "REPLY_FILE");
+  if (replyFile && existsSync(replyFile)) return [readFileSync(replyFile, "utf8")];
+  const marked = markerReply(promptText);
+  if (marked !== undefined) return [marked];
+  const stateFile = knob("REPLY_STATE", "REPLY_STATE");
+  let index = scriptedReplyIndex;
+  if (stateFile) {
+    try {
+      index = Number(readFileSync(stateFile, "utf8")) || 0;
+    } catch {}
+    try {
+      writeFileSync(stateFile, String(index + 1));
+    } catch {}
+  } else {
+    scriptedReplyIndex += 1;
+  }
+  const reply = scriptedReplies[index];
+  if (Array.isArray(reply)) return reply.map(String);
+  if (typeof reply === "string") return [reply];
+  return [claudeCompat ? "hello from fake claude" : "Hello from pi"];
+}
+
+interface ScriptedCall { name: string; input: Record<string, unknown>; ok: boolean; output?: string; server?: string; hold?: boolean }
+
+/** The calls a turn makes before its reply, read again each turn so a warm process's turns can differ. */
+function scriptedToolCalls(): ScriptedCall[] {
+  const file = knob("TOOL_CALLS_FILE", "TOOL_CALLS_FILE");
+  const raw = file ? (existsSync(file) ? readFileSync(file, "utf8") : "") : knob("TOOL_CALLS", "TOOL_CALLS") ?? "";
+  if (!raw.trim()) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((call): call is Record<string, unknown> => Boolean(call) && typeof call === "object")
+      .map((call) => ({
+        name: String(call.name ?? "Bash"),
+        input: (call.input as Record<string, unknown>) ?? {},
+        ok: call.ok !== false,
+        ...(typeof call.output === "string" ? { output: call.output } : {}),
+        ...(typeof call.server === "string" ? { server: call.server } : {}),
+        ...(call.hold === true ? { hold: true } : {}),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/** Run the scripted calls in order, each held one until FAKE_PI_RELEASE exists and each `server` call through the MCP
+ * tool the turn really mounted. */
+async function playScriptedCalls(calls: ScriptedCall[], index = 0): Promise<void> {
+  const call = calls[index];
+  if (!call) return;
+  const id = `compat-${index}`;
+  send({ type: "tool_execution_start", toolCallId: id, toolName: call.name, args: call.input });
+  let ok = call.ok;
+  let text = call.output ?? (call.ok ? "ok" : "failed");
+  if (call.server) {
+    try {
+      const result = await callMountedTool(call.name, call.input) as { content?: Array<{ text?: unknown }>; isError?: boolean };
+      const spoken = (result?.content ?? []).map((part) => (typeof part?.text === "string" ? part.text : "")).filter(Boolean).join("\n");
+      if (spoken) text = spoken;
+      ok = result?.isError !== true;
+    } catch (error) {
+      ok = false;
+      text = String((error as Error)?.message ?? error);
     }
-  } catch {}
-  return [{ name: "Bash", input: { command: "echo hi" }, ok: true }];
+  } else if (call.hold) {
+    const release = knob("RELEASE", "RELEASE");
+    await new Promise<void>((resolve) => {
+      const poll = setInterval(() => {
+        if (turnAborted || !release || !existsSync(release)) return;
+        clearInterval(poll);
+        resolve();
+      }, 100);
+    });
+  }
+  send({
+    type: "tool_execution_end", toolCallId: id, toolName: call.name, isError: !ok,
+    // Text, as the real engine hands a shell result up: the transcript shows what the command printed, not a JSON envelope.
+    result: text,
+  });
+  // A model takes a moment to write its next call; back-to-back frames would only test the coalescing.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  return playScriptedCalls(calls, index + 1);
+}
+
+function exitAfterTurn(): void {
+  if (!knob("EXIT_AFTER_TURN", "EXIT_AFTER_TURN")) return;
+  setTimeout(() => process.exit(0), 50);
 }
 
 function finishCompatTurn(replies: string[]): void {
@@ -384,9 +513,70 @@ function finishCompatTurn(replies: string[]): void {
   send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: text } });
   send({ type: "turn_end", message: { stopReason: "end_turn", usage }, usage });
   send({ type: "agent_end", isTerminal: true });
+  exitAfterTurn();
 }
 
-let turnAborted = false;
+/** A turn that fails as the engine reports it, rather than with a reply. */
+function failTurn(message: string): void {
+  send({ type: "turn_end", message: { stopReason: "error", errorMessage: message }, usage: { input: 0, output: 0 } });
+  send({ type: "agent_end", isTerminal: true });
+  exitAfterTurn();
+}
+
+/** The retired fixture's `slow` turn: its scripted calls, then a reply once the finish gate exists. */
+let steered: string[] = [];
+function slowTurn(promptText: string): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  steered = [];
+  const own = ownPromptText(promptText);
+  const finish = () => {
+    if (turnAborted) return;
+    if (knob("SLOW_TAIL_TOOL", "SLOW_TAIL_TOOL")) {
+      send({ type: "tool_execution_start", toolCallId: "tail", toolName: "Bash", args: { command: "echo tail" } });
+      send({ type: "tool_execution_end", toolCallId: "tail", toolName: "Bash", isError: false, result: { content: [{ type: "text", text: "tail" }] } });
+    }
+    const gate = knob("SLOW_FINISH_GATE", "SLOW_FINISH_GATE");
+    if (gate && existsSync(gate)) {
+      try {
+        if (readFileSync(gate, "utf8").trim() === "fail") return failTurn("fixture turn failed");
+      } catch {}
+    }
+    const tail = steered.length ? ` + steered: ${steered.join(" | ")}` : "";
+    finishCompatTurn([`reply to: ${own}${tail}`]);
+  };
+  void playScriptedCalls(scriptedToolCalls()).then(() => {
+    const gate = knob("SLOW_FINISH_GATE", "SLOW_FINISH_GATE");
+    if (!gate) return void setTimeout(finish, 800);
+    const poll = setInterval(() => {
+      if (turnAborted) return void clearInterval(poll);
+      if (!existsSync(gate)) return;
+      clearInterval(poll);
+      // Timers run before the poll phase that reads the pipe, so finishing here could leave a steer unread.
+      setImmediate(finish);
+    }, 10);
+  });
+}
+
+/** The bridge for the retired fixture's `happy`/`hang` turns. */
+function compatPrompt(promptText: string): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  steered = [];
+  const hang = knob("MODE", "MODE") === "hang";
+  const reply = () => {
+    if (!hang) return finishCompatTurn(nextReplies(promptText));
+    const release = knob("RELEASE", "RELEASE");
+    if (!release) return void setInterval(() => {}, 1_000);
+    const poll = setInterval(() => {
+      if (turnAborted) return void clearInterval(poll);
+      if (!existsSync(release)) return;
+      clearInterval(poll);
+      finishCompatTurn(nextReplies(promptText));
+    }, 100);
+  };
+  void playScriptedCalls(scriptedToolCalls()).then(reply);
+}
 /** pi sends the system prompt only on a session's first turn (and on a re-anchor); later turns carry the note that
  * replaced its volatile half. Keep both so evidence and `expectSystemIncludes` see what the model actually has. */
 let roomFullSystem: string | null = null;
@@ -405,6 +595,7 @@ function roomIntegration(): AgentsIntegration {
 function streamRoomTurn(message: string): void {
   send({ type: "agent_start" });
   send({ type: "turn_start" });
+  steered = [];
   const integration = roomIntegration();
   // The time line leads each turn's own text; the words before it are the system prompt on a session's first
   // turn, or the volatile-context note that replaced part of it on a later one. Either is what the model reads now.
@@ -428,11 +619,12 @@ function streamRoomTurn(message: string): void {
       send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
       send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: progress } });
     },
-    () => [],
+    () => steered,
     {
       integration,
       system,
       systemChecks,
+      approvalMode: approvalModeAtBoot,
       ownText: ownTurnText({ message: { content: text } }),
       context: message,
       tools: mountedTools.map((tool) => tool.label?.split(":").at(-1) ?? tool.name),
@@ -466,22 +658,6 @@ function delayTurn(message: string): void {
   setTimeout(() => {
     if (!turnAborted) finishCompatTurn([`echo: ${message}`]);
   }, Number(process.env.FAKE_PI_DELAY_MS ?? 1_200));
-}
-
-function compatPrompt(): void {
-  send({ type: "agent_start" });
-  send({ type: "turn_start" });
-  for (const [index, call] of compatToolCalls().entries()) {
-    const id = `compat-${index}`;
-    send({ type: "tool_execution_start", toolCallId: id, toolName: call.name, args: call.input });
-    send({ type: "tool_execution_end", toolCallId: id, toolName: call.name, isError: !call.ok, result: { content: [{ type: "text", text: call.ok ? "ok" : "failed" }] } });
-  }
-  const replies = compatReply();
-  if (process.env.FAKE_CLAUDE_MODE === "hang") {
-    setInterval(() => {}, 1_000);
-    return;
-  }
-  finishCompatTurn(replies);
 }
 
 let buf = "";
@@ -602,6 +778,12 @@ function handle(cmd: any) {
       send({ type: "response", command: "prompt", success: true });
       turnAborted = false;
       const promptText = typeof cmd.message === "string" ? cmd.message : "";
+      const promptLog = knob("PROMPTS", "PROMPTS");
+      if (promptLog) {
+        try {
+          appendFileSync(promptLog, JSON.stringify({ message: { content: promptText } }) + "\n");
+        } catch {}
+      }
       if (process.env.FAKE_PI_ROOM_PLAN) {
         streamRoomTurn(promptText);
         return;
@@ -618,8 +800,12 @@ function handle(cmd: any) {
         delayTurn(promptText);
         return;
       }
+      if (mode === "slow" || knob("MODE", "MODE") === "slow") {
+        slowTurn(promptText);
+        return;
+      }
       if (claudeCompat) {
-        compatPrompt();
+        compatPrompt(promptText);
         return;
       }
       if (mode === "tooluse") streamToolTurn();
@@ -641,6 +827,15 @@ function handle(cmd: any) {
         try {
           appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ steer: { id: cmd.id, message: cmd.message } }) + "\n");
         } catch {}
+      }
+      if (typeof cmd.message === "string") {
+        steered.push(ownPromptText(cmd.message));
+        const received = knob("STEER_RECEIVED", "STEER_RECEIVED");
+        if (received) {
+          try {
+            writeFileSync(received, "received");
+          } catch {}
+        }
       }
       const steerAck = (frame: any, success: boolean) =>
         send({

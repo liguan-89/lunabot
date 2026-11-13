@@ -634,6 +634,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
               ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
               OMB_THREAD_ID: turn.threadId,
+              // The level this child was booted at, so an extension or a fixture can report what a turn ran under.
+              ...(turn.approvalMode ? { OMB_APPROVAL_MODE: turn.approvalMode } : {}),
               OMB_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
             }),
           }, "bot");
@@ -777,6 +779,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         try {
           send({ type: "abort" });
         } catch {}
+        // pi cancels cleanly; a Stop is never a failed turn. A harness stop (the loop guard) says why in its own row.
         return settle(true, "cancelled");
       };
 

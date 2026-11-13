@@ -1,4 +1,4 @@
-// @devs end to end: a fixture server with the synthetic Claude CLI and a fake MausBot team endpoint on loopback. A
+// @devs end to end: a fixture server with the synthetic pi CLI and a fake MausBot team endpoint on loopback. A
 // message that tags @devs sends exactly one report, with the bot's report_bug summary or, when the bot never calls it,
 // with the server's own facts; secrets are masked, the conversation itself never goes, and the person sees the line.
 // Then the loop closes: the server asks the team about its reports (every 1.5 s here), the person's message shows each
@@ -12,6 +12,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 const KEY = `sk-ant-${"k".repeat(40)}`;
 const TOKEN = `ghp_${"t".repeat(36)}`;
@@ -83,6 +84,7 @@ beforeAll(async () => {
     OMB_DEVS_STATUS_MS: "1500",
     FAKE_CLAUDE_TOOL_CALLS_FILE: join(script, "tool-calls.json"),
     FAKE_CLAUDE_REPLY_FILE: join(script, "reply.txt"),
+    FAKE_PI_MOUNT_TOOLS: "1",
   });
   url = fixture.info.url;
   expect((await api("PATCH", "/api/config", { profile: { name: "Ada", email: "Ada@Example.com" } })).status).toBe(200);
@@ -116,7 +118,7 @@ it("sends one report with the bot's report_bug summary and the facts, redacted, 
   expect(report!.description).toContain("Steps to reproduce: 1. Attach a picture\n2. Send it");
   expect(report!.diagnostics).toContain(`Conversation: ${scout.threadId}`);
   expect(report!.diagnostics).toContain("Bot: Scout");
-  expect(report!.diagnostics).toMatch(/Engine: Verification fixture \(claude\), model /);
+  expect(report!.diagnostics).toMatch(/Engine: Verification pi \(pi\), model /);
   expect(report!.diagnostics).toContain("tool Bash failed: convert: command not found");
   expect(report!.diagnostics).toContain("Summary from a bot: yes, by Scout (report_bug)");
   const whole = JSON.stringify(report);
@@ -124,8 +126,8 @@ it("sends one report with the bot's report_bug summary and the facts, redacted, 
   expect(whole).not.toContain("I sent your report to the team.");
   expect(whole).not.toContain("convert in.png out.webp");
 
-  const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { prompt: unknown };
-  expect(JSON.stringify(dump.prompt)).toContain("this message tags @devs, so it is a bug report for the DEX BOT team");
+  const dumpPrompt = piTurns(piDumpPath(fixture.info.dataDir)).map((turn) => turn.prompt).join("\n");
+  expect(dumpPrompt).toContain("this message tags @devs, so it is a bug report for the DEX BOT team");
   const line = "Sent to the DEX BOT team (report report-1). Milind and Omkar get it by email and will reply to ada@example.com.";
   await until(async () => (await rows()).some((row) => row.kind === "activity" && row.tool?.name === `notice: ${line}`), 20_000);
   const tool = (await rows()).find((row) => row.kind === "activity" && row.tool?.name === "report_bug");

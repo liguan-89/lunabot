@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
 const FAKE_MCP = fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url));
 
@@ -28,12 +29,9 @@ it("a bot's server from a conversation folder is kept in its own folder, and a s
     sends += 1;
     const text = `Use your tools, take ${sends}`;
     await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text, sendId: `own-mcp-e2e-send-${String(sends).padStart(4, "0")}` }, 202);
-    let dump: any;
-    await expect.poll(() => {
-      try { dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); } catch { return false; }
-      return String(dump.cwd).includes(bot.id) && JSON.stringify(dump.prompt).includes(text);
-    }, { timeout: 20_000 }).toBe(true);
-    return { mounts: dump.mcpConfig.mcpServers as Record<string, any>, settled: async () => {
+    let turn: ReturnType<typeof piTurnHolding>;
+    await expect.poll(() => Boolean(turn = piTurnHolding(piDumpPath(fixture.info.dataDir), text)), { timeout: 20_000 }).toBe(true);
+    return { mounts: (turn!.launch?.mcpConfig?.mcpServers ?? {}) as Record<string, any>, settled: async () => {
       await expect.poll(async () => (await api("GET", `/api/threads/${bot.threadId}/messages`)).messages
         .some((message: any) => message.role === "bot" && String(message.text).startsWith("reply to:") && String(message.text).includes(text)), { timeout: 20_000 }).toBe(true);
     } };

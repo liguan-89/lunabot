@@ -12,6 +12,7 @@ import { APP_EXTENSION_KEY } from "../shared/app.ts";
 import { CSP_META_PREFIX } from "../shared/app-frame/document.ts";
 import { APP_ONLY_REFUSAL } from "./mcp-app-observer.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
 const FAKE_APP = fileURLToPath(new URL("./testing/fake-stdio-app-server.ts", import.meta.url));
 const BOARD_URI = "ui://fake-app/board.html";
@@ -33,7 +34,7 @@ it("learns a server's apps, observes its tool call into an app row, and runs its
     expect(response.status, JSON.stringify(result).slice(0, 400)).toBe(expected);
     return result;
   };
-  const dump = () => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
+  const launched = () => piTurnHolding(piDumpPath(fixture.info.dataDir), "Show me the board");
   const logged = () => existsSync(frames) ? readFileSync(frames, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
   try {
     await api("POST", "/api/mcp/servers", { name: "board", command: process.execPath, args: ["--experimental-strip-types", "--no-warnings", FAKE_APP], env: { FAKE_APP_LOG: frames } }, 201);
@@ -49,7 +50,7 @@ it("learns a server's apps, observes its tool call into an app row, and runs its
     await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text: "Show me the board", sendId: "apps-mcp-e2e-send-0001" }, 202);
     let mounts: any;
     await expect.poll(() => {
-      try { mounts = dump().mcpConfig.mcpServers; } catch { return false; }
+      mounts = launched()?.launch?.mcpConfig?.mcpServers;
       return Boolean(mounts?.agents && mounts?.board);
     }, { timeout: 15_000 }).toBe(true);
     const token: string = mounts.agents.env.OMB_COMMS_TOKEN;

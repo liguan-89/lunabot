@@ -51,9 +51,10 @@ it("keeps the fixture blind to this machine's installed CLIs (#2035)", async () 
       return response.json() as Promise<Record<string, any>>;
     };
     const { instances } = await get("/api/instances") as { instances: Array<{ instanceId: string; snapshot: { state: string } }> };
-    expect(instances.find((instance) => instance.instanceId === "chatgpt")?.snapshot.state).toBe("unavailable");
+    // This build runs one agent, the fake pi the fixture puts on its sealed PATH; no other engine is offered.
+    expect(instances.map((instance) => instance.instanceId)).toEqual(["pi"]);
     expect(instances.filter((instance) => instance.snapshot.state === "available").map((instance) => instance.instanceId))
-      .toEqual(["claude"]);
+      .toEqual(["pi"]);
     if (cli) {
       // Each lookup restarts the login-shell PATH probe, whose result lands a moment later: ask again after it would have.
       for (let attempt = 0; attempt < 3; attempt++) {

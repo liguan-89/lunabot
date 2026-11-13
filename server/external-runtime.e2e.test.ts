@@ -1,7 +1,7 @@
 // `<data dir>/external-runtimes.json` gives a bot whose engine also runs outside this server a standing capability for a pinned thread.
 import { once } from "node:events";
 import { spawn } from "node:child_process";
-import { chmodSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, writeFileSync } from "node:fs";
 import { request } from "node:http";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -11,7 +11,7 @@ import { launchVerificationServer, verificationServerEnvironment, type Verificat
 import { ENVELOPE_MARK } from "./runtime/envelope.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
-import { ownTurnText } from "./testing/room-handoff-agent.ts";
+import { piDumpPath, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 const TOKEN = "external-runtime-fixture-token-0123456789abcdef";
 
@@ -34,7 +34,7 @@ const asRuntime = (method: string, path: string, body?: unknown, token = TOKEN) 
 const createBot = async (name: string) =>
   (await api("POST", "/api/bots", {
     name,
-    modelSelection: { instanceId: "claude", model: "claude-sonnet-5" },
+    modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
     requireAvailableModel: true,
   })).body.bot;
 const botState = async (botId: string) =>
@@ -42,7 +42,8 @@ const botState = async (botId: string) =>
 const runtimesFile = () => join(data, "external-runtimes.json");
 const rows = () => readHandoffs(data);
 const latestTurnText = (): string => {
-  try { return ownTurnText(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).prompt); } catch { return ""; }
+  const last = piTurns(piDumpPath(data)).at(-1);
+  return last ? piTurnText(last) : "";
 };
 
 beforeAll(async () => {
