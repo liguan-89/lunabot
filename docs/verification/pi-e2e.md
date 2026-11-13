@@ -96,6 +96,9 @@ pnpm vitest run server/main-thread.e2e.test.ts
   crash and restart.
 - `server/routine-continuity.e2e.test.ts` — a routine's previous report reaches
   the next turn only when continuity is on.
+- `server/runtime-paths.e2e.test.ts` — routine, consultation, one-way and
+  external-runtime paths, plus a crash rerun; the agents token comes from the
+  fake pi launch dump (`fake-pi-dump.jsonl`).
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
 - `server/room-context.e2e.test.ts` — not yet: pi reports no context-window

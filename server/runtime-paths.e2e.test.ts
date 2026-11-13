@@ -23,7 +23,7 @@ const jsonl = (path: string): any[] => existsSync(path)
   ? readFileSync(path, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
 
 async function scenario(test: (f: any) => Promise<void>) {
-  const parentEnv: NodeJS.ProcessEnv = { ...process.env };
+  const parentEnv: NodeJS.ProcessEnv = { ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
   const url = session.info.url;
   const dataDir = session.info.dataDir;
@@ -84,13 +84,13 @@ async function scenario(test: (f: any) => Promise<void>) {
     const tokenOf = async (threadId: string): Promise<string> => {
       let found = "";
       await expect.poll(() => {
-        try {
-          const dump = JSON.parse(readFileSync(session.fixtureDumpPath, "utf8"));
-          const env = dump.mcpConfig?.mcpServers?.agents?.env;
-          if (env?.OMB_THREAD_ID !== threadId) return false;
+        for (const launch of jsonl(join(dataDir, "fake-pi-dump.jsonl"))) {
+          const env = launch.mcpConfig?.mcpServers?.agents?.env;
+          if (env?.OMB_THREAD_ID !== threadId || !env.OMB_COMMS_TOKEN) continue;
           found = env.OMB_COMMS_TOKEN;
-          return Boolean(found);
-        } catch { return false; }
+          return true;
+        }
+        return false;
       }, { timeout: 20_000 }).toBe(true);
       return found;
     };
@@ -99,8 +99,8 @@ async function scenario(test: (f: any) => Promise<void>) {
     const ready = (name: string) => join(dataDir, `${name}.ready`);
     const awaitReady = (name: string) => expect.poll(() => existsSync(ready(name)), { timeout: 30_000 }).toBe(true);
     const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-    const restart = async () => {
-      await waitForExit(server, { signal: "SIGTERM" });
+    const restart = async (signal: NodeJS.Signals = "SIGTERM") => {
+      await waitForExit(server, { signal });
       const env = verificationServerEnvironment(parentEnv, dataDir, Number(new URL(url).port));
       const log = openSync(session.info.logPath, "a", 0o600);
       server = spawn(process.execPath, verificationServerArgs(env), { cwd: ROOT, env, stdio: ["ignore", log, log] });
@@ -297,7 +297,8 @@ it("R6 a restart while a routine's teammate runs reruns the teammate once and th
 
   // A cut scripted turn writes no evidence; the rerun reaches the same gate in the new process.
   unlinkSync(f.ready("r6-peer"));
-  await f.restart();
+  // pi stops cleanly on SIGTERM, which cancels the turn; cut it the way a crash does.
+  await f.restart("SIGKILL");
   await expect.poll(async () => (await f.runState(run.id))?.status, { timeout: 20_000 }).toBe("waiting");
   expect((await f.runState(run.id)).error).toBeUndefined();
   await f.awaitReady("r6-peer");
