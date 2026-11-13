@@ -61,7 +61,7 @@ async function serveStub() {
 beforeAll(async () => {
   stub = await serveStub();
   globalThis.fetch = (input, init = {}) => realFetch(input, { ...init, headers: { ...Object.fromEntries(new Headers(init.headers)), "x-openmausbot-desktop-owner": owner } });
-  fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner, OMB_TEST_INTERNAL_CAPABILITY_KEY: CAPABILITY_KEY,
+  fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner, OMB_TEST_INTERNAL_CAPABILITY_KEY: CAPABILITY_KEY, OMB_TEST_FIXTURE_ENGINE: "pi",
     OMB_TEST_DESKTOP_PAGES_ACCESS: JSON.stringify({ url: `${stub.url}/api/cloud/pages/token`, token: FAKE_DESKTOP_TOKEN }) }, undefined, undefined, undefined, undefined, { scripted: true });
 }, 90_000);
 afterAll(async () => {

@@ -76,6 +76,14 @@ pnpm vitest run server/main-thread.e2e.test.ts
   work conversation and its pause.
 - `server/memory-order.e2e.test.ts` — memory-gated starts, queueing and a typed
   stop.
+- `server/folder-pages.e2e.test.ts` and
+  `server/published-pages.e2e.test.ts` — pages shown, pointed at and published.
+- `server/image-generation.e2e.test.ts` — image generation through the fake
+  provider.
+- `server/parked-cards.e2e.test.ts` — cards that park a job and survive a
+  restart.
+- `server/person-only-answers.e2e.test.ts` — a question about the person's own
+  accounts stays theirs.
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
 - `server/room-context.e2e.test.ts` — not yet: pi reports no context-window
