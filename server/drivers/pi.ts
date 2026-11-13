@@ -631,6 +631,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             env: piEnvironment({
               ...process.env,
               ...input.environment,
+              // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
+              ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
+              OMB_THREAD_ID: turn.threadId,
               OMB_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
             }),
           }, "bot");

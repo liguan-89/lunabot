@@ -1,10 +1,11 @@
 # Verifying OpenMausBot
 
 > Engine teardown: this build runs pi as its only agent. The pi fixture lives in
-> [pi-e2e.md](pi-e2e.md) (`pnpm test:e2e:pi`); the remaining end-to-end recipes
-> still drive the retired Claude/Codex test CLIs, so `pnpm test:e2e` is expected
-> to fail until they are ported. `pnpm test` runs the unit and renderer suites
-> only; `pnpm dev` / the desktop smoke checks cover the hand-driven paths.
+> [pi-e2e.md](pi-e2e.md) (`pnpm test:e2e:pi`) and a growing set of recipes has
+> moved onto it. The recipes still driving the retired Claude/Codex test CLIs
+> make `pnpm test:e2e` expected to fail until they are ported. `pnpm test` runs
+> the unit and renderer suites only; `pnpm dev` / the desktop smoke checks cover
+> the hand-driven paths.
 
 OpenMausBot has one development control surface: `pnpm control:omb`. It runs
 the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP

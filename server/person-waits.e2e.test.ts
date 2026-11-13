@@ -10,7 +10,7 @@ import { launchRestartableServer, type RestartableServer } from "./testing/resta
 const ASK = { tool: "request_credential", arguments: { label: "Mailbox password", reason: "To read the mail.", delivery: "ref" } };
 
 async function scenario(test: (f: Awaited<ReturnType<typeof fixture>>) => Promise<void>): Promise<void> {
-  const server = await launchRestartableServer({ scripted: true });
+  const server = await launchRestartableServer({ scripted: true, engine: "pi" });
   try {
     await test(await fixture(server));
   } finally {

@@ -44,7 +44,7 @@ function readRuntimeDb(dataDir: string): RuntimeDb {
 const chipText = (message: any): string => [message.tool?.name, message.tool?.output, message.text].filter(Boolean).join("\n");
 
 async function scenario(test: (f: any) => Promise<void>) {
-  const parentEnv: NodeJS.ProcessEnv = { ...process.env };
+  const parentEnv: NodeJS.ProcessEnv = { ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" };
   const session = await launchVerificationServer(parentEnv, undefined, undefined, undefined, undefined, { scripted: true });
   const url = session.info.url;
   const dataDir = session.info.dataDir;
@@ -281,7 +281,8 @@ it("S3 runs a cut teammate turn again once after a restart and resumes the Chief
   await expect.poll(() => f.roots()[0]?.status, { timeout: 15_000 }).toBe("waiting");
   const cut = f.children()[0];
 
-  await f.restart("SIGTERM");
+  // pi stops cleanly on SIGTERM, which cancels rather than cuts the turn; a crash is SIGKILL.
+  await f.restart("SIGKILL");
   f.open("mira");
 
   await expect.poll(() => f.turns(f.mira.id).map((record: any) => record.planKey), { timeout: 30_000 }).toEqual(["M-RERUN"]);

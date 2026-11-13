@@ -11,6 +11,10 @@
 
 import { appendFileSync, readFileSync } from "node:fs";
 
+import piMcpExtension from "../drivers/pi-mcp-extension.ts";
+import { TURN_CLOCK_LEAD } from "../turn-clock.ts";
+import { ownTurnText, runRoomHandoffAgent, type AgentsIntegration } from "./room-handoff-agent.ts";
+
 const claudeCompat = process.env.FAKE_PI_CLAUDE_COMPAT === "1";
 const mode = process.env.FAKE_PI_MODE ?? "happy";
 const modelPairs = (process.env.FAKE_PI_MODELS ?? "ollama-cloud/glm-5.2,openai/gpt-4o")
@@ -22,6 +26,71 @@ const modelPairs = (process.env.FAKE_PI_MODELS ?? "ollama-cloud/glm-5.2,openai/g
   });
 
 const argv = process.argv.slice(2);
+
+interface MountedTool {
+  name: string;
+  label?: string;
+  invoke(id: string, params: unknown, signal: AbortSignal | undefined, onUpdate: unknown, context: unknown): Promise<unknown>;
+}
+
+interface RegisteredTool {
+  name: string;
+  label?: string;
+  execute(id: string, params: unknown, signal: AbortSignal | undefined, onUpdate: unknown, context: unknown): Promise<unknown>;
+}
+
+/** Mount the turn's MCP servers through the real pi extension, as the real pi process would. The plan runner then
+ * calls their tools through the same client, so a scripted step exercises the actual extension and agents proxy. */
+async function mountMcpTools(): Promise<MountedTool[]> {
+  const tools: MountedTool[] = [];
+  try {
+    await piMcpExtension({
+      registerTool: (definition: RegisteredTool) => {
+        tools.push({ name: definition.name, label: definition.label, invoke: definition.execute });
+      },
+      on: () => {},
+    });
+    return tools;
+  } catch (error) {
+    process.stderr.write(`[fake-pi] mounting MCP tools failed: ${String((error as Error)?.message ?? error)}\n`);
+    return tools;
+  }
+}
+
+const mountedTools = process.env.FAKE_PI_ROOM_PLAN && !argv.includes("--version") && !argv.includes("-v") ? await mountMcpTools() : [];
+let planStep = 0;
+const uiWaiters = new Map<string, (value: string | undefined) => void>();
+let uiSeq = 0;
+
+/** A plan's ask_user runs through pi's native question card, as the real extension does. */
+function askUi(method: "select" | "input", title: string, options?: string[]): Promise<string | undefined> {
+  const id = `plan-ui-${++uiSeq}`;
+  return new Promise((resolve) => {
+    uiWaiters.set(id, resolve);
+    send({ type: "extension_ui_request", id, method, title, ...(options ? { options } : {}) });
+  });
+}
+
+/** Plan scripts speak the retired ask card's {question, choices}; pi's ask_user takes a questions array. */
+function askArgs(args: unknown): unknown {
+  if (!args || typeof args !== "object" || Array.isArray(args)) return args;
+  const legacy = args as { question?: unknown; choices?: unknown };
+  if (typeof legacy.question !== "string") return args;
+  const labels = Array.isArray(legacy.choices) ? legacy.choices.filter((choice): choice is string => typeof choice === "string") : [];
+  return { questions: [{ question: legacy.question, ...(labels.length ? { options: labels.map((label) => ({ label })) } : {}) }] };
+}
+
+async function callMountedTool(name: string, args: unknown): Promise<unknown> {
+  const tool = mountedTools.find((candidate) => candidate.label === `agents:${name}` || candidate.name === name || candidate.name.endsWith(`_${name}`));
+  if (!tool) throw new Error(`the pi fixture mounted no agents tool named ${name}`);
+  return tool.invoke(`plan-${++planStep}`, name === "ask_user" ? askArgs(args) : args, undefined, undefined, {
+    ui: {
+      confirm: async () => true,
+      select: (title: string, options: string[]) => askUi("select", title, options),
+      input: (title: string) => askUi("input", title),
+    },
+  });
+}
 
 if (argv.includes("--version") || argv.includes("-v")) {
   process.stdout.write("pi 0.84.2 (fake)\n");
@@ -311,6 +380,75 @@ function finishCompatTurn(replies: string[]): void {
   send({ type: "agent_end", isTerminal: true });
 }
 
+let turnAborted = false;
+/** pi sends the system prompt only on a session's first turn; keep it so evidence reads like a launched session. */
+let roomSystemPrompt: string | null = null;
+
+/** The identity the drivers give a pi child, in the same shape the room plan runner reads from an agents server.
+ * The runner starts that command for a direct MCP path; this turn runs its steps through the mounted tools instead,
+ * so the process only has to stay alive until the turn settles. */
+function roomIntegration(): AgentsIntegration {
+  const env: Record<string, string> = { OMB_COMMS_TOKEN: "fixture" };
+  if (process.env.OMB_BOT_ID) env.OMB_BOT_ID = process.env.OMB_BOT_ID;
+  if (process.env.OMB_THREAD_ID) env.OMB_THREAD_ID = process.env.OMB_THREAD_ID;
+  return { command: process.execPath, args: ["-e", "setInterval(() => {}, 1_000)"], env };
+}
+
+function streamRoomTurn(message: string): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  const integration = roomIntegration();
+  // The time line leads each turn's own text; everything before it on the first turn is the system prompt.
+  const clockAt = message.indexOf(TURN_CLOCK_LEAD);
+  if (clockAt >= 0) roomSystemPrompt ??= message.slice(0, clockAt).trimEnd();
+  const text = clockAt >= 0 ? message.slice(clockAt) : message;
+  const system = roomSystemPrompt ?? message;
+  void runRoomHandoffAgent([], process.env.FAKE_PI_ROOM_PLAN!, { message: { content: text } },
+    { integration, system },
+    (progress) => {
+      if (turnAborted) return;
+      send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+      send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: progress } });
+    },
+    () => [],
+    {
+      integration,
+      system,
+      ownText: ownTurnText({ message: { content: text } }),
+      context: message,
+      tools: mountedTools.map((tool) => tool.label?.split(":").at(-1) ?? tool.name),
+      callTool: (name, args) => callMountedTool(name, args),
+      onToolStart: (trace) => send({ type: "tool_execution_start", toolCallId: trace.id, toolName: trace.name, args: trace.args }),
+      onToolEnd: (trace) => send({ type: "tool_execution_end", toolCallId: trace.id, toolName: trace.name, isError: !trace.ok, result: trace.result }),
+    }).then((reply) => {
+      if (turnAborted) return;
+      finishCompatTurn([reply]);
+    }).catch((error) => {
+      if (turnAborted) return;
+      send({ type: "turn_end", message: { stopReason: "error", errorMessage: String(error) }, usage: { input: 0, output: 0 } });
+      send({ type: "agent_end", isTerminal: true });
+    });
+}
+
+/** A held turn says nothing (or one partial line) until the person stops it. */
+function holdTurn(partial?: string): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  if (partial) {
+    send({ type: "message_update", assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
+    send({ type: "message_update", assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta: partial } });
+  }
+  setInterval(() => {}, 1_000);
+}
+
+function delayTurn(message: string): void {
+  send({ type: "agent_start" });
+  send({ type: "turn_start" });
+  setTimeout(() => {
+    if (!turnAborted) finishCompatTurn([`echo: ${message}`]);
+  }, Number(process.env.FAKE_PI_DELAY_MS ?? 1_200));
+}
+
 function compatPrompt(): void {
   send({ type: "agent_start" });
   send({ type: "turn_start" });
@@ -443,6 +581,24 @@ function handle(cmd: any) {
         } catch {}
       }
       send({ type: "response", command: "prompt", success: true });
+      turnAborted = false;
+      const promptText = typeof cmd.message === "string" ? cmd.message : "";
+      if (process.env.FAKE_PI_ROOM_PLAN) {
+        streamRoomTurn(promptText);
+        return;
+      }
+      if (process.env.FAKE_PI_HOLD_ON && promptText.includes(process.env.FAKE_PI_HOLD_ON)) {
+        holdTurn();
+        return;
+      }
+      if (process.env.FAKE_PI_STALL_ON && promptText.includes(process.env.FAKE_PI_STALL_ON)) {
+        holdTurn("half an answer, then silence");
+        return;
+      }
+      if (process.env.FAKE_PI_DELAY_ON && promptText.includes(process.env.FAKE_PI_DELAY_ON)) {
+        delayTurn(promptText);
+        return;
+      }
       if (claudeCompat) {
         compatPrompt();
         return;
@@ -487,7 +643,13 @@ function handle(cmd: any) {
       steerAck(cmd, !process.env.FAKE_PI_STEER_REFUSE);
       return;
     }
-    case "extension_ui_response":
+    case "extension_ui_response": {
+      const waiter = uiWaiters.get(String(cmd.id));
+      if (waiter) {
+        uiWaiters.delete(String(cmd.id));
+        waiter(cmd.cancelled ? undefined : String(cmd.value ?? ""));
+        return;
+      }
       if (process.env.FAKE_PI_DUMP) {
         try {
           appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ uiResponse: cmd }) + "\n");
@@ -496,7 +658,9 @@ function handle(cmd: any) {
       if (cmd.id === "ask-1") finishPermissionTurn();
       else if (cmd.id === "ask-select" || cmd.id === "ask-input") finishPermissionTurn();
       return;
+    }
     case "abort":
+      turnAborted = true;
       send({ type: "turn_end", message: { stopReason: "cancelled", usage: { input: 0, output: 0 } }, usage: { input: 0, output: 0 } });
       return;
     default:

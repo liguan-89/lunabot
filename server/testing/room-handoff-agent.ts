@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { waitForExit } from "./cleanup.ts";
 
-type AgentsIntegration = { command: string; args: string[]; env: Record<string, string> };
+export type AgentsIntegration = { command: string; args: string[]; env: Record<string, string> };
 
 /** A `script` entry runs on the turn whose own text holds every `match` string, once or, with `repeat`, every time. */
 type ScriptEntry = { key: string; match: string[]; repeat?: boolean; [field: string]: unknown };
@@ -96,21 +96,44 @@ async function screenCalls(server: AgentsIntegration, count: number): Promise<Ar
   return calls;
 }
 
+/** An agent's dialect passes the servers it mounted and the words it was given. */
+export interface RoomEngineView {
+  /** The servers the turn mounted, when the engine hands them over instead of an `--mcp-config` argv. */
+  mcpServers?: Record<string, AgentsIntegration>;
+  /** The agents server itself, when the engine already found it. */
+  integration?: AgentsIntegration;
+  /** Call a tool through the engine's own mounted MCP client instead of spawning the agents server here. */
+  callTool?: (name: string, args: unknown) => Promise<unknown>;
+  /** The raw tool names that client mounted, for the evidence's opening tools/list entry. */
+  tools?: string[];
+  /** The system prompt, when the engine gives it to the fixture directly. */
+  system?: string;
+  /** The turn's own words, for `script` matching (defaults to Claude's prompt shape). */
+  ownText?: string;
+  /** System plus prompt, for `byPrompt` and the resumed check (defaults to Claude's shape). */
+  context?: string;
+  onToolStart?: (trace: { id: string; name: string; args: unknown }) => void;
+  onToolEnd?: (trace: { id: string; name: string; args: unknown; result: unknown; ok: boolean }) => void;
+}
+
 /** Plan fields: `launch` replaces Claude's argv files; `progress`/`progressAfterGate` stream around the
  * gate; `approve` asks through Claude's permission-prompt tool (`replyIfDenied` otherwise);
  * `screenCalls` calls the mounted computer that many times; `echoSteered` ends a scripted reply with what
  * `steered` says was sent into the turn while it ran. */
 export async function runRoomHandoffAgent(argv: string[], planPath: string, prompt?: unknown,
   launch?: { integration: AgentsIntegration; system: string; evidence?: Record<string, unknown> },
-  progress?: (text: string) => void, steered: () => readonly string[] = () => []): Promise<string> {
+  progress?: (text: string) => void, steered: () => readonly string[] = () => [],
+  view: RoomEngineView = {}): Promise<string> {
   const arg = (flag: string) => argv[argv.indexOf(flag) + 1];
-  const mounted = launch ? [] : Object.values(JSON.parse(readAtLaunch(arg("--mcp-config"))).mcpServers as Record<string, AgentsIntegration>);
   // With a tool selection every server sits behind the gate, which names its upstream in OMB_GATE_UPSTREAM.
   const agentEnv = (server: AgentsIntegration): Record<string, string> => {
     if (server.env?.OMB_COMMS_TOKEN || server.env?.OMB_BOT_ID) return server.env;
     try { return (JSON.parse(server.env?.OMB_GATE_UPSTREAM ?? "") as AgentsIntegration).env ?? {}; } catch { return {}; }
   };
-  const integration = launch?.integration ?? mounted.find(s => agentEnv(s).OMB_COMMS_TOKEN) ?? mounted.find(s => agentEnv(s).OMB_BOT_ID);
+  const servers = (): Record<string, AgentsIntegration> => JSON.parse(readAtLaunch(arg("--mcp-config"))).mcpServers;
+  const mountedMap: Record<string, AgentsIntegration> = view.mcpServers ?? (launch ? {} : servers());
+  const mounted = Object.values(mountedMap);
+  const integration = launch?.integration ?? view.integration ?? mounted.find(s => agentEnv(s).OMB_COMMS_TOKEN) ?? mounted.find(s => agentEnv(s).OMB_BOT_ID);
   if (!integration) {
     // `${planPath}.gates.json` [{ promptIncludes, gateFile }] holds a delegated reply until its gate exists.
     const gatesPath = `${planPath}.gates.json`;
@@ -131,10 +154,10 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   const botId = agent.OMB_BOT_ID;
   const launchNote = splitLaunchNote(prompt);
   prompt = launchNote.prompt;
-  const launchSystem = launch?.system ?? readAtLaunch(arg("--append-system-prompt-file"));
+  const launchSystem = view.system ?? launch?.system ?? readAtLaunch(arg("--append-system-prompt-file"));
   const system = launchNote.note && typeof launchSystem === "string" ? `${launchSystem}\n\n${launchNote.note}` : launchSystem;
   // Claude snapshots the launch-time system prompt; later instructions arrive in the user message.
-  const turnContext = `${system}\n${JSON.stringify(prompt)}`;
+  const turnContext = view.context ?? `${system}\n${JSON.stringify(prompt)}`;
   const resumed = turnContext.includes("Your downstream room requests have settled.");
   // `byPrompt` [{ promptIncludes, plan }] picks a plan by what the turn was sent; first match wins.
   const botPlan = JSON.parse(readFileSync(planPath, "utf8"))[botId] ?? {};
@@ -144,7 +167,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   const turnIndex = previous.filter(p => p.botId === botId).length;
   // `script`: an unscripted turn fails loudly, and one-shot entries win over `repeat` ones.
   const script = botPlan.script as ScriptEntry[] | undefined;
-  const own = script ? ownTurnText(prompt) : "";
+  const own = view.ownText ?? ownTurnText(prompt);
   const used = new Set(previous.filter(p => p.botId === botId && p.planKey).map(p => p.planKey as string));
   const matches = (entry: ScriptEntry) => entry.match.every(text => own.includes(text));
   const entry = script && (script.find(e => !e.repeat && !used.has(e.key) && matches(e)) ?? script.find(e => e.repeat && matches(e)));
@@ -195,20 +218,33 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   const evidence: unknown[] = [];
   let approval: { behavior: string; message?: string } | undefined;
   let screen: Array<{ ms: number; state: unknown }> | undefined;
+  const viaEngine = (name: string, args: unknown): Promise<any> => view.callTool!(name, args)
+    // The engine's own client may throw where a raw MCP call returns isError; plans read either the same way.
+    .then((result) => ({ result }), (error) => ({ result: { isError: true, content: [{ type: "text", text: String((error as Error)?.message ?? error) }] } }));
   try {
     return await Promise.race([failed, (async () => {
-      await call("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "room-fixture", version: "1" } });
-      evidence.push(await call("tools/list"));
-      evidence.push(await call("tools/call", { name: "list_room_targets", arguments: {} }));
+      if (!view.callTool) {
+        await call("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "room-fixture", version: "1" } });
+        evidence.push(await call("tools/list"));
+        evidence.push(await call("tools/call", { name: "list_room_targets", arguments: {} }));
+      } else {
+        // The same two opening entries a raw MCP path produces, so plans keep their evidence indexes.
+        evidence.push({ result: { tools: (view.tools ?? []).map((name) => ({ name })) } });
+        evidence.push(await viaEngine("list_room_targets", {}));
+      }
       // `server` names another server the turn mounted ("browser", or a person's own MCP server); `capture` { name: regex }
       // keeps the first group of the result for later steps' `{{name}}`; `delayMs` waits that long before the step.
       const captured: Record<string, string> = {};
-      for (const step of steps) {
+      for (const [index, step] of steps.entries()) {
         if (typeof step.delayMs === "number") await new Promise((resolve) => setTimeout(resolve, step.delayMs));
-        const server = step.server ? (launch ? undefined : JSON.parse(readAtLaunch(arg("--mcp-config"))).mcpServers?.[step.server] as AgentsIntegration | undefined) : undefined;
-        if (step.server && !server) throw new Error(`A scripted ${step.server} step needs that server mounted for the turn`);
+        const server = step.server ? mountedMap[step.server] : undefined;
+        if (step.server && !server && !view.callTool) throw new Error(`A scripted ${step.server} step needs that server mounted for the turn`);
         const args = withCaptured(step.arguments, captured);
-        const response = server ? await serverToolCall(server, step.tool, args) : await call("tools/call", { name: step.tool ?? "coordinate_bots", arguments: args });
+        const trace = { id: `step-${index}`, name: step.tool ?? "coordinate_bots", args };
+        view.onToolStart?.(trace);
+        const response = view.callTool ? await viaEngine(trace.name, args)
+          : server ? await serverToolCall(server, step.tool, args) : await call("tools/call", { name: step.tool ?? "coordinate_bots", arguments: args });
+        view.onToolEnd?.({ ...trace, result: response, ok: !response.error && !response.result?.isError });
         evidence.push({ step, response });
         if (Boolean(response.error || response.result?.isError) !== Boolean(step.expectError)) throw new Error(`Unexpected tool outcome: ${JSON.stringify(response)}`);
         for (const [name, pattern] of Object.entries((step.capture ?? {}) as Record<string, string>)) {
@@ -220,14 +256,13 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
       }
       // A person's answer, like a test gate, is owned by the parent test's timeout.
       if (plan.gateFile || plan.approve || plan.screenCalls) clearTimeout(timer);
-      const mounted = launch ? {} : JSON.parse(readAtLaunch(arg("--mcp-config"))).mcpServers as Record<string, AgentsIntegration>;
       if (plan.approve) {
-        if (!mounted.ogb || !argv.includes("--permission-prompt-tool")) throw new Error("A scripted approval needs Claude's permission-prompt tool");
-        approval = await askPermission(mounted.ogb, plan.approve);
+        if (!mountedMap.ogb || !argv.includes("--permission-prompt-tool")) throw new Error("A scripted approval needs Claude's permission-prompt tool");
+        approval = await askPermission(mountedMap.ogb, plan.approve);
       }
       if (plan.screenCalls) {
-        if (!mounted.computer?.env?.OMB_CONTROL_URL) throw new Error("Scripted screen calls need a mounted computer");
-        screen = await screenCalls(mounted.computer, plan.screenCalls);
+        if (!mountedMap.computer?.env?.OMB_CONTROL_URL) throw new Error("Scripted screen calls need a mounted computer");
+        screen = await screenCalls(mountedMap.computer, plan.screenCalls);
       }
       if (typeof plan.progress === "string") progress?.(plan.progress);
       // `writeFiles` { name: content }: files the turn writes in its working folder.

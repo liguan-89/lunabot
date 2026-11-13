@@ -344,6 +344,7 @@ export async function launchVerificationServer(
       } } : {}),
       ...(parentEnv.OMB_TEST_FIXTURE_ENGINE === "pi" ? { pi: {
         driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI_CLI },
+        ...(room?.scripted ? { environment: { FAKE_PI_ROOM_PLAN: join(dataDir, "room-plan.json") } } : {}),
       } } : {}),
       claude: {
         driver: "claudeAgent",

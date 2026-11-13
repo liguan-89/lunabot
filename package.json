@@ -41,7 +41,7 @@
     "typecheck": "tsc -b && tsc -p tsconfig.server.json",
     "test": "vitest run --exclude '**/*.e2e.test.ts' && pnpm broker:test && pnpm test:electron && pnpm test:packaged-server",
     "test:e2e": "vitest run '**/*.e2e.test.ts'",
-    "test:e2e:pi": "vitest run server/pi-turn.e2e.test.ts",
+    "test:e2e:pi": "vitest run server/pi-turn.e2e.test.ts server/main-thread.e2e.test.ts server/handoff-wake.e2e.test.ts server/sign-in-request.e2e.test.ts server/person-stop.e2e.test.ts server/usage-traces.e2e.test.ts server/self-threads.e2e.test.ts server/stop-stops-helpers.e2e.test.ts server/remembered-stop.e2e.test.ts server/webhook-post-thread.e2e.test.ts server/webhook-room-post.e2e.test.ts server/room-queue.e2e.test.ts server/person-waits.e2e.test.ts server/room-coordination.e2e.test.ts server/runtime-coordination.e2e.test.ts server/crossed-handoffs.e2e.test.ts server/handoff-in-my-folder.e2e.test.ts",
     "test:electron": "node --test \"electron/*.node-test.mjs\"",
     "bench:observation": "node --experimental-strip-types scripts/bench-observation.ts",
     "bench:persistence": "node --experimental-strip-types scripts/bench-persistence.ts",
