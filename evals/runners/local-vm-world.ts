@@ -28,7 +28,7 @@ export class LocalVmWorld extends BaseWorld {
   override async boot(scenario: Scenario): Promise<void> {
     this.fixtureHome = mkdtempSync(join(tmpdir(), "omb-evals-vm-"));
     this.stateFile = join(this.fixtureHome, "vm.json");
-    this.dumpFile = join(this.fixtureHome, "dump.json");
+    this.dumpFile = join(this.fixtureHome, "dump.jsonl");
     const data = join(this.fixtureHome, "data");
     const ui = join(this.fixtureHome, "static");
     this.planPath = join(data, "room-plan.json");
@@ -39,10 +39,10 @@ export class LocalVmWorld extends BaseWorld {
     this.vmState({});
     writeFileSync(join(data, "config.json"), JSON.stringify({
       instances: {
-        claude: {
-          driver: "claudeAgent",
-          config: { cli: join(ROOT, "server", "testing", "fake-claude-cli.ts") },
-          environment: { FAKE_CLAUDE_ROOM_PLAN: this.planPath, FAKE_CLAUDE_DUMP: this.dumpFile },
+        pi: {
+          driver: "piAgent",
+          config: { cli: join(ROOT, "server", "testing", "fake-pi-cli.ts") },
+          environment: { FAKE_PI_ROOM_PLAN: this.planPath, FAKE_PI_DUMP: this.dumpFile },
         },
       },
     }));
@@ -113,25 +113,27 @@ export class LocalVmWorld extends BaseWorld {
     writeFileSync(this.stateFile, JSON.stringify(state));
   }
 
-  /** The fake engine dumps once per process; reads must tolerate a torn
-   * partial write, and every read consumes the file so the next dump is
-   * unambiguous. */
-  private async readDump(timeoutMs: number): Promise<any> {
-    const dump = await waitUntil(
-      "engine dump",
-      () => {
-        if (!existsSync(this.dumpFile)) return null;
-        try {
-          return JSON.parse(readFileSync(this.dumpFile, "utf8"));
-        } catch {
-          return null;
-        }
-      },
+  /** The fake pi appends one line per launch and per prompt; a launch's MCP config names the computer mount. */
+  private engineLines(): any[] {
+    if (!existsSync(this.dumpFile)) return [];
+    return readFileSync(this.dumpFile, "utf8").split("\n").filter(Boolean).flatMap((line) => {
+      try { return [JSON.parse(line)]; } catch { return []; }
+    });
+  }
+
+  /** Waits for the engine to boot once, then returns the launch the fake recorded. */
+  private async waitEngineLaunch(timeoutMs: number): Promise<any> {
+    return waitUntil(
+      "engine launch",
+      () => this.engineLines().find((line) => line.mcpConfig) ?? null,
       (value) => value !== null,
       timeoutMs,
     );
-    rmSync(this.dumpFile, { force: true });
-    return dump;
+  }
+
+  /** The newest launch the driver ran for that bot: its agents env carries the identity. */
+  private launchFor(botId: string): any | null {
+    return this.engineLines().filter((line) => line.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === botId).at(-1) ?? null;
   }
 
   protected override async runWorldStep(step: Step, ctx: WorldContext): Promise<string> {
@@ -141,13 +143,17 @@ export class LocalVmWorld extends BaseWorld {
         return "vm state set: " + JSON.stringify(step.state);
       }
       case "consumeDump": {
-        await this.readDump(step.timeoutMs ?? 20_000);
-        return "engine dump consumed";
+        await this.waitEngineLaunch(step.timeoutMs ?? 20_000);
+        return "engine launch read";
       }
       case "captureComputer": {
-        const dump = await this.readDump(20_000);
-        const computer = dump?.mcpConfig?.mcpServers?.computer;
-        if (!computer?.env?.OMB_CONTROL_URL) throw new Error("no computer mount in dump: " + JSON.stringify(dump?.mcpConfig ?? null));
+        const botId = this.botId(step.bot);
+        const launch = await waitUntil("the bot's engine launch",
+          () => this.launchFor(botId), (value) => value !== null, 20_000);
+        const computer = launch?.mcpConfig?.mcpServers?.computer;
+        if (!computer?.env?.OMB_CONTROL_URL) {
+          throw new Error("no computer mount for " + botId + " in its launch: " + JSON.stringify(Object.keys(launch?.mcpConfig?.mcpServers ?? {})));
+        }
         this.computers.set(step.bot, { url: computer.env.OMB_CONTROL_URL, token: computer.env.OMB_CONTROL_TOKEN });
         return "computer gate captured for " + step.bot;
       }
