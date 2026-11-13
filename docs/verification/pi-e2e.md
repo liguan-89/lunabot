@@ -36,7 +36,9 @@ pnpm vitest run server/main-thread.e2e.test.ts
   plan runner knows whose turn it is and which thread to record.
 - `FAKE_PI_HOLD_ON`, `FAKE_PI_STALL_ON` and `FAKE_PI_DELAY_ON` /
   `FAKE_PI_DELAY_MS` script held, half-spoken and delayed turns for Stop and
-  queue recipes. `FAKE_PI_STEER_REFUSE=1` forces the queued path.
+  queue recipes. `FAKE_PI_STEER_REFUSE=1` forces the queued path, and
+  `FAKE_PI_QUESTION_ON` makes only the prompts holding that substring ask a
+  native select question.
 - The fake still accepts the older `FAKE_CLAUDE_*` names while
   `FAKE_PI_CLAUDE_COMPAT=1` (the launcher sets it whenever a recipe passes one):
   `MODE=happy|slow|hang`, `REPLIES`, `REPLY_FILE`, `REPLY_STATE`,
@@ -205,6 +207,53 @@ pnpm vitest run server/main-thread.e2e.test.ts
   RPC log, restarts that rerun cut turns, and steered messages. The
   rejected-resume ledger, Codex and file-gated steer groups are gone: no driver
   declares strict resume and the single engine cannot be swapped.
+- `server/direct-coordination.e2e.test.ts` — direct bot-to-bot coordination,
+  envelopes, one-way sends, thread targeting and task closing through the
+  fixture's single pi instance. Two Claude-specific subtests are gone: a
+  provider-side transient retry (the fake pi has no such script) and recovery
+  from a rejected `--resume` (pi never rejects a stored session). The
+  OpenAI-compatible step-cap subtest went with `openaiCompat` as an engine, and
+  the ACK-vs-NEEDS subtest went with the one-shot text call that fed it.
+- `server/room-context.e2e.test.ts` — a room's transcript reaches each warm pi
+  turn, another member's turn replaces that warm child, and the compact route
+  refuses a member pi never measured. The token-threshold and dropped-reading
+  subtests were removed: pi reports no provider context-window usage, so there
+  is no reading to fold or drop (the local compaction estimate belongs to
+  direct conversations, not room members).
+- `server/long-running-chief.e2e.test.ts` — a Chief's consult-and-implement
+  job, approval cards reported back to it, restarts that cut teammates, a no-op
+  provider settings save, the stall watchdog, a card that holds only its own
+  job, and person-versus-routine trust. pi asks through its own permission card,
+  so the retired engine's 64-step cap and its approval-timeout clock are gone;
+  the screen-seat subtest went with the Claude `screenCalls` fixture and is
+  covered by `room-roots`/`host-lazy-claim`.
+- `server/headless-cli.e2e.test.ts` — the headless team apply → run --wait →
+  export flow on pi's model and tools; native tool selection applies because pi
+  supports it, instead of the deleted engine's refusal.
+- `server/reply-behaviour.e2e.test.ts` — reply habits, remember/forget and a
+  routine's plain wording through the plan agent's real agents tools. The memory
+  learner's scripted text routes were removed with the Claude/openaiCompat
+  one-shot text call; its About me lines are seeded through the profile instead.
+- `server/key-rejected.e2e.test.ts` — a rejected custom-provider key is reported
+  by `/api/keys/test` (while config still shows the key is on file), a config
+  event reaches SSE, turn failure and recovery are exercised through the fake
+  pi's finish gate, and no key appears in config, instances, frames or logs. The
+  retired `openaiCompat` instance snapshot and its `authenticated/reason` fields
+  are gone: pi's own snapshot is always available because pi holds no key.
+- `server/openai-boat.e2e.test.ts` — a cloud bot's direct, group and scheduled
+  turns claim the loopback Boat, run its native-resolution screenshot, keep the
+  selected model over pi's RPC (`piModelsSet`), offer pi's permission card, and
+  prove human control blocks the computer call. A cleared custom-provider key is
+  no longer part of cloud readiness, so that old refusal was dropped.
+- `server/parallel-threads.e2e.test.ts` — a bot's threads run at once on pi,
+  and the Starter Cloud's slot arithmetic, browser seat and team computer still
+  hold per thread. The old per-engine matrix (Claude, ACP, OpenAI-compatible)
+  is one pi run.
+- `server/thread-aware-bots.e2e.test.ts` — `start_thread`, report-back,
+  `coordinate_bots`, `list_threads` and a Chief's closes, with pi turns held by
+  a gate keyed to their thread (and moved per turn by a `[[gate:NAME]]` in the
+  turn's own words). Model assertions read `piModelsSet`; the signed-out-engine
+  and Cursor/Grok selection subtests were cut with those engines.
 
 ## Not migrated yet
 
@@ -212,21 +261,12 @@ The remaining old e2e recipes still assume the fake Claude CLI's dump
 file, Claude-specific argv (`--permission-mode`, `--restricted`, `--model`) or
 the retired `openaiCompat` / ACP engine instances. Most can now move by reading
 `fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
-assertions with the launch, turn and transcript events. `server/direct-coordination.e2e.test.ts` observes Claude argv and launch dumps;
-`server/room-context.e2e.test.ts` needs a context-window measurement pi does not
-report; `server/parallel-threads.e2e.test.ts` and the `group-goal-run*`,
-`thread-aware-bots`, `long-running-chief` and `reply-behaviour` recipes are
-per-engine matrices or scripted orchestration written against engines this
-build no longer has; `server/digest-control.e2e.test.ts` needs the Claude Code
+assertions with the launch, turn and transcript events. The `group-goal-run*`
+recipes are per-engine matrices written against engines this build no longer
+has; `server/digest-control.e2e.test.ts` needs the Claude Code
 hooks that produced `hookCoverage: "full"` and spill files (pi delivers bounded
 preview results and no hooks). Until then `pnpm test:e2e` (the old suite) is
 expected to fail.
-
-Two engine-specific recipes were left alone rather than rewritten around a
-fixture that no longer exists: `server/key-rejected.e2e.test.ts` observes the
-`openaiCompat` instance's Ready state, which is now the custom provider behind
-pi and has no instance snapshot of its own, and `server/openai-boat.e2e.test.ts`
-drives turns on that retired engine instance.
 
 One more recipe exposes a product gap rather than a fixture gap:
 `server/digest-control.e2e.test.ts` asserts hook-based digest evidence that pi
@@ -239,4 +279,7 @@ Recipes whose only subject was a removed engine were deleted rather than ported:
 `claude-turn-failures`, `cline-engine`, `codex-review`, `copilot-engine`,
 `custom-acp-models`, and the three `opencode-*` suites. They configured the
 `opencodeGo`, `codex`, `claudeAgent`, `copilotAgent`, `clineAgent` or
-`customAcp` drivers, which no longer exist.
+`customAcp` drivers, which no longer exist. `scripts/testing/cline-native`,
+`scripts/testing/cline-ui` and `server/portable-hermes` went with those
+drivers, and `server/hooks` went with Claude Code's hook channel: pi reports no
+`hooks` capability, so that ingestion path has no caller left.

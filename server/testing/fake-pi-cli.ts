@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Fake of the pi coding agent's `--mode rpc --no-session` stdio surface for pi.ts tests. Env knobs:
 //   FAKE_PI_PERMISSION_ON  prompts containing this substring run the permission ask (Run bash: echo hi?) instead of the plan
+//   FAKE_PI_QUESTION_ON  prompts containing this substring ask a select question ("Which colour?") instead of the plan
 //   FAKE_PI_MODE  happy (default) | tooluse | priced | priced-stop | permission | interleave | question-select | question-input
 //     | turn-error | no-models | exit-early | compaction | compaction-recovery
 //     | compaction-recovery-upstream | prompt-reject | omp-chunk
@@ -815,6 +816,14 @@ function handle(cmd: any) {
         send({ type: "agent_start" });
         send({ type: "turn_start" });
         send({ type: "extension_ui_request", id: "ask-1", method: "confirm", title: "Run bash: echo hi?" });
+        return;
+      }
+      // A prompt carrying this substring asks the person a question instead, so a shared instance can hold one
+      // asking bot among quiet ones (the retired ACP fixture's question mode, per prompt).
+      if (process.env.FAKE_PI_QUESTION_ON && promptText.includes(process.env.FAKE_PI_QUESTION_ON)) {
+        send({ type: "agent_start" });
+        send({ type: "turn_start" });
+        send({ type: "extension_ui_request", id: "ask-question", method: "select", title: "Which colour?", options: ["Blue", "Green"] });
         return;
       }
       if (process.env.FAKE_PI_ROOM_PLAN) {

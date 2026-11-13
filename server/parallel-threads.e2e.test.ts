@@ -1,17 +1,19 @@
-// Three threads of one bot, each with a turn held open by a gate only the test releases, as a desktop, personal Cloud and Team Cloud server.
+// Three threads of one bot, each with a pi turn held open by a gate only the test releases, as a desktop, personal Cloud and Team Cloud server.
+// This build runs pi only, so the old per-engine matrix (Claude, an ACP agent, an OpenAI-compatible model) is one pi run.
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
-import { basename, dirname, join } from "node:path";
+import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { cloudPairingSignature, cloudRequestSignature } from "./cloud-home.ts";
 import { CONTROL_BUSY } from "./control-client.ts";
 import { BROWSER_HANDED_OVER, browserBusyText } from "./host/browser-seats.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -28,8 +30,6 @@ class Fixture {
   token = "";
   secret = randomBytes(32).toString("base64url");
   child: ChildProcess | null = null;
-  chat: Server | null = null;
-  chatInFlight: { thread: string; release: () => void }[] = [];
   extraEnv: Record<string, string> = {};
   readonly role: Role;
   constructor(role: Role) {
@@ -54,50 +54,54 @@ class Fixture {
     return { status: response.status, body: await response.json().catch(() => null) as any };
   }
   async start() {
-    const claude = join(this.home, "held-claude.mjs");
-    writeFileSync(claude, `#!/usr/bin/env node
+    // The fake pi holds every turn on a gate named for its thread, so one process per thread can be finished alone.
+    const pi = join(this.home, "held-pi.mjs");
+    writeFileSync(pi, `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") {
-  process.env.FAKE_CLAUDE_MODE = "slow";
-  process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = join(${JSON.stringify(this.gates)}, "release-" + process.pid);
-  process.env.FAKE_CLAUDE_DUMP = join(${JSON.stringify(this.gates)}, "claude-" + process.pid + ".json");
+import { PassThrough } from "node:stream";
+const gates = ${JSON.stringify(this.gates)};
+let thread = process.env.OMB_THREAD_ID ?? null;
+if (!thread && process.env.OMB_MCP_CONFIG) {
+  try {
+    const servers = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8")).mcpServers ?? {};
+    for (const server of Object.values(servers)) thread ??= server?.env?.OMB_THREAD_ID ?? null;
+  } catch {}
 }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
+thread ??= "peer";
+process.env.FAKE_PI_MODE = "slow";
+process.env.FAKE_PI_DUMP = join(gates, thread + ".pi.jsonl");
+process.env.FAKE_PI_SLOW_FINISH_GATE = join(gates, thread + ".gate");
+const relay = new PassThrough();
+const real = process.stdin;
+Object.defineProperty(process, "stdin", { value: relay, configurable: true });
+let held = "";
+real.on("data", (chunk) => {
+  held += chunk;
+  let nl;
+  while ((nl = held.indexOf("\\n")) !== -1) {
+    const line = held.slice(0, nl);
+    held = held.slice(nl + 1);
+    if (line.trim()) {
+      try {
+        const cmd = JSON.parse(line);
+        if (cmd.type === "prompt") {
+          const own = String(cmd.message ?? "");
+          const clockAt = own.lastIndexOf("Current time when this message was sent: ");
+          const marker = /\\[\\[gate:([\\w-]+)\\]\\]/.exec(clockAt >= 0 ? own.slice(clockAt) : own);
+          process.env.FAKE_PI_SLOW_FINISH_GATE = join(gates, (marker?.[1] ?? thread) + ".gate");
+        }
+      } catch {}
+    }
+    relay.write(line + "\\n");
+  }
+});
+real.on("end", () => relay.end());
+await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi-cli.ts")).href)});
 `, { mode: 0o755 });
-    const acp = join(this.home, "held-acp.mjs");
-    writeFileSync(acp, `#!/usr/bin/env node
-process.env.FAKE_ACP_MODE = "echo-gated";
-process.env.FAKE_ACP_GATE_FILE = ${JSON.stringify(join(this.gates, "release"))};
-process.env.FAKE_ACP_RPC_APPEND_FILE = ${JSON.stringify(join(this.gates, "acp-rpc.jsonl"))};
-process.env.FAKE_ACP_MODELS = "fixture-fast";
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-acp-cli.ts")).href)});
-`, { mode: 0o755 });
-    this.chat = createServer((req, res) => {
-      if (req.method !== "POST") { res.writeHead(404).end("{}"); return; }
-      let raw = "";
-      req.on("data", (chunk) => { raw += chunk; });
-      req.on("end", () => {
-        const body = JSON.parse(raw) as { messages?: { role: string; content: unknown }[]; stream?: boolean };
-        const last = JSON.stringify(body.messages?.findLast((m) => m.role === "user")?.content ?? "");
-        const entry = { thread: last, release: () => {
-          res.writeHead(200, { "content-type": "application/json" });
-          res.end(JSON.stringify({ id: "c", object: "chat.completion", choices: [{ index: 0, finish_reason: "stop", message: { role: "assistant", content: "done" } }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }));
-        } };
-        this.chatInFlight.push(entry);
-      });
-    });
-    await new Promise<void>((resolve) => this.chat!.listen(0, "127.0.0.1", resolve));
-    const chatUrl = `http://127.0.0.1:${(this.chat.address() as AddressInfo).port}/v1`;
     writeFileSync(join(this.dataDir, "config.json"), JSON.stringify({
       features: { smartSetupChoices: false },
-      instances: {
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", displayName: "Claude", config: { cli: claude } },
-        heldAcp: { driver: "customAcp", displayName: "Held ACP", config: { cli: acp } },
-      },
-      openaiCompat: { key: "synthetic-fixture-key", url: chatUrl, model: "fixture-model" },
+      instances: { pi: { driver: "piAgent", displayName: "Verification pi", config: { cli: pi } } },
     }));
     const port = await freePortBlock([0, 1]);
     this.base = `http://127.0.0.1:${port}`;
@@ -131,47 +135,37 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-ac
     return (await this.api("POST", "/api/auth/pair", { code: granted.code })).body.token as string;
   }
   release() {
-    writeFileSync(join(this.gates, "release"), "finish");
-    for (const held of this.chatInFlight.splice(0)) held.release();
-    for (const name of this.claudeDumps()) writeFileSync(join(this.gates, `release-${name.slice("claude-".length, -".json".length)}`), "finish");
+    // Every thread whose process has launched a turn gets its gate; a warm child keeps its gate across turns.
+    for (const name of this.piDumps()) writeFileSync(join(this.gates, `${name.slice(0, -".pi.jsonl".length)}.gate`), "finish");
   }
-  private turnDump(threadId: string) {
-    const name = this.claudeDumps().find((file) => basename(this.dump(file).cwd) === threadId);
-    if (!name) throw new Error(`no turn is running in ${threadId}`);
-    return name;
-  }
-  /** Finishes only this thread's Claude turn. */
+  /** Finishes only this thread's pi turn. */
   finish(threadId: string) {
-    writeFileSync(join(this.gates, `release-${this.turnDump(threadId).slice("claude-".length, -".json".length)}`), "finish");
+    writeFileSync(join(this.gates, `${threadId}.gate`), "finish");
   }
-  /** The MCP servers this thread's Claude turn was launched with. */
-  servers(threadId: string) { return this.dump(this.turnDump(threadId)).mcpConfig.mcpServers; }
-  dump(file: string) { return JSON.parse(readFileSync(join(this.gates, file), "utf8")); }
-  claudeDumps() {
-    return readdirSync(this.gates).filter((name) => {
-      if (!name.startsWith("claude-") || !name.endsWith(".json")) return false;
-      try { this.dump(name); return true; } catch { return false; }
-    });
+  /** The MCP servers this thread's pi turn was launched with. */
+  servers(threadId: string) {
+    const launch = this.turns(threadId).at(-1)?.launch;
+    if (!launch?.mcpConfig?.mcpServers) throw new Error(`no turn is running in ${threadId}`);
+    return launch.mcpConfig.mcpServers;
+  }
+  private turns(threadId: string) { return piTurns(join(this.gates, `${threadId}.pi.jsonl`)); }
+  /** A turn of this thread has been given to pi. */
+  started(threadId: string) { return this.turns(threadId).length > 0; }
+  piDumps() {
+    return readdirSync(this.gates).filter((name) => name.endsWith(".pi.jsonl"));
   }
   async stop() {
     if (this.child && this.child.exitCode === null) { this.child.kill("SIGTERM"); await waitForExit(this.child); }
-    await new Promise<void>((resolve) => this.chat ? this.chat.close(() => resolve()) : resolve());
     await removeTempDir(this.home);
   }
-  claudeTurnsStarted() { return this.claudeDumps().length; }
-  acpPrompts() {
-    const file = join(this.gates, "acp-rpc.jsonl");
-    return existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((row) => row.method === "session/prompt") : [];
+  turnsStarted() {
+    return this.piDumps().reduce((count, name) => count + piTurns(join(this.gates, name)).length, 0);
   }
 }
 
 const roles: Role[] = ["desktop", "home", "team"];
-const CLAUDE = { instanceId: "claude", model: "claude-sonnet-5" };
-const engines = [
-  { name: "the Claude CLI", selection: CLAUDE, running: (f: Fixture) => f.claudeTurnsStarted() },
-  { name: "an ACP agent", selection: { instanceId: "heldAcp", model: "fixture-fast" }, running: (f: Fixture) => f.acpPrompts().length },
-  { name: "an OpenAI-compatible model", selection: { instanceId: "openaiCompat", model: "fixture-model" }, running: (f: Fixture) => f.chatInFlight.length },
-];
+// The one agent this build has: pi, over the fake CLI's two scripted models.
+const PI = { instanceId: "pi", model: "ollama-cloud/glm-5.2" };
 
 async function botWithThreads(f: Fixture, selection: { instanceId: string; model: string }, count: number, name = "Scout") {
   const created = await f.api("POST", "/api/bots", { name, modelSelection: selection });
@@ -203,12 +197,12 @@ describe.each(roles)("one bot's threads on a %s server", (role) => {
   let f: Fixture;
   afterEach(async () => { await f?.stop(); });
 
-  it.each(engines)("are all running at once on $name", async ({ selection, running }) => {
+  it("are all running at once on pi", async () => {
     f = new Fixture(role);
     await f.start();
-    const { botId, threads } = await botWithThreads(f, selection, 3);
+    const { botId, threads } = await botWithThreads(f, PI, 3);
     await Promise.all(threads.map((threadId, i) => send(f, botId, threadId, `Long job ${i}`)));
-    await expect.poll(() => running(f), { timeout: 20_000, interval: 50 }).toBe(3);
+    await expect.poll(() => f.turnsStarted(), { timeout: 20_000, interval: 50 }).toBe(3);
     expect((await busyThreads(f, botId)).sort()).toEqual([...threads].sort());
     f.release();
     await expect.poll(async () => (await botRow(f, botId)).busy, { timeout: 20_000, interval: 100 }).toBe(false);
@@ -217,10 +211,10 @@ describe.each(roles)("one bot's threads on a %s server", (role) => {
   it("still count as busy while one finishes and another runs, so a Cloud does not sleep under the other", async () => {
     f = new Fixture(role);
     await f.start();
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads } = await botWithThreads(f, PI, 2);
     await send(f, botId, threads[0]!, "Long job 0");
     await send(f, botId, threads[1]!, "Long job 1");
-    await expect.poll(() => f.claudeTurnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
+    await expect.poll(() => f.turnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
     f.finish(threads[0]!);
     await expect.poll(() => busyThreads(f, botId), { timeout: 20_000, interval: 100 }).toEqual([threads[1]]);
     expect((await botRow(f, botId)).busy).toBe(true);
@@ -247,7 +241,7 @@ function inertBrowser(dir: string) {
   ].join("\n"), { mode: 0o755 });
   return browser;
 }
-const browse = (f: Fixture, threadId: string) => internal(f, "/api/internal/browser/mcp", f.servers(threadId).browser.env.OMB_MCP_TOKEN_BROWSER, {
+const browse = (f: Fixture, threadId: string) => internal(f, "/api/internal/browser/mcp", f.servers(threadId).browser!.env!.OMB_MCP_TOKEN_BROWSER, {
   method: "tools/call", params: { name: "agent_browser_snapshot", arguments: {} },
 });
 
@@ -259,10 +253,10 @@ describe.skipIf(process.platform === "win32").each(["desktop", "home"] as const)
     f = new Fixture(role);
     f.extraEnv = { OMB_AGENT_BROWSER_PATH: inertBrowser(f.home), OMB_COMPUTER_CALL_WAIT_MS: "500", ...env };
     await f.start();
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads } = await botWithThreads(f, PI, 2);
     await send(f, botId, threads[0]!, "First job");
     await send(f, botId, threads[1]!, "Second job");
-    await expect.poll(() => f.claudeTurnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
+    await expect.poll(() => f.turnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
     return { botId, threads };
   };
 
@@ -333,19 +327,19 @@ describe.each(["desktop", "team"] as const)("two threads of a bot on the team's 
     const requestId = randomUUID();
     const made = await f.api("POST", "/api/team-computers", { requestId, name: "Ops desktop", acknowledgeCost: true });
     expect(made.status, JSON.stringify(made.body)).toBe(201);
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads } = await botWithThreads(f, PI, 2);
     expect((await f.api("PATCH", `/api/bots/${botId}`, { section: "Ops" })).status).toBe(200);
     const assigned = await f.api("PATCH", `/api/team-computers/${requestId}`, { section: "Ops", acknowledgeSharedAccess: true });
     expect(assigned.status, JSON.stringify(assigned.body)).toBe(200);
 
     await send(f, botId, threads[0]!, "First job");
     await send(f, botId, threads[1]!, "Second job");
-    await expect.poll(() => f.claudeTurnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
+    await expect.poll(() => f.turnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
     expect((await busyThreads(f, botId)).sort(), "neither has touched the computer, so neither waited for it").toEqual([...threads].sort());
     expect((await rows(f, threads[1]!)).filter((name) => name.startsWith("Waiting for its turn"))).toEqual([]);
 
     const screenshot = (threadId: string) => {
-      const env = f.servers(threadId).computer.env;
+      const env = f.servers(threadId).computer!.env!;
       return internal(f, "/api/internal/computer/mcp", env.OMB_MCP_TOKEN_COMPUTER, { method: "tools/call", params: { name: "screenshot", arguments: {} } });
     };
     let first = await screenshot(threads[0]!);
@@ -365,12 +359,12 @@ describe.each(["desktop", "team"] as const)("two threads of a bot on the team's 
 
 describe("a Starter Cloud", () => {
   let f: Fixture;
-  const started = (threadId: string) => f.claudeDumps().some((file) => basename(f.dump(file).cwd) === threadId);
+  const started = (threadId: string) => f.started(threadId);
   const whenStarted = (threadId: string) => expect.poll(() => started(threadId), { timeout: 20_000, interval: 50 }).toBe(true);
   /** What the bot's own turn calls as start_thread, on the turn's own capability. */
   const startThread = async (fromThread: string, title: string, toBotId?: string) => {
-    const agents = f.servers(fromThread).agents;
-    const env = agents.env.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents.env;
+    const agents = f.servers(fromThread).agents!;
+    const env = agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!;
     return internal(f, "/api/internal/threads", env.OMB_COMMS_TOKEN, { title, message: `Work on ${title}`, ...(toBotId ? { toBotId } : {}) });
   };
   const ownThread = async (botId: string, title: string) => {
@@ -397,14 +391,14 @@ describe("a Starter Cloud", () => {
     expect(saved.status).toBe(200);
     expect(saved.body.threads).toEqual({ maxConcurrentPerBot: 1 });
     expect(saved.body.cloudStarter).toBe(true);
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 3);
+    const { botId, threads } = await botWithThreads(f, PI, 3);
     await send(f, botId, threads[1]!, "First separate job");
     await whenStarted(threads[1]!);
     const queued = await f.api("POST", `/api/bots/${botId}/messages`, { threadId: threads[2], text: "Second separate job" });
     expect(queued.body).toMatchObject({ queued: true, reason: "capacity" });
     expect(started(threads[2]!)).toBe(false);
     // Per bot, not per machine: another bot's own thread runs beside it.
-    const other = await botWithThreads(f, CLAUDE, 1, "Other");
+    const other = await botWithThreads(f, PI, 1, "Other");
     await send(f, other.botId, other.threads[0]!, "Another bot's job");
     await whenStarted(other.threads[0]!);
     f.finish(threads[1]!);
@@ -413,7 +407,7 @@ describe("a Starter Cloud", () => {
 
   it("always starts the main chat the person last asked in, beside a routine, and the thread behind them starts once both are done", async () => {
     await starter();
-    const { botId, threads: [main, other] } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads: [main, other] } = await botWithThreads(f, PI, 2);
     await send(f, botId, main!, "The chat the person is in");
     await whenStarted(main!);
     f.finish(main!);
@@ -432,7 +426,7 @@ describe("a Starter Cloud", () => {
 
   it("lets a running turn's own thread through, so a turn waiting on its child never hangs behind itself", async () => {
     await starter();
-    const { botId, threads: [main] } = await botWithThreads(f, CLAUDE, 1);
+    const { botId, threads: [main] } = await botWithThreads(f, PI, 1);
     await send(f, botId, main!, "Parent job");
     await whenStarted(main!);
     const opened = await startThread(main!, "Own child");
@@ -447,9 +441,9 @@ describe("a Starter Cloud", () => {
 
   it("lets a hand-off through to a busy bot, and one to a bot whose own turn is still running", async () => {
     await starter();
-    const a = await botWithThreads(f, CLAUDE, 1, "Ada");
-    const b = await botWithThreads(f, CLAUDE, 1, "Ben");
-    const c = await botWithThreads(f, CLAUDE, 1, "Cyd");
+    const a = await botWithThreads(f, PI, 1, "Ada");
+    const b = await botWithThreads(f, PI, 1, "Ben");
+    const c = await botWithThreads(f, PI, 1, "Cyd");
     await send(f, a.botId, a.threads[0]!, "Ada's job");
     await whenStarted(a.threads[0]!);
     await send(f, b.botId, b.threads[0]!, "Ben's own job");
@@ -470,8 +464,8 @@ describe("a Starter Cloud", () => {
 
   it("keeps a teammate's hand-off out of the person's slot, and the person's own threads still run one at a time", async () => {
     await starter();
-    const a = await botWithThreads(f, CLAUDE, 1, "Ada");
-    const b = await botWithThreads(f, CLAUDE, 3, "Ben");
+    const a = await botWithThreads(f, PI, 1, "Ada");
+    const b = await botWithThreads(f, PI, 3, "Ben");
     await send(f, a.botId, a.threads[0]!, "Ada's job");
     await whenStarted(a.threads[0]!);
     const toBen = await startThread(a.threads[0]!, "For Ben", b.botId);
@@ -485,8 +479,8 @@ describe("a Starter Cloud", () => {
 
   it("brings a teammate's result back into the thread that asked, while another thread of that bot holds the slot", async () => {
     await starter();
-    const a = await botWithThreads(f, CLAUDE, 2, "Ada");
-    const b = await botWithThreads(f, CLAUDE, 1, "Ben");
+    const a = await botWithThreads(f, PI, 2, "Ada");
+    const b = await botWithThreads(f, PI, 1, "Ben");
     const [job, busy] = a.threads;
     await send(f, a.botId, job!, "Ask Ben");
     await whenStarted(job!);
@@ -506,7 +500,7 @@ describe("a Starter Cloud", () => {
 
   it("holds a routine behind the running thread, starts it by itself when the slot frees, and refuses a guarded send at the cap", async () => {
     await starter();
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads } = await botWithThreads(f, PI, 2);
     await send(f, botId, threads[1]!, "Busy thread");
     await whenStarted(threads[1]!);
     const refused = await f.api("POST", `/api/bots/${botId}/messages/guarded`, { threadId: threads[0], sendId: randomUUID(), text: "From a script", expectedActiveLeafId: null, expectedApprovalMode: "ask" });
@@ -524,16 +518,16 @@ describe("a Starter Cloud", () => {
     f = new Fixture("home");
     await f.start();
     if (tier) await tellPlan(tier);
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 2);
+    const { botId, threads } = await botWithThreads(f, PI, 2);
     await send(f, botId, threads[0]!, "One");
     await send(f, botId, threads[1]!, "Two");
-    await expect.poll(() => f.claudeTurnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
+    await expect.poll(() => f.turnsStarted(), { timeout: 20_000, interval: 50 }).toBe(2);
     expect((await f.api("GET", "/api/config")).body.cloudStarter).toBe(false);
   }, 90_000);
 
   it("runs more as soon as the Admin says the plan is bigger", async () => {
     await starter();
-    const { botId, threads } = await botWithThreads(f, CLAUDE, 3);
+    const { botId, threads } = await botWithThreads(f, PI, 3);
     await send(f, botId, threads[0]!, "One");
     await whenStarted(threads[0]!);
     expect((await f.api("POST", `/api/bots/${botId}/messages`, { threadId: threads[1], text: "Two" })).body).toMatchObject({ queued: true, reason: "capacity" });

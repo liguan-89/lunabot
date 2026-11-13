@@ -124,14 +124,14 @@ inference, and do not establish vision/tool support for every provider model.
 ### Boat cloud computer
 
 `pnpm exec vitest run server/cloud-computer-tools.test.ts server/harness-mcp-proxy.test.ts server/openai-boat.e2e.test.ts server/hosted-desktop.e2e.test.ts`
-tests an owned loopback Boat/API fixture. It covers direct chats, group member
-turns and cloud routines retaining the selected model, screenshots arriving as
-image parts, and human control blocking an approved action. The tool tests
-cover each advertised action, invalid arguments (checked against the
-advertised schema before anything reaches the Boat), expired turn
-capabilities and in-flight cancellation without replay. The hosted-desktop
-fixture runs the same tools for a Claude bot and proves Boat's own runner is
-never asked.
+tests an owned loopback Boat/API fixture. The pi recipe covers direct chats,
+group member turns and cloud routines retaining the selected model (asserted
+over pi's RPC, `piModelsSet`), the Boat's native-resolution screenshot command,
+pi's permission card, and human control blocking the computer call. The tool
+tests cover each advertised action, invalid arguments (checked against the
+advertised schema before anything reaches the Boat), expired turn capabilities
+and in-flight cancellation without replay. The hosted-desktop fixture runs the
+same tools for a Claude bot and proves Boat's own runner is never asked.
 
 `pnpm exec vitest run server/cloud-computer-lazy.e2e.test.ts server/cloud-computer-slow-start.e2e.test.ts server/computer-selection.test.ts server/room-turn-end.test.ts server/boat-wait-ready.test.ts src/components/ComputerPanel.lazy.test.ts`
 proves a cloud computer starts only when the bot uses it. Against a loopback

@@ -57,17 +57,15 @@ describe("openmausbot headless: team apply → run --wait job → export", () =>
     const doctor = await cli(["doctor", "--json"]);
     expect(doctor.code, doctor.stderr).toBe(0);
     expect(json(doctor)).toMatchObject({ ok: true, server: { capabilities: { jobs: true } }, session: { kind: "loopback" } });
-    model = json(await cli(["models", "--json"])).instances.find((instance: any) => instance.instanceId === "claude").models.default;
+    model = json(await cli(["models", "--json"])).instances.find((instance: any) => instance.instanceId === "pi").models.default;
     teamFile = join(dir, "launch-room.yaml");
     writeFileSync(teamFile, `version: 1
 defaults:
   team: Launch Room
-  model: claude/${model}
+  model: pi/${model}
   approval: full
   computer: "off"
   browser: { enabled: true, profile: guest }
-  # Claude limits MCP tools only; this keeps a mail server's tools from every visitor
-  tools: { deny: ["mcp:mail:*"] }
 teams:
   - name: Launch Room
     prune: true
@@ -113,7 +111,7 @@ rooms:
     const bots = await botsNow();
     const byName = (name: string) => bots.find((bot) => bot.name === name);
     [lead, priya, marcus] = ["Room Lead", "Priya", "Marcus"].map(byName);
-    expect(lead).toMatchObject({ section: "Launch Room", chiefOfStaff: true, modelSelection: { instanceId: "claude", model } });
+    expect(lead).toMatchObject({ section: "Launch Room", chiefOfStaff: true, modelSelection: { instanceId: "pi", model } });
     expect([priya, marcus].every((bot) => bot.section === "Launch Room")).toBe(true);
     const room = json(await cli(["channels", "--json"])).channels.find((channel: any) => channel.name === "Debrief");
     expect(room).toMatchObject({ section: "Launch Room", bulletin: "Talk over what each visitor saw.", defaultResponder: { kind: "member", botId: lead.id } });
@@ -203,13 +201,18 @@ rooms:
     expect(bots.find((bot) => bot.name === "Marcus Lee")?.id).toBe(marcus.id);
     expect((await cli(["team", "apply", next, "--check"])).code).toBe(0);
 
-    const before = JSON.stringify(await botsNow());
     const native = join(dir, "native.yaml");
-    writeFileSync(native, readFileSync(next, "utf8").replace('tools: { deny: ["mcp:mail:*"] }', 'tools: { deny: ["native:Bash"] }'));
-    const refused = await cli(["team", "apply", native]);
-    expect(refused.code).toBe(1);
-    expect(refused.stderr).toContain('bot "Priya": claudeAgent: native tool selection is not supported by this engine');
-    expect(JSON.stringify(await botsNow())).toBe(before);
+    writeFileSync(native, readFileSync(next, "utf8").replace("  - name: Priya\n", "  - name: Priya\n    tools: { deny: [\"native:Bash\"] }\n"));
+    // pi supports native tool selection, so the same file now applies instead of being refused by the deleted engine.
+    const applied = await cli(["team", "apply", native]);
+    expect(applied.code, applied.stderr).toBe(0);
+    expect(applied.stdout).toContain('bot "Priya": update tools changed');
+    const stored = async (name: string) => ((await (await fetch(`${session.info.url}/api/bots?messages=0`)).json()) as any).bots.find((bot: any) => bot.name === name);
+    expect((await stored("Priya"))?.toolScope).toEqual({ deny: ["native:Bash"] });
+    // The fake pi has no active-tool API, so a scoped turn cannot run: clear the selection before the next subtest's job.
+    expect((await fetch(`${session.info.url}/api/bots/${priya.id}`, { method: "PATCH",
+      headers: { "content-type": "application/json", origin: session.info.url }, body: JSON.stringify({ toolScope: null }) })).status).toBe(200);
+    expect((await stored("Priya"))?.toolScope).toBeUndefined();
   }, 120_000);
 
   it("stops a job whose teammate hangs when its time runs out, the teammate included", async () => {
