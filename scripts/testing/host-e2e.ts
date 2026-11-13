@@ -7,7 +7,6 @@ import path from "node:path";
 export const E2E = /\.e2e\.test\.[cm]?[jt]s$/;
 
 export const HOST_E2E: Readonly<Record<string, string>> = {
-  "server/acp-shutdown.e2e.test.ts": "Windows ends an engine on SIGTERM at once, without its exit handlers",
   "server/browser/egress/hostile-pages.e2e.test.ts": "a real Chrome behind the egress gate on each OS",
   "server/cloud-lending.e2e.test.ts": "Windows keeps a running process's working folder, and the lent computer is named for its OS",
   "server/cloud-send-kinds.e2e.test.ts": "this computer's paths, Windows backslashes included, in what a moved bot is told",

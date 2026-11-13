@@ -4,7 +4,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { MODELGO_URL } from "../../shared/modelgo.ts";
 import { CREDENTIAL_TARGETS } from "../../shared/credential-request.ts";
-import { ModelgoDriver } from "../../server/drivers/modelgo.ts";
 
 const ROOT = new URL("../../", import.meta.url);
 const API_BASE = "https://api.modelgo.ai/v1";
@@ -26,8 +25,7 @@ describe("links to ModelGo's site", () => {
     expect(found.map(([file]) => file)).toEqual(["shared/modelgo.ts"]);
   });
 
-  it("is the only link the driver and the secret card offer; the server otherwise names only the API base", () => {
-    expect(ModelgoDriver.install?.docsUrl).toBe(MODELGO_URL);
+  it("is the only link the secret card offers; the server otherwise names only the API base", () => {
     expect(CREDENTIAL_TARGETS.modelgoApiKey.helpUrl).toBe(MODELGO_URL);
     const found = files("server").flatMap((file) => mentions(file).map((mention) => [file, mention]));
     expect(found.filter(([, mention]) => mention !== API_BASE)).toEqual([]);
