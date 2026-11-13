@@ -12,7 +12,9 @@
 import { appendFileSync, readFileSync } from "node:fs";
 
 import piMcpExtension from "../drivers/pi-mcp-extension.ts";
+import { VOLATILE_CONTEXT_CLEARED_NOTE, VOLATILE_CONTEXT_NOTE_PREFIX } from "../drivers/prompt-split.ts";
 import { TURN_CLOCK_LEAD } from "../turn-clock.ts";
+import { resolveAgentsCall } from "../../shared/agents-tool-names.ts";
 import { ownTurnText, runRoomHandoffAgent, type AgentsIntegration } from "./room-handoff-agent.ts";
 
 const claudeCompat = process.env.FAKE_PI_CLAUDE_COMPAT === "1";
@@ -81,9 +83,11 @@ function askArgs(args: unknown): unknown {
 }
 
 async function callMountedTool(name: string, args: unknown): Promise<unknown> {
-  const tool = mountedTools.find((candidate) => candidate.label === `agents:${name}` || candidate.name === name || candidate.name.endsWith(`_${name}`));
-  if (!tool) throw new Error(`the pi fixture mounted no agents tool named ${name}`);
-  return tool.invoke(`plan-${++planStep}`, name === "ask_user" ? askArgs(args) : args, undefined, undefined, {
+  // Plans may speak a retired alias ("list_triggers", "create_trigger"); the proxy maps it to today's action tool.
+  const call = resolveAgentsCall(name, (args ?? {}) as Record<string, unknown>);
+  const tool = mountedTools.find((candidate) => candidate.label === `agents:${call.name}` || candidate.name === call.name || candidate.name.endsWith(`_${call.name}`));
+  if (!tool) throw new Error(`the pi fixture mounted no agents tool named ${call.name} (mounted: ${mountedTools.map((candidate) => candidate.name).join(", ")})`);
+  return tool.invoke(`plan-${++planStep}`, call.name === "ask_user" ? askArgs(call.arguments) : call.arguments, undefined, undefined, {
     ui: {
       confirm: async () => true,
       select: (title: string, options: string[]) => askUi("select", title, options),
@@ -383,7 +387,9 @@ function finishCompatTurn(replies: string[]): void {
 }
 
 let turnAborted = false;
-/** pi sends the system prompt only on a session's first turn; keep it so evidence reads like a launched session. */
+/** pi sends the system prompt only on a session's first turn (and on a re-anchor); later turns carry the note that
+ * replaced its volatile half. Keep both so evidence and `expectSystemIncludes` see what the model actually has. */
+let roomFullSystem: string | null = null;
 let roomSystemPrompt: string | null = null;
 
 /** The identity the drivers give a pi child, in the same shape the room plan runner reads from an agents server.
@@ -404,7 +410,15 @@ function streamRoomTurn(message: string): void {
   // turn, or the volatile-context note that replaced part of it on a later one. Either is what the model reads now.
   const clockAt = message.indexOf(TURN_CLOCK_LEAD);
   const prefix = clockAt >= 0 ? message.slice(0, clockAt).trimEnd() : "";
-  if (prefix) roomSystemPrompt = prefix;
+  let systemChecks = roomFullSystem ?? message;
+  if (prefix.startsWith(VOLATILE_CONTEXT_NOTE_PREFIX) || prefix.startsWith(VOLATILE_CONTEXT_CLEARED_NOTE)) {
+    roomSystemPrompt = prefix;
+    systemChecks = `${roomFullSystem ?? ""}\n${prefix}`;
+  } else if (prefix) {
+    roomFullSystem = prefix;
+    roomSystemPrompt = prefix;
+    systemChecks = prefix;
+  }
   const text = clockAt >= 0 ? message.slice(clockAt) : message;
   const system = roomSystemPrompt ?? message;
   void runRoomHandoffAgent([], process.env.FAKE_PI_ROOM_PLAN!, { message: { content: text } },
@@ -418,6 +432,7 @@ function streamRoomTurn(message: string): void {
     {
       integration,
       system,
+      systemChecks,
       ownText: ownTurnText({ message: { content: text } }),
       context: message,
       tools: mountedTools.map((tool) => tool.label?.split(":").at(-1) ?? tool.name),

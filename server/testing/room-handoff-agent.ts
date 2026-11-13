@@ -108,6 +108,9 @@ export interface RoomEngineView {
   tools?: string[];
   /** The system prompt, when the engine gives it to the fixture directly. */
   system?: string;
+  /** What the model's instructions still hold for this turn (a stable prompt plus any volatile update), when
+   * `system` reports only the part that changed. */
+  systemChecks?: string;
   /** The turn's own words, for `script` matching (defaults to Claude's prompt shape). */
   ownText?: string;
   /** System plus prompt, for `byPrompt` and the resumed check (defaults to Claude's shape). */
@@ -177,7 +180,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   }
   const plan: any = entry ?? (basePlan.turns ? basePlan.turns[turnIndex] : basePlan);
   if (!plan) throw new Error(`Unexpected extra fixture turn ${turnIndex} for ${botId}`);
-  for (const expected of plan.expectSystemIncludes ?? []) if (!system.includes(expected)) throw new Error(`Missing discussion context: ${expected}`);
+  for (const expected of plan.expectSystemIncludes ?? []) if (!(view.systemChecks ?? system).includes(expected)) throw new Error(`Missing discussion context: ${expected}`);
   for (const expected of plan.expectContextIncludes ?? []) if (!turnContext.includes(expected)) throw new Error(`Missing conversation context: ${expected}`);
   const indexed = Boolean(entry || basePlan.turns);
   const steps = indexed ? plan.steps ?? [] : resumed ? plan.resumeSteps ?? [] : plan.steps ?? [];

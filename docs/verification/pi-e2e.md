@@ -84,6 +84,14 @@ pnpm vitest run server/main-thread.e2e.test.ts
   restart.
 - `server/person-only-answers.e2e.test.ts` — a question about the person's own
   accounts stays theirs.
+- `server/routine-cron.e2e.test.ts` and `server/triggers.e2e.test.ts` — cron
+  routines and chat-created triggers through their action tools (the fixture
+  resolves retired aliases like `create_trigger`).
+- `server/webhook-address.e2e.test.ts` — who may read an automation's address.
+- `server/app-events.e2e.test.ts` — an app-event automation across a Composio
+  event.
+- `server/chat-pages.e2e.test.ts` — a jsx page, pointed-at records, replace and
+  publish.
 - `server/direct-coordination.e2e.test.ts` — not yet: parts observe Claude argv,
   launch dumps or the retired `openaiCompat` engine.
 - `server/room-context.e2e.test.ts` — not yet: pi reports no context-window

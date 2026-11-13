@@ -5,7 +5,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 import { nextCronRuns } from "../shared/routine-schedule.ts";
 
 it("takes cron through the real routine tools, applying the bot's own routine at once, preserving its zone and rejecting invalid API input", async () => {
-  const fixture = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
+  const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
   const evidence: unknown[] = [{ fixture: fixture.info }];
   const planPath = join(fixture.info.dataDir, "room-plan.json");
   const providerEvidence = () => existsSync(`${planPath}.evidence.jsonl`)
@@ -25,19 +25,20 @@ it("takes cron through the real routine tools, applying the bot's own routine at
   try {
     expect((await cli("doctor")).ok).toBe(true);
     const { bot } = await cli("new-bot", "--name", "Cron fixture");
+    const ownTurns = () => providerEvidence().filter((turn: any) => turn.botId === bot.id);
     const threadId = bot.activeTaskId;
     const messages = async () => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
     const proposal = async (tool: string, args: unknown, text: string, expectError = false) => {
-      const previousTurns = providerEvidence().length;
+      const previousTurns = ownTurns().length;
       writeFileSync(planPath, JSON.stringify({ [bot.id]: {
         expectSystemIncludes: ["five-field cron expression", "Never replace a calendar rule with daily AI date checking", "including its VPS"],
         steps: [{ tool: "list_triggers", arguments: {} }, { tool, arguments: args, expectError }],
         reply: expectError ? "That invalid schedule was refused." : "The routine change is applied.",
       } }));
       await cli("send", "--bot", bot.id, "--task", threadId, "--text", text);
-      await expect.poll(() => providerEvidence().length, { timeout: 20_000 }).toBe(previousTurns + 1);
+      await expect.poll(() => ownTurns().length, { timeout: 20_000 }).toBe(previousTurns + 1);
       await cli("wait", "--bot", bot.id, "--task", threadId, "--timeout", "20");
-      const turn = providerEvidence().at(-1);
+      const turn = ownTurns().at(-1);
       const toolResponse = turn.evidence.find((entry: any) => entry.step?.tool === tool).response;
       expect(toolResponse.error).toBeUndefined();
       expect(Boolean(toolResponse.result.isError)).toBe(expectError);
@@ -66,7 +67,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     await proposal("create_trigger", { when: "schedule",
       name: "Renamed monthly report", instructions: "Summarize last month's fixture activity; no external services.", schedule, overlap: "queue", run_on_startup: true,
     }, "Try scheduling the same work again under a different name.", true);
-    const duplicateResponse = providerEvidence().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
+    const duplicateResponse = ownTurns().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
     expect(duplicateResponse.result.content[0].text).toContain(routineId);
     expect(duplicateResponse.result.content[0].text).toContain("already exists");
     expect((await messages()).filter(message => message.card?.routineRequest)).toHaveLength(cardCount);
@@ -76,7 +77,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     const update = await proposal("manage_trigger", {
       action: "update", trigger_id: routineId, changes: { schedule: lastDay, overlap: "skip", run_on_startup: false },
     }, "Change that report to the last day of each month at the same time and zone.");
-    const listed = providerEvidence().at(-1).evidence.find((entry: any) => entry.step?.tool === "list_triggers").response.result.content[0].text;
+    const listed = ownTurns().at(-1).evidence.find((entry: any) => entry.step?.tool === "list_triggers").response.result.content[0].text;
     expect(listed).toContain('"type": "cron"');
     expect(listed).toContain('"timeZone": "America/New_York"');
     expect(listed).toContain('"overlap": "queue"');
@@ -100,7 +101,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     await proposal("create_trigger", { when: "schedule",
       name: "Explicit Boat", instructions: "Run on the Boat-hosted agent.", schedule, run_on: "box",
     }, "Try the separate Boat runner without a Boat account.", true);
-    const boatResponse = providerEvidence().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
+    const boatResponse = ownTurns().at(-1).evidence.find((entry: any) => entry.step?.tool === "create_trigger").response;
     expect(boatResponse.result.content[0].text).toContain('run_on="maus"');
     expect(boatResponse.result.content[0].text).toContain("self-hosted VPS");
     const before = await current();
