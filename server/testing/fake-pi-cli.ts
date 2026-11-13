@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 // Fake of the pi coding agent's `--mode rpc --no-session` stdio surface for pi.ts tests. Env knobs:
+//   FAKE_PI_PERMISSION_ON  prompts containing this substring run the permission ask (Run bash: echo hi?) instead of the plan
 //   FAKE_PI_MODE  happy (default) | tooluse | priced | priced-stop | permission | interleave | question-select | question-input
 //     | turn-error | no-models | exit-early | compaction | compaction-recovery
 //     | compaction-recovery-upstream | prompt-reject | omp-chunk
@@ -806,6 +807,15 @@ function handle(cmd: any) {
         try {
           appendFileSync(promptLog, JSON.stringify({ message: { content: promptText } }) + "\n");
         } catch {}
+      }
+      // A prompt carrying this substring asks the person's permission instead (the retired ACP fixture's
+      // permission mode, per prompt so a shared instance can hold one asking bot among quiet ones).
+      // `confirm`, not `select`: a confirmation is a permission card, where a select reads as a question.
+      if (process.env.FAKE_PI_PERMISSION_ON && promptText.includes(process.env.FAKE_PI_PERMISSION_ON)) {
+        send({ type: "agent_start" });
+        send({ type: "turn_start" });
+        send({ type: "extension_ui_request", id: "ask-1", method: "confirm", title: "Run bash: echo hi?" });
+        return;
       }
       if (process.env.FAKE_PI_ROOM_PLAN) {
         streamRoomTurn(promptText);

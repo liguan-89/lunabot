@@ -262,7 +262,6 @@ describe.each([
     expect(result.isError).not.toBe(true);
     expect(json(result)).toMatchObject({ status: "running", stdout: "partial output", observedAt: expect.any(String), note: expect.stringContaining("may have changed") });
     expect(calls.filter(entry => entry.method === "GET")).toHaveLength(2);
-    server.closeAllConnections();
   });
 
   it("propagates cancellation during a follow-up status read", async () => {
@@ -273,7 +272,6 @@ describe.each([
     await expect.poll(() => calls.filter(entry => entry.method === "GET").length).toBe(2);
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
-    server.closeAllConnections();
   });
 
   it("returns only the end of long output, and never half a character", async () => {
@@ -401,7 +399,6 @@ describe.each([
     const late = await call("exec", { command: "sleep 600" }, BOX, 400).done;
     expect(late).toEqual({ isError: true, content: [{ type: "text", text: background.EXEC_LATE }] });
     expect(background.EXEC_LATE).toMatch(/may still be running.*do not run it again blindly.*background: true.*exec_status/s);
-    server.closeAllConnections();
     hold = false;
     syncReply = { exitCode: null, stdout: "", stderr: "", timedOut: true };
     expect(await call("exec", { command: "sleep 600" }).done).toEqual({ isError: true, content: [{ type: "text", text: background.EXEC_LATE }] });
@@ -411,10 +408,7 @@ describe.each([
   it("answers a late start or status read with what is safe to do next", async () => {
     hold = true;
     expect((await call("exec", { command: "make all", background: true }, BOX, 300).done).content[0].text).toMatch(/did not confirm the start.*may have started/);
-    server.closeAllConnections();
     expect((await call("exec_status", { process_id: background.processIdOn(BOX, 41) }, BOX, 300).done).content[0].text).toMatch(/Nothing was changed; call exec_status again/);
-    server.closeAllConnections();
     expect((await call("get_screen_size", {}, BOX, 300).done).content[0].text).toBe(tools.CLOUD_COMPUTER_LATE);
-    server.closeAllConnections();
   });
 });

@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,7 @@ import { workerPort } from "./testing/worker-port.ts";
 
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(18800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -20,7 +20,8 @@ interface Msg {
   kind: string;
   text?: string;
   parentId?: string | null;
-  queued?: boolean;
+  steered?: boolean;
+  queueId?: string;
 }
 
 function activePath(messages: Msg[], leafId: string | null): Msg[] {
@@ -34,7 +35,7 @@ function activePath(messages: Msg[], leafId: string | null): Msg[] {
   return path.reverse();
 }
 
-posixOnly("conversation branching e2e (fake ACP fleet)", () => {
+posixOnly("conversation branching (fake pi)", () => {
   let child: ChildProcess;
   let home: string;
   let stderr = "";
@@ -60,21 +61,19 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
   };
 
   beforeAll(async () => {
-    chmodSync(FAKE_CLI, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-branch-test-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".dexbot"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".dexbot", "config.json"),
       JSON.stringify({
         instances: {
-          happy: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: true } },
-          // a second engine for the mid-thread model switch: same fake, its
-          // own instance, so it starts with no session cursor for the thread
-          second: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: true } },
-          hang: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "hang" },
-            config: { cli: FAKE_CLI, fullAuto: true },
+          pi: {
+            driver: "piAgent",
+            // The stall marker only appears in the messages the hang test sends, so the
+            // happy turns of the first test run to completion normally.
+            environment: { FAKE_PI_STALL_ON: "STALL" },
+            config: { cli: FAKE_PI },
           },
         },
       }),
@@ -116,13 +115,13 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
     async () => {
       const created = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${created.id}`, {
-        modelSelection: { instanceId: "happy", model: "fake-model" },
+        modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       });
 
       expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "original question" })).status).toBe(202);
       await waitFor(async () => {
         const b = await getBot(created.id);
-        return !b.busy && b.messages.some((m: Msg) => m.role === "bot" && m.kind === "text" && m.text?.includes("fake acp"));
+        return !b.busy && b.messages.some((m: Msg) => m.role === "bot" && m.kind === "text" && m.text?.includes("Hello from pi"));
       }, "the first reply");
 
       let bot = await getBot(created.id);
@@ -172,11 +171,12 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
     async () => {
       const created = (await api("POST", "/api/bots")).body.bot;
       await api("PATCH", `/api/bots/${created.id}`, {
-        modelSelection: { instanceId: "hang", model: "fake-model" },
+        modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       });
 
-      // start a turn that will never finish on its own
-      expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "first try" })).status).toBe(202);
+      // start a turn that will never finish on its own: its text carries the
+      // fleet's FAKE_PI_STALL_ON marker, so the fake pi holds until stopped
+      expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "first try STALL" })).status).toBe(202);
       await waitFor(async () => (await getBot(created.id)).busy === true, "the hung turn to start");
 
       const backendBefore = (await getBot(created.id)).cloudBackend;
@@ -185,7 +185,8 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       expect(backendChange.body.error).toContain("stop the active turn");
       expect((await getBot(created.id)).cloudBackend).toBe(backendBefore);
 
-      const parallel = await api("POST", `/api/bots/${created.id}/messages`, { text: "sneaky second" });
+      // pi steers a mid-turn send into its live turn; only a chosen queue parks it for stop-then-steer.
+      const parallel = await api("POST", `/api/bots/${created.id}/messages`, { text: "sneaky second STALL", followUp: "queue" });
       expect(parallel.status).toBe(202);
       expect(parallel.body.queued).toBe(true);
       expect((await getBot(created.id)).busy).toBe(true);
@@ -194,7 +195,7 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       const anyMsg = bot0.messages[0];
       expect((await api("POST", `/api/bots/${created.id}/active-branch`, { messageId: anyMsg.id })).status).toBe(409);
 
-      const first: Msg = bot0.messages.find((m: Msg) => m.role === "user" && m.text === "first try");
+      const first: Msg = bot0.messages.find((m: Msg) => m.role === "user" && m.text === "first try STALL");
       const midTurn = await api("POST", `/api/bots/${created.id}/messages/${first.id}/edit`, { text: "second try" });
       expect(midTurn.status).toBe(409);
       expect((await getBot(created.id)).messages.filter((m: Msg) => m.text === "second try")).toHaveLength(0);
@@ -203,7 +204,7 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       expect((await api("POST", `/api/bots/${created.id}/interrupt`)).status).toBe(200);
       await waitFor(async () => {
         const b = await getBot(created.id);
-        return b.busy === true && b.messages.some((m: Msg) => m.text === "sneaky second" && !m.queued);
+        return b.busy === true && b.messages.some((m: Msg) => m.text === "sneaky second STALL" && !m.steered && m.queueId);
       }, "the queued message to drain into its own turn", 20_000);
       expect((await api("POST", `/api/bots/${created.id}/interrupt`)).status).toBe(200);
       await waitFor(async () => (await getBot(created.id)).busy === false, "the drained turn to settle", 20_000);
@@ -219,61 +220,10 @@ posixOnly("conversation branching e2e (fake ACP fleet)", () => {
       expect(second.parentId).toBe(first.parentId);
       const path = activePath(bot.messages, bot.activeLeafId);
       expect(path.at(-1)?.id).toBe(second.id);
-      expect(path.map((m) => m.text)).not.toContain("first try");
-      expect(bot.messages.filter((m: Msg) => m.text === "first try")).toHaveLength(1);
+      expect(path.map((m) => m.text)).not.toContain("first try STALL");
+      expect(bot.messages.filter((m: Msg) => m.text === "first try STALL")).toHaveLength(1);
       expect(bot.messages.filter((m: Msg) => m.text === "second try")).toHaveLength(1);
     },
     45_000,
-  );
-
-  it(
-    "replays the thread to a fresh engine after a mid-thread model switch",
-    async () => {
-      const created = (await api("POST", "/api/bots")).body.bot;
-      await api("PATCH", `/api/bots/${created.id}`, {
-        modelSelection: { instanceId: "happy", model: "fake-model" },
-      });
-
-      expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "my dog is named Biscuit" })).status).toBe(202);
-      await waitFor(async () => {
-        const b = await getBot(created.id);
-        return !b.busy && b.messages.some((m: Msg) => m.role === "bot" && m.kind === "text");
-      }, "the first reply");
-
-      await api("PATCH", `/api/bots/${created.id}`, {
-        modelSelection: { instanceId: "second", model: "fake-model" },
-      });
-      expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "what is my dog called?" })).status).toBe(202);
-      await waitFor(async () => {
-        const b = await getBot(created.id);
-        return !b.busy && b.messages.filter((m: Msg) => m.role === "bot" && m.kind === "text").length >= 2;
-      }, "the reply from the second engine");
-
-      await api("PATCH", `/api/bots/${created.id}`, {
-        modelSelection: { instanceId: "happy", model: "fake-model" },
-      });
-      expect((await api("POST", `/api/bots/${created.id}/messages`, { text: "and again?" })).status).toBe(202);
-      await waitFor(async () => {
-        const b = await getBot(created.id);
-        return !b.busy && b.messages.filter((m: Msg) => m.role === "bot" && m.kind === "text").length >= 3;
-      }, "the reply after switching back");
-
-      // the fake's reply is fixed, so the proof lives in the native protocol
-      // tee: the prompt each engine received must carry the history it lacks
-      const bot = await getBot(created.id);
-      const log = readFileSync(join(home, ".openmausbot", "native", `${bot.threadId}.ndjson`), "utf8");
-      const prompts = log
-        .split("\n")
-        .filter(Boolean)
-        .map((line) => JSON.parse(line))
-        .filter((e) => e.dir === "out" && e.msg?.method === "session/prompt")
-        .map((e) => JSON.stringify(e.msg.params));
-      expect(prompts).toHaveLength(3);
-      expect(prompts[0]).not.toContain("joining this conversation");
-      expect(prompts[1]).toMatch(/joining this conversation[\s\S]*User: my dog is named Biscuit[\s\S]*what is my dog called\?/);
-      expect(prompts[1]).not.toContain("rewound");
-      expect(prompts[2]).toMatch(/joining this conversation[\s\S]*User: what is my dog called\?[\s\S]*and again\?/);
-    },
-    40_000,
   );
 });

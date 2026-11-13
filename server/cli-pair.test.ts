@@ -57,8 +57,8 @@ beforeEach(() => {
       if (init?.method === "POST") return Response.json({ code, expiresAt: Date.now() + 300_000, url: `${advertisedOrigin}/pair#code=${code}` });
       return Response.json({ pairings: [], publicUrl });
     }
-    if (url === `${local}/.well-known/openmausbot/environment`) return Response.json({ environmentId: workspaceId });
-    if ([advertisedOrigin, explicitOrigin].some((origin) => url === `${origin}/.well-known/openmausbot/environment`)) {
+    if (url === `${local}/.well-known/dexbot/environment`) return Response.json({ environmentId: workspaceId });
+    if ([advertisedOrigin, explicitOrigin].some((origin) => url === `${origin}/.well-known/dexbot/environment`)) {
       return Response.json({ environmentId: remoteWorkspaceId });
     }
     // No real network fallback is allowed, including stale saved addresses.
@@ -81,7 +81,7 @@ afterEach(async () => {
 
 const printed = () => vi.mocked(console.log).mock.calls.map(([line]) => String(line)).join("\n");
 
-describe("openmausbot pair", () => {
+describe("dexbot pair", () => {
   it("never asks anything: one code, the running server's own link, a QR, and the phone command", async () => {
     expect(await runPair(options)).toBe(0);
     expect(mocks.ui.choose).not.toHaveBeenCalled();
@@ -92,7 +92,7 @@ describe("openmausbot pair", () => {
     expect(printed()).toMatch(new RegExp(`Pairing code {3}${code} {3}works once, until .+ · everything`));
     expect(printed()).toContain(`Link           ${advertisedOrigin}/pair#code=${code}`);
     expect(printed()).toMatch(/[▀▄█]/);
-    expect(printed()).toContain("For a phone (chat and approvals only)   openmausbot pair --phone");
+    expect(printed()).toContain("For a phone (chat and approvals only)   dexbot pair --phone");
     expect(printed()).not.toContain("doesn't reach");
   });
 
@@ -127,18 +127,18 @@ describe("openmausbot pair", () => {
     });
     expect(await runPair(options)).toBe(0);
     expect(printed()).toContain(`http://127.0.0.1:${options.port}/pair#code=${code}`);
-    expect(printed()).toContain("pick a way in first: openmausbot serve --help");
+    expect(printed()).toContain("pick a way in first: dexbot serve --help");
     expect(printed()).not.toMatch(/[▀▄█]/);
   });
 
   it("says how to start a server when none runs", async () => {
     fetchMock.mockImplementation(async () => { throw new Error("offline"); });
     expect(await runPair(options)).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No DEX BOT server is running here. Start it: openmausbot serve"));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No DEX BOT server is running here. Start it: dexbot serve"));
   });
 });
 
-describe("the phone-app link `openmausbot pair --phone android` scans", () => {
+describe("the phone-app link `dexbot pair --phone android` scans", () => {
   const credential = `omb_pair_${"b".repeat(43)}`;
   const serverName = "Miguel's computer";
   const pairingResponse = (fields: Record<string, unknown>) => {
@@ -155,7 +155,7 @@ describe("the phone-app link `openmausbot pair --phone android` scans", () => {
   it("builds the invite for --public-url from the server's credential and name, and never prints it as text", async () => {
     pairingResponse({ url: null, inviteUrl: null });
     expect(await runPair({ ...options, phone: "android", publicUrl: explicitOrigin })).toBe(0);
-    expect(printed()).not.toContain("openmausbot://");
+    expect(printed()).not.toContain("dexbot://");
     expect(printed()).not.toContain(credential);
     expect(printed()).toContain("scan this with the DEX BOT app");
   });
