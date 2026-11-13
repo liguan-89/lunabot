@@ -37,9 +37,9 @@ describe("openmausbot serve --relay", () => {
 
   it("says why a phone cannot pair yet, in the person's terms", () => {
     expect(relayProblemLines(null, "openmausbot")).toEqual(["DEX BOT Relay is off on this server. Start it with: openmausbot serve --relay"]);
-    expect(relayProblemLines(status({ grant: "signed-out", relay: "off" }), "openmausbot")[0]).toMatch(/^MausBot Relay needs this machine signed in to a MausBot account: openmausbot login --relay/);
+    expect(relayProblemLines(status({ grant: "signed-out", relay: "off" }), "openmausbot")[0]).toMatch(/^DEX BOT Relay needs this machine signed in to a DEX BOT account: openmausbot login --relay/);
     expect(relayProblemLines(status({ grant: "unavailable", relay: "off" }), "npx openmausbot")[0]).toMatch(/not available for this machine right now\. The server keeps working here/);
-    expect(relayProblemLines(status({ relay: "connecting", node: null }), "openmausbot")[0]).toMatch(/^Can't reach MausBot Relay yet\. The server keeps working here/);
+    expect(relayProblemLines(status({ relay: "connecting", node: null }), "openmausbot")[0]).toMatch(/^Can't reach DEX BOT Relay yet\. The server keeps working here/);
     expect(relayProblemLines(status(), "openmausbot")).toEqual([]);
     expect(relayProblemLines(status({ grant: "tunnel", relay: "off", reason: "this server runs with --tunnel" }), "openmausbot")).toEqual([
       "DEX BOT Relay stays off here: this server runs with --tunnel. A relay token would make that tunnel go for good; use the relay on a machine signed in with openmausbot login --relay.",

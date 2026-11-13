@@ -219,10 +219,10 @@ describe("DEX BOT, every person's helper", () => {
     const store = new Store(selection);
     const maus = boot(store)!;
     const other = store.createBot({ name: "Writer" });
-    expect(() => store.deleteBot(maus.id)).toThrow(/DexBot can't be deleted or archived/);
+    expect(() => store.deleteBot(maus.id)).toThrow(/DEX BOT can't be deleted or archived/);
     expect(store.bot(maus.id)).toBeTruthy();
-    expect(defaultBotPatchRefusal(maus, { hidden: true })).toMatch(/Show DexBot in the sidebar/);
-    expect(defaultBotPatchRefusal(other, { sidebarHidden: true })).toMatch(/Only DexBot/);
+    expect(defaultBotPatchRefusal(maus, { hidden: true })).toMatch(/Show DEX BOT in the sidebar/);
+    expect(defaultBotPatchRefusal(other, { sidebarHidden: true })).toMatch(/Only DEX BOT/);
     expect(defaultBotPatchRefusal(maus, { sidebarHidden: "yes" })).toBe("sidebarHidden must be true or false");
     expect(defaultBotPatchRefusal(maus, { sidebarHidden: true })).toBeNull();
     store.patchBot(maus.id, { sidebarHidden: true });

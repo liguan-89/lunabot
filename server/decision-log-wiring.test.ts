@@ -1,5 +1,5 @@
 // Rows are written at the request.opened fold or in answerRequest, and both keep working (cards appear, approvals flow)
-// while logging silently rots, so these run the real server on the fake ACP CLI and assert the rows themselves.
+// while logging silently rots, so these run the real server on the fake pi and assert the rows themselves.
 import { spawn, type ChildProcess } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,7 +12,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(18800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -82,14 +82,16 @@ async function waitForRunThread(runId: string, ms = 20_000) {
   return null;
 }
 
-/** The ACP core folds `echo hi` to tool "shell", summary "echo hi", so the always-allow key is "shell:echo". */
+/** The fixture's permission ask is titled "Run bash: echo hi?", so every row names that as its tool and summary. */
+const ASK = "Run bash: echo hi?";
+
 async function makePermissionBot(patch: Record<string, unknown>) {
   const created = await api("POST", "/api/bots");
   expect(created.status).toBe(201);
   const bot = created.body.bot;
   const patched = await api("PATCH", `/api/bots/${bot.id}`, {
     ...patch,
-    modelSelection: { instanceId: "grok", model: "fake-model" },
+    modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
   });
   expect(patched.status).toBe(200);
   return patched.body.bot ?? bot;
@@ -97,22 +99,19 @@ async function makePermissionBot(patch: Record<string, unknown>) {
 
 posixOnly("authorization decisions are logged", () => {
   beforeAll(async () => {
-    chmodSync(FAKE_CLI, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-decisions-e2e-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".dexbot"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".dexbot", "config.json"),
       JSON.stringify({
         instances: {
-          grok: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "permission" },
-            config: { cli: FAKE_CLI, fullAuto: false },
-          },
-          grokq: {
-            driver: "grokAgent",
-            environment: { FAKE_ACP_MODE: "question" },
-            config: { cli: FAKE_CLI, fullAuto: false },
+          pi: {
+            driver: "piAgent",
+            // A prompt carrying "permission please" runs the fixture's permission ask; every other prompt gets its
+            // select question. The marker stays out of the system prompt, so only the turns below ask.
+            environment: { FAKE_PI_PERMISSION_ON: "permission please", FAKE_PI_MODE: "question-select" },
+            config: { cli: FAKE_PI },
           },
         },
       }),
@@ -149,7 +148,7 @@ posixOnly("authorization decisions are logged", () => {
     "an Auto bot's card is logged as the provider's own request",
     async () => {
       const bot = await makePermissionBot({ name: "Granted", autoApprove: true });
-      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it" })).status).toBe(202);
+      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it, permission please" })).status).toBe(202);
 
       const card = await waitForBotCard(bot.id);
       expect(card, "no approval card ever appeared").not.toBeNull();
@@ -157,13 +156,13 @@ posixOnly("authorization decisions are logged", () => {
       expect(row, "the card never reached the decision log").not.toBeNull();
       expect(row!.source).toBe("native-approval");
       expect(row!.rule).toBeUndefined();
-      expect(row!.tool).toBe("shell");
-      expect(row!.summary).toBe("echo hi");
+      expect(row!.tool).toBe(ASK);
+      expect(row!.summary).toBe(ASK);
       expect(row!.botName).toBe("Granted");
       expect(row!.threadId).toBeTruthy();
       expect(row!.requestId).toBeTruthy();
       expect(card.card.held).toBe("The provider requires your approval for this action.");
-      expect(card.card.allowSession).toBe(true);
+      expect(card.card.requestType).toBe("permission");
     },
     60_000,
   );
@@ -172,7 +171,7 @@ posixOnly("authorization decisions are logged", () => {
     "a card and the human's allow write two rows",
     async () => {
       const bot = await makePermissionBot({ name: "Askme", approvalMode: "ask" });
-      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it" })).status).toBe(202);
+      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it, permission please" })).status).toBe(202);
 
       const card = await waitForBotCard(bot.id);
       expect(card, "no approval card ever appeared").not.toBeNull();
@@ -182,7 +181,7 @@ posixOnly("authorization decisions are logged", () => {
       expect(shown, "the card was shown but never logged").not.toBeNull();
       expect(shown!.source).toBe("no-grant");
       expect(shown!.botId).toBe(bot.id);
-      expect(shown!.tool).toBe("shell");
+      expect(shown!.tool).toBe(ASK);
 
       const answered = await api("POST", `/api/bots/${bot.id}/respond`, { requestId, behavior: "allow" });
       expect(answered.status).toBe(200);
@@ -191,8 +190,8 @@ posixOnly("authorization decisions are logged", () => {
       const user = await waitForDecision((r) => r.decision === "user-approved" && r.requestId === requestId);
       expect(user, "the human's answer never reached the decision log").not.toBeNull();
       expect(user!.source).toBe("user");
-      expect(user!.tool).toBe("shell");
-      expect(user!.summary).toBe("echo hi");
+      expect(user!.tool).toBe(ASK);
+      expect(user!.summary).toBe(ASK);
       expect(user!.botName).toBe("Askme");
     },
     90_000,
@@ -202,7 +201,7 @@ posixOnly("authorization decisions are logged", () => {
     "a human deny writes its row too",
     async () => {
       const bot = await makePermissionBot({ name: "Refused", approvalMode: "ask" });
-      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it" })).status).toBe(202);
+      expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "run it, permission please" })).status).toBe(202);
 
       const card = await waitForBotCard(bot.id);
       expect(card).not.toBeNull();
@@ -223,7 +222,7 @@ posixOnly("authorization decisions are logged", () => {
       expect(created.status).toBe(201);
       const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, {
         name: "Queried",
-        modelSelection: { instanceId: "grokq", model: "fake-model" },
+        modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" },
       });
       expect(patched.status).toBe(200);
       const bot = patched.body.bot ?? created.body.bot;
@@ -255,7 +254,8 @@ posixOnly("authorization decisions are logged", () => {
 
       const hook = await api("POST", "/api/webhooks", {
         name: "Nightly build",
-        prompt: "Handle the incoming build event",
+        // "permission please" makes the fixture's permission ask fire, like the tests above.
+        prompt: "Handle the incoming build event — permission please",
         botId: bot.id,
         runOn: "maus",
       });

@@ -11,34 +11,8 @@ const chat: EngineCapabilities = { resume: false, nativeReviewer: false, full: t
 const bare: EngineCapabilities = { resume: true, nativeReviewer: false, full: true, edits: false, subagents: false };
 
 const EXPECTED: Record<string, EngineCapabilities> = {
-  claudeAgent: { resume: true, nativeReviewer: true, full: true, edits: true, subagents: false },
-  codex: { resume: true, nativeReviewer: true, full: true, edits: false, subagents: false },
   piAgent: bare,
-  antigravityAgent: { resume: true, nativeReviewer: false, full: true, edits: true, subagents: false },
-  grokAgent: { resume: true, nativeReviewer: true, full: true, edits: true, subagents: false },
-  geminiAgent: { resume: true, nativeReviewer: false, full: true, edits: true, subagents: false },
-  kimiAgent: bare,
-  droidAgent: bare,
-  cursorAgent: { resume: true, nativeReviewer: true, full: true, edits: false, subagents: false },
-  museCode: { resume: true, nativeReviewer: false, full: true, edits: false, subagents: false },
-  opencodeGo: { resume: true, nativeReviewer: false, full: true, edits: false, subagents: false },
-  qwenAgent: { resume: true, nativeReviewer: true, full: true, edits: true, subagents: false },
-  hermesAgent: bare,
-  deepseekAgent: bare,
-  clineAgent: { resume: true, nativeReviewer: false, full: true, edits: false, subagents: false },
-  copilotAgent: bare,
-  commandCodeAgent: bare,
-  kiroAgent: bare,
-  customAcp: bare,
   "openai-compat": chat,
-  grok: chat,
-  minimax: chat,
-  mistral: chat,
-  cerebras: chat,
-  groq: chat,
-  greenference: chat,
-  modelgo: chat,
-  meta: chat,
 };
 
 describe("engineCapabilities", () => {
@@ -98,7 +72,8 @@ describe("replaysTranscriptNatively", () => {
   });
 
   it("finds the chat-completions family", () => {
-    expect(chatKinds.length).toBeGreaterThanOrEqual(7);
+    expect(chatKinds.length).toBeGreaterThanOrEqual(1);
+    expect(chatKinds).toContain("openai-compat");
   });
 
   it("is true for every driver built on createOpenAIChatRuntime, and for no other", () => {

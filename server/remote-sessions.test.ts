@@ -174,7 +174,7 @@ describe("before pairing", () => {
     expect(response.body).toEqual({ error: "invalid request URL" });
     const health = await call("/api/health");
     expect(health.status).toBe(200);
-    expect(health.body).toMatchObject({ app: "openmausbot", pid: child.pid });
+    expect(health.body).toMatchObject({ app: "dexbot", pid: child.pid });
     expect(child.exitCode).toBeNull();
   });
 
@@ -391,7 +391,7 @@ describe("pairing", () => {
     expect(opened.inviteUrl).not.toBeNull();
     const invite = new URL(opened.inviteUrl!);
     // Android's PairingInvite.parse accepts only this exact scheme and host (android/core Connection.kt).
-    expect(invite.protocol).toBe("openmausbot:");
+    expect(invite.protocol).toBe("dexbot:");
     expect(invite.host).toBe("pair");
     expect(invite.searchParams.get("address")).toBe(PUBLIC_URL);
     expect(invite.searchParams.get("token")).toBe(opened.credential);

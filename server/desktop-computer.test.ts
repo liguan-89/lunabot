@@ -48,7 +48,7 @@ describe("this computer, only for the desktop app's own server", () => {
     expect(desktop.connection()).toBeNull();
     expect(desktop.unavailableReason()).toBe(reason);
     expect(thisComputerNotReady(desktop, "darwin")).toBe(
-      `OpenMausBot can't use this computer yet — ${reason}. Relaunch OpenMausBot after granting the missing macOS permission.`,
+      `DEX BOT can't use this computer yet — ${reason}. Relaunch DEX BOT after granting the missing macOS permission.`,
     );
     expect(desktop.receive({ type: DESKTOP_COMPUTER_GRANT, connection: null })).toBe(true);
     expect(desktop.connection()).toBeNull();

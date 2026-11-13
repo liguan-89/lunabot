@@ -1,4 +1,4 @@
-// A stub executable records the environment the CLI probe and the Claude update hand it. Disposable home; no network.
+// A stub executable records the environment the CLI probe hands it. Disposable home; no network.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -55,24 +55,16 @@ function expectNoCredentials(file: string) {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cli-probe-env-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".dexbot");
   mkdirSync(dataDir, { recursive: true });
-  // Answers like a signed-in Claude Code; `probe` (the CLI test) and
-  // `update` (the Claude update) record the environment they ran with.
+  // Answers like any CLI's `--version`; `probe` records the environment it ran with.
   writeFileSync(join(home, "stub-cli.mjs"), `import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 const args = process.argv.slice(2);
-if (args[0] === "probe" || args[0] === "update") writeFileSync(join(${JSON.stringify(home)}, args[0] + "-env.json"), JSON.stringify(process.env));
-if (args[0] === "auth") console.log(JSON.stringify({ loggedIn: true, authMethod: "claude.ai", apiProvider: "firstParty" }));
-else if (args.at(-1) === "--version") console.log("9.9.9 (Claude Code)");
+if (args[0] === "probe") writeFileSync(join(${JSON.stringify(home)}, args[0] + "-env.json"), JSON.stringify(process.env));
+if (args.at(-1) === "--version") console.log("9.9.9 (fixture CLI)");
 `);
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      // Pin the fleet's other defaults so this never probes an installed CLI.
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "mistral", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli: stubCli() } },
-    },
-  }));
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify({}));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
   const offlinePrelude = `data:text/javascript,${encodeURIComponent('globalThis.fetch = async () => new Response("offline fixture", { status: 503 });')}`;
@@ -109,12 +101,6 @@ afterAll(async () => {
 
 it("probes a CLI chosen in Settings without handing it any credential the server holds", async () => {
   const probe = await post("/api/cli-test", { cli: stubCli("probe") });
-  expect(probe.body, JSON.stringify(probe.body)).toMatchObject({ ok: true, version: "9.9.9 (Claude Code)" });
+  expect(probe.body, JSON.stringify(probe.body)).toMatchObject({ ok: true, version: "9.9.9 (fixture CLI)" });
   expectNoCredentials(join(home, "probe-env.json"));
-});
-
-it("updates Claude Code without handing the updater any credential the server holds", async () => {
-  const updated = await post("/api/instances/claude/claude-update", {});
-  expect(updated.body, JSON.stringify(updated.body)).toEqual({ ok: true, version: "9.9.9 (Claude Code)" });
-  expectNoCredentials(join(home, "update-env.json"));
 });

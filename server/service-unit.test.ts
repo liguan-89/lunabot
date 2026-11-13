@@ -38,7 +38,7 @@ describe("service units", () => {
 
   it("renders a launchd agent that keeps the server alive and logs under the data dir", () => {
     const plist = launchdPlist({ ...spec, home: "/Users/maus", dataDir: "/Users/maus/.openmausbot" });
-    expect(plist).toContain("<string>com.openmausbot.serve</string>");
+    expect(plist).toContain("<string>com.dexbot.serve</string>");
     expect(plist).toContain("<string>/usr/bin/node</string>");
     expect(plist).toContain("<string>serve</string>");
     expect(plist).toContain("<string>maus.example.com</string>");
@@ -51,10 +51,10 @@ describe("service units", () => {
     expect(unstableInstallWarning("/home/maus/.npm/_npx/abc123/node_modules/openmausbot/cli.js")).toMatch(/npm install -g openmausbot/);
     expect(unstableInstallWarning("/usr/lib/node_modules/openmausbot/cli.js")).toBeNull();
     const linux = servicePlan("linux", "/home/maus/.openmausbot");
-    expect(linux?.installed).toBe("/etc/systemd/system/openmausbot.service");
-    expect(linux?.activate.join("\n")).toContain("systemctl enable --now openmausbot");
+    expect(linux?.installed).toBe("/etc/systemd/system/dexbot.service");
+    expect(linux?.activate.join("\n")).toContain("systemctl enable --now dexbot");
     const mac = servicePlan("darwin", "/Users/maus/.openmausbot", "/Users/maus");
-    expect(mac?.installed).toBe("/Users/maus/Library/LaunchAgents/com.openmausbot.serve.plist");
+    expect(mac?.installed).toBe("/Users/maus/Library/LaunchAgents/com.dexbot.serve.plist");
     expect(mac?.activate.join("\n")).toContain("launchctl bootstrap gui/$(id -u)");
     expect(servicePlan("win32", "C:\\x")).toBeNull();
   });
@@ -65,17 +65,17 @@ describe("service units", () => {
     expect(sentinelCommand(sentinel)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/openmausbot/cli.js", "sentinel", "--once", "--data-dir", "/Users/maus/.openmausbot", "--out", out]);
     expect(sentinelCommand({ ...sentinel, script: "/srv/DEX BOT/server/openmausbot.ts" })[1]).toBe("--experimental-strip-types");
     const plist = sentinelLaunchdPlist(sentinel);
-    expect(plist).toContain("<string>com.openmausbot.sentinel</string>");
+    expect(plist).toContain("<string>com.dexbot.sentinel</string>");
     expect(plist).toContain("<key>StartInterval</key>\n\t<integer>120</integer>");
     expect(plist).toContain("<string>sentinel</string>");
     expect(plist).not.toContain("KeepAlive");
     expect(plist).toContain(`<string>${out}/sentinel.log</string>`);
     expect(plist).not.toContain(".openmausbot/logs");
     const mac = sentinelServicePlan("darwin", out, "/Users/maus");
-    expect(mac?.files).toEqual([{ name: "com.openmausbot.sentinel.plist", installed: "/Users/maus/Library/LaunchAgents/com.openmausbot.sentinel.plist" }]);
+    expect(mac?.files).toEqual([{ name: "com.dexbot.sentinel.plist", installed: "/Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist" }]);
     // a path with a space is one argument in the printed commands
-    expect(mac?.activate[0]).toBe("mkdir -p /Users/maus/Library/LaunchAgents && cp '/Users/maus/Library/Application Support/openmausbot-sentinel/com.openmausbot.sentinel.plist' /Users/maus/Library/LaunchAgents/com.openmausbot.sentinel.plist");
-    expect(mac?.deactivate[0]).toBe("launchctl bootout gui/$(id -u)/com.openmausbot.sentinel");
+    expect(mac?.activate[0]).toBe("mkdir -p /Users/maus/Library/LaunchAgents && cp '/Users/maus/Library/Application Support/openmausbot-sentinel/com.dexbot.sentinel.plist' /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist");
+    expect(mac?.deactivate[0]).toBe("launchctl bootout gui/$(id -u)/com.dexbot.sentinel");
   });
 
   it("renders Sentinel as a systemd user timer, with no root", () => {
@@ -87,26 +87,26 @@ describe("service units", () => {
     expect(sentinelSystemdTimer()).toContain("OnUnitActiveSec=120s");
     expect(sentinelSystemdTimer()).toContain("WantedBy=timers.target");
     const linux = sentinelServicePlan("linux", sentinel.out, "/home/maus");
-    expect(linux?.files.map((file) => file.installed)).toEqual(["/home/maus/.config/systemd/user/openmausbot-sentinel.service", "/home/maus/.config/systemd/user/openmausbot-sentinel.timer"]);
-    expect(linux?.activate[0]).toContain("cp /home/maus/.local/state/openmausbot-sentinel/openmausbot-sentinel.service");
-    expect(linux?.activate.join("\n")).toContain("systemctl --user enable --now openmausbot-sentinel.timer");
+    expect(linux?.files.map((file) => file.installed)).toEqual(["/home/maus/.config/systemd/user/dexbot-sentinel.service", "/home/maus/.config/systemd/user/dexbot-sentinel.timer"]);
+    expect(linux?.activate[0]).toContain("cp /home/maus/.local/state/openmausbot-sentinel/dexbot-sentinel.service");
+    expect(linux?.activate.join("\n")).toContain("systemctl --user enable --now dexbot-sentinel.timer");
     expect(linux?.activate.join("\n")).not.toContain("sudo");
     expect(sentinelServicePlan("win32", "C:\\x")).toBeNull();
   });
 
   it("finds the CLI the installed desktop app ships, and runs it as Node", () => {
     const app = "/Applications/DEX BOT.app/Contents";
-    const present = new Set([`${app}/MacOS/OpenMausBot`, `${app}/Resources/server/openmausbot.js`]);
-    expect(shippedSentinelCli("darwin", "/Users/maus", (path) => present.has(path))).toEqual({ node: `${app}/MacOS/OpenMausBot`, script: `${app}/Resources/server/openmausbot.js` });
+    const present = new Set([`${app}/MacOS/DEX BOT`, `${app}/Resources/server/openmausbot.js`]);
+    expect(shippedSentinelCli("darwin", "/Users/maus", (path) => present.has(path))).toEqual({ node: `${app}/MacOS/DEX BOT`, script: `${app}/Resources/server/openmausbot.js` });
     const user = "/Users/maus/Applications/DEX BOT.app/Contents";
     expect(shippedSentinelCli("darwin", "/Users/maus", (path) => path.startsWith(user))?.script).toBe(`${user}/Resources/server/openmausbot.js`);
-    expect(shippedSentinelCli("linux", "/home/maus", (path) => path.startsWith("/opt/DEX BOT/"))).toEqual({ node: "/opt/DEX BOT/openmausbot", script: "/opt/DEX BOT/resources/server/openmausbot.js" });
+    expect(shippedSentinelCli("linux", "/home/maus", (path) => path.startsWith("/opt/DEX BOT/"))).toEqual({ node: "/opt/DEX BOT/dexbot", script: "/opt/DEX BOT/resources/server/openmausbot.js" });
     // an app with its script missing, or one released before Sentinel, is no CLI for it
     expect(shippedSentinelCli("darwin", "/Users/maus", (path) => path.endsWith("MacOS/DEX BOT"))).toBeNull();
     expect(shippedSentinelCli("darwin", "/Users/maus", (path) => present.has(path), () => false)).toBeNull();
     expect(shippedSentinelCli("win32", "C:\\Users\\maus", () => true)).toBeNull();
 
-    const spec = { node: `${app}/MacOS/OpenMausBot`, script: `${app}/Resources/server/openmausbot.js`, dataDir: "/Users/maus/.openmausbot", home: "/Users/maus", out: "/tmp/s", electronRunAsNode: true };
+    const spec = { node: `${app}/MacOS/DEX BOT`, script: `${app}/Resources/server/openmausbot.js`, dataDir: "/Users/maus/.openmausbot", home: "/Users/maus", out: "/tmp/s", electronRunAsNode: true };
     expect(sentinelLaunchdPlist(spec)).toContain("<key>ELECTRON_RUN_AS_NODE</key>\n\t\t<string>1</string>");
     expect(sentinelSystemdService(spec)).toContain("Environment=ELECTRON_RUN_AS_NODE=1");
     expect(sentinelLaunchdPlist({ ...spec, electronRunAsNode: false })).not.toContain("ELECTRON_RUN_AS_NODE");
@@ -132,15 +132,15 @@ describe("service units", () => {
     expect(sentinelUnitCommand(sentinelSystemdService(spec))).toEqual({ node: "/opt/node & co/bin/node", script: "/srv/omb/cli.js" });
     expect(sentinelUnitCommand("[Service]\nType=oneshot\n")).toBeNull();
 
-    const unit = "/home/maus/.config/systemd/user/openmausbot-sentinel.service";
-    const timer = "/home/maus/.config/systemd/user/openmausbot-sentinel.timer";
+    const unit = "/home/maus/.config/systemd/user/dexbot-sentinel.service";
+    const timer = "/home/maus/.config/systemd/user/dexbot-sentinel.timer";
     const files = new Map([[unit, sentinelSystemdService(spec)]]);
     const fs = (present: string[]) => ({ exists: (path: string) => files.has(path) || present.includes(path), read: (path: string) => files.get(path)! });
     expect(checkSentinelInstall("linux", "/home/maus", fs([spec.node, spec.script, timer]))).toMatchObject({ status: "ok", unit });
     expect(checkSentinelInstall("linux", "/home/maus", fs([spec.node, timer]))).toMatchObject({ status: "stale", missing: ["/srv/omb/cli.js"] });
     // the service without its timer never runs
     expect(checkSentinelInstall("linux", "/home/maus", fs([spec.node, spec.script]))).toMatchObject({ status: "stale", missing: [timer] });
-    expect(checkSentinelInstall("darwin", "/Users/maus", fs([]))).toEqual({ status: "not_installed", unit: "/Users/maus/Library/LaunchAgents/com.openmausbot.sentinel.plist" });
+    expect(checkSentinelInstall("darwin", "/Users/maus", fs([]))).toEqual({ status: "not_installed", unit: "/Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist" });
     files.set(unit, "garbage");
     expect(checkSentinelInstall("linux", "/home/maus", fs([]))).toEqual({ status: "unreadable", unit });
     expect(checkSentinelInstall("win32", "C:\\Users\\maus", fs([]))).toEqual({ status: "unsupported" });

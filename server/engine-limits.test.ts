@@ -142,7 +142,8 @@ describe("the internal route", () => {
     const { status, body } = await call(run);
     expect(status).toBe(200);
     expect(JSON.parse(body!.text!).accounts[0]).toMatchObject({ account: "Claude", status: "ok" });
-    expect(load).toHaveBeenCalledWith([expect.objectContaining({ id: "claude", driver: "claude" })]);
+    // pi is the only agent: the instance configs derive no provider plan accounts to read.
+    expect(load).toHaveBeenCalledWith([]);
   });
 
   it("refuses a turn someone else started, without reading anything", async () => {
