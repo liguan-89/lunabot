@@ -499,6 +499,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       idleTimer: ReturnType<typeof setTimeout> | null;
     }
     const warmSessions = new Map<string, PiWarmSession>();
+    /** Server shutdown: turns end with the process, silently. A restart reconciles what was persisted as running, so
+     * settling them here would pass a cut turn off as finished and its work would never be rerun. */
+    let shuttingDown = false;
     const { idleMs: SESSION_IDLE_MS } = sessionIdlePolicy("PI");
 
     const closeWarmSession = (threadId: string, reason: string) => {
@@ -717,7 +720,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           active.delete(threadId);
           if (keep) {
             detachHandlers();
-            flushAssistantText();
+            if (!shuttingDown) flushAssistantText();
             const warm: PiWarmSession = {
               child,
               key: poolKey,
@@ -729,7 +732,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             warm.idleTimer = setTimeout(() => closeWarmSession(threadId, "idle"), SESSION_IDLE_MS);
             warm.idleTimer.unref?.();
             warmSessions.set(threadId, warm);
-            emit({
+            if (!shuttingDown) emit({
               ...base(threadId, turnId),
               type: "turn.completed",
               ...outcome,
@@ -746,6 +749,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               rmSync(mcpTempDir, { recursive: true, force: true });
             } catch {}
           }
+          if (shuttingDown) return;
           flushAssistantText();
           emit({
             ...base(threadId, turnId),
@@ -755,6 +759,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         })();
         void completion.catch((error: Error) => {
           completion = null;
+          if (shuttingDown) return;
           emit({ ...base(threadId, turnId), type: "runtime.error", message: error.message });
         });
         return completion;
@@ -1234,6 +1239,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       },
       dispose: async () => {
         try {
+          shuttingDown = true;
           await stopAll();
         } finally {
           listeners.clear();
