@@ -2,11 +2,12 @@
 
 > Engine teardown: this build runs pi as its only agent, backed by the one
 > custom provider. The pi fixture lives in [pi-e2e.md](pi-e2e.md)
-> (`pnpm test:e2e:pi`) and the end-to-end recipes that have moved onto it are
-> listed there. The remaining old-suite recipes still make `pnpm test:e2e`
-> expected to fail until they are ported. `pnpm test` runs the unit and
-> renderer suites only; `pnpm dev` / the desktop smoke checks cover the
-> hand-driven paths.
+> (`pnpm test:e2e:pi`, and `pnpm test:e2e` now runs that suite); the end-to-end
+> recipes that have moved onto it are listed there. The remaining old
+> cross-engine recipes are run separately by `test:e2e:legacy` and are not the
+> acceptance gate. `pnpm test` runs the unit and renderer suites only; `pnpm
+> dev` / the desktop smoke checks cover the hand-driven paths. See
+> [pi-only-handoff.md](pi-only-handoff.md) for the handoff state.
 
 OpenMausBot has one development control surface: `pnpm control:omb`. It runs
 the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP
@@ -54,6 +55,7 @@ recipe from sending messages to the user's running app by accident.
 
 Use only mapped, tested commands:
 
+- [pi-only handoff](pi-only-handoff.md)
 - [The headless command line](headless-cli.md)
 - [Chat turns](chat-turns.md)
 - [OpenAI reply readout](openai-readout.md)
