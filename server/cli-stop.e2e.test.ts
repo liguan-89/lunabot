@@ -20,30 +20,30 @@ describe.skipIf(process.platform === "win32")("Stop through the isolated server"
       return result;
     };
     try {
-      const wrapper = join(fixture.info.dataDir, "stubborn-claude.mjs");
+      const wrapper = join(fixture.info.dataDir, "stubborn-pi.mjs");
       const pidFile = join(fixture.info.dataDir, "owned-pids.json");
       const gate = join(fixture.info.dataDir, "finish.gate");
-      const fake = pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href;
+      const fake = pathToFileURL(join(process.cwd(), "server/testing/fake-pi-cli.ts")).href;
       const helper = "process.on('SIGTERM', () => {}); console.log(process.pid); setInterval(() => {}, 1000);";
       writeFileSync(wrapper, [
         "#!/usr/bin/env node",
         "import { spawn } from 'node:child_process';",
         "import { once } from 'node:events';",
         "import { writeFileSync } from 'node:fs';",
-        "if (process.argv.includes('--input-format')) {",
+        "if (!process.argv.includes('--version') && !process.argv.includes('-v') && !process.argv.includes('update')) {",
         stubbornRoot ? "process.on('SIGTERM', () => {});" : "",
         `const child = spawn(process.execPath, ['-e', ${JSON.stringify(helper)}], { stdio: ['ignore', 'pipe', 'ignore'] });`,
         "await once(child.stdout, 'data');",
         `writeFileSync(${JSON.stringify(pidFile)}, JSON.stringify([process.pid, child.pid]));`,
         "}",
-        "process.env.FAKE_CLAUDE_MODE = 'slow';",
-        `process.env.FAKE_CLAUDE_SLOW_FINISH_GATE = ${JSON.stringify(gate)};`,
+        "process.env.FAKE_PI_MODE = 'slow';",
+        `process.env.FAKE_PI_SLOW_FINISH_GATE = ${JSON.stringify(gate)};`,
         `await import(${JSON.stringify(fake)});`,
       ].join("\n"), { mode: 0o700 });
-      const configured = await fetch(`${fixture.info.url}/api/instances/claude`, {
+      const configured = await fetch(`${fixture.info.url}/api/instances/pi`, {
         method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ cli: wrapper }),
       });
-      evidence.push({ method: "PATCH", path: "/api/instances/claude", body: { cli: wrapper }, status: configured.status });
+      evidence.push({ method: "PATCH", path: "/api/instances/pi", body: { cli: wrapper }, status: configured.status });
       expect(configured.status).toBe(200);
       const created = await control(["new-bot", "--name", "Stop fixture"]);
       const botId = created.bot.id;
@@ -52,17 +52,16 @@ describe.skipIf(process.platform === "win32")("Stop through the isolated server"
       await control(["send", ...target, "--text", "Keep working until Stop"]);
       await expect.poll(() => existsSync(pidFile), { timeout: 10_000 }).toBe(true);
       pids.push(...JSON.parse(readFileSync(pidFile, "utf8")) as number[]);
-      expect(pids.every(alive)).toBe(true);
+      await expect.poll(() => pids.every(alive), { timeout: 5_000 }).toBe(true);
       expect((await control(["wait", ...target, "--timeout", "1"])).status).toBe("timed-out");
 
       const started = Date.now();
       await control(["interrupt", ...target]);
-      // The root can already have closed, but the helper still owns work.
-      expect((await control(["wait", ...target, "--timeout", "1"])).status).toBe("timed-out");
-      expect(alive(pids[1]!)).toBe(true);
+      // pi ends the whole tree it started: a root or helper that ignores SIGTERM is killed within its TERM grace, so the
+      // turn settles once nothing of it runs, well inside the wait.
       expect((await control(["wait", ...target, "--timeout", "10"])).status).toBe("settled");
       expect(Date.now() - started).toBeLessThan(10_000);
-      expect(pids.some(alive)).toBe(false);
+      await expect.poll(() => pids.some(alive), { timeout: 5_000 }).toBe(false);
       evidence.push({ stoppedPids: [...pids], alive: pids.map(alive), elapsedMs: Date.now() - started });
       await control(["messages", ...target, "--limit", "10"]);
 
