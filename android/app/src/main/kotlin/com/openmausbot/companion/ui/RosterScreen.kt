@@ -1470,39 +1470,26 @@ private data class ConnectionNotice(
     val message: String,
     val title: String?,
     val tone: NoticeTone,
-    val action: Boolean = false,
 )
 
 /**
- * Connection state, shown only when it is not "fine".
- *
- * The old shape was a bare grey capsule carrying the raw failure — a URL and
- * an HTTP code, with no icon and nothing to press. This is the app's own
- * notice card instead: a named state, the age of the cached roster when there
- * is one, and a retry that does what it says. The host in the address is
- * replaced by "中继地址" because a 60-character tunnel hostname is not
- * something a person can act on, and it reads as a diagnostic leak on screen.
+ * Connection state, shown only when the list needs a word: a reconnect in
+ * progress, a revoked pairing, or an app too old to talk to the computer.
+ * An ordinary offline blip is left to the automatic retry — the cached roster
+ * stays on screen without a card over it.
  */
 @Composable
 fun StatusBanner() {
     val session = LocalCompanion.current.session
     val status by session.status.collectAsState()
     val snapshotAt by session.rosterSnapshotAt.collectAsState()
-    val scope = rememberCoroutineScope()
     val cachedFor = snapshotAt?.let(::cacheAge)
     val notice: ConnectionNotice? = when (val current = status) {
-        Session.Status.Live, Session.Status.Unpaired -> null
+        Session.Status.Live, Session.Status.Unpaired, is Session.Status.Offline -> null
         Session.Status.Connecting -> ConnectionNotice(
             message = cachedFor?.let { "正在重连，先显示${it}的名单。" } ?: "正在连接电脑…",
             title = null,
             tone = NoticeTone.INFO,
-        )
-        is Session.Status.Offline -> ConnectionNotice(
-            message = cachedFor?.let { "显示${it}的名单，正在自动重试。" }
-                ?: readableFailure(current.message),
-            title = "电脑暂不可达",
-            tone = NoticeTone.WARNING,
-            action = true,
         )
         Session.Status.Unauthorized -> ConnectionNotice(
             message = "此手机已在电脑上取消配对。",
@@ -1532,12 +1519,6 @@ fun StatusBanner() {
                 message = value.message,
                 title = value.title,
                 tone = value.tone,
-                actionLabel = if (value.action) "重试" else null,
-                onAction = if (value.action) {
-                    { scope.launch { session.refresh() } }
-                } else {
-                    null
-                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 3.dp),
@@ -1556,7 +1537,3 @@ private fun cacheAge(savedAtMillis: Long): String {
         else -> "${minutes / (60 * 24)} 天前"
     }
 }
-
-/** Keep the one actionable detail (the HTTP code) and drop the tunnel host. */
-private fun readableFailure(message: String): String =
-    message.replace(Regex("https?://\\S+"), "中继地址")

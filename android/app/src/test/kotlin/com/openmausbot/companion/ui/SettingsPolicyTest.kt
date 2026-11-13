@@ -33,6 +33,16 @@ class SettingsPolicyTest {
                 Session.Status.Offline("连不上电脑：地址已失效。", hint = "重新开启远程访问。"),
             ),
         )
+        // A long sentence with its next step written in also gets the short
+        // state, rather than two lines of an ellipsised row.
+        assertEquals(
+            "电脑暂不可达",
+            SettingsPolicy.statusText(
+                Session.Status.Offline(
+                    "已连接电脑，但端口 8810 上的手机访问未响应——请打开 DEX BOT → 设置 → 手机。应用会自动持续重试。",
+                ),
+            ),
+        )
     }
 
     @Test
@@ -263,6 +273,16 @@ class NotificationPermissionControllerTest {
 
         phone.recreate()
         assertEquals(NotificationAccess.BLOCKED, phone.controller.access.value)
+    }
+
+    @Test
+    fun `a granted switch opens the page that can turn notifications off`() {
+        // The app cannot revoke its own grant, so the switch in Settings hands
+        // the person to the system page instead of silently doing nothing.
+        val phone = Phone(enabled = true)
+        phone.controller.openSettingsPage()
+        assertEquals(1, phone.settingsOpens)
+        assertEquals(0, phone.prompts)
     }
 
     @Test

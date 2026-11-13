@@ -147,14 +147,15 @@ object ActivityReceipt {
     }
 
     /**
-     * Drawn beside the name for everything except success.
+     * Drawn beside the name for a run that has not answered yet.
      *
      * Success is what almost every row in a busy transcript is, and a word
-     * repeated down the whole thread stops being read. Running and error are the
-     * two worth a glance — and both keep a shape of their own as well, so the
-     * distinction never rests on colour alone.
+     * repeated down the whole thread stops being read. Error already carries a
+     * warning glyph, a red wash and a sentence saying what went wrong — "错误"
+     * on top of those three was the loudest word on the screen and said nothing
+     * new. Running is the one state a static mark cannot finish saying.
      */
-    fun showsLabel(status: ActivityStatus): Boolean = status != ActivityStatus.SUCCESS
+    fun showsLabel(status: ActivityStatus): Boolean = status == ActivityStatus.RUNNING
 
     /** The whole row, as one sentence, for a reader who cannot see the dot. */
     fun announcement(name: String, status: ActivityStatus): String =

@@ -18,18 +18,10 @@ object SettingsPolicy {
         "在 DEX BOT 保持连接期间（包括后台短暂暂停后重放的消息帧），审批请求和已完成的工作都会显示通知。" +
             "应用完全关闭后的推送通知需要单独的推送中继版本支持（目前尚未推出）。"
 
-    const val WORKSPACE_FOOTER =
-        "例程计划可在此安全管理。提供商密钥、Webhook 密钥、配对、撤销权限、" +
-            "本地虚拟机以及智能体执行策略均保留在你的电脑上。"
-
     const val UNPAIR_FOOTER =
         "仅从本手机移除配对。若要彻底禁止此手机访问电脑，请在电脑端 DEX BOT → 设置 → 手机和设备 中移除该设备。"
 
-    const val NOT_HERE =
-        "API 密钥、配对和本地虚拟机均在电脑上管理。为安全起见，手机端不允许更改这些设置。"
-
     const val UNPAIR_CONFIRM_TITLE = "取消配对此手机？"
-    const val UNPAIR_CONFIRM_MESSAGE = "再次连接需要新的配对码。"
 
     const val EDIT_ADDRESS_MESSAGE =
         "请输入电脑端「手机和设备」中显示的地址。现有配对将保留。"
@@ -40,14 +32,23 @@ object SettingsPolicy {
         Session.Status.Unpaired -> "未配对"
         Session.Status.Unauthorized -> "已在电脑上取消配对"
         Session.Status.OutdatedApp -> "应用版本过旧"
-        // One line, ellipsized. A failure long enough to carry a remedy has
-        // that message and the next step in 故障排除 just below; repeating it
-        // here only produced "连不上电脑：地址已失效或服务未…". A failure with
-        // nothing else to say — a locked phone, a busy token store — still
-        // says it here, where it is the only place it appears.
+        // One line. A failure long enough to carry a remedy has that message
+        // and the next step in the footer under the card; repeating it here
+        // would only show a half sentence ("连不上电脑：地址已失效或服务未…").
+        // A failure with nothing else to say — a locked phone, a busy token
+        // store — still says it here. A long sentence whose remedy is written
+        // into the message itself would otherwise get cut off mid-clause, so
+        // length counts as well.
         is Session.Status.Offline ->
-            if (status.hint != null) "电脑暂不可达" else status.message
+            if (status.hint != null || status.message.length > STATUS_SUMMARY_MAX) {
+                "电脑暂不可达"
+            } else {
+                status.message
+            }
     }
+
+    /** Longer than the one-line subtitle it fills. */
+    private const val STATUS_SUMMARY_MAX = 24
 
     fun addressText(connection: Connection?): String =
         connection?.displayAddress ?: "—"
@@ -125,6 +126,15 @@ class NotificationPermissionController(
             // a process death mid-prompt still counts as having asked.
             NotificationAccess.ASKABLE -> request()
         }
+    }
+
+    /**
+     * The settings page, for the one state a switch cannot change: an app may
+     * not revoke its own notification grant, so the granted switch opens the
+     * system page where the person can.
+     */
+    fun openSettingsPage() {
+        openSettings()
     }
 
     fun onResult(granted: Boolean) {

@@ -1,5 +1,6 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,16 +11,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -91,30 +90,27 @@ object OnboardingCopy {
 fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
     OnboardingLayout(
         actions = {
-            Button(onClick = onConnect, modifier = Modifier.fillMaxWidth()) {
-                Text(OnboardingCopy.WELCOME_CONNECT)
-            }
+            OnboardingPrimaryButton(OnboardingCopy.WELCOME_CONNECT, onConnect)
             TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text(OnboardingCopy.NOT_NOW)
+                Text(OnboardingCopy.NOT_NOW, fontSize = 14.sp, color = secondaryTint)
             }
         },
     ) {
-        OnboardingHero(Icons.AutoMirrored.Filled.Send)
+        DexBotMark(92.dp)
         Text(
             text = OnboardingCopy.WELCOME_TITLE,
-            style = MaterialTheme.typography.headlineMedium,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
             modifier = Modifier.semantics { heading() },
         )
         Text(
             text = OnboardingCopy.WELCOME_SUBTITLE,
-            style = MaterialTheme.typography.bodyLarge,
-            color = minisSecondary,
+            fontSize = 14.sp,
+            color = secondaryTint,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         Benefit(
             icon = Icons.AutoMirrored.Filled.Send,
             title = "对话尽在掌握",
@@ -141,11 +137,11 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
  */
 @Composable
 fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
@@ -155,49 +151,67 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
                 text = "DEX BOT",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f).padding(start = 10.dp),
+                modifier = Modifier.weight(1f),
             )
             ChromeButton(
                 icon = Icons.Filled.Settings,
                 contentDescription = "设置",
                 onClick = onOpenSettings,
+                surface = true,
             )
         }
-        MinisDivider()
         OnboardingLayout(
             actions = {
-                Button(
-                    onClick = onConnect,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics(mergeDescendants = true) {
-                            contentDescription = OnboardingCopy.UNPAIRED_HOME_CONNECT
-                        },
-                ) {
-                    Text(OnboardingCopy.UNPAIRED_HOME_CONNECT)
-                }
+                OnboardingPrimaryButton(OnboardingCopy.UNPAIRED_HOME_CONNECT, onConnect)
             },
         ) {
-            OnboardingHero(Icons.Filled.Phone)
+            DexBotMark(88.dp)
             Text(
                 text = OnboardingCopy.UNPAIRED_HOME_TITLE,
-                style = MaterialTheme.typography.headlineSmall,
+                fontSize = 21.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
             )
             Text(
                 text = OnboardingCopy.UNPAIRED_HOME_BODY,
-                style = MaterialTheme.typography.bodyLarge,
+                fontSize = 14.sp,
                 color = secondaryTint,
                 textAlign = TextAlign.Center,
             )
             Text(
                 text = OnboardingCopy.UNPAIRED_HOME_HINT,
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 color = secondaryTint,
                 textAlign = TextAlign.Center,
             )
         }
+    }
+}
+
+/**
+ * The first frame after a cold start, before the session has said whether this
+ * phone is paired.
+ *
+ * Without it the router answers "unpaired" for a stored bond that has not been
+ * read yet, so a paired phone opened on "随时准备连接" and the chat list arrived
+ * a beat later. The mark is the whole screen: there is nothing honest to add
+ * until the read finishes.
+ */
+@Composable
+fun StartingScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().background(minisCanvas),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        DexBotMark(72.dp)
+        Text(
+            text = "正在启动…",
+            fontSize = 12.sp,
+            color = secondaryTint,
+            modifier = Modifier.padding(top = 14.dp),
+        )
     }
 }
 
@@ -218,40 +232,36 @@ fun NotificationOnboardingScreen(
 ) {
     OnboardingLayout(
         actions = {
-            Button(
+            OnboardingPrimaryButton(
+                label = OnboardingCopy.NOTIFICATIONS_ENABLE,
                 onClick = onEnable,
                 enabled = !enabling,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                if (enabling) {
-                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                } else {
-                    Text(OnboardingCopy.NOTIFICATIONS_ENABLE)
-                }
-            }
+                busy = enabling,
+            )
             TextButton(
                 onClick = onSkip,
                 enabled = !enabling,
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text(OnboardingCopy.NOT_NOW)
+                Text(OnboardingCopy.NOT_NOW, fontSize = 14.sp, color = secondaryTint)
             }
         },
     ) {
         OnboardingHero(Icons.Filled.Notifications)
         Text(
             text = OnboardingCopy.NOTIFICATIONS_TITLE,
-            style = MaterialTheme.typography.headlineMedium,
+            fontSize = 23.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
         )
         Text(
             text = OnboardingCopy.NOTIFICATIONS_BODY,
-            style = MaterialTheme.typography.bodyMedium,
+            fontSize = 14.sp,
             color = secondaryTint,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(4.dp))
         Benefit(
             icon = Icons.Filled.CheckCircle,
             title = OnboardingCopy.NOTIFICATIONS_APPROVALS,
@@ -271,14 +281,14 @@ private fun OnboardingLayout(
     actions: @Composable () -> Unit,
     content: @Composable () -> Unit,
 ) {
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Column(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 28.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             content()
@@ -286,10 +296,43 @@ private fun OnboardingLayout(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             actions()
+        }
+    }
+}
+
+/**
+ * The one primary action on an onboarding screen: the Settings card's corners
+ * and the app's ink, not Material's default pill.
+ */
+@Composable
+private fun OnboardingPrimaryButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = MinisCardShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = minisInk,
+            contentColor = minisPage,
+        ),
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = minisPage,
+            )
+        } else {
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

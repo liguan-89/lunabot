@@ -302,19 +302,28 @@ fun CompanionRoot(
                             )
                         }
 
-                        OnboardingRoute.UNPAIRED_HOME -> if (showingUnpairedSettings) {
-                            // The same Settings screen, minus what needs a pairing.
-                            // Notifications can be recovered from here without first
-                            // entering a connection flow this person just declined.
-                            SettingsScreen(
-                                onBack = { showingUnpairedSettings = false },
-                                onConnect = {
-                                    showingUnpairedSettings = false
-                                    startPairing()
-                                },
-                            )
-                        } else {
-                            UnpairedHomeScreen(
+                        OnboardingRoute.UNPAIRED_HOME -> when {
+                            // A stored bond has not been read yet, so "unpaired"
+                            // is not an answer — only the absence of one. Show
+                            // the mark until the read says which world this is.
+                            // An Offline status is the exception: Pending then
+                            // means the read failed, and that is an answer the
+                            // unpaired home can show (and Settings can explain).
+                            restoreState is Session.RestoreState.Pending &&
+                                status !is Session.Status.Offline -> StartingScreen()
+                            showingUnpairedSettings -> {
+                                // The same Settings screen, minus what needs a pairing.
+                                // Notifications can be recovered from here without first
+                                // entering a connection flow this person just declined.
+                                SettingsScreen(
+                                    onBack = { showingUnpairedSettings = false },
+                                    onConnect = {
+                                        showingUnpairedSettings = false
+                                        startPairing()
+                                    },
+                                )
+                            }
+                            else -> UnpairedHomeScreen(
                                 onConnect = ::startPairing,
                                 onOpenSettings = { showingUnpairedSettings = true },
                             )

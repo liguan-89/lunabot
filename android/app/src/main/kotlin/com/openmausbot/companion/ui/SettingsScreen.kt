@@ -9,30 +9,41 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -45,12 +56,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -59,6 +74,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.openmausbot.companion.R
 import com.openmausbot.companion.core.ActivityDetail
 import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
@@ -68,6 +84,7 @@ import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.net.toUri
 import java.net.URI
 
@@ -157,36 +174,66 @@ fun SettingsScreen(
     var signingIn by remember { mutableStateOf(false) }
     var cloudNotice by remember { mutableStateOf<String?>(null) }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // A large title, the way iOS settings reads: the page is the title,
-        // not a toolbar with a line under it.
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(minisCanvas)
+            // The sheet has no visible title, but the pane still needs one for
+            // TalkBack when it lands on the screen.
+            .semantics { paneTitle = "设置" },
+    ) {
+        // The sheet's own close control, with no title bar above the list.
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 6.dp, end = 16.dp, top = 8.dp, bottom = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                .padding(start = 10.dp, top = 10.dp, bottom = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            HeaderBackButton(onBack)
-            Text(
-                "设置",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.semantics { heading() },
-            )
+            TouchTarget(onClick = onBack, contentDescription = "关闭设置") {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .chromeCapsule(surface = true),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
         }
-
         Column(
             modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
                 .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 32.dp),
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SettingsSection("电脑") {
-                val bound = connection
+            val bound = connection
+            SettingsSection {
+                IdentityRow(
+                    title = bound?.name ?: "DEX BOT",
+                    subtitle = SettingsPolicy.statusText(status),
+                    statusColor = connectionColor(status),
+                    // The row is the computer's identity; tapping it opens the
+                    // one detail this phone can change about it.
+                    onClick = if (bound != null) {
+                        {
+                            addressText = SettingsPolicy.addressText(bound)
+                            addressError = null
+                            editingAddress = true
+                        }
+                    } else {
+                        null
+                    },
+                )
                 if (bound != null) {
                     val address = SettingsPolicy.addressText(bound)
-                    SettingsRow("名称", bound.name)
+                    SettingsDivider()
                     AddressRow(
                         address = address,
                         expanded = showingFullAddress,
@@ -203,116 +250,9 @@ fun SettingsScreen(
                             }
                         },
                     )
-                    // The stored address can simply go stale. Editing it here
-                    // keeps the pairing and its token (§7).
-                    SettingsButton("编辑地址", chevron = true) {
-                        addressText = address
-                        addressError = null
-                        editingAddress = true
-                    }
-                } else if (onConnect != null) {
-                    SettingsButton("连接电脑", onClick = onConnect)
-                }
-                SettingsRow("连接状态", SettingsPolicy.statusText(status))
-                if (bound != null) {
-                    SettingsButton("连接另一台电脑", chevron = true) {
-                        haptics.play(TactileAction.CONNECT_ANOTHER_COMPUTER)
-                        session.beginPairing()
-                    }
-                }
-            }
-
-            val otherComputers = connections.filter { it.id != connection?.id }
-            if (otherComputers.isNotEmpty()) {
-                SettingsSection("其他电脑") {
-                    otherComputers.forEach { computer ->
-                        SettingsButton("使用 ${computer.name}") {
-                            haptics.play(TactileAction.SWITCH_COMPUTER)
-                            session.switchComputer(computer.id)
-                        }
-                        SettingsButton("移除 ${computer.name}", destructive = true) {
-                            pendingComputerRemoval = computer
-                        }
-                    }
-                    Footnote("每台电脑单独配对。同一时间只有选中的电脑处于活动状态。")
-                }
-            }
-
-            SettingsSection("DEX 账号") {
-                when (accountUi.phase) {
-                    // A failed first read keeps the phase at LOADING, because the
-                    // stored session may still be perfectly good — only the
-                    // request lost its race with the network on a cold start.
-                    // Without a retry here the section said it was still checking
-                    // and nothing but an app restart could recover it.
-                    CloudAccountUi.Phase.LOADING -> if (accountUi.error == null) {
-                        SettingsRow("状态", "正在检查…")
-                    } else {
-                        SettingsButton("重试", enabled = !accountUi.busy) {
-                            environment.cloudAccount.refresh()
-                        }
-                    }
-                    CloudAccountUi.Phase.SIGNED_OUT -> {
-                        SettingsButton("登录 DEX 账号", chevron = true) {
-                            environment.cloudAccount.clearError()
-                            signingIn = true
-                        }
-                        Footnote("用同一个账号管理桌面端、这台手机和云电脑。登录后这台手机会出现在设备列表里。")
-                    }
-                    CloudAccountUi.Phase.SIGNED_IN -> {
-                        SettingsRow("账号", accountUi.email ?: "")
-                        if (accountUi.clouds.isEmpty()) {
-                            Footnote("这个账号还没有云电脑。在桌面端登录后会自动创建。")
-                        }
-                        accountUi.clouds.forEach { cloud ->
-                            SettingsButton(
-                                text = if (accountUi.busy) "正在配对…" else "配对 ${cloud.name} 到这台手机",
-                                enabled = cloud.origin != null && !accountUi.busy,
-                            ) {
-                                if (cloud.origin == null) return@SettingsButton
-                                scope.launch {
-                                    // Mint the one-time code, then hand it to the pairing
-                                    // screen. Redeeming it here bypassed that screen's
-                                    // attempt transaction — the Cloud saw a session but
-                                    // nothing was written down for this phone to restore.
-                                    val grant = environment.cloudAccount.pairCloud(cloud)
-                                        ?: return@launch
-                                    CloudPairingInbox.offer(
-                                        CloudPairingRequest(
-                                            origin = grant.origin,
-                                            code = grant.code,
-                                            name = cloud.name,
-                                        ),
-                                    )
-                                    session.beginPairing()
-                                }
-                            }
-                            SettingsRow("云电脑状态", cloudStatusText(cloud.status))
-                            SettingsButton(
-                                text = "在浏览器中打开 ${cloud.name}",
-                                enabled = cloud.origin != null && !accountUi.busy,
-                            ) {
-                                val origin = cloud.origin ?: return@SettingsButton
-                                cloudNotice = environment.openCloudDesktop(URI(origin))
-                            }
-                        }
-                        SettingsButton(if (accountUi.busy) "正在刷新…" else "刷新", enabled = !accountUi.busy) {
-                            environment.cloudAccount.refresh()
-                        }
-                        SettingsButton("退出账号", destructive = true) {
-                            environment.cloudAccount.signOut()
-                        }
-                    }
-                }
-                accountUi.error?.let { Footnote(it) }
-                cloudNotice?.let { Footnote(it) }
-            }
-
-            if (connection != null) {
-                SettingsSection("故障排除") {
-                    Footnote(troubleshootingText(status))
-                    SettingsButton(
-                        text = "尝试重新连接",
+                    SettingsDivider()
+                    SettingsRow(
+                        title = "尝试重新连接",
                         enabled = !reconnecting,
                         trailing = {
                             if (reconnecting) {
@@ -322,251 +262,401 @@ fun SettingsScreen(
                                 )
                             }
                         },
-                    ) {
-                        scope.launch {
-                            reconnecting = true
-                            // Waits until the stream leaves connecting (or 10s),
-                            // so the spinner means what it appears to mean.
-                            session.refresh()
-                            reconnecting = false
-                        }
+                        onClick = {
+                            scope.launch {
+                                reconnecting = true
+                                // Waits until the stream leaves connecting (or 10s),
+                                // so the spinner means what it appears to mean.
+                                session.refresh()
+                                reconnecting = false
+                            }
+                        },
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        title = "连接另一台电脑",
+                        chevron = true,
+                        onClick = {
+                            haptics.play(TactileAction.CONNECT_ANOTHER_COMPUTER)
+                            session.beginPairing()
+                        },
+                    )
+                } else if (onConnect != null) {
+                    SettingsDivider()
+                    SettingsRow(
+                        title = "连接电脑",
+                        titleColor = minisAccent,
+                        chevron = true,
+                        onClick = onConnect,
+                    )
+                }
+            }
+
+            val otherComputers = connections.filter { it.id != connection?.id }
+            if (otherComputers.isNotEmpty()) {
+                SettingsSection(label = "其他电脑") {
+                    otherComputers.forEachIndexed { index, computer ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = "使用 ${computer.name}",
+                            chevron = true,
+                            onClick = {
+                                haptics.play(TactileAction.SWITCH_COMPUTER)
+                                session.switchComputer(computer.id)
+                            },
+                        )
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "移除 ${computer.name}",
+                            destructive = true,
+                            onClick = { pendingComputerRemoval = computer },
+                        )
                     }
                 }
             }
 
-            SettingsSection("通知") {
-                SettingsRow(
-                    "状态",
-                    NotificationPermissionController.statusText(notifications),
-                )
-                // Granted is a status, not an action: a disabled "notifications
-                // are on" row was a dead control that looked broken.
-                if (NotificationPermissionController.buttonEnabled(notifications)) {
-                    SettingsButton(
-                        text = NotificationPermissionController.buttonText(notifications),
-                        onClick = environment.notifications::act,
+            // The one card a person checks to see what their bots may use; it
+            // sits directly under the computer as its own top-level feature.
+            if (onOpenConnectedApps != null) {
+                SettingsSection {
+                    SettingsRow(
+                        title = "已连接应用",
+                        chevron = true,
+                        onClick = onOpenConnectedApps,
                     )
                 }
-                Footnote(SettingsPolicy.NOTIFICATIONS_FOOTER)
             }
 
-            SettingsSection("后台连接") {
-                val alwaysOnEnabled by environment.alwaysOnEnabled.collectAsState()
+            SettingsSection(
+                label = "DEX 账号",
+                // Errors and browser results are answers, not explanations;
+                // the rest of the account story lives in the desktop app.
+                footer = if (accountUi.error == null && cloudNotice == null) {
+                    null
+                } else {
+                    {
+                        accountUi.error?.let { SettingsFootnote(it) }
+                        cloudNotice?.let { SettingsFootnote(it) }
+                    }
+                },
+            ) {
+                when (accountUi.phase) {
+                    // A failed first read keeps the phase at LOADING, because the
+                    // stored session may still be perfectly good — only the
+                    // request lost its race with the network on a cold start.
+                    // Without a retry here the section said it was still checking
+                    // and nothing but an app restart could recover it.
+                    CloudAccountUi.Phase.LOADING -> if (accountUi.error == null) {
+                        SettingsRow(
+                            title = "状态",
+                            value = "正在检查",
+                            trailing = {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            },
+                        )
+                    } else {
+                        SettingsRow(
+                            title = "重试",
+                            enabled = !accountUi.busy,
+                            onClick = { environment.cloudAccount.refresh() },
+                        )
+                    }
+                    CloudAccountUi.Phase.SIGNED_OUT -> {
+                        SettingsRow(
+                            title = "登录 DEX 账号",
+                            chevron = true,
+                            onClick = {
+                                environment.cloudAccount.clearError()
+                                signingIn = true
+                            },
+                        )
+                    }
+                    CloudAccountUi.Phase.SIGNED_IN -> {
+                        SettingsRow(title = "账号", value = accountUi.email ?: "")
+                        accountUi.clouds.forEach { cloud ->
+                            SettingsDivider()
+                            SettingsRow(
+                                // With one Cloud the name is noise; with two
+                                // it is the only thing telling the status rows
+                                // apart.
+                                title = if (accountUi.clouds.size > 1) "${cloud.name} 状态" else "云电脑状态",
+                                value = cloudStatusText(cloud.status),
+                            )
+                            SettingsDivider()
+                            SettingsRow(
+                                title = if (accountUi.busy) "正在配对…" else "配对 ${cloud.name} 到这台手机",
+                                chevron = true,
+                                enabled = cloud.origin != null && !accountUi.busy,
+                                onClick = {
+                                    if (cloud.origin == null) return@SettingsRow
+                                    scope.launch {
+                                        // Mint the one-time code, then hand it to the pairing
+                                        // screen. Redeeming it here bypassed that screen's
+                                        // attempt transaction — the Cloud saw a session but
+                                        // nothing was written down for this phone to restore.
+                                        val grant = environment.cloudAccount.pairCloud(cloud)
+                                            ?: return@launch
+                                        CloudPairingInbox.offer(
+                                            CloudPairingRequest(
+                                                origin = grant.origin,
+                                                code = grant.code,
+                                                name = cloud.name,
+                                            ),
+                                        )
+                                        session.beginPairing()
+                                    }
+                                },
+                            )
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "在浏览器中打开 ${cloud.name}",
+                                external = true,
+                                enabled = cloud.origin != null && !accountUi.busy,
+                                onClick = {
+                                    val origin = cloud.origin ?: return@SettingsRow
+                                    cloudNotice = environment.openCloudDesktop(URI(origin))
+                                },
+                            )
+                        }
+                        SettingsDivider()
+                        SettingsRow(
+                            title = if (accountUi.busy) "正在刷新…" else "刷新",
+                            enabled = !accountUi.busy,
+                            onClick = { environment.cloudAccount.refresh() },
+                        )
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "退出账号",
+                            destructive = true,
+                            onClick = { environment.cloudAccount.signOut() },
+                        )
+                    }
+                }
+            }
+
+            val alwaysOnEnabled by environment.alwaysOnEnabled.collectAsState()
+            // A granted switch cannot turn itself off; it opens the page that can.
+            val actOnNotifications = {
+                if (notifications == NotificationAccess.GRANTED) {
+                    environment.notifications.openSettingsPage()
+                } else {
+                    environment.notifications.act()
+                }
+            }
+            SettingsSection {
                 SettingsSwitchRow(
-                    text = "保持后台连接",
+                    title = "通知",
+                    checked = notifications == NotificationAccess.GRANTED,
+                    onCheckedChange = { actOnNotifications() },
+                )
+                SettingsDivider()
+                SettingsSwitchRow(
+                    title = "保持后台连接",
                     checked = alwaysOnEnabled,
                     onCheckedChange = { environment.onToggleAlwaysOn() },
                 )
-                Footnote(
-                    if (alwaysOnEnabled) {
-                        "已保留一条常驻通知，应用完全关闭后仍能收到定时提醒和例程结果。"
-                    } else {
-                        "仅在应用打开或刚切入后台时收到通知。依赖定时例程时建议开启。"
-                    },
-                )
             }
 
-            // Chinese OEM ROMs kill background services far more aggressively
-            // than AOSP. The app cannot flip those switches itself, so this is
-            // a guided shortcut to the exact system pages instead of a support
-            // article the reader has to translate.
-            SettingsSection("国产手机保活") {
+            // Chinese OEM ROMs kill background services more aggressively than
+            // AOSP. These rows open the exact system pages the app cannot
+            // toggle itself.
+            SettingsSection(label = "手机保活") {
                 val context = androidx.compose.ui.platform.LocalContext.current
-                SettingsButton("电池优化白名单") {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                }
-                SettingsButton("自启动与后台管理") {
-                    runCatching {
-                        context.startActivity(
-                            Intent(
-                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                                Uri.fromParts("package", context.packageName, null),
-                            ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                }
-                SettingsButton("通知与锁屏显示") {
-                    runCatching {
-                        context.startActivity(
-                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    }
-                }
-                Footnote(
-                    "一加 / OPPO / realme：设置 → 电池 → 应用电池管理 → DEX BOT → 允许后台运行。" +
-                        "小米：设置 → 应用设置 → 应用管理 → DEX BOT → 自启动、省电策略 → 无限制。" +
-                        "华为：设置 → 应用 → 应用启动管理 → DEX BOT → 手动管理，三项全部允许。",
+                SettingsRow(
+                    title = "电池优化白名单",
+                    external = true,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "自启动与后台管理",
+                    external = true,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", context.packageName, null),
+                                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "通知与锁屏显示",
+                    external = true,
+                    onClick = {
+                        runCatching {
+                            context.startActivity(
+                                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                    .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    },
                 )
             }
 
-            SettingsSection("手机工具") {
+            val toggleCalendar: (Boolean) -> Unit = { enabled ->
+                if (enabled) {
+                    calendarPermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.READ_CALENDAR,
+                            android.Manifest.permission.WRITE_CALENDAR,
+                        ),
+                    )
+                } else {
+                    environment.chatPreferences.setPhoneCalendar(false)
+                }
+            }
+            val toggleContacts: (Boolean) -> Unit = { enabled ->
+                if (enabled) {
+                    contactsPermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.READ_CONTACTS,
+                            android.Manifest.permission.WRITE_CONTACTS,
+                        ),
+                    )
+                } else {
+                    environment.chatPreferences.setPhoneContacts(false)
+                }
+            }
+            val toggleLocation: (Boolean) -> Unit = { enabled ->
+                if (enabled) {
+                    locationPermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.ACCESS_FINE_LOCATION,
+                            android.Manifest.permission.ACCESS_COARSE_LOCATION,
+                        ),
+                    )
+                } else {
+                    environment.chatPreferences.setPhoneLocation(false)
+                }
+            }
+            val toolsFailure = phoneToolsStatus as? Session.PhoneToolsStatus.Failed
+            SettingsSection(
+                label = "手机工具",
+                footer = if (toolsFailure == null) {
+                    null
+                } else {
+                    { SettingsFootnote(toolsFailure.message) }
+                },
+            ) {
                 SettingsSwitchRow(
-                    text = "允许机器人读取日历",
+                    title = "允许机器人读取日历",
                     checked = phoneCalendar,
-                    onCheckedChange = { enabled ->
-                        if (enabled) {
-                            calendarPermissions.launch(
-                                arrayOf(
-                                    android.Manifest.permission.READ_CALENDAR,
-                                    android.Manifest.permission.WRITE_CALENDAR,
-                                ),
-                            )
-                        } else {
-                            environment.chatPreferences.setPhoneCalendar(false)
-                        }
-                    },
+                    onCheckedChange = toggleCalendar,
                 )
+                SettingsDivider()
                 SettingsSwitchRow(
-                    text = "允许机器人读取联系人",
+                    title = "允许机器人读取联系人",
                     checked = phoneContacts,
-                    onCheckedChange = { enabled ->
-                        if (enabled) {
-                            contactsPermissions.launch(
-                                arrayOf(
-                                    android.Manifest.permission.READ_CONTACTS,
-                                    android.Manifest.permission.WRITE_CONTACTS,
-                                ),
-                            )
-                        } else {
-                            environment.chatPreferences.setPhoneContacts(false)
-                        }
-                    },
+                    onCheckedChange = toggleContacts,
                 )
+                SettingsDivider()
                 // Reminders are this app's own list, not an OS permission: the
                 // switch is the whole grant.
                 SettingsSwitchRow(
-                    text = "允许机器人创建提醒",
+                    title = "允许机器人创建提醒",
                     checked = phoneReminders,
-                    onCheckedChange = { enabled ->
-                        environment.chatPreferences.setPhoneReminders(enabled)
-                    },
+                    onCheckedChange = { environment.chatPreferences.setPhoneReminders(it) },
                 )
+                SettingsDivider()
                 SettingsSwitchRow(
-                    text = "允许机器人获取位置",
+                    title = "允许机器人获取位置",
                     checked = phoneLocation,
-                    onCheckedChange = { enabled ->
-                        if (enabled) {
-                            locationPermissions.launch(
-                                arrayOf(
-                                    android.Manifest.permission.ACCESS_FINE_LOCATION,
-                                    android.Manifest.permission.ACCESS_COARSE_LOCATION,
-                                ),
-                            )
-                        } else {
-                            environment.chatPreferences.setPhoneLocation(false)
-                        }
-                    },
+                    onCheckedChange = toggleLocation,
                 )
+                SettingsDivider()
                 // No permission: this only opens the system composer with the
                 // text filled in, and the person taps Send.
                 SettingsSwitchRow(
-                    text = "允许机器人起草短信 / WhatsApp",
+                    title = "允许机器人起草短信",
                     checked = phoneMessages,
-                    onCheckedChange = { enabled ->
-                        environment.chatPreferences.setPhoneMessages(enabled)
-                    },
+                    onCheckedChange = { environment.chatPreferences.setPhoneMessages(it) },
                 )
                 if (phoneCalendar || phoneContacts || phoneReminders || phoneLocation || phoneMessages) {
+                    SettingsDivider()
                     SettingsRow(
-                        "电脑登记",
-                        when (phoneToolsStatus) {
+                        title = "电脑登记",
+                        value = when (phoneToolsStatus) {
                             Session.PhoneToolsStatus.Registered -> "已登记"
                             is Session.PhoneToolsStatus.Failed -> "登记失败"
                             Session.PhoneToolsStatus.Idle -> "未登记"
                         },
                     )
-                    (phoneToolsStatus as? Session.PhoneToolsStatus.Failed)?.let { failure ->
-                        Footnote(failure.message)
-                    }
                 }
-                val enabledApps = buildList {
-                    if (phoneCalendar) add("日历")
-                    if (phoneContacts) add("联系人")
-                    if (phoneReminders) add("提醒")
-                    if (phoneLocation) add("位置")
-                    if (phoneMessages) add("消息")
-                }
-                Footnote(
-                    if (enabledApps.isEmpty()) {
-                        "开启后，电脑上的智能体才能使用对应的手机应用。手机只在本应用运行时应答；" +
-                            "关闭开关或撤销系统权限后立即停止。"
-                    } else {
-                        "已开启${enabledApps.joinToString("、")}。被授权的智能体可以按各自范围读取或修改；" +
-                            "读到的内容只会发送给你已配对的电脑。提醒保存在本应用里，不会写进系统日历。" +
-                            "“消息”只会打开短信或 WhatsApp 的编辑界面，内容仍需你亲手点发送。"
-                    },
+            }
+
+            SettingsSection {
+                SettingsRow(
+                    title = "外观",
+                    value = themeLabel(themeMode),
+                    chevron = true,
+                    onClick = { choosingTheme = true },
                 )
-            }
-
-            SettingsSection("外观") {
-                SettingsButton(
-                    text = "主题",
-                    trailing = {
-                        Text(themeLabel(themeMode), fontSize = 13.sp, color = minisSecondary)
-                    },
+                SettingsDivider()
+                SettingsRow(
+                    title = "活动详情",
+                    value = activityDetail.label,
                     chevron = true,
-                ) { choosingTheme = true }
-                Footnote("“深色”会同时切换状态栏和手势栏；“跟随系统”随手机的深色模式变化。")
-            }
-
-            SettingsSection("聊天") {
-                SettingsButton(
-                    text = "活动详情",
-                    trailing = {
-                        Text(activityDetail.label, fontSize = 13.sp, color = minisSecondary)
-                    },
+                    onClick = { choosingActivity = true },
+                )
+                SettingsDivider()
+                SettingsRow(
+                    title = "快捷回复",
                     chevron = true,
-                ) { choosingActivity = true }
-                SettingsButton("快捷回复", chevron = true) { editingQuickReplies = true }
+                    onClick = { editingQuickReplies = true },
+                )
             }
 
             // Routine schedules live on the computer this phone is bound to.
             // With no binding there is nothing to schedule against, so the row
             // is absent rather than present and dead.
-            if (onOpenRoutines != null || onOpenConnectedApps != null || onOpenVoice != null) {
-                SettingsSection("工作区") {
+            if (onOpenRoutines != null || onOpenVoice != null) {
+                SettingsSection(label = "工作区") {
                     onOpenRoutines?.let { openRoutines ->
-                        SettingsButton(text = "会话与例程", chevron = true, onClick = openRoutines)
+                        SettingsRow(title = "会话与例程", chevron = true, onClick = openRoutines)
                     }
-                    onOpenConnectedApps?.let { openConnectedApps ->
-                        SettingsButton(text = "已连接应用", chevron = true, onClick = openConnectedApps)
-                    }
+                    if (onOpenRoutines != null && onOpenVoice != null) SettingsDivider()
                     onOpenVoice?.let { openVoice ->
-                        SettingsButton(text = "语音", chevron = true, onClick = openVoice)
+                        SettingsRow(title = "语音", chevron = true, onClick = openVoice)
                     }
-                    Footnote("例程、连接应用与语音设置保存在电脑端；这里管理手机侧的入口。")
-                }
-            }
-
-            if (connection != null) {
-                SettingsSection(null) {
-                    SettingsButton(
-                        text = if (connections.size > 1) "移除此电脑" else "取消配对此手机",
-                        destructive = true,
-                    ) { confirmingUnpair = true }
-                    Footnote(SettingsPolicy.UNPAIR_FOOTER)
                 }
             }
 
             // The release channel is phone-only: it downloads a build signed
             // with the same key as this install, so pairing and chat data are
             // untouched. Android still asks for its own install confirmation.
-            SettingsSection("关于") {
-                val updateState by environment.updates.state.collectAsState()
-                val busy = updateState is UpdateState.Checking || updateState is UpdateState.Downloading
-                SettingsRow("版本", environment.updates.currentVersionName)
-                SettingsButton(
-                    text = "软件更新",
-                    enabled = !busy,
+            val updateState by environment.updates.state.collectAsState()
+            val updateBusy = updateState is UpdateState.Checking || updateState is UpdateState.Downloading
+            val updateFailure = updateState as? UpdateState.Failed
+            SettingsSection(
+                // A failed update is the one state that needs a sentence; the
+                // rest is already in the row.
+                footer = if (updateFailure == null) {
+                    null
+                } else {
+                    { SettingsFootnote(updateFailure.message) }
+                },
+            ) {
+                SettingsRow(
+                    title = "软件更新",
+                    enabled = !updateBusy,
+                    chevron = true,
                     trailing = {
-                        if (busy) {
+                        if (updateBusy) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
@@ -574,91 +664,108 @@ fun SettingsScreen(
                         } else {
                             Text(
                                 text = updateStatusText(updateState),
-                                fontSize = 14.sp,
+                                fontSize = 13.sp,
                                 color = if (
                                     updateState is UpdateState.Available ||
                                     updateState is UpdateState.Ready
                                 ) {
                                     minisAccent
                                 } else {
-                                    minisSecondary
+                                    secondaryTint
                                 },
                             )
                         }
                     },
-                ) {
-                    when (updateState) {
-                        is UpdateState.Available -> environment.updates.download()
-                        is UpdateState.Ready -> environment.updates.install()
-                        else -> environment.updates.check()
-                    }
-                }
+                    onClick = {
+                        when (updateState) {
+                            is UpdateState.Available -> environment.updates.download()
+                            is UpdateState.Ready -> environment.updates.install()
+                            else -> environment.updates.check()
+                        }
+                    },
+                )
                 // Recovery when the in-app path cannot run: the same page in a
                 // browser, where the person can download and install by hand.
                 if (updateState is UpdateState.Failed) {
                     val context = LocalContext.current
-                    SettingsButton("在浏览器中打开发布页", chevron = true) {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, AppUpdater.RELEASE_PAGE.toUri())
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                    }
+                    SettingsDivider()
+                    SettingsRow(
+                        title = "在浏览器中打开发布页",
+                        external = true,
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, AppUpdater.RELEASE_PAGE.toUri())
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        },
+                    )
                 }
-                Footnote(updateFootnote(updateState))
             }
 
-            SettingsSection("不在此处管理") {
-                Footnote(SettingsPolicy.NOT_HERE)
+            // Last on the page: the action that ends this phone's access is the
+            // one thing here that cannot be undone from the phone itself.
+            if (connection != null) {
+                SettingsSection {
+                    SettingsRow(
+                        title = if (connections.size > 1) "移除此电脑" else "取消配对此手机",
+                        destructive = true,
+                        onClick = { confirmingUnpair = true },
+                    )
+                }
             }
+
+            val versionContext = LocalContext.current
+            val brandVersion = remember(versionContext) {
+                runCatching {
+                    val info = versionContext.packageManager.getPackageInfo(versionContext.packageName, 0)
+                    "${info.versionName} (${PackageInfoCompat.getLongVersionCode(info)})"
+                }.getOrNull() ?: environment.updates.currentVersionName
+            }
+            BrandBlock(version = brandVersion)
         }
     }
 
     if (editingAddress) {
-        AlertDialog(
-            onDismissRequest = { editingAddress = false },
-            title = { Text("编辑地址") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(SettingsPolicy.EDIT_ADDRESS_MESSAGE, fontSize = 14.sp)
-                    OutlinedTextField(
-                        value = addressText,
-                        onValueChange = {
-                            addressText = it
-                            addressError = null
-                        },
-                        placeholder = { Text("https://mac.example 或 192.168.1.42:8810") },
-                        singleLine = true,
-                        isError = addressError != null,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .semantics { contentDescription = "电脑地址" },
-                    )
-                    addressError?.let {
-                        Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
-                    }
+        SettingsSheet(
+            title = "编辑地址",
+            onDismiss = { editingAddress = false },
+            actionLabel = "保存",
+            onAction = {
+                // Session re-parses, re-dials and persists; the walk and
+                // promote semantics stay its job. The form only refuses what
+                // it can already tell is not an address.
+                if (session.updateAddress(addressText)) {
+                    editingAddress = false
+                } else {
+                    addressError = AddressEdit.INVALID
                 }
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        // Session re-parses, re-dials and persists; the walk and
-                        // promote semantics stay its job. The form only refuses
-                        // what it can already tell is not an address.
-                        if (session.updateAddress(addressText)) {
-                            editingAddress = false
-                        } else {
-                            addressError = AddressEdit.INVALID
-                        }
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = addressText,
+                    onValueChange = {
+                        addressText = it
+                        addressError = null
                     },
-                ) { Text("保存") }
-            },
-            dismissButton = {
-                TextButton(onClick = { editingAddress = false }) { Text("取消") }
-            },
-        )
+                    placeholder = { Text("https://mac.example 或 192.168.1.42:8810") },
+                    singleLine = true,
+                    isError = addressError != null,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "电脑地址" },
+                )
+                addressError?.let {
+                    Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                }
+            }
+        }
     }
 
     if (confirmingUnpair) {
@@ -670,7 +777,7 @@ fun SettingsScreen(
                     if (connections.size > 1) {
                         "这仅会从本手机移除已保存的连接。其他已保存的电脑仍可使用。"
                     } else {
-                        SettingsPolicy.UNPAIR_CONFIRM_MESSAGE
+                        SettingsPolicy.UNPAIR_FOOTER
                     },
                 )
             },
@@ -717,75 +824,62 @@ fun SettingsScreen(
     }
 
     if (choosingTheme) {
-        AlertDialog(
-            onDismissRequest = { choosingTheme = false },
-            title = { Text("主题") },
-            text = {
-                Column {
-                    ThemeMode.entries.forEach { mode ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = themeMode == mode,
-                                    role = Role.RadioButton,
-                                ) {
-                                    environment.chatPreferences.setThemeMode(mode)
-                                    choosingTheme = false
+        SettingsSheet(title = "主题", onDismiss = { choosingTheme = false }) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection {
+                    ThemeMode.entries.forEachIndexed { index, mode ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = themeLabel(mode),
+                            trailing = {
+                                if (themeMode == mode) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = minisAccent,
+                                        modifier = Modifier.size(18.dp),
+                                    )
                                 }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = themeMode == mode, onClick = null)
-                            Text(themeLabel(mode), modifier = Modifier.padding(start = 8.dp))
-                        }
+                            },
+                            onClick = {
+                                environment.chatPreferences.setThemeMode(mode)
+                                choosingTheme = false
+                            },
+                        )
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { choosingTheme = false }) { Text("取消") }
-            },
-        )
+            }
+        }
     }
 
     if (choosingActivity) {
-        AlertDialog(
-            onDismissRequest = { choosingActivity = false },
-            title = { Text("活动详情") },
-            text = {
-                // iOS draws a Picker (SettingsView.swift:67-78), which marks the
-                // choice already in force; three plain buttons do not.
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    ActivityDetail.entries.forEach { detail ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = MIN_TOUCH_TARGET)
-                                .selectable(
-                                    selected = detail == activityDetail,
-                                    role = Role.RadioButton,
-                                    onClick = {
-                                        environment.chatPreferences.setActivityDetail(detail)
-                                        choosingActivity = false
-                                    },
-                                )
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = detail == activityDetail, onClick = null)
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(detail.label, textAlign = TextAlign.Start)
-                                Text(detail.caption, fontSize = 12.sp, color = secondaryTint)
-                            }
-                        }
+        SettingsSheet(title = "活动详情", onDismiss = { choosingActivity = false }) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection {
+                    ActivityDetail.entries.forEachIndexed { index, detail ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = detail.label,
+                            subtitle = detail.caption,
+                            trailing = {
+                                if (detail == activityDetail) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = minisAccent,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                            onClick = {
+                                environment.chatPreferences.setActivityDetail(detail)
+                                choosingActivity = false
+                            },
+                        )
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { choosingActivity = false }) { Text("取消") } },
-        )
+            }
+        }
     }
 
     if (editingQuickReplies) {
@@ -796,7 +890,7 @@ fun SettingsScreen(
     }
 
     if (signingIn) {
-        DexSignInDialog(
+        DexSignInSheet(
             account = environment.cloudAccount,
             ui = accountUi,
             onDismiss = { signingIn = false },
@@ -813,11 +907,11 @@ private fun cloudStatusText(status: String): String = when (status) {
 }
 
 /**
- * Email code sign-in: the account section's only dialog. It closes itself once
- * the controller reports a session, so the person never has to press "done".
+ * Email code sign-in as a sheet. It closes itself once the controller reports
+ * a session, so the person never has to press "done".
  */
 @Composable
-private fun DexSignInDialog(
+private fun DexSignInSheet(
     account: com.openmausbot.companion.account.CloudAccountController,
     ui: CloudAccountUi,
     onDismiss: () -> Unit,
@@ -827,108 +921,334 @@ private fun DexSignInDialog(
     LaunchedEffect(ui.phase) {
         if (ui.phase == CloudAccountUi.Phase.SIGNED_IN) onDismiss()
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (ui.codeSentTo == null) "登录 DEX 账号" else "输入登录码") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (ui.codeSentTo == null) {
-                    Text("用 DEX 账号的邮箱接收一个 8 位登录码。", fontSize = 13.sp, color = minisSecondary)
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        singleLine = true,
-                        label = { Text("邮箱") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                } else {
-                    Text("登录码已发送到 ${ui.codeSentTo}。", fontSize = 13.sp, color = minisSecondary)
-                    OutlinedTextField(
-                        value = code,
-                        onValueChange = { code = it.filter(Char::isDigit).take(8) },
-                        singleLine = true,
-                        label = { Text("8 位登录码") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    TextButton(onClick = { account.sendCode(ui.codeSentTo) }, enabled = !ui.busy) {
-                        Text("重新发送", fontSize = 13.sp)
-                    }
+    val enteringEmail = ui.codeSentTo == null
+    SettingsSheet(
+        title = if (enteringEmail) "登录 DEX 账号" else "输入登录码",
+        onDismiss = onDismiss,
+        actionLabel = if (enteringEmail) "发送登录码" else "登录",
+        actionEnabled = !ui.busy,
+        onAction = {
+            if (enteringEmail) account.sendCode(email) else account.verify(code)
+        },
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            if (enteringEmail) {
+                Text(
+                    "用 DEX 账号的邮箱接收一个 8 位登录码。",
+                    fontSize = 12.sp,
+                    color = secondaryTint,
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    singleLine = true,
+                    label = { Text("邮箱") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else {
+                Text(
+                    "登录码已发送到 ${ui.codeSentTo}。",
+                    fontSize = 12.sp,
+                    color = secondaryTint,
+                )
+                OutlinedTextField(
+                    value = code,
+                    onValueChange = { code = it.filter(Char::isDigit).take(8) },
+                    singleLine = true,
+                    label = { Text("8 位登录码") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(onClick = { account.sendCode(ui.codeSentTo) }, enabled = !ui.busy) {
+                    Text("重新发送", fontSize = 13.sp)
                 }
-                ui.error?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
             }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !ui.busy,
-                onClick = { if (ui.codeSentTo == null) account.sendCode(email) else account.verify(code) },
-            ) {
-                Text(if (ui.busy) "请稍候…" else if (ui.codeSentTo == null) "发送登录码" else "登录")
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("取消") } },
-    )
+            ui.error?.let { Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.error) }
+        }
+    }
 }
 
 @Composable
-private fun SettingsSection(title: String?, content: @Composable () -> Unit) {
+private fun SettingsSection(
+    label: String? = null,
+    footer: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        title?.let {
-            Text(
-                text = it,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = minisSecondary,
-                modifier = Modifier
-                    .padding(start = 4.dp)
-                    .semantics { heading() },
-            )
-        }
-        // The 1 dp gaps between rows are the separators: every row paints the
-        // grouped card colour, and the container behind them is the hairline
-        // colour. That keeps every line inset and automatic, without a hand-
-        // placed divider after each row (and without one under the last).
+        label?.let { SettingsSectionLabel(it) }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(MinisCardShape)
-                .background(minisSeparator),
-            verticalArrangement = Arrangement.spacedBy(1.dp),
+                .background(minisCard),
         ) {
+            content()
+        }
+        // Footers are for errors and answers a row cannot show. Explanatory
+        // prose belongs in the app that owns the setting, not here.
+        footer?.let {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                it()
+            }
+        }
+    }
+}
+
+/** A hairline that stops short of both card edges. */
+@Composable
+private fun SettingsDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        thickness = 0.5.dp,
+        color = minisSeparator,
+    )
+}
+
+/**
+ * The one sheet every settings sub-screen uses: a drag handle, a Cancel /
+ * title / action bar, and the page's own cards underneath.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSheet(
+    title: String,
+    onDismiss: () -> Unit,
+    actionLabel: String? = null,
+    actionEnabled: Boolean = true,
+    onAction: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        shape = MinisSheetShape,
+        containerColor = minisCanvas,
+        dragHandle = {
+            Box(
+                modifier = Modifier
+                    .padding(top = 8.dp, bottom = 4.dp)
+                    .size(width = 36.dp, height = 4.dp)
+                    .clip(CircleShape)
+                    .background(minisTertiary),
+            )
+        },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                ) {
+                    Text("取消")
+                }
+                Text(
+                    text = title,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+                if (actionLabel != null && onAction != null) {
+                    TextButton(
+                        onClick = onAction,
+                        enabled = actionEnabled,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        Text(actionLabel)
+                    }
+                }
+            }
             content()
         }
     }
 }
 
 @Composable
-private fun SettingsRow(label: String, value: String) {
+private fun SettingsSectionLabel(text: String) {
+    Text(
+        text = text,
+        fontSize = 12.sp,
+        fontWeight = FontWeight.Medium,
+        letterSpacing = 0.2.sp,
+        color = minisInk.copy(alpha = 0.45f),
+        modifier = Modifier.semantics { heading() },
+    )
+}
+
+@Composable
+private fun SettingsRow(
+    title: String,
+    subtitle: String? = null,
+    value: String? = null,
+    valueColor: Color = secondaryTint,
+    titleColor: Color? = null,
+    destructive: Boolean = false,
+    enabled: Boolean = true,
+    chevron: Boolean = false,
+    /** A row that leaves the app, drawn with the open-in-new glyph. */
+    external: Boolean = false,
+    trailing: (@Composable () -> Unit)? = null,
+    onClick: (() -> Unit)? = null,
+) {
+    val tone = when {
+        !enabled -> minisTertiary
+        destructive -> minisDanger
+        titleColor != null -> titleColor
+        else -> minisInk
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisGrouped)
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 14.dp),
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .heightIn(min = if (subtitle == null) 50.dp else 58.dp)
+            .padding(horizontal = 16.dp, vertical = if (subtitle == null) 0.dp else 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, fontSize = 14.sp, color = minisInk)
-        Text(
-            text = value,
-            fontSize = 13.sp,
-            textAlign = TextAlign.End,
-            color = minisSecondary,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 12.dp),
-        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                color = tone,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            subtitle?.let {
+                Text(
+                    text = it,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = secondaryTint,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        value?.let {
+            Text(
+                text = it,
+                fontSize = 13.sp,
+                textAlign = TextAlign.End,
+                color = valueColor,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.widthIn(max = 200.dp),
+            )
+        }
+        trailing?.invoke()
+        if (external) {
+            Icon(
+                painter = painterResource(R.drawable.ic_open_in_new_line),
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(13.dp),
+            )
+        } else if (chevron) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(14.dp),
+            )
+        }
     }
 }
 
 /**
- * The address, short enough to read at a glance and long enough to copy — the
- * port of the connection details in `ios/App/SettingsView.swift:346-371`.
+ * The identity row at the top: a disc, the name, one state line, and a
+ * chevron when the row opens something.
+ */
+@Composable
+private fun IdentityRow(
+    title: String,
+    subtitle: String,
+    statusColor: Color,
+    onClick: (() -> Unit)? = null,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(
+                        role = Role.Button,
+                        onClickLabel = "编辑地址",
+                        onClick = onClick,
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .heightIn(min = 64.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DexBotMark(40.dp)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisInk,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(statusColor),
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 12.sp,
+                    color = secondaryTint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        if (onClick != null) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(14.dp),
+            )
+        }
+    }
+}
+
+/**
+ * The address as a row like any other: title, shortened value, copy, and a
+ * chevron that unfolds the full one.
  */
 @Composable
 private fun AddressRow(
@@ -938,26 +1258,47 @@ private fun AddressRow(
     onToggle: () -> Unit,
     onCopy: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(minisGrouped)
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(2.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("地址", fontSize = 14.sp, color = minisInk)
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    role = Role.Button,
+                    onClickLabel = if (expanded) "隐藏完整地址" else "显示完整地址",
+                    onClick = onToggle,
+                )
+                .heightIn(min = 50.dp)
+                .padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("地址", fontSize = 15.sp, color = minisInk)
             Text(
                 text = shortenedAddress(address),
-                fontSize = 12.sp,
+                fontSize = 13.sp,
                 fontFamily = FontFamily.Monospace,
-                color = minisSecondary,
+                color = secondaryTint,
                 textAlign = TextAlign.End,
                 maxLines = 1,
-                overflow = TextOverflow.MiddleEllipsis,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            // 44 dp target: the link text is small, so the target is not the
+            // text alone.
+            Text(
+                text = if (copied) "已复制" else "复制",
+                fontSize = 12.sp,
+                color = minisAccent,
                 modifier = Modifier
-                    .weight(1f)
-                    .padding(start = 12.dp),
+                    .heightIn(min = 44.dp)
+                    .wrapContentHeight(Alignment.CenterVertically)
+                    .clickable(role = Role.Button, onClick = onCopy),
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(14.dp),
             )
         }
         if (expanded) {
@@ -966,121 +1307,113 @@ private fun AddressRow(
                 Text(
                     text = wrapAddress(address),
                     fontSize = 12.sp,
+                    lineHeight = 17.sp,
                     fontFamily = FontFamily.Monospace,
-                    color = minisSecondary,
-                    modifier = Modifier.padding(top = 2.dp),
+                    color = secondaryTint,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                 )
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // 12 sp links on a 48 dp row: the padding used to be the target,
-            // which made these the smallest things on the screen.
-            Text(
-                text = if (expanded) "隐藏完整地址" else "显示完整地址",
-                fontSize = 12.sp,
-                color = minisAccent,
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .wrapContentHeight(Alignment.CenterVertically)
-                    .clickable(role = Role.Button, onClick = onToggle)
-                    .padding(horizontal = 6.dp),
-            )
-            Text(
-                text = if (copied) "已复制" else "复制",
-                fontSize = 12.sp,
-                color = minisAccent,
-                modifier = Modifier
-                    .heightIn(min = 48.dp)
-                    .wrapContentHeight(Alignment.CenterVertically)
-                    .clickable(role = Role.Button, onClick = onCopy)
-                    .padding(horizontal = 6.dp),
-            )
-        }
     }
 }
 
 @Composable
-private fun SettingsButton(
-    text: String,
-    enabled: Boolean = true,
-    destructive: Boolean = false,
-    /** Drawn at the end of the row — a value, a spinner, or an install label. */
-    trailing: (@Composable () -> Unit)? = null,
-    /** True for a row that opens another screen or sheet. */
-    chevron: Boolean = false,
-    onClick: () -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(minisGrouped)
-            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 14.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = text,
-            fontSize = 14.sp,
-            color = when {
-                !enabled -> minisTertiary
-                destructive -> MaterialTheme.colorScheme.error
-                else -> minisInk
-            },
-            modifier = Modifier.weight(1f),
-        )
-        trailing?.invoke()
-        if (chevron) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = minisTertiary,
-                modifier = Modifier.size(15.dp),
-            )
-        }
-    }
+private fun connectionColor(status: Session.Status): Color = when (status) {
+    Session.Status.Live -> minisSuccess
+    Session.Status.Connecting -> minisWarning
+    // Unpaired is not an error, but a 30% dot disappears on a white row.
+    Session.Status.Unpaired -> secondaryTint
+    Session.Status.Unauthorized, Session.Status.OutdatedApp -> minisDanger
+    is Session.Status.Offline -> minisWarning
 }
 
-/** A labelled switch, for a setting that is on or off rather than an action. */
 @Composable
 private fun SettingsSwitchRow(
-    text: String,
+    title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    subtitle: String? = null,
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisGrouped)
-            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 14.dp),
+            // The whole row is the switch: one semantics node, and a tap
+            // anywhere changes it once. The switch itself is display-only, so
+            // TalkBack does not announce a second control inside the first.
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onCheckedChange,
+            )
+            .heightIn(min = if (subtitle == null) 50.dp else 58.dp)
+            .padding(horizontal = 16.dp, vertical = if (subtitle == null) 0.dp else 9.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, fontSize = 14.sp, color = minisInk, modifier = Modifier.weight(1f))
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                color = if (enabled) minisInk else minisTertiary,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            subtitle?.let {
+                Text(
+                    text = it,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                    color = secondaryTint,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
-            // Material's switch is drawn for a taller row; at 44 dp it is the
-            // one control that still reads as a slab, so it comes down a notch.
-            modifier = Modifier.scale(0.82f),
+            onCheckedChange = null,
+            enabled = enabled,
+            modifier = Modifier
+                .scale(0.82f)
+                .clearAndSetSemantics {},
         )
     }
 }
 
 @Composable
-private fun Footnote(text: String) {
+private fun SettingsFootnote(text: String) {
     Text(
         text = text,
         fontSize = 12.sp,
-        lineHeight = 16.sp,
-        color = minisSecondary,
+        lineHeight = 17.sp,
+        color = secondaryTint,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** The app's own sign-off at the foot of the sheet: mark, name, version. */
+@Composable
+private fun BrandBlock(version: String) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisGrouped)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-    )
+            .padding(top = 12.dp, bottom = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        DexBotMark(56.dp)
+        Text("DEX BOT", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
+        Text(
+            text = version,
+            fontSize = 12.sp,
+            color = secondaryTint,
+        )
+    }
 }
 
 private fun themeLabel(mode: ThemeMode): String = when (mode) {
@@ -1100,29 +1433,15 @@ private fun updateStatusText(state: UpdateState): String = when (state) {
     is UpdateState.Failed -> "重试"
 }
 
-/** The sentence under the update row, which changes with the state. */
-private fun updateFootnote(state: UpdateState): String = when (state) {
-    is UpdateState.Available -> buildString {
-        append("可更新至 ${state.info.versionName}")
-        if (state.info.sizeLabel.isNotEmpty()) append("（${state.info.sizeLabel}）")
-        state.info.notes?.let { append("：$it") }
-    }
-    is UpdateState.Downloading ->
-        state.progress?.let { "正在下载 ${(it * 100).toInt()}%…" } ?: "正在下载更新…"
-    is UpdateState.Ready -> state.hint ?: "下载完成。点上方安装，系统会再确认一次。"
-    is UpdateState.Failed -> state.message
-    is UpdateState.UpToDate -> "当前已是最新版本。"
-    else -> "更新包托管在公开网页；安装时系统会再确认。"
-}
-
 private const val ADDRESS_CLIP_LABEL = "DEX BOT 电脑地址"
 
 /** Long enough for "Copied" to be read, short enough not to linger (iOS `:363-367`). */
 private const val COPIED_LABEL_MILLIS = 2_000L
 
 /**
- * What the Troubleshooting section says before offering to reconnect — the port
- * of `ConnectionSecurityView.troubleshootingText` (`ios/App/SettingsView.swift:445-458`).
+ * The explanation under the identity card, which changes with the connection
+ * state — the port of `ConnectionSecurityView.troubleshootingText`
+ * (`ios/App/SettingsView.swift:445-458`).
  */
 internal fun troubleshootingText(status: Session.Status): String = when (status) {
     Session.Status.Live -> "此电脑已连接且响应正常。"
@@ -1131,8 +1450,8 @@ internal fun troubleshootingText(status: Session.Status): String = when (status)
     Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 DEX BOT 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
     is Session.Status.Offline ->
-        // The status row above is one line and ellipsized; a failure that has
-        // a next step says it here, where there is room for it.
+        // The identity subtitle is one line and ellipsized; a failure that
+        // has a next step says it here, where there is room for it.
         listOfNotNull(status.message, status.hint).joinToString("\n")
 }
 

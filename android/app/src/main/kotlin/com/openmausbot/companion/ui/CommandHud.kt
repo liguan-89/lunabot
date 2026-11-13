@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -185,9 +186,17 @@ fun PredictiveChipsRow(
                 },
                 label = { Text(chip.title, fontSize = 13.sp) },
                 leadingIcon = chip.icon?.let { icon ->
-                    { Text(quickReplyGlyph(icon), fontSize = 13.sp) }
+                    { Text(quickReplyGlyph(icon), fontSize = 13.sp, color = secondaryTint) }
                 },
-                border = AssistChipDefaults.assistChipBorder(enabled = true),
+                // Flat and borderless, like the composer's own capsule: a
+                // suggestion is a quiet door, not a second row of buttons.
+                shape = CircleShape,
+                border = null,
+                colors = AssistChipDefaults.assistChipColors(
+                    containerColor = minisControl,
+                    labelColor = minisInk,
+                    leadingIconContentColor = secondaryTint,
+                ),
             )
         }
         Spacer(Modifier.width(4.dp))

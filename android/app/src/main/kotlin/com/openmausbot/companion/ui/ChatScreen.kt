@@ -31,6 +31,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -61,6 +62,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -94,7 +96,6 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -470,7 +471,7 @@ private fun LoadedChat(
     // pagination. Only the rendered rows fold activity according to the local
     // preference, so changing the choice never mutates server state.
     val transcript = remember(rawTranscript, activityDetail) {
-        transcriptRows(rawTranscript, activityDetail)
+        transcriptRows(collapseRepeatedReceipts(rawTranscript), activityDetail)
     }
     var expandedTurns by remember(threadId) { mutableStateOf(emptySet<String>()) }
     var revealedTurnMessageId by remember(threadId) { mutableStateOf<String?>(null) }
@@ -883,10 +884,6 @@ private fun LoadedChat(
     BackHandler(enabled = searching) { searching = false }
     BackHandler(enabled = !showingPlus && !hudOpen && !searching) { leaveToRoster() }
 
-    // Measured rather than assumed, because the notice below clears the header
-    // and the header grows with the font scale.
-    var headerHeight by remember { mutableStateOf(0.dp) }
-
     Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(
@@ -947,7 +944,7 @@ private fun LoadedChat(
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text("加载更早的消息", fontSize = 13.sp)
+                                Text("加载更早的消息", fontSize = 13.sp, color = secondaryTint)
                             }
                         }
                     }
@@ -1114,30 +1111,8 @@ private fun LoadedChat(
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                        .onSizeChanged { headerHeight = with(density) { it.height.toDp() } },
+                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
                 )
-
-                // The roster's connection notice follows the person into the
-                // chat: a transcript that silently stops updating while the
-                // computer is unreachable used to explain itself only on the
-                // roster. It sits *under* the controls — at the top of the
-                // column it pushed the back button down the moment the
-                // computer went away, and the way back is the one control that
-                // should stay where the thumb left it. Overlaying the
-                // transcript costs the first lines of an old message while the
-                // banner is up, and moves nothing when it goes.
-                if (headerHeight > 0.dp) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                            .fillMaxWidth()
-                            .padding(top = headerHeight),
-                    ) {
-                        StatusBanner()
-                    }
-                }
             }
 
             Composer(
@@ -1784,9 +1759,9 @@ private fun ChatHeader(
 }
 
 /**
- * The header's overflow as the app's own card — the same surface, radius and
- * row weight as the composer's + sheet, rather than the platform menu with its
- * system typography.
+ * The header's overflow as the app's own card: the same surface, hairlines and
+ * row weight as Settings, rather than the platform menu with its system
+ * typography.
  */
 @Composable
 private fun ChatOverflowMenu(
@@ -1806,50 +1781,107 @@ private fun ChatOverflowMenu(
         onDismissRequest = onDismiss,
         properties = PopupProperties(focusable = true),
     ) {
-        Column(
-            modifier = Modifier
-                .width(200.dp)
-                .shadow(14.dp, RoundedCornerShape(18.dp))
-                .background(minisCard, RoundedCornerShape(18.dp))
-                .border(0.5.dp, minisSeparator, RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
-                .padding(vertical = 4.dp),
-        ) {
-            ChatMenuRow(R.drawable.ic_search_line, "搜索聊天内容", onSearch)
+        ChatMenuCard(modifier = Modifier.width(CHAT_MENU_WIDTH)) {
+            ChatMenuRow(
+                title = "搜索聊天内容",
+                icon = menuIcon(R.drawable.ic_search_line),
+                onClick = onSearch,
+            )
             if (bot != null) {
-                ChatMenuRow(R.drawable.ic_call_line, "呼叫 ${bot.name}", onCall)
-                ChatMenuRow(R.drawable.ic_display_line, "查看 ${bot.name} 的电脑", onWatchComputer)
-                ChatMenuRow(R.drawable.ic_edit_line, "编辑资料", onOpenProfile)
+                ChatMenuDivider()
+                ChatMenuRow(
+                    title = "呼叫 ${bot.name}",
+                    icon = menuIcon(R.drawable.ic_call_line),
+                    onClick = onCall,
+                )
+                ChatMenuDivider()
+                ChatMenuRow(
+                    title = "查看 ${bot.name} 的电脑",
+                    icon = menuIcon(R.drawable.ic_display_line),
+                    onClick = onWatchComputer,
+                )
+                ChatMenuDivider()
+                ChatMenuRow(
+                    title = "编辑资料",
+                    icon = menuIcon(R.drawable.ic_edit_line),
+                    onClick = onOpenProfile,
+                )
             }
         }
     }
 }
 
+private val CHAT_MENU_SHAPE = RoundedCornerShape(16.dp)
+private val CHAT_MENU_WIDTH = 240.dp
+
 @Composable
-private fun ChatMenuRow(icon: Int, text: String, onClick: () -> Unit) {
+private fun ChatMenuCard(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .shadow(16.dp, CHAT_MENU_SHAPE)
+            .background(minisCard, CHAT_MENU_SHAPE)
+            .border(0.5.dp, minisSeparator, CHAT_MENU_SHAPE)
+            .clip(CHAT_MENU_SHAPE)
+            .padding(vertical = 4.dp),
+        content = content,
+    )
+}
+
+@Composable
+private fun ChatMenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        thickness = 0.5.dp,
+        color = minisSeparator,
+    )
+}
+
+@Composable
+private fun ChatMenuRow(
+    title: String,
+    icon: @Composable (Color) -> Unit,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    destructive: Boolean = false,
+) {
+    val alpha = if (enabled) 1f else 0.45f
+    val titleColor = if (destructive) MaterialTheme.colorScheme.error else minisInk
+    val iconColor = if (destructive) MaterialTheme.colorScheme.error else secondaryTint
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(role = Role.Button, onClick = onClick)
-            .heightIn(min = 44.dp)
-            .padding(horizontal = 14.dp),
+            .heightIn(min = 50.dp)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = minisInk,
-            modifier = Modifier.size(18.dp),
-        )
+        icon(iconColor.copy(alpha = alpha))
         Text(
-            text = text,
-            fontSize = 14.sp,
-            color = minisInk,
+            text = title,
+            fontSize = 15.sp,
+            color = titleColor.copy(alpha = alpha),
+            modifier = Modifier.weight(1f),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
     }
+}
+
+private fun menuIcon(icon: Int): @Composable (Color) -> Unit = { tint ->
+    Icon(
+        painter = painterResource(icon),
+        contentDescription = null,
+        tint = tint,
+        modifier = Modifier.size(17.dp),
+    )
+}
+
+private fun actionIcon(id: ChatActionId): @Composable (Color) -> Unit = { tint ->
+    ChatActionIcon(id, tint)
 }
 
 /**
@@ -1931,9 +1963,9 @@ private fun BackPill(unreadElsewhere: Int, onBack: () -> Unit) {
 }
 
 /**
- * What the composer's + opens: the things you can do here, each with a line
- * saying what it does. Rises above the composer; tapping anywhere else, the back
- * gesture, or the × the + became, puts it away.
+ * What the composer's + opens: the things you can do here, in one card. Rises
+ * above the composer; tapping anywhere else, the back gesture, or the × the +
+ * became, puts it away.
  */
 @Composable
 private fun BoxScope.PlusSheet(
@@ -1972,69 +2004,22 @@ private fun BoxScope.PlusSheet(
             .align(Alignment.BottomStart)
             .padding(start = 12.dp, end = 44.dp, bottom = 70.dp),
     ) {
-        Column(
-            modifier = Modifier
-                // A menu is read, not looked through: the glass sheet let the
-                // transcript behind it decide the contrast of every subtitle.
-                // Solid card, one shadow, no sheen.
-                .shadow(16.dp, RoundedCornerShape(PLUS_SHEET_RADIUS))
-                .background(minisCard, RoundedCornerShape(PLUS_SHEET_RADIUS))
-                .border(0.5.dp, minisSeparator, RoundedCornerShape(PLUS_SHEET_RADIUS))
-                .clip(RoundedCornerShape(PLUS_SHEET_RADIUS))
-                .padding(vertical = 6.dp),
-        ) {
-            actions.forEach { action ->
-                val tint = if (action.destructive) {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                }
-                val alpha = if (action.enabled) 1f else 0.45f
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 50.dp)
-                        .clickable(
-                            enabled = action.enabled,
-                            role = Role.Button,
-                            onClick = { onAction(action.id) },
-                        )
-                        .padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .background(
-                                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f * alpha),
-                                CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        ChatActionIcon(id = action.id, tint = tint.copy(alpha = alpha))
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                        Text(
-                            text = action.title,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = tint.copy(alpha = alpha),
-                        )
-                        Text(
-                            text = action.subtitle,
-                            fontSize = 12.sp,
-                            color = secondaryTint.copy(alpha = alpha),
-                        )
-                    }
-                }
+        ChatMenuCard(modifier = Modifier.width(CHAT_MENU_WIDTH)) {
+            actions.forEachIndexed { index, action ->
+                if (index > 0) ChatMenuDivider()
+                ChatMenuRow(
+                    title = action.title,
+                    icon = actionIcon(action.id),
+                    onClick = { onAction(action.id) },
+                    enabled = action.enabled,
+                    destructive = action.destructive,
+                )
             }
         }
     }
 }
 
 private const val PLUS_MILLIS = 280
-private val PLUS_SHEET_RADIUS = 20.dp
 
 /** The + becomes an ×. */
 private const val PLUS_TURN_DEGREES = 45f
@@ -2492,4 +2477,43 @@ private fun Composer(
             }
         }
     }
+}
+
+/**
+ * Consecutive identical receipts — two attempts at the same failing engine call,
+ * or the same notice twice — are one line with a count. The source transcript is
+ * untouched; this only changes what the list draws.
+ */
+internal fun collapseRepeatedReceipts(messages: List<Message>): List<Message> {
+    if (messages.size < 2) return messages
+    val out = ArrayList<Message>(messages.size)
+    var index = 0
+    while (index < messages.size) {
+        val message = messages[index]
+        val tool = message.tool
+        if (message.kind != Message.Kind.ACTIVITY || tool == null) {
+            out += message
+            index++
+            continue
+        }
+        var count = 1
+        while (index + count < messages.size) {
+            val next = messages[index + count]
+            if (next.kind == Message.Kind.ACTIVITY &&
+                next.tool?.name == tool.name &&
+                next.tool?.ok == tool.ok
+            ) {
+                count++
+            } else {
+                break
+            }
+        }
+        out += if (count > 1) {
+            message.copy(tool = tool.copy(name = "${tool.name} ×$count"))
+        } else {
+            message
+        }
+        index += count
+    }
+    return out
 }

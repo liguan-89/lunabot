@@ -187,10 +187,10 @@ class ActivityReceiptTest {
     }
 
     @Test
-    fun `success is the quiet one and says nothing extra on screen`() {
+    fun `only a run in flight asks for a word`() {
         assertTrue(ActivityReceipt.showsLabel(ActivityStatus.RUNNING))
-        assertTrue(ActivityReceipt.showsLabel(ActivityStatus.ERROR))
         assertTrue(!ActivityReceipt.showsLabel(ActivityStatus.SUCCESS))
+        assertTrue(!ActivityReceipt.showsLabel(ActivityStatus.ERROR))
     }
 
     @Test
@@ -198,6 +198,42 @@ class ActivityReceiptTest {
         assertEquals("grep, 运行中", ActivityReceipt.announcement("grep", ActivityStatus.RUNNING))
         assertEquals("grep, 成功", ActivityReceipt.announcement("grep", ActivityStatus.SUCCESS))
         assertEquals("grep, 错误", ActivityReceipt.announcement("grep", ActivityStatus.ERROR))
+    }
+
+    @Test
+    fun `wire receipts read as a sentence`() {
+        assertEquals(
+            "continuing on Claude after hitting the usage limit",
+            readableActivityName("notice: continuing on Claude after hitting the usage limit"),
+        )
+        assertEquals(
+            "402: Insufficient Balance",
+            readableActivityName("error: 402: {\"message\":\"Insufficient Balance\"}"),
+        )
+        // A clipped provider payload still gives up its message.
+        assertEquals(
+            "402: Insufficient Balance",
+            readableActivityName("error: 402: {\"message\":\"Insufficient Balance"),
+        )
+        // The request id is for support, not for the transcript line.
+        assertEquals(
+            "402: Insufficient Balance",
+            readableActivityName(
+                "error: 402: {\"message\":\"Insufficient Balance (request_id: 34e0417a-5663-4ee9)\"}",
+            ),
+        )
+        // The provider's quoted reason is diagnostic tail, not the line.
+        assertEquals(
+            "Claude had a temporary server problem",
+            readableActivityName(
+                "Claude had a temporary server problem (Claude says: \"Connection refused — a\")",
+            ),
+        )
+        assertEquals(
+            "Claude had a temporary server problem",
+            readableActivityName("error: Claude had a temporary server problem"),
+        )
+        assertEquals("read_file", readableActivityName("read_file"))
     }
 }
 

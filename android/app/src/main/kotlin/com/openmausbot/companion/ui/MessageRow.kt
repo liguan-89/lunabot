@@ -1162,7 +1162,18 @@ private fun ActivityChip(
         ActivityStatus.SUCCESS -> secondaryTint
         ActivityStatus.ERROR -> MaterialTheme.colorScheme.error
     }
+    // A receipt is a pill that wraps its sentence, not a full-width row. Stretched
+    // edge to edge it read as a log line, and the state word sat marooned at the
+    // screen edge; a capsule keeps the mark, the sentence and the state together.
+    val shape = RoundedCornerShape(12.dp)
+    // A wash of ink, not a white card: a white pill beside a white message bubble
+    // reads as another reply, and these are the transcript's smallest print.
+    val wash = when (status) {
+        ActivityStatus.ERROR -> tint.copy(alpha = 0.08f)
+        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.05f)
+    }
     val haptics = rememberHaptics()
+    val label = readableActivityName(tool.name)
     val linked = if (threadRef != null && openThread != null) {
         Modifier
             .heightIn(min = MIN_TOUCH_TARGET)
@@ -1176,31 +1187,41 @@ private fun ActivityChip(
     Row(
         modifier = Modifier
             .padding(start = 4.dp)
+            .widthIn(max = 280.dp)
+            .clip(shape)
+            .background(wash)
             .then(linked)
+            .padding(horizontal = 11.dp, vertical = 7.dp)
             .semantics(mergeDescendants = true) {
-                contentDescription = ActivityReceipt.announcement(tool.name, status)
+                contentDescription = ActivityReceipt.announcement(label, status)
             },
         horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        // The marker belongs to the first line, not to the middle of a wrapped
+        // sentence.
+        verticalAlignment = Alignment.Top,
     ) {
         if (status == ActivityStatus.ERROR) {
             Icon(
                 imageVector = Icons.Filled.Warning,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier.size(14.dp),
+                modifier = Modifier
+                    .padding(top = 2.dp)
+                    .size(13.dp),
             )
         } else {
             Box(
                 modifier = Modifier
+                    .padding(top = 6.dp)
                     .size(ACTIVITY_DOT)
                     .background(tint, CircleShape),
             )
         }
         Text(
-            text = tool.name,
+            text = label,
             fontSize = 13.sp,
-            maxLines = 1,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
             color = if (status == ActivityStatus.ERROR) tint else secondaryTint,
         )
         if (ActivityReceipt.showsLabel(status)) {
@@ -1210,10 +1231,38 @@ private fun ActivityChip(
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 color = tint,
+                modifier = Modifier.padding(top = 1.dp),
             )
         }
     }
 }
+
+/**
+ * A tool receipt's name is wire text: `notice: …` for a fallback, and often a
+ * provider's JSON error. Strip the prefix and keep the one sentence a person
+ * can read; the icon and the status label already say "error".
+ */
+internal fun readableActivityName(name: String): String {
+    val body = name.removePrefix("notice: ").removePrefix("error: ")
+    if (body.isBlank()) return name
+    val detail = Regex("\"message\"\\s*:\\s*\"([^\"]+)").find(body)
+        ?.groupValues?.getOrNull(1)
+    if (detail != null) {
+        val prefix = body.substringBefore("{").trim().trimEnd(':', '：').trim()
+        val clean = cleanActivityText(detail)
+        return if (prefix.isEmpty()) clean else "$prefix: $clean"
+    }
+    return cleanActivityText(body)
+}
+
+private fun cleanActivityText(text: String): String = text
+    .replace(Regex("\\(?\\s*request_id\\s*[:=]\\s*[^)\\s,]*\\)?", RegexOption.IGNORE_CASE), "")
+    // The provider's own quoted reason is a diagnostic, not a sentence; the
+    // state above it already says the request failed.
+    .replace(Regex("\\s*\\([A-Za-z][\\w .-]* says:.*$", RegexOption.IGNORE_CASE), "")
+    .trim()
+    .trimEnd('(', '（', ',', '，')
+    .trim()
 
 /**
  * A quiet chip under a reply for the harness's receipts (the work digest, a

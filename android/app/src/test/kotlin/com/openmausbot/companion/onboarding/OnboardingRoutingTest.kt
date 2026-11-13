@@ -95,7 +95,9 @@ class OnboardingRoutingTest {
         compose.onNodeWithContentDescription("设置").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("连接电脑").assertIsDisplayed()
-        compose.onNodeWithText("开启通知").assertIsDisplayed()
+        // The unpaired settings are the compact set: notifications are a switch
+        // named for what it controls, not a call to action with nowhere to go.
+        compose.onNodeWithText("通知").assertIsDisplayed()
         // And nothing that needs a pairing to mean anything.
         compose.onNodeWithText("取消配对此手机").assertDoesNotExist()
         compose.onNodeWithText("会话与例程").assertDoesNotExist()
