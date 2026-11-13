@@ -6,7 +6,6 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { IMAGE_DEFAULT_MODELS, IMAGE_MAX_PER_TURN_DEFAULT, IMAGE_MODEL_CHOICES, IMAGE_PROVIDERS, normalizeImageGenerationUrl, type ImageProvider, type ImageProviderTest } from "../../shared/image-generation";
-import { saveCredential } from "./keys/key-save";
 import { Card, SettingRow } from "./SettingsPrimitives";
 import { Select } from "./Select";
 import { productName } from "@/lib/brand";
@@ -277,7 +276,8 @@ function ProviderKeyCard({ provider, status }: { provider: ImageProvider; status
     }
   };
   const saveKey = (key: string) => run(async () => {
-    if (provider === "xai" || provider === "openrouter") return saveCredential(provider, key, false);
+    if (provider === "xai") return api<ConfigStatus>("/api/config", { method: "PUT", body: JSON.stringify({ xai: { key } }) });
+    if (provider === "openrouter") return api<ConfigStatus>("/api/config", { method: "PUT", body: JSON.stringify({ openrouter: { key } }) });
     return window.ogb?.setCredential && own
       ? window.ogb.setCredential(own.credential, key)
       : api("/api/config", { method: "PUT", body: JSON.stringify(own!.patch(key)) });

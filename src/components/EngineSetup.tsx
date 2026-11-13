@@ -578,6 +578,18 @@ export function EngineSetup({
     return <ApiKeyEngineSetup instance={instance} className={className} unframed={unframed} />;
   }
 
+  if (instance.driverKind === "piAgent" && instance.snapshot.state === "available" && !instance.models.options.some((option) => option.id !== "default")) {
+    return (
+      <div data-engine-setup-pi-provider className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
+        <div className="text-[13px] font-semibold text-ink">{t("engineSetup.piProvider.title")}</div>
+        <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("engineSetup.piProvider.desc")}</p>
+        <button type="button" onClick={() => openKeysFor(instance)} className="mt-2 text-[12px] font-medium text-accent hover:underline">
+          {t("engines.piCustomOpen")}
+        </button>
+      </div>
+    );
+  }
+
   if (intent === "cloud" && grokKeyInstead(instance, cloudHome)) {
     return <GrokKeyInstead className={className} unframed={unframed} />;
   }

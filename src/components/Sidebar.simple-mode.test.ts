@@ -149,7 +149,7 @@ describe("bot-first sidebar", () => {
 
   it("ends a Simple row's preview line with its engine's faded mark, puts the unread dot at the name line's top right where ⋯ shows, and never moves the name", () => {
     fixture.showThreads = false;
-    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "claudeAgent", displayName: "Claude" }] as unknown as AppState["instances"] };
+    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "piAgent", displayName: "Claude", icon: { kind: "preset", preset: "mistral" } }] as unknown as AppState["instances"] };
     const candidate = { ...bot, tasks: [], projects: [], unread: true, messages: [{ id: "m", role: "bot", kind: "text", text: "Done.", at: 1 }] } as Bot;
     let tree: ReactNode;
     function Capture() { tree = botRow(rowProps("comfortable", candidate)); return tree; }
@@ -169,7 +169,7 @@ describe("bot-first sidebar", () => {
 
   it("fades the collapsed rail's engine badge in both modes", () => {
     fixture.showThreads = false;
-    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "claudeAgent", displayName: "Claude" }] as unknown as AppState["instances"] };
+    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "piAgent", displayName: "Claude", icon: { kind: "preset", preset: "mistral" } }] as unknown as AppState["instances"] };
     const candidate = { ...bot, tasks: [], projects: [] };
     const rail = renderToStaticMarkup(createElement(BotListItem, rowProps("icons", candidate)));
     expect(rail).toMatch(/<span data-testid="model-badge"[^>]*><span data-provider-mark="brand" class="[^"]*\bopacity-60\b/);
@@ -261,7 +261,7 @@ describe("bot-first sidebar", () => {
 
   it("draws no engine mark for a bot with no AI yet or in a group chat, and a faded one in Advanced mode", () => {
     fixture.showThreads = false;
-    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "claudeAgent", displayName: "Claude" }] as unknown as AppState["instances"] };
+    fixture.state = { ...fixture.state, instances: [{ instanceId: "fake", driverKind: "piAgent", displayName: "Claude", icon: { kind: "preset", preset: "mistral" } }] as unknown as AppState["instances"] };
     const candidate = { ...bot, tasks: [], projects: [] };
     expect(renderToStaticMarkup(createElement(BotListItem, rowProps("comfortable", { ...candidate, modelSelection: { instanceId: "none", model: "m" } })))).not.toContain("data-provider-mark");
     const group: Group = { id: "room", threadId: "room-thread", name: "Launch", memberIds: [bot.id], messages: [], defaultResponder: { kind: "mentions" }, bulletin: "", unread: false, createdAt: 1 };
@@ -273,7 +273,7 @@ describe("bot-first sidebar", () => {
 
   it("keeps a Simple row to its name, preview and one faded engine mark, naming role, Chief and engine in its tooltip", () => {
     fixture.showThreads = false;
-    const instances = [{ instanceId: "fake", driverKind: "claude", displayName: "Claude", models: { options: [{ id: "test", label: "Sonnet" }] } }] as unknown as AppState["instances"];
+    const instances = [{ instanceId: "fake", driverKind: "piAgent", displayName: "Claude", icon: { kind: "preset", preset: "mistral" }, models: { options: [{ id: "test", label: "Sonnet" }] } }] as unknown as AppState["instances"];
     fixture.state = { ...fixture.state, instances, selectedId: bot.id };
     const candidate = { ...bot, title: "Research", chiefOfStaff: true, pinned: true, tasks: [], projects: [], messages: [{ id: "m", role: "bot", kind: "text", text: "Done.", at: 1 }] } as Bot;
     let tree: ReactNode;

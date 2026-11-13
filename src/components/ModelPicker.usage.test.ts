@@ -28,18 +28,18 @@ vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => true }));
 vi.mock("./Avatar", () => ({ BotAvatar: () => null }));
 
 const claude: InstanceInfo = {
-  instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude", access: "subscription",
+  instanceId: "pi", driverKind: "piAgent", displayName: "pi", access: "subscription",
   snapshot: { state: "available", version: "2.1.300", authenticated: true },
   models: { default: "claude-sonnet-5", options: [{ id: "claude-sonnet-5", label: "Claude Sonnet 5" }] },
 };
 const scout: Bot = {
   id: "scout", threadId: "thread-scout", name: "Scout", title: "", description: "", notifications: true,
-  color: "green", unread: false, messages: [], modelSelection: { instanceId: "claude", model: "claude-sonnet-5" },
+  color: "green", unread: false, messages: [], modelSelection: { instanceId: "pi", model: "claude-sonnet-5" },
 };
 const NOW = new Date(2026, 9, 19, 10, 0, 0).getTime();
 const RESET = new Date(2026, 9, 19, 15, 40, 0).getTime();
 const usage = (used: number, blocked = false): EngineLimit => ({
-  engine: "claude", name: "Claude", driver: "claude", window: "5-hour", usedPercent: used, resetsAt: RESET, blocked,
+  engine: "pi", name: "Claude", driver: "pi", window: "5-hour", usedPercent: used, resetsAt: RESET, blocked,
   windows: [{ window: "5-hour", usedPercent: used, resetsAt: RESET }, { window: "weekly", usedPercent: 12, resetsAt: RESET + 96 * 3_600_000 }],
 });
 

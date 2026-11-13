@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { recordEvents } from "../testing/events.ts";
 import { buildTurnContext, replaysNatively } from "../turn-context.ts";
-import { instanceConfigs } from "../config.ts";
 import { OpenAICompatDriver } from "./openai-compat.ts";
 import { flushNativeLogs } from "./native.ts";
 
@@ -205,14 +204,9 @@ describe("OpenAICompatDriver", () => {
       seen.push(JSON.stringify(init?.headers ?? {}));
       return new Response('{"data":[]}', { headers: { "content-type": "application/json" } });
     }));
-    const map = instanceConfigs({
-      openaiCompat: { key: "sk-or-WORKSPACE" },
-      instances: { claude: { driver: "claudeAgent" }, router: { driver: "openai-compat", config } },
-    });
-    const entry = map.router!;
     const inst = await OpenAICompatDriver.create({
       instanceId: "router", displayName: "Router", enabled: true,
-      config: OpenAICompatDriver.decodeConfig(entry.config), environment: entry.environment as Record<string, string>,
+      config: OpenAICompatDriver.decodeConfig(config), environment: {},
     });
     await inst.refreshModels?.();
     await inst.snapshot();

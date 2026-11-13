@@ -6,9 +6,9 @@ import { EngineCard, EngineSections, engineReady } from "./EngineLibrary";
 import { CursorMark, HermesMark, InstanceProviderMark } from "./ProviderIcons";
 
 const instance = (overrides: Partial<InstanceInfo> = {}): InstanceInfo => ({
-  instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude",
+  instanceId: "pi", driverKind: "piAgent", displayName: "pi",
   snapshot: { state: "available", authenticated: true },
-  models: { default: "test", options: [] }, ...overrides,
+  models: { default: "test", options: [{ id: "test", label: "Test" }] }, ...overrides,
 });
 
 describe("engine library", () => {
@@ -25,7 +25,7 @@ describe("engine library", () => {
     const fallback = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: instance() }));
     expect(preset).toContain("#0089D6");
     expect(custom).toContain("data:image/png;base64,iVBORw0KGgo");
-    expect(fallback).toContain("viewBox=\"0 0 256 257\"");
+    expect(fallback).toContain("viewBox=\"0 0 800 800\"");
   });
   it("preserves readiness semantics without mistaking installation for sign-in", () => {
     expect(engineReady(instance())).toBe(true);
@@ -45,7 +45,7 @@ describe("engine library", () => {
 
   it("uses an accessible disclosure and keeps controls mounted while collapsed", () => {
     const html = renderToStaticMarkup(createElement(EngineCard, { instance: instance(), children: createElement("input", { "aria-label": "Path draft" }) }));
-    expect(html).toContain('<details data-engine-card="claude"');
+    expect(html).toContain('<details data-engine-card="pi"');
     expect(html).toContain("<summary");
     expect(html).toContain('aria-label="Path draft"');
     expect(html).toContain("focus-visible:ring-2");
@@ -73,7 +73,7 @@ describe("engine library", () => {
     const signedOut = EngineSections({ instances: [instance({ snapshot: { state: "available", authenticated: false } }), other], renderEngine });
     for (const tree of [ready, signedOut]) {
       expect(tree.type).toBe("div");
-      const card = tree.props.children[0].find((node: { key: string }) => node.key === "claude");
+      const card = tree.props.children[0].find((node: { key: string }) => node.key === "pi");
       expect(card.type).toBe("div");
       expect(card.props.children.type).toBe(EngineCard);
       const html = renderToStaticMarkup(tree);

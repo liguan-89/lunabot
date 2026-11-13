@@ -115,11 +115,10 @@ describe("owner tool selection status", () => {
     expect(corrupt).toContain('role="alert"');
   });
 
-  it("explains native restrictions that the selected engine cannot enforce", () => {
-    const engine = { driverKind: "claudeAgent" } as NonNullable<ReturnType<typeof useBotSettingsDerived>["engine"]>;
+  it("explains restrictions that the selected engine cannot enforce", () => {
+    const engine = { driverKind: "someFutureDriver" } as NonNullable<ReturnType<typeof useBotSettingsDerived>["engine"]>;
     const markup = render(makeBot({ toolScope: { allow: ["native:read"] } } as Partial<Bot>), makeDerived({ engine }));
-    expect(markup).toContain("This AI cannot limit native tools");
-    expect(markup).toContain("native:*");
+    expect(markup).toContain("Tool selection is not supported by this AI");
     expect(markup).toContain("will stop before sending a prompt");
   });
 

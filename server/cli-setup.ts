@@ -133,21 +133,9 @@ interface NativeChoice {
 }
 
 const NATIVE: readonly NativeChoice[] = [
-  { id: "codex", driver: "codex", label: "ChatGPT / Codex — sign in with your account", cli: "codex", pkg: "@openai/codex", login: ["login"] },
-  { id: "claude", driver: "claudeAgent", label: "Claude Code — sign in with your account", cli: "claude", pkg: "@anthropic-ai/claude-code", login: ["auth", "login"] },
   {
-    id: "kimi", driver: "kimiAgent", label: "Kimi Code — sign in with your Kimi account", cli: "kimi", pkg: "@moonshot-ai/kimi-code",
-    login: ["login"], note: "Kimi shows a code and a link; open the link in any browser and approve the sign-in.",
-  },
-  {
-    id: "gemini", driver: "geminiAgent", label: "Gemini CLI — Gemini API key", cli: "gemini", pkg: "@google/gemini-cli",
-    key: { env: "GEMINI_API_KEY", url: "https://aistudio.google.com/apikey" },
-    // Google stopped serving Gemini CLI to consumer Google sign-ins on 2026-06-18.
-    note: "Gemini CLI no longer accepts personal Google sign-ins; use a Gemini API key. For a Google account, use the Antigravity engine in the app.",
-  },
-  {
-    id: "deepseek", driver: "deepseekAgent", label: "DeepSeek Harness — DeepSeek API key", cli: "dsh", pkg: "@deepseek-ai/dsh",
-    key: { env: "DEEPSEEK_API_KEY", url: "https://platform.deepseek.com/api_keys" },
+    id: "pi", driver: "piAgent", label: "pi — use your own model provider", cli: "pi", pkg: "@earendil-works/pi-coding-agent",
+    note: "pi reads its own provider settings. Add your key and models in DEX BOT Settings, or in ~/.pi/agent.",
   },
 ];
 
@@ -217,11 +205,10 @@ export async function runSetup(
     io.log("Let's connect your AI. Choose a provider, then a model.");
     io.log("Existing bots and conversations stay untouched. Ctrl-C cancels.");
     io.log("You can add integrations and change settings later.\n");
-    const existingStart = NATIVE.length + 1;
+    const existingStart = NATIVE.length;
     const existingDefault = existing.findIndex(([id]) => id === cfg.defaultModelSelection?.instanceId);
     const providerOptions = [
       ...NATIVE.map((n) => n.label),
-      "API key — OpenAI, OpenRouter, Groq or a compatible service (chat only)",
       ...existing.map(([id, entry]) => `Use existing: ${entry.displayName ?? id}${id === cfg.defaultModelSelection?.instanceId ? " — current" : ""}`),
     ];
     let pick: number | undefined;

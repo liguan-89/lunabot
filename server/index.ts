@@ -16,7 +16,6 @@ import { z } from "zod";
 import { selectReplay, replayToolCalls, DEFAULT_REBUILD_BYTES, MAX_SUMMARY_BYTES } from "./context-rebuild.ts";
 import { draftSummary, foldPoint } from "./compaction-summary.ts";
 import { compactBudget, compactionReading, contextWindowFor, shouldCompact } from "./context-budget.ts";
-import { autoCompactWindow } from "./drivers/claude.ts";
 import { RoomContextTracker, roomResetNote } from "./room-context.ts";
 import { createRoomTranscript, GROUP_CONTEXT_MESSAGES } from "./host/room-transcript.ts";
 import { createRoomSessions } from "./host/room-sessions.ts";
@@ -54,7 +53,6 @@ import { bindSafetyFloor, denyAtSafetyFloor, heldAtSafetyFloor, safetyFloorOn } 
 import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
 import { providerMcpTool, providerToolAllowKey } from "./provider-tool-allow.ts";
 import type { CommandAllowlistCandidate, CommandAllowlistResponse } from "../shared/command-allowlist.ts";
-import { claudeAccountInfo } from "./claude-accounts.ts";
 import {
   BrowserCleanupCoordinator,
   requireBrowserCleanupAcknowledged,
@@ -179,7 +177,6 @@ import {
   vpsSshAlias,
   DATA_DIR, EVENTS_DIR,
   onConfigSaved,
-  CLAUDE_API_INSTANCE,
   openCodeProviderKeys,
 } from "./config.ts";
 import { serveStatic } from "./static-files.ts";
@@ -187,6 +184,8 @@ import { startUpkeep } from "./host/start-upkeep.ts";
 import { ComputerControl } from "./computer-control.ts";
 import { resetPathCache } from "./env-path.ts";
 import { registerEnginesBinDir } from "./engine-install.ts"; import { engineUpdatesFor } from "./engine-updates-host.ts";
+import { PI_INSTANCE } from "./instance-fleets.ts";
+import { piCustomModelId } from "./drivers/pi-custom-provider.ts";
 import { appendUsage, flushUsageLedger, queuedTurnTrigger, usageTriggerFor, type UsageRow, type UsageTrigger } from "./usage-ledger.ts"; import { createUsageAttribution } from "./usage-attribution.ts";
 import { createTraceRecorder } from "./usage-trace/recorder.ts";
 import { GroupUsageReader } from "./group-thread-usage.ts";
@@ -235,7 +234,6 @@ import { createGoalCards, type LiveGoalRun } from "./host/goal-cards.ts";
 import { createOneOnOneGoals } from "./host/one-on-one-goals.ts";
 
 import { BUILT_IN_DRIVERS } from "./drivers/builtIn.ts";
-import { openCodeProviderKeysAllowed, setOpenCodeProviderKeyPolicy } from "./drivers/acp/opencode-go.ts";
 import { forgetNotificationReader, liveAppRows, openCardRows, readMessageText, recallMessages, recentMessages, closeMessageSearch, closeMessageDb, chatFollowups, cancelledChatFollowup, settleChatFollowups, threadsReferencing, logNotification, lastRowAt, threadsWithCardsSince } from "./message-db.ts";
 import { briefCrossingLabel, claimRecallCrossings, recallCrossingLabel } from "./recall-disclosure.ts";
 import { parseSince, parseUntil, recentWork, recentWorkPrompt, turnOutcomeLine } from "./recent-work.ts";
@@ -613,8 +611,6 @@ import { createBrowserViewerRoutes } from "./routes/browser-viewers.ts";
 import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts";
 import { viewerTargetId } from "../shared/desktop-viewer.ts";
 import { createComputerPreviews } from "./computer-previews.ts";
-import { createAntigravityLeftoverRoutes } from "./routes/antigravity-leftovers.ts";
-import { createAntigravityAccountRoutes } from "./routes/antigravity-accounts.ts";
 import { createConfigRoutes } from "./routes/config.ts";
 import { createInstanceRoutes } from "./routes/instances.ts";
 import { createMcpConfig } from "./host/mcp-config.ts";
@@ -623,7 +619,6 @@ import { teamAdminSummary } from "./cloud-team-admin.ts"; import { createConnect
 import { createSetupImportRoutes } from "./routes/setup-import.ts";
 import { createComputerRoutes } from "./routes/computers.ts";
 import { createStatusRoutes } from "./routes/status.ts";
-import { findAntigravityLeftovers, removeAntigravityLeftovers } from "./drivers/antigravity-temp.ts";
 import { createLiveRoutes } from "./routes/live.ts";
 import { createNotificationRoutes, notificationListedFor } from "./routes/notifications.ts";
 import { createTodayRoutes } from "./routes/today.ts"; import { createInboxRoutes } from "./routes/inbox.ts"; import { createSidebarSectionRoutes } from "./routes/sidebar-sections.ts";
@@ -1075,10 +1070,7 @@ function canManageCommandAllowlist(auth: RequestAuth): boolean {
   return auth.kind === "loopback" ? auth.trust !== "service" : auth.scopes.includes("admin");
 }
 
-const COMMAND_ALLOWLIST_DRIVERS = new Set([
-  "claudeAgent", "codex", "antigravityAgent", "grokAgent", "opencodeGo", "kimiAgent",
-  "droidAgent", "cursorAgent", "qwenAgent", "geminiAgent", "hermesAgent", "customAcp",
-]);
+const COMMAND_ALLOWLIST_DRIVERS = new Set<string>();
 
 function commandAllowlistResponse(bot: BotRecord): CommandAllowlistResponse {
   const instance = registry.get(bot.modelSelection.instanceId);
@@ -1385,27 +1377,8 @@ const teamConnections = createTeamConnectionsHost({ team: CLOUD_TEAM, dataDir: D
   requester: (threadId, generation) => actingPeople.requester(threadId, generation), personName: (person) => teamHost.personName(person), roster: () => (teamOwners.people?.list() ?? []).map((member) => ({ person: personKey({ id: "", email: member.email }), email: member.email, role: member.role })),
   mint: (capability) => mintInternalCapability({ ...capability, depth: 0, kind: "connectors", skillAuthoring: false, createdBots: 0, openedThreads: 0 }), mcpOAuth, isOwnerLive: (owner) => sessions.isLive(owner) || isCardOwnerLive(store, owner), onSettled: (name, phase, owner) => mcpSignInCards.settled(name, phase, owner), onRefresh: (person, name, outcome) => connectionHealth.refreshed(person, name, outcome), onPersonChanged: (person, kind, id) => connectionHealth.connectedAgain({ kind, id, person }),
   botMcp: (bot) => mcpServersHost.mounted(bot), oauthClient: mcpKeys.oauthClient, brokerUrl: () => (CLOUD_TEAM ? cloudConnectedAppsBrokerUrl() || null : null), fullAccess: fullAccessForSource, composio }); teamConnections.primeApps(); const connectionHealth = createConnectionHealthHost({ dataDir: CLOUD_TEAM ? DATA_DIR : null, mcpServers: () => cfg.mcpServers ?? {}, mcpOAuth, connections: teamConnections, bots: () => store.bots, botServers: (bot) => Object.keys(mcpServersHost.mounted(bot)), roster: () => teamOwners.people?.list() ?? [], personKey: (email) => personKey({ id: "", email }), personName: (email) => teamHost.people.profile(personKey({ id: "", email })).name || null, test: (name, signal) => mcpConfig.test(name, { signal, person: () => null }), asleep: () => cloudPowerNow()?.sleeping() ?? false, wokeAt: () => cloudPowerNow()?.sleptUntil() ?? null }); if (CLOUD_TEAM) connectionHealth.start();
-// OpenCode reads provider keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, …) from its environment. Wired before the first catalog probe below.
-let openCodeOrganisationManaged = (): boolean => false;
-const openCodeKeysAllowed = (): boolean => openCodeProviderKeysAllowed({
-  cloudHome: Boolean(CLOUD_HOME),
-  hostedWorkspace: HOSTED_WORKSPACE,
-  organisationManaged: openCodeOrganisationManaged(),
-  sharedSignIn: sharedSignIn(signInAllowList()),
-});
-setOpenCodeProviderKeyPolicy(openCodeKeysAllowed);
-let openCodeKeysLastAllowed = openCodeKeysAllowed();
-/** OpenCode lists a provider's models only while it may read that provider's key. */
-function resyncOpenCodeProviderKeys(): void {
-  const allowed = openCodeKeysAllowed();
-  if (allowed === openCodeKeysLastAllowed) return;
-  openCodeKeysLastAllowed = allowed;
-  for (const instance of registry.instances()) {
-    if (instance.driverKind !== "opencodeGo") continue;
-    void registry.refreshModels(instance.instanceId)
-      .then(() => broadcast({ kind: "config", ...configStatus() }), () => {});
-  }
-}
+// OpenCode is gone; kept as a no-op for the policy-change hooks that still name it.
+function resyncOpenCodeProviderKeys(): void {}
 const firstEngineRead = holdUntilFirstEngineRead();
 await registry.load(providerConfigs(), decorateHostedProvider);
 const bundledSkills = loadBundledSkills();
@@ -1548,7 +1521,6 @@ const cloudCredit = CLOUD_HOME ? new CloudCreditProvider({
 const cloudCreditStarted = (cloudCredit?.start() ?? Promise.resolve()).catch((error) => {
   console.warn(`[trial credit] could not start: ${error instanceof Error ? error.message : String(error)}`);
 });
-openCodeOrganisationManaged = () => managedPolicy.current() !== null || managedDesktop.enrolled();
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; identity?: unknown } | undefined;
   if (message?.type !== "openmausbot:managed-desktop-identity") return;
@@ -2575,6 +2547,58 @@ function retryComputerEngineMove(): Promise<void> {
   return computerEngineMoveRunning;
 }
 
+/** The one agent this build runs: every bot, thread, backup and default moves to it, and other engine settings go. */
+async function moveEverythingToPi(): Promise<void> {
+  if (hostedModels) return;
+  const retired = new Set<string>();
+  const note = (selection?: { instanceId: string }) => {
+    const id = selection?.instanceId.trim();
+    if (id && id !== PI_INSTANCE) retired.add(id);
+  };
+  note(cfg.defaultModelSelection);
+  note(cfg.newBotDefaults?.profile.modelSelection);
+  note(cfg.automaticRecovery?.backup);
+  for (const bot of store.bots) {
+    note(bot.modelSelection);
+    for (const candidate of bot.fallback ?? []) note(candidate);
+    for (const task of bot.tasks ?? []) note(task.modelSelection);
+  }
+  for (const id of Object.keys(cfg.instances ?? {})) if (id !== PI_INSTANCE) retired.add(id);
+  if (!retired.size) return;
+  const custom = cfg.openaiCompat?.models?.[0]?.trim() || cfg.openaiCompat?.model?.trim();
+  const pi = registry.get(PI_INSTANCE);
+  const replacement: ModelSelection = {
+    instanceId: PI_INSTANCE,
+    model: pi?.models.default?.trim() || pi?.models.options.find((option) => option.id.trim())?.id.trim() || (custom ? piCustomModelId(custom) : "") || "default",
+  };
+  const moved = store.retargetInstances(retired, replacement);
+  if (cfg.defaultModelSelection && cfg.defaultModelSelection.instanceId !== PI_INSTANCE) {
+    saveConfig({ defaultModelSelection: replacement });
+    cfg.defaultModelSelection = replacement;
+  }
+  const defaults = cfg.newBotDefaults;
+  if (defaults?.profile.modelSelection && defaults.profile.modelSelection.instanceId !== PI_INSTANCE) {
+    const next = { ...defaults, profile: { ...defaults.profile, modelSelection: replacement } };
+    saveConfig({ newBotDefaults: next });
+    cfg.newBotDefaults = next;
+  }
+  if (cfg.automaticRecovery?.backup && cfg.automaticRecovery.backup.instanceId !== PI_INSTANCE) {
+    saveConfig({ automaticRecovery: { enabled: false } });
+    cfg.automaticRecovery = { enabled: false };
+  }
+  const kept = persistableInstanceConfigs(cfg);
+  saveConfig({ instances: kept }, { replaceInstances: true });
+  cfg.instances = kept;
+  console.log(`[engines] moved ${moved} bots to ${replacement.instanceId}/${replacement.model}; removed ${retired.size} other engine setting(s)`);
+}
+let piMigrationRunning: Promise<void> | null = null;
+function retryPiMigration(): Promise<void> {
+  piMigrationRunning ??= moveEverythingToPi()
+    .catch((error) => console.warn(`[engines] moving the workspace to pi failed: ${error instanceof Error ? error.message : String(error)}`))
+    .finally(() => { piMigrationRunning = null; });
+  return piMigrationRunning;
+}
+
 function checkedModelSelection(
   raw: unknown,
   current?: { selection: ModelSelection; busy: boolean },
@@ -2850,7 +2874,7 @@ const teamComputers = new TeamComputers(join(DATA_DIR, "team-computers.json"), E
 let followupsReady = false;
 const sendSequencer = new SendSequencer();
 // Before the new-bot default is read: a saved default may name the engine.
-await retryComputerEngineMove(); mcpServersHost.boot();
+await retryComputerEngineMove(); await retryPiMigration(); mcpServersHost.boot();
 if (store.needsSeed()) await Promise.race([cloudCreditStarted, new Promise(resolve => setTimeout(resolve, 15_000).unref())]);
 if (store.needsSeed()) { firstEngineRead(); await refreshUnsetModelSelections(); }
 else enginesRead = registry.readAtStart(enginesByUse([cfg.defaultModelSelection, ...store.bots.map((bot) => bot.modelSelection)]), firstEngineRead).then(async ({ engines, changed }) => {
@@ -7082,7 +7106,7 @@ const handoffs = new Handoffs({
     .filter((m) => m.role === "bot" && m.kind === "text" && !m.from && m.turnId === turnId).map((m) => m.id),
 });
 const roomSessions = createRoomSessions({ settings: () => cfg.context, messagesFor: (threadId) => store.messagesFor(threadId) });
-const nativeCompactTokens = (instance: { driverKind: string; instanceId: string }) => instance.driverKind === "claudeAgent" ? Number(autoCompactWindow({ ...process.env, ...cfg.instances?.[instance.instanceId]?.environment })) : undefined;
+const nativeCompactTokens = (_instance: { driverKind: string; instanceId: string }): undefined => undefined;
 
 const loopingEngine = (threadId: string, bot = store.botByThread(threadId)) => bot ? runningTurnInstance(botForThread(bot.id, threadId), threadId)?.adapter : undefined;
 const canSteerThread = (threadId: string) => {
@@ -11748,7 +11772,7 @@ function configStatus() {
     billing: { currency: cfg.billing?.currency ?? "USD", prices: cfg.billing?.prices ?? {} },
     decisions: { retentionDays: decisionRetentionDays(cfg.decisions?.retentionDays) },
     safetyFloor: { enabled: safetyFloorOn() },
-    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "" },
+    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "", protocol: cfg.openaiCompat?.protocol ?? "openai", models: cfg.openaiCompat?.models ?? (cfg.openaiCompat?.model ? [cfg.openaiCompat.model] : []) },
     composio: {
       ...(composio.connectionMode(cfg) === "self-hosted" ? keyHint(cfg.composio?.apiKey) : {}),
       configured: composio.configured(cfg), mode: composio.connectionMode(cfg),
@@ -11874,18 +11898,7 @@ async function describeInstances() {
       ...described, ...policy, readOnly: true, managed: managedDesktop.info(instance.instanceId),
       install: undefined, authentication: undefined, cli: undefined, cliCandidates: [],
     };
-      // Windows keeps what Antigravity's runtime unpacked whenever it is stopped by force.
-    if (instance.driverKind === "antigravityAgent" && process.platform === "win32") return { ...described, ...policy, freeUpSpace: true };
-    if (entry?.driver !== "claudeAgent") return { ...described, ...policy };
-    if (instance.instanceId === CLAUDE_API_INSTANCE) {
-      return { ...described, ...policy, authentication: undefined, install: { ...instance.install, signInCommand: undefined } };
-    }
-    try {
-      const claudeAccount = claudeAccountInfo(instance.instanceId, entry, instance.cli ?? instance.cliDefault ?? "claude");
-      return { ...described, ...policy, claudeAccount, install: { ...instance.install, signInCommand: claudeAccount.signInCommand } };
-    } catch {
-      return { ...described, ...policy, install: { ...instance.install, signInCommand: undefined } };
-    }
+    return { ...described, ...policy };
   });
 }
 
@@ -12347,22 +12360,6 @@ ROUTES.push(createThreadModelRoutes({
 ROUTES.push(createUndoRoutes({
   refusal: (auth, threadId, requestId) => cardAnswerRefusal(auth, threadId, requestId, "allow"),
   undo: (auth, res, threadId, requestId) => withDecisionActor(decisionActorFor(auth), () => undoAppliedChange(res, threadId, requestId)),
-}));
-ROUTES.push(createAntigravityLeftoverRoutes({
-  hosted: Boolean(hostedModels),
-  isAntigravity: (instanceId) => registry.get(instanceId)?.driverKind === "antigravityAgent",
-  find: () => findAntigravityLeftovers(),
-  remove: () => removeAntigravityLeftovers(),
-}));
-ROUTES.push(createAntigravityAccountRoutes({
-  instances: () => persistableInstanceConfigs(cfg),
-  persist: persistProviderInstance,
-  describe: describeInstances,
-  exclusive: (work) => {
-    if (providerConfigBusy) return null;
-    providerConfigBusy = true;
-    return work().finally(() => { providerConfigBusy = false; });
-  },
 }));
 const mcpConfig = createMcpConfig({
   cfg, sessions, mcpOAuth, teamConnections,

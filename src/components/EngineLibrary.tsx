@@ -7,6 +7,8 @@ import { t } from "@/lib/i18n";
 import { InstanceProviderMark } from "./ProviderIcons";
 
 export function engineReady(instance: InstanceInfo): boolean {
+  // pi with no provider configured lists only the synthetic default: it cannot answer until one is saved.
+  if (instance.driverKind === "piAgent" && !instance.models.options.some((option) => option.id !== "default")) return false;
   if (instance.driverKind === "clineAgent") {
     return instance.snapshot.state === "available" && instance.snapshot.authenticated === true;
   }
@@ -15,10 +17,7 @@ export function engineReady(instance: InstanceInfo): boolean {
 }
 
 const providers: Record<string, string> = {
-  claudeAgent: "Anthropic", codex: "OpenAI", grok: "xAI", grokAgent: "xAI",
-  kimiAgent: "Moonshot AI", droidAgent: "Factory", cursorAgent: "Cursor",
-  antigravityAgent: "Google", opencodeGo: "OpenCode", qwenAgent: "Qwen",
-  hermesAgent: "Nous Research", clineAgent: "Cline", copilotAgent: "GitHub", commandCodeAgent: "Command Code", kiroAgent: "Amazon Web Services", piAgent: "pi.dev", zcodeAgent: "ZCode", mistral: "Mistral AI", cerebras: "Cerebras", groq: "Groq", greenference: "Greenference", modelgo: "ModelGo", meta: "Meta", museCode: "Meta", deepseekAgent: "DeepSeek",
+  piAgent: "pi.dev", "openai-compat": "Custom",
 };
 
 export function providerName(instance: InstanceInfo): string {

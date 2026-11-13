@@ -42,7 +42,6 @@ import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { ThreadConcurrencySettings } from "./ThreadConcurrencySettings";
 import { AutomaticRecoverySettings } from "./AutomaticRecoverySettings";
 import { ThreadCleanupSettings } from "./ThreadCleanupSettings";
-import { CacheKeepWarmSettings } from "./CacheKeepWarmSettings";
 import { SavedStepsRow } from "./SavedStepsRow";
 import { ThemeRow } from "./ThemeRow";
 import { AdminOnly } from "./AdminOnly";
@@ -178,7 +177,6 @@ export function SimpleMorePage({ sections, onOpen, onBack }: { sections: readonl
           <ThreadConcurrencySettings />
           <AutomaticRecoverySettings />
           <ThreadCleanupSettings />
-          <CacheKeepWarmSettings />
           <SettingsRows><SavedStepsRow /></SettingsRows>
         </div>
       </SettingsGroup>

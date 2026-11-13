@@ -31,8 +31,8 @@ DEX BOT 把 AI 智能体做成通讯录里的联系人：侧栏里的每个机�
 工作目录、已连接应用和云端电脑。你可以像发消息一样给它派活，看它执行，并在关键操作前审批。
 
 - **机器人真的会动手**：读写文件、运行命令、操作浏览器、使用已连接的应用。
-- **模型按机器人选择**：Claude、Codex、Grok 等本地 CLI，或兼容 OpenAI / Anthropic 的
-  自建端点；每个机器人可以不同，对话中也能切换。
+- **模型按机器人选择**：内置唯一的智能体引擎 pi；模型来自 pi 自身配置，或设置里唯一的
+  自定义提供方（OpenAI Chat Completions、OpenAI Responses、Anthropic Messages）。
 - **本地优先**：桌面端内置服务器，对话、密钥和运行记录默认留在自己的电脑上。
 - **DEX Cloud**：用邮箱验证码登录后，同一账号可以管理自己的云电脑、桌面端和手机；
   云电脑在 DEX Cloud 上运行，关掉本地电脑也能继续工作。
@@ -53,8 +53,8 @@ DEX BOT 把 AI 智能体做成通讯录里的联系人：侧栏里的每个机�
 
 ## 从源码运行
 
-要求：Node 24+、pnpm，以及至少一个已安装并登录的智能体 CLI
-（`claude`、`codex` 或 `grok`）。
+要求：Node 24+、pnpm，以及 pi CLI
+（`npm install -g @earendil-works/pi-coding-agent`）。
 
 ```sh
 pnpm install

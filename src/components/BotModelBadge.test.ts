@@ -21,7 +21,7 @@ import { BotModelBadge, botModel } from "./BotModelBadge";
 import { BotListItem, botRowProps, type BotRowProps } from "./Sidebar";
 
 const claude = {
-  instanceId: "claude", driverKind: "claudeAgent", displayName: "Claude", snapshot: { state: "available" },
+  instanceId: "claude", driverKind: "piAgent", displayName: "pi", snapshot: { state: "available" },
   models: { default: "sonnet", options: [{ id: "sonnet", label: "Sonnet 4.5" }, { id: "opus", label: "Opus 4.1" }] },
 } as InstanceInfo;
 const bot = (instanceId: string, model: string): Bot => ({
@@ -51,7 +51,7 @@ describe("BotModelBadge", () => {
   it("draws the engine mark, names only the model on hover and the engine too for screen readers", () => {
     const markup = renderToStaticMarkup(createElement(BotModelBadge, { bot: bot("claude", "opus"), instances: [claude], avatarSize: 44 }));
     expect(markup).toContain('data-testid="model-badge"');
-    expect(markup).toContain('aria-label="Model: Opus 4.1 (Claude)"');
+    expect(markup).toContain('aria-label="Model: Opus 4.1 (pi)"');
     expect(markup).toContain('title="Opus 4.1"');
     expect(markup).toContain("<svg");
   });
@@ -82,7 +82,7 @@ describe("sidebar bot row", () => {
     "shows the model once in a %s row", (density, placement) => {
       const found = badges(render(bot("claude", "opus"), density));
       expect(found).toHaveLength(1);
-      expect(found[0]).toContain('aria-label="Model: Opus 4.1 (Claude)"');
+      expect(found[0]).toContain('aria-label="Model: Opus 4.1 (pi)"');
       expect(found[0]).toContain(placement);
     });
 
@@ -91,7 +91,7 @@ describe("sidebar bot row", () => {
     fixture.advanced = false;
     const found = badges(render(bot("claude", "opus"), density));
     expect(found).toHaveLength(1);
-    expect(found[0]).toContain('aria-label="Model: Opus 4.1 (Claude)"');
+    expect(found[0]).toContain('aria-label="Model: Opus 4.1 (pi)"');
   });
 
   it("shows no badge while the bot's engine is missing", () => {

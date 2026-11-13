@@ -1,4 +1,13 @@
 import { piModelId } from "./pi-model-id.ts";
+import {
+  PI_CUSTOM_PROVIDER_ID,
+  mergePiCustomCatalog,
+  piCustomApi,
+  piCustomProviderFromEnv,
+  splitPiCustomModel,
+  withPiDefaultOption,
+  withoutPiCustomEnv,
+} from "./pi-custom-provider.ts";
 import { RuntimeNoticeError, runtimeErrorText } from "./runtime-notice-error.ts";
 // The pi coding agent (@earendil-works/pi-coding-agent) over its own stdio JSON-RPC mode
 // (`pi --mode rpc --no-session`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so
@@ -171,11 +180,80 @@ function piAgentDir(env: Record<string, string | undefined>): string {
   return join(env.HOME || env.USERPROFILE || homedir(), ".pi", "agent");
 }
 
+function piModelsRoot(path: string): Record<string, unknown> | null {
+  if (!existsSync(path)) return { providers: {} };
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePiModelsRoot(path: string, root: Record<string, unknown>): void {
+  writeFileSync(path, `${JSON.stringify(root, null, 2)}\n`, { mode: 0o600 });
+  try {
+    chmodSync(path, 0o600);
+  } catch {}
+}
+
+function providersOf(root: Record<string, unknown>): Record<string, unknown> {
+  return root.providers && typeof root.providers === "object" && !Array.isArray(root.providers)
+    ? { ...(root.providers as Record<string, unknown>) }
+    : {};
+}
+
+function modelRows(existing: Record<string, unknown>): Array<Record<string, unknown>> {
+  return Array.isArray(existing.models)
+    ? existing.models.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row))
+    : [];
+}
+
+/** Upsert the custom provider into ~/.pi/agent/models.json, so pi lists its models and `set_model` can reach them. */
+export function ensurePiCustomProvider(env: Record<string, string | undefined>): void {
+  const custom = piCustomProviderFromEnv(env);
+  if (!custom) return;
+  const dir = piAgentDir(env);
+  mkdirSync(dir, { recursive: true });
+  const path = join(dir, "models.json");
+  const root = piModelsRoot(path);
+  if (!root) return;
+  const providers = providersOf(root);
+  const previous = providers[PI_CUSTOM_PROVIDER_ID];
+  const existing: Record<string, unknown> =
+    previous && typeof previous === "object" && !Array.isArray(previous) ? { ...(previous as Record<string, unknown>) } : { models: [] };
+  existing.name = custom.displayName;
+  existing.baseUrl = custom.baseUrl;
+  existing.api = piCustomApi(custom.protocol);
+  existing.apiKey = custom.apiKey || "local";
+  const models = modelRows(existing);
+  for (const model of custom.models) {
+    if (models.some((row) => row.id === model)) continue;
+    models.push({
+      id: model,
+      name: model,
+      reasoning: true,
+      input: custom.protocol === "anthropic" ? ["text", "image"] : ["text"],
+      contextWindow: 131072,
+      maxTokens: 16384,
+    });
+  }
+  existing.models = models;
+  providers[PI_CUSTOM_PROVIDER_ID] = existing;
+  root.providers = providers;
+  writePiModelsRoot(path, root);
+}
+
 /** Upsert a live local host into ~/.pi/agent/models.json so `set_model` can reach it. */
 export function ensurePiInjectModel(
   modelId: string,
   env: Record<string, string | undefined> = process.env,
 ): { provider: string; modelId: string } | null {
+  const custom = splitPiCustomModel(modelId);
+  if (custom && piCustomProviderFromEnv(env)) {
+    ensurePiCustomProvider(env);
+    return { provider: PI_CUSTOM_PROVIDER_ID, modelId: custom.modelId };
+  }
   const split = splitPiModel(modelId);
   if (!split) return null;
   const inject = decodeInjectId(modelId);
@@ -186,24 +264,10 @@ export function ensurePiInjectModel(
   const dir = piAgentDir(env);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "models.json");
-  let root: Record<string, unknown> = { providers: {} };
-  if (existsSync(path)) {
-    try {
-      const parsed = JSON.parse(readFileSync(path, "utf8")) as unknown;
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        root = parsed as Record<string, unknown>;
-      } else {
-        return split;
-      }
-    } catch {
-      return split;
-    }
-  }
+  const root = piModelsRoot(path);
+  if (!root) return split;
 
-  const providers =
-    root.providers && typeof root.providers === "object" && !Array.isArray(root.providers)
-      ? { ...(root.providers as Record<string, unknown>) }
-      : {};
+  const providers = providersOf(root);
   const previous = providers[inject.host];
   const existing: Record<string, unknown> =
     previous && typeof previous === "object" && !Array.isArray(previous)
@@ -221,11 +285,7 @@ export function ensurePiInjectModel(
   if (!existing.compat) {
     existing.compat = { supportsDeveloperRole: false, supportsReasoningEffort: true };
   }
-  const models: Array<Record<string, unknown>> = Array.isArray(existing.models)
-    ? existing.models.filter(
-        (row): row is Record<string, unknown> => Boolean(row) && typeof row === "object" && !Array.isArray(row),
-      )
-    : [];
+  const models = modelRows(existing);
   if (!models.some((row) => row.id === inject.model)) {
     models.push({
       id: inject.model,
@@ -239,10 +299,7 @@ export function ensurePiInjectModel(
   existing.models = models;
   providers[inject.host] = existing;
   root.providers = providers;
-  writeFileSync(path, `${JSON.stringify(root, null, 2)}\n`, { mode: 0o600 });
-  try {
-    chmodSync(path, 0o600);
-  } catch {}
+  writePiModelsRoot(path, root);
   return split;
 }
 
@@ -266,7 +323,10 @@ export async function fetchPiModels(
   env: Record<string, string | undefined>,
   allowEnv: readonly string[] = [],
 ): Promise<ModelCatalog> {
-  const child = spawnCli(cli, PI_ARGS, { stdio: ["pipe", "pipe", "pipe"], env, box: { allowEnv } });
+  try {
+    ensurePiCustomProvider(env);
+  } catch {}
+  const child = spawnCli(cli, PI_ARGS, { stdio: ["pipe", "pipe", "pipe"], env: withoutPiCustomEnv(env), box: { allowEnv } });
   return new Promise((resolve) => {
     let done = false;
     const fallbackDefault = readPiDefaultModel(env);
@@ -306,7 +366,7 @@ export async function updatePiModelCatalog(
   allowEnv: readonly string[] = [],
 ): Promise<boolean> {
   return new Promise((resolve) => {
-    execCliBoxed(cli, PI_MODEL_UPDATE_ARGS, { env, timeout: 60_000, maxBuffer: 1024 * 1024, box: { allowEnv } }, (error) => resolve(!error));
+    execCliBoxed(cli, PI_MODEL_UPDATE_ARGS, { env: withoutPiCustomEnv(env), timeout: 60_000, maxBuffer: 1024 * 1024, box: { allowEnv } }, (error) => resolve(!error));
   });
 }
 
@@ -351,13 +411,16 @@ interface PiEvent {
   title?: string;
 }
 
-function piEnvironment(source: Record<string, string | undefined>): Record<string, string | undefined> {
+function piEnvironment(
+  source: Record<string, string | undefined>,
+  options: { keepCustom?: boolean } = {},
+): Record<string, string | undefined> {
   const env: Record<string, string | undefined> = { ...source, PATH: augmentedPath() };
   // pi reads provider keys from its env: an inherited key would flip billing, and workspace
   // credentials are the harness's secrets.
   stripWorkspaceCredentialEnv(env);
   for (const key of PROVIDER_CREDENTIAL_ENV) delete env[key];
-  return env;
+  return options.keepCustom ? env : withoutPiCustomEnv(env);
 }
 
 export const PiDriver: ProviderDriver<PiConfig> = {
@@ -378,7 +441,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
 
   async create(input: DriverCreateInput<PiConfig>): Promise<ProviderInstance> {
     const { instanceId, config } = input;
-    const catalogEnv = piEnvironment({ ...process.env, ...input.environment });
+    const providerEnv = { ...process.env, ...input.environment };
+    const catalogEnv = piEnvironment(providerEnv, { keepCustom: true });
     let models = EMPTY;
     const readModels = async () => {
       let base = models, listed = false;
@@ -387,12 +451,16 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         if (resolved.options.length) [base, listed] = [resolved, true];
       } catch {}
       try {
-        const next = await applyPiLocalCatalog(base, catalogEnv);
-        if (next.options.length) models = next;
+        const next = mergePiCustomCatalog(await applyPiLocalCatalog(base, catalogEnv), catalogEnv);
+        if (next.options.length) models = withPiDefaultOption(next);
       } catch {
         if (base.options.length) models = base;
       }
-      try { if (!listed) unconfirmedModelCatalog(models); writeStartupModelCache(instanceId, models); } catch {}
+      try {
+        models = withPiDefaultOption(mergePiCustomCatalog(models, catalogEnv));
+        if (!listed) unconfirmedModelCatalog(models);
+        writeStartupModelCache(instanceId, models);
+      } catch {}
     };
     const refreshModels = async () => {
       await updatePiModelCatalog(config.cli, catalogEnv, instanceEnvNames(input.environment, catalogEnv));
@@ -494,6 +562,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const images = readPiPromptImages(turn);
 
       // Before any credential-bearing temp file, so a model setup failure leaves nothing to clean up.
+      try {
+        ensurePiCustomProvider({ ...process.env, ...input.environment });
+      } catch {}
       if (typeof turn.model === "string" && turn.model) {
         ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
       }

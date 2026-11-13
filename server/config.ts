@@ -12,12 +12,11 @@ import { botAvatarUrlSchema } from "../shared/bot-avatar.ts";
 import { writeFileAtomic } from "./atomic.ts";
 import { defaultBotThreads, MAX_CONCURRENT_BOT_THREADS } from "./bot-thread-limits.ts";
 import { anthropicKeyEnv } from "./anthropic-key-env.ts";
-import { withoutComputerEngine } from "./computer-engine-removal.ts";
 import { newBotDefaultsSchema, type NewBotDefaults } from "./new-bot-defaults.ts";
 import { replaySettings } from "./replay-settings.ts";
 import { EFFORT_LEVELS, type EffortLevel } from "../shared/wire.ts";
 import { isModelVariant, type InstanceConfigMap, type McpServerSpec, type ModelSelection } from "./contracts.ts";
-import { API_KEY_FLEET, DEFAULT_FLEET, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, CLAUDE_API_INSTANCE, PRODUCT_FLEET_ADDITIONS } from "./instance-fleets.ts";
+import { API_KEY_FLEET, DEFAULT_FLEET, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, CLAUDE_API_INSTANCE, PI_INSTANCE } from "./instance-fleets.ts";
 export { CLAUDE_API_INSTANCE, OPENAI_API_INSTANCE, OPENROUTER_API_INSTANCE, XAI_API_INSTANCE } from "./instance-fleets.ts";
 import { DEFAULT_WINDOW_MINUTES, MAX_WINDOW_MINUTES } from "./cache-keepwarm.ts";
 import { PROVIDER_ICON_PRESETS, providerIconError } from "../shared/provider-icon.ts";
@@ -31,6 +30,7 @@ import { deciderConfigSchema, type DeciderConfig } from "./decider/config.ts";
 import { liveConfigSchema, liveConfigWithEnv, liveSettingEnv, type LiveConfig } from "./live-config.ts";
 import { browserEngineConfigSchema, isValidCdpTarget, type BrowserEngineConfig } from "./browser/config.ts";
 import { roomContextSettings } from "./room-context-settings.ts";
+import { PI_CUSTOM_ENV, PI_CUSTOM_PROVIDER_NAME } from "./drivers/pi-custom-provider.ts";
 import { localVmConfigSchema } from "./local-vm-settings.ts";
 export * from "./local-vm-settings.ts";
 
@@ -355,9 +355,17 @@ const appConfigSchema = z.object({
         .optional(),
     })
     .optional(),
-  /** `model` seeds the default selection; `provider` pins an OpenRouter upstream (e.g. "fireworks"). */
+  /** `model` seeds the default selection; `provider` pins an OpenRouter upstream (e.g. "fireworks").
+   * `protocol` is the API the endpoint speaks; `models` are the model ids it serves. */
   openaiCompat: z
-    .object({ key: optionalText, url: optionalText, model: optionalText, provider: optionalText })
+    .object({
+      key: optionalText,
+      url: optionalText,
+      model: optionalText,
+      provider: optionalText,
+      protocol: z.enum(["openai", "responses", "anthropic"]).optional(),
+      models: z.array(z.string().trim().min(1).max(200)).max(64).optional(),
+    })
     .optional(),
   /** Composio project key; `userId`/`sessionId` reuse one Composio Session. */
   composio: z.object({ apiKey: optionalText, userId: optionalText, sessionId: optionalText }).optional(),
@@ -465,7 +473,7 @@ export interface AppConfig extends HelperConfig {
   loopGuard?: LoopGuardConfig;
   safetyFloor?: { enabled?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
-  openaiCompat?: { key?: string; url?: string; model?: string; provider?: string };
+  openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
   /** Boat token (ascii.dev renamed Box to Boat); config key "box", env BOX_TOKEN. */
   box?: { token?: string };
@@ -753,6 +761,8 @@ export function loadConfig(): AppConfig {
   if (process.env.OPENAI_COMPAT_URL !== undefined) cfg.openaiCompat.url = process.env.OPENAI_COMPAT_URL;
   if (process.env.OPENAI_COMPAT_MODEL !== undefined) cfg.openaiCompat.model = process.env.OPENAI_COMPAT_MODEL;
   if (process.env.OPENAI_COMPAT_PROVIDER !== undefined) cfg.openaiCompat.provider = process.env.OPENAI_COMPAT_PROVIDER;
+  if (process.env.OPENAI_COMPAT_PROTOCOL !== undefined && ["openai", "responses", "anthropic"].includes(process.env.OPENAI_COMPAT_PROTOCOL)) cfg.openaiCompat.protocol = process.env.OPENAI_COMPAT_PROTOCOL as "openai" | "responses" | "anthropic";
+  if (process.env.OPENAI_COMPAT_MODELS !== undefined) cfg.openaiCompat.models = process.env.OPENAI_COMPAT_MODELS.split(/[,，、\s]+/).map((model) => model.trim()).filter(Boolean);
   cfg.composio = { ...cfg.composio };
   if (process.env.COMPOSIO_API_KEY !== undefined) cfg.composio.apiKey = process.env.COMPOSIO_API_KEY;
   cfg.box = { ...cfg.box };
@@ -827,6 +837,8 @@ export function syncCredentialEnv(patch: Partial<Omit<AppConfig, "threads" | "ne
     [patch.anthropic?.url, "OMB_ANTHROPIC_API_URL"],
     [patch.openaiCompat?.model, "OPENAI_COMPAT_MODEL"],
     [patch.openaiCompat?.provider, "OPENAI_COMPAT_PROVIDER"],
+    [patch.openaiCompat?.protocol, "OPENAI_COMPAT_PROTOCOL"],
+    [patch.openaiCompat?.models?.join(","), "OPENAI_COMPAT_MODELS"],
     ...liveSettingEnv(patch.live),
   ];
   for (const [value, name] of settings) {
@@ -995,20 +1007,6 @@ export function saveConfig(
     }
     disk.instances = diskInstances;
   }
-  if (checkedPatch.openaiCompat?.url !== undefined && checkedPatch.instances?.openaiCompat === undefined) {
-    const instances = jsonObjectSchema.safeParse(disk.instances);
-    const entry = jsonObjectSchema.safeParse(instances.success ? instances.data.openaiCompat : undefined);
-    const config = jsonObjectSchema.safeParse(entry.success ? entry.data.config : undefined);
-    const environment = jsonObjectSchema.safeParse(entry.success ? entry.data.environment : undefined);
-    if (entry.success && entry.data.driver === "openai-compat" && config.success
-      && !config.data.key
-      && (!config.data.apiKeyEnv || config.data.apiKeyEnv === "OPENAI_COMPAT_API_KEY")
-      && !(environment.success && Object.hasOwn(environment.data, "OPENAI_COMPAT_API_KEY"))) {
-      const nextConfig = { ...config.data };
-      delete nextConfig.url;
-      (disk.instances as JsonObject).openaiCompat = { ...entry.data, config: nextConfig };
-    }
-  }
   mkdirSync(DATA_DIR, { recursive: true });
   writeFileAtomic(p, JSON.stringify(disk, null, 2), { mode: 0o600 });
   storedConfig.forget();
@@ -1130,6 +1128,15 @@ export function instanceOwnsRouting(
 /** Each secret goes only to the driver that reads it; the Boat token reaches no engine. */
 function injectedEnvironment(cfg: AppConfig, instanceId: string, driver: string): Map<string, string> {
   const environment = new Map<string, string>();
+  if (driver === "piAgent" && cfg.openaiCompat) {
+    const { url, protocol, models, model, key } = cfg.openaiCompat;
+    const served = models?.length ? models : model ? [model] : [];
+    if (url) environment.set(PI_CUSTOM_ENV.baseUrl, url);
+    if (protocol) environment.set(PI_CUSTOM_ENV.protocol, protocol);
+    if (served.length) environment.set(PI_CUSTOM_ENV.models, served.join(","));
+    if (key) environment.set(PI_CUSTOM_ENV.auth, key);
+    environment.set(PI_CUSTOM_ENV.displayName, PI_CUSTOM_PROVIDER_NAME);
+  }
   if (driver === "mistral" && cfg.mistral?.key) environment.set("MISTRAL_API_KEY", cfg.mistral.key);
   if (driver === "cerebras" && cfg.cerebras?.key) environment.set("CEREBRAS_API_KEY", cfg.cerebras.key);
   if (driver === "groq" && cfg.groq?.key) environment.set("GROQ_API_KEY", cfg.groq.key);
@@ -1156,67 +1163,14 @@ function injectedEnvironment(cfg: AppConfig, instanceId: string, driver: string)
 }
 
 export function instanceConfigs(cfg: AppConfig): InstanceConfigMap {
-  const configured = cfg.instances && Object.keys(cfg.instances).length ? cfg.instances : null;
-  const map: InstanceConfigMap = withoutComputerEngine(configured ? { ...configured } : { ...DEFAULT_FLEET });
-  if (
-    configured &&
-    (Object.hasOwn(configured, "claude") || Object.hasOwn(configured, "grok") || Object.hasOwn(configured, "codex"))
-  ) {
-    for (const [id, entry] of Object.entries(PRODUCT_FLEET_ADDITIONS)) {
-      if (!Object.hasOwn(map, id)) map[id] = { ...entry };
-    }
-  }
-  // Re-applied on every load so the openai/openrouter instances never fall back to the shared key and URL.
-  for (const [id, builtIn] of Object.entries(API_KEY_FLEET)) {
-    const saved = map[id];
-    if (!saved || saved.driver !== builtIn.driver) continue;
-    const savedConfig = typeof saved.config === "object" && saved.config !== null && !Array.isArray(saved.config) ? saved.config : {};
-    map[id] = { ...builtIn, ...saved, config: { ...(builtIn.config as object | undefined), ...savedConfig } };
-  }
-  if (map.chatgpt?.driver === "codex" && !(map.chatgpt.config as { cli?: unknown } | undefined)?.cli) {
-    const cli = (map.codex?.config as { cli?: unknown } | undefined)?.cli;
-    if (typeof cli === "string" && cli) map.chatgpt = { ...map.chatgpt, config: { ...map.chatgpt.config as object, cli } };
-  }
-  for (const [id, sourceEntry] of Object.entries(map)) {
-    // Copy: writing into the caller's persisted entry would freeze the workspace URL into it.
-    const entry = { ...sourceEntry };
-    map[id] = entry;
-    const environment = { ...entry.environment };
-    const builtIn = API_KEY_FLEET[id];
-    const routingDefaults = builtIn?.driver === entry.driver
-      ? builtIn.config as { url?: string; apiKeyEnv?: string } | undefined
-      : undefined;
-    const ownsRouting = instanceOwnsRouting(cfg, entry, routingDefaults);
-    if (!ownsRouting) {
-      for (const [key, value] of injectedEnvironment(cfg, id, entry.driver)) environment[key] = value;
-    }
-    entry.environment = environment;
-    if (entry.driver === "groq" && cfg.groq?.url && !ownsRouting) {
-      entry.config = { ...entry.config as object, url: cfg.groq.url };
-    }
-    if (entry.driver === "meta" && cfg.meta?.url && !ownsRouting) {
-      entry.config = { ...entry.config as object, url: cfg.meta.url };
-    }
-    if (entry.driver === "openai-compat" && cfg.openaiCompat && id !== OPENAI_API_INSTANCE && id !== OPENROUTER_API_INSTANCE) {
-      const defaults: Record<string, string> = {};
-      if (cfg.openaiCompat.url) defaults.url = cfg.openaiCompat.url;
-      if (cfg.openaiCompat.model) defaults.model = cfg.openaiCompat.model;
-      if (cfg.openaiCompat.provider) defaults.provider = cfg.openaiCompat.provider;
-      if (Object.keys(defaults).length) {
-        const raw = entry.config;
-        const current =
-          typeof raw === "object" && raw !== null && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-        const merged = { ...current };
-        for (const [k, v] of Object.entries(defaults)) {
-          // An empty provider means "no upstream pin"; never fill it from the workspace.
-          if (k === "provider" && typeof merged[k] === "string") continue;
-          if (typeof merged[k] !== "string" || !(merged[k] as string).trim()) merged[k] = v;
-        }
-        entry.config = merged;
-      }
-    }
-  }
-  return map;
+  const saved = cfg.instances?.[PI_INSTANCE];
+  const entry: InstanceConfigMap[string] = saved && saved.driver === "piAgent" ? { ...saved } : { ...DEFAULT_FLEET[PI_INSTANCE]! };
+  entry.driver = "piAgent";
+  entry.access = entry.access ?? "custom";
+  const environment = { ...entry.environment };
+  for (const [key, value] of injectedEnvironment(cfg, PI_INSTANCE, "piAgent")) environment[key] = value;
+  entry.environment = environment;
+  return { [PI_INSTANCE]: entry };
 }
 
 // config.json: { "mcpServers": { "notes": { "command": "npx", "args": ["-y", "@x/notes-mcp"], "env": { "NOTES_TOKEN": "…" } },

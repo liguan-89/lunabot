@@ -34,7 +34,7 @@ export interface ConfigStatus {
   anthropic?: SavedKey & { everyClaudeBot?: boolean };
   openai?: SavedKey;
   openrouter?: SavedKey;
-  openaiCompat?: SavedKey & { url?: string };
+  openaiCompat?: SavedKey & { url?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   /** what this server is entitled to; Settings shows only what works here.
    * `license` reaches admins only, and only while the key is inside its
    * warning window or grace period. */

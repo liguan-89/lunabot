@@ -1808,6 +1808,36 @@ export class Store {
     return moves;
   }
 
+  /** Every selection, backup and engine session naming one of `ids` now names `replacement`;
+   * a bot's computer and approval settings stay as they are. */
+  retargetInstances(ids: ReadonlySet<string>, replacement: ModelSelection): number {
+    const retired = (selection?: { instanceId: string }) => Boolean(selection && ids.has(selection.instanceId));
+    const without = <T>(record: Record<string, T>): Record<string, T> =>
+      Object.fromEntries(Object.entries(record).filter(([key]) => !ids.has(key)));
+    const touches = (record?: Record<string, unknown>) => Boolean(record && Object.keys(record).some((key) => ids.has(key)));
+    const changes: BotRecord[] = [];
+    for (const bot of this.bots) {
+      let dirty = false;
+      if (retired(bot.modelSelection)) { bot.modelSelection = structuredClone(replacement); dirty = true; }
+      if (bot.fallback?.some(retired)) {
+        const kept = bot.fallback.filter((candidate) => !retired(candidate));
+        bot.fallback = kept.length ? kept : undefined;
+        dirty = true;
+      }
+      if (touches(bot.resumeCursors)) { bot.resumeCursors = without(bot.resumeCursors); dirty = true; }
+      for (const task of bot.tasks ?? []) {
+        if (retired(task.modelSelection)) { task.modelSelection = structuredClone(replacement); dirty = true; }
+        if (touches(task.resumeCursors)) { task.resumeCursors = without(task.resumeCursors); dirty = true; }
+        if (task.handedMessages && touches(task.handedMessages)) { task.handedMessages = without(task.handedMessages); dirty = true; }
+        if (task.lastInstanceId && ids.has(task.lastInstanceId)) { task.lastInstanceId = replacement.instanceId; dirty = true; }
+      }
+      if (dirty) changes.push(bot);
+    }
+    if (changes.length) this.saveBots();
+    for (const bot of changes) this.emit({ type: "bot", botId: bot.id });
+    return changes.length;
+  }
+
   setResumeCursor(botId: string, instanceId: string, cursor: unknown, threadId?: string) {
     const bot = this.bot(botId);
     if (!bot) return;

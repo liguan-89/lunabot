@@ -4,9 +4,7 @@ import type { SavedKey } from "@/state/config-status";
 import type { KeyProvider } from "@/lib/analytics-allowlist";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
-import { reportModelgoOffer } from "@/lib/modelgo-offer";
 import type { ProviderIconPreset } from "../../../shared/provider-icon";
-import { MODELGO_URL } from "../../../shared/modelgo";
 
 export type KeySectionId = "ai" | "servers" | "voice" | "computers" | "apps" | "helpers";
 
@@ -82,57 +80,10 @@ const OPENAI_SHAPE = /^sk-(proj|svcacct|admin)-/;
 const provider = (driverKind: string, preset?: ProviderIconPreset): KeyMark => ({ driverKind, ...(preset ? { preset } : {}) });
 
 export const KEY_CATALOG: readonly KeyEntry[] = [
-  { id: "openai", section: "ai", labelKey: "keys.openai.label", purposeKey: "keys.purpose.openaiModelsVoice", name: "OpenAI", env: ["OMB_OPENAI_API_KEY"],
-    words: ["openai", "chatgpt", "gpt", "live calls"], mark: provider("openai-compat", "openai"), kind: "key",
-    target: providerKey("openai", { slot: "openaiApiKey", placeholder: "sk-…", href: "https://platform.openai.com/api-keys", test: "openai", analytics: "openai", shape: OPENAI_SHAPE, noteKey: "keys.openai.note" }) },
-  { id: "anthropic", section: "ai", labelKey: "keys.anthropic.label", purposeKey: "keys.purpose.anthropic", name: "Anthropic", env: ["OMB_ANTHROPIC_API_KEY"],
-    words: ["anthropic", "claude"], mark: provider("claudeAgent", "anthropic"), kind: "key",
-    target: { patch: (value, firstKey) => ({ anthropic: { key: value, ...(firstKey && value ? { everyClaudeBot: false } : {}) } }), saved: (config) => flag(config.anthropic),
-      slot: "anthropicApiKey", storeOptions: (value, firstKey) => firstKey && value ? { everyClaudeBot: false } : undefined,
-      placeholder: "sk-ant-…", href: "https://console.anthropic.com/settings/keys", test: "anthropic", analytics: "anthropic", shape: /^sk-ant-/ } },
-  { id: "xai", section: "ai", labelKey: "keys.xai.label", purposeKey: "keys.purpose.xai", name: "xAI", env: ["XAI_API_KEY"],
-    words: ["xai", "grok", "pictures", "images"], mark: provider("grok", "xai"), kind: "key",
-    target: providerKey("xai", { slot: "xaiApiKey", placeholder: "xai-…", href: "https://console.x.ai", test: "xai", analytics: "xai", shape: /^xai-/ }) },
-  { id: "openrouter", section: "ai", labelKey: "keys.openrouter.label", purposeKey: "keys.purpose.openrouter", name: "OpenRouter", env: ["OMB_OPENROUTER_API_KEY"],
-    words: ["openrouter", "router", "models"], mark: provider("openai-compat", "openrouter"), kind: "key",
-    target: providerKey("openrouter", { slot: "openrouterApiKey", placeholder: "sk-or-v1-…", href: "https://openrouter.ai/keys", test: "openrouter", analytics: "openrouter", shape: /^sk-or-/ }) },
-  { id: "mistral", section: "ai", labelKey: "keys.mistral.label", purposeKey: "keys.purpose.mistral", name: "Mistral", env: ["MISTRAL_API_KEY"],
-    words: ["mistral"], mark: provider("mistral", "mistral"), kind: "key",
-    target: providerKey("mistral", { slot: "mistralApiKey", placeholder: "…", placeholderKey: "keys.mistral.placeholder", href: "https://console.mistral.ai/api-keys", test: "mistral", analytics: "mistral" }) },
-  { id: "cerebras", section: "ai", labelKey: "keys.cerebras.label", purposeKey: "keys.purpose.cerebras", name: "Cerebras", env: ["CEREBRAS_API_KEY"],
-    words: ["cerebras", "fast"], mark: provider("cerebras"), kind: "key",
-    target: providerKey("cerebras", { slot: "cerebrasApiKey", placeholder: "csk-…", href: "https://cloud.cerebras.ai/", test: "cerebras", analytics: "cerebras", shape: /^csk-/ }) },
-  { id: "groq", section: "ai", labelKey: "keys.groq.label", purposeKey: "keys.purpose.groq", name: "Groq", env: ["OMB_GROQ_API_KEY"],
-    words: ["groq", "fast"], mark: provider("groq"), kind: "key",
-    target: providerKey("groq", { slot: "groqApiKey", placeholder: "gsk_…", href: "https://console.groq.com/keys", test: "groq", analytics: "groq", shape: /^gsk_/ }) },
-  { id: "greenference", section: "ai", labelKey: "keys.greenference.label", purposeKey: "keys.purpose.greenference", name: "Greenference", env: ["OMB_GREENFERENCE_API_KEY"],
-    words: ["greenference", "green", "open models"], mark: provider("greenference"), kind: "key",
-    target: providerKey("greenference", { slot: "greenferenceApiKey", placeholder: "…", placeholderKey: "keys.greenference.placeholder", href: "https://greenference.com/dashboard/tokens", test: "greenference", analytics: "greenference" }) },
-  { id: "modelgo", section: "ai", labelKey: "keys.modelgo.label", purposeKey: "keys.purpose.modelgo", name: "ModelGo", env: ["OMB_MODELGO_API_KEY"],
-    words: ["modelgo", "model go", "one key", "sponsor"], mark: provider("modelgo"), kind: "key",
-    target: providerKey("modelgo", { slot: "modelgoApiKey", placeholder: "…", placeholderKey: "keys.modelgo.placeholder", href: MODELGO_URL, test: "modelgo", analytics: "modelgo", noteKey: "keys.modelgo.note",
-      settingsEvent: (action) => reportModelgoOffer(action, "settings") }) },
-  { id: "meta", section: "ai", labelKey: "keys.meta.label", purposeKey: "keys.purpose.meta", name: "Meta", env: ["OMB_META_API_KEY"],
-    words: ["meta", "muse", "llama"], mark: provider("meta", "meta"), kind: "key",
-    target: providerKey("meta", { slot: "metaApiKey", placeholder: "LLM|…", href: "https://dev.meta.ai/docs/authentication", test: "meta", analytics: "meta", shape: /^LLM\|/ }) },
-  { id: "deepseek", section: "ai", labelKey: "keys.deepseek.label", purposeKey: "keys.purpose.deepseek", name: "DeepSeek", env: ["OMB_DEEPSEEK_API_KEY"],
-    words: ["deepseek", "dsh", "harness"], mark: provider("deepseekAgent", "deepseek"), kind: "key",
-    target: providerKey("deepseek", { slot: "deepseekApiKey", placeholder: "sk-…", href: "https://platform.deepseek.com/api_keys", analytics: "deepseek" }) },
-  { id: "opencodeGo", section: "ai", labelKey: "keys.opencode.label", purposeKey: "keys.purpose.opencodeGo", name: "OpenCode", env: ["OPENCODE_API_KEY"],
-    words: ["opencode", "zen", "go"], mark: provider("opencodeGo"), kind: "key",
-    target: { patch: (value) => ({ opencodeGo: { apiKey: value } }), slot: "opencodeGoApiKey", saved: (config) => flag(config.opencodeGo),
-      placeholder: "…", placeholderKey: "keys.opencode.placeholder", href: "https://opencode.ai/docs/providers/", analytics: "opencode_go" } },
-  { id: "opencodeProviders", section: "ai", labelKey: "keys.opencode.otherProviders.title", purposeKey: "keys.purpose.opencodeProviders", name: "OpenCode", env: [],
-    words: ["opencode", "venice", "providers", "provider keys"], mark: provider("opencodeGo"), kind: "panel",
-    status: (config) => ({ configured: (config.opencodeGo?.providerKeys?.length ?? 0) > 0 }) },
-  { id: "lmStudio", section: "servers", labelKey: "lmStudio.title", purposeKey: "keys.purpose.lmStudio", name: "LM Studio", env: [],
-    words: ["lm studio", "lmstudio", "llm studio", "local", "bionic"], mark: { icon: Server }, kind: "panel" },
-  { id: "openaiCompat", section: "servers", labelKey: "keys.openaiCompat.label", purposeKey: "keys.purpose.openaiCompat", name: "OpenAI-compatible", env: ["OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_URL"],
-    words: ["openai-compatible", "openai compatible", "ollama", "together", "gemini", "google ai studio", "base url", "server", "endpoint"], mark: { icon: Server }, kind: "key",
+  { id: "openaiCompat", section: "ai", labelKey: "keys.openaiCompat.label", purposeKey: "keys.purpose.openaiCompat", name: "Custom", env: ["OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_URL"],
+    words: ["openai-compatible", "openai compatible", "ollama", "together", "gemini", "google ai studio", "base url", "server", "endpoint", "custom", "responses", "anthropic"], mark: { icon: Server }, kind: "key",
     target: { patch: (value) => ({ openaiCompat: { key: value } }), slot: "openaiCompatApiKey", saved: (config) => flag(config.openaiCompat), placeholder: "…", placeholderKey: "keys.openaiCompat.placeholder",
       href: "https://platform.openai.com/docs/api-reference", test: "openaiCompat", analytics: "openai_compat" } },
-  { id: "liveCalls", section: "voice", labelKey: "call.live.key", purposeKey: "keys.purpose.liveCalls", name: "OpenAI", env: [],
-    words: ["openai", "live calls", "calls", "voice", "talk", "gpt-live", "read aloud", "speech", "tts"], mark: { icon: Phone }, kind: "uses", uses: "openai" },
   { id: "liveKey", section: "voice", labelKey: "keys.label.liveKey", purposeKey: "keys.purpose.liveKey", name: "OpenAI", env: ["OMB_OPENAI_LIVE_KEY"],
     words: ["openai", "live calls", "calls", "voice", "gpt-live", "azure", "foundry"], mark: { icon: Phone }, kind: "key",
     target: { patch: (value) => ({ live: { key: value } }), slot: "openaiLiveKey",
@@ -248,6 +199,7 @@ export function looksLikeOtherKey(entry: KeyEntry, value: string): KeyEntry | nu
 const INSTANCE_KEYS: Readonly<Record<string, KeyId>> = {
   openai: "openai", claudeApi: "anthropic", xaiApi: "xai", grok: "xai", openrouter: "openrouter", mistral: "mistral", cerebras: "cerebras",
   groq: "groq", greenference: "greenference", modelgo: "modelgo", meta: "meta", deepseek: "deepseek", opencodeGo: "opencodeGo", openaiCompat: "openaiCompat",
+  pi: "openaiCompat",
 };
 
 export function keyForInstance(instanceId: string | undefined): KeyId | undefined {

@@ -25,7 +25,7 @@ describe("the Computer engine is not offered", () => {
       },
     };
     for (const map of [instanceConfigs(cfg), persistableInstanceConfigs(cfg)]) {
-      expect(Object.keys(map)).toContain("claude");
+      expect(Object.keys(map)).toEqual(["pi"]);
       expect(map).not.toHaveProperty("computer");
       expect(map).not.toHaveProperty("myBoat");
     }
@@ -296,6 +296,39 @@ describe("the line a moved conversation shows", () => {
     expect(computerEngineMoveText({ scope: "bot-only", cloud: true, noComputer: false, askNow: true }, "Scout", "Claude")).toBe(
       "Scout now uses Claude; this conversation keeps its own model. The Computer choice in the model list was removed. " +
       "Scout still works on its cloud desktop. Scout's permissions are now Ask, but this conversation's stay as they were.");
+  });
+});
+
+describe("moving every bot to pi", () => {
+  beforeEach(() => { rmSync(DATA_DIR, { recursive: true, force: true }); });
+
+  it("retargets models, backups and engine cursors without touching computer or approval settings", () => {
+    const store = new Store(() => ({ instanceId: "pi", model: "default" }));
+    const bot = store.createBot({ modelSelection: { instanceId: "claude", model: "sonnet" } }, { seedMessages: false });
+    store.patchBot(bot.id, {
+      computer: "cloud",
+      approvalMode: "ask",
+      fallback: [{ instanceId: "old-router", model: "m" }, { instanceId: "pi", model: "default" }],
+    });
+    const task = store.createTask(bot.id, "Second", false)!;
+    store.patchTask(bot.id, task.threadId, {
+      modelSelection: { instanceId: "old-router", model: "m" },
+      lastInstanceId: "old-router",
+    });
+    store.setResumeCursor(bot.id, "old-router", { session: "old" }, task.threadId);
+
+    const replacement = { instanceId: "pi", model: "default" };
+    expect(store.retargetInstances(new Set(["claude", "old-router"]), replacement)).toBe(1);
+
+    const moved = store.bot(bot.id)!;
+    expect(moved.modelSelection).toEqual(replacement);
+    expect(moved.computer).toBe("cloud");
+    expect(moved.approvalMode).toBe("ask");
+    expect(moved.fallback).toEqual([{ instanceId: "pi", model: "default" }]);
+    const movedTask = store.taskByThread(bot.id, task.threadId)!;
+    expect(movedTask.modelSelection).toEqual(replacement);
+    expect(movedTask.lastInstanceId).toBe("pi");
+    expect(movedTask.resumeCursors["old-router"]).toBeUndefined();
   });
 });
 

@@ -109,11 +109,10 @@ describe("searching Settings for a key", () => {
     expect(row("fishAudio").closest("[hidden]")).toBeNull();
   });
 
-  it("names the OpenAI key twice: once for models, once for live calls", () => {
+  it("finds the one custom model provider", () => {
     flushSync(() => root.render(createElement(SettingsModal)));
-    type("openai");
-    expect(result("openai")!.textContent).toBe("OpenAI API key · AI providers");
-    expect(result("liveCalls")!.textContent).toBe("OpenAI key · Voice and calls");
+    type("custom");
+    expect(result("openaiCompat")!.textContent).toBe("Custom model provider · AI providers");
   });
 
   it("says plainly when nothing matches", () => {

@@ -127,7 +127,8 @@ export async function reconcile(client: HeadlessClient, file: TeamFile, options:
     const config = await client.json<Rec>("/api/config");
     const instances: Rec[] = (await client.json<Rec>("/api/instances")).instances ?? [];
     for (const engine of file.engines) {
-      const spec = ENGINE_KINDS[engine.kind]!;
+      const spec = ENGINE_KINDS[engine.kind];
+      if (!spec) throw usageError(`unknown engine ${engine.kind}: use one of ${Object.keys(ENGINE_KINDS).join(", ")}`);
       const status: Rec = config[spec.config] ?? {};
       const onlyClaudeApi = engine.kind === "claude" && engine.everyClaudeBot === false;
       const needsKey = status.configured !== true || options.rotateSecrets;
