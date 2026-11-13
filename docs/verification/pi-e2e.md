@@ -254,6 +254,16 @@ pnpm vitest run server/main-thread.e2e.test.ts
   a gate keyed to their thread (and moved per turn by a `[[gate:NAME]]` in the
   turn's own words). Model assertions read `piModelsSet`; the signed-out-engine
   and Cursor/Grok selection subtests were cut with those engines.
+- `server/digest-control.e2e.test.ts` — two direct turns that reuse the fake's
+  tool id, each with its own turn id and `digest.append` receipt, plus room
+  digests naming their speaker. pi reports bounded tool previews and has no
+  hook channel, so coverage is `preview`, never `full`; the retired hook's
+  untruncated result and spill-file assertions are gone.
+- `server/digest.e2e.test.ts` — a settled direct turn's digest names its tools
+  and turn id, and a turn held at pi's finish gate names the project file it
+  added. The per-engine matrix is one pi run, and the old "another engine takes
+  over" replay half is gone with the second engine. Its file digest restarts
+  the fixture with git on PATH: the sealed PATH has only node's folder.
 
 ## Not migrated yet
 
@@ -263,14 +273,7 @@ the retired `openaiCompat` / ACP engine instances. Most can now move by reading
 `fake-pi-dump.jsonl` through `server/testing/pi-dump.ts` and replacing argv
 assertions with the launch, turn and transcript events. The `group-goal-run*`
 recipes are per-engine matrices written against engines this build no longer
-has; `server/digest-control.e2e.test.ts` needs the Claude Code
-hooks that produced `hookCoverage: "full"` and spill files (pi delivers bounded
-preview results and no hooks). Until then `pnpm test:e2e` (the old suite) is
-expected to fail.
-
-One more recipe exposes a product gap rather than a fixture gap:
-`server/digest-control.e2e.test.ts` asserts hook-based digest evidence that pi
-has no path for today.
+has. Until then `pnpm test:e2e` (the old suite) is expected to fail.
 
 ## Retired engine tests
 
