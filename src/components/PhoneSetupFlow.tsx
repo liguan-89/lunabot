@@ -72,8 +72,20 @@ import { productName } from "../lib/brand";
 import type { CompanionBridge, CompanionState } from "../lib/companion-types";
 export type { CompanionBridge, CompanionRoute, CompanionState, PhoneDevice } from "../lib/companion-types";
 
-type AccountBridge = NonNullable<NonNullable<Window["ogb"]>["companionAccount"]>;
-type StateBridge<T> = { state: () => Promise<T> };
+import {
+  companionAccountActionError,
+  companionAccountBridge,
+  loadCompanionBridgeState,
+  shouldHydrateCompanionEmail,
+  type AccountBridge,
+} from "../lib/phone-setup-bridge";
+export {
+  companionAccountActionError,
+  companionAccountBridge,
+  loadCompanionBridgeState,
+  shouldHydrateCompanionEmail,
+} from "../lib/phone-setup-bridge";
+
 // Functions, not constants: a message resolved at import time would keep the language the app booted in.
 const directPairingUnavailable = () => t("phone.error.directUnavailable");
 const protectedPairingUnavailable = () => t("phone.error.protectedUnavailable");
@@ -90,37 +102,6 @@ interface PhonePairingRequest {
 }
 
 export { companionBridge };
-
-export const companionAccountBridge = (): AccountBridge | null =>
-  // SAFETY: Electron exposes only these account operations and never sends credentials to the renderer.
-  (globalThis as { ogb?: { companionAccount?: AccountBridge } }).ogb?.companionAccount ?? null;
-
-export const loadCompanionBridgeState = async (
-  companion: StateBridge<CompanionState> | null,
-  remote: StateBridge<CompanionAccountState> | null,
-): Promise<{ companion: CompanionState | null; account: CompanionAccountState | null }> => {
-  const [companionResult, accountResult] = await Promise.allSettled([
-    companion ? Promise.resolve().then(() => companion.state()) : Promise.resolve(null),
-    remote ? Promise.resolve().then(() => remote.state()) : Promise.resolve(null),
-  ]);
-  return {
-    companion: companionResult.status === "fulfilled" ? companionResult.value : null,
-    account: accountResult.status === "fulfilled" ? accountResult.value : null,
-  };
-};
-
-export const shouldHydrateCompanionEmail = (
-  userEdited: boolean,
-  account: CompanionAccountState,
-): boolean => !userEdited && Boolean(account.email);
-
-export const companionAccountActionError = (
-  account: CompanionAccountState | null,
-  actionError: string | null,
-): string | null => {
-  if (actionError) return actionError;
-  return account?.status === "signed-out" ? account.message ?? null : null;
-};
 
 export interface PhoneSetupController {
   state: CompanionState | null;

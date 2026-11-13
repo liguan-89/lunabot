@@ -611,6 +611,7 @@ import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-target
 import { viewerTargetId } from "../shared/desktop-viewer.ts";
 import { createComputerPreviews } from "./computer-previews.ts";
 import { createConfigRoutes } from "./routes/config.ts";
+import { createCalendarCallRoutes } from "./routes/calendar-calls.ts";
 import { createInstanceRoutes } from "./routes/instances.ts";
 import { createMcpConfig } from "./host/mcp-config.ts";
 import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
@@ -9529,6 +9530,7 @@ ROUTES.push(appTriggers.routes); ROUTES.unshift(createMoveFreezeRoutes({ freeze:
 ROUTES.push(createLimitResetRoutes({ clock: limitClock, routines: routines!, requests: routineRequests, engineName, threadEngine: (botId, threadId) => turnSelection(botId, threadId)?.instanceId,
   threadTitle: (botId, threadId) => store.bot(botId) && !store.bot(botId)!.hidden ? store.taskByThread(botId, threadId)?.title ?? null : null,
   created: (id, auth) => cloudRoutineAuthors?.wrote(id, auth.kind === "session" ? actorKey(auth) : CLOUD_NOBODY_KEY) }));
+ROUTES.push(createCalendarCallRoutes({ calls: calendarCalls!, audienceConflict: calendarAudienceConflict, ensureRoom: ensureCalendarCallRoom, personRooms, publicGroupState, store }));
 
 let webhookIngress: WebhookIngress | null = null;
 let webhookIngressError: string | null = null;
@@ -14645,47 +14647,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         ? await routines!.cancelRun(runMatch[1])
         : routines!.markSeen(runMatch[1]);
       return run ? json(res, 200, { run }) : json(res, 404, { error: "no such active run" });
-    }
-
-    if (path === "/api/calendar-calls" && method === "GET") {
-      return json(res, 200, { calls: calendarCalls!.list() });
-    }
-    if (path === "/api/calendar-calls" && method === "POST") {
-      try {
-        const body = await readBody(req);
-        const conflict = calendarAudienceConflict(body);
-        if (conflict) return json(res, 400, { error: conflict });
-        return json(res, 201, { call: calendarCalls!.create(body) });
-      } catch (error) {
-        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { status: 400 });
-      }
-    }
-    const calendarCallRoomMatch = path.match(/^\/api\/calendar-calls\/([\w-]+)\/room$/);
-    if (calendarCallRoomMatch && method === "POST") {
-      const call = calendarCalls!.get(calendarCallRoomMatch[1]);
-      if (!call) return json(res, 404, { error: "no such scheduled call" });
-      if (call.botIds.length < 2) {
-        return json(res, 400, { error: "single-bot events open that bot's chat directly" });
-      }
-      const group = ensureCalendarCallRoom(call);
-      return json(res, 200, { group: { ...personRooms.groupForAuth(auth, publicGroupState(group)), messages: store.messagesFor(group.threadId) } });
-    }
-    const calendarCallMatch = path.match(/^\/api\/calendar-calls\/([\w-]+)$/);
-    if (calendarCallMatch && method === "PATCH") {
-      if (!calendarCalls!.get(calendarCallMatch[1])) return json(res, 404, { error: "no such scheduled call" });
-      try {
-        const body = await readBody(req);
-        const conflict = calendarAudienceConflict(body);
-        if (conflict) return json(res, 400, { error: conflict });
-        return json(res, 200, { call: calendarCalls!.update(calendarCallMatch[1], body) });
-      } catch (error) {
-        throw Object.assign(error instanceof Error ? error : new Error(String(error)), { status: 400 });
-      }
-    }
-    if (calendarCallMatch && method === "DELETE") {
-      return calendarCalls!.remove(calendarCallMatch[1])
-        ? json(res, 200, { ok: true })
-        : json(res, 404, { error: "no such scheduled call" });
     }
 
     if (method === "GET" && path === "/api/events") {
