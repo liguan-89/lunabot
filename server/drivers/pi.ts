@@ -32,6 +32,7 @@ import type { PromptSplitReceipt } from "./prompt-split.ts";
 import { sessionIdlePolicy } from "./session-idle.ts";
 import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 import { commandSummary, toolDetailPreview } from "../tool-summary.ts";
+import { extractMcpImages } from "../mcp-tool-images.ts";
 
 import type {
   DriverCreateInput,
@@ -859,6 +860,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               ok: !evt.isError,
               output: toolDetailPreview(evt.result),
             });
+            // A tool may return an image (a chart, a screenshot): it belongs to the turn as a tool-made image, as the
+            // retired engine's tool results did.
+            for (const image of extractMcpImages(evt.result)) {
+              emit({ ...base(threadId, turnId), type: "item.completed", itemType: "assistant_image", data: image.data, fromTool: true });
+            }
             return;
           }
           case "extension_ui_request": {

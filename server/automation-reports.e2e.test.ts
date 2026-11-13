@@ -168,7 +168,7 @@ it("copies a question a run waits on into the main chat, and the answer given th
   const gate = join(s.dataDir, "finish-run");
   s.script([{ key: "run", match: [s.header("Inbox watch")],
     // The run's tool asks through pi's native question card, which the harness copies into the main chat.
-    steps: [{ server: "agents", tool: "ask_user", arguments: { question: "Which account should I check?", choices: ["Work", "Personal"] } }],
+    steps: [{ tool: "ask_user", arguments: { question: "Which account should I check?", choices: ["Work", "Personal"] } }],
     reply: "Used the Work account: two new orders.", gateFile: gate }]);
   const routineId = await s.routine("Inbox watch");
   const id = await s.runNow(routineId);
@@ -232,7 +232,7 @@ it("answers the run itself when the person gives a 👍 to the copy of the quest
   const s = await server();
   const gate = join(s.dataDir, "finish-run");
   s.script([{ key: "run", match: [s.header("Inbox watch")],
-    steps: [{ server: "agents", tool: "ask_user", arguments: { question: "Should I check the Work account?", choices: ["Yes", "No"] } }],
+    steps: [{ tool: "ask_user", arguments: { question: "Should I check the Work account?", choices: ["Yes", "No"] } }],
     reply: "Checked the Work account: two new orders.", gateFile: gate }]);
   const id = await s.runNow(await s.routine("Inbox watch"));
   await s.settled(id, "running");
