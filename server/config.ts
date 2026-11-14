@@ -448,6 +448,12 @@ const appConfigSchema = z.object({
     /** Operator override for the open-platform origin (private deploys, fixtures). */
     baseUrl: z.string().trim().max(2048).refine((value) => !value || /^https?:\/\//i.test(value), "baseUrl must start with http(s)://").optional(),
   }).strict().optional(),
+  /** A mailbox the bot owns end to end: address must be a connected Email account; every unread
+   * message in its INBOX becomes a person message, and the reply goes back by email. */
+  botMail: z.object({
+    address: z.string().trim().max(320).optional(),
+    botId: z.string().trim().max(200).optional(),
+  }).strict().optional(),
   localVm: localVmConfigSchema.optional(),
   features: featureConfigSchema.optional(),
   onboarding: onboardingConfigSchema.optional(),
@@ -509,6 +515,8 @@ export interface AppConfig extends HelperConfig {
   proactivity?: "standard" | "quiet";
   /** See the `feishu` field in appConfigSchema. */
   feishu?: { appId?: string; appSecret?: string; botId?: string; baseUrl?: string };
+  /** See the `botMail` field in appConfigSchema. */
+  botMail?: { address?: string; botId?: string };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
@@ -963,7 +971,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "botMail"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

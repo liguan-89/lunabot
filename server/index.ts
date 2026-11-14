@@ -126,6 +126,7 @@ import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { connectFeishu, type FeishuChannel, type WsLike } from "./feishu.ts";
 import { createFeishuChats } from "./feishu-chats.ts";
+import { createBotMailChats, pollBotMail, replyBotMail, type BotMailBox } from "./bot-mail.ts";
 import { WebSocket } from "ws";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
@@ -598,7 +599,7 @@ import { createUpdateCheckRoutes, serverUpdateChecker } from "./routes/update-ch
 import { createBrowserSiteRoutes } from "./routes/browser-sites.ts";
 import { createInternalSignInRoutes } from "./routes/sign-in.ts";
 import { createInternalMcpRoutes } from "./routes/internal-mcp.ts";
-import { createInternalThreadRoutes } from "./routes/internal-threads.ts"; import { createInternalTrackedTaskRoutes } from "./routes/internal-tracked-tasks.ts"; import { createInternalProactivityRoutes } from "./routes/internal-proactivity.ts"; import { createGrantRoutes, createInternalGrantRoutes } from "./routes/grants.ts"; import { activeGrants, createGrantHost, grantCovering } from "./permission-grants.ts";
+import { createInternalThreadRoutes } from "./routes/internal-threads.ts"; import { createInternalTrackedTaskRoutes } from "./routes/internal-tracked-tasks.ts"; import { createInternalProactivityRoutes } from "./routes/internal-proactivity.ts"; import { createInternalMacAppRoutes } from "./routes/internal-mac-app.ts"; import { createGrantRoutes, createInternalGrantRoutes } from "./routes/grants.ts"; import { activeGrants, createGrantHost, grantCovering } from "./permission-grants.ts";
 import { createBrowserEvidenceRoutes } from "./routes/browser-evidence.ts";
 import { createSignInCardRoutes } from "./routes/sign-in-cards.ts";
 import { createInternalChiefTeamRoutes } from "./routes/internal-chief-team.ts"; import { createInternalModelRoutes } from "./routes/internal-models.ts"; import { createOwnThreads } from "./host/own-threads.ts";
@@ -5326,6 +5327,77 @@ bus.subscribe((event: RuntimeEvent) => {
     }
   } catch (error) {
     console.warn(`feishu: reply failed: ${(error as Error).message}`);
+  }
+});
+
+// Bot-owned mailbox (server/bot-mail.ts): one connected account's unread INBOX mail becomes person
+// messages; each sender maps to a task, and the turn's replies go back over SMTP threading the mail.
+const botMailChats = createBotMailChats(join(DATA_DIR, "bot-mail-chats.json"));
+let botMailTimer: ReturnType<typeof setInterval> | null = null;
+let botMailBox: BotMailBox | null = null;
+const syncBotMail = () => {
+  if (botMailTimer) { clearInterval(botMailTimer); botMailTimer = null; }
+  botMailBox = null;
+  const bm = cfg.botMail;
+  if (!bm?.address || !bm.botId) return;
+  const account = emailService.store.get(bm.address);
+  if (!account || !store.bot(bm.botId)) { console.warn(`bot mail: mailbox ${bm.address} is not connected or bot ${bm.botId} is missing`); return; }
+  botMailBox = { account, guard: emailService.guard };
+  botMailTimer = setInterval(() => void pollBotMailOnce(), Number(process.env.OMB_BOT_MAIL_MS) || 180_000);
+  void pollBotMailOnce();
+};
+const pollBotMailOnce = async () => {
+  const box = botMailBox;
+  const botId = cfg.botMail?.botId;
+  if (!box || !botId) return;
+  try {
+    for (const mail of await pollBotMail(box)) {
+      try {
+        let threadId = botMailChats.threadFor(mail.from);
+        if (!threadId || !store.taskByThread(botId, threadId)) {
+          const task = store.createTask(botId, mail.subject || mail.from);
+          if (!task) continue;
+          threadId = task.threadId;
+        }
+        botMailChats.set(mail.from, { threadId, from: mail.from, subject: mail.subject, ...(mail.messageId ? { messageId: mail.messageId } : {}) });
+        void acceptDirectSend({
+          botId, threadId,
+          text: `From: ${mail.from}\nSubject: ${mail.subject}\n\n${mail.text}`,
+          sendId: `mail:${box.account.address}:${mail.uid}`,
+          sender: { name: mail.from, id: `mail:${box.account.address}:${mail.from}` },
+          trigger: { kind: "user", label: `mail:${mail.from}` },
+          personPresent: false,
+        }).catch((error) => console.warn(`bot mail: inbound rejected: ${(error as Error).message}`));
+      } catch (error) {
+        console.warn(`bot mail: inbound failed: ${(error as Error).message}`);
+      }
+    }
+  } catch (error) {
+    console.warn(`bot mail: poll failed: ${(error as Error).message}`);
+  }
+};
+syncBotMail();
+onConfigSaved((before, after) => {
+  if (JSON.stringify(before.botMail ?? null) !== JSON.stringify(after.botMail ?? null)) setImmediate(() => syncBotMail());
+});
+bus.subscribe((event: RuntimeEvent) => {
+  if (shouldIgnoreProviderEvent(event)) return;
+  if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+  const box = botMailBox;
+  if (!box) return;
+  const chat = botMailChats.chatFor(event.threadId);
+  if (!chat) return;
+  try {
+    const messages = store.activePath(event.threadId);
+    const fromMail = !isInternalTurn(event.threadId) && !routines?.runForThread(event.threadId)
+      && messages.findLast((m) => m.role === "user")?.sender?.id?.startsWith("mail:");
+    if (!fromMail) return;
+    for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
+      replyBotMail(box, { to: chat.from, subject: chat.subject, text, ...(chat.messageId ? { inReplyTo: chat.messageId } : {}) })
+        .catch((error) => console.warn(`bot mail: send failed: ${(error as Error).message}`));
+    }
+  } catch (error) {
+    console.warn(`bot mail: reply failed: ${(error as Error).message}`);
   }
 });
 bus.subscribe((event: RuntimeEvent) => {
@@ -12048,6 +12120,7 @@ function configStatus() {
     tts: tts.describeVoice(cfg),
     decider: describeDecider(cfg), helpers: describeHelpers(cfg),
     feishu: { configured: Boolean(cfg.feishu?.appId && cfg.feishu.appSecret && cfg.feishu.botId), botId: cfg.feishu?.botId ?? "" },
+    botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),
     profile: CLOUD_TEAM ? NOBODY_PROFILE : { name: cfg.profile?.name ?? "", email: cfg.profile?.email ?? "", aboutMe: cfg.profile?.aboutMe ?? "", ...(cfg.profile?.avatarUrl ? { avatarUrl: cfg.profile.avatarUrl } : {}) },
@@ -13513,6 +13586,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
         propose: (input) => grantHost.propose(input),
         now: () => Date.now(),
+      }), createInternalMacAppRoutes({
+        store, from: internalSender, fromThreadId: internalCapability.threadId,
+        ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
       }), createToolTimingRoute(usageTrace, internalCapability.threadId)], { req, res, url, path, method, auth, json, readBody })) return;
       if (method === "POST" && path === "/api/internal/attach-file") {
         const from = internalSender;
