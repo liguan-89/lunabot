@@ -73,14 +73,18 @@ internal class PhoneLocation(private val context: Context) {
             "unsupported",
         )
 
+        // Geocoder's synchronous lookup blocks on a backend that may be unreachable —
+        // without a bound it stalls the whole job poll, so cap it.
         val place = runCatching {
-            Geocoder(context, Locale.getDefault())
-                .getFromLocation(location.latitude, location.longitude, 1)
-                ?.firstOrNull()
-                ?.let { address ->
-                    address.locality ?: address.subAdminArea ?: address.adminArea
-                        ?: address.getAddressLine(0)
-                }
+            withTimeoutOrNull(GEOCODE_TIMEOUT_MILLIS) {
+                Geocoder(context, Locale.getDefault())
+                    .getFromLocation(location.latitude, location.longitude, 1)
+                    ?.firstOrNull()
+                    ?.let { address ->
+                        address.locality ?: address.subAdminArea ?: address.adminArea
+                            ?: address.getAddressLine(0)
+                    }
+            }
         }.getOrNull()
 
         PhoneToolOutcome.Success(
@@ -154,5 +158,6 @@ internal class PhoneLocation(private val context: Context) {
 
     private companion object {
         const val FRESH_FIX_TIMEOUT_MILLIS = 8_000L
+        const val GEOCODE_TIMEOUT_MILLIS = 5_000L
     }
 }

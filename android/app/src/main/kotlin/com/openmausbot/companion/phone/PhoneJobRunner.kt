@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -182,19 +183,23 @@ internal class PhoneJobRunner(
             if (!session.leasePhoneJob(job.id)) continue
 
             val tool = PhoneTool.fromWire(job.tool)
-            val outcome = when {
-                tool == null -> PhoneToolOutcome.Failure(
-                    "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
-                        "${PhoneToolCatalog.capabilityOf(job.tool) ?: "这个应用"} 还不支持。",
-                    code = "unsupported",
-                )
-                tool.capability == "calendar" -> calendar.execute(tool, job.arguments)
-                tool.capability == "contacts" -> contacts.execute(tool, job.arguments)
-                tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
-                tool.capability == "location" -> location.current()
-                tool.capability == "messages" -> messages.execute(tool, job.arguments)
-                else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
-            }
+            // A stuck executor would stall this serial poll until the server marks
+            // the phone offline, so the run gets a bound under the server's timeout.
+            val outcome = withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) {
+                when {
+                    tool == null -> PhoneToolOutcome.Failure(
+                        "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
+                            "${PhoneToolCatalog.capabilityOf(job.tool) ?: "这个应用"} 还不支持。",
+                        code = "unsupported",
+                    )
+                    tool.capability == "calendar" -> calendar.execute(tool, job.arguments)
+                    tool.capability == "contacts" -> contacts.execute(tool, job.arguments)
+                    tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
+                    tool.capability == "location" -> location.current()
+                    tool.capability == "messages" -> messages.execute(tool, job.arguments)
+                    else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
+                }
+            } ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
             session.completePhoneJob(job.id, outcome.toJson())
         }
     }
@@ -204,6 +209,8 @@ internal class PhoneJobRunner(
         const val REGISTRATION_RETRY_MILLIS = 5_000L
         /** Only after a failure; a poll that timed out normally returns null too. */
         const val POLL_RETRY_MILLIS = 3_000L
+        // Below the server's phone-job timeout so the result still posts in time.
+        const val JOB_RUN_TIMEOUT_MILLIS = 40_000L
     }
 }
 
