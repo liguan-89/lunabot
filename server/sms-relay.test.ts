@@ -79,7 +79,7 @@ describe("createSmsRelay push", () => {
     expect(sends[0]).toMatchObject({
       botId: BOT.id, text: "bot 帮我查下快递",
       sendId: "sms:session:abc:m1",
-      sender: { name: "短信 +8613800138000", id: "sms:session:abc|+8613800138000" },
+      sender: { name: "短信 +8613800138000", id: "sms:session:abc|8613800138000" },
       personPresent: false,
     });
   });
@@ -101,7 +101,7 @@ describe("createSmsRelay replies", () => {
     relay.push("session:abc", smsEvent());
     const threadId = "thread-1";
     emits(completed(threadId));
-    expect(replies).toEqual([{ phoneKey: "session:abc", to: "+8613800138000", text: "查到了，明天到" }]);
+    expect(replies).toEqual([{ phoneKey: "session:abc", to: "8613800138000", text: "查到了，明天到" }]);
   });
 
   it("keeps the phone key intact when it contains a colon", () => {

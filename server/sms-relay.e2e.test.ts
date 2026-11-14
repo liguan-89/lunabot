@@ -78,13 +78,13 @@ posixOnly("a text a paired phone receives reaches the bot and the reply comes ba
 
       const job = (await polled).body.job as { id: string; tool: string; arguments: { to?: string; text?: string } };
       expect(job.tool).toBe("PHONE_REPLY_SMS");
-      expect(job.arguments.to).toBe("+8613800138000");
+      expect(job.arguments.to).toBe("8613800138000");
       expect(job.arguments.text).toContain("Hello from pi");
       expect((await api("POST", `/api/phones/self/jobs/${job.id}/result`, { ok: true, result: { sent: true } }, phone)).body).toEqual({ ok: true });
 
       await waitFor(() => existsSync(join(home, ".dexbot", "sms-chats.json")), "the chat mapping to persist");
       const mapping = JSON.parse(readFileSync(join(home, ".dexbot", "sms-chats.json"), "utf8")) as { chats: Record<string, string> };
-      expect(Object.keys(mapping.chats)).toEqual([`${phoneKey}|+8613800138000`]);
+      expect(Object.keys(mapping.chats)).toEqual([`${phoneKey}|8613800138000`]);
 
       // The inbound line belongs to the sms sender; a phone-side retry of the same sms is deduped.
       const userLines = async () => {
@@ -92,7 +92,7 @@ posixOnly("a text a paired phone receives reaches the bot and the reply comes ba
         return bots.find((b) => b.id === created.id)!.messages.filter((m) => m.role === "user");
       };
       await waitFor(async () => (await userLines()).length === 1, "the sms person line");
-      expect((await userLines())[0]!.sender?.id).toBe(`sms:${phoneKey}|+8613800138000`);
+      expect((await userLines())[0]!.sender?.id).toBe(`sms:${phoneKey}|8613800138000`);
       expect((await api("POST", "/api/phones/self/events",
         { kind: "sms", sendId: "sms-1", from: "+8613800138000", text: "帮我看下明天上海的天气" }, phone)).status).toBe(202);
       await new Promise((resolve) => setTimeout(resolve, 800));

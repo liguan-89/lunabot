@@ -91,9 +91,13 @@ export function createPhones(deps: PhonesDeps) {
       adminPersons: () => {
         const persons = new Set(deps.sessions.list().filter((session) => session.scopes.includes("admin")).map((session) => personKey(session)));
         // An sms: sender id is `sms:<phoneKey>|<number>`; a number in sms.owners texts in as the owner.
-        const numbers = deps.smsOwners();
-        if (numbers.length) for (const phone of registry.forOwner(DESKTOP_OWNER)) {
-          for (const number of numbers) persons.add(`sms:${phone.key}|${number}`);
+        // Dialing forms differ (+86 138… vs 138…) so numbers compare on digit suffix, not the literal string.
+        const numbers = deps.smsOwners().map((n) => n.replace(/\D/g, "")).filter((n) => n.length >= 7);
+        if (numbers.length) for (const line of store.messagesFor(turn.threadId)) {
+          const id = line.sender?.id ?? "";
+          if (!id.startsWith("sms:")) continue;
+          const num = id.slice(id.lastIndexOf("|") + 1).replace(/\D/g, "");
+          if (num.length >= 7 && numbers.some((n) => num === n || num.endsWith(n) || n.endsWith(num))) persons.add(id);
         }
         return persons;
       },

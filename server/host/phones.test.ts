@@ -136,6 +136,12 @@ describe("whose phones", () => {
     expect(phones.integration(chief, TURN)).toBeNull();
   });
 
+  it("sms.owners match on digit suffix — the country code may sit on either side", () => {
+    const { phones, send } = world({ smsOwners: () => ["13800000000"] });
+    send("sms-send-000000000009", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613800000000`);
+    expect(phones.turnOwner(TURN)).toBe("owner");
+  });
+
   it("without sms.owners an SMS sender is never the owner", () => {
     const { phones, send } = world();
     send("sms-send-000000000003", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613800000000`);

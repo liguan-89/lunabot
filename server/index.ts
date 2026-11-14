@@ -7408,7 +7408,7 @@ function drainQueuedSendsNow() {
 }
 
 /** The press's own flag rides into the row its turn writes; see appendMessage for what it suppresses. */
-const pressFields = (replyTo: { widgetPress?: boolean } | null | undefined) => (replyTo?.widgetPress ? { widgetPress: true } : {});
+const pressFields = (replyTo: { widgetPress?: unknown } | null | undefined) => (replyTo?.widgetPress ? { widgetPress: true } : {});
 
 async function startOrQueueDirectMessage(botId: string, threadId: string, text: string, replyTo?: ReplyTarget, sendId?: string, sender?: ResolvedSender, trigger?: UsageTrigger, via?: "call", callId?: string, dataContext?: DataContext, app?: { context?: string; fromApp?: Message["fromApp"]; pointed?: Message["pointed"] }, mentions?: string[]) {
   const decision = admit("direct", {}, {

@@ -71,7 +71,8 @@ export function createSmsRelay(deps: SmsRelayDeps): { push(phoneKey: string, eve
       if (!botId) return;
       if (!store.bot(botId)) { console.warn(`sms: no such bot ${botId}`); return; }
       try {
-        const chatId = `${phoneKey}|${event.from}`;
+        // The same sender reaches us as +8618… (carrier SMS) and 8618… (notification relay); key the thread on digits.
+        const chatId = `${phoneKey}|${event.from.replace(/\D/g, "") || event.from}`;
         let threadId = chats.threadFor(chatId);
         if (!threadId || !store.taskByThread(botId, threadId)) {
           const task = store.createTask(botId, event.text);

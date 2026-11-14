@@ -50,12 +50,7 @@ internal class PhoneMessages(private val context: Context) {
         return try {
             val manager = smsManager()
                 ?: return PhoneToolOutcome.Failure("这台设备没有短信功能。", "unsupported")
-            val parts = manager.divideMessage(text)
-            if (parts.size <= 1) {
-                manager.sendTextMessage(to, null, text, null, null)
-            } else {
-                manager.sendMultipartTextMessage(to, null, parts, null, null)
-            }
+            send(manager, to, text)
             PhoneToolOutcome.Success(
                 buildJsonObject {
                     put("sent", true)
@@ -65,6 +60,24 @@ internal class PhoneMessages(private val context: Context) {
             )
         } catch (error: Exception) {
             PhoneToolOutcome.Failure("短信发送失败：${error.message ?: "未知原因"}。", "unsupported")
+        }
+    }
+
+    /** ColorOS's SMS stack rejects the no-+ number form (RCS group lookup), while + fails for local forms — try both. */
+    private fun send(manager: SmsManager, to: String, text: String) {
+        val parts = manager.divideMessage(text)
+        try {
+            if (parts.size <= 1) manager.sendTextMessage(to, null, text, null, null)
+            else manager.sendMultipartTextMessage(to, null, parts, null, null)
+        } catch (first: Exception) {
+            if (to.startsWith("+") || !to.all(Char::isDigit)) throw first
+            try {
+                val international = "+$to"
+                if (parts.size <= 1) manager.sendTextMessage(international, null, text, null, null)
+                else manager.sendMultipartTextMessage(international, null, parts, null, null)
+            } catch (_: Exception) {
+                throw first
+            }
         }
     }
 
