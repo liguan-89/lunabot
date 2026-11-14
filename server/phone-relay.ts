@@ -313,6 +313,12 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   }
 
   function relayed(req: IncomingMessage, res: ServerResponse): void {
+    // The companion proxy's rule: a reply that ended while the phone's body was still arriving (a refused gate, a
+    // failed handler) leaves the stream half-open with a write the mux window will never grant again. Each stream is
+    // one exchange, so reset it instead of leaking it.
+    res.on("close", () => {
+      if (!res.writableEnded || !req.readableEnded) req.destroy();
+    });
     const context = e2eContextOf(req.socket);
     if (!context) return reply(res, 500, { error: "not a relayed request" });
     const peer = context.peer;

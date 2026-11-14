@@ -50,16 +50,28 @@ export interface E2EOriginDeadlines {
 }
 
 /** Each stream must send complete request headers within `headersMs` of opening or of its last response, and a request's
- * whole body within `requestMs`; otherwise the stream is destroyed. */
+ * whole body within `requestMs`; otherwise the stream is answered and ended, then reclaimed. */
 function enforceDeadlines(server: ReturnType<typeof createServer>, deadlines: E2EOriginDeadlines) {
   const timers = new WeakMap<object, { arm(): void; clear(): void }>();
+  /** A deadline the phone can report: an HTTP 408 and a FIN, so its stack shows a timed-out request instead of a
+   * reset it cannot tell from a crash. A stream whose half never finishes is destroyed on the next expiry. */
+  const expire = (socket: Duplex, answer: boolean) => {
+    if (socket.writableEnded || socket.destroyed) return socket.destroy();
+    if (answer) socket.write("HTTP/1.1 408 Request Timeout\r\nconnection: close\r\ncontent-length: 0\r\n\r\n");
+    socket.end();
+    timers.get(socket)?.arm();
+  };
   const onRequest = (req: IncomingMessage, res?: ServerResponse) => {
     const guard = timers.get(req.socket);
     if (!guard) return;
     guard.clear();
     // Only an unfinished request: a handler that never reads a GET (an event stream, a download) leaves it unconsumed.
     const body = setTimeout(() => {
-      if (!req.complete) req.socket.destroy();
+      if (!req.complete) {
+        // A reply already underway cannot take a 408 written under it; that stall still dies, just unexplained.
+        if (res?.headersSent) req.socket.destroy();
+        else expire(req.socket, true);
+      }
     }, deadlines.requestMs);
     body.unref?.();
     const done = () => clearTimeout(body);
@@ -73,15 +85,18 @@ function enforceDeadlines(server: ReturnType<typeof createServer>, deadlines: E2
   });
   return (socket: Duplex) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let headersUnderway = false;
     const clear = () => {
       if (timer) clearTimeout(timer);
       timer = null;
     };
     const arm = () => {
       clear();
-      timer = setTimeout(() => socket.destroy(), deadlines.headersMs);
+      headersUnderway = false;
+      timer = setTimeout(() => expire(socket, headersUnderway), deadlines.headersMs);
       timer.unref?.();
     };
+    socket.on("data", () => (headersUnderway = true));
     socket.once("close", clear);
     timers.set(socket, { arm, clear });
     arm();
