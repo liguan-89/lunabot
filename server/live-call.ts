@@ -1,4 +1,5 @@
 // The provider key never leaves the harness: the renderer only ever holds the SDP answer and its media connection.
+import { WebSocket } from "ws";
 import { CLOUD_HOME_PLACE } from "./system-prompt.ts";
 import type { LiveProvider } from "../shared/wire.ts";
 import type { Message } from "./store.ts";
@@ -9,12 +10,14 @@ export const DEFAULT_LIVE_VOICE = "marin";
 export const MAX_SDP_BYTES = 64 * 1024;
 export const LIVE_NEEDS_KEY = "Live calls use your own OpenAI key. Add it in Settings → API keys.";
 export const LIVE_NEEDS_AZURE = "Live calls through Azure OpenAI need the resource endpoint, the GPT-Live deployment name and its key. Add them in Call settings.";
+export const LIVE_NEEDS_QWEN = "Live calls through Qwen need the realtime gateway's https address and its key. Add them in Call settings.";
+export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls over this gateway use a WebSocket audio path that is not built yet. Use OpenAI or Azure for Live calls for now.";
 
 /** The client's data channel is untrusted: it may only hang up; every append goes over the sideband.
  * Exception: Azure OpenAI refuses `session.client`, so an Azure call goes without this list and its caller's channel keeps
  * Azure's default events. Read that as: the caller may send session or item events and receive events holding the bot's
  * instructions (not checked against Azure itself). So an Azure call is only for an admin or the owner of a single-owner
- * server, never another team Member, a shared workspace's non-admin or anyone else: azureLiveCallRefusal in live-access.ts,
+ * server, never another team Member, a shared workspace's non-admin or anyone else: azureLiveCallRefusal (own-provider calls) in live-access.ts,
  * asked by LiveCallController.start. */
 export const LIVE_DATA_CHANNEL = {
   allowed_client_events: ["session.close"],
@@ -49,7 +52,39 @@ export interface LiveEndpoint {
 }
 
 export function liveProviderName(provider: LiveProvider): string {
-  return provider === "azure" ? "Azure OpenAI" : "OpenAI";
+  return provider === "azure" ? "Azure OpenAI" : provider === "qwen" ? "Qwen" : "OpenAI";
+}
+
+export const LIVE_QWEN_MODEL = "qwen3.5-omni-flash-realtime";
+
+/** The `wss` realtime root of a Qwen gateway: its https origin only, so `https://host` and `https://host/compatible-mode/v1` save alike. A loopback http URL maps to `ws://` for tests; anything else is not a place a key may go. */
+export function qwenRealtimeRoot(raw: string | undefined): string | null {
+  let url: URL;
+  try {
+    url = new URL(raw?.trim() ?? "");
+  } catch {
+    return null;
+  }
+  if (url.username || url.password) return null;
+  if (url.protocol === "https:") return `wss://${url.host}`;
+  if (url.protocol === "http:" && /^127\.0\.0\.1:\d{1,5}$/.test(url.host)) return `ws://${url.host}`;
+  return null;
+}
+
+export function qwenLiveDeployment(raw: string | undefined): string | null {
+  const name = raw?.trim() || LIVE_QWEN_MODEL;
+  return /^[\w.-]{1,64}$/.test(name) ? name : null;
+}
+
+export function qwenLiveEndpoint(endpoint: string | undefined, model: string | undefined): LiveEndpoint | null {
+  const root = qwenRealtimeRoot(endpoint);
+  const deployment = qwenLiveDeployment(model);
+  return root && deployment ? { provider: "qwen", apiBase: `${root}/api-ws/v1`, model: deployment } : null;
+}
+
+/** The realtime socket a Qwen session opens: `session.created` answers the connect. */
+export function qwenRealtimeUrl(endpoint: LiveEndpoint): string {
+  return `${endpoint.apiBase}/realtime?model=${encodeURIComponent(endpoint.model)}`;
 }
 
 /** Only a loopback http URL is accepted, read at call time. */
@@ -98,9 +133,54 @@ export function liveAttachUrl(sessionId: string, endpoint: LiveEndpoint = openAi
   return `${endpoint.apiBase.replace(/^http/, "ws")}/live/sessions/${encodeURIComponent(sessionId)}/attach`;
 }
 
-/** Azure OpenAI takes a resource key in `api-key`; OpenAI takes a bearer token. */
+/** Azure OpenAI takes a resource key in `api-key`; OpenAI and the Qwen realtime gateway take a bearer token. */
 export function liveAuthHeaders(provider: LiveProvider, key: string): Record<string, string> {
   return provider === "azure" ? { "api-key": key } : { authorization: `Bearer ${key}` };
+}
+
+export interface QwenProbeResult {
+  ok: boolean;
+  model?: string;
+  voice?: string;
+  error?: string;
+}
+
+interface ProbeSocket {
+  close(): void;
+  on(event: "message", fn: (data: unknown) => void): void;
+  on(event: "error", fn: (error: unknown) => void): void;
+  on(event: "close", fn: () => void): void;
+}
+
+/** Opens the realtime socket and waits for `session.created`: a true answer means endpoint, key and model all work. The socket carries one JSON event at a time and nothing else leaves the key's host. */
+export function probeQwenLive(endpoint: LiveEndpoint, key: string, deps: { ws?: (url: string, headers: Record<string, string>) => ProbeSocket; timeoutMs?: number } = {}): Promise<QwenProbeResult> {
+  if (endpoint.provider !== "qwen") return Promise.resolve({ ok: false, error: "not a qwen endpoint" });
+  const make = deps.ws ?? ((url, headers) => new WebSocket(url, { headers }) as unknown as ProbeSocket);
+  // `ws`'s WebSocket takes the headers option; the global undici one cannot send them.
+  return new Promise((resolve) => {
+    const done = (result: QwenProbeResult) => { clearTimeout(timer); try { socket.close(); } catch { /* already closed */ } resolve(result); };
+    const timer = setTimeout(() => done({ ok: false, error: "timeout" }), deps.timeoutMs ?? 8_000);
+    const socket = make(qwenRealtimeUrl(endpoint), liveAuthHeaders("qwen", key));
+    socket.on("error", () => done({ ok: false, error: "connect" }));
+    socket.on("close", () => done({ ok: false, error: "closed" }));
+    socket.on("message", (data) => {
+      let event: { type?: unknown; code?: unknown; message?: unknown; session?: { model?: unknown; voice?: unknown } };
+      try {
+        event = JSON.parse(String(data));
+      } catch {
+        return;
+      }
+      if (event.type === "session.created") {
+        done({
+          ok: true,
+          ...(typeof event.session?.model === "string" ? { model: event.session.model } : {}),
+          ...(typeof event.session?.voice === "string" ? { voice: event.session.voice } : {}),
+        });
+      } else if (event.type === "error" || typeof event.code === "string") {
+        done({ ok: false, error: typeof event.message === "string" ? event.message.slice(0, 200) : "rejected" });
+      }
+    });
+  });
 }
 
 // The API caps startup history at 128 messages / 8,192 tokens; stay well inside it.
@@ -220,6 +300,7 @@ export interface CreateLiveSessionInput {
 export async function createLiveSession(input: CreateLiveSessionInput): Promise<{ sessionId: string; sdp: string }> {
   const endpoint = input.endpoint ?? openAiLiveEndpoint();
   const provider = liveProviderName(endpoint.provider);
+  if (endpoint.provider === "qwen") throw new LiveSessionError(LIVE_QWEN_TRANSPORT, 400);
   const key = input.key.trim();
   if (!key) throw new LiveSessionError(`Add an ${provider} API key to use Live calls.`, 409);
   if (!input.sdp.trim() || Buffer.byteLength(input.sdp) > MAX_SDP_BYTES) {
@@ -281,6 +362,10 @@ export function liveErrorMessage(status: number, param?: string, provider: LiveP
     if (status === 403) return "This Azure OpenAI resource refused the call. Check its network rules and that the key belongs to it.";
     if (status === 404) return "Azure OpenAI has no GPT-Live deployment by that name on this resource. Check the endpoint and the deployment name.";
     if (status === 429) return "Azure OpenAI is limiting Live sessions right now (rate limit or quota). Try again in a moment.";
+  } else if (provider === "qwen") {
+    if (status === 401 || status === 403) return "The Qwen realtime gateway rejected the API key. Check the key for Live calls.";
+    if (status === 404) return "The Qwen realtime gateway has no realtime model by that name. Check the endpoint and the model.";
+    if (status === 429) return "The Qwen realtime gateway is limiting sessions right now (rate limit or quota). Try again in a moment.";
   } else {
     if (status === 401) return "OpenAI rejected the API key. Check the key for Live calls.";
     if (status === 403) return "This OpenAI project has no access to GPT-Live. Check the project's model access and billing.";

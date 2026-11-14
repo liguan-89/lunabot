@@ -4,13 +4,15 @@ import { z } from "zod";
 export const LIVE_KEY_NEEDS_ENDPOINT = "Save the Azure endpoint first: a Live key works only with the endpoint it was saved for.";
 const NOWHERE = "nowhere";
 
-/** Live calls: `key` is a key for Live calls only; with `provider` "openai" (the default) a call without one uses `openai.key`, with "azure" it is the Azure resource's key and is required. `keyFor` says where `key` may go (`liveKeyTarget`): the server sets it when the key is saved and never takes it from a request; absent, the key is from before Azure was offered, so OpenAI's. `azureEndpoint` is the resource URL and `azureDeployment` the gpt-live-1 deployment name. `voice` is a GPT-Live voice. */
+/** Live calls: `key` is a key for Live calls only; with `provider` "openai" (the default) a call without one uses `openai.key`, with "azure" it is the Azure resource's key, with "qwen" the realtime gateway's key; both are required. `keyFor` says where `key` may go (`liveKeyTarget`): the server sets it when the key is saved and never takes it from a request; absent, the key is from before Azure was offered, so OpenAI's. `azureEndpoint` is the resource URL and `azureDeployment` the gpt-live-1 deployment name. `qwenEndpoint` is the gateway's https base (any path — its origin is used), `qwenModel` a realtime model name. `voice` is a GPT-Live voice. */
 export const liveConfigSchema = z.object({
   key: z.string().optional(),
   keyFor: z.string().max(300).optional(),
-  provider: z.enum(["openai", "azure"]).optional(),
+  provider: z.enum(["openai", "azure", "qwen"]).optional(),
   azureEndpoint: z.string().trim().max(300).optional(),
   azureDeployment: z.string().trim().max(64).optional(),
+  qwenEndpoint: z.string().trim().max(300).optional(),
+  qwenModel: z.string().trim().max(64).regex(/^[\w.-]*$/, "a realtime model id").optional(),
   voice: z.string().trim().max(40).regex(/^[a-z]*$/, "a Live voice is a lowercase built-in voice name").optional(),
   readTypedReplies: z.boolean().optional(),
   idleMinutes: z.number().int().min(1).max(60).optional(),
@@ -19,20 +21,23 @@ export const liveConfigSchema = z.object({
 export interface LiveConfig {
   key?: string;
   keyFor?: string;
-  provider?: "openai" | "azure";
+  provider?: "openai" | "azure" | "qwen";
   azureEndpoint?: string;
   azureDeployment?: string;
+  qwenEndpoint?: string;
+  qwenModel?: string;
   voice?: string;
   readTypedReplies?: boolean;
   idleMinutes?: number;
 }
 
-/** Where a key saved now may go: "openai", or "azure:<host>"; null while Azure is chosen with no endpoint to tie it to. */
+/** Where a key saved now may go: "openai", "azure:<host>" or "qwen:<host>"; null while that provider is chosen with no endpoint to tie it to. */
 export function liveKeyTarget(live: LiveConfig | undefined): string | null {
-  if (live?.provider !== "azure") return "openai";
+  const raw = live?.provider === "azure" ? live.azureEndpoint : live?.provider === "qwen" ? live.qwenEndpoint : null;
+  if (raw === null) return "openai";
   try {
-    const host = new URL(live.azureEndpoint?.trim() ?? "").host.toLowerCase();
-    return host ? `azure:${host}` : null;
+    const host = new URL(raw?.trim() ?? "").host.toLowerCase();
+    return host ? `${live!.provider}:${host}` : null;
   } catch {
     return null;
   }
@@ -67,12 +72,15 @@ export function liveConfigWithEnv(live: LiveConfig | undefined, env: NodeJS.Proc
     next.key = envKey;
   }
   const provider = env.OMB_LIVE_PROVIDER?.trim().toLowerCase();
-  if (provider === "openai" || provider === "azure") next.provider = provider;
+  if (provider === "openai" || provider === "azure" || provider === "qwen") next.provider = provider;
   if (env.OMB_AZURE_OPENAI_LIVE_ENDPOINT !== undefined) next.azureEndpoint = env.OMB_AZURE_OPENAI_LIVE_ENDPOINT.trim();
   if (env.OMB_AZURE_OPENAI_LIVE_DEPLOYMENT !== undefined) next.azureDeployment = env.OMB_AZURE_OPENAI_LIVE_DEPLOYMENT.trim();
-  // Set together in the environment, the key and the Azure endpoint are the operator's own pairing. A `keyFor` from the
-  // file stands: saves mirror settings into the environment, so they must not be able to pair a forgotten key.
-  if (envKey?.trim() && provider === "azure" && env.OMB_AZURE_OPENAI_LIVE_ENDPOINT?.trim() && next.keyFor === undefined) next.keyFor = liveKeyTarget(next) ?? NOWHERE;
+  if (env.OMB_LIVE_QWEN_ENDPOINT !== undefined) next.qwenEndpoint = env.OMB_LIVE_QWEN_ENDPOINT.trim();
+  if (env.OMB_LIVE_QWEN_MODEL !== undefined) next.qwenModel = env.OMB_LIVE_QWEN_MODEL.trim();
+  // Set together in the environment, the key and the provider endpoint are the operator's own pairing. A `keyFor` from
+  // the file stands: saves mirror settings into the environment, so they must not be able to pair a forgotten key.
+  const envEndpoint = provider === "azure" ? env.OMB_AZURE_OPENAI_LIVE_ENDPOINT : provider === "qwen" ? env.OMB_LIVE_QWEN_ENDPOINT : undefined;
+  if (envKey?.trim() && envEndpoint?.trim() && next.keyFor === undefined) next.keyFor = liveKeyTarget(next) ?? NOWHERE;
   return next;
 }
 
@@ -82,5 +90,7 @@ export function liveSettingEnv(live: LiveConfig | undefined): Array<[value: stri
     [live?.provider, "OMB_LIVE_PROVIDER"],
     [live?.azureEndpoint, "OMB_AZURE_OPENAI_LIVE_ENDPOINT"],
     [live?.azureDeployment, "OMB_AZURE_OPENAI_LIVE_DEPLOYMENT"],
+    [live?.qwenEndpoint, "OMB_LIVE_QWEN_ENDPOINT"],
+    [live?.qwenModel, "OMB_LIVE_QWEN_MODEL"],
   ];
 }

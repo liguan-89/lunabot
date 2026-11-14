@@ -21,6 +21,11 @@ import {
   MAX_SDP_BYTES,
   spokenHangUp,
   openAiLiveEndpoint,
+  liveAuthHeaders,
+  probeQwenLive,
+  qwenLiveEndpoint,
+  qwenRealtimeRoot,
+  qwenRealtimeUrl,
   type LiveEndpoint,
 } from "./live-call.ts";
 import { CLOUD_HOME_PLACE } from "./system-prompt.ts";
@@ -393,5 +398,85 @@ describe("spokenHangUp", () => {
 
   it("tells the voice to delegate a hang-up request and never to end a call on its own", () => {
     expect(liveInstructions({ name: "Rigel" })).toContain("- The user clearly asks you to hang up or end the call. Never end or offer to end the call on your own.");
+  });
+});
+
+describe("the Qwen realtime gateway", () => {
+  const endpoint = qwenLiveEndpoint("https://maas.qianwenaiapi.com/compatible-mode/v1", "")!;
+
+  it("maps the saved https base onto the realtime socket root, host only", () => {
+    expect(qwenRealtimeRoot("https://maas.qianwenaiapi.com")).toBe("wss://maas.qianwenaiapi.com");
+    expect(qwenRealtimeRoot(" https://maas.qianwenaiapi.com/compatible-mode/v1 ")).toBe("wss://maas.qianwenaiapi.com");
+    expect(qwenRealtimeRoot("https://user:pw@maas.qianwenaiapi.com")).toBeNull();
+    expect(qwenRealtimeRoot("wss://maas.qianwenaiapi.com")).toBeNull();
+    expect(qwenRealtimeRoot("http://maas.qianwenaiapi.com")).toBeNull();
+    expect(qwenRealtimeRoot("http://127.0.0.1:8042")).toBe("ws://127.0.0.1:8042");
+    expect(qwenRealtimeRoot(undefined)).toBeNull();
+  });
+
+  it("builds the realtime socket URL with the model, defaulting to the omni model", () => {
+    expect(endpoint).toEqual({ provider: "qwen", apiBase: "wss://maas.qianwenaiapi.com/api-ws/v1", model: "qwen3.5-omni-flash-realtime" });
+    expect(qwenRealtimeUrl(endpoint)).toBe("wss://maas.qianwenaiapi.com/api-ws/v1/realtime?model=qwen3.5-omni-flash-realtime");
+    expect(qwenRealtimeUrl(qwenLiveEndpoint("https://h.example", "qwen3-s2s-flash-realtime")!)).toContain("model=qwen3-s2s-flash-realtime");
+    expect(qwenLiveEndpoint("https://h.example", "bad model!")).toBeNull();
+  });
+
+  it("sends the key as a bearer token, like OpenAI", () => {
+    expect(liveAuthHeaders("qwen", "sk-q")).toEqual({ authorization: "Bearer sk-q" });
+  });
+
+  it("never runs the WebRTC session flow: the gateway answers only the realtime socket", async () => {
+    const fetchImpl = okFetch();
+    await expect(createLiveSession({ key: "k", endpoint, sdp: OFFER, bot: BOT, history: [], cloudHome: false, fetchImpl }))
+      .rejects.toMatchObject({ status: 400, message: expect.stringContaining("WebSocket audio path") });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("names gateway failures for the caller", () => {
+    expect(liveErrorMessage(401, undefined, "qwen")).toContain("Qwen realtime gateway rejected the API key");
+    expect(liveErrorMessage(404, undefined, "qwen")).toContain("no realtime model");
+    expect(liveErrorMessage(429, undefined, "qwen")).toContain("limiting");
+    expect(liveErrorMessage(500, undefined, "qwen")).toContain("Qwen had a problem");
+  });
+
+  function fakeSocket(messages: string[], { close }: { close?: boolean } = {}) {
+    const handlers = new Map<string, Array<(arg: unknown) => void>>();
+    const socket = {
+      close: vi.fn(),
+      on: (event: string, fn: (arg: unknown) => void) => {
+        handlers.set(event, [...handlers.get(event) ?? [], fn]);
+        queueMicrotask(() => {
+          if (close && event === "close") fn();
+          if (event === "message") for (const message of messages) fn(message);
+          if (!messages.length && event === "error") fn(new Error("refused"));
+        });
+      },
+    };
+    return { socket, handlers };
+  }
+
+  it("probe: a session.created answer means endpoint, key and model work", async () => {
+    const { socket } = fakeSocket([JSON.stringify({ event_id: "e1", type: "session.created", session: { model: "qwen3.5-omni-flash-realtime", voice: "Cherry" } })]);
+    const make = vi.fn(() => socket);
+    const result = await probeQwenLive(endpoint, "sk-qwen", { ws: make as never });
+    expect(result).toEqual({ ok: true, model: "qwen3.5-omni-flash-realtime", voice: "Cherry" });
+    expect(make).toHaveBeenCalledWith("wss://maas.qianwenaiapi.com/api-ws/v1/realtime?model=qwen3.5-omni-flash-realtime", { authorization: "Bearer sk-qwen" });
+    expect(socket.close).toHaveBeenCalled();
+  });
+
+  it("probe: a provider error event or a dead socket is a failed probe, never a thrown key", async () => {
+    const rejected = await probeQwenLive(endpoint, "sk-qwen", { ws: (() => fakeSocket([JSON.stringify({ code: "InvalidParameter", message: "Model not exist." })]).socket) as never });
+    expect(rejected).toEqual({ ok: false, error: "Model not exist." });
+    const refused = await probeQwenLive(endpoint, "sk-qwen", { ws: (() => fakeSocket([]).socket) as never });
+    expect(refused).toEqual({ ok: false, error: "connect" });
+    const dropped = await probeQwenLive(endpoint, "sk-qwen", { ws: (() => fakeSocket(["{ not json"], { close: true }).socket) as never });
+    expect(dropped).toEqual({ ok: false, error: "closed" });
+    expect(await probeQwenLive({ provider: "openai", apiBase: "x", model: "y" }, "k")).toEqual({ ok: false, error: "not a qwen endpoint" });
+  });
+
+  it("probe: a gateway that never answers times out", async () => {
+    const silent = { close: vi.fn(), on: vi.fn() };
+    expect(await probeQwenLive(endpoint, "k", { ws: (() => silent) as never, timeoutMs: 30 })).toEqual({ ok: false, error: "timeout" });
+    expect(silent.close).toHaveBeenCalled();
   });
 });

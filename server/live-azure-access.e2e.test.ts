@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, expect, it } from "vitest";
 import { cloudPairingSignature } from "./cloud-home.ts";
-import { LIVE_AZURE_REFUSAL } from "./live-access.ts";
+import { LIVE_OWN_PROVIDER_REFUSAL } from "./live-access.ts";
 import { LIVE_NEEDS_AZURE, LIVE_NEEDS_KEY } from "./live-call.ts";
 import { LIVE_KEY_NEEDS_ENDPOINT } from "./live-config.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
@@ -24,7 +24,7 @@ const ENDPOINT = "https://fixture.openai.azure.com";
 const SESSIONS = `${ENDPOINT}/openai/v1/live/sessions`;
 const TEAM = { id: "team-7f3a", name: "Acme" };
 const secret = randomBytes(32).toString("base64url");
-const REFUSED = { status: 403, body: { error: LIVE_AZURE_REFUSAL } };
+const REFUSED = { status: 403, body: { error: LIVE_OWN_PROVIDER_REFUSAL } };
 const THROUGH = { status: 502, body: { error: "Azure OpenAI had a problem starting the call. Try again in a moment." } };
 
 type Headers = Record<string, string>;

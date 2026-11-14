@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppConfig } from "./config.ts";
 import { nestedKeyStatus } from "./key-hint.ts";
-import { LIVE_NEEDS_AZURE, LIVE_NEEDS_KEY } from "./live-call.ts";
+import { LIVE_NEEDS_AZURE, LIVE_NEEDS_KEY, LIVE_NEEDS_QWEN } from "./live-call.ts";
 import { LIVE_KEY_NEEDS_ENDPOINT, liveConfigWithEnv, liveKeyTarget, liveSavePatch, usableLiveKey, type LiveConfig } from "./live-config.ts";
 import { LIVE_IDLE_MINUTES_DEFAULT, liveCallEndpoint, liveCallKey, liveCallSettings, liveSettingsFor, liveSettingsForClient, liveSetupProblem } from "./live-settings.ts";
 
@@ -89,6 +89,80 @@ describe("Live calls through Azure OpenAI", () => {
   it("leave OpenAI the default provider", () => {
     expect(liveCallEndpoint({ openai: { key: "sk" } } as AppConfig, {})).toEqual({ provider: "openai", apiBase: "https://api.openai.com/v1", model: "gpt-live-1" });
     expect(liveSetupProblem({} as AppConfig)).toBe(LIVE_NEEDS_KEY);
+  });
+});
+
+describe("Live calls through a Qwen realtime gateway", () => {
+  const qwen = { provider: "qwen" as const, qwenEndpoint: "https://maas.qianwenaiapi.com/compatible-mode/v1", qwenModel: "qwen3.5-omni-flash-realtime" };
+  const keyFor = "qwen:maas.qianwenaiapi.com";
+
+  it("never use the OpenAI API key as the gateway's key", () => {
+    const cfg = { live: qwen, openai: { key: "sk-openai" } } as AppConfig;
+    expect(liveCallKey(cfg)).toBeNull();
+    expect(liveSetupProblem(cfg)).toBe(LIVE_NEEDS_QWEN);
+  });
+
+  it("are ready with the Live key and a valid endpoint, and report the provider without the key", () => {
+    const cfg = { live: { ...qwen, key: "qwen-secret", keyFor } } as AppConfig;
+    expect(liveCallKey(cfg)).toEqual({ key: "qwen-secret", source: "live" });
+    expect(liveCallEndpoint(cfg)).toEqual({ provider: "qwen", apiBase: "wss://maas.qianwenaiapi.com/api-ws/v1", model: "qwen3.5-omni-flash-realtime" });
+    expect(liveSetupProblem(cfg)).toBeNull();
+    const settings = liveSettingsFor(cfg);
+    expect(settings).toMatchObject({ configured: true, keySource: "live", provider: "qwen", qwenEndpoint: qwen.qwenEndpoint, qwenModel: qwen.qwenModel });
+    expect(JSON.stringify(settings)).not.toContain("qwen-secret");
+  });
+
+  it("are not ready with an endpoint that is not https", () => {
+    const cfg = { live: { ...qwen, key: "k", qwenEndpoint: "wss://evil.example/realtime" } } as AppConfig;
+    expect(liveCallEndpoint(cfg)).toBeNull();
+    expect(liveSetupProblem(cfg)).toBe(LIVE_NEEDS_QWEN);
+    expect(liveSettingsFor(cfg).configured).toBe(false);
+  });
+
+  it("name the provider in what a call start reads, so the own-provider limit sees it even before setup is done", () => {
+    expect(liveCallSettings({ live: { provider: "qwen" } } as AppConfig)).toMatchObject({ provider: "qwen", endpoint: null, key: "", setupProblem: LIVE_NEEDS_QWEN });
+    expect(liveCallSettings({ live: { ...qwen, key: "k", keyFor } } as AppConfig)).toMatchObject({ provider: "qwen", key: "k", setupProblem: null, endpoint: { provider: "qwen" } });
+  });
+
+  it("tell a caller without the admin scope the service, not which gateway", () => {
+    const client = liveSettingsForClient(liveSettingsFor({ live: { ...qwen, key: "qwen-secret", keyFor } } as AppConfig));
+    expect(client).toEqual({ configured: true, keySource: "live", provider: "qwen", voice: "", readTypedReplies: true, idleMinutes: 5 });
+    expect(JSON.stringify(client)).not.toContain("qianwenaiapi");
+  });
+
+  it("default to the omni realtime model", () => {
+    expect(liveCallEndpoint({ live: { ...qwen, qwenModel: "" } } as AppConfig)?.model).toBe("qwen3.5-omni-flash-realtime");
+  });
+
+  it("tie the saved key to the gateway's host, never its path", () => {
+    expect(liveKeyTarget({ provider: "qwen", qwenEndpoint: "https://maas.qianwenaiapi.com/compatible-mode/v1" })).toBe("qwen:maas.qianwenaiapi.com");
+    expect(liveKeyTarget({ provider: "qwen", qwenEndpoint: "https://MAAS.Qianwenaiapi.com:8443/x" })).toBe("qwen:maas.qianwenaiapi.com:8443");
+    for (const qwenEndpoint of [undefined, "", "maas.qianwenaiapi.com"]) expect(liveKeyTarget({ provider: "qwen", qwenEndpoint }), String(qwenEndpoint)).toBeNull();
+  });
+
+  it("send the key only where it was saved for", () => {
+    const onA: LiveConfig = { provider: "qwen", qwenEndpoint: "https://a.example.com", key: "k", keyFor: "qwen:a.example.com" };
+    expect(usableLiveKey(onA)).toBe("k");
+    expect(usableLiveKey({ ...onA, qwenEndpoint: "https://a.example.com/other/path" })).toBe("k");
+    expect(usableLiveKey({ ...onA, qwenEndpoint: "https://b.example.com" })).toBeUndefined();
+    expect(usableLiveKey({ ...onA, provider: "openai" })).toBeUndefined();
+  });
+
+  it("save a new key tied to the gateway, forget it when the provider or host moves", () => {
+    const onA: LiveConfig = { provider: "qwen", qwenEndpoint: "https://a.example.com", key: "k", keyFor: "qwen:a.example.com" };
+    expect(liveSavePatch(undefined, { key: "new", provider: "qwen", qwenEndpoint: "https://a.example.com" })).toEqual({ key: "new", provider: "qwen", qwenEndpoint: "https://a.example.com", keyFor: "qwen:a.example.com" });
+    expect(() => liveSavePatch({ provider: "qwen" }, { key: "new" })).toThrow(LIVE_KEY_NEEDS_ENDPOINT);
+    expect(liveSavePatch(onA, { provider: "openai" })).toEqual({ provider: "openai", key: "", keyFor: "nowhere" });
+    expect(liveSavePatch(onA, { qwenEndpoint: "https://b.example.com" })).toEqual({ qwenEndpoint: "https://b.example.com", key: "", keyFor: "nowhere" });
+    expect(liveSavePatch(onA, { qwenModel: "other-model" })).toEqual({ qwenModel: "other-model" });
+  });
+
+  it("pair a key and a gateway set together in the environment, as an operator does", () => {
+    const env = { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "qwen", OMB_LIVE_QWEN_ENDPOINT: "https://a.example.com", OMB_LIVE_QWEN_MODEL: "qwen3-s2s-flash-realtime" };
+    const merged = liveConfigWithEnv(undefined, env);
+    expect(usableLiveKey(merged)).toBe("operators");
+    expect(merged).toMatchObject({ provider: "qwen", qwenModel: "qwen3-s2s-flash-realtime", keyFor: "qwen:a.example.com" });
+    expect(usableLiveKey(liveConfigWithEnv({ provider: "qwen" }, { OMB_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
   });
 });
 

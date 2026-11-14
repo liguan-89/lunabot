@@ -319,9 +319,9 @@ import * as tts from "./tts/index.ts";
 import { voiceNoteFailure } from "./tts/errors.ts";
 import { createDecider, deciderReady, describeDecider } from "./decider/index.ts"; import { createExtractor, describeHelpers } from "./extractor/index.ts";
 import { createStopLineRoutes } from "./routes/stop-line.ts"; import { decideRoomResponder } from "./decider/room-routing.ts"; import { roomRoutingInput } from "./host/room-routing-input.ts";
-import { createLiveSession, liveAttachUrl, liveHistoryFrom, LiveSessionError, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
+import { createLiveSession, liveAttachUrl, liveHistoryFrom, LiveSessionError, probeQwenLive, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
 import { LiveCallController, LiveCallSignedOutError, openLiveSocket } from "./live-call-controller.ts";
-import { liveCallSettings, liveSettingsFor, liveSettingsForClient, saveLiveSettings } from "./live-settings.ts"; import { azureLiveCallRefusal, liveScopeRefusal } from "./live-access.ts";
+import { liveCallEndpoint, liveCallKey, liveCallSettings, liveSettingsFor, liveSettingsForClient, saveLiveSettings } from "./live-settings.ts"; import { azureLiveCallRefusal, liveScopeRefusal } from "./live-access.ts";
 import { recordLiveCall, spokenLineFields, titleLiveCall } from "./live-call-record.ts"; import { noteGroupTurn, turnsSince } from "./room-round-turns.ts";
 import { narrateTool, toUtterances } from "./tts/speech-text.ts";
 import { createTtsRoutes } from "./routes/tts.ts";
@@ -12752,6 +12752,12 @@ ROUTES.push(createLiveRoutes({
     Object.assign(cfg, loadConfig());
     broadcast({ kind: "config", ...configStatus() });
     return liveSettingsFor(cfg);
+  },
+  probeQwen: async () => {
+    const endpoint = liveCallEndpoint(cfg);
+    const key = liveCallKey(cfg);
+    if (endpoint?.provider !== "qwen" || !key) return { ok: false, error: "No Qwen realtime provider is set up." };
+    return probeQwenLive(endpoint, key.key);
   },
 }));
 

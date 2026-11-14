@@ -45,8 +45,8 @@ export interface LiveCallRecord {
   title?: string;
 }
 
-/** Who runs a Live call's GPT-Live session: OpenAI itself, or a GPT-Live deployment on the user's own Azure OpenAI / Foundry resource. */
-export type LiveProvider = "openai" | "azure";
+/** Who runs a Live call's realtime session: OpenAI itself, a GPT-Live deployment on the user's own Azure OpenAI / Foundry resource, or a Qwen realtime gateway (OpenAI-realtime protocol over a plain WebSocket, e.g. Alibaba's Bailian / Qwen MaaS). */
+export type LiveProvider = "openai" | "azure" | "qwen";
 
 /** `live`: the key saved for Live calls only; `openai`: the OpenAI API key from Settings → API keys, used when there is no `live` key. */
 export type LiveKeySource = "live" | "openai";
@@ -56,12 +56,16 @@ export interface LiveSettings {
   /** A Live call has everything it needs: a key (`keySource` says which; never the key itself) and, for Azure, a valid endpoint and deployment. */
   configured: boolean;
   keySource?: LiveKeySource;
-  /** Absent means "openai". With "azure" only the `live` key is used, never the OpenAI API key. */
+  /** Absent means "openai". With "azure" or "qwen" only the `live` key is used, never the OpenAI API key. */
   provider?: LiveProvider;
   /** The Azure resource endpoint as saved, e.g. `https://my-resource.openai.azure.com`. Not a secret. */
   azureEndpoint?: string;
   /** The Azure deployment of gpt-live-1; empty means "gpt-live-1". */
   azureDeployment?: string;
+  /** The Qwen realtime gateway's https base, e.g. `https://dashscope.aliyuncs.com` or a MaaS gateway origin. Not a secret. */
+  qwenEndpoint?: string;
+  /** The Qwen realtime model; empty means the default omni realtime model. */
+  qwenModel?: string;
   voice: string;
   readTypedReplies: boolean;
   idleMinutes: number;

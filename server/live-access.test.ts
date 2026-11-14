@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { teamRoleScopes, type TeamRole } from "./cloud-team.ts";
-import { azureLiveCallRefusal, LIVE_AZURE_REFUSAL, liveScopeRefusal } from "./live-access.ts";
+import { azureLiveCallRefusal, LIVE_OWN_PROVIDER_REFUSAL, liveScopeRefusal } from "./live-access.ts";
 import { requiredScope, resolveRequestAuth, type RequestAuth, type ResolveOptions } from "./request-auth.ts";
 import { SessionRegistry, type Scope, type SessionRecord } from "./sessions.ts";
 import { moveInRefusal } from "./team-move-in.ts";
@@ -53,8 +53,8 @@ function teamMember(role: TeamRole, phone = false) {
 const portal = (scopes: Scope[]) => bearer(sessions.issuePortal({ email: "person@acme.test", grant: "g".repeat(43), scopes }).token);
 const SERVICE = { resolve: { loopbackTrust: "service" as const } };
 const CALL = "gets a call";
-const AT_LIMIT = `limit: ${LIVE_AZURE_REFUSAL}`;
-const AT_SIGN_IN = `sign-in gate 403: ${LIVE_AZURE_REFUSAL}`;
+const AT_LIMIT = `limit: ${LIVE_OWN_PROVIDER_REFUSAL}`;
+const AT_SIGN_IN = `sign-in gate 403: ${LIVE_OWN_PROVIDER_REFUSAL}`;
 
 describe("an Azure Live call", () => {
   describe("in the desktop app", () => {
@@ -158,20 +158,20 @@ describe("an Azure Live call", () => {
 
   it("is refused to a caller the rule does not recognise", () => {
     const unknown = { kind: "something-new", scopes: ["admin", "client"] } as unknown as RequestAuth;
-    expect(azureLiveCallRefusal(unknown, { othersOnLoopback: false })).toBe(LIVE_AZURE_REFUSAL);
+    expect(azureLiveCallRefusal(unknown, { othersOnLoopback: false })).toBe(LIVE_OWN_PROVIDER_REFUSAL);
   });
 
   it("is refused to a session marked a team User even if its scopes say admin", () => {
     const session = { id: "s", teamRole: "member", scopes: ["admin", "client"] } as unknown as SessionRecord;
     const auth: RequestAuth = { kind: "session", session, via: "bearer", scopes: session.scopes };
-    expect(azureLiveCallRefusal(auth, { othersOnLoopback: false })).toBe(LIVE_AZURE_REFUSAL);
+    expect(azureLiveCallRefusal(auth, { othersOnLoopback: false })).toBe(LIVE_OWN_PROVIDER_REFUSAL);
   });
 });
 
 describe("the words for a session without the admin scope", () => {
   it("name Azure only for a call start, and only with Azure chosen", () => {
     expect(verdict(device(["client"]), { provider: "openai" })).toBe("sign-in gate 403: forbidden: this session lacks the admin scope");
-    expect(liveScopeRefusal({ live: { provider: "azure" } }, "post", LIVE)).toBe(LIVE_AZURE_REFUSAL);
+    expect(liveScopeRefusal({ live: { provider: "azure" } }, "post", LIVE)).toBe(LIVE_OWN_PROVIDER_REFUSAL);
     expect(liveScopeRefusal({ live: { provider: "azure" } }, "GET", "/api/live/call")).toBeNull();
     expect(liveScopeRefusal({ live: { provider: "azure" } }, "PATCH", "/api/live/settings")).toBeNull();
     expect(liveScopeRefusal({}, "POST", LIVE)).toBeNull();
