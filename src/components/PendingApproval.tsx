@@ -6,7 +6,7 @@ import { t, tFromServer } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { SkillRequestPreview } from "@/components/SkillRequestPreview";
 import { titledCard, titledCardAction, toolLabel } from "./ApprovalCard";
-import { ASK_QUIET_ANSWER, ASK_QUIET_BUTTON, ASK_SECONDARY_BUTTON, AskDetail, AskHeader, askPrimary, type Asker } from "./AskCard";
+import { ASK_DANGER_BUTTON, ASK_QUIET_ANSWER, ASK_QUIET_BUTTON, ASK_SECONDARY_BUTTON, AskDetail, AskHeader, askPrimary, type Asker } from "./AskCard";
 import { approvalDetailText, outboundSummary } from "@/lib/approval-summary";
 import { reviewedSkillSha256 } from "../../shared/skill-request";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
@@ -29,6 +29,7 @@ export interface Pending {
   detail: string;
   held?: string;
   heldCode?: string;
+  danger?: boolean;
 }
 
 /** Security: the persisted payload is the marker; provider-authored tool names can collide with ours. */
@@ -58,6 +59,7 @@ export function pendingApprovals(messages: Message[]): Pending[] {
       detail: approvalDetailText(m.card!),
       held: m.card!.held,
       heldCode: m.card!.heldCode,
+      danger: m.card!.danger,
     }));
 }
 
@@ -285,7 +287,7 @@ export function PendingApprovalActions({
       rememberCommand: rememberCommand || undefined,
     });
 
-  const allow = askPrimary(bot?.color);
+  const allow = pending.danger ? { className: ASK_DANGER_BUTTON } : askPrimary(bot?.color);
   const marked = (action: string) => (tag ? { [`data-${tag}-action`]: action } : {});
   const showPrimary = part !== "more";
   const showMore = part !== "primary";

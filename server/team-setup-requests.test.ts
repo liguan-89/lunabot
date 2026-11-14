@@ -460,6 +460,14 @@ describe("team setup that applies on its own", () => {
     expect(h.deleteBot).toHaveBeenCalledTimes(1);
   });
 
+  it("flags the pending deletion card as a danger action", async () => {
+    const h = harness();
+    const response = await h.service.submitDeletion({ botId: h.chief.id, threadId: h.chief.threadId,
+      targetBotId: h.peer.id, reason: "remove", canCommit: () => true });
+    expect(response.state).toBe("pending");
+    expect(h.messages[0].card).toMatchObject({ danger: true, options: ["Delete bot", "Cancel"] });
+  });
+
   it("exempts only the requesting self-update turn, not siblings or other bots", async () => {
     const h = harness(); h.autoApply.mockReturnValue("full-access"); h.chief.busy = true;
     h.targetBusy.mockImplementation((id, sourceThreadId) => Boolean(h.store.bot(id)?.busy) && sourceThreadId !== h.chief.threadId);

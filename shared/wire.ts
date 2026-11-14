@@ -725,6 +725,8 @@ export interface OptionCardData extends WaitCardField, ComputerAskField, AccessR
   questionRequest?: QuestionRequestCardData;
   /** The options are the whole answer: clients offer no free-text reply. */
   fixedOptions?: boolean;
+  /** The allow action is destructive (deletes a bot, data, an account): clients draw it as a danger action. */
+  danger?: boolean;
   quotaSwitch?: QuotaSwitchCardData;
   /** Asks before a bot uses the person's own computer; what its first call names, for the question in their language. */
   yourComputer?: { app?: string; site?: string };

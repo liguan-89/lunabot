@@ -297,6 +297,7 @@ export class TeamSetupRequestService {
     return {
       title, subtitle: detail, options: request.deletion ? ["Delete bot", "Cancel"] : ["Apply setup", "Cancel"], requestId: request.requestId,
       tool: request.deletion ? "delete_bot" : "set_up_team", teamSetupRequest: request,
+      ...(request.deletion ? { danger: true as const } : {}),
     };
   }
 
