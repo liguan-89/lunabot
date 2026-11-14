@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -653,6 +653,126 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(rows().filter((row) => row.switchSession)).toHaveLength(0);
   });
 
+  it("hands a prewarmed child to the matching turn instead of spawning again", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-prewarm-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    await instance.startupModelRefresh;
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row);
+    const threadId = "t-pi-prewarm-" + randomUUID();
+
+    instance.adapter.prewarm?.({ threadId, model: "ollama-cloud/glm-5.2" });
+    // The boot really overlapped setup: the child exists before its turn arrives.
+    await vi.waitFor(() => expect(spawns()).toHaveLength(1));
+    const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi", model: "ollama-cloud/glm-5.2" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(spawns()).toHaveLength(1);
+  });
+
+  it("kills a prewarmed child whose contract the turn no longer matches", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-prewarm-mismatch-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    await instance.startupModelRefresh;
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row);
+    const threadId = "t-pi-prewarm-mismatch-" + randomUUID();
+
+    instance.adapter.prewarm?.({ threadId, model: "ollama-cloud/glm-5.2" });
+    await vi.waitFor(() => expect(spawns()).toHaveLength(1));
+    const pid = spawns()[0].pid as number;
+    const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi", model: "openai/gpt-4o" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    // The mismatched child was never handed a prompt: it is killed, and the turn boots its own.
+    expect(spawns()).toHaveLength(2);
+    await vi.waitFor(() => expect(() => process.kill(pid, 0)).toThrow());
+    expect(rows().some((row) => "prompt" in row)).toBe(true);
+  });
+
+  it("expires a prewarmed child its turn never claimed, and removes its credential dir", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-prewarm-expire-"));
+    const dump = join(dir, "dump.jsonl");
+    // An isolated TMPDIR shows the mcp temp dir appear at prewarm and disappear at expiry.
+    const childTmp = join(dir, "child-tmp");
+    mkdirSync(childTmp);
+    const savedTtl = process.env.OMB_PI_PREWARM_MS;
+    const savedTmp = process.env.TMPDIR;
+    // Past the fake's node boot (~300 ms) so the child logs its argv row before the expiry lands.
+    process.env.OMB_PI_PREWARM_MS = "1500";
+    process.env.TMPDIR = childTmp;
+    try {
+      await create(undefined, { FAKE_PI_DUMP: dump });
+      await instance.startupModelRefresh;
+      writeFileSync(dump, "");
+      const rows = () =>
+        readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+      const spawns = () => rows().filter((row) => "argv" in row);
+      const mcpDirs = () => readdirSync(childTmp).filter((name) => name.startsWith("omb-pi-mcp-"));
+      const threadId = "t-pi-prewarm-expire-" + randomUUID();
+
+      instance.adapter.prewarm?.({ threadId });
+      await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 5_000 });
+      const pid = spawns()[0].pid as number;
+      expect(mcpDirs()).toHaveLength(1);
+      // sendTurn never ran: the expiry killed the child and removed its credential dir.
+      await vi.waitFor(() => {
+        expect(() => process.kill(pid, 0)).toThrow();
+        expect(mcpDirs()).toHaveLength(0);
+      }, { timeout: 10_000 });
+      const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi" });
+      await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+      expect(spawns()).toHaveLength(2);
+    } finally {
+      if (savedTtl === undefined) delete process.env.OMB_PI_PREWARM_MS;
+      else process.env.OMB_PI_PREWARM_MS = savedTtl;
+      if (savedTmp === undefined) delete process.env.TMPDIR;
+      else process.env.TMPDIR = savedTmp;
+    }
+  });
+
+  it("prewarms nothing while a matching warm child can serve the turn", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-prewarm-warm-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    await instance.startupModelRefresh;
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row);
+    const threadId = "t-pi-prewarm-warm-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    expect(spawns()).toHaveLength(1);
+    instance.adapter.prewarm?.({ threadId });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(spawns()).toHaveLength(1);
+  });
+
+  it("prewarms nothing for a session-reset turn", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-prewarm-reset-"));
+    const dump = join(dir, "dump.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    await instance.startupModelRefresh;
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row);
+    const threadId = "t-pi-prewarm-reset-" + randomUUID();
+
+    instance.adapter.prewarm?.({ threadId, sessionReset: true });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(spawns()).toHaveLength(0);
+    const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi", sessionReset: true });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(spawns()).toHaveLength(1);
+  });
+
   it("delivers the full prompt once per session and rides volatile changes as notes", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-split-"));
     const dump = join(dir, "dump.jsonl");
@@ -885,7 +1005,8 @@ describe("PiDriver turns (fake CLI)", () => {
       const done = await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
       expect(done).toMatchObject({ ok: true });
       const order = readFileSync(dump, "utf8").split("\n").filter(Boolean)
-        .map((line) => Object.keys(JSON.parse(line) as object)[0]).filter((key) => ["sessionReplied", "setModel", "prompt"].includes(key));
+        .map((line) => Object.keys(JSON.parse(line) as object).find((key) => key !== "pid"))
+        .filter((key) => key !== undefined && ["sessionReplied", "setModel", "prompt"].includes(key));
       expect(order).toEqual(["sessionReplied", "setModel", "prompt"]);
       expect(recorder.events.find((e) => e.type === "runtime.notice" && e.turnId === turnId)).toMatchObject({ message: expect.stringMatching(/Pi is taking longer than usual/) });
     } finally {

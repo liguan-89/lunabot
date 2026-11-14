@@ -44,6 +44,7 @@ import type {
   DriverCreateInput,
   EffortLevel,
   ModelCatalog,
+  PrewarmInput,
   ProviderDriver,
   ProviderInstance,
   ProviderSnapshot,
@@ -298,11 +299,147 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       void reason;
     };
 
+    /** A child spawned by prewarm before its turn's sendTurn ran, keyed by the contract it was
+     * booted from. sendTurn takes it over on a contract match; anything else — a contract change,
+     * a cancelled setup that never reaches sendTurn, the expiry — kills it and removes its
+     * credential temp dir. */
+    interface PiPendingSpawn {
+      child: ReturnType<typeof spawnCli>;
+      key: string;
+      mcpTempDir: string;
+      scopeReadyPath: string | undefined;
+      expiry: ReturnType<typeof setTimeout>;
+    }
+    const pendingSpawns = new Map<string, PiPendingSpawn>();
+    const configuredPrewarmMs = Number(process.env.OMB_PI_PREWARM_MS);
+    const PREWARM_EXPIRE_MS = Number.isFinite(configuredPrewarmMs) && configuredPrewarmMs > 0 ? configuredPrewarmMs : 60_000;
+
+    const dropPending = (threadId: string, pending: PiPendingSpawn) => {
+      if (pendingSpawns.get(threadId) !== pending) return;
+      pendingSpawns.delete(threadId);
+      clearTimeout(pending.expiry);
+      try {
+        pending.child.stdin.end();
+      } catch {}
+      void killCliTree(pending.child).finally(() => {
+        try {
+          rmSync(pending.mcpTempDir, { recursive: true, force: true });
+        } catch {}
+      });
+    };
+
     const stopAll = async () => {
       const results = await Promise.allSettled([...active.values()].map(({ stop }) => Promise.resolve().then(stop)));
       for (const threadId of Array.from(warmSessions.keys())) closeWarmSession(threadId, "stop all");
+      for (const [threadId, pending] of Array.from(pendingSpawns)) dropPending(threadId, pending);
       const failure = results.find((result) => result.status === "rejected");
       if (failure) throw failure.reason;
+    };
+
+    /** Everything the child's boot fixed. A turn whose contract differs must
+     * not inherit the previous child's grants, scope or model. */
+    const spawnContract = (turn: PrewarmInput) => {
+      const selection = parseToolScope(turn.toolScope);
+      if (!selection.ok) throw new Error(selection.error);
+      // A confined turn gets no pi-native tool at all — no shell, no file reads anywhere — and the
+      // harness-MCP gate below then only lets through what its own scope checks allow.
+      const toolScope = turn.guestConfined
+        ? { ...selection.scope, deny: [...(selection.scope?.deny ?? []), "native:*"] }
+        : selection.scope;
+      const mcpServers = buildMcpServers(turn);
+      const askUser = toolScope === undefined || allowsTool(toolScope, { kind: "native", name: ASK_USER_TOOL });
+      const key = JSON.stringify({
+        cli: config.cli,
+        cwd: turn.cwd ?? null,
+        toolScope: toolScope ?? null,
+        approvalMode: turn.approvalMode ?? null,
+        askUser,
+        model: turn.model ?? null,
+        mcpServers: mcpServers ?? null,
+      });
+      return { toolScope, mcpServers, askUser, key };
+    };
+
+    /** The fresh spawn a turn with no reusable child pays: the credential-bearing MCP config in a
+     * 0600 temp file removed once the child has read it (never argv), then the CLI. Its extension
+     * mounts the servers and reads the tool scope and the approval mode at boot. */
+    const spawnFresh = (contract: ReturnType<typeof spawnContract>, turn: PrewarmInput) => {
+      // Before any credential-bearing temp file, so a model setup failure leaves nothing to clean up.
+      try {
+        ensurePiCustomProvider({ ...process.env, ...input.environment });
+      } catch {}
+      if (typeof turn.model === "string" && turn.model) {
+        ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
+      }
+      const mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
+      const scopeReadyPath = contract.toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
+      try {
+        writeFileSync(join(mcpTempDir, "mcp.json"), JSON.stringify({ mcpServers: contract.mcpServers ?? {}, toolScope: contract.toolScope, scopeReadyPath, approvalMode: turn.approvalMode, askUser: contract.askUser }), { mode: 0o600 });
+      } catch (err) {
+        // A partial file could still hold credentials.
+        try {
+          rmSync(mcpTempDir, { recursive: true, force: true });
+        } catch {}
+        throw err;
+      }
+      // spawnCli can throw synchronously, before the caller could remove the credential file.
+      try {
+        const child = spawnCli(config.cli, [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension], {
+          stdio: ["pipe", "pipe", "pipe"],
+          cwd: turn.cwd,
+          env: piEnvironment({
+            ...process.env,
+            ...input.environment,
+            // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
+            ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
+            OMB_THREAD_ID: turn.threadId,
+            // The level this child was booted at, so an extension or a fixture can report what a turn ran under.
+            ...(turn.approvalMode ? { OMB_APPROVAL_MODE: turn.approvalMode } : {}),
+            OMB_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
+          }),
+        }, "bot");
+        // Kept for the child's whole life: the per-turn listeners are detached
+        // between turns, and an 'error' event on a stream with no listener
+        // takes the process down. A warm child can emit one while idle.
+        child.on("error", () => {});
+        child.stdin.on("error", () => {});
+        return { child, mcpTempDir, scopeReadyPath };
+      } catch (err) {
+        try {
+          rmSync(mcpTempDir, { recursive: true, force: true });
+        } catch {}
+        throw err;
+      }
+    };
+
+    const prewarm = (turn: PrewarmInput) => {
+      // A reset turn boots its own child on purpose, and a busy thread's turn cannot start until
+      // the running one settles: neither has a spawn worth overlapping.
+      if (turn.sessionReset || active.has(turn.threadId)) return;
+      let contract: ReturnType<typeof spawnContract>;
+      try {
+        contract = spawnContract(turn);
+      } catch {
+        // Best-effort: sendTurn reports the same contract error to the turn itself.
+        return;
+      }
+      const warm = warmSessions.get(turn.threadId);
+      if (warm && warm.key === contract.key && warm.child.exitCode === null && warm.child.signalCode === null) return;
+      const standing = pendingSpawns.get(turn.threadId);
+      if (standing?.key === contract.key) return;
+      if (standing) dropPending(turn.threadId, standing);
+      try {
+        const spawn = spawnFresh(contract, turn);
+        const pending: PiPendingSpawn = {
+          ...spawn,
+          key: contract.key,
+          expiry: setTimeout(() => dropPending(turn.threadId, pending), PREWARM_EXPIRE_MS),
+        };
+        pending.expiry.unref?.();
+        pendingSpawns.set(turn.threadId, pending);
+      } catch {
+        // Best-effort: sendTurn reports the spawn failure to the turn itself.
+      }
     };
 
     const emit = (event: RuntimeEvent) => {
@@ -320,13 +457,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
     const sendTurn = async (turn: SendTurnInput) => {
       if (startupModelRefresh) await startupModelRefresh;
       const { threadId } = turn;
-      const selection = parseToolScope(turn.toolScope);
-      if (!selection.ok) throw new Error(selection.error);
-      // A confined turn gets no pi-native tool at all — no shell, no file reads anywhere — and the
-      // harness-MCP gate below then only lets through what its own scope checks allow.
-      const toolScope = turn.guestConfined
-        ? { ...selection.scope, deny: [...(selection.scope?.deny ?? []), "native:*"] }
-        : selection.scope;
+      const contract = spawnContract(turn);
+      const { toolScope, key: poolKey } = contract;
       if (active.has(threadId)) throw new Error("a turn is already running on this thread");
       const fullAuto = turn.approvalMode === undefined ? config.fullAuto : false;
       // Host control always routes through the permission card, full-auto or not.
@@ -360,30 +492,6 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       let agentEndTimer: ReturnType<typeof setTimeout> | null = null;
       const images = readPiPromptImages(turn);
 
-      // Before any credential-bearing temp file, so a model setup failure leaves nothing to clean up.
-      try {
-        ensurePiCustomProvider({ ...process.env, ...input.environment });
-      } catch {}
-      if (typeof turn.model === "string" && turn.model) {
-        ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
-      }
-
-      // The MCP config carries credentials: a 0600 temp file removed once the
-      // child has read it, never argv. Written only for a fresh spawn — the
-      // extension reads it, the tool scope and the approval mode at boot.
-      const mcpServers = buildMcpServers(turn);
-      const askUser = toolScope === undefined || allowsTool(toolScope, { kind: "native", name: ASK_USER_TOOL });
-      // Everything the child's boot fixed. A turn whose contract differs must
-      // not inherit the previous child's grants, scope or model.
-      const poolKey = JSON.stringify({
-        cli: config.cli,
-        cwd: turn.cwd ?? null,
-        toolScope: toolScope ?? null,
-        approvalMode: turn.approvalMode ?? null,
-        askUser,
-        model: turn.model ?? null,
-        mcpServers: mcpServers ?? null,
-      });
       const warm = warmSessions.get(threadId);
       const reuse = Boolean(
         warm &&
@@ -399,6 +507,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       let sessionReady: boolean;
       let confirmedModel: string | null;
       if (reuse && warm) {
+        const stale = pendingSpawns.get(threadId);
+        if (stale) dropPending(threadId, stale);
         child = warm.child;
         sessionFile = warm.sessionFile;
         sessionReady = warm.sessionReady;
@@ -410,48 +520,26 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         warmSessions.delete(threadId);
       } else {
         closeWarmSession(threadId, "spawn contract changed");
-        mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
-        scopeReadyPath = toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
-        try {
-          writeFileSync(join(mcpTempDir, "mcp.json"), JSON.stringify({ mcpServers: mcpServers ?? {}, toolScope, scopeReadyPath, approvalMode: turn.approvalMode, askUser }), { mode: 0o600 });
-        } catch (err) {
-          // A partial file could still hold credentials.
-          try {
-            rmSync(mcpTempDir, { recursive: true, force: true });
-          } catch {}
-          throw err;
+        let pending = pendingSpawns.get(threadId);
+        if (pending && (pending.key !== poolKey || pending.child.exitCode !== null || pending.child.signalCode !== null)) {
+          dropPending(threadId, pending);
+          pending = undefined;
         }
-        const childArgs = [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension];
-        // spawnCli can throw synchronously, before settle() could remove the credential file.
-        try {
-          child = spawnCli(config.cli, childArgs, {
-            stdio: ["pipe", "pipe", "pipe"],
-            cwd: turn.cwd,
-            env: piEnvironment({
-              ...process.env,
-              ...input.environment,
-              // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
-              ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
-              OMB_THREAD_ID: turn.threadId,
-              // The level this child was booted at, so an extension or a fixture can report what a turn ran under.
-              ...(turn.approvalMode ? { OMB_APPROVAL_MODE: turn.approvalMode } : {}),
-              OMB_MCP_CONFIG: join(mcpTempDir, "mcp.json"),
-            }),
-          }, "bot");
-        } catch (err) {
-          try {
-            rmSync(mcpTempDir, { recursive: true, force: true });
-          } catch {}
-          throw err;
+        if (pending) {
+          pendingSpawns.delete(threadId);
+          clearTimeout(pending.expiry);
+          child = pending.child;
+          mcpTempDir = pending.mcpTempDir;
+          scopeReadyPath = pending.scopeReadyPath;
+        } else {
+          const spawn = spawnFresh(contract, turn);
+          child = spawn.child;
+          mcpTempDir = spawn.mcpTempDir;
+          scopeReadyPath = spawn.scopeReadyPath;
         }
         sessionFile = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
         sessionReady = false;
         confirmedModel = null;
-        // Kept for the child's whole life: the per-turn listeners are detached
-        // between turns, and an 'error' event on a stream with no listener
-        // takes the process down. A warm child can emit one while idle.
-        child.on("error", () => {});
-        child.stdin.on("error", () => {});
       }
       const freshSpawn = !reuse;
       let assistantText = "";
@@ -1098,6 +1186,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           guestTurns: "confined",
         },
         sendTurn,
+        prewarm,
         interruptTurn: async (threadId) => { await active.get(threadId)?.stop(); },
         respondToRequest: async (threadId, requestId, decision) => {
           const entry = active.get(threadId);

@@ -242,6 +242,23 @@ export interface TurnStartResult {
   turnId: TurnId;
 }
 
+/** The turn fields an engine process's boot is fixed by. The harness knows them before the prompt is
+ * built, so a driver may overlap a fresh child's spawn with the remaining turn setup instead of
+ * paying it inside sendTurn. */
+export type PrewarmInput = Pick<
+  SendTurnInput,
+  | "threadId"
+  | "botId"
+  | "cwd"
+  | "toolScope"
+  | "approvalMode"
+  | "model"
+  | "integrations"
+  | "sessionReset"
+  | "resumeCursor"
+  | "guestConfined"
+>;
+
 export interface ProviderAdapter {
   readonly provider: DriverKind;
   readonly capabilities: {
@@ -296,6 +313,10 @@ export interface ProviderAdapter {
     askTool?: ToolIdentity;
   };
   sendTurn(input: SendTurnInput): Promise<TurnStartResult>;
+  /** Starts a fresh engine child the moment its boot contract is fixed, so the spawn overlaps the
+   * rest of the turn's setup; sendTurn then takes it over. Best-effort and optional: an adapter
+   * leaves no child behind when the turn's contract changes or sendTurn never runs. */
+  prewarm?(input: PrewarmInput): void;
   interruptTurn(threadId: ThreadId, turnId?: TurnId): Promise<void>;
   /** Never throws for a vanished ask: `unavailable` means nobody could take the answer, and the caller treats it as a deny. */
   respondToRequest(

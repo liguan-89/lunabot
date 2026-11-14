@@ -8,7 +8,8 @@ import { SPAWNED_PROXIES } from "../proxy-paths.ts";
 
 const NODE_ENV_FLAG = { ELECTRON_RUN_AS_NODE: "1" };
 
-export function buildMcpServers(turn: SendTurnInput): Record<string, unknown> | null {
+// Reads only the four fields the Pick names; sendTurn passes its full input, prewarm passes the narrow contract.
+export function buildMcpServers(turn: SendTurnInput | Pick<SendTurnInput, "threadId" | "toolScope" | "integrations" | "guestConfined">): Record<string, unknown> | null {
   const parsed = parseToolScope(turn.toolScope);
   if (!parsed.ok) throw new Error(parsed.error);
   const servers: Record<string, unknown> = {};

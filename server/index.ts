@@ -8611,6 +8611,12 @@ async function beginTurn(
       // The tool bridge is decided here: the folder the turn is launched in is known, and the prompt is not built yet.
       applyAgentsBridge(threadId, integrations, cfg, bot, turnEngine(instance, providerConfigs(), registry.lastSnapshot(instance.instanceId), cwd));
       const confined = proactive.fence.confines(threadId), apiFenced = botApiThread(threadId); if (confined || apiFenced) for (const key of Object.keys(integrations) as Array<keyof typeof integrations>) if (!(apiFenced ? BOT_API_TOOLS : READ_AND_DRAFT_TOOLS).has(key)) delete integrations[key];
+      // The child's boot contract is fixed from here to sendTurn, so the engine can overlap a fresh spawn with the prompt build below.
+      const turnApprovalMode = approvalModeForTurn(bot, commsDepth > 0, threadId);
+      instance.adapter.prewarm?.({
+        threadId, botId: bot.id, cwd, toolScope, approvalMode: turnApprovalMode, model, integrations,
+        sessionReset: dispatchContext.sessionReset, resumeCursor: dispatchContext.resumeCursor, guestConfined,
+      });
       const prompt = buildSystemPrompt(persona, liveBot?.soul ?? bot.soul ?? "", [
         { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(teamHost.profileFor(threadId, cfg.profile)) }, { id: "people", label: "People", text: teamMessages.prompt(bot.id, threadId, Boolean(integrations.agents)) }, { id: "long-waits", label: "Waiting on the person", text: teammatePrompts.personBehind(bot.id, threadId) ? teamMessages.longWaits(threadId) : "" },
         { id: "setup", label: "Setup", text: setupSystemPrompt(setupMode, {
@@ -8637,7 +8643,7 @@ async function beginTurn(
         { id: "assignment", label: "Teammate task", text: coordinationNode?.parentId ? `\n${coordinationSystemInstructions()}` : "" },
         { id: "outstanding", label: "Outstanding teammate work", text: teammatePrompts.outstanding(threadId) },
         { id: "teammate-questions", label: "Teammates' questions to the person", text: teammatePrompts.questions(liveBot ?? bot, threadId) },
-        { id: "credential", label: "Credentials", text: credentialPrompt }, { id: "just-do-it", label: "Just do it", text: approvalModeForTurn(bot, commsDepth > 0, threadId) === "full" && !isUnattended(bot.id, threadId) && coordinationNode?.origin?.kind !== "outside" ? JUST_DO_IT_PROMPT : "" },
+        { id: "credential", label: "Credentials", text: credentialPrompt }, { id: "just-do-it", label: "Just do it", text: turnApprovalMode === "full" && !isUnattended(bot.id, threadId) && coordinationNode?.origin?.kind !== "outside" ? JUST_DO_IT_PROMPT : "" },
         { id: "recall", label: "Recall", text: recallPrompt },
         { id: "routine", label: "Routines", text: routinePrompt },
         { id: "active-routines", label: "Active automations", text: integrations.agents && !confined && (!CLOUD_HOME || cloudOwnerOnlyThread(threadId)) ? activeRoutinesContext({
@@ -8690,7 +8696,7 @@ async function beginTurn(
         text: withTurnClock(clock, withRecalled(recalled, attachmentsForBox(dispatchContext.turnText, cwd) + shareNote.text + devsReports.note(threadId, Boolean(integrations.agents)))),
         ...(recalled ? { recalled } : {}),
         images: dispatchContext.images,
-        approvalMode: approvalModeForTurn(bot, commsDepth > 0, threadId),
+        approvalMode: turnApprovalMode,
         approvalModeNow: () => liveApprovalMode(bot, threadId, commsDepth > 0),
         toolScope,
         ...(guestConfined ? { guestConfined: true, confinedWhy: botApiThread(threadId) ? serverLine(threadLanguage(threadId), "server.botApi.confinedWhy") : confinedWhy(threadId) } : {}),
