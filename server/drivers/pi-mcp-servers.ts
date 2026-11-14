@@ -34,7 +34,9 @@ export function buildMcpServers(turn: SendTurnInput): Record<string, unknown> | 
   }
   if (turn.integrations?.browser) servers.browser = { ...turn.integrations.browser };
   for (const name of ["data", "email", "device"] as const) if (turn.integrations?.[name]) servers[name] = { ...turn.integrations[name] };
-  for (const [name, server] of Object.entries(turn.integrations?.custom ?? {})) servers[name] = { ...server, scope: "custom" };
+  // A guest turn never mounts the owner's own connectors: custom MCP entries may embed
+  // credentials pi would then hold in a process the guest conversation steers.
+  if (!turn.guestConfined) for (const [name, server] of Object.entries(turn.integrations?.custom ?? {})) servers[name] = { ...server, scope: "custom" };
   for (const [name, server] of Object.entries(servers)) {
     if (parsed.scope !== undefined && !canUseMcpServer(parsed.scope, name)) { delete servers[name]; continue; }
     // pi registers every tool it is given and has no tool search of its own.

@@ -222,6 +222,15 @@ describe("buildMcpServers", () => {
     expect(JSON.parse(JSON.parse(scoped.env.OMB_GATE_UPSTREAM).env.OMB_REMOTE_MCP_DIRECTORY)).toEqual({ name: "whop", toolScope });
   });
 
+  it("mounts none of the owner's custom connectors for a guest-confined turn", () => {
+    const servers = buildMcpServers({
+      threadId: "t-guest", text: "hi", guestConfined: true,
+      integrations: { custom: { whop: { type: "http" as const, url: "https://mcp.example.test/mcp", headers: {} }, notes: { command: "node", args: ["notes"], env: {} } } },
+    });
+    expect(servers?.whop).toBeUndefined();
+    expect(servers?.notes).toBeUndefined();
+  });
+
   it("marks a host computer with scope so the extension gates its tools", () => {
     const servers = buildMcpServers({
       threadId: "t",
@@ -374,6 +383,20 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(rows.some((row) => row.argv?.includes("-e"))).toBe(true);
     expect(rows.find((row) => row.argv?.includes("-e"))?.mcpConfig?.toolScope).toEqual({ allow: [] });
     expect(rows.some((row) => row.prompt !== undefined)).toBe(false);
+  });
+
+  it("confines a guest turn: every native tool denied on the wire, and fail-closed without enforcement", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-guest-"));
+    const dump = join(dir, "rpc.jsonl");
+    await create(undefined, { FAKE_PI_DUMP: dump });
+    await expect(instance.adapter.sendTurn({
+      threadId: "t-guest", text: "hi", guestConfined: true,
+      toolScope: { deny: ["native:write"] },
+    })).rejects.toThrow(/enforcement/i);
+    const rows = readFileSync(dump, "utf8").trim().split("\n").map((line) => JSON.parse(line));
+    expect(rows.find((row) => row.argv?.includes("-e"))?.mcpConfig?.toolScope).toEqual({ deny: ["native:write", "native:*"] });
+    expect(rows.some((row) => row.prompt !== undefined)).toBe(false);
+    expect(instance.adapter.capabilities.guestTurns).toBe("confined");
   });
 
   it("rejects a startup-recovery turn whose child died before the prompt, and publishes nothing", async () => {

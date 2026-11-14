@@ -322,7 +322,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const { threadId } = turn;
       const selection = parseToolScope(turn.toolScope);
       if (!selection.ok) throw new Error(selection.error);
-      const toolScope = selection.scope;
+      // A confined turn gets no pi-native tool at all — no shell, no file reads anywhere — and the
+      // harness-MCP gate below then only lets through what its own scope checks allow.
+      const toolScope = turn.guestConfined
+        ? { ...selection.scope, deny: [...(selection.scope?.deny ?? []), "native:*"] }
+        : selection.scope;
       if (active.has(threadId)) throw new Error("a turn is already running on this thread");
       const fullAuto = turn.approvalMode === undefined ? config.fullAuto : false;
       // Host control always routes through the permission card, full-auto or not.
@@ -1089,6 +1093,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // pi rejects an unsupported level and the turn keeps the engine default.
           effortLevels: EFFORT_LEVELS,
           queueing: true, askTool: { kind: "native", name: "ask_user" },
+          // A guest turn runs with every native tool denied and without the owner's
+          // custom MCP connectors (see sendTurn and buildMcpServers).
+          guestTurns: "confined",
         },
         sendTurn,
         interruptTurn: async (threadId) => { await active.get(threadId)?.stop(); },
