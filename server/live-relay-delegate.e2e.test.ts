@@ -159,7 +159,10 @@ posixOnly("Live relay delegate e2e", () => {
     const items = toolResult.items as Array<{ call_id: string; role: string; content: Array<{ type: string; text: string }> }>;
     expect(items[0]).toMatchObject({ call_id: "fc1", role: "tool" });
     expect(items[0]!.content[0]).toMatchObject({ type: "input_text" });
-    expect(items[0]!.content[0]!.text).toContain("42");
+    expect(items[0]!.content[0]!.text).toContain("收到");
+
+    const narrated = await duplex.waitFor((e) => e.type === "speech_text_buffer.commit" && String(e.text).includes("42"));
+    expect(String(narrated.text)).toContain("42");
 
     const { messages } = (await (await fetch(`${base}/api/threads/${bot.threadId}/messages`)).json()) as {
       messages: Array<{ role: string; via?: string; callId?: string; text?: string }>;

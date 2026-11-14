@@ -41,7 +41,7 @@ export interface LiveRelayOptions {
   /** When the call belongs to a bot's chat: what the call row records once it ends. */
   call?: { botId: string; botName: string; threadId: string; client: LiveClient };
   /** Sends the request into the call's chat as a person message and resolves with the bot's reply text. */
-  delegate?: (request: string) => Promise<string>;
+  delegate?: (request: string, speak: (text: string) => void, signal: AbortSignal) => Promise<string>;
   /** Test seam: replaces the provider socket factory. */
   ws?: (url: string, headers: Record<string, string>) => ProviderSocket;
 }
@@ -117,27 +117,116 @@ function delegationCalls(payload: Record<string, unknown>): DelegationCall[] {
   return calls;
 }
 
+const CALL_GREETINGS: Array<(name: string) => string> = [
+  (name) => `${name}在，说吧。`,
+  (name) => `你好，我是${name}，想做什么？`,
+  (name) => `${name}上线，请讲。`,
+  (name) => `在呢，${name}听着呢。`,
+  (name) => `${name}报到，说吧，今天要处理什么？`,
+  (name) => `喂，${name}在线，直接说。`,
+];
+const callGreeting = (botName?: string) => CALL_GREETINGS[Math.floor(Math.random() * CALL_GREETINGS.length)]!(botName ?? "DEX BOT");
+
+/** Injected utterances preempt whatever is speaking — including each other. `output_audio.done` marks
+ * synthesis end, not playback end: the phone finishes only once all received PCM has played (48 B/ms at
+ * 24 kHz s16). Time the queue on the audio bytes themselves; a per-text estimate backs off utterances
+ * whose provider emits no deltas. */
+function speechGate(socket: ProviderSocket, frames: (text: string) => unknown[]) {
+  const pending: string[] = [];
+  const spoken: string[] = [];
+  let playingUntil = 0;
+  let fallbackAt = 0;
+  let outBytes = 0;
+  // PCM deltas keep trickling in after output_audio.done — they are the phone's buffered
+  // tail, not provider synthesis, so they must not hold the next utterance back.
+  let sealed = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timerAt = 0;
+  const pump = () => {
+    if (socket.readyState !== 1 || !pending.length) return;
+    const wait = Math.max(playingUntil, fallbackAt) - Date.now();
+    if (wait > 0) {
+      // The ready time moves earlier once real audio arrives (fallback clears, done seals the
+      // horizon): re-arm a timer scheduled for a later wait or this utterance stalls on the
+      // stale text estimate.
+      const readyAt = Date.now() + wait;
+      if (!timer || timerAt > readyAt) {
+        if (timer) clearTimeout(timer);
+        timerAt = readyAt;
+        timer = setTimeout(() => { timer = undefined; pump(); }, wait);
+        timer.unref?.();
+      }
+      return;
+    }
+    if (timer) { clearTimeout(timer); timer = undefined; }
+    const text = pending.shift()!;
+    console.log(`[live-relay] narrate send q=${pending.length} text="${text.slice(0, 80)}"`);
+    for (const event of frames(text)) socket.send(JSON.stringify(event));
+    spoken.push(text);
+    if (spoken.length > 8) spoken.shift();
+    fallbackAt = Date.now() + 1500 + text.length * 300;
+    pump();
+  };
+  return {
+    say: (text: string) => { pending.push(text); pump(); },
+    audioBytes: (bytes: number) => {
+      fallbackAt = 0;
+      outBytes += bytes;
+      if (!sealed) playingUntil = Math.max(playingUntil, Date.now()) + bytes / 48;
+      if (!timer) pump();
+    },
+    provider: (type: string | undefined) => {
+      if (type === "response.output_audio.started") { outBytes = 0; sealed = false; }
+      if (type === "response.output_audio.done" || type === "response.audio.done" || type === "response.done") {
+        sealed = true;
+        playingUntil = Math.min(playingUntil, Date.now() + 600);
+        if (type !== "response.done") console.log(`[live-relay] audio out bytes=${outBytes} horizon=+${Math.max(0, playingUntil - Date.now())}ms`);
+        pump();
+      }
+    },
+    // A barge-in cancels playback and the phone flushes its queue, so queued audio time is gone too.
+    drop: () => { pending.length = 0; playingUntil = 0; fallbackAt = 0; },
+    /** Speaker-fed-back ASR arrives on the person channel; a transcript matching a line we sent
+     * is our own voice, not a barge-in. */
+    isEcho: (transcript: string) => {
+      const heard = transcript.replace(/[^\p{L}\p{N}]/gu, "");
+      return heard.length >= 4 && spoken.some((line) => line.replace(/[^\p{L}\p{N}]/gu, "").includes(heard));
+    },
+  };
+}
+
 // One delegated turn at a time per call: a second call waits instead of racing the same chat.
 class DelegateQueue {
-  readonly #delegate: (request: string) => Promise<string>;
+  readonly #delegate: (request: string, speak: (text: string) => void, signal: AbortSignal) => Promise<string>;
   readonly #seen = new Set<string>();
   #queue: Promise<void> = Promise.resolve();
+  /** A new spoken request retires the previous turn's narration: stale lines must not talk over it. */
+  #active: AbortController | null = null;
 
-  constructor(delegate: (request: string) => Promise<string>) {
+  constructor(delegate: (request: string, speak: (text: string) => void, signal: AbortSignal) => Promise<string>) {
     this.#delegate = delegate;
   }
 
-  run(socket: ProviderSocket, payload: Record<string, unknown>, result: (callId: string, text: string) => unknown[]): void {
+  // `speak` queues an unsolicited line through the provider's speech channel —
+  // the delegate's narration of the running turn streams out as the texts land.
+  run(socket: ProviderSocket, payload: Record<string, unknown>, result: (callId: string, text: string) => unknown[], speak?: (text: string) => void): void {
     for (const call of delegationCalls(payload)) {
       if (this.#seen.has(call.callId)) continue;
       this.#seen.add(call.callId);
+      console.log(`[live-relay] delegate ${call.callId} request="${call.request.slice(0, 120)}"`);
+      this.#active?.abort();
+      const active = this.#active = new AbortController();
       this.#queue = this.#queue.then(async () => {
         let text: string;
         try {
-          text = (await this.#delegate(call.request)).slice(0, 4000) || "The request returned no answer.";
+          text = (await this.#delegate(call.request, (line) => {
+            console.log(`[live-relay] delegate ${call.callId} narrate="${line.slice(0, 120)}" socket=${socket.readyState}`);
+            speak?.(line);
+          }, active.signal)).slice(0, 4000) || "The request returned no answer.";
         } catch {
           text = "The request could not be run. Try again in a moment.";
         }
+        console.log(`[live-relay] delegate ${call.callId} reply="${text.slice(0, 120)}" socket=${socket.readyState}`);
         if (socket.readyState !== 1) return;
         for (const event of result(call.callId, text)) socket.send(JSON.stringify(event));
       });
@@ -152,9 +241,15 @@ function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
   const delegate = options.delegate && options.call
     ? new DelegateQueue(options.delegate)
     : null;
+  const speech = speechGate(socket, (text) => [
+    { type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text }] } },
+    { type: "response.create" },
+  ]);
+  let barge = false;
+  let lastHeard = "";
   socket.on("open", () => { /* the gateway speaks first: session.created */ });
   socket.on("error", () => sink.error("The Qwen realtime connection failed."));
-  socket.on("close", () => sink.end());
+  socket.on("close", () => { speech.drop(); sink.end(); });
   socket.on("message", (data) => {
     let event: Record<string, unknown> & { type?: string; delta?: string; transcript?: string; error?: { message?: string } };
     try { event = JSON.parse(asBuffer(data).toString("utf8")); } catch { return; }
@@ -172,15 +267,50 @@ function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
         },
       }));
       if (!ready) { ready = true; sink.ready(); }
+      socket.send(JSON.stringify({ type: "conversation.item.create", item: { type: "message", role: "user", content: [{ type: "input_text", text: `（系统提示：与${options.call?.botName ?? "助手"}的通话刚接通，请自然地和用户打招呼，一句话即可，每次换个说法）` }] } }));
+      socket.send(JSON.stringify({ type: "response.create" }));
       return;
     }
+    speech.provider(event.type);
     if (event.type === "session.updated") return;
     if ((event.type === "response.output_audio.delta" || event.type === "response.audio.delta") && event.delta) {
-      sink.audio(Buffer.from(event.delta, "base64"));
+      const pcm = Buffer.from(event.delta, "base64");
+      speech.audioBytes(pcm.length);
+      sink.audio(pcm);
       return;
     }
-    if ((event.type === "conversation.item.input_audio_transcription.delta" || event.type === "conversation.item.input_audio_transcription.completed") && event.transcript) {
-      sink.transcript("user", event.transcript);
+    if (event.type === "conversation.item.input_audio_transcription.started") {
+      // Hold the verdict for the transcript: speaker-fed-back audio also trips VAD, and only
+      // the recognized text tells an echo of our own utterances from a real barge-in.
+      barge = true;
+      lastHeard = "";
+      return;
+    }
+    if (event.type === "conversation.item.input_audio_transcription.delta" || event.type === "conversation.item.input_audio_transcription.completed") {
+      // Volc duplex carries the recognized text in `delta`; OpenAI-style providers use `transcript`.
+      const heard = String(event.transcript ?? event.delta ?? "");
+      if (barge && heard) {
+        const echo = speech.isEcho(heard);
+        if (echo || heard.replace(/[^\p{L}\p{N}]/gu, "").length >= 4 || event.type.endsWith("completed")) {
+          barge = false;
+          if (echo) console.log(`[live-relay] echo ignored transcript="${heard.slice(0, 80)}"`);
+          else {
+            // The provider suppresses recognition while it broadcasts, so the person cannot
+            // be heard until the current utterance is cancelled.
+            console.log(`[live-relay] barge-in transcript="${heard.slice(0, 80)}"`);
+            speech.drop();
+            if (socket.readyState === 1) socket.send(JSON.stringify({ type: "response.cancel" }));
+            sink.event("interrupted", "user speaking");
+          }
+        }
+      }
+      // `heard` is cumulative on volc duplex; the phone appends each transcript, so only the
+      // newly recognized suffix goes downstream. Incremental providers pass through unchanged.
+      if (heard) {
+        const piece = heard.startsWith(lastHeard) ? heard.slice(lastHeard.length) : heard;
+        lastHeard = heard;
+        if (piece) sink.transcript("user", piece);
+      }
       return;
     }
     if ((event.type === "response.output_audio_transcript.delta" || event.type === "response.audio_transcript.delta" || event.type === "response.audio_transcript.done") && event.transcript) {
@@ -191,10 +321,11 @@ function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
       delegate.run(socket, event, (callId, text) => [
         { type: "conversation.item.create", item: { type: "function_call_output", call_id: callId, output: text } },
         { type: "response.create" },
-      ]);
+      ], (text) => speech.say(text));
       return;
     }
     if (event.type === "error") {
+      speech.drop();
       sink.error(String(event.error?.message ?? "The Qwen realtime session failed.").slice(0, 300));
       return;
     }
@@ -265,9 +396,13 @@ function volcLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
  * with function calling, so the delegate tool rides on it. The legacy console headers still authenticate it. */
 function volcDuplexLink(socket: ProviderSocket, options: LiveRelayOptions, sink: RelaySink): ProviderLink {
   let ready = false;
+  const seenEvents = new Set<string>();
   const delegate = options.delegate && options.call
     ? new DelegateQueue(options.delegate)
     : null;
+  const speech = speechGate(socket, (text) => [{ type: "speech_text_buffer.commit", text }]);
+  let barge = false;
+  let lastHeard = "";
   socket.on("open", () => {
     socket.send(JSON.stringify({
       type: "session.create",
@@ -285,21 +420,59 @@ function volcDuplexLink(socket: ProviderSocket, options: LiveRelayOptions, sink:
       },
     }));
   });
-  socket.on("error", () => sink.error("The Doubao realtime connection failed."));
-  socket.on("close", () => sink.end());
+  socket.on("error", () => { speech.drop(); sink.error("The Doubao realtime connection failed."); });
+  socket.on("close", () => { speech.drop(); sink.end(); });
   socket.on("message", (data) => {
     let event: Record<string, unknown> & { type?: string; delta?: string; transcript?: string; status_code?: number; message?: string };
     try { event = JSON.parse(asBuffer(data).toString("utf8")); } catch { return; }
+    if (typeof event.type === "string" && !seenEvents.has(event.type)) {
+      seenEvents.add(event.type);
+      console.log(`[live-relay] duplex event ${event.type}`);
+    }
+    speech.provider(event.type);
     if (event.type === "session.created") {
       if (!ready) { ready = true; sink.ready(); }
+      speech.say(callGreeting(options.call?.botName));
       return;
     }
     if (event.type === "response.output_audio.delta" && event.delta) {
-      sink.audio(Buffer.from(event.delta, "base64"));
+      const pcm = Buffer.from(event.delta, "base64");
+      speech.audioBytes(pcm.length);
+      sink.audio(pcm);
       return;
     }
-    if ((event.type === "conversation.item.input_audio_transcription.delta" || event.type === "conversation.item.input_audio_transcription.completed") && event.transcript) {
-      sink.transcript("user", event.transcript);
+    if (event.type === "conversation.item.input_audio_transcription.started") {
+      // Hold the verdict for the transcript: speaker-fed-back audio also trips VAD, and only
+      // the recognized text tells an echo of our own utterances from a real barge-in.
+      barge = true;
+      lastHeard = "";
+      return;
+    }
+    if (event.type === "conversation.item.input_audio_transcription.delta" || event.type === "conversation.item.input_audio_transcription.completed") {
+      // Volc duplex carries the recognized text in `delta`; OpenAI-style providers use `transcript`.
+      const heard = String(event.transcript ?? event.delta ?? "");
+      if (barge && heard) {
+        const echo = speech.isEcho(heard);
+        if (echo || heard.replace(/[^\p{L}\p{N}]/gu, "").length >= 4 || event.type.endsWith("completed")) {
+          barge = false;
+          if (echo) console.log(`[live-relay] echo ignored transcript="${heard.slice(0, 80)}"`);
+          else {
+            // The provider suppresses recognition while it broadcasts, so the person cannot
+            // be heard until the current utterance is cancelled.
+            console.log(`[live-relay] barge-in transcript="${heard.slice(0, 80)}"`);
+            speech.drop();
+            if (socket.readyState === 1) socket.send(JSON.stringify({ type: "response.cancel" }));
+            sink.event("interrupted", "user speaking");
+          }
+        }
+      }
+      // `heard` is cumulative on volc duplex; the phone appends each transcript, so only the
+      // newly recognized suffix goes downstream. Incremental providers pass through unchanged.
+      if (heard) {
+        const piece = heard.startsWith(lastHeard) ? heard.slice(lastHeard.length) : heard;
+        lastHeard = heard;
+        if (piece) sink.transcript("user", piece);
+      }
       return;
     }
     if ((event.type === "response.output_text.delta" || event.type === "response.output_text.done") && event.transcript) {
@@ -309,7 +482,7 @@ function volcDuplexLink(socket: ProviderSocket, options: LiveRelayOptions, sink:
     if (event.type === "response.function_call_arguments.done" && delegate) {
       delegate.run(socket, event, (callId, text) => [
         { type: "conversation.item.create", items: [{ call_id: callId, role: "tool", content: [{ type: "input_text", text }] }] },
-      ]);
+      ], (text) => speech.say(text));
       return;
     }
     if (event.type === "error") {
@@ -334,9 +507,9 @@ function volcAutoLink(make: (url: string, headers: Record<string, string>) => Pr
   let fell = false;
   let inner: ProviderLink;
   // Closing the refused duplex socket raises "close" too: the swap happens once, before that close is seen.
-  const fallback = () => { if (fell) return; fell = true; const prev = inner; inner = legacy(); prev.close(); sink.event("volc:legacy-fallback", "duplex refused before ready"); };
+  const fallback = () => { if (fell) return; fell = true; const prev = inner; inner = legacy(); prev.close(); console.log("[live-relay] volc duplex refused before ready, fell back to legacy"); sink.event("volc:legacy-fallback", "duplex refused before ready"); };
   const guarded: RelaySink = {
-    ready: () => { committed = true; sink.ready(); },
+    ready: () => { committed = true; console.log("[live-relay] volc duplex ready"); sink.ready(); },
     audio: (pcm) => sink.audio(pcm),
     transcript: (role, delta) => sink.transcript(role, delta),
     event: (name, data) => sink.event(name, data),
@@ -378,7 +551,7 @@ export function liveRelayResolver(deps: {
   target(botId: string, threadId: string | null): { botId: string; botName: string; threadId: string } | null;
   instructions(bot: LiveBot): string;
   /** Wires a call's chat to the delegate tool; null keeps the provider session tool-less (calls still work). */
-  delegate?(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string) => Promise<string>) | null;
+  delegate?(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string, speak: (text: string) => void, signal: AbortSignal) => Promise<string>) | null;
 }): (auth: RequestAuth, botId: string | null, threadId?: string | null, client?: string | null) => { options: LiveRelayOptions } | { error: string; status?: number } {
   return (auth, botId, threadId = null, client = null) => {
     const refusal = deps.refusal(auth);

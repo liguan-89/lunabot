@@ -177,7 +177,11 @@ internal class LiveCallController(
                     caption = (caption + event.delta).takeLast(CAPTION_CHARS)
                 }
             }
-            is LiveRelay.Event.Named -> Unit
+            is LiveRelay.Event.Named -> {
+                // The relay emits "interrupted" on barge-in: drop every queued and
+                // in-flight PCM frame so the assistant cannot talk over the person.
+                if (event.name == "interrupted") flushPlayback()
+            }
             is LiveRelay.Event.Failure -> {
                 Log.w(TAG, "relay failure: ${event.message}")
                 fail(event.message)
@@ -292,6 +296,17 @@ internal class LiveCallController(
         return null
     }
 
+    private fun flushPlayback() {
+        playbackQueue.clear()
+        player?.let { track ->
+            runCatching {
+                track.pause()
+                track.flush()
+                track.play()
+            }
+        }
+    }
+
     private fun releaseAudio() {
         capturing = false
         playing = false
@@ -363,8 +378,10 @@ internal class LiveCallController(
         const val TAG = "LiveCall"
         /** 20 ms of 16 kHz mono PCM16 — small enough to keep mouth-to-wire latency low. */
         const val CAPTURE_CHUNK_BYTES = 640
-        /** Bounds queued playback; the oldest chunk drops when a player falls behind. */
-        const val PLAYBACK_QUEUE_CHUNKS = 64
+        /** Provider audio bursts can be minutes of PCM; dropping the oldest mid-utterance
+         * skips speech and desyncs the server's playback clock. Stale backlogs are cleared
+         * by the "interrupted" flush instead of the bound. */
+        const val PLAYBACK_QUEUE_CHUNKS = 4096
         const val CAPTION_CHARS = 240
         const val HEARD_CHARS = 160
         const val HEARD_CLEAR_MILLIS = 2_500L

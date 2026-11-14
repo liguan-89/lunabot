@@ -184,6 +184,12 @@ class Session(
 
     private var registry = ConnectionRegistry()
     private var client: CompanionClient? = null
+        set(value) {
+            // Capability belongs to a computer, not a connection: a swapped
+            // client must not answer with the previous one's cache.
+            if (field !== value) liveCallRelayCapable = null
+            field = value
+        }
     private var token: String? = null
     private var rotation = CandidateRotation(emptyList())
     private var streamJob: Job? = null
@@ -816,6 +822,15 @@ class Session(
         client = clientFactory(first, storedToken)
         _restoreState.value = RestoreState.Ready
         _status.value = Status.Connecting
+        val warming = client
+        scope.launch {
+            try {
+                val status = warming?.config()
+                if (status != null && client === warming) liveCallRelayCapable = status.hasSocketLiveCall
+            } catch (error: Throwable) {
+                if (error is CancellationException) throw error
+            }
+        }
     }
 
     /**
@@ -2361,7 +2376,7 @@ class Session(
         }
 
     suspend fun configStatus(): ConfigStatus? = try {
-        client?.config()
+        client?.config()?.also { liveCallRelayCapable = it.hasSocketLiveCall }
     } catch (error: Throwable) {
         if (error is kotlinx.coroutines.CancellationException) throw error
         null
@@ -2624,11 +2639,22 @@ class Session(
      * relay speaks, with its key. Unreachable or not configured both read
      * false — the caller then falls back to the half-duplex call.
      */
+    /**
+     * Last confirmed socket-relay capability. The answer only changes when the
+     * computer's Live settings change, so a transient probe miss keeps the
+     * previous answer instead of silently picking the other call UI.
+     */
+    private var liveCallRelayCapable: Boolean? = null
+
     suspend fun liveCallRelayReady(): Boolean = try {
-        client?.config()?.hasSocketLiveCall == true
+        val status = client?.config()
+        com.openmausbot.companion.core.e2e.E2eLog.line("relay probe client=${client != null} live=${status?.live} ready=${status?.hasSocketLiveCall}")
+        if (status != null) liveCallRelayCapable = status.hasSocketLiveCall
+        liveCallRelayCapable == true
     } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        false
+        com.openmausbot.companion.core.e2e.E2eLog.line("relay probe failed: ${error::class.simpleName}: ${error.message}")
+        liveCallRelayCapable == true
     }
 
     suspend fun pollPhoneJob(): PhoneJob? = try {

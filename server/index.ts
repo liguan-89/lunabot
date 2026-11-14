@@ -12768,33 +12768,101 @@ function liveHistoryFor(threadId: string): LiveHistoryMessage[] {
 function liveSignedIn(auth: RequestAuth): boolean {
   return auth.kind !== "session" || sessions.isLive(auth.session.id);
 }
-const LIVE_DELEGATE_WAIT_MS = 90_000;
-/** Resolves with the first completed turn's bot text once the thread's newest person message is ours, else null on timeout. */
-function liveRelayReplyWaiter(threadId: string, expectedText: string, ms: number): { promise: Promise<string | null>; cancel(): void } {
-  let finish: (text: string | null) => void = () => {};
+const LIVE_NARRATE_MS = 240_000;
+const LIVE_NARRATE_MAX = 1200;
+/** Speaks each bot text of the turn answering our call message as the engine emits it — the voice
+ * call mirrors the chat's streamed replies instead of waiting for turn.completed. Our turn is the
+ * first turn.started seen while the newest user line is ours; it stops on that turn's terminal. */
+function liveRelayNarrator(threadId: string, expectedText: string, speak: (text: string) => void, ms: number): { cancel(): void; narrated(): boolean; ended(): boolean; silentMs(): number } {
+  let turnId: string | null = null;
+  let ended = false;
+  let didNarrate = false;
+  let lastSpeak = Date.now();
+  const spoken = new Set<string>();
+  let streamBuf = "";
+  let emitted = 0;
+  let capped = false;
+  let closingSaid = false;
+  let itemDeltaEmitted = false;
+  const finish = () => { if (ended) return; ended = true; off(); clearTimeout(timer); };
+  const emit = (line: string) => { didNarrate = true; lastSpeak = Date.now(); speak(line); };
+  const emitClosing = () => { if (!closingSaid) { closingSaid = true; emit("后面的内容比较长，在对话里看。"); } };
+  const utter = (piece: string) => { for (const chunk of toUtterances(piece)) emit(chunk); };
+  const ours = () => store.activePath(threadId).findLast((m) => m.role === "user")?.text?.trim() === expectedText;
   const off = bus.subscribe((event: RuntimeEvent) => {
-    if (event.type !== "turn.completed" || !event.ok || event.threadId !== threadId || !event.turnId) return;
-    const path = store.activePath(threadId);
-    if (path.findLast((m) => m.role === "user")?.text?.trim() !== expectedText) return;
-    const texts = path.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim());
-    if (texts.length) finish(texts.join("\n"));
+    if (event.threadId !== threadId) return;
+    // A delegated message can merge into an already-running turn (no fresh turn.started) or queue
+    // a new one. turn.started while our text is the newest user line always claims the narrator.
+    if (event.type === "turn.started" && event.turnId && ours()) {
+      turnId = event.turnId;
+      streamBuf = ""; emitted = 0; capped = false; itemDeltaEmitted = false;
+      return;
+    }
+    if (!turnId) {
+      if (!event.turnId || !ours()) return;
+      turnId = event.turnId;
+    }
+    if (event.turnId !== turnId) return;
+    // Streamed deltas: a finished sentence speaks while the rest still generates.
+    if (event.type === "content.delta" && event.streamKind === "assistant_text") {
+      if (capped) return;
+      streamBuf += event.delta;
+      const m = streamBuf.match(/[\s\S]*[。！？；!?;\n]/);
+      if (!m) return;
+      const piece = m[0];
+      streamBuf = streamBuf.slice(piece.length);
+      emitted += piece.length;
+      if (emitted > LIVE_NARRATE_MAX) { capped = true; streamBuf = ""; emitClosing(); return; }
+      utter(piece);
+      itemDeltaEmitted = true;
+      return;
+    }
+    if (event.type === "item.completed" && event.itemType === "assistant_text") {
+      const line = event.text.trim();
+      const rest = streamBuf;
+      const wasCapped = capped;
+      const hadDeltas = itemDeltaEmitted;
+      streamBuf = ""; emitted = 0; capped = false; itemDeltaEmitted = false;
+      if (!line || spoken.has(line)) return;
+      spoken.add(line);
+      // Items that never streamed deltas (non-streaming engine, or we bound mid-turn after the
+      // deltas passed) still speak in full; streamed items only flush the unsent tail.
+      if (!hadDeltas) utter(line.slice(0, LIVE_NARRATE_MAX));
+      else if (rest.trim() && !wasCapped) utter(rest.slice(0, LIVE_NARRATE_MAX));
+      if (line.length > LIVE_NARRATE_MAX) emitClosing();
+      return;
+    }
+    if (event.type === "turn.completed" || event.type === "cap.exhausted") finish();
   });
-  const promise = new Promise<string | null>((resolve) => {
-    finish = (text) => { off(); resolve(text); };
-    setTimeout(() => finish(null), ms).unref();
-  });
-  return { promise, cancel: () => finish(null) };
+  const timer = setTimeout(finish, ms);
+  timer.unref();
+  return { cancel: finish, narrated: () => didNarrate, ended: () => ended, silentMs: () => Date.now() - lastSpeak };
 }
 
 /** The delegate behind the socket call's tool: sends the request into the call's chat exactly like a WebRTC
- * delegation (via "call", one callId per call) and waits for the turn's reply to speak back. */
-function liveRelayDelegate(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string) => Promise<string>) | null {
+ * delegation (via "call", one callId per call), answers right away, then narrates the turn's replies as they land. */
+function liveRelayDelegate(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string, speak: (text: string) => void, signal: AbortSignal) => Promise<string>) | null {
   if (!liveSignedIn(auth)) return null;
   const callId = randomUUID();
-  return async (request: string): Promise<string> => {
+  return async (request: string, speak: (text: string) => void, signal: AbortSignal): Promise<string> => {
     const text = request.trim().slice(0, 2000);
     if (!text) return "没有听到要转交的内容。";
-    const waiter = liveRelayReplyWaiter(call.threadId, text, LIVE_DELEGATE_WAIT_MS);
+    const narrator = liveRelayNarrator(call.threadId, text, speak, LIVE_NARRATE_MS);
+    if (signal.aborted) narrator.cancel();
+    else signal.addEventListener("abort", () => narrator.cancel(), { once: true });
+    // Dead air reads as a dead call: after ~5s of real silence, and again on long quiet
+    // stretches between replies, speak a short rotating filler (at most one per 20s).
+    const FILLERS = ["还在处理，稍等。", "我盯着呢，有进展马上说。", "事情在做，再等一下。"];
+    let lastFill = 0;
+    let fillIndex = 0;
+    const filler = setInterval(() => {
+      if (narrator.ended()) { clearInterval(filler); return; }
+      // +4s approximates the just-spoken line's own playback before the quiet counts.
+      if (narrator.silentMs() < 9_000 || Date.now() - lastFill < 20_000) return;
+      lastFill = Date.now();
+      speak(FILLERS[fillIndex++ % FILLERS.length]!);
+    }, 1_000);
+    filler.unref();
     try {
       const receipt = await acceptDirectSend({
         botId: call.botId, threadId: call.threadId, text,
@@ -12806,13 +12874,11 @@ function liveRelayDelegate(auth: RequestAuth, call: { botId: string; botName: st
         personPresent: true,
         admin: runActor(auth).admin,
       });
-      if ("queued" in receipt) {
-        waiter.cancel();
-        return `${call.botName} 正在处理其他请求，这条已经排队，结果会出现在对话里。`;
-      }
-      return (await waiter.promise) ?? `${call.botName} 还在处理，结果会出现在对话里。`;
+      return "queued" in receipt
+        ? `${call.botName} 正在处理别的，你的请求已排队，轮到时有进展我会说给你听。`
+        : "收到，我这就处理，有进展我马上说。";
     } catch (error) {
-      waiter.cancel();
+      narrator.cancel();
       const detail = error instanceof Error ? error.message.trim().slice(0, 160) : "";
       return `请求没能发给 ${call.botName}${detail ? `：${detail}` : "。"}`;
     }

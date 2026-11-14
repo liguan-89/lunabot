@@ -67,7 +67,7 @@ describe("qwen provider link", () => {
     expect(socket.sent).toHaveLength(0);
     socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
     link.sendPcm(Buffer.from([1, 2, 3, 4]));
-    const append = JSON.parse(String(socket.sent[1])) as { type: string; audio: string };
+    const append = JSON.parse(String(socket.sent[3])) as { type: string; audio: string };
     expect(append.type).toBe("input_audio_buffer.append");
     expect(Buffer.from(append.audio, "base64")).toEqual(Buffer.from([1, 2, 3, 4]));
     socket.emit("message", Buffer.from(JSON.stringify({ type: "response.output_audio.delta", delta: Buffer.from([9, 9]).toString("base64") })));
@@ -127,7 +127,7 @@ describe("volc provider link", () => {
     socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created", session: { id: "d1" } })));
     expect(calls).toEqual([["ready", null]]);
     link.sendPcm(Buffer.from([1, 2, 3, 4]));
-    const append = JSON.parse(String(socket.sent[1])) as { type: string; audio: string };
+    const append = JSON.parse(String(socket.sent[2])) as { type: string; audio: string };
     expect(append.type).toBe("input_audio_buffer.append");
     expect(Buffer.from(append.audio, "base64")).toEqual(Buffer.from([1, 2, 3, 4]));
     socket.emit("message", Buffer.from(JSON.stringify({ type: "response.output_audio.delta", delta: Buffer.from([9]).toString("base64") })));
@@ -136,6 +136,29 @@ describe("volc provider link", () => {
     // ready 后报错不再回落
     socket.emit("message", Buffer.from(JSON.stringify({ type: "error", status_code: 45000000, message: "quota" })));
     expect(calls[3]).toEqual(["error", "quota"]);
+  });
+
+  it("ignores a transcript echoing its own speech, and cancels on real barge-in", () => {
+    const socket = new FakeSocket();
+    const { calls, record } = sink();
+    openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "1", ws: () => socket }, record);
+    socket.emit("open");
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created", session: { id: "d1" } })));
+    const greeting = socket.sent.map((raw) => JSON.parse(String(raw)) as { type: string; text?: string }).find((f) => f.type === "speech_text_buffer.commit")!;
+    // 免提回声：识别到的“人声”其实是我们刚播出去的话 → 不得打断（火山把识别文本放在 delta 字段，累计发送）
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.started" })));
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.delta", delta: greeting.text!.slice(0, 8) })));
+    expect(socket.sent.every((raw) => !(JSON.parse(String(raw)) as { type: string }).type.includes("response.cancel"))).toBe(true);
+    expect(calls.every(([name]) => name !== "event")).toBe(true);
+    // 真人插话 → 首个累计 delta 达到 4 字即打断播报并通知客户端
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.started" })));
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.delta", delta: "别念" })));
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.delta", delta: "别念了，换个事情" })));
+    expect(socket.sent.some((raw) => (JSON.parse(String(raw)) as { type: string }).type === "response.cancel")).toBe(true);
+    expect(calls).toContainEqual(["event", "interrupted:user speaking"]);
+    // 累计 delta 只转发新增后缀，手机端追加显示不重复
+    expect(calls).toContainEqual(["transcript", "user:别念"]);
+    expect(calls).toContainEqual(["transcript", "user:了，换个事情"]);
   });
 });
 
@@ -159,7 +182,8 @@ describe("delegate tool bridge", () => {
     })));
     await new Promise((done) => setTimeout(done, 20));
     expect(requests).toEqual(["我的文件在哪"]);
-    const result = JSON.parse(String(socket.sent[1])) as { type: string; items: Array<{ call_id: string; role: string; content: Array<{ text: string }> }> };
+    expect((JSON.parse(String(socket.sent[1])) as { type: string }).type).toBe("speech_text_buffer.commit");
+    const result = JSON.parse(String(socket.sent[2])) as { type: string; items: Array<{ call_id: string; role: string; content: Array<{ text: string }> }> };
     expect(result.type).toBe("conversation.item.create");
     expect(result.items[0]).toMatchObject({ call_id: "fc1", role: "tool" });
     expect(result.items[0]!.content[0]!.text).toBe("查到了，文件在 ~/Downloads");
@@ -179,9 +203,9 @@ describe("delegate tool bridge", () => {
       call_id: "q1", name: "delegate", arguments: JSON.stringify({ request: "帮我看日程" }),
     })));
     await new Promise((done) => setTimeout(done, 20));
-    const output = JSON.parse(String(socket.sent[1])) as { type: string; item: { type: string; call_id: string; output: string } };
+    const output = JSON.parse(String(socket.sent[3])) as { type: string; item: { type: string; call_id: string; output: string } };
     expect(output).toMatchObject({ type: "conversation.item.create", item: { type: "function_call_output", call_id: "q1", output: "结果文本" } });
-    expect(JSON.parse(String(socket.sent[2]))).toMatchObject({ type: "response.create" });
+    expect(JSON.parse(String(socket.sent[4]))).toMatchObject({ type: "response.create" });
   });
 
   it("dedupes a repeated call_id and keeps a tool-less session when no delegate is wired", async () => {
@@ -215,9 +239,32 @@ describe("delegate tool bridge", () => {
       call_id: "bad", name: "delegate", arguments: JSON.stringify({ request: "整理桌面" }),
     })));
     await new Promise((done) => setTimeout(done, 20));
-    const output = JSON.parse(String(socket.sent[1])) as { item: { output: string } };
+    const output = JSON.parse(String(socket.sent[3])) as { item: { output: string } };
     expect(output.item.output).toContain("could not be run");
     expect(calls).toEqual([["ready", null]]);
+  });
+
+  it("narrates turn replies through speech_text_buffer as the delegate speaks them", async () => {
+    const socket = new FakeSocket();
+    const { record } = sink();
+    const delegate = async (_request: string, speak: (text: string) => void) => { speak("进程清了，Edge 关了 3 个"); return "收到"; };
+    openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "1", call, delegate, ws: () => socket }, record);
+    socket.emit("open");
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created", session: { id: "d1" } })));
+    // The greeting's own audio delta releases the gate's playback hold for the assertions below.
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "response.output_audio.delta", delta: Buffer.from([1]).toString("base64") })));
+    socket.emit("message", Buffer.from(JSON.stringify({
+      type: "response.function_call_arguments.done",
+      items: [{ call_id: "fc1", name: "delegate", arguments: JSON.stringify({ request: "看看电脑在干嘛" }) }],
+    })));
+    await new Promise((done) => setTimeout(done, 30));
+    // The tool result bypasses the speech gate (it must reach the model at once);
+    // narration rides the gate, so the two frames may land in either order.
+    const frames = socket.sent.slice(2).map((raw) => JSON.parse(String(raw)) as { type: string; text?: string; items?: Array<{ role: string }> });
+    const narrated = frames.find((f) => f.type === "speech_text_buffer.commit");
+    expect(narrated?.text).toContain("进程清了，Edge 关了 3 个");
+    const toolResult = frames.find((f) => f.type === "conversation.item.create");
+    expect(toolResult?.items?.[0]!.role).toBe("tool");
   });
 });
 
@@ -290,7 +337,7 @@ describe("LiveRelays over a real socket", () => {
     expect(JSON.parse(String(received[0]!.data))).toMatchObject({ t: "ready", provider: "qwen" });
     client.send(Buffer.from([5, 6]), { binary: true });
     await new Promise<void>((done) => setTimeout(done, 30));
-    expect(JSON.parse(String(provider.sent[1]))).toMatchObject({ type: "input_audio_buffer.append" });
+    expect(JSON.parse(String(provider.sent[3]))).toMatchObject({ type: "input_audio_buffer.append" });
     provider.emit("message", Buffer.from(JSON.stringify({ type: "response.output_audio.delta", delta: Buffer.from([7]).toString("base64") })));
     await new Promise<void>((done) => setTimeout(done, 30));
     expect(received[1]).toEqual({ binary: true, data: Buffer.from([7]) });
