@@ -61,6 +61,13 @@ export async function callCardTool(name: string, args: Json, context: ToolCallCo
 
   if (name === "show_html") return callAppTool(agentsCallMember(name, args) === "update_html" ? "update_html" : "show_html", args, context);
 
+  if (args.withdraw === true) {
+    const widgetId = typeof args.widget_id === "string" ? args.widget_id.trim() : "";
+    if (!widgetId) return { text: "widget_id: is required to withdraw, the id show_widget returned.", isError: true };
+    const { ok, body } = await apiResponse(CARD_ROUTE, { method: "POST", body: JSON.stringify({ tool: "update_widget", widget_id: widgetId, withdraw: true }) });
+    if (!ok) return { text: String(body.error ?? "Could not withdraw that widget."), isError: true };
+    return { text: `Withdrawn widget ${widgetId}: the person can no longer press it. If the question still stands, ask it fresh.` };
+  }
   const parsed = parseWidgetInput(args.widget);
   if (!parsed.ok) return { text: parsed.error, isError: true };
   const updating = agentsCallMember(name, args) === "update_widget";

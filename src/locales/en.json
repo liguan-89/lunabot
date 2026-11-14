@@ -10139,5 +10139,6 @@
   "settings.simple.account.yourName": "Your name",
   "botPanel.tracked.title": "Task list",
   "botPanel.tracked.needsYou": "Needs you",
-  "botPanel.tracked.done": "{count} done"
+  "botPanel.tracked.done": "{count} done",
+  "widget.withdrawn": "Withdrawn"
 }

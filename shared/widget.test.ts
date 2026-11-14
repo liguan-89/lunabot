@@ -315,6 +315,8 @@ describe("widget actions", () => {
   it("refuses a settled widget, an unknown ref and a device-only action", () => {
     const settled: WidgetPayload = { ...payload("pullRequests"), settled: { ref: "confirm", label: "Merge the two ready", tone: "confirm", at: 1 } };
     expect(resolveWidgetAction(settled, "cancel", {})).toEqual({ ok: false, status: 409, error: "This was already answered." });
+    const withdrawn: WidgetPayload = { ...payload("pullRequests"), withdrawn: { at: 2 } };
+    expect(resolveWidgetAction(withdrawn, "cancel", {})).toEqual({ ok: false, status: 409, error: "This was withdrawn." });
     expect(resolveWidgetAction(payload("pullRequests"), "n999", {})).toEqual({ ok: false, status: 404, error: "That button is no longer on this widget." });
     const sources = payload("sources");
     expect(resolveWidgetAction(sources, widgetActions(sources.root)[0].ref, {})).toMatchObject({ ok: false, status: 400 });

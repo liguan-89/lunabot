@@ -3,6 +3,7 @@ import type { WorkOrigin } from "./peer-provenance.ts";
 import type { LegacyThreadResolver } from "./runtime/import-legacy.ts";
 import type { Answerer, Assignment, EnvelopeNames, Level, Limits, Mode, Origin, Outcome, Owner, Reply, Requester, StatusView, TurnEvidence } from "./runtime/types.ts";
 import type { ModelSelection } from "../shared/wire.ts";
+import type { ToolScope } from "../shared/tool-scope.ts";
 
 /** One coordinate_bots call, as the internal route hands it to the server. */
 export type CoordinateBotsCall = {
@@ -23,7 +24,7 @@ export type CoordinateBotsCall = {
   /** The assignment whose question the message answers, instead of new work. */
   answers?: string;
   /** start_thread's report_back: the one target is the sender's own new thread, run on this model. */
-  ownThread?: { modelSelection?: ModelSelection; approvalMode?: "ask" };
+  ownThread?: { modelSelection?: ModelSelection; approvalMode?: "ask"; toolScope?: ToolScope };
 };
 
 export type { LegacyThreadResolver };

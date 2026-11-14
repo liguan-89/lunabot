@@ -486,6 +486,10 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
       }
       body.modelSelection = { instanceId: fields.instanceId.trim(), model: fields.model.trim(), ...(typeof fields.effort === "string" ? { effort: fields.effort.trim() } : {}) };
     }
+    if (args.tool_scope !== undefined) {
+      if (!jsonRecord(args.tool_scope)) return { text: "tool_scope needs allow and deny string lists, like your own tool selection.", isError: true };
+      body.toolScope = args.tool_scope;
+    }
     if (args.report_back === true) body.reportBack = true;
     const r = await api("/api/internal/threads", { method: "POST", body: JSON.stringify(body) });
     if (r.error && r.state !== "failed") return { text: `Couldn't open that thread: ${String(r.error)}`, isError: true };

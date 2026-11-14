@@ -36,15 +36,15 @@ describe("the widget tools in the catalog", () => {
       type: "object",
       additionalProperties: false,
       properties: {
-        widget: { type: "object", additionalProperties: true, description: "The widget tree." },
+        widget: { type: "object", additionalProperties: true, description: "The widget tree. Required unless withdraw is true." },
         fallback_text: { type: "string", description: "Optional plain-text version for clients that cannot draw widgets. Written for you when omitted." },
-        widget_id: { type: "string", description: "Only to replace a widget you showed: the id it returned." },
+        widget_id: { type: "string", description: "Only to replace or withdraw a widget you showed: the id it returned." },
+        withdraw: { type: "boolean", description: "With widget_id and no widget: take that open widget back so no press can land on it." },
       },
-      required: ["widget"],
     });
     expect(show.description).toMatch(/^Show an interactive widget in this chat: one question answered with a tap instead of typing/);
     expect(show.description).toContain("Ask only what you cannot find or sensibly default, one question per widget;");
-    expect(show.description).toContain("if they type something else instead, that is their answer");
+    expect(show.description).toContain("if they type something else instead, that is their answer and the widget goes stale on its own");
     expect(show.description).not.toMatch(/without being asked/);
     expect(show.description).toMatch(/Never ask for passwords here\. In rooms it is view-only: ask in text there\.$/);
     expect(show.description).toContain("To replace a widget in place (a progress bar moving, a status changing), call this again with the widget_id it returned (was update_widget); one the person already answered cannot be replaced, so show a new one.");
@@ -86,6 +86,18 @@ describe("show_widget", () => {
     expect(choice.text).not.toContain("No row of this list can be chosen");
     const pressable = await callTool("show_widget", { widget: WIDGET_SAMPLES.pullRequests }, context);
     expect(pressable.text).not.toContain("No row of this list can be chosen");
+  });
+
+  it("withdraws with only a widget_id and no tree", async () => {
+    const { apiResponse, context } = harness();
+    apiResponse.mockResolvedValueOnce({ ok: true, status: 200, body: { messageId: "m42" } });
+    const result = await callTool("show_widget", { widget_id: "m42", withdraw: true }, context);
+    expect(apiResponse).toHaveBeenCalledWith("/api/internal/options-card", {
+      method: "POST",
+      body: JSON.stringify({ tool: "update_widget", widget_id: "m42", withdraw: true }),
+    });
+    expect(result.text).toContain("Withdrawn widget m42");
+    expect((await callTool("show_widget", { withdraw: true }, context)).text).toContain("widget_id: is required");
   });
 
   it("sends fallback_text only when it is a string", async () => {

@@ -141,3 +141,11 @@ export function toolScopeWidens(previous: unknown, next: unknown): boolean {
   }
   return false;
 }
+
+/** A thread's own selection may only narrow the bot's: anything else falls back to the bot's whole scope. */
+export function narrowedToolScope(base: unknown, threadScope: unknown): unknown {
+  if (threadScope === undefined) return base;
+  const parsed = parseToolScope(threadScope);
+  if (!parsed.ok || parsed.scope === undefined) return base;
+  return toolScopeWidens(base, parsed.scope) ? base : parsed.scope;
+}

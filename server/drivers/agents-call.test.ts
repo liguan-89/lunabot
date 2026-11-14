@@ -167,6 +167,17 @@ describe("team creation with every optional field filled in", () => {
     expect(result.isError).toBeFalsy();
     expect(calls[0].body.modelSelection).toEqual({ instanceId: "codex", model: "gpt-5" });
   });
+
+  it("start_thread passes a tool_scope object through, and refuses a non-object one", async () => {
+    const calls: Array<{ path: string; body: any }> = [];
+    const scope = { deny: ["native:bash", "mcp:agents:*"] };
+    const result = await callTool("start_thread", { title: "Read", message: "Read it.", tool_scope: scope },
+      recording(calls, { self: true, state: "queued", threadId: "t-1", title: "Read" }));
+    expect(result.isError).toBeFalsy();
+    expect(calls[0].body.toolScope).toEqual(scope);
+    expect((await callTool("start_thread", { title: "Read", message: "Read it.", tool_scope: "read-only" },
+      recording(calls, {}))).isError).toBe(true);
+  });
 });
 
 describe("mcp_server", () => {

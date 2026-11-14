@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { allowsTool, canUseMcpServer, narrowsNativeTools, parseToolScope, toolScopeWidens } from "./tool-scope.ts";
+import { allowsTool, canUseMcpServer, narrowedToolScope, narrowsNativeTools, parseToolScope, toolScopeWidens } from "./tool-scope.ts";
 
 describe("per-bot tool selection", () => {
   it("distinguishes native restrictions from an MCP-only clamp", () => {
@@ -103,5 +103,19 @@ describe("per-bot tool selection", () => {
     expect(toolScopeWidens({ allow: ["native:read"] }, undefined)).toBe(true);
     expect(toolScopeWidens({ allow: null }, { allow: [] })).toBe(false);
     expect(toolScopeWidens({ allow: null }, { allow: ["native:read"] })).toBe(true);
+  });
+});
+
+describe("narrowedToolScope", () => {
+  it("applies a thread scope that narrows, and falls back on a widen, a gap or an invalid value", () => {
+    const base = { allow: ["native:*", "mcp:agents:*"] };
+    expect(narrowedToolScope(base, { allow: ["native:read"] })).toEqual({ allow: ["native:read"] });
+    // A deny-only scope widens a restricted base: it opens every server the base never listed.
+    expect(narrowedToolScope(base, { deny: ["native:bash"] })).toEqual(base);
+    expect(narrowedToolScope(base, { allow: ["native:*", "mcp:agents:*", "mcp:mail:*"] })).toEqual(base);
+    expect(narrowedToolScope({ deny: ["native:bash"] }, { allow: ["native:*"] })).toEqual({ deny: ["native:bash"] });
+    expect(narrowedToolScope(base, undefined)).toBe(base);
+    expect(narrowedToolScope(base, "read-only")).toBe(base);
+    expect(narrowedToolScope(undefined, { deny: ["native:bash"] })).toEqual({ deny: ["native:bash"] });
   });
 });

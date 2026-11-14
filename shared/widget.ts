@@ -110,6 +110,9 @@ export interface WidgetPayload {
    * now holds that id. */
   rev?: number;
   settled?: WidgetSettled;
+  /** Terminal, like settled: the bot withdrew the widget, or the person
+   * answered in text and left it behind. No press can land on it. */
+  withdrawn?: { at: number };
 }
 
 export type WidgetValues = Record<string, string | boolean>;
@@ -804,6 +807,7 @@ export type ResolvedWidgetAction =
  * holds answers in the person's own words (see `WidgetOther`). */
 export function resolveWidgetAction(payload: WidgetPayload, ref: string, values: unknown, other?: unknown): ResolvedWidgetAction {
   if (payload.settled) return { ok: false, status: 409, error: "This was already answered." };
+  if (payload.withdrawn) return { ok: false, status: 409, error: "This was withdrawn." };
   const entry = widgetActions(payload.root).find((candidate) => candidate.ref === ref);
   if (!entry) return { ok: false, status: 404, error: "That button is no longer on this widget." };
   if (entry.client) return { ok: false, status: 400, error: "That action opens on the device and is not sent." };

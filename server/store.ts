@@ -3,7 +3,7 @@ import { join } from "node:path"; import { isDeepStrictEqual } from "node:util";
 
 import { OwnedFile, writeFileAtomic } from "./atomic.ts"; import { saveSoon } from "./save-batch.ts"; import { discardNativeLog } from "./drivers/native.ts";
 import { commitRegistryChange, keptRevocation, saveRegistryFor, touchesPermissions } from "./registry-save.ts";
-import { parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts"; import { grantScopedApps } from "../shared/connector-scopes.ts"; import { dropRetiredApps } from "./retired-apps.ts";
+import { parseToolScope, toolScopeWidens, type ToolScope } from "../shared/tool-scope.ts"; import { grantScopedApps } from "../shared/connector-scopes.ts"; import { dropRetiredApps } from "./retired-apps.ts";
 import { reorderStable } from "../shared/bot-order.ts"; import { trimOutboundPolicy } from "../shared/outbound.ts";
 import { botOwner, chiefConflict, chiefScope, ownerEmail } from "../shared/bot-owner.ts"; import { reshowWhenMoved } from "../shared/default-bot.ts";
 import { ensureSections, readSections, changeEmptySection } from "./section-context.ts";
@@ -81,9 +81,11 @@ export interface TaskRecord extends Omit<WireTask, TaskWireDerivedKeys> {
   surfaceSource?: "user" | "auto";
   /** Epoch ms a person last wrote here: never a teammate, routine, webhook, the bot itself or a Slack relay. */
   askedAt?: number;
+  /** A worker thread's own tool selection: narrows the bot's scope for its turns, never widens it. */
+  toolScope?: ToolScope;
 }
 
-export type TaskWirePrivateKeys = "resumeCursors" | "lastInstanceId" | "handedMessages" | "appliedCompactionId" | "contextFloor" | "lastContextModel" | "surfaceSource" | "askedAt";
+export type TaskWirePrivateKeys = "resumeCursors" | "lastInstanceId" | "handedMessages" | "appliedCompactionId" | "contextFloor" | "lastContextModel" | "surfaceSource" | "askedAt" | "toolScope";
 export type TaskWireDerivedKeys = "surfaceAuto" | "followsBotModel";
 export type TaskWireProjection = Pick<TaskRecord, Exclude<keyof TaskRecord, TaskWirePrivateKeys>> & Pick<WireTask, TaskWireDerivedKeys>;
 type AssertExact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : never;
@@ -105,7 +107,7 @@ const ASK_NOW = { approvalMode: "ask" as const, autoApprove: false, alwaysAllow:
 const TASK_PATCH_FIELDS = [
   "title", "projectId", "modelSelection", "approvalMode", "autoApprove", "alwaysAllow",
   "unread", "lastReadMessageId", "rewound", "archivedAt", "pinned", "pinnedMessageId", "resumeCursors", "lastInstanceId", "cwd",
-  "routineRunId", "surface", "surfaceSource", "snoozedUntil", "link", "linkAuto", "appliedCompactionId", "contextFloor", "lastContextModel", "usage", "setupRequest", "botApi", "outside",
+  "routineRunId", "surface", "surfaceSource", "snoozedUntil", "link", "linkAuto", "appliedCompactionId", "contextFloor", "lastContextModel", "usage", "setupRequest", "botApi", "outside", "toolScope",
 ] as const satisfies readonly (keyof TaskRecord)[];
 export type TaskPatch = Partial<Pick<TaskRecord, typeof TASK_PATCH_FIELDS[number]>>;
 
@@ -1099,7 +1101,15 @@ export class Store {
     }
     this.noteThreadActivity(threadId, full.at, movesThreadToTop(full), full.turnCompletedAt ?? full.at);
     this.emit({ type: "message", threadId, message: full });
-    if (full.role === "user" && full.kind === "text") this.dismissOnboardingCard(threadId);
+    if (full.role === "user" && full.kind === "text") {
+      this.dismissOnboardingCard(threadId);
+      // A typed reply answers whatever widget was still open: show_widget's contract says typing is the answer.
+      // Server-built cards (serverCard) keep their own lifecycle.
+      const withdrawn = { at: full.at };
+      for (const live of t.messages.filter((m) => m.id !== full.id && m.kind === "widget" && m.widget && !m.widget.settled && !m.widget.withdrawn && !m.serverCard)) {
+        this.patchMessage(threadId, live.id, { widget: { ...live.widget!, withdrawn } });
+      }
+    }
     return full;
   }
 

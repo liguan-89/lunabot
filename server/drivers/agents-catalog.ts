@@ -323,6 +323,11 @@ const TOOL_DEFINITIONS = [
           description: "Optional: ids (and effort) exactly as list_models gives them. Default: this conversation's model.",
         },
         report_back: { type: "boolean", description: "True: its result resumes you here; end your turn. Not in a room." },
+        tool_scope: {
+          type: "object",
+          additionalProperties: true,
+          description: "Optional: the job's own tool selection as {allow:[...], deny:[...]} selectors like your access settings (\"native:*\", \"mcp:agents:*\", \"native:bash\"); it can only narrow yours, never add tools. Use it for a worker that should not have everything you have — an explore/research job with {deny:[\"native:bash\",\"mcp:agents:*\"]} reads and answers but cannot run commands or act on the person's apps.",
+        },
       },
       required: ["title", "message"],
     },

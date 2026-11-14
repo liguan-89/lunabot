@@ -10139,5 +10139,6 @@
   "settings.simple.account.yourName": "你的名字",
   "botPanel.tracked.title": "任务清单",
   "botPanel.tracked.needsYou": "等你处理",
-  "botPanel.tracked.done": "已完成 {count} 项"
+  "botPanel.tracked.done": "已完成 {count} 项",
+  "widget.withdrawn": "已撤回"
 }

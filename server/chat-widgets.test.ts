@@ -268,6 +268,23 @@ describe("update_widget", () => {
     expect(fake.patchMessage).not.toHaveBeenCalled();
   });
 
+  it("withdraws a live widget, refuses a settled one, and is idempotent", () => {
+    const fake = fakeStore();
+    const withdraw = (widget_id: string) => createAgentCard({ store: fake.store, bot: SCOUT, threadId: THREAD, input: { tool: "update_widget", widget_id, withdraw: true } });
+    const row = shown(fake, "pullRequests");
+    expect(withdraw(row.id)).toEqual({ ok: true, messageId: row.id });
+    expect(payloadOf(fake, row.id).withdrawn).toMatchObject({ at: expect.any(Number) });
+    expect(withdraw(row.id)).toEqual({ ok: true, messageId: row.id });
+    // A withdrawn widget cannot be edited back to life.
+    expect(update(fake, row.id, WIDGET_SAMPLES.buildStatus)).toMatchObject({ ok: false, status: 409 });
+    // Nor can a widget the person already answered be withdrawn.
+    const answered = shown(fake, "pullRequests");
+    const press = prepareWidgetPress(fake.store, THREAD, { messageId: answered.id, ref: "confirm" }, undefined);
+    if (press.ok) press.settle();
+    expect(withdraw(answered.id)).toMatchObject({ ok: false, status: 409 });
+    expect(payloadOf(fake, answered.id).withdrawn).toBeUndefined();
+  });
+
   it("refuses an id that is not a widget of this conversation", () => {
     const fake = fakeStore();
     const row = shown(fake, "pullRequests");

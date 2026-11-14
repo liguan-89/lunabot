@@ -151,7 +151,14 @@ export function createAgentCard(args: AgentCardArgs): AgentCardResult | Promise<
       (existing.serverCard && !args.serverCard)) {
     return { ok: false, status: 404, error: NO_SUCH_WIDGET };
   }
+  if (input.withdraw === true) {
+    if (existing.widget.settled) return { ok: false, status: 409, error: "The person already answered that widget." };
+    if (existing.widget.withdrawn) return { ok: true, messageId: existing.id };
+    const patched = store.patchMessage(threadId, existing.id, { widget: { ...existing.widget, withdrawn: { at: Date.now() } } });
+    return patched ? { ok: true, messageId: patched.id } : { ok: false, status: 404, error: NO_SUCH_WIDGET };
+  }
   if (existing.widget.settled) return { ok: false, status: 409, error: "The person already answered that widget. Show a new one." };
+  if (existing.widget.withdrawn) return { ok: false, status: 409, error: "That widget was withdrawn. Show a new one." };
   const widget = canonicalWidget(input);
   if (!widget.ok) return widget;
   // A new tree renumbers its nodes: the revision tells a press on the old one apart.

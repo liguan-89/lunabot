@@ -2792,4 +2792,21 @@ describe("soul", () => {
       rmSync(folder, { force: true });
     }
   });
+
+  it("withdraws a conversation's open widgets when the person answers in text", () => {
+    const store = new Store(selection);
+    const bot = store.createBot({ name: "Widget bot" });
+    const live = store.appendMessage(bot.threadId, { role: "bot", kind: "widget", text: "Pick?", widget: { v: 1, root: { type: "Card", title: "Pick?" } } as never });
+    const answered = store.appendMessage(bot.threadId, { role: "bot", kind: "widget", text: "Done", widget: { v: 1, root: { type: "Card", title: "Done" }, settled: { ref: "confirm", label: "ok", tone: "confirm", at: 1 } } as never });
+    const server = store.appendMessage(bot.threadId, { role: "bot", kind: "widget", text: "Server card", serverCard: true, widget: { v: 1, root: { type: "Card", title: "Server" } } as never });
+    store.appendMessage(bot.threadId, { role: "user", kind: "text", text: "the first one" });
+    const rows = store.messagesFor(bot.threadId);
+    expect(rows.find((m) => m.id === live.id)?.widget?.withdrawn).toMatchObject({ at: expect.any(Number) });
+    expect(rows.find((m) => m.id === answered.id)?.widget?.withdrawn).toBeUndefined();
+    expect(rows.find((m) => m.id === server.id)?.widget?.withdrawn).toBeUndefined();
+    // A second text does not touch what already closed.
+    const at = rows.find((m) => m.id === live.id)?.widget?.withdrawn?.at;
+    store.appendMessage(bot.threadId, { role: "user", kind: "text", text: "and again" });
+    expect(store.messagesFor(bot.threadId).find((m) => m.id === live.id)?.widget?.withdrawn?.at).toBe(at);
+  });
 });

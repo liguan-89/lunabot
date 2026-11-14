@@ -66,6 +66,7 @@ function WidgetCard({ botId, threadId, messageId, payload, viewOnly }: { botId: 
   if (payload.settled !== undefined && !rowSpoke) setRowSpoke(true);
   const settled = payload.settled ?? (rowSpoke ? undefined : settledHere);
   const isSettled = settled !== undefined;
+  const withdrawn = payload.withdrawn !== undefined && !isSettled;
   const uid = useId();
   const frame = useRef<HTMLDivElement | null>(null);
   const [compact, setCompact] = useState(false);
@@ -128,7 +129,7 @@ function WidgetCard({ botId, threadId, messageId, payload, viewOnly }: { botId: 
       if (target) openThread(dispatch, target, state, showThreads);
       return;
     }
-    if (settled || viewOnly) return;
+    if (settled || withdrawn || viewOnly) return;
     let sending: WidgetValues | undefined;
     let sendingOther: WidgetOther | undefined;
     if (entry.tone !== "cancel") {
@@ -230,7 +231,7 @@ function WidgetCard({ botId, threadId, messageId, payload, viewOnly }: { botId: 
         aria-label={name}
         aria-busy={pending !== undefined || undefined}
         data-widget={messageId}
-        data-widget-state={settled ? "settled" : viewOnly ? "view-only" : pending !== undefined ? "sending" : "live"}
+        data-widget-state={settled ? "settled" : withdrawn ? "withdrawn" : viewOnly ? "view-only" : pending !== undefined ? "sending" : "live"}
         data-widget-compact={compact || undefined}
         className={cn("w-full text-start", WIDTH[widgetString(root, "size") ?? "lg"] ?? WIDTH.lg)}
       >
@@ -258,7 +259,8 @@ function WidgetCard({ botId, threadId, messageId, payload, viewOnly }: { botId: 
             </div>
           )}
         </div>
-        {!settled && (confirm || cancel) && (
+        {withdrawn && <div className="mt-2.5 text-[13px] italic text-ink-tertiary">{t("widget.withdrawn")}</div>}
+        {!settled && !withdrawn && (confirm || cancel) && (
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {confirm && <WidgetButton actionRef="confirm" label={confirm.label} look="primary" />}
             {cancel && <WidgetButton actionRef="cancel" label={cancel.label} look="outline" />}

@@ -108,7 +108,7 @@ import { DataFailure } from "./data/types.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
 import { isEffortLevel, type CardAnswerer, type ResolvedSender, type SignInRequestCardData, type WireBot, type WireGroup, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard, shouldSettleRequestCard } from "../shared/ask-question.ts";
-import { parseToolScope } from "../shared/tool-scope.ts";
+import { narrowedToolScope, parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import type { TeamComputersPayload } from "../shared/team-computer.ts";
 import { boatCreateRecoverySnapshot } from "./boat-create-idempotency.ts";
 import { boatDeletionSnapshot } from "./boat-delete-journal.ts";
@@ -2941,10 +2941,11 @@ const wireBot = (bot: BotRecord): WireBot => {
     avatarUrl: visible.avatarUrl ?? null, ...(tasks ? { tasks: tasks.map((task) => wireTask(task, bot.modelSelection, awaiting)) } : {}) };
 };
 
-function toolScopeForTurn(botId: string) {
+function toolScopeForTurn(botId: string, threadId?: string) {
   const bot = store.bot(botId);
   if (!bot) throw Object.assign(new Error("no such bot"), { status: 404 });
-  const parsed = parseToolScope(bot.toolScope);
+  const scoped = threadId ? narrowedToolScope(bot.toolScope, store.taskByThread(botId, threadId)?.toolScope) : bot.toolScope;
+  const parsed = parseToolScope(scoped);
   if (!parsed.ok) throw Object.assign(new Error("This bot's tool selection is invalid. Open Access settings and save a valid selection before starting a turn."), { status: 409, code: "tool_scope" });
   return parsed.scope;
 }
@@ -7700,7 +7701,7 @@ async function beginTurn(
   }
   const policyRefusal = policyModelRefusal(instance);
   if (policyRefusal) throw Object.assign(new Error(policyRefusal), { status: 409, code: "managed_policy" });
-  const toolScope = toolScopeForTurn(bot.id);
+  const toolScope = toolScopeForTurn(bot.id, threadId);
   guestDrivenTurns.delete(threadId);
   const guestConfined = cloudGuestDriven(threadId) || cloudGuestDrivenHandoff(opts?.coordination?.id) || botApiThread(threadId);
   if (guestConfined && instance.adapter.capabilities.guestTurns !== "confined") {
@@ -13855,6 +13856,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
                 ? store.createTask(target.botId, call.title ?? (call.message.replace(/\s+/g, " ").trim().slice(0, 60) || `From ${internalSender.name}`), false, call.projectId, opened, call.ownThread?.approvalMode, call.ownThread?.modelSelection, folder.cwd, startedFor)
                 : store.createTask(target.botId, `@${internalSender.name} · work`, false, undefined, { ...opened, kind: "work" }, undefined, undefined, folder.cwd, startedFor));
               if (!task) throw new Error("The recipient no longer exists");
+              if (call.ownThread?.toolScope) store.patchTask(target.botId, task.threadId, { toolScope: call.ownThread.toolScope });
               target.threadId = task.threadId;
               if (!continued) createdThread = task.threadId;
               delegatedLevel.apply(internalSender, internalCapability.threadId, internalCapability.roomHandoffId ?? generation, recipient, target.threadId); if (lends && !levelWithin(approvalModeForTurn(store.projectBotForTask(recipient.id, target.threadId) ?? recipient, true, target.threadId), approvalModeForTurn(store.projectBotForTask(internalSender.id, address.threadId) ?? internalSender, internalCapability.depth > 0, address.threadId))) { lends = false; handedInUnproven(target.threadId); }
@@ -14175,14 +14177,20 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         }
         const sourceTitle = owner.group ? owner.group.name : (store.taskByThread(from.id, fromThreadId)?.title ?? "");
         const picked = body.modelSelection === undefined ? null : checkedModelSelection(body.modelSelection, undefined, true); const refused = !picked ? null : target.id !== from.id ? "model_selection is only for threads on yourself" : !picked.ok ? picked.error : ownThreads.refusal(picked.selection, from); if (refused) return json(res, 400, { error: refused });
+        const scoped = body.toolScope === undefined ? null : parseToolScope(body.toolScope);
+        const taskScope = scoped?.ok === true ? scoped.scope : undefined;
+        if (body.toolScope !== undefined && (target.id !== from.id || taskScope === undefined || toolScopeWidens(from.toolScope, taskScope))) {
+          return json(res, 400, { error: target.id !== from.id ? "tool_scope is only for threads on yourself" : "tool_scope must be a valid selection that only narrows your own tool selection — it can refuse tools, never add them" });
+        }
         if (target.id === from.id) { const selfRefused = selfThreadRefusal({ handoff: Boolean(internalCapability.roomHandoffId), requestLine: store.activePath(fromThreadId).findLast((line) => line.role === "user" && line.kind === "text") }); if (selfRefused) return json(res, 409, { error: selfRefused });
           const inherited = picked?.ok ? { modelSelection: picked.selection, approvalMode: undefined } : ownThreads.inherited(from.id, fromThreadId);
           if (body.reportBack === true) { if (owner.group) return json(res, 400, { error: "report_back works only from your own conversation, not a room. Leave it out; the thread's result then stays in that thread." });
-            const result = await coordinateBots({ botIds: [from.id], message, rework: false, thread: "new", reply: "resume", consult: false, title, projectId, ownThread: inherited }), receipt = (result.body.receipts as PeerDeliveryReceipt[] | undefined)?.[0];
+            const result = await coordinateBots({ botIds: [from.id], message, rework: false, thread: "new", reply: "resume", consult: false, title, projectId, ownThread: { ...inherited, ...(taskScope !== undefined ? { toolScope: taskScope } : {}) } }), receipt = (result.body.receipts as PeerDeliveryReceipt[] | undefined)?.[0];
             return json(res, result.status === 200 ? 201 : result.status, { ...result.body, self: true, reportBack: true, title, botId: from.id, botName: from.name, threadId: receipt?.threadId, requestId: receipt?.requestId }); }
           const task = store.createTask(from.id, title, false, projectId, { botId: from.id, name: from.name, at: Date.now() }, inherited.approvalMode, inherited.modelSelection, undefined,
             (created) => threadStarters.set(created.threadId, (CLOUD_TEAM ? teamConnections.handOnFor(internalCapability.threadId, internalCapability.generation) : null) ?? openerFrom(fromThreadId)));
           if (!task) return json(res, 500, { error: "couldn't create that thread" });
+          if (taskScope !== undefined) store.patchTask(from.id, task.threadId, { toolScope: taskScope });
           internalCapability.openedThreads += 1;
           const chip: Omit<Message, "id" | "at"> = {
             role: "bot",
