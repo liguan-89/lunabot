@@ -1284,9 +1284,10 @@ private fun LoadedChat(
                 showingVoice = false
                 val voice = PendingMessageAttachment(
                     data = clip.data,
-                    // The computer stores the bytes under a name derived from
-                    // the MIME type; this name is what the transcript shows.
-                    name = clip.name,
+                    // The body already carries the transcript: mark the clip
+                    // in the one field the agent reads, or it spends a turn
+                    // transcribing the .wav all over again.
+                    name = if (transcript.isEmpty()) clip.name else "${clip.name}（已转写）",
                     mime = "audio/wav",
                     kind = PendingMessageAttachment.Kind.FILE,
                 )
