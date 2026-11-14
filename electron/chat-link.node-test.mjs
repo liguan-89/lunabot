@@ -12,6 +12,8 @@ test("recognizes the links Copy link and a dashboard make", () => {
   assert.equal(chatLinkFrom(BOT_LINK), BOT_LINK);
   assert.equal(chatLinkFrom(` ${BOT_LINK}\n`), BOT_LINK);
   assert.equal(chatLinkFrom("DEXBOT://Bot/abc"), "DEXBOT://Bot/abc");
+  const task = `dexbot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`;
+  assert.equal(chatLinkFrom(task), task);
 });
 
 test("leaves every other link to its own handler", () => {

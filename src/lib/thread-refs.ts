@@ -111,9 +111,11 @@ export interface ThreadRefAddress {
 
 const THREAD_URL_PREFIX = "dexbot://thread/";
 const BOT_URL_PREFIX = "dexbot://bot/";
+const TASK_URL_PREFIX = "dexbot://task";
 // Links written before the rebrand still have to open; only the new prefix is ever written.
 const LEGACY_THREAD_URL_PREFIX = "openmausbot://thread/";
 const LEGACY_BOT_URL_PREFIX = "openmausbot://bot/";
+const LEGACY_TASK_URL_PREFIX = "openmausbot://task";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_LIMIT = 256;
 
@@ -178,6 +180,31 @@ export function parseBotRefUrl(value: string): { botId: string } | null {
   if (!botId || botId.includes("/") || url.pathname.slice(1) !== encodeURIComponent(botId)) return null;
   const bot = plainId(botId);
   return bot ? { botId: bot } : null;
+}
+
+/** `dexbot://task?bot=<bot-id>&text=<text>`: a task drafted for a bot, never sent by the link itself. */
+export function parseTaskRefUrl(value: string): { botId?: string; text: string } | null {
+  const raw = value.trim();
+  const lower = raw.toLowerCase();
+  if (!lower.startsWith(TASK_URL_PREFIX) && !lower.startsWith(LEGACY_TASK_URL_PREFIX)) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return null;
+  }
+  if (url.username || url.password || url.port || url.hash) return null;
+  if (url.hostname.toLowerCase() !== "task") return null;
+  if (url.pathname && url.pathname !== "/") return null;
+  const keys = [...url.searchParams.keys()];
+  if (keys.some((key) => key !== "bot" && key !== "text")) return null;
+  const text = url.searchParams.get("text");
+  if (text === null || !text.trim() || text.length > ID_LIMIT * 8) return null;
+  const bot = url.searchParams.get("bot");
+  if (bot !== null && !bot) return null;
+  const owner = bot === null ? undefined : plainId(bot);
+  if (owner === null) return null;
+  return owner ? { botId: owner, text: text.trim() } : { text: text.trim() };
 }
 
 /** Even a link that fails strict parsing must never reach the shell as an external link. */

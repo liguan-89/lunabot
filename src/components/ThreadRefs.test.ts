@@ -27,6 +27,7 @@ vi.mock("@/state/store", async (importOriginal) => {
   }) };
 });
 vi.mock("@/lib/thread-preferences", () => ({ useShowThreads: () => fixture.showThreads }));
+import { getDraft } from "@/lib/drafts";
 import { ThreadLink, ThreadRefText, ThreadRefsProvider, collectThreadRefs, openChatLink, threadLinkFromProps, useThreadRefs } from "./ThreadRefs";
 
 type ElementProps = { children?: ReactNode; onClick?: () => void; [key: string]: unknown };
@@ -187,6 +188,37 @@ describe("openChatLink", () => {
       { type: "select", id: "standup" },
       { type: "notice", notice: { kind: "thread-gone", botName: "Standup" } },
     ]);
+  });
+
+  // drafts.ts keeps one memory bucket per store object — read through the same store the composer uses.
+  const draftStore = () => (typeof localStorage === "undefined" ? undefined : localStorage);
+
+  it("drafts a task link's text in the named bot's composer, never sending", async () => {
+    const dispatch = vi.fn();
+    expect(openChatLink(dispatch, `dexbot://task?bot=scout&text=${encodeURIComponent("订明天的高铁")}`, await state(), true)).toBe(true);
+    expect(actions(dispatch)).toEqual([
+      { type: "select", id: "scout" },
+      { type: "revealThread", threadId: "scout-main" },
+    ]);
+    expect(getDraft(draftStore(), "bot:scout:scout-main")).toBe("订明天的高铁");
+    expect(getDraft(draftStore(), "bot:ada:ada-qa")).toBe("");
+  });
+
+  it("drafts into the selected bot when the link names none, and a room by id", async () => {
+    const dispatch = vi.fn();
+    expect(openChatLink(dispatch, `dexbot://task?text=${encodeURIComponent("周报草稿")}`, await state(), true)).toBe(true);
+    expect(getDraft(draftStore(), "bot:ada:ada-qa")).toBe("周报草稿");
+    const roomDispatch = vi.fn();
+    expect(openChatLink(roomDispatch, `dexbot://task?bot=standup&text=${encodeURIComponent("明天的议程")}`, await state(), true)).toBe(true);
+    expect(actions(roomDispatch)).toEqual([{ type: "select", id: "standup" }]);
+    expect(getDraft(draftStore(), "group:standup:standup-1")).toBe("明天的议程");
+  });
+
+  it("says a task link's unknown bot is gone, and drafts nothing", async () => {
+    const dispatch = vi.fn();
+    expect(openChatLink(dispatch, "dexbot://task?bot=nobody&text=hi", await state(), true)).toBe(false);
+    expect(actions(dispatch)).toEqual([{ type: "notice", notice: { kind: "bot-gone", botName: null } }]);
+    expect(getDraft(draftStore(), "bot:nobody:")).toBe("");
   });
 
   it("says a bot it does not know is gone", async () => {

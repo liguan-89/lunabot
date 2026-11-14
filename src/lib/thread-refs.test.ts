@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  parseTaskRefUrl,
   parseThreadRefUrl,
   remarkThreadRefs,
   resolveThreadRefAddress,
@@ -114,6 +115,27 @@ describe("remarkThreadRefs", () => {
     remarkThreadRefs(threads)()(tree);
     expect(tree.children?.[0]?.children?.map((node) => node.type)).toEqual(["link", "inlineCode"]);
     expect(tree.children?.[0]?.children?.[0]?.children?.[0]).toEqual(text("#QA PR 245"));
+  });
+});
+
+describe("task links", () => {
+  it("parses bot and text, keeps legacy spelling, and rejects near-misses", () => {
+    expect(parseTaskRefUrl(`dexbot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`)).toEqual({ botId: "scout", text: "订明天的票" });
+    expect(parseTaskRefUrl(`dexbot://task?text=${encodeURIComponent("hi there")}`)).toEqual({ text: "hi there" });
+    expect(parseTaskRefUrl(`openmausbot://task?bot=scout&text=${encodeURIComponent("hi")}`)).toEqual({ botId: "scout", text: "hi" });
+    for (const miss of [
+      "dexbot://task",
+      "dexbot://task?text=",
+      "dexbot://task?bot=scout",
+      "dexbot://task?bot=&text=hi",
+      "dexbot://task/extra?text=hi",
+      "dexbot://task?text=hi&x=1",
+      "dexbot://taskforce?text=hi",
+      "dexbot://task#frag?text=hi",
+      "https://task?text=hi",
+    ]) {
+      expect(parseTaskRefUrl(miss)).toBeNull();
+    }
   });
 });
 

@@ -1,6 +1,7 @@
-// dexbot://thread/<thread-id>?bot=<bot-id> and dexbot://bot/<bot-id>. The page checks them strictly against
-// its chats; opening one never sends, interrupts or creates anything.
-const CHAT_LINK_PREFIXES = ["dexbot://thread/", "dexbot://bot/"];
+// dexbot://thread/<thread-id>?bot=<bot-id>, dexbot://bot/<bot-id> and dexbot://task?bot=<bot-id>&text=<text>.
+// The page checks them strictly against its chats; opening one never sends, interrupts or creates anything —
+// a task link only drafts the text in the bot's composer.
+const CHAT_LINK_PREFIXES = ["dexbot://thread/", "dexbot://bot/", "dexbot://task"];
 const MAX_LINK_LENGTH = 1024;
 
 export function chatLinkFrom(value) {

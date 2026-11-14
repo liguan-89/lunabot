@@ -5,7 +5,8 @@ import { botOpensTo, openBot, openThread, useStore, type Action, type AppState, 
 import { useShowThreads } from "@/lib/thread-preferences";
 import { useStoreRef } from "@/state/store-ref";
 import { t } from "@/lib/i18n";
-import { parseBotRefUrl, parseThreadRefUrl, resolveThreadRefAddress, splitThreadRefsForDisplay, type ThreadRefCandidate } from "@/lib/thread-refs";
+import { parseBotRefUrl, parseTaskRefUrl, parseThreadRefUrl, resolveThreadRefAddress, splitThreadRefsForDisplay, type ThreadRefCandidate } from "@/lib/thread-refs";
+import { appendComposerDraft } from "@/lib/drafts";
 
 export interface ThreadRefsValue {
   threads: ThreadRefCandidate[];
@@ -73,8 +74,28 @@ export function ThreadLink({ target, ambiguous, children }: { target: ThreadLink
   );
 }
 
-/** Security: a link from outside the app only navigates. */
+/** Security: a link from outside the app only navigates — a task link drafts text in the composer, never sends. */
 export function openChatLink(dispatch: (action: Action) => void, link: string, state: AppState, threadsShown: boolean): boolean {
+  const task = parseTaskRefUrl(link);
+  if (task) {
+    const bot = state.bots.find((candidate) => candidate.id === task.botId)
+      ?? (task.botId === undefined ? state.bots.find((candidate) => candidate.id === state.selectedId) : undefined);
+    const room = bot ? undefined : state.groups.find((group) => group.id === task.botId && !group.dm);
+    if (!bot && !room) {
+      showLinkNotice(dispatch, state, { kind: "bot-gone", botName: null });
+      return false;
+    }
+    if (bot) {
+      openBot(dispatch, bot, threadsShown);
+      const threadId = botOpensTo(bot, threadsShown);
+      if (threadId) dispatch({ type: "revealThread", threadId });
+      appendComposerDraft(`bot:${bot.id}:${bot.threadId ?? ""}`, task.text);
+    } else if (room) {
+      dispatch({ type: "select", id: room.id });
+      appendComposerDraft(`group:${room.id}:${room.threadId}`, task.text);
+    }
+    return true;
+  }
   const openOwner = (id: string) => {
     const bot = state.bots.find((candidate) => candidate.id === id);
     if (bot) {
