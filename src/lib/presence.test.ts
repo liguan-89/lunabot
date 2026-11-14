@@ -59,3 +59,41 @@ describe("apiWithPresence", () => {
     expect(apiMock).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("registerPresence", () => {
+  beforeEach(() => {
+    apiMock.mockReset();
+    delete (globalThis as { navigator?: unknown }).navigator;
+  });
+
+  it("creates a credential on the server's options and posts the attestation back", async () => {
+    apiMock.mockResolvedValueOnce({ options: {
+      challenge: "Y2hhbGxlbmdl",
+      rp: { name: "DEX BOT" },
+      user: { id: "dXNlcg", name: "owner", displayName: "owner" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+      excludeCredentials: [{ type: "public-key", id: "b2xk" }],
+    } });
+    apiMock.mockResolvedValueOnce({ enrolled: 2 });
+    const attestationObject = new Uint8Array([9, 8]).buffer;
+    const clientDataJSON = new Uint8Array([7, 6]).buffer;
+    const create = vi.fn().mockResolvedValue({ rawId: new Uint8Array([1]).buffer, response: { attestationObject, clientDataJSON } });
+    Object.defineProperty(globalThis, "navigator", { value: { credentials: { create } }, configurable: true });
+    const { registerPresence } = await import("./presence");
+    expect(await registerPresence()).toEqual({ enrolled: 2 });
+    const request = create.mock.calls[0][0].publicKey as PublicKeyCredentialCreationOptions;
+    expect(request.authenticatorSelection?.authenticatorAttachment).toBe("platform");
+    expect(Array.from(new Uint8Array(request.user.id as ArrayBuffer))).toEqual([117, 115, 101, 114]);
+    expect(request.excludeCredentials).toHaveLength(1);
+    const posted = JSON.parse(apiMock.mock.calls[1][1]?.body as string);
+    expect(posted).toEqual({ challenge: "Y2hhbGxlbmdl", attestationObject: "CQg", clientDataJSON: "BwY" });
+  });
+
+  it("surfaces a cancelled enrollment", async () => {
+    apiMock.mockResolvedValueOnce({ options: { challenge: "Y2g", rp: { name: "x" }, user: { id: "aWQ" }, pubKeyCredParams: [] } });
+    Object.defineProperty(globalThis, "navigator", { value: { credentials: { create: vi.fn().mockRejectedValue(new DOMException("cancelled", "NotAllowedError")) } }, configurable: true });
+    const { registerPresence } = await import("./presence");
+    await expect(registerPresence()).rejects.toThrow("cancelled");
+    expect(apiMock).toHaveBeenCalledTimes(1);
+  });
+});

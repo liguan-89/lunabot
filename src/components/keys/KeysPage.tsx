@@ -12,6 +12,7 @@ import { KEY_CATALOG, KEY_SECTIONS, keyMatches, savedState, type KeyEntry, type 
 import { finishKeyFocus, useKeyFocus, type KeyFocusRequest } from "./key-focus";
 import { OpenAiCompatUrl, VpsConnection } from "./KeyPanels";
 import { KEY_ROW, KeyRow, MaskedKey, RowHeading, type KeyStatus } from "./KeyRow";
+import { PresenceCard } from "./PresenceCard";
 
 const CARD = "rounded-xl bg-card in-data-[settings-look=simple]:rounded-[12px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu";
 const HIGHLIGHT_MS = 1600;
@@ -119,7 +120,7 @@ function landOn(page: HTMLElement | null, request: KeyFocusRequest, section: Key
 }
 
 export function KeysPage() {
-  const { state } = useStore();
+  const { state, dispatch } = useStore();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<ReadonlySet<KeySectionId>>(() => new Set(
     KEY_SECTIONS.filter((section) => section.id === "ai" || KEY_CATALOG.some((entry) => entry.section === section.id && connected(entry, state.config)))
@@ -191,6 +192,12 @@ export function KeysPage() {
           })}
         />
       ))}
+      <PresenceCard
+        webauthn={state.config?.webauthn}
+        onEnrolled={(enrolled) => {
+          if (state.config) dispatch({ type: "configStatus", config: { ...state.config, webauthn: { required: state.config.webauthn?.required ?? false, enrolled } } });
+        }}
+      />
     </div>
   );
 }

@@ -10166,5 +10166,11 @@
   "botPanel.tracked.done": "{count} done",
   "widget.withdrawn": "Withdrawn",
   "routines.heldFor.person_away": "Paused while you were away. It turned back on when you returned.",
-  "server.routines.held.personAway": "Your routines paused themselves while you were away — they're turning back on now that you're back."
+  "server.routines.held.personAway": "Your routines paused themselves while you were away — they're turning back on now that you're back.",
+  "keys.presence.title": "Presence confirmation",
+  "keys.presence.hint": "Let this device answer high-risk approvals with a fingerprint or face.",
+  "keys.presence.hintRequired": "High-risk approvals require a fingerprint or face confirmation on this device.",
+  "keys.presence.enrolled": "{count} enrolled",
+  "keys.presence.register": "Register this device",
+  "keys.presence.registerAnother": "Register another"
 }
