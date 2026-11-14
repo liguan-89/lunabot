@@ -98,6 +98,9 @@ Grok/Copilot 等驱动已删除。
    2026-11-14 复测三次：deep 两次（`scan-job-mwfd551z-…`，attempt 1/2 在 audit 冻结
    26/10 分钟）+ normal 一次（`scan-job-mwfen16k-…`，audit 冻结 65+ 分钟）——
    停滞与深度无关，可复现，属扫描器侧问题，与本仓库改动无关。
+   2026-11-14 下午在 phone-relay 挂起用例修复后、项目树稳定时再测两次
+   （`scan-job-mwfvb1k0-…`，attempt 1/2 在 audit 冻结 85/60 分钟后取消）：排除了
+   「挂起测试拖住 audit」的假设，结论不变，仍属扫描器侧。
    因此**不能声称项目安全**；合并前需要在扫描器修复后重跑完整审计。
 4. ~~**pi 下自动恢复不可达**~~（已修）：pi adapter 现在把"prompt 帧发出之前"
    的失败（子进程死亡、set_model 失败、prompt 帧写出失败）分类为
