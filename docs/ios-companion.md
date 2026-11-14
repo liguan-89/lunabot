@@ -415,6 +415,12 @@ The phone registers the apps it allows with `PUT /api/phones/self`. Behind the s
 
 Bots see these apps as `PHONE_*` tools through the `device` MCP kind. Reads run silently and writes show up as activity rows. A send opens a sheet on the phone and goes only when the person taps Send there; OpenMausBot adds no card of its own. A turn that came from the phone does phone things on the phone; a turn at the computer works the usual way and changes the phone only when the person names it. Only the owner's phone is reachable, so team Clouds never expose it. The contract fixture `server/testing/fixtures/phone-jobs.json` is what the phone apps copy into their own test fixtures.
 
+## SMS relay
+
+With Messages allowed in its registration, a phone may also push the texts it receives: `POST /api/phones/self/events` with `{ "kind": "sms", "sendId": "<unique per message>", "from": "<sender number>", "text": "<body>" }`. The server answers 202; an unregistered phone gets 404 and one without Messages gets 403. `sendId` dedupes retries, so resending the same event is safe. Each (phone, sender) pair maps to one task thread, answered by the bot picked under Settings → Message channels → SMS via phone.
+
+Replies come back on the same job poll as `PHONE_REPLY_SMS` with `arguments.to` and `arguments.text`. Unlike `PHONE_SEND_MESSAGE` the phone sends it itself — no sheet, no tap — because the destination is only ever the number that wrote in. A phone that does not relay SMS answers the job `{ ok: false, code: "unsupported" }`; the reply is then dropped with a server warning.
+
 ## A bot's MCP servers
 
 The bot panel's Apps page reads `GET /api/bots/:id/mcp-servers`. It answers `{ servers: [{ name, enabled, on, offFor? }] }`
