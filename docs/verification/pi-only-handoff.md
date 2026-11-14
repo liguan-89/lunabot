@@ -123,6 +123,12 @@ Grok/Copilot 等驱动已删除。
    模型上重放；单测与 e2e 均覆盖。
 4. 若要恢复 plan 限额/登录状态，需要 pi 或自定义 provider 暴露对应读数；目前没有。
 5. 剩余旧 e2e 按需分批迁移（每批 5 个、并行子代理）；不必一次性清完。
+   进度（2026-11-14）：legacy 清单实测 190 个（文档原记 233，期间已消化）。
+   第一批 5 个已收编进 `test:e2e:pi`（现 121 个）：digest、digest-control、
+   recent-work、native-replay、phone-relay——它们在 pi-only 构建上原样通过
+   （其中 phone-relay 需先修 §5.1 的停顿流与 rebrand 遗留）。纯 fixture 桶
+   其余 14 个判定为真迁移（依赖 Claude Code 技能目录、engine family 默认值、
+   审批级别等已删能力）。
 
 ## 7. 交接注意
 
