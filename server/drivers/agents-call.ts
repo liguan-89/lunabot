@@ -547,6 +547,40 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
       text: `${opened}${timing}${approval} Its result will be delivered to this conversation automatically (assignment id: ${assignmentId || "unknown"}). Acknowledge it, mention it to the person as #${threadTitle}, and finish your turn; do not check or wait for it in this turn.`,
     };
   }
+  if (name === "delegate_coding") {
+    const repo = String(args.repo ?? "").trim();
+    const instruction = String(args.instruction ?? "").trim();
+    if (!repo || !instruction) return { text: "delegate_coding needs repo (absolute path of a git repository) and instruction (the complete brief).", isError: true };
+    const body: Record<string, unknown> = { repo, instruction };
+    const title = typeof args.title === "string" ? args.title.trim() : "";
+    if (title) body.title = title.slice(0, 80);
+    const prep = await api("/api/internal/coding-jobs", { method: "POST", body: JSON.stringify(body) });
+    if (prep.error) return { text: `Couldn't prepare the coding job: ${String(prep.error)}`, isError: true };
+    const opened = await api("/api/internal/threads", {
+      method: "POST",
+      body: JSON.stringify({ fromBotId: BOT_ID, fromThreadId: THREAD_ID, depth: DEPTH, reportBack: true, title: title || `coding ${String(prep.jobId ?? "")}`, message: String(prep.brief ?? instruction) }),
+    });
+    if (opened.error && opened.state !== "failed") {
+      return { text: `The worktree is ready at ${String(prep.worktree ?? "")} on ${String(prep.branch ?? "")} but the job could not open: ${String(opened.error)}. Tell the person; retrying delegate_coding makes a fresh job.`, isError: true };
+    }
+    if (typeof opened.threadId === "string" && opened.threadId) {
+      await api(`/api/internal/coding-jobs/${encodeURIComponent(String(prep.jobId ?? ""))}`, { method: "PATCH", body: JSON.stringify({ threadId: opened.threadId }) });
+    }
+    return { text: `Delegated coding job ${String(prep.jobId ?? "")} on branch ${String(prep.branch ?? "")} in worktree ${String(prep.worktree ?? "")} [thread id: ${String(opened.threadId ?? "unknown")}]. Its result returns here and resumes you — mention the job and finish your turn; do not check or wait for it in this turn. Later turns read it back with coding_job_status.` };
+  }
+  if (name === "coding_job_status") {
+    const id = typeof args.id === "string" ? args.id.trim() : "";
+    const r = await api("/api/internal/coding-jobs");
+    if (r.error) return { text: `Couldn't read coding jobs: ${String(r.error)}`, isError: true };
+    const jobs = Array.isArray(r.jobs) ? r.jobs : [];
+    const rows = id ? jobs.filter((job) => jsonRecord(job) && job.id === id) : jobs;
+    if (id && rows.length === 0) return { text: `No coding job ${id} is known here — check the id against a delegate_coding receipt.`, isError: true };
+    return { text: JSON.stringify({ jobs: rows.map((job) => {
+      const j = job as Record<string, unknown>;
+      const harvest = jsonRecord(j.harvest) ?? {};
+      return { id: j.id, title: j.title, repo: j.repo, worktree: j.worktree, branch: j.branch, threadId: j.threadId, createdAt: j.createdAt, commits: harvest.commits ?? [], diffStat: harvest.diffStat ?? "", dirty: harvest.dirty ?? [], error: harvest.error };
+    }) }) };
+  }
   if (name === "list_models") {
     const search = typeof args.search === "string" ? args.search.trim() : "";
     const r = await api(`/api/internal/models${search ? `?search=${encodeURIComponent(search)}` : ""}`);

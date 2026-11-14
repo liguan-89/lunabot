@@ -596,7 +596,7 @@ import { createUpdateCheckRoutes, serverUpdateChecker } from "./routes/update-ch
 import { createBrowserSiteRoutes } from "./routes/browser-sites.ts";
 import { createInternalSignInRoutes } from "./routes/sign-in.ts";
 import { createInternalMcpRoutes } from "./routes/internal-mcp.ts";
-import { createInternalThreadRoutes } from "./routes/internal-threads.ts"; import { createInternalTrackedTaskRoutes } from "./routes/internal-tracked-tasks.ts"; import { createInternalProactivityRoutes } from "./routes/internal-proactivity.ts"; import { createInternalMacAppRoutes } from "./routes/internal-mac-app.ts"; import { createGrantRoutes, createInternalGrantRoutes } from "./routes/grants.ts"; import { activeGrants, createGrantHost, grantCovering } from "./permission-grants.ts";
+import { createInternalThreadRoutes } from "./routes/internal-threads.ts"; import { createInternalTrackedTaskRoutes } from "./routes/internal-tracked-tasks.ts"; import { createInternalProactivityRoutes } from "./routes/internal-proactivity.ts"; import { createInternalMacAppRoutes } from "./routes/internal-mac-app.ts"; import { createInternalCodingJobRoutes } from "./routes/internal-coding-jobs.ts"; import { createCodingJobs } from "./coding-jobs.ts"; import { createGrantRoutes, createInternalGrantRoutes } from "./routes/grants.ts"; import { activeGrants, createGrantHost, grantCovering } from "./permission-grants.ts";
 import { createBrowserEvidenceRoutes } from "./routes/browser-evidence.ts";
 import { createSignInCardRoutes } from "./routes/sign-in-cards.ts";
 import { createInternalChiefTeamRoutes } from "./routes/internal-chief-team.ts"; import { createInternalModelRoutes } from "./routes/internal-models.ts"; import { createOwnThreads } from "./host/own-threads.ts";
@@ -9420,6 +9420,7 @@ const teamMemoryRequests = createTeamMemoryRequests({ teamMemory, store, section
 const outsideWrites = createOutsideWrites({ store, notify, language: (threadId) => threadLanguage(threadId), decide: (row) => appendDecision(DATA_DIR, row),
   writeMemory: (botId, threadId, change) => { const written = botMemoryUpdate(teamHost.layer(botId, threadId), change, { source: memorySourceLabel({ room: store.groupByThread(threadId), task: store.taskByThread(teamHost.baseBotId(botId), threadId), threadId }), aboutMe: null, prefer: null }); return written.ok ? null : written.error; } });
 const outboundRequests = new OutboundRequestService();
+const codingJobs = createCodingJobs(join(DATA_DIR, "coding-jobs.json"));
 const grantHost = createGrantHost({
   store,
   cfg: () => cfg,
@@ -13458,6 +13459,11 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }), createInternalMacAppRoutes({
         store, from: internalSender, fromThreadId: internalCapability.threadId,
         ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
+      }), createInternalCodingJobRoutes({
+        from: internalSender, fromThreadId: internalCapability.threadId,
+        ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
+        jobs: codingJobs, dataDir: DATA_DIR,
+        parentTitle: (threadId) => store.taskByThread(internalSender.id, threadId)?.title ?? "",
       }), createToolTimingRoute(usageTrace, internalCapability.threadId)], { req, res, url, path, method, auth, json, readBody })) return;
       if (method === "POST" && path === "/api/internal/attach-file") {
         const from = internalSender;
