@@ -1085,9 +1085,12 @@ export class Store {
     return null;
   }
 
-  appendMessage(threadId: string, message: Omit<Message, "id" | "at"> & { at?: number }, command?: Command): Message {
+  /** `widgetPress`: the line a button press writes — it is the widget's answer, not a typed reply, so it never
+   * withdraws open widgets. Internal to the write call; not stored on the row. */
+  appendMessage(threadId: string, message: Omit<Message, "id" | "at"> & { at?: number; widgetPress?: boolean }, command?: Command): Message {
     const t = this.thread(threadId);
-    const full: Message = { id: newId(), at: Date.now(), parentId: t.activeLeafId, ...redactBotAuthored(message) };
+    const { widgetPress, ...rest } = message;
+    const full: Message = { id: newId(), at: Date.now(), parentId: t.activeLeafId, ...redactBotAuthored(rest) };
     const persist = () => { mdb.appendMessage(threadId, full); return full; };
     const committed = command ? runCommand(command, persist) : persist();
     if (committed.id !== full.id) return committed;
@@ -1103,11 +1106,14 @@ export class Store {
     this.emit({ type: "message", threadId, message: full });
     if (full.role === "user" && full.kind === "text") {
       this.dismissOnboardingCard(threadId);
-      // A typed reply answers whatever widget was still open: show_widget's contract says typing is the answer.
+      // A typed reply answers whatever widget was still open: show_widget's contract says typing is the answer. A line
+      // written by a press is that widget's answer, not a typed reply — and its own settle writes the fold.
       // Server-built cards (serverCard) keep their own lifecycle.
-      const withdrawn = { at: full.at };
-      for (const live of t.messages.filter((m) => m.id !== full.id && m.kind === "widget" && m.widget && !m.widget.settled && !m.widget.withdrawn && !m.serverCard)) {
-        this.patchMessage(threadId, live.id, { widget: { ...live.widget!, withdrawn } });
+      if (!widgetPress) {
+        const withdrawn = { at: full.at };
+        for (const live of t.messages.filter((m) => m.id !== full.id && m.kind === "widget" && m.widget && !m.widget.settled && !m.widget.withdrawn && !m.serverCard)) {
+          this.patchMessage(threadId, live.id, { widget: { ...live.widget!, withdrawn } });
+        }
       }
     }
     return full;

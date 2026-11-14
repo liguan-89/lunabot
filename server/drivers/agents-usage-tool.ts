@@ -11,6 +11,6 @@ export async function callUsageLimitsTool(context: ToolCallContext): Promise<Too
 
 export const USAGE_LIMITS_TOOL_DEFINITION = {
   name: USAGE_LIMITS_TOOL,
-  description: "Each AI account's usage limits: percent used, reset time, when checked. status: ok, unknown (no data now; see why) or unsupported. `you` says what the quota went on: your turns and tokens across your threads so far, and your routines' runs over the last 7 days, biggest first.",
+  description: "Each AI account's usage limits: percent used, reset time, when checked. status: ok, unknown (no data now; see why) or unsupported. `you` says what the quota went on: your turns and tokens across your threads so far, and your automations' runs over the last 7 days, biggest first.",
   inputSchema: { type: "object", additionalProperties: false, properties: {} },
 };

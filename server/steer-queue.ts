@@ -39,6 +39,8 @@ interface QueueEntry {
     fromApp?: Message["fromApp"];
     reaction?: string;
     relay?: Message["relay"];
+    /** A press's answer: on drain its row is appended without withdrawing the widget it answers. */
+    widgetPress?: boolean;
     /** The person's row already in the transcript, steered into a turn that was stopped before it read it: it runs as
      * it is, never as a second copy. */
     rowId?: string;
@@ -109,7 +111,7 @@ export function queueSteeredMessage(
   botId: string,
   threadId: string,
   text: string,
-  options: { prompt?: string; replyToId?: string; sendId?: string; dataContext?: Message["dataContext"]; reason?: SteerQueueReason; unattended?: boolean; peerAsk?: Message["peerAsk"]; origin?: WorkOrigin; sender?: ResolvedSender; trigger?: UsageTrigger; callId?: string; via?: "call"; reaction?: string; fromApp?: Message["fromApp"]; relay?: Message["relay"]; rowId?: string; first?: boolean; queuedAt?: number; mentions?: string[]; aheadOfOthers?: string } = {},
+  options: { prompt?: string; replyToId?: string; sendId?: string; dataContext?: Message["dataContext"]; reason?: SteerQueueReason; unattended?: boolean; peerAsk?: Message["peerAsk"]; origin?: WorkOrigin; sender?: ResolvedSender; trigger?: UsageTrigger; callId?: string; via?: "call"; reaction?: string; fromApp?: Message["fromApp"]; relay?: Message["relay"]; widgetPress?: boolean; rowId?: string; first?: boolean; queuedAt?: number; mentions?: string[]; aheadOfOthers?: string } = {},
 ): QueuedSteer {
   const id = newId();
   const entry = queues.get(threadId) ?? { botId, items: [] };
@@ -132,6 +134,7 @@ export function queueSteeredMessage(
     ...(options.fromApp ? { fromApp: options.fromApp } : {}),
     ...(options.reaction ? { reaction: options.reaction } : {}),
     ...(options.relay ? { relay: options.relay } : {}),
+    ...(options.widgetPress ? { widgetPress: true } : {}),
     ...(options.rowId ? { rowId: options.rowId } : {}),
     ...(options.mentions?.length ? { mentions: options.mentions } : {}),
   };
@@ -226,6 +229,7 @@ export function drainSteeredMessages(
           ...(item.fromApp ? { fromApp: item.fromApp } : {}),
           ...(item.relay ? { relay: item.relay } : {}),
           ...(item.reaction ? { reaction: item.reaction } : {}),
+          ...(item.widgetPress ? { widgetPress: true } : {}),
         }),
       );
     }

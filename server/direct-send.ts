@@ -2,6 +2,7 @@
 import type { FollowUp } from "../shared/follow-up.ts";
 import type { ResolvedSender, SteerQueueReason } from "../shared/wire.ts";
 import type { DataContext } from "./data-context.ts";
+import type { ReplyTarget } from "./replies.ts";
 import type { Message } from "./store.ts";
 import type { UsageTrigger } from "./usage-ledger.ts";
 
@@ -10,7 +11,7 @@ export interface DirectSendInput {
   threadId: string;
   text: string;
   sendId?: string;
-  replyTo?: Message;
+  replyTo?: ReplyTarget;
   sender?: ResolvedSender;
   trigger: UsageTrigger;
   via?: "call";
