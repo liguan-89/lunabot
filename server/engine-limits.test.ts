@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { memberAudience, roomAudience, TEAM_AUDIENCE } from "./audience.ts";
 import type { InstanceConfigMap, ProviderSnapshot } from "./contracts.ts";
 import { audienceHome } from "./engine-homes/layout.ts";
-import { accountReadableFrom, engineLimitsFor, type EngineLimitInstance } from "./engine-limits.ts";
+import { accountReadableFrom, engineLimitsFor, workAttribution, type EngineLimitInstance } from "./engine-limits.ts";
 import type { PlanProviderRow, PlanUsageReport } from "./plan-usage.ts";
 import { createEngineLimitsRoutes, ENGINE_LIMITS_GUEST } from "./routes/engine-limits.ts";
 import { PASS } from "./routes/table.ts";
@@ -160,9 +160,51 @@ describe("the internal route", () => {
     expect(JSON.parse(body!.text!).accounts[0]).toMatchObject({ status: "unknown", checkedAt: null });
   });
 
+  it("adds what the calling bot spent it on, when the thread has one", async () => {
+    const work = vi.fn(() => ({ threads: { turns: 4, input: 100, output: 50, costUsd: 0.02 }, routines: [{ name: "晨报", runs: 3, costUsd: 0.11 }] }));
+    const { run } = route({ work });
+    const { status, body } = await call(run);
+    expect(status).toBe(200);
+    expect(work).toHaveBeenCalledWith("t");
+    expect(JSON.parse(body!.text!).you.routines[0]).toMatchObject({ name: "晨报", runs: 3 });
+  });
+
+  it("omits the section when the thread has no bot", async () => {
+    const { run } = route({ work: () => null });
+    const { body } = await call(run);
+    expect(JSON.parse(body!.text!)).not.toHaveProperty("you");
+  });
+
   it("leaves other paths and methods alone", async () => {
     const { run } = route();
     expect((await call(run, "POST")).passed).toBe(PASS);
     expect((await call(run, "GET", "/api/internal/other")).passed).toBe(PASS);
+  });
+});
+
+describe("work attribution", () => {
+  it("totals threads and groups runs by routine, biggest spenders first", () => {
+    const out = workAttribution({
+      tasks: [
+        { usage: { turns: 2, input: 100, output: 40, costUsd: 0.01 } },
+        { usage: { turns: 1, input: 50, output: 20, costUsd: null } },
+        {},
+      ],
+      runs: [
+        { routineName: "晨报", cost: 0.1 },
+        { routineName: "晨报", cost: null },
+        { routineName: "巡检", cost: 0.4 },
+        { routineName: "简报" },
+      ],
+    });
+    expect(out.threads).toEqual({ turns: 3, input: 150, output: 60, costUsd: 0.01 });
+    expect(out.routines.map((r) => r.name)).toEqual(["巡检", "晨报", "简报"]);
+    expect(out.routines[0]).toMatchObject({ runs: 1, costUsd: 0.4 });
+    expect(out.routines[1]).toMatchObject({ runs: 2, costUsd: 0.1 });
+    expect(out.routines[2]).toMatchObject({ runs: 1, costUsd: null });
+  });
+
+  it("reports null cost when nothing was metered", () => {
+    expect(workAttribution({ tasks: [], runs: [] }).threads.costUsd).toBeNull();
   });
 });

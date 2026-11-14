@@ -4,7 +4,7 @@ import type { ServerResponse } from "node:http";
 
 import type { Audience } from "../audience.ts";
 import type { InstanceConfigMap, ProviderSnapshot } from "../contracts.ts";
-import { engineLimitsFor, type EngineLimitInstance } from "../engine-limits.ts";
+import { engineLimitsFor, type EngineLimitInstance, type WorkAttribution } from "../engine-limits.ts";
 import type { json as sendJson } from "../harness/http.ts";
 import type { PlanAccount, PlanUsageReport } from "../plan-usage.ts";
 import { planAccountsFromInstances } from "../plan-usage.ts";
@@ -23,6 +23,8 @@ export interface EngineLimitsDeps {
   audienceOf(threadId: string): Audience;
   guestDriven(threadId: string): boolean;
   dataDir: string;
+  /** What the calling bot's own threads and routines spent; null when the thread has no bot. */
+  work?(threadId: string): WorkAttribution | null;
 }
 
 export interface EngineLimitsContext {
@@ -40,6 +42,7 @@ export function createEngineLimitsRoutes(deps: EngineLimitsDeps) {
     const configs = deps.configs();
     const report = await deps.load(planAccountsFromInstances(configs)).catch(() => null);
     const accounts = engineLimitsFor({ instances: deps.instances(), configs, status: deps.status, report, turn: deps.audienceOf(ctx.threadId), dataDir: deps.dataDir });
-    return void ctx.json(ctx.res, 200, { text: JSON.stringify({ accounts }) });
+    const you = deps.work?.(ctx.threadId) ?? undefined;
+    return void ctx.json(ctx.res, 200, { text: JSON.stringify({ accounts, ...(you ? { you } : {}) }) });
   };
 }

@@ -115,3 +115,35 @@ export function engineLimitsFor(input: {
       : { ...base, ...plan, status: "unknown", checkedAt: report.fetchedAt, windows: [], why: NO_WINDOWS_WHY }];
   });
 }
+
+export interface WorkAttribution {
+  /** Every settled turn across this bot's threads so far. */
+  threads: { turns: number; input: number; output: number; costUsd: number | null };
+  /** Its routines' runs inside the reporting window, biggest spenders first. */
+  routines: Array<{ name: string; runs: number; costUsd: number | null }>;
+}
+
+export function workAttribution(input: {
+  tasks: ReadonlyArray<{ usage?: { turns: number; input: number; output: number; costUsd: number | null } }>;
+  runs: ReadonlyArray<{ routineName: string; cost?: number | null }>;
+}): WorkAttribution {
+  let turns = 0, tokensIn = 0, tokensOut = 0, cost = 0, anyCost = false;
+  for (const task of input.tasks) {
+    const usage = task.usage;
+    if (!usage) continue;
+    turns += usage.turns; tokensIn += usage.input; tokensOut += usage.output;
+    if (typeof usage.costUsd === "number") { cost += usage.costUsd; anyCost = true; }
+  }
+  const byName = new Map<string, { runs: number; costUsd: number | null }>();
+  for (const run of input.runs) {
+    const row = byName.get(run.routineName) ?? { runs: 0, costUsd: null };
+    row.runs += 1;
+    if (typeof run.cost === "number") row.costUsd = (row.costUsd ?? 0) + run.cost;
+    byName.set(run.routineName, row);
+  }
+  const routines = [...byName.entries()]
+    .map(([name, row]) => ({ name, ...row }))
+    .sort((a, b) => (b.costUsd ?? 0) - (a.costUsd ?? 0) || b.runs - a.runs)
+    .slice(0, 10);
+  return { threads: { turns, input: tokensIn, output: tokensOut, costUsd: anyCost ? cost : null }, routines };
+}
