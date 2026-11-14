@@ -2619,10 +2619,17 @@ class Session(
     } ?: false
 
     /** Push one inbound SMS for the channels relay; false when the computer could not be told. */
-    suspend fun postPhoneEvent(event: PhoneSmsEvent): Boolean = guardPhone {
-        client?.postPhoneEvent(event)
-        true
-    } ?: false
+    suspend fun postPhoneEvent(event: PhoneSmsEvent): Boolean {
+        val active = client ?: return false
+        return try {
+            active.postPhoneEvent(event)
+            true
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            com.openmausbot.companion.core.e2e.E2eLog.line("sms post failed: ${error.message}")
+            false
+        }
+    }
 
     private suspend fun <T> guardPhone(block: suspend () -> T?): T? = try {
         block()

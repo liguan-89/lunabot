@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.provider.Telephony
 import android.telephony.SmsMessage
+import android.util.Log
 import com.openmausbot.companion.OpenMausApp
 import com.openmausbot.companion.core.PhoneSmsEvent
 import com.openmausbot.companion.core.Session
@@ -30,7 +31,10 @@ class SmsRelayReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action != Telephony.Sms.Intents.SMS_RECEIVED_ACTION) return
-        if (!ChatPreferences(context).phoneMessages.value) return
+        if (!ChatPreferences(context).phoneMessages.value) {
+            Log.i(TAG, "sms arrived while messages switch off; ignored")
+            return
+        }
         val parts = Telephony.Sms.Intents.getMessagesFromIntent(intent) ?: return
         val app = context.applicationContext as? OpenMausApp ?: return
         val pending = goAsync()
@@ -41,7 +45,8 @@ class SmsRelayReceiver : BroadcastReceiver() {
                     val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                         app.session.status.first { it is Session.Status.Live }
                     } ?: break
-                    app.session.postPhoneEvent(event)
+                    Log.i(TAG, "posting sms event from=${event.from} parts=${parts.size}")
+                    Log.i(TAG, "post result=${app.session.postPhoneEvent(event)}")
                 }
             } finally {
                 pending.finish()
@@ -50,6 +55,7 @@ class SmsRelayReceiver : BroadcastReceiver() {
     }
 
     private companion object {
+        const val TAG = "SmsRelay"
         const val CONNECT_TIMEOUT_MS = 10_000L
     }
 }
