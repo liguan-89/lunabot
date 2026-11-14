@@ -8035,10 +8035,13 @@ async function beginTurn(
         if (!readiness.ready) throw new Error(readiness.reason ?? "The cloud computer is not ready");
       }
       await warmSummaries.beforeTurn(threadId, () => directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId));
-      if (usesNativeImageInput && !opts?.compactOnly) turnImages.push(...await videoFramesWithin(turnImages.length, resolvedImages.videos));
+      // Frame extraction is independent of the context rebuild: let ffmpeg overlap compaction.
+      const videoFramesReady = usesNativeImageInput && !opts?.compactOnly ? videoFramesWithin(turnImages.length, resolvedImages.videos) : Promise.resolve([]);
+      videoFramesReady.catch(() => {});
       await compactConversation({ bot, threadId, generation: dispatchClaimId, instance, model,
         excludedIds: new Set([userMessage.id, ...(opts?.excludeMessageIds ?? [])]), manual: opts?.compactOnly === true });
       if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) throw new DirectTurnSetupCancelled("turn stopped during context setup");
+      turnImages.push(...await videoFramesReady);
       if (opts?.compactOnly) {
         clearDirectTurnDispatch(threadId, dispatchClaimId);
         revokeInternalCapabilityGeneration(threadId, dispatchClaimId);
@@ -8188,6 +8191,12 @@ async function beginTurn(
           : null;
       const cwd = pinnedCwd ?? undefined;
       const checkpointCwd = cwd && cwd !== privateWorkspace ? cwd : undefined;
+      // Only the folder decides the snapshot: git work here overlaps the computer/browser
+      // mounting below, and it still settles before dispatch as before.
+      const checkpointReady = checkpointCwd
+        ? checkpoints.snapshot(bot.id, checkpointCwd, `turn ${threadId.slice(0, 8)}`, undefined, { pin: dispatchClaimId })
+        : Promise.resolve(undefined);
+      checkpointReady.catch(() => {});
       const dwebUrl = process.env.DWEB_URL?.trim();
       if (dwebUrl) integrations.dweb = { url: dwebUrl };
       let teamComputer = computerSkipped || proactive.fence.confines(threadId) || botApiThread(threadId) ? undefined : inheritedTeamComputer(bot);
@@ -8538,7 +8547,7 @@ async function beginTurn(
 
       // Wait for the snapshot right before dispatch: the engine must not edit the project until it settles.
       if (checkpointCwd) {
-        const before = await checkpoints.snapshot(bot.id, checkpointCwd, `turn ${threadId.slice(0, 8)}`, undefined, { pin: dispatchClaimId });
+        const before = await checkpointReady;
         if (!directTurnClaimIsCurrent(bot.id, dispatchClaimId, threadId)) {
           if (before) void checkpoints.release(bot.id, checkpointCwd, dispatchClaimId);
           throw new DirectTurnSetupCancelled("turn stopped during checkpoint");
