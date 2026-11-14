@@ -31,6 +31,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,6 +62,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.openmausbot.companion.R
+import com.openmausbot.companion.dictation.SpeechDictation
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -88,11 +90,23 @@ private const val VOICE_METER_BARS = 28
 @Composable
 fun VoiceMessageSheet(
     onDismiss: () -> Unit,
-    onSend: (VoiceClip) -> Unit,
+    onSend: (clip: VoiceClip, transcript: String) -> Unit,
 ) {
     val environment = LocalCompanion.current
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
+    // A recognizer alongside the recorder: the transcript rides the audio
+    // attachment, so a bot reads words instead of guessing at an m4a. Its own
+    // instance — the composer's dictation holder owns the composer text.
+    val transcriber = remember {
+        SpeechDictation(
+            context = context,
+            hasRecordAudio = { environment.permissions.recordAudioGranted() },
+            requestRecordAudio = { onResult -> environment.mic.ensure(onResult) },
+            preferredLanguages = { emptyList() },
+        )
+    }
+    val heard by transcriber.transcript.collectAsState()
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
@@ -118,6 +132,9 @@ fun VoiceMessageSheet(
             hint = "无法开始录音，请重试。"
             return
         }
+        // Best effort: on devices that refuse two mic clients the recognizer
+        // errors out and the clip still sends on its own.
+        transcriber.toggle("")
         recording = true
         cancelling = false
         elapsed = 0L
@@ -132,28 +149,35 @@ fun VoiceMessageSheet(
         val duration = recorder.elapsedMs()
         if (cancel || duration < VOICE_MIN_MS) {
             recorder.cancel()
+            transcriber.stop()
             hint = if (cancel) "已取消" else "说话时间太短"
             return
         }
         scope.launch {
             val clip = recorder.stop()
+            val transcript = heard.trim()
+            transcriber.stop()
             if (clip == null) {
                 hint = "没有录到声音，请重试。"
             } else {
-                onSend(clip)
+                onSend(clip, transcript)
             }
         }
     }
 
     // Leaving the screen (or the app) never keeps the microphone open.
     DisposableEffect(Unit) {
-        onDispose { recorder.release() }
+        onDispose {
+            recorder.release()
+            transcriber.stop()
+        }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 recorder.cancel()
+                transcriber.stop()
                 recording = false
                 cancelling = false
             }
@@ -178,6 +202,7 @@ fun VoiceMessageSheet(
     fun dismiss() {
         if (recording) {
             recorder.cancel()
+            transcriber.stop()
             recording = false
         }
         onDismiss()
@@ -254,6 +279,15 @@ fun VoiceMessageSheet(
                     levels = levels,
                     color = if (cancelling) MinisTokens.Danger else minisAccent,
                 )
+
+                if (recording && heard.isNotEmpty()) {
+                    Text(
+                        text = heard,
+                        fontSize = 15.sp,
+                        color = minisInk,
+                        maxLines = 2,
+                    )
+                }
 
                 Text(
                     text = when {

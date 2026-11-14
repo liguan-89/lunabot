@@ -1280,7 +1280,7 @@ private fun LoadedChat(
     if (showingVoice) {
         VoiceMessageSheet(
             onDismiss = { showingVoice = false },
-            onSend = { clip ->
+            onSend = { clip, transcript ->
                 showingVoice = false
                 val voice = PendingMessageAttachment(
                     data = clip.data,
@@ -1294,7 +1294,7 @@ private fun LoadedChat(
                     sendingMessage = true
                     attachmentError = null
                     val sent = try {
-                        session.send("", listOf(voice), chat)
+                        session.send(transcript, listOf(voice), chat)
                     } finally {
                         sendingMessage = false
                     }
