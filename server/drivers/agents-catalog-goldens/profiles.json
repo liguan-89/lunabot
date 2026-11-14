@@ -1,7 +1,7 @@
 {
   "default": {
-    "bytes": 64747,
-    "sha256": "0bc52afeeccb59f3483996501c2e1a677663aa26d6f6e177edb7501350f8ff9c",
+    "bytes": 66225,
+    "sha256": "8321a0ec69ce5fb93ef2337b8c559f8eebddde643fd018f41d82ecc2196bc17d",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -14,6 +14,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -55,8 +56,8 @@
     ]
   },
   "voice": {
-    "bytes": 65528,
-    "sha256": "ed8d58d41644ad45070125012de3c96d111f3013cd5372318c2ac7e2a4d82838",
+    "bytes": 67006,
+    "sha256": "4166a63f3c1b6d42fc355383843d77437afcbfcf5b7696aa8193e7d136cb6ea0",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -69,6 +70,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -111,8 +113,8 @@
     ]
   },
   "shared": {
-    "bytes": 67012,
-    "sha256": "34ee978b02f88c429ea4371105d6672d9f6fa89d9c7faa8ccef2f706f519ef6d",
+    "bytes": 68490,
+    "sha256": "02a10ec3b4756d412a3ba850fe1e3b0b854a696167f563c29c022a8fd97a8199",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -127,6 +129,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -168,8 +171,8 @@
     ]
   },
   "shared+voice": {
-    "bytes": 67793,
-    "sha256": "7268bb9883c5f6f2bfb28ff054afeb14a15402176088499e66b17fe927631b7b",
+    "bytes": 69271,
+    "sha256": "77d48fe34722f76ce4aae37c9b60c767b00142cf64da81c4930e5259f13f0037",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -184,6 +187,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -226,8 +230,8 @@
     ]
   },
   "skills": {
-    "bytes": 67823,
-    "sha256": "db10db0f73d694effe7042c6a184134835252e41342b3bb6af49f8f28cc64305",
+    "bytes": 69301,
+    "sha256": "6b05dca62477cfe3b196045b0b18607fb44d12da09ce47833e46d2a1c1e3b21e",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -240,6 +244,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -283,8 +288,8 @@
     ]
   },
   "skills+voice": {
-    "bytes": 68604,
-    "sha256": "39bd8a5e9df1d4631ccd423eef52a4f78a93aa2dd312fd04be140d788ca629cb",
+    "bytes": 70082,
+    "sha256": "6d1ebab15ac0be8e37e65574d5a7c931570c642bc0e544660bc865868153a820",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -297,6 +302,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -341,8 +347,8 @@
     ]
   },
   "skills+shared": {
-    "bytes": 70088,
-    "sha256": "354626cea4761652252620c59fb0ffd7a272643358ac1c3551b845472fb27bbe",
+    "bytes": 71566,
+    "sha256": "bda7901d768921f971f492ac1e3be62f07971a31b92bedc2f031acf04860d64f",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -357,6 +363,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -400,8 +407,8 @@
     ]
   },
   "skills+shared+voice": {
-    "bytes": 70869,
-    "sha256": "bd5d14698768090590499ac914ee34b067b66d20a0d9e64bb97a34764c2a7125",
+    "bytes": 72347,
+    "sha256": "6c68ef41479857cf2e50e26e16d8f9ac04cf15ece364ad67f81113baa8395d6a",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -416,6 +423,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -460,8 +468,8 @@
     ]
   },
   "non-chief": {
-    "bytes": 55531,
-    "sha256": "71a8bda40daf770cfc598a37f1aeb34d6e0f95ba7cbfc062b663ac11829fa6ac",
+    "bytes": 57009,
+    "sha256": "fb38f623b9a05eb7e0e58b0e6c3941b53c405a51a4176bbf811a0890e5788260",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -474,6 +482,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -508,8 +517,8 @@
     ]
   },
   "voice+non-chief": {
-    "bytes": 56312,
-    "sha256": "aa7bfd5f8cd89917bafb4645f0164dbfa58a04419d336afaa2f028f49035b896",
+    "bytes": 57790,
+    "sha256": "a61c6ae89512070ca7dcf78aa3c8d9100a10d6f095ce76342f9ef006f13e6039",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -522,6 +531,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -557,8 +567,8 @@
     ]
   },
   "shared+non-chief": {
-    "bytes": 57796,
-    "sha256": "7c9ef9d13944bb335d92c773fc02c68aa17752c0e57e9e4738b5e4a198566454",
+    "bytes": 59274,
+    "sha256": "f4c05afd8c11d7ea1ad591e136a6dd6124c74b443377534ca8cbbdddafa4eb7c",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -573,6 +583,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -607,8 +618,8 @@
     ]
   },
   "shared+voice+non-chief": {
-    "bytes": 58577,
-    "sha256": "7458b1931cda0beef79f65e85ad0383e869e2ba4886dc905e67196c8f3981331",
+    "bytes": 60055,
+    "sha256": "10199bf1c51a44e8a8fd42a957f16aa5626d2d37ef189c5d02c43ca2a3e3b09d",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -623,6 +634,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -658,8 +670,8 @@
     ]
   },
   "skills+non-chief": {
-    "bytes": 58607,
-    "sha256": "936d53ff1e884af3e02eec763d6cfc1d446da4f29b7778e53eebc32b72e908d0",
+    "bytes": 60085,
+    "sha256": "f0acc368ea81f590ceef46ea52ecfb275f04eb6479c95741ef95dc108fedfae9",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -672,6 +684,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -708,8 +721,8 @@
     ]
   },
   "skills+voice+non-chief": {
-    "bytes": 59388,
-    "sha256": "456ee9619b741670db6ab9daa69050056d3e740485d92eb767d50dd3ec20edbe",
+    "bytes": 60866,
+    "sha256": "5b5796dfab3e01bab2fa03d07f9fceeb9412b44f4ee4e6111fa64c898368f2a2",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -722,6 +735,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -759,8 +773,8 @@
     ]
   },
   "skills+shared+non-chief": {
-    "bytes": 60872,
-    "sha256": "4a8b4c7e2fc3422b596d3ef3f06b3b89dcdf9b5a72c6b56ab6162e744e242d27",
+    "bytes": 62350,
+    "sha256": "ae185aaadbe8a3bb906d7c37047a8be8144421f50dae0c7d06135442c087dce2",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -775,6 +789,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -811,8 +826,8 @@
     ]
   },
   "skills+shared+voice+non-chief": {
-    "bytes": 61653,
-    "sha256": "25ee17db50dc9963a6eefdd0da02cabbefb2e6834ce466f9def97230a040f0e4",
+    "bytes": 63131,
+    "sha256": "dccd94b00a15c931f25397e92d0c1390842162e55d5a10ee21d175146cb88b0b",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -827,6 +842,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -864,8 +880,8 @@
     ]
   },
   "skills+shared+voice+cloud-home": {
-    "bytes": 70635,
-    "sha256": "0ea591788a86247c33a7292f67a5187542ef477915b3984388572ce43d550106",
+    "bytes": 72113,
+    "sha256": "bd83128700d59aaf087e9b9634830a228a27bab9969f1027eb7321b5106e43f3",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -880,6 +896,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -924,8 +941,8 @@
     ]
   },
   "skills+shared+voice+non-chief+cloud-home": {
-    "bytes": 61419,
-    "sha256": "1d2ce2e383f0ffbeb6a80f24c411a9c67a2f78abafd54c31fe2b694a5f1c9ff0",
+    "bytes": 62897,
+    "sha256": "9d6ab7da64db5acb81ff903efc87c4ff2fa9259806f7b6469ad94ffbf01c5019",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -940,6 +957,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -977,8 +995,8 @@
     ]
   },
   "skills+shared+voice+x": {
-    "bytes": 74708,
-    "sha256": "ecb4ed1d38b447dd25e10786e442b3de78a41460c2eb3b933c72d5e4d0ccb92d",
+    "bytes": 76186,
+    "sha256": "9bcf949103175f5110de0a0eae46c77a9accb25b70249488b7150455529c023e",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -993,6 +1011,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1041,8 +1060,8 @@
     ]
   },
   "skills+shared+voice+x+team": {
-    "bytes": 74708,
-    "sha256": "ecb4ed1d38b447dd25e10786e442b3de78a41460c2eb3b933c72d5e4d0ccb92d",
+    "bytes": 76186,
+    "sha256": "9bcf949103175f5110de0a0eae46c77a9accb25b70249488b7150455529c023e",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1057,6 +1076,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1105,8 +1125,8 @@
     ]
   },
   "skills+shared+voice+x+team+images": {
-    "bytes": 75481,
-    "sha256": "629262ab905b61c507e76d766b1bfee0bd86f8812db9e034c5bff859308a00ea",
+    "bytes": 76959,
+    "sha256": "820225416b8013a4f1fa29d844c4e993cf989259ed19fa428d010a5a30635437",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1121,6 +1141,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1170,8 +1191,8 @@
     ]
   },
   "default+legacy-switches": {
-    "bytes": 64747,
-    "sha256": "0bc52afeeccb59f3483996501c2e1a677663aa26d6f6e177edb7501350f8ff9c",
+    "bytes": 66225,
+    "sha256": "8321a0ec69ce5fb93ef2337b8c559f8eebddde643fd018f41d82ecc2196bc17d",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1184,6 +1205,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1225,8 +1247,8 @@
     ]
   },
   "default+mausbot": {
-    "bytes": 65398,
-    "sha256": "21f6ae2ba22f6195a426e0b7398b80766e1edcebf46a6516b8b4e36f3470ec79",
+    "bytes": 66876,
+    "sha256": "b515a76593a68a5825fd9162fc22328f34c3049fff0258424cb0dc1b96806065",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1239,6 +1261,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1282,8 +1305,8 @@
     ]
   },
   "skills+shared+voice+mausbot": {
-    "bytes": 71520,
-    "sha256": "ccd1d3098ffcadcc77837180eca3728e767995e77e3eb01d0dabfc98a99fffa0",
+    "bytes": 72998,
+    "sha256": "fc6c0551fd834465329398c6e8db07c9ee1ec946d31964e74042191638c7872c",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1298,6 +1321,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1344,8 +1368,8 @@
     ]
   },
   "default+no-computer-pick": {
-    "bytes": 63543,
-    "sha256": "28583c9ba7d401c62c2eb459729c68c628f3f56841128f63d37e4e86de64fd98",
+    "bytes": 65021,
+    "sha256": "60d94bd7ae7ecb55234c344664ce9d775649e01aa13ed293588a7ff2e79e21c2",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1357,6 +1381,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1398,8 +1423,8 @@
     ]
   },
   "default+room": {
-    "bytes": 61899,
-    "sha256": "7f51449afbfb4cbb59adc0296ad04816415491cbf4d359ac4d579c5e1f77858c",
+    "bytes": 63377,
+    "sha256": "8da6a46254d759d70d1b315937df296c94102e2fa700ac1f1a70f2512d30ed42",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1411,6 +1436,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1449,8 +1475,8 @@
     ]
   },
   "non-chief+room": {
-    "bytes": 52683,
-    "sha256": "d0fcbc96c29a681dce30e7a97233b903b534ffd160a1e86c9f5f75570cd9f089",
+    "bytes": 54161,
+    "sha256": "104aa73dd6ca2c5b11872d6f0c82794fd62b2a8cb7550d5da97d746baeeface9",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1462,6 +1488,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",
@@ -1493,8 +1520,8 @@
     ]
   },
   "default+images": {
-    "bytes": 65520,
-    "sha256": "470cd2fe1e6603c923a01181f3f51305da7635842a9ca2acbf665be270a7e2a4",
+    "bytes": 66998,
+    "sha256": "8da73c68ced93c48d0b8b16ca7258051984e78b83b6fc9ed06a30ba6326cc21a",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1507,6 +1534,7 @@
       "list_threads",
       "propose_grant",
       "proactivity",
+      "mac_app",
       "tracked_tasks",
       "close_thread",
       "start_thread",

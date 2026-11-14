@@ -336,6 +336,68 @@
       }
     },
     {
+      "name": "mac_app",
+      "description": "The Mac's own apps, read and written through structured actions instead of hand-built osascript — macOS only. Reads: notes_list, notes_read(name), reminders_list, calendar_events(days). Writes: notes_create(name, body), reminders_add(name, list?, due?), reminders_done(name), calendar_add(title, start, end?, calendar?). Writes only run when the turn is in full approval mode; otherwise do the equivalent through bash so the person gets the card.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "notes_list",
+              "notes_read",
+              "notes_create",
+              "reminders_list",
+              "reminders_add",
+              "reminders_done",
+              "calendar_events",
+              "calendar_add"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "Note or reminder name."
+          },
+          "body": {
+            "type": "string",
+            "description": "Note body text for notes_create."
+          },
+          "list": {
+            "type": "string",
+            "description": "Reminders list name; default list when left out."
+          },
+          "due": {
+            "type": "string",
+            "description": "ISO date for the reminder's due date."
+          },
+          "title": {
+            "type": "string",
+            "description": "Calendar event title."
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO start time for a calendar event."
+          },
+          "end": {
+            "type": "string",
+            "description": "ISO end time; one hour after start when left out."
+          },
+          "calendar": {
+            "type": "string",
+            "description": "Calendar name; the first calendar when left out."
+          },
+          "days": {
+            "type": "number",
+            "description": "calendar_events looks this many days ahead (1-30, default 7)."
+          }
+        },
+        "required": [
+          "action"
+        ]
+      }
+    },
+    {
       "name": "tracked_tasks",
       "description": "The task list the person sees for you: one row per unit of work you are carrying, not a thread. When you take on multi-step work, or it grows beyond what a reply covers, create an item; update its note as it moves so the list always reads as your current state; mark it done when finished, or say what it waits on and set needs-you when the person must act. Titles are one short line, notes a sentence. A row can point at one of your threads (list_threads). Keep it honest and short — at most 50 items.",
       "inputSchema": {

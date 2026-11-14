@@ -440,6 +440,16 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     return { text: `Proactivity is ${String(r.level)}.${level === "quiet" ? " Briefs and suggestions keep working but post without a ping." : level === "standard" ? " The person hears about briefs and suggestions again." : ""}` };
   }
 
+  if (name === "mac_app") {
+    const action = typeof args.action === "string" ? args.action : "";
+    if (!action) return { text: "mac_app needs an action.", isError: true };
+    const { action: _action, ...input } = args;
+    const r = await api("/api/internal/mac-app", { method: "POST", body: JSON.stringify({ action, input }) });
+    if (r.error) return { text: `Couldn't run ${action}: ${String(r.error)}`, isError: true };
+    if (r.ok === false) return { text: String(r.error ?? `${action} failed`), isError: true };
+    return { text: JSON.stringify(r.result ?? r) };
+  }
+
   if (name === "tracked_tasks") {
     const action = String(args.action ?? "").trim();
     if (action === "list") {
