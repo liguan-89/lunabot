@@ -153,7 +153,11 @@ class SherpaTranscriber(private val models: ModelManager) {
                 tokens = resolved.tokens.absolutePath,
                 numThreads = 2,
                 provider = "cpu",
-                modelType = "zipformer2",
+                // zipformer-zh-14M is a first-generation transducer: setting
+                // "zipformer2" makes the native loader demand metadata the
+                // model does not carry, and its failure path exits the
+                // process outright — there is no Java-side error to catch.
+                modelType = "zipformer",
                 modelingUnit = "cjkchar",
             ),
             enableEndpoint = true,
