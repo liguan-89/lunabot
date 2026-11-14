@@ -205,6 +205,7 @@ export const USER_ERROR = {
   "serverError.mailbox.addressAndPassword": "Enter your email address and password.",
   "serverError.mailbox.outgoingFields": "Check the outgoing server: a name like mail.example.com, a port from 1 to 65535, and SSL/TLS or STARTTLS.",
   "serverError.voice.fishKeyRequired": "Add a Fish Audio key in Settings → API keys to talk to your bots here.",
+  "serverError.voice.liveKeyRequired": "Voice messages reuse the Live call line — set the call provider to Doubao/Volcengine or Qwen and save its credentials first.",
   "serverError.voice.fishTranscribeConnection": "Couldn't reach Fish Audio to hear you — check your connection.",
   "serverError.file.tooLarge": "This file is {size}, over the {limit} limit for opening files from chat. The file itself is still saved as {name}.",
 } as const;

@@ -91,6 +91,56 @@ describe("transcribe route", () => {
     expect(answers[0]![0]).toBe(502);
     expect((answers[0]![1] as { error: string }).error).toContain("rejected that API key");
   });
+
+  it("routes to the Volcengine flash API when the voice provider is volc", async () => {
+    const cfg = {
+      tts: { provider: "volc" },
+      live: { provider: "volc", key: "volc-token", keyFor: "volc", volcAppId: "123456" },
+    } as AppConfig;
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ result: { text: "火山听到了" } }), { status: 200, headers: { "x-api-status-code": "20000000" } },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const { answers } = await call("POST", "/api/tts/transcribe", {}, cfg, upload(Buffer.from("RIFF")));
+    expect(answers).toEqual([[200, { text: "火山听到了" }]]);
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("openspeech.bytedance.com");
+    expect((init.headers as Record<string, string>)["X-Api-Access-Key"]).toBe("volc-token");
+  });
+
+  it("routes to Qwen compatible-mode when the voice provider is qwen", async () => {
+    const cfg = {
+      tts: { provider: "qwen" },
+      live: {
+        provider: "qwen", key: "sk-qwen", keyFor: "qwen:dashscope.aliyuncs.com",
+        qwenEndpoint: "https://dashscope.aliyuncs.com/api-ws/v1",
+      },
+    } as AppConfig;
+    const fetchMock = vi.fn(async () => new Response(
+      JSON.stringify({ choices: [{ message: { content: "千问听到了" } }] }), { status: 200 },
+    ));
+    vi.stubGlobal("fetch", fetchMock);
+    const { answers } = await call("POST", "/api/tts/transcribe", {}, cfg, upload(Buffer.from("RIFF")));
+    expect(answers).toEqual([[200, { text: "千问听到了" }]]);
+    const [url] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions");
+  });
+
+  it("asks for Live credentials when the provider has none saved", async () => {
+    const cfg = { tts: { provider: "volc" }, live: { provider: "openai" } } as AppConfig;
+    const { answers } = await call("POST", "/api/tts/transcribe", {}, cfg, upload(Buffer.from("x")));
+    expect(answers[0]![0]).toBe(409);
+    expect((answers[0]![1] as { errorKey?: string }).errorKey).toBe("serverError.voice.liveKeyRequired");
+  });
+
+  it("still needs fishKey when the volc key was saved for another line", async () => {
+    const cfg = {
+      tts: { provider: "volc" },
+      live: { provider: "volc", key: "volc-token", keyFor: "openai", volcAppId: "123456" },
+    } as AppConfig;
+    const { answers } = await call("POST", "/api/tts/transcribe", {}, cfg, upload(Buffer.from("x")));
+    expect(answers[0]![0]).toBe(409);
+  });
 });
 
 it("keeps the English network refusal and its translation fields", async () => {

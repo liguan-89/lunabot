@@ -97,6 +97,10 @@ export function VoiceSettings({
     ? t("voice.hostLabel", { provider: t("voice.fish.label") })
     : provider === "elevenlabs"
       ? t("voice.hostLabel", { provider: t("voice.elevenlabs.label") })
+      : provider === "volc"
+        ? t("voice.hostLabel", { provider: t("voice.volc.label") })
+        : provider === "qwen"
+          ? t("voice.hostLabel", { provider: t("voice.qwen.label") })
       : provider === "chatterbox"
         ? t("voice.hostLabel", { provider: t("voice.chatterboxLabel") })
         : provider === "openai" ? t("voice.hostLabel", { provider: "OpenAI" })
@@ -206,7 +210,7 @@ export function VoiceSettings({
       .finally(() => current() && setAddingVoice(null));
   };
 
-  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "gemini" | "openai") => {
+  const setProvider = (next: "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "gemini" | "openai" | "volc" | "qwen") => {
     if (next === provider || switching || (next === "system" && !systemVoicesAvailable)) return;
     setSwitching(true);
     setKeyDraft({ provider: null, value: "" });
@@ -292,6 +296,8 @@ export function VoiceSettings({
                   ? ` ${t("voice.grok.sharedKey")}`
                 : provider === "chatterbox"
                   ? ` ${t("voice.chatterboxShared")}`
+                  : provider === "volc" || provider === "qwen"
+                    ? ` ${t("voice.liveShared")}`
                   : ` ${t("voice.providerShared", { provider: cloudProvider?.name ?? t("voice.provider") })}`}</>}
       </div>
 
@@ -333,6 +339,8 @@ export function VoiceSettings({
               { value: "openai", label: "OpenAI", available: true, span: "col-span-1" },
               { value: "xai", label: t("voice.grok.label"), available: true, span: "col-span-1" },
               { value: "gemini", label: "Gemini", available: true, span: "col-span-1" },
+              { value: "volc", label: t("voice.volc.label"), available: true, span: "col-span-1" },
+              { value: "qwen", label: t("voice.qwen.label"), available: true, span: "col-span-1" },
               { value: "system", label: t("voice.macBuiltIn"), available: systemVoicesAvailable, span: "col-span-1" },
               { value: "chatterbox", label: t("voice.chatterboxLocal"), available: true, span: "col-span-1" },
             ] as const).map((option) => (

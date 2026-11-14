@@ -1,14 +1,17 @@
 import type { AppConfig } from "../config.ts";
 import { voiceCredential } from "../included-services.ts";
+import { usableLiveKey } from "../live-config.ts";
 import * as chatterbox from "./chatterbox.ts";
 import * as elevenlabs from "./elevenlabs.ts";
 import * as openai from "./openai.ts";
 import * as grok from "./grok.ts";
 import * as fish from "./fish.ts";
 import * as gemini from "./gemini.ts";
+import * as qwen from "./qwen.ts";
 import * as systemVoices from "./system-voices.ts";
+import * as volc from "./volc.ts";
 
-export type VoiceProvider = "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "gemini" | "openai";
+export type VoiceProvider = "elevenlabs" | "fish" | "system" | "chatterbox" | "xai" | "gemini" | "openai" | "volc" | "qwen";
 
 export class NoVoiceConfigured extends Error {
   // Not a parameter property: the harness runs under strip-only `node --experimental-strip-types`, which rejects one at load.
@@ -34,7 +37,31 @@ const elevenLabs = (cfg: AppConfig) => voiceCredential(cfg.tts?.key);
  */
 export function voiceProvider(cfg: AppConfig): VoiceProvider {
   const provider = cfg.tts?.provider;
-  return provider === "gemini" || provider === "openai" || provider === "xai" || provider === "fish" || provider === "system" || provider === "chatterbox" ? provider : "elevenlabs";
+  return provider === "gemini" || provider === "openai" || provider === "xai" || provider === "fish" || provider === "system" || provider === "chatterbox" || provider === "volc" || provider === "qwen" ? provider : "elevenlabs";
+}
+
+/** Volc TTS/ASR reuse the Live call's speech credentials: App ID + Access
+ * Token, which only exists while Live is set to the volc provider (keyFor
+ * binds the token to that host). */
+export function volcCredentials(cfg: AppConfig): { appId: string; token: string } | null {
+  if (cfg.live?.provider !== "volc") return null;
+  const token = usableLiveKey(cfg.live);
+  const appId = cfg.live.volcAppId?.trim();
+  return token && appId ? { appId, token } : null;
+}
+
+/** Qwen TTS/ASR reuse the realtime gateway key, sent only to the endpoint
+ * origin it was saved for — never to a different host. */
+export function qwenCredentials(cfg: AppConfig): { key: string; origin: string } | null {
+  if (cfg.live?.provider !== "qwen") return null;
+  const key = usableLiveKey(cfg.live);
+  let origin: string | null = null;
+  try {
+    origin = cfg.live.qwenEndpoint ? new URL(cfg.live.qwenEndpoint).origin : null;
+  } catch {
+    origin = null;
+  }
+  return key && origin ? { key, origin } : null;
 }
 
 /**
@@ -45,6 +72,8 @@ export function voiceProvider(cfg: AppConfig): VoiceProvider {
 export function providerConfigured(cfg: AppConfig): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "gemini") return Boolean(cfg.tts?.geminiKey);
+  if (provider === "volc") return Boolean(volcCredentials(cfg));
+  if (provider === "qwen") return Boolean(qwenCredentials(cfg));
   if (provider === "openai") return Boolean(cfg.openai?.key);
   if (provider === "xai") return Boolean(cfg.xai?.key);
   if (provider === "system") return systemVoices.systemVoicesAvailable();
@@ -61,6 +90,8 @@ export function providerConfigured(cfg: AppConfig): boolean {
 export function voiceConfigured(cfg: AppConfig): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "gemini") return Boolean(cfg.tts?.geminiKey && gemini.isSupportedVoice(cfg.tts?.voice));
+  if (provider === "volc") return Boolean(volcCredentials(cfg) && cfg.tts?.voice);
+  if (provider === "qwen") return Boolean(qwenCredentials(cfg) && cfg.tts?.voice);
   if (provider === "openai") return Boolean(cfg.openai?.key && cfg.tts?.voice);
   if (provider === "xai") return Boolean(cfg.xai?.key && cfg.tts?.voice);
   if (provider === "system") {
@@ -80,6 +111,8 @@ export function voiceConfigured(cfg: AppConfig): boolean {
 export function voiceReady(cfg: AppConfig, voiceId?: string): boolean {
   const provider = voiceProvider(cfg);
   if (provider === "gemini") return Boolean(cfg.tts?.geminiKey && gemini.isSupportedVoice(voiceId || cfg.tts?.voice));
+  if (provider === "volc") return Boolean(volcCredentials(cfg) && (voiceId || cfg.tts?.voice));
+  if (provider === "qwen") return Boolean(qwenCredentials(cfg) && (voiceId || cfg.tts?.voice));
   if (provider === "openai") return Boolean(cfg.openai?.key && (voiceId || cfg.tts?.voice));
   if (provider === "xai") return Boolean(cfg.xai?.key && (voiceId || cfg.tts?.voice));
   if (provider === "system") {
@@ -137,6 +170,8 @@ export async function listVoices(
 ): Promise<elevenlabs.Voice[]> {
   const provider = voiceProvider(cfg);
   if (provider === "gemini") return cfg.tts?.geminiKey ? gemini.listVoices() : [];
+  if (provider === "volc") return volcCredentials(cfg) ? volc.listVoices() : [];
+  if (provider === "qwen") return qwenCredentials(cfg) ? qwen.listVoices() : [];
   if (provider === "openai") return cfg.openai?.key ? openai.listVoices() : [];
   if (provider === "xai") return cfg.xai?.key ? grok.listVoices(cfg.xai.key) : [];
   if (provider === "system") return systemVoices.listSystemVoices(run);
@@ -183,6 +218,24 @@ export function speak(cfg: AppConfig, text: string, voiceId?: string, run?: syst
     const voice = voiceId || cfg.tts?.voice;
     if (!voice) throw new NoVoiceConfigured("voice");
     return gemini.synthesize(text, voice, key, cfg.tts?.model);
+  }
+  if (provider === "volc") {
+    const credentials = volcCredentials(cfg);
+    if (!credentials) {
+      throw new NoVoiceConfigured("key", "把实时通话线路设为「豆包·火山」并保存凭证后，语音消息才可用。");
+    }
+    const voice = voiceId || cfg.tts?.voice;
+    if (!voice) throw new NoVoiceConfigured("voice");
+    return volc.synthesize(text, voice, credentials.appId, credentials.token, signal);
+  }
+  if (provider === "qwen") {
+    const credentials = qwenCredentials(cfg);
+    if (!credentials) {
+      throw new NoVoiceConfigured("key", "把实时通话线路设为「千问」并保存凭证后，语音消息才可用。");
+    }
+    const voice = voiceId || cfg.tts?.voice;
+    if (!voice) throw new NoVoiceConfigured("voice");
+    return qwen.synthesize(text, voice, credentials.key, credentials.origin, signal);
   }
   if (provider === "openai") return openai.synthesize(text, voiceId || cfg.tts?.voice || "", cfg.openai?.key || "", signal);
   if (provider === "xai") {

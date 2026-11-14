@@ -3,6 +3,8 @@
 import type { AppConfig } from "../config.ts";
 import { redactSecretsInText } from "../redact.ts";
 import * as fish from "../tts/fish.ts";
+import * as qwen from "../tts/qwen.ts";
+import * as volc from "../tts/volc.ts";
 import { voiceFailure } from "../tts/errors.ts";
 import * as tts from "../tts/index.ts";
 import { toUtterances, VOICE_FIRST_BLOCK_MAX_CHARS } from "../tts/speech-text.ts";
@@ -89,10 +91,17 @@ export function createTtsRoutes(deps: TtsRouteDeps): RouteHandler {
         req.resume();
         return json(res, 400, { error: "content-type must be audio/wav" });
       }
+      // The chosen voice provider's own ASR wins; Fish stays the fallback for
+      // installs that only hold a fishKey.
       const key = cfg.tts?.fishKey;
-      if (!key) {
+      const provider = tts.voiceProvider(cfg);
+      const volcCreds = provider === "volc" ? tts.volcCredentials(cfg) : null;
+      const qwenCreds = provider === "qwen" ? tts.qwenCredentials(cfg) : null;
+      if (!volcCreds && !qwenCreds && !key) {
         req.resume();
-        return json(res, 409, userError("serverError.voice.fishKeyRequired"));
+        return json(res, 409, userError(
+          provider === "volc" || provider === "qwen" ? "serverError.voice.liveKeyRequired" : "serverError.voice.fishKeyRequired",
+        ));
       }
       const declared = Number(req.headers["content-length"] ?? 0);
       if (declared > TRANSCRIBE_MAX_BYTES) {
@@ -112,7 +121,9 @@ export function createTtsRoutes(deps: TtsRouteDeps): RouteHandler {
       });
       if (!audio) return json(res, 413, { error: `audio exceeds ${TRANSCRIBE_MAX_BYTES} bytes` });
       try {
-        return json(res, 200, { text: await fish.transcribe(audio, mime, key) });
+        if (volcCreds) return json(res, 200, { text: await volc.transcribe(audio, volcCreds.appId, volcCreds.token) });
+        if (qwenCreds) return json(res, 200, { text: await qwen.transcribe(audio, qwenCreds.key, qwenCreds.origin) });
+        return json(res, 200, { text: await fish.transcribe(audio, mime, key!) });
       } catch (e) {
         return json(res, 502, { error: e instanceof Error ? e.message : String(e), ...userErrorFields(e) });
       }
