@@ -3,6 +3,7 @@ import { userError } from "../user-errors.ts";
 // what authenticated it (a Cloud session, or the companion sidecar's device header), never by anything in the body.
 import { phoneJobOutcome, type PhoneJobs } from "../phones/jobs.ts";
 import { phoneRegistration, type PhoneRegistry } from "../phones/registry.ts";
+import { phoneEvent, type PhoneEvent } from "../sms-relay.ts";
 import type { RequestAuth } from "../request-auth.ts";
 import { responseGone } from "../shared-computers.ts";
 import { PASS, type RouteContext, type RouteHandler } from "./table.ts";
@@ -29,6 +30,8 @@ export interface PhoneRouteDeps {
   owner: (auth: RequestAuth) => string | null;
   isAdmin: (auth: RequestAuth) => boolean;
   live: (auth: RequestAuth) => boolean;
+  /** A registered phone pushed an inbound event (e.g. an SMS it received); absent off a relay build. */
+  onEvent?: (key: string, event: PhoneEvent) => void;
 }
 
 export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
@@ -73,6 +76,17 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
         const job = await jobs.poll(key, responseGone(res));
         if (!deps.live(auth)) return json(res, 401, { error: "Session expired" });
         return json(res, 200, { job });
+      }
+      if (path === "/api/phones/self/events" && method === "POST") {
+        if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) return json(res, 415, { error: "JSON required" });
+        const parsed = phoneEvent.safeParse(await readBody(req, 16_384));
+        if (!deps.live(auth)) return json(res, 401, { error: "Session expired" });
+        if (!parsed.success) return json(res, 400, { error: "Invalid phone event" });
+        const phone = registry.get(key);
+        if (!phone) return json(res, 404, { error: "Register this phone first" });
+        if (parsed.data.kind === "sms" && !phone.registration.capabilities["messages"]) return json(res, 403, { error: "Messages is not allowed on this phone" });
+        deps.onEvent?.(key, parsed.data);
+        return json(res, 202, { ok: true });
       }
       const act = /^\/api\/phones\/self\/jobs\/([\w-]+)\/(lease|result)$/.exec(path);
       if (act && method === "POST") {

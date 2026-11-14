@@ -8,7 +8,7 @@ import { api, useStore, type ConfigStatus } from "@/state/store";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { Card } from "./SettingsPrimitives";
 
-type ChannelKey = "feishu" | "dingtalk" | "wecom" | "botMail";
+type ChannelKey = "feishu" | "dingtalk" | "wecom" | "botMail" | "sms";
 
 interface FieldSpec {
   key: string;
@@ -28,6 +28,7 @@ const FIELD_SPECS: Record<ChannelKey, readonly FieldSpec[]> = {
     { key: "agentId", label: "settings.channels.field.agentId" },
   ],
   botMail: [{ key: "address", label: "settings.channels.field.address", mailbox: true }],
+  sms: [],
 };
 
 const NAME_KEYS: Record<ChannelKey, LocaleKey> = {
@@ -35,6 +36,7 @@ const NAME_KEYS: Record<ChannelKey, LocaleKey> = {
   dingtalk: "settings.channels.dingtalk.name",
   wecom: "settings.channels.wecom.name",
   botMail: "settings.channels.botMail.name",
+  sms: "settings.channels.sms.name",
 };
 const FIELD = "w-full min-w-0 rounded-lg border border-hairline/60 bg-inset px-3 py-1.5 text-[13px] text-ink outline-none placeholder:text-ink-tertiary focus:border-accent disabled:opacity-60";
 
@@ -176,6 +178,7 @@ export function ChannelsSettings() {
                     </button>
                   </div>
                   {key === "wecom" && <p className="text-[12px] leading-relaxed text-ink-tertiary">{t("settings.channels.wecomHint")}</p>}
+                  {key === "sms" && <p className="text-[12px] leading-relaxed text-ink-tertiary">{t("settings.channels.smsHint")}</p>}
                 </form>
               )}
             </div>

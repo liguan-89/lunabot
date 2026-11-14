@@ -125,6 +125,7 @@ import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from ".
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { createChannels } from "./channels.ts";
+import { createSmsRelay } from "./sms-relay.ts";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
 import { createAboutMe } from "./about-me.ts"; import { createPersonPreference } from "./host/person-preference.ts";
@@ -5286,6 +5287,14 @@ const channels = createChannels({
   routineRunForThread: (threadId) => routines?.runForThread(threadId),
   ignoreEvent: shouldIgnoreProviderEvent,
 });
+const smsRelay = createSmsRelay({
+  store, cfg, dataDir: DATA_DIR, bus,
+  acceptDirectSend: (input) => acceptDirectSend(input),
+  routineRunForThread: (threadId) => routines?.runForThread(threadId),
+  ignoreEvent: shouldIgnoreProviderEvent,
+  replySms: (key, to, text) => phones.replySms(key, to, text),
+});
+phones.onSmsEvent((key, event) => smsRelay.push(key, event));
 bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
   try {
@@ -12046,6 +12055,7 @@ function configStatus() {
     dingtalk: { configured: Boolean(cfg.dingtalk?.appKey && cfg.dingtalk.appSecret && cfg.dingtalk.botId), botId: cfg.dingtalk?.botId ?? "", appKey: cfg.dingtalk?.appKey ?? "" },
     wecom: { configured: Boolean(cfg.wecom?.corpId && cfg.wecom.corpSecret && cfg.wecom.token && cfg.wecom.encodingAesKey && cfg.wecom.agentId && cfg.wecom.botId), botId: cfg.wecom?.botId ?? "", corpId: cfg.wecom?.corpId ?? "", agentId: cfg.wecom?.agentId ?? "" },
     botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
+    sms: { configured: Boolean(cfg.sms?.botId), botId: cfg.sms?.botId ?? "" },
     webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),

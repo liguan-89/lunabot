@@ -33,7 +33,7 @@ const registration = {
 };
 const fromPhone = (device = "d1") => ({ "x-openmausbot-companion": "1", "x-openmausbot-companion-device": device });
 
-async function setup(options: { auth?: RequestAuth; owner?: () => string | null; live?: () => boolean; afterBody?: () => void } = {}) {
+async function setup(options: { auth?: RequestAuth; owner?: () => string | null; live?: () => boolean; afterBody?: () => void; onEvent?: (key: string, event: unknown) => void } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "phones-routes-"));
   dirs.push(dir);
   const registry = new PhoneRegistry(join(dir, "phones.json"));
@@ -41,6 +41,7 @@ async function setup(options: { auth?: RequestAuth; owner?: () => string | null;
   const auth = options.auth ?? ADMIN;
   const routes = [createPhoneRoutes({
     registry, jobs, owner: options.owner ?? (() => "owner"), isAdmin: (a) => a.scopes.includes("admin"), live: options.live ?? (() => true),
+    ...(options.onEvent ? { onEvent: options.onEvent } : {}),
   })];
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://localhost");
@@ -212,6 +213,19 @@ describe("phone routes", () => {
     const { call, registry } = await setup({ auth: clientSession("s1"), live: () => live, afterBody: () => { live = false; } });
     expect((await call("PUT", "/api/phones/self", registration)).status).toBe(401);
     expect(registry.get("session:s1")).toBeUndefined();
+  });
+
+  it("a registered phone pushes an sms event; an unregistered or messages-less one cannot", async () => {
+    const events: Array<{ key: string; event: unknown }> = [];
+    const { call } = await setup({ auth: companion("d1"), onEvent: (key, event) => events.push({ key, event }) });
+    const sms = { kind: "sms", sendId: "m1", from: "+8613800138000", text: "查下快递" };
+    expect((await call("POST", "/api/phones/self/events", sms, fromPhone("d1"))).status).toBe(404);
+    await call("PUT", "/api/phones/self", registration, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", sms, fromPhone("d1"))).status).toBe(403);
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { messages: "full" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", sms, fromPhone("d1"))).status).toBe(202);
+    expect(events).toEqual([{ key: "companion:d1", event: sms }]);
+    expect((await call("POST", "/api/phones/self/events", { kind: "nope" }, fromPhone("d1"))).status).toBe(400);
   });
 
   it("a team Cloud offers no phones", async () => {

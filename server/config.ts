@@ -476,6 +476,12 @@ const appConfigSchema = z.object({
     address: z.string().trim().max(320).optional(),
     botId: z.string().trim().max(200).optional(),
   }).strict().optional(),
+  /** SMS relay over a paired phone (server/sms-relay.ts): the phone pushes inbound texts to
+   * /api/phones/self/events and one bot answers each sender, replying over PHONE_REPLY_SMS jobs the
+   * phone sends itself. `botId` present = on; empty to disable. */
+  sms: z.object({
+    botId: z.string().trim().max(200).optional(),
+  }).strict().optional(),
   /** Presence confirmation (WebAuthn): when `required` and at least one authenticator is enrolled,
    * every "allow" answer on a card must carry a valid assertion — a click alone never grants. */
   webauthn: z.object({
@@ -548,6 +554,8 @@ export interface AppConfig extends HelperConfig {
   wecom?: { corpId?: string; corpSecret?: string; token?: string; encodingAesKey?: string; agentId?: string; botId?: string; baseUrl?: string };
   /** See the `botMail` field in appConfigSchema. */
   botMail?: { address?: string; botId?: string };
+  /** See the `sms` field in appConfigSchema. */
+  sms?: { botId?: string };
   /** See the `webauthn` field in appConfigSchema. */
   webauthn?: { required?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
@@ -1004,7 +1012,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "webauthn"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

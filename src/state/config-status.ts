@@ -131,6 +131,8 @@ export interface ConfigStatus {
   wecom?: { configured: boolean; botId: string; corpId: string; agentId: string };
   /** The bot's own mailbox: configured-or-not. Absent from older servers. */
   botMail?: { configured: boolean; address: string; botId: string };
+  /** SMS relay over a paired phone: configured-or-not and the answering bot. Absent from older servers. */
+  sms?: { configured: boolean; botId: string };
   /** Keys kept inside another setting (voice, decisions, pictures, live calls), by their desktop credential name. */
   savedKeys?: Partial<Record<NestedKeyName, SavedKey>>;
   imageGen?: {

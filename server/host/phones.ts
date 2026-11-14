@@ -8,13 +8,14 @@ import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTu
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
 import { createPhoneHost } from "../phones/host.ts";
-import { PhoneJobs } from "../phones/jobs.ts";
+import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
 import { createPhoneSends } from "../phones/sends.ts";
 import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
+import { PHONE_REPLY_SMS, type PhoneEvent } from "../sms-relay.ts";
 import type { SessionRegistry } from "../sessions.ts";
 import type { BotRecord, Store } from "../store.ts";
 import type { PromptPart } from "../system-prompt.ts";
@@ -95,6 +96,9 @@ export function createPhones(deps: PhonesDeps) {
     return cloudHomeLendingRefusal(lending) === null ? DESKTOP_OWNER : null;
   }
 
+  /** The SMS relay's inbound hook, installed after channels are built. */
+  let smsHandler: ((key: string, event: PhoneEvent) => void) | undefined;
+
   const fromPhone = (auth: RequestAuth): boolean => {
     const key = phoneKey(auth);
     return key !== null && registry.get(key) !== undefined;
@@ -141,7 +145,18 @@ export function createPhones(deps: PhonesDeps) {
     },
     handle: host.handle,
     toolListing: host.toolListing,
-    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id) }),
+    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => smsHandler?.(key, event) }),
+    /** The SMS relay installs itself here once channels exist. */
+    onSmsEvent: (handler: (key: string, event: PhoneEvent) => void) => { smsHandler = handler; },
+    /** A channel reply the phone sends itself as SMS; only ever goes to the number that wrote in. */
+    replySms: async (key: string, to: string, text: string) => {
+      const outcome = await jobs.request(key, PHONE_REPLY_SMS, { to, text }, {
+        active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
+        offlineText: "This phone is offline. Open the DEX BOT app on it.", online: () => registry.online(key),
+      });
+      if (outcome.ok) registry.used(key);
+      return outcome;
+    },
     /** How many phones run the phone app here. */
     paired: (): number => registry.list(null, () => false).length,
     /** Routines written before records were kept are the owner's on a single-person desktop: record them once. */
