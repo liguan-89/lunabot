@@ -454,6 +454,11 @@ const appConfigSchema = z.object({
     address: z.string().trim().max(320).optional(),
     botId: z.string().trim().max(200).optional(),
   }).strict().optional(),
+  /** Presence confirmation (WebAuthn): when `required` and at least one authenticator is enrolled,
+   * every "allow" answer on a card must carry a valid assertion — a click alone never grants. */
+  webauthn: z.object({
+    required: z.boolean().optional(),
+  }).strict().optional(),
   localVm: localVmConfigSchema.optional(),
   features: featureConfigSchema.optional(),
   onboarding: onboardingConfigSchema.optional(),
@@ -517,6 +522,8 @@ export interface AppConfig extends HelperConfig {
   feishu?: { appId?: string; appSecret?: string; botId?: string; baseUrl?: string };
   /** See the `botMail` field in appConfigSchema. */
   botMail?: { address?: string; botId?: string };
+  /** See the `webauthn` field in appConfigSchema. */
+  webauthn?: { required?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
@@ -971,7 +978,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "botMail"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "botMail", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

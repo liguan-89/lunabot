@@ -144,6 +144,8 @@ export interface BotMessageRouteDeps {
   relayRefusal?(bot: BotRecord, email: string | undefined): string | null;
   /** The answer to someone's ask to chat with a team bot; null for any other card. */
   resolveAccessRequest?(threadId: string, requestId: string, behavior: string, message: unknown): { status: number; body: unknown } | null;
+  /** Presence confirmation for granting answers: returns the refusal response to send, or null to proceed. */
+  presenceCheck?(behavior: Behavior, webauthn: unknown): { status: number; body: unknown } | null;
 }
 
 /** External interfaces (the Slack worker) opt in. `onBehalfOf`, advertised by /api/health as
@@ -652,6 +654,8 @@ export function createBotMessageRoutes(deps: BotMessageRouteDeps): RouteHandler 
         const refusal = commandRememberRefusal(auth, threadId, requestId, behavior);
         if (refusal) return json(res, 403, { error: refusal });
       }
+      const presence = deps.presenceCheck?.(behavior, body.webauthn);
+      if (presence) return json(res, presence.status, presence.body);
       return await answeringCardAs(auth, threadId, requestId, async () => {
         const access = deps.resolveAccessRequest?.(threadId, requestId, behavior, body.message);
         if (access) return json(res, access.status, access.body);

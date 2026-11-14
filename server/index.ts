@@ -627,6 +627,8 @@ import { createNotificationRoutes, notificationListedFor } from "./routes/notifi
 import { createTodayRoutes } from "./routes/today.ts"; import { createInboxRoutes } from "./routes/inbox.ts"; import { createSidebarSectionRoutes } from "./routes/sidebar-sections.ts";
 import { createToolTimingRoute, createUsageRoutes } from "./routes/usage.ts"; import { createPrivateRecords } from "./host/private-records.ts";
 import { createBotMessageRoutes } from "./routes/bot-messages.ts";
+import { createWebAuthnRoutes } from "./routes/webauthn.ts";
+import { assertOptions, loadWebAuthnCredentials, parseAssertionBody, saveWebAuthnCredentials, verifyAssertion, WebAuthnError } from "./webauthn.ts";
 import { clearInternalTurn, isInternalTurn, markInternalTurn } from "./internal-turns.ts"; import { createFirstReplyRescue } from "./first-reply-rescue.ts";
 import { createReactionRoutes } from "./routes/reactions.ts";
 import { createReactions, withReactionNotes, type Reactor } from "./reactions.ts";
@@ -671,6 +673,7 @@ if (existsSync(join(DATA_DIR, ".backups"))) {
   if (!workspaceRestore.restored && !workspaceRestore.rolledBack) workspaceRestore = readLastWorkspaceRestore(DATA_DIR) ?? workspaceRestore;
 } dataFormatAtStart("stamp", DATA_DIR, serverVersion());
 const workspaceMaintenance = new WorkspaceBackupMaintenance(), moveFreeze = createMoveFreeze({ dataDir: DATA_DIR, exportOnly: (process.env.OMB_CLOUD_ROLE === "home" || process.env.OMB_CLOUD_ROLE === "team") && process.env.OMB_CLOUD_EXPORT_ONLY === "1" });
+let webAuthnCredentials = loadWebAuthnCredentials(DATA_DIR);
 // Only after ensureDirs(), whose one-time legacy data-dir rename must not find ~/.openmausbot already there.
 const ENVIRONMENT_ID = loadEnvironmentId(DATA_DIR);
 const signInAllowList = cacheUntilConfigChanges((config) => ({
@@ -4906,6 +4909,10 @@ async function respondToCard(input: {
   }
   const refusal = cardAnswerRefusal(auth, input.threadId, requestId, behavior) ?? cardAnswerRefusal(auth, threadId, requestId, behavior);
   if (refusal) return { ok: false, status: 403, error: refusal };
+  // A reaction or a spoken yes cannot carry a device assertion: while presence is required, granting needs the enrolled authenticator itself.
+  if (behavior === "allow" && cfg.webauthn?.required && webAuthnCredentials.length) {
+    return { ok: false, status: 403, error: "Allowing needs confirmation on the enrolled device." };
+  }
   const bot = store.botByThread(threadId);
   if (!bot) return { ok: false, status: 404, error: "The chat is gone." };
   const cardMessage = store.messagesFor(threadId).find((candidate) => candidate.card?.requestId === requestId);
@@ -11991,6 +11998,7 @@ function configStatus() {
     decider: describeDecider(cfg), helpers: describeHelpers(cfg),
     feishu: { configured: Boolean(cfg.feishu?.appId && cfg.feishu.appSecret && cfg.feishu.botId), botId: cfg.feishu?.botId ?? "" },
     botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
+    webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),
     profile: CLOUD_TEAM ? NOBODY_PROFILE : { name: cfg.profile?.name ?? "", email: cfg.profile?.email ?? "", aboutMe: cfg.profile?.aboutMe ?? "", ...(cfg.profile?.avatarUrl ? { avatarUrl: cfg.profile.avatarUrl } : {}) },
@@ -12334,6 +12342,26 @@ ROUTES.push(createBotMessageRoutes({
   goals: oneOnOneGoals, inboxReply: teamMessages.replyIn, typedCardAnswer: askCards.typed, ...(CLOUD_TEAM ? { teamAiOwnerName: () => teamAiOwner(teamOwners.people?.list() ?? [], teamHost.personName)?.name ?? "" } : {}),
   relayedReaction: (threadId, messageId, person, emoji) => void store.setReaction(threadId, messageId, relayedPersonKey(person),
     { emoji, name: person.name ?? person.email, at: Date.now() }),
+  presenceCheck: (behavior, webauthn) => {
+    if (behavior !== "allow" || !cfg.webauthn?.required || !webAuthnCredentials.length) return null;
+    try {
+      const { credentialId, signCount } = verifyAssertion(parseAssertionBody(webauthn), webAuthnCredentials);
+      const credential = webAuthnCredentials.find((c) => c.credentialId === credentialId);
+      if (credential && signCount > credential.signCount) {
+        credential.signCount = signCount;
+        saveWebAuthnCredentials(DATA_DIR, webAuthnCredentials);
+      }
+      return null;
+    } catch (error) {
+      // The refusal carries fresh options so the client runs the ceremony and sends this same answer again.
+      return { status: 403, body: { error: `Confirm on this device to allow: ${error instanceof WebAuthnError ? error.reason : "the assertion was not accepted"}.`, presence: { options: assertOptions(webAuthnCredentials) } } };
+    }
+  },
+}));
+ROUTES.push(createWebAuthnRoutes({
+  credentials: () => webAuthnCredentials,
+  saveCredentials: (credentials) => { webAuthnCredentials = credentials; saveWebAuthnCredentials(DATA_DIR, credentials); },
+  ownerName: () => cfg.profile?.name || "owner",
 }));
 const liveRoots = (threadId: string, botId: string | undefined) => { const bot = botId ? store.bot(botId) : store.botByThread(threadId); return bot ? messageFileRootsForThread(bot.id, threadId).filter((root) => root !== ATTACHMENTS_DIR) : null; }; const chatApps = createChatApps({ store, dataDir: DATA_DIR, liveRows: liveAppRows, liveRoots, paused: () => workspaceMaintenance.active || moveFreeze.frozen() });
 const chatAppsMcp = createChatAppsMcp({ store, apps: chatApps, dataDir: DATA_DIR, keys: mcpKeys, storedServers: () => cfg.mcpServers ?? {}, mountedServers: engineMcpServers, personMcp: teamConnections.personMcp, probeAs: (server) => mcpServersHost.probeAs(server), oauth: mcpOAuth });
