@@ -23,6 +23,7 @@ const TIMEOUT_MS = 15_000;
  */
 export async function reconcileTrackedTasks(deps: {
   decider: Pick<Decider, "ask">;
+  model?: string;
   items: readonly TrackedItem[];
   turnText: string;
 }): Promise<ReadonlyMap<string, TrackedItem["state"]> | null> {
@@ -37,7 +38,7 @@ export async function reconcileTrackedTasks(deps: {
     items: candidates.map((item) => `${item.id}: ${item.title}${item.note ? ` — ${item.note}` : ""}`).join("\n").slice(0, 2_000),
     turn: deps.turnText.slice(0, 4_000),
   };
-  const result = await deps.decider.ask("botDecide", state, questions as Record<string, DeciderQuestion>, { timeoutMs: TIMEOUT_MS });
+  const result = await deps.decider.ask("botDecide", state, questions as Record<string, DeciderQuestion>, { timeoutMs: TIMEOUT_MS, ...(deps.model ? { model: deps.model } : {}) });
   if (!result.ok) return null;
   const moves = new Map<string, TrackedItem["state"]>();
   for (const item of candidates) {

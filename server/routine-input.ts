@@ -15,6 +15,8 @@ export interface RoutineModelChecks {
   check(raw: unknown): { ok: true; selection: ModelSelection } | ({ ok: false } & Refusal);
   bot(botId: string): (Parameters<typeof approvalModeFor>[0] & { modelSelection: ModelSelection }) | null | undefined;
   engineSwitchNeedsAsk(mode: ApprovalMode, from: ModelSelection, to: ModelSelection): boolean;
+  /** The configured default for a job, when the routine has no model of its own. */
+  roleDefault?(kind: "routines" | "computer"): ModelSelection | undefined;
 }
 
 export const ROUTINE_MODEL_PERMISSIONS = "That model runs on another engine, which can't keep this bot's permission level. Choose a model on the bot's own engine, or change the bot's permissions first.";
@@ -43,8 +45,10 @@ export function routineModelRefusal(body: unknown, checks: RoutineModelChecks, e
 
 /** The model a run opens its thread on: the routine's own, unless its bot's permissions changed since so that it no longer may. */
 export function routineThreadModel(routine: Pick<Routine, "botId" | "modelSelection"> | undefined,
-  checks: Pick<RoutineModelChecks, "bot" | "engineSwitchNeedsAsk">): ModelSelection | undefined {
-  return routine?.modelSelection && keepsPermissions(checks, routine.botId, routine.modelSelection) ? routine.modelSelection : undefined;
+  checks: Pick<RoutineModelChecks, "bot" | "engineSwitchNeedsAsk" | "roleDefault">): ModelSelection | undefined {
+  if (routine === undefined) return undefined;
+  const candidate = routine.modelSelection ?? checks.roleDefault?.("routines");
+  return candidate && keepsPermissions(checks, routine.botId, candidate) ? candidate : undefined;
 }
 
 export function sanitizeInput(input: RoutineInput, after: number): Omit<Routine, "id" | "createdAt" | "updatedAt" | "nextRunAt"> {

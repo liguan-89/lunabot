@@ -95,6 +95,14 @@ describe("a routine's model and its bot's permissions", () => {
     expect(routineModelRefusal({ prompt: "Sweep twice" }, checks, existing)).toBeNull();
   });
 
+  it("uses the routines role default when the routine has no model of its own, held to the same permissions", () => {
+    const roleChecks: RoutineModelChecks = { ...checks, roleDefault: (kind) => kind === "routines" ? HAIKU : undefined };
+    expect(routineThreadModel({ botId: "full" }, roleChecks)).toEqual(HAIKU);
+    expect(routineThreadModel({ botId: "custom" }, roleChecks)).toBeUndefined();
+    expect(routineThreadModel({ botId: "custom", modelSelection: { ...CODEX, model: "gpt-5-mini" } }, roleChecks)).toEqual({ ...CODEX, model: "gpt-5-mini" });
+    expect(routineThreadModel(undefined, roleChecks)).toBeUndefined();
+  });
+
   it("opens a run on the bot's model once the bot's permissions no longer let the routine's model through", () => {
     expect(routineThreadModel({ botId: "full", modelSelection: HAIKU }, checks)).toEqual(HAIKU);
     expect(routineThreadModel({ botId: "custom", modelSelection: HAIKU }, checks)).toBeUndefined();

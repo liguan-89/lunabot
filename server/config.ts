@@ -309,6 +309,11 @@ const appConfigSchema = z.object({
   /** Who may sign in with an emailed code: addresses or `@domain` entries; admins get every scope, members chat only. */
   signIn: z.object({ admins: z.array(z.string().max(320)).max(500).optional(), members: z.array(z.string().max(320)).max(5000).optional() }).optional(),
   defaultModelSelection: defaultModelSelectionSchema.optional(),
+  /** A different model for a job than the bot's own: routines' runs, threads a computer was picked for. */
+  roleModels: z.object({
+    routines: defaultModelSelectionSchema.optional(),
+    computer: defaultModelSelectionSchema.optional(),
+  }).strict().optional(),
   automaticRecovery: automaticRecoverySchema.optional(),
   cacheKeepWarm: cacheKeepWarmSchema.optional(),
   newBotDefaults: newBotDefaultsSchema.optional(),
@@ -450,6 +455,7 @@ export interface AppConfig extends HelperConfig {
   signIn?: { admins?: string[]; members?: string[] };
   /** Preferred selection for newly created bots; existing bots keep theirs. */
   defaultModelSelection?: ModelSelection;
+  roleModels?: { routines?: ModelSelection; computer?: ModelSelection };
   /** Off by default; one backup attempt only before any work starts. */
   automaticRecovery?: { enabled: boolean; backup?: ModelSelection };
   cacheKeepWarm?: { enabled: boolean; windowMinutes?: number };

@@ -34,8 +34,9 @@ export async function reviewToolApproval(deps: {
   decider: Pick<Decider, "ask">;
   request: ApprovalReviewRequest;
   rules?: ApprovalReviewRules;
+  model?: string;
 }): Promise<ApprovalReviewVerdict> {
-  const { request, rules } = deps;
+  const { request, rules, model } = deps;
   const state = {
     tool: request.tool.slice(0, 200),
     summary: request.summary.slice(0, 2_000),
@@ -43,7 +44,7 @@ export async function reviewToolApproval(deps: {
     allowRules: (rules?.allow ?? []).slice(0, 50).map((rule) => rule.slice(0, 500)),
     denyRules: (rules?.deny ?? []).slice(0, 50).map((rule) => rule.slice(0, 500)),
   };
-  const result = await deps.decider.ask("botDecide", state, QUESTIONS, { timeoutMs: REVIEW_TIMEOUT_MS });
+  const result = await deps.decider.ask("botDecide", state, QUESTIONS, { timeoutMs: REVIEW_TIMEOUT_MS, ...(model ? { model } : {}) });
   if (!result.ok) return "escalate";
   if (result.answers.refuse.p >= MIN_P) return "deny";
   if (result.answers.safe.p >= MIN_P) return "approve";

@@ -95,6 +95,8 @@ export interface AskOptions {
   signal?: AbortSignal;
   /** A hard case: Workers AI answers with Clef rather than Clef-flash. */
   careful?: boolean;
+  /** An OpenRouter model id for this call only; providers without models (jev, relay) ignore it. */
+  model?: string;
 }
 
 /** One call to a backend. The key is passed in and never kept. */

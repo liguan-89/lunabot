@@ -319,7 +319,7 @@ export function createDecider(deps: DeciderDeps): Decider {
       const account = deciderAccount(cfg, seam)!;
       // Through the included token, only the exact requests the relay takes.
       if (account.included && !relayAccepts(seam, state, questions)) return { ok: false, reason: "misconfigured" };
-      return await call(seam, account, { ...openrouterRequest(cfg, account), state, questions }, options);
+      return await call(seam, account, { ...openrouterRequest(cfg, account, { model: options.model }), state, questions }, options);
     } catch {
       return { ok: false, reason: "malformed" };
     }

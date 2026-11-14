@@ -5416,7 +5416,7 @@ bus.subscribe((event: RuntimeEvent) => {
     const turnMessages = messages.filter((message) => message.turnId === event.turnId
       && message.kind === "text" && (message.role === "bot" || message.role === "user"));
     const turnText = turnMessages.slice(-6).map((message) => `${message.role === "bot" ? "bot" : "person"}: ${message.text ?? ""}`).join("\n");
-    void reconcileTrackedTasks({ decider, items: bot.trackedItems, turnText }).then((moves) => {
+    void reconcileTrackedTasks({ decider, model: cfg.decider?.models?.taskList, items: bot.trackedItems, turnText }).then((moves) => {
       if (!moves?.size) return;
       const current = store.bot(bot.id);
       if (!current?.trackedItems) return;
@@ -6162,7 +6162,11 @@ function continueComputerSelection(threadId: string, generation: string | undefi
     if (store.taskByThread(bot.id, threadId)?.surface !== selection.previousSurface) return giveUp();
     if (hasQueuedSteeredMessages(bot.id, threadId)) { giveUp(); drainQueuedSends(); return; }
     if (selection.source && store.activePath(threadId).findLast(message => message.role === "user" && message.kind === "text")?.id !== selection.source.id) return;
-    store.patchTask(bot.id, threadId, { surface, surfaceSource: "auto" });
+    // A computer picked for this thread pins the computer role model, unless the person chose one here or the bot's
+    // permission level could not keep it.
+    const computerModel = cfg.roleModels?.computer, taskNow = store.taskByThread(bot.id, threadId);
+    const pin = computerModel && taskNow?.modelSelection === undefined && supportsApprovalMode(computerModel, approvalModeFor(bot)) && !engineSwitchNeedsAsk(approvalModeFor(bot), bot.modelSelection, computerModel) ? { modelSelection: computerModel } : {};
+    store.patchTask(bot.id, threadId, { surface, surfaceSource: "auto", ...pin });
     const text = `The computer selection is now ${surfaceLabel(surface)}. Continue the ${selection.handoff ? "handed-off" : "user's original"} request using the tools mounted for this turn; verify the result before claiming success.\n\n${selection.text}`;
     if (selection.handoff) directCoordinationSettlers.delete(generation!); /* the continuing turn owns the hand-off's result */ void startTurn(bot.id, text, selection.handoff ? { ...selection.handoff.opts, threadId, computerSelectionContinuation: true } : { threadId, userMessage: selection.source, computerSelectionContinuation: true, dataContext: selection.dataContext }).catch(error => {
       const why = `Could not continue on ${surfaceLabel(surface)}: ${error instanceof Error ? error.message : String(error)}`; selection.handoff?.opts?.coordination?.settle({ ok: false, text: why });
@@ -6689,6 +6693,7 @@ bus.subscribe((event: RuntimeEvent) => {
             decider,
             request: { tool, summary, ...(commandLine ? { commandLine } : {}) },
             rules: cfg.decisions?.rules,
+            model: cfg.decider?.models?.approvalReview,
           });
           if (reviewed === "escalate" || !isCurrent()) return;
           if (reviewed === "approve" && denyAtSafetyFloor({
@@ -8868,7 +8873,7 @@ const limitFailovers = new LimitFailovers({ file: join(DATA_DIR, "limit-failover
   } });
 const automationDestinations = createAutomationDestinations({ store, mainThread: botMainThread, runs: () => routines?.listRuns() ?? [],
   cloud: CLOUD_HOME ? { owner: CLOUD_OWNER_KEY!, opener: (id, routine) => (routine && teamRoutines.opener(routine)) || routineOpener(id), reportFromOthers: cloudReportFromOthers, opened: (threadId, person) => threadStarters.set(threadId, person), outside: (threadId) => outsideLineage.mark(threadId) } : null });
-const routineModelChecks: RoutineModelChecks = { check: (raw) => checkedModelSelection(raw), bot: (botId) => store.bot(botId), engineSwitchNeedsAsk };
+const routineModelChecks: RoutineModelChecks = { check: (raw) => checkedModelSelection(raw), bot: (botId) => store.bot(botId), engineSwitchNeedsAsk, roleDefault: (kind) => cfg.roleModels?.[kind] };
 routines = new RoutineManager({
   emit: broadcast, limitResetAt: (engine) => limitClock.resetAt(engine), checks: proactive.checks,
   limitBackup: (botId, scope) => { const bot = store.bot(botId); return quotaSwitchEnabled() ? Boolean(bot && limitTakeover.backups(botId, bot.modelSelection, scope, approvalModeFor(bot)).length) : Boolean(bot && startupBackups(bot, cfg.automaticRecovery).length); },

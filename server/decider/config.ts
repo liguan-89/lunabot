@@ -42,6 +42,13 @@ export const deciderConfigSchema = z.object({
     .regex(OPENROUTER_MODEL_ID, "an OpenRouter model id looks like vendor/model")
     .optional(),
   openrouterApi: z.enum(["chat", "decisions"]).optional(),
+  /** Per-job model ids on the same account: an approval review or the task list can run a different (usually cheaper)
+   * model than `openrouterModel`. Bare ids are allowed for compatible endpoints like TK1688; OpenRouter's own always
+   * look like vendor/model. */
+  models: z.object({
+    approvalReview: z.string().trim().min(1).max(OPENROUTER_MODEL_ID_MAX).optional(),
+    taskList: z.string().trim().min(1).max(OPENROUTER_MODEL_ID_MAX).optional(),
+  }).strict().optional(),
   baseUrl: z
     .string()
     .trim()
@@ -67,6 +74,7 @@ export interface DeciderConfig {
   openrouterModel?: string;
   /** Which OpenRouter API `openrouterModel` is served by: absent is `chat`. */
   openrouterApi?: "chat" | "decisions";
+  models?: { approvalReview?: string; taskList?: string };
   openrouterBaseUrl?: string;
   workersAiToken?: string;
   workersAiAccountId?: string;

@@ -44,4 +44,11 @@ describe("reviewToolApproval", () => {
       expect.objectContaining({ refuse: expect.objectContaining({ type: "yesno" }), safe: expect.objectContaining({ type: "yesno" }) }),
       expect.objectContaining({ timeoutMs: expect.any(Number) }));
   });
+
+  it("asks the review model when one is configured", async () => {
+    const decider = deciderReturning({ ok: true, provider: "openrouter", answers: { refuse: no, safe: yes }, latencyMs: 5 });
+    await reviewToolApproval({ decider, request: REQUEST, model: "openai/gpt-4o-mini" });
+    expect(decider.ask).toHaveBeenCalledWith("botDecide", expect.anything(), expect.anything(),
+      expect.objectContaining({ model: "openai/gpt-4o-mini" }));
+  });
 });

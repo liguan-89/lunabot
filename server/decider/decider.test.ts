@@ -530,6 +530,13 @@ describe("OpenRouter as the provider", () => {
     expect(JSON.stringify(fetchImpl.mock.calls)).not.toContain(KEY);
   });
 
+  it("a per-call model wins over the configured one, for that call only", async () => {
+    const fetchImpl = vi.fn<typeof fetch>(async () => answer("theo", { theo: 0.9, maya: 0.1 }));
+    const result = await decider(OR, fetchImpl).choose("roomRouting", STATE, QUESTION, { model: "openai/gpt-4o" });
+    expect(result).toMatchObject({ ok: true });
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]![1]?.body)).model).toBe("openai/gpt-4o");
+  });
+
   it("a configured OpenRouter base URL carries the key, and a Jev base URL never does", async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () => answer("theo", { theo: 0.9, maya: 0.1 }));
     await decider({ decider: { ...OR.decider, openrouterBaseUrl: "http://127.0.0.1:9/v1", baseUrl: "https://jev.example.com" } }, fetchImpl)
