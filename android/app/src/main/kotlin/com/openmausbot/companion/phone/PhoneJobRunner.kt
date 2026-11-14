@@ -155,8 +155,7 @@ internal class PhoneJobRunner(
                 location = locationNow,
                 messages = switches.messages && messages.canRelay(),
             )
-            if (current != claimed) {
-                session.registerPhone(registration.copy(capabilities = current))
+            if (current != claimed && session.registerPhone(registration.copy(capabilities = current)) == null) {
                 claimed = current
             }
             val job = try {
@@ -168,6 +167,12 @@ internal class PhoneJobRunner(
             }
             if (job != null) Log.d(TAG, "job=${job.id} tool=${job.tool}")
             if (job == null) {
+                // A restarted computer drops its phone list; the failed poll is
+                // the only sign, so verify once and re-claim rather than poll
+                // a registry that no longer knows this phone.
+                if (session.lastPhonePollError != null && session.myPhoneRegistered() == false) {
+                    session.registerPhone(registration.copy(capabilities = claimed))
+                }
                 // A 20 s poll that found nothing is the normal case; one that
                 // failed returns immediately, so a short pause keeps a broken
                 // connection from becoming a hot loop.

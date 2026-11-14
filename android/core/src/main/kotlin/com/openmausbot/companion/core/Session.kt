@@ -2540,20 +2540,23 @@ class Session(
     }
 
     /** Null on success, or the sentence that explains the refusal. */
-    suspend fun registerPhone(registration: PhoneRegistration): String? = try {
-        client?.registerPhone(registration)
-        null
-    } catch (error: Throwable) {
-        if (error is CancellationException) throw error
-        // A phone-tools refusal is read in Settings, not in a log: a transport
-        // failure there is the computer being unreachable, and its raw OkHttp
-        // text ("Failed to connect to /192.168…") is not a sentence for a
-        // person. The connection advice already says it in Chinese.
-        val connection = _connection.value
-        if (error is APIError.Transport && connection != null) {
-            ConnectionAdvice.message(error, connection.host, connection.port)
-        } else {
-            error.message ?: "无法在电脑上登记这台手机。"
+    suspend fun registerPhone(registration: PhoneRegistration): String? {
+        val active = client ?: return "尚未连接到这台电脑。"
+        return try {
+            active.registerPhone(registration)
+            null
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            // A phone-tools refusal is read in Settings, not in a log: a transport
+            // failure there is the computer being unreachable, and its raw OkHttp
+            // text ("Failed to connect to /192.168…") is not a sentence for a
+            // person. The connection advice already says it in Chinese.
+            val connection = _connection.value
+            if (error is APIError.Transport && connection != null) {
+                ConnectionAdvice.message(error, connection.host, connection.port)
+            } else {
+                error.message ?: "无法在电脑上登记这台手机。"
+            }
         }
     }
 
