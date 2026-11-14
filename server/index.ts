@@ -319,7 +319,7 @@ import * as tts from "./tts/index.ts";
 import { voiceNoteFailure } from "./tts/errors.ts";
 import { createDecider, deciderReady, describeDecider } from "./decider/index.ts"; import { createExtractor, describeHelpers } from "./extractor/index.ts";
 import { createStopLineRoutes } from "./routes/stop-line.ts"; import { decideRoomResponder } from "./decider/room-routing.ts"; import { roomRoutingInput } from "./host/room-routing-input.ts";
-import { createLiveSession, liveAttachUrl, liveHistoryFrom, LiveSessionError, probeQwenLive, probeVolcLive, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
+import { createLiveSession, liveAttachUrl, liveHistoryFrom, liveInstructions, LiveSessionError, probeQwenLive, probeVolcLive, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
 import { LiveCallController, LiveCallSignedOutError, openLiveSocket } from "./live-call-controller.ts";
 import { liveCallEndpoint, liveCallKey, liveCallSettings, liveSettingsFor, liveSettingsForClient, saveLiveSettings } from "./live-settings.ts"; import { azureLiveCallRefusal, liveScopeRefusal } from "./live-access.ts";
 import { recordLiveCall, spokenLineFields, titleLiveCall } from "./live-call-record.ts"; import { noteGroupTurn, turnsSince } from "./room-round-turns.ts";
@@ -623,6 +623,7 @@ import { createSetupImportRoutes } from "./routes/setup-import.ts";
 import { createComputerRoutes } from "./routes/computers.ts";
 import { createStatusRoutes } from "./routes/status.ts";
 import { createLiveRoutes } from "./routes/live.ts";
+import { liveRelayResolver, LiveRelays } from "./live-relay.ts";
 import { createNotificationRoutes, notificationListedFor } from "./routes/notifications.ts";
 import { createTodayRoutes } from "./routes/today.ts"; import { createInboxRoutes } from "./routes/inbox.ts"; import { createSidebarSectionRoutes } from "./routes/sidebar-sections.ts";
 import { createToolTimingRoute, createUsageRoutes } from "./routes/usage.ts"; import { createPrivateRecords } from "./host/private-records.ts";
@@ -12766,6 +12767,7 @@ ROUTES.push(createDataRoutes({
   compileChart, validateVegaLite, renderer: chartRenderer,
   exportRoots: dataExportRoots,
 }));
+const liveRelays = new LiveRelays();
 ROUTES.push(createLiveRoutes({
   calls: liveCalls,
   resolveTarget: (botId, threadId) => {
@@ -12795,6 +12797,15 @@ ROUTES.push(createLiveRoutes({
     if (endpoint?.provider !== "volc" || !key || !cfg.live?.volcAppId) return { ok: false, error: "No Doubao realtime provider is set up." };
     return probeVolcLive(endpoint, cfg.live.volcAppId, key.key);
   },
+  upgrades,
+  relays: liveRelays,
+  relay: liveRelayResolver({
+    refusal: (auth) => azureLiveCallRefusal(auth, { othersOnLoopback: adminActivityRecording() }),
+    settings: () => liveCallSettings(cfg),
+    appId: () => cfg.live?.volcAppId,
+    bot: (botId) => { const bot = store.bot(botId); return bot ? { name: bot.name, title: bot.title, description: bot.description } : null; },
+    instructions: (bot) => liveInstructions(bot, { cloudHome: Boolean(CLOUD_HOME) }),
+  }),
 }));
 
 const toolResults = new ToolResults();
@@ -15698,6 +15709,7 @@ const gracefulShutdown = createGracefulShutdown({
       browserLive.closeAll();
       desktopViewer.closeAll();
       upgrades.close();
+      liveRelays.close();
       for (const idle of localVmIdles.values()) idle.cancel();
       cloudComputerPower.close();
       vps.closeAllVpsDesktopTunnels();

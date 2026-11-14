@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LiveCallState, LiveSettings } from "../../shared/wire.ts";
 import { json, readBody } from "../harness/http.ts";
 import { LiveCallBusyError, LiveCallSignedOutError } from "../live-call-controller.ts";
-import { LIVE_NEEDS_KEY, LiveSessionError } from "../live-call.ts";
+import { LIVE_NEEDS_KEY, LiveSessionError, qwenLiveEndpoint } from "../live-call.ts";
 import { requiredScope } from "../request-auth.ts";
 import { createLiveRoutes, type LiveRouteDeps } from "./live.ts";
 import { dispatchRoutes } from "./table.ts";
@@ -211,5 +211,35 @@ describe("live routes", () => {
       expect((await request(d, "POST", "/api/live/device-revoked", undefined, fromPhone("a/b"))).status).toBe(400);
       expect(d.calls.deviceRevoked).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("live relay route", () => {
+  const endpoint = qwenLiveEndpoint("https://gw.example.com", "qwen3.5-omni-flash-realtime")!;
+  function relayDeps(overrides: Partial<LiveRouteDeps> = {}) {
+    const accepted: unknown[] = [];
+    const d = deps({
+      upgrades: {
+        route: () => {},
+        pending: (req) => ({ socket: req.socket, head: Buffer.alloc(0), release: () => {} }),
+      },
+      relays: { accept: (upgrade, options) => { accepted.push(options); upgrade.socket.destroy(); } },
+      relay: () => ({ options: { endpoint, key: "k" } }),
+      ...overrides,
+    });
+    return { d, accepted };
+  }
+  it("answers 404 without an upgrade and refuses when relay refuses", async () => {
+    const { d } = relayDeps({ upgrades: { route: () => {}, pending: () => undefined } });
+    const res = await request(d, "GET", "/api/live/relay");
+    expect(res.status).toBe(404);
+  });
+  it("returns the refusal error and accepts the upgrade on resolve", async () => {
+    const refused = relayDeps({ relay: () => ({ error: "no key", status: 409 }) });
+    expect((await request(refused.d, "GET", "/api/live/relay")).status).toBe(409);
+    expect(refused.accepted).toHaveLength(0);
+    const { d, accepted } = relayDeps();
+    await expect(request(d, "GET", "/api/live/relay?botId=bot1")).rejects.toThrow();
+    expect(accepted).toEqual([{ endpoint, key: "k" }]);
   });
 });

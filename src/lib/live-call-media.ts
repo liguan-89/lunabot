@@ -6,6 +6,7 @@ import { openExternalLink } from "./app-links";
 import { endCall, startCall } from "./call";
 import { desktopCapabilitiesNow } from "./desktop";
 import { t } from "./i18n";
+import { openPcmCall, type PcmCall } from "./live-relay-client";
 
 export type LiveMediaPhase = "idle" | "starting" | "live" | "ending" | "ended" | "failed";
 
@@ -43,6 +44,7 @@ export interface LiveMediaDeps {
   capabilities(): DesktopCapabilities;
   pageMicrophone(): Promise<"allowed" | "refused" | undefined>;
   openInBrowser(url: string): void;
+  openPcmCall(input: Parameters<typeof openPcmCall>[0]): Promise<PcmCall>;
 }
 
 const IDLE: LiveMediaState = {
@@ -87,6 +89,7 @@ const defaults: LiveMediaDeps = {
     }
   },
   openInBrowser: (url) => void openExternalLink(url).catch(() => undefined),
+  openPcmCall,
 };
 let deps: LiveMediaDeps = defaults;
 
@@ -94,6 +97,7 @@ let state: LiveMediaState = IDLE;
 let generation = 0;
 let microphone: MediaStream | null = null;
 let peer: RTCPeerConnection | null = null;
+let pcmCall: PcmCall | null = null;
 let channel: RTCDataChannel | null = null;
 let heardTimer: ReturnType<typeof setTimeout> | null = null;
 let noticeTimer: ReturnType<typeof setTimeout> | null = null;
@@ -177,13 +181,14 @@ function liveClient(capabilities: DesktopCapabilities): "desktop" | "web" {
   return inWebBrowser(capabilities) ? "web" : "desktop";
 }
 
-export async function startLiveCall(target: { botId: string; threadId: string }): Promise<void> {
+export async function startLiveCall(target: { botId: string; threadId: string; provider?: string }): Promise<void> {
   if (isLiveCallRunning(state.phase)) return;
   release();
   const mine = ++generation;
   serverAttached = false;
   set({ ...IDLE, phase: "starting", botId: target.botId, threadId: target.threadId });
   startCall(target.botId);
+  if (target.provider === "qwen" || target.provider === "volc") return startSocketCall(target, mine);
   try {
     const stream = await deps.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
     if (mine !== generation) return void stream.getTracks().forEach((track) => track.stop());
@@ -260,6 +265,43 @@ export async function startLiveCall(target: { botId: string; threadId: string })
   }
 }
 
+/** The WebSocket-transport call: mic → PCM → /api/live/relay → provider; the server call record does not exist here. */
+async function startSocketCall(target: { botId: string; threadId: string }, mine: number): Promise<void> {
+  try {
+    const proto = globalThis.location?.protocol === "https:" ? "wss:" : "ws:";
+    const url = `${proto}//${globalThis.location?.host ?? ""}/api/live/relay?botId=${encodeURIComponent(target.botId)}`;
+    const call = await deps.openPcmCall({
+      url,
+      events: {
+        onReady: () => {},
+        onAudio: () => {},
+        onTranscript: (role, delta) => {
+          if (mine !== generation) return;
+          if (role === "user") set({ heard: (state.heard + delta).slice(-HEARD_CHARS) });
+          else set({ caption: (state.caption + delta).slice(-CAPTION_CHARS), heard: "" });
+          if (heardTimer) clearTimeout(heardTimer);
+          heardTimer = setTimeout(() => set({ heard: "" }), HEARD_CLEAR_MS);
+        },
+        onError: (message) => { if (mine === generation) void dropped(message); },
+        onEnd: () => { if (mine === generation && state.phase !== "ending") finish({ text: t("call.live.ended"), dropped: false }); },
+      },
+    });
+    if (mine !== generation) { call.close(); return; }
+    pcmCall = call;
+    set({ phase: "live", startedAt: Date.now() });
+  } catch (error) {
+    if (mine !== generation) return;
+    const failed = { ...IDLE, phase: "failed" as const, botId: target.botId, threadId: target.threadId };
+    if (error instanceof DOMException && error.name === "NotFoundError") return set({ ...failed, notice: t("call.live.micMissing"), action: "retry" });
+    if (error instanceof DOMException && error.name === "NotAllowedError") {
+      const pageMic = await deps.pageMicrophone();
+      if (mine !== generation) return;
+      return set({ ...failed, ...micBlocked(deps.capabilities(), pageMic) });
+    }
+    set({ ...failed, action: "retry", notice: error instanceof Error ? error.message : String(error) });
+  }
+}
+
 export async function hangUpLiveCall(): Promise<void> {
   const { callId, phase } = state;
   if (phase === "idle" || phase === "ended" || phase === "failed") return dismissLiveNotice();
@@ -276,6 +318,7 @@ export async function hangUpLiveCall(): Promise<void> {
 
 export function setLiveMuted(muted: boolean): void {
   for (const track of microphone?.getAudioTracks() ?? []) track.enabled = !muted;
+  for (const track of pcmCall?.stream?.getAudioTracks() ?? []) track.enabled = !muted;
   set({ muted });
 }
 
@@ -459,6 +502,7 @@ function sendClose() {
   if (channel?.readyState === "open") {
     try { channel.send(JSON.stringify({ type: "session.close" })); } catch {}
   }
+  try { pcmCall?.end(); } catch {}
 }
 
 function stopCapturing() {
@@ -476,6 +520,8 @@ function release() {
   channel = null;
   try { peer?.close(); } catch {}
   peer = null;
+  try { pcmCall?.close(); } catch {}
+  pcmCall = null;
   deps.stopRemote();
   if (state.botId) endCall(state.botId);
 }

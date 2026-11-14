@@ -26,5 +26,7 @@ export function azureLiveCallRefusal(auth: RequestAuth, place: LiveCallPlace): s
 
 /** The words for a session without the admin scope, which never reaches a Live route. Only the words: the request is refused either way. */
 export function liveScopeRefusal(cfg: Pick<AppConfig, "live">, method: string, path: string): string | null {
-  return ownProviderLive(cfg) && method.toUpperCase() === "POST" && path === "/api/live/session" ? LIVE_OWN_PROVIDER_REFUSAL : null;
+  if (!ownProviderLive(cfg)) return null;
+  if (path === "/api/live/relay") return LIVE_OWN_PROVIDER_REFUSAL;
+  return method.toUpperCase() === "POST" && path === "/api/live/session" ? LIVE_OWN_PROVIDER_REFUSAL : null;
 }

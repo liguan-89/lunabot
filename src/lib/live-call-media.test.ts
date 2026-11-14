@@ -875,3 +875,45 @@ describe("a blocked microphone", () => {
     expect(liveMedia()).toMatchObject({ phase: "idle", notice: null, action: null });
   });
 });
+
+describe("live call over the socket relay", () => {
+  function pcmFake() {
+    const listeners: Record<string, (...args: never[]) => void> = {};
+    const fakeCall = { stream: null, end: vi.fn(), close: vi.fn() };
+    const openPcmCall = vi.fn(async ({ events }: { events: Record<string, (...a: never[]) => void> }) => {
+      Object.assign(listeners, events);
+      return fakeCall;
+    });
+    configureLiveMedia({ ...fakes(), openPcmCall: openPcmCall as never });
+    return { listeners, fakeCall, openPcmCall };
+  }
+
+  it("qwen starts on the relay without POST /api/live/session", async () => {
+    const { listeners, openPcmCall } = pcmFake();
+    await startLiveCall({ botId: "b1", threadId: "t1", provider: "qwen" });
+    expect(openPcmCall).toHaveBeenCalled();
+    expect(request.mock.calls.filter(([path]) => path === "/api/live/session")).toHaveLength(0);
+    expect(liveMedia().phase).toBe("live");
+    (listeners.onTranscript as (role: string, delta: string) => void)("user", "你好");
+    expect(liveMedia().heard).toBe("你好");
+    (listeners.onTranscript as (role: string, delta: string) => void)("assistant", "在呢");
+    expect(liveMedia().caption).toBe("在呢");
+    expect(liveMedia().heard).toBe("");
+  });
+
+  it("volc hang-up ends the socket call without a callId", async () => {
+    const { fakeCall } = pcmFake();
+    await startLiveCall({ botId: "b1", threadId: "t1", provider: "volc" });
+    await hangUpLiveCall();
+    expect(fakeCall.end).toHaveBeenCalled();
+    expect(fakeCall.close).toHaveBeenCalled();
+    expect(endRequests()).toHaveLength(0);
+    expect(liveMedia().phase).toBe("idle");
+  });
+
+  it("a relay failure lands in failed with retry", async () => {
+    configureLiveMedia({ ...fakes(), openPcmCall: vi.fn(async () => { throw new Error("refused"); }) as never });
+    await startLiveCall({ botId: "b1", threadId: "t1", provider: "volc" });
+    expect(liveMedia()).toMatchObject({ phase: "failed", action: "retry", notice: "refused" });
+  });
+});

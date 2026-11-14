@@ -12,8 +12,8 @@ export const LIVE_NEEDS_KEY = "Live calls use your own OpenAI key. Add it in Set
 export const LIVE_NEEDS_AZURE = "Live calls through Azure OpenAI need the resource endpoint, the GPT-Live deployment name and its key. Add them in Call settings.";
 export const LIVE_NEEDS_QWEN = "Live calls through Qwen need the realtime gateway's https address and its key. Add them in Call settings.";
 export const LIVE_NEEDS_VOLC = "Live calls through Doubao need the speech app's App ID and its Access Token as the Live key. Add them in Call settings.";
-export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls over this gateway use a WebSocket audio path that is not built yet. Use OpenAI or Azure for Live calls for now.";
-export const LIVE_VOLC_TRANSPORT = "Doubao realtime calls use a WebSocket audio path that is not built yet. Use OpenAI or Azure for Live calls for now.";
+export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls run over the app's WebSocket audio path; start the call from DEX BOT.";
+export const LIVE_VOLC_TRANSPORT = "Doubao realtime calls run over the app's WebSocket audio path; start the call from DEX BOT.";
 
 /** The client's data channel is untrusted: it may only hang up; every append goes over the sideband.
  * Exception: Azure OpenAI refuses `session.client`, so an Azure call goes without this list and its caller's channel keeps
@@ -134,6 +134,7 @@ export const VOLC_EVENT_START_CONNECTION = 1;
 export const VOLC_EVENT_START_SESSION = 100;
 export const VOLC_EVENT_CONNECTION_STARTED = 50;
 export const VOLC_EVENT_SESSION_STARTED = 150;
+export const VOLC_EVENT_TASK_REQUEST = 200;
 
 export function volcFrame(event: number, payload: string, sessionId?: string): Buffer {
   const parts: Buffer[] = [Buffer.from([0x11, 0x14, 0x10, 0x00])];
@@ -153,13 +154,32 @@ export function volcFrame(event: number, payload: string, sessionId?: string): B
   return Buffer.concat(parts);
 }
 
+/** Audio goes up as a TaskRequest: an audio-only request carrying event 200 and the session id. Frames without the event or the id are refused with 45000000/45000001 — verified against openspeech. */
+export function volcAudioTask(pcm: Buffer, sessionId: string): Buffer {
+  const parts: Buffer[] = [Buffer.from([0x11, 0x24, 0x00, 0x00])];
+  const ev = Buffer.alloc(4);
+  ev.writeUInt32BE(VOLC_EVENT_TASK_REQUEST);
+  parts.push(ev);
+  const id = Buffer.from(sessionId, "utf8");
+  const idSize = Buffer.alloc(4);
+  idSize.writeUInt32BE(id.length);
+  parts.push(idSize, id);
+  const size = Buffer.alloc(4);
+  size.writeUInt32BE(pcm.length);
+  parts.push(size, pcm);
+  return Buffer.concat(parts);
+}
+
 export interface VolcFrame {
   /** 0b1111 is an error packet; 0b1001 a full server response; 0b1011 audio. */
   type: number;
   event?: number;
   code?: number;
   sessionId?: string;
+  /** Control frames only: an audio packet's bytes are in `raw`. */
   payload?: string;
+  /** The payload bytes before text decoding: TTS audio, or any frame whose body is not JSON. */
+  raw?: Buffer;
 }
 
 export function volcDecodeFrame(data: Buffer): VolcFrame | null {
@@ -188,7 +208,10 @@ export function volcDecodeFrame(data: Buffer): VolcFrame | null {
   if (data.length >= at + 4) {
     const size = data.readUInt32BE(at);
     at += 4;
-    if (data.length >= at + size) frame.payload = data.subarray(at, at + size).toString("utf8");
+    if (data.length >= at + size) {
+      frame.raw = data.subarray(at, at + size);
+      if (type !== 0xb) frame.payload = frame.raw.toString("utf8");
+    }
   }
   return frame;
 }

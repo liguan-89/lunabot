@@ -5,6 +5,9 @@ import type { LiveProvider, LiveSettings } from "../../shared/wire.ts";
 import { azureLiveDeployment, azureOpenAiRoot, LiveSessionError, MAX_SDP_BYTES, qwenLiveDeployment, qwenRealtimeRoot, volcAppId, volcLiveModel, type QwenProbeResult, type VolcProbeResult } from "../live-call.ts";
 import { LiveCallBusyError, type LiveCallController } from "../live-call-controller.ts";
 import { PASS, type RouteContext, type RouteHandler } from "./table.ts";
+import type { RequestAuth } from "../request-auth.ts";
+import { LIVE_RELAY_PATH, type LiveRelayOptions, type LiveRelays } from "../live-relay.ts";
+import type { Upgrades } from "./upgrades.ts";
 
 export interface LiveRouteDeps {
   calls: Pick<LiveCallController, "start" | "end" | "current" | "deviceRevoked">;
@@ -15,6 +18,10 @@ export interface LiveRouteDeps {
   probeQwen?(): Promise<QwenProbeResult>;
   /** Drives the Doubao dialogue socket through StartConnection + StartSession and reports the answer. Admin scope only: it proves the app's credentials work. */
   probeVolc?(): Promise<VolcProbeResult>;
+  upgrades?: Pick<Upgrades, "route" | "pending">;
+  relays?: Pick<LiveRelays, "accept">;
+  /** Resolves the provider socket target for a browser relay call; `error` refuses with that message and status. */
+  relay?(auth: RequestAuth, botId: string | null): { options: LiveRelayOptions } | { error: string; status?: number };
 }
 
 const id = z.string().regex(/^[\w-]{1,120}$/);
@@ -61,8 +68,21 @@ async function bodyOf(req: IncomingMessage, readBody: RouteContext["readBody"]):
 }
 
 export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
-  return async ({ req, res, path, method, auth, json, readBody }) => {
+  deps.upgrades?.route((path) => path === LIVE_RELAY_PATH);
+  return async ({ req, res, url, path, method, auth, json, readBody }) => {
     if (!path.startsWith("/api/live/")) return PASS;
+
+    if (method === "GET" && path === LIVE_RELAY_PATH) {
+      const pending = deps.upgrades?.pending(req);
+      if (!pending || !deps.relays || !deps.relay) return PASS;
+      const target = deps.relay(auth, url.searchParams.get("botId"));
+      if ("error" in target) return json(res, target.status ?? 403, { error: target.error });
+      if (pending.socket.destroyed) return;
+      pending.release();
+      deps.relays.accept({ req, socket: pending.socket, head: pending.head }, target.options);
+      res.detachSocket(pending.socket);
+      return;
+    }
 
     if (method === "POST" && path === "/api/live/session") {
       const parsed = sessionBody.safeParse(await bodyOf(req, readBody));
