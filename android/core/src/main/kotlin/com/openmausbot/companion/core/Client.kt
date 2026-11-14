@@ -1047,11 +1047,18 @@ class CompanionClient(
      * viewer relay speaks raw RFB on the other end, so the caller writes and
      * reads bytes, not frames.
      */
-    fun openViewerSocket(path: String, listener: WebSocketListener): WebSocket {
+    fun openViewerSocket(path: String, listener: WebSocketListener): WebSocket =
+        openSocket(path, emptyList(), listener)
+
+    /**
+     * The same socket with query parameters, encoded like [makeRequest]'s.
+     * The Live-call relay names its call target that way.
+     */
+    fun openSocket(path: String, query: List<Pair<String, String>>, listener: WebSocketListener): WebSocket {
         val base = endpoint?.baseUrl ?: throw APIError.BadUrl
         val url = base.newBuilder()
-            .scheme(if (base.isHttps) "wss" else "ws")
             .encodedPath(path)
+            .apply { query.forEach { (name, value) -> addQueryParameter(name, value) } }
             .build()
         val request = Request.Builder()
             .url(url)

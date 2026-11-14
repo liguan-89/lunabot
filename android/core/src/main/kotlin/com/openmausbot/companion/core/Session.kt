@@ -2594,6 +2594,26 @@ class Session(
             null
         }
 
+    /** Null under the same conditions as [openViewerSocket]. */
+    fun openLiveCallSocket(botId: String, threadId: String, listener: okhttp3.WebSocketListener): okhttp3.WebSocket? =
+        try {
+            client?.openSocket(LiveRelay.PATH, LiveRelay.query(botId, threadId), listener)
+        } catch (_: Throwable) {
+            null
+        }
+
+    /**
+     * Whether the computer can hold a socket-relay Live call: a provider the
+     * relay speaks, with its key. Unreachable or not configured both read
+     * false — the caller then falls back to the half-duplex call.
+     */
+    suspend fun liveCallRelayReady(): Boolean = try {
+        client?.config()?.hasSocketLiveCall == true
+    } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        false
+    }
+
     suspend fun pollPhoneJob(): PhoneJob? = try {
         client?.pollPhoneJob().also { lastPhonePollError = null }
     } catch (error: Throwable) {

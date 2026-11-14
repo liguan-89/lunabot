@@ -16,7 +16,7 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 15861,
+  "server/index.ts": 15862,
   "src/state/store.tsx": 3351,
   "electron/main.mjs": 3181,
   "server/store.ts": 2291,

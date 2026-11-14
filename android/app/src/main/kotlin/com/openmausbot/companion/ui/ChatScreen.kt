@@ -294,9 +294,19 @@ private fun LoadedChat(
     // The bot on the line. Not saveable: a call does not survive a rotation's
     // teardown of the audio session any better than a phone call would.
     var showingCall by remember { mutableStateOf(false) }
+    // Real-time when the computer's Live provider speaks the socket relay;
+    // the half-duplex dictation call stays the fallback for every other case.
+    var liveCall by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
+    val openCall: () -> Unit = {
+        focusManager.clearFocus()
+        scope.launch {
+            liveCall = session.liveCallRelayReady()
+            showingCall = true
+        }
+    }
 
     val attachmentDraft = remember(draftKey, chatDrafts) {
         chatDrafts.register(chatId, draftKey)
@@ -1093,10 +1103,7 @@ private fun LoadedChat(
                         dictation.stop()
                         if (bot != null) onOpenComputer(bot.id)
                     },
-                    onCall = {
-                        focusManager.clearFocus()
-                        showingCall = true
-                    },
+                    onCall = openCall,
                     // A bot's face and its name pill are both the door to its
                     // profile; a room has no profile, so its pill opens the same
                     // sheet the + does.
@@ -1195,10 +1202,7 @@ private fun LoadedChat(
                 },
                 onSend = { submit() },
                 showCall = chat is Chat.BotChat,
-                onCall = {
-                    focusManager.clearFocus()
-                    showingCall = true
-                },
+                onCall = openCall,
                 onToggleHud = {
                     dictation.stop()
                     haptics.play(HapticCue.SELECT)
@@ -1331,7 +1335,11 @@ private fun LoadedChat(
     }
 
     if (showingCall && bot != null) {
-        CallScreen(bot = bot, onDismiss = { showingCall = false })
+        if (liveCall) {
+            LiveCallScreen(bot = bot, onDismiss = { showingCall = false })
+        } else {
+            CallScreen(bot = bot, onDismiss = { showingCall = false })
+        }
     }
 }
 

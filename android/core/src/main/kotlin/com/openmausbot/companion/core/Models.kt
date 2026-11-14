@@ -1136,6 +1136,8 @@ data class ConfigStatus(
     val tts: ConfigFlag? = null,
     val imageGen: ConfigFlag? = null,
     val profile: Profile? = null,
+    /** Live-call readiness as the computer reports it (never its key). */
+    val live: ConfigFlag? = null,
 ) {
     /**
      * "This engine can speak", not "a key is on file" — under the built-in
@@ -1159,6 +1161,14 @@ data class ConfigStatus(
      */
     val voiceProvider: VoiceProvider
         get() = VoiceProvider.fromWire(tts?.provider)
+
+    /**
+     * The socket relay (`/api/live/relay`) only carries providers whose
+     * realtime transport is a WebSocket; the others call over WebRTC, which
+     * this build does not carry.
+     */
+    val hasSocketLiveCall: Boolean
+        get() = live?.configured == true && live?.provider.orEmpty() in LiveRelay.SOCKET_PROVIDERS
 }
 
 object ConnectedAppsRules {
