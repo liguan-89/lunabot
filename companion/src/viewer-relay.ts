@@ -22,7 +22,7 @@ interface ViewerSession {
  * the paired device. Any failure must answer false. */
 export type ControlCheck = (deviceId: string, botId: string, controlLeaseId: string) => Promise<boolean>;
 
-const VIEWER_PATH = /^\/vps-viewer\/([A-Za-z0-9_-]{32})(\/.*)?$/;
+export const VIEWER_PATH = /^\/vps-viewer\/([A-Za-z0-9_-]{32})(\/.*)?$/;
 /** Both joins hand back a loopback noVNC address: a VPS through its SSH
  * tunnel, and the Local VM's own published port. */
 const BOT_JOIN_PATH = /^\/api\/bots\/([\w-]+)\/(computer|local-computer)\/join$/;
@@ -344,6 +344,59 @@ export class CompanionViewerRelay {
     upstream.once("response", (response) => {
       response.resume();
       socketError(socket, 404, "viewer WebSocket was refused");
+    });
+    upstream.once("error", () => socket.destroy());
+    socket.once("close", () => upstream.destroy());
+    upstream.end();
+  }
+
+  /** An allowlisted `/api/*` upgrade (e.g. the live-call relay): no viewer
+   * session, just authenticated passthrough to the harness. */
+  handleApiUpgrade(
+    req: IncomingMessage,
+    socket: Duplex,
+    head: Buffer,
+    options: {
+      refusal: { status: number; error: string } | null;
+      target: { hostname: string; port: number; path: string };
+      identityHeaders: Record<string, string>;
+    },
+  ): void {
+    socket.on("error", () => socket.destroy());
+    this.#upgrades.add(socket);
+    socket.once("close", () => this.#upgrades.delete(socket));
+    if (options.refusal) return socketError(socket, options.refusal.status, options.refusal.error);
+    const headers = websocketHeaders(req);
+    if (!headers) return socketError(socket, 404, "not a WebSocket request");
+
+    const upstream = httpRequest({
+      ...options.target,
+      method: "GET",
+      headers: { ...headers, ...options.identityHeaders },
+    });
+    upstream.setTimeout(30_000, () => upstream.destroy(new Error("upgrade timed out")));
+    upstream.once("upgrade", (response, remote, remoteHead) => {
+      upstream.setTimeout(0);
+      remote.setTimeout(0);
+      if (socket.destroyed) {
+        remote.destroy();
+        socket.destroy();
+        return;
+      }
+      acceptUpgrade(socket, response);
+      const teardown = () => {
+        socket.destroy();
+        remote.destroy();
+      };
+      socket.on("error", teardown);
+      remote.on("error", teardown);
+      if (head.length) remote.write(head);
+      if (remoteHead.length) socket.write(remoteHead);
+      socket.pipe(remote).pipe(socket);
+    });
+    upstream.once("response", (response) => {
+      response.resume();
+      socketError(socket, 404, "WebSocket was refused");
     });
     upstream.once("error", () => socket.destroy());
     socket.once("close", () => upstream.destroy());

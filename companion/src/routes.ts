@@ -196,6 +196,8 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/live\/call\/end$/ },
   { method: "GET", path: /^\/api\/live\/call$/ },
   { method: "PATCH", path: /^\/api\/live\/settings$/ },
+  // The WebSocket upgrade itself; proxy.upgrade re-checks this list.
+  { method: "GET", path: /^\/api\/live\/relay$/ },
 
   // The phone's own apps as bot tools: it registers, long-polls for jobs, leases and answers them.
   { method: "PUT", path: /^\/api\/phones\/self$/ },

@@ -23,7 +23,7 @@ import {
 } from "./routes.ts";
 import { createJsonScrubber } from "./json-scrub.ts";
 import { acceptsGzip, gzipCandidate, sendTunnelJson, varyOnEncoding } from "./tunnel-gzip.ts";
-import { CompanionViewerRelay, requestTarget } from "./viewer-relay.ts";
+import { CompanionViewerRelay, requestTarget, VIEWER_PATH } from "./viewer-relay.ts";
 import { createSseScrubber, isJson, scrub } from "./wire.ts";
 
 export interface ProxyOptions {
@@ -805,11 +805,25 @@ export function createProxyHandler(options: ProxyOptions) {
       socket.end("HTTP/1.1 426 Upgrade Required\r\nConnection: close\r\nContent-Length: 0\r\n\r\n");
       return;
     }
-    if (e2e && e2eRefusal(e2e, req.method ?? "GET", (req.url ?? "/").split("?")[0], device?.id)) {
+    const path = (req.url ?? "/").split("?")[0];
+    if (e2e && e2eRefusal(e2e, req.method ?? "GET", path, device?.id)) {
       socket.destroy();
       return;
     }
-    viewers.handleUpgrade(req, socket, head, device);
+    if (VIEWER_PATH.test(path)) {
+      viewers.handleUpgrade(req, socket, head, device);
+      return;
+    }
+    const mutationToken = device ? options.mutationToken?.() : undefined;
+    if (device && options.mutationToken && !mutationToken) {
+      socket.destroy();
+      return;
+    }
+    viewers.handleApiUpgrade(req, socket, head, {
+      refusal: denyReason({ path, method: req.method ?? "GET", authenticated: !!device }),
+      target: { hostname: "127.0.0.1", port: options.harnessPort, path: req.url ?? "/" },
+      identityHeaders: companionIdentityHeaders(device?.id, mutationToken ?? undefined),
+    });
   };
   handle.closeViewers = (): void => viewers.closeAll();
   /** The endpoint list again, as an event on every event stream the device holds: a phone hears a change of where it
