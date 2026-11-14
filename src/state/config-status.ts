@@ -120,6 +120,13 @@ export interface ConfigStatus {
   };
   /** Live calls (OpenAI GPT-Live): configured-or-not, never the key. */
   live?: LiveSettings;
+  /** WebAuthn presence confirmation: `required` asks for an enrolled authenticator's signature on every card "allow";
+   * `enrolled` is how many are on file. Absent from older servers — treat as not required. */
+  webauthn?: { required: boolean; enrolled: number };
+  /** Feishu bot channel: configured-or-not. Absent from older servers. */
+  feishu?: { configured: boolean; botId: string };
+  /** The bot's own mailbox: configured-or-not. Absent from older servers. */
+  botMail?: { configured: boolean; address: string; botId: string };
   /** Keys kept inside another setting (voice, decisions, pictures, live calls), by their desktop credential name. */
   savedKeys?: Partial<Record<NestedKeyName, SavedKey>>;
   imageGen?: {

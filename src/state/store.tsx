@@ -1,5 +1,6 @@
 import { cloudAsleep, onCloudPower } from "../lib/cloud-power";
 import { api, ApiError, retryRequest, snapshotArrays } from "./api";
+import { apiWithPresence } from "../lib/presence";
 import {
   createContext,
   useCallback,
@@ -2514,16 +2515,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         case "decideRequest": {
           const respond = () =>
-            api(`/api/threads/${action.threadId}/respond`, {
-              method: "POST",
-              body: JSON.stringify({
-                requestId: action.requestId,
-                behavior: action.behavior,
-                message: action.message,
-                reviewedSha256: action.reviewedSha256,
-                always: action.always,
-                rememberCommand: action.rememberCommand,
-              }),
+            apiWithPresence(`/api/threads/${action.threadId}/respond`, {
+              requestId: action.requestId,
+              behavior: action.behavior,
+              message: action.message,
+              reviewedSha256: action.reviewedSha256,
+              always: action.always,
+              rememberCommand: action.rememberCommand,
             });
           void waitForExecutionSettings(executionBotsBeforeAction, action.threadId)
             .then(async () => {
@@ -2561,15 +2559,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 const response = card.skillRequest
                   ? { behavior: skillRequestBehavior(action.answer) }
                   : answerResponse(card, action.answer);
-                return api(`/api/threads/${action.threadId ?? host.threadId}/respond`, {
-                  method: "POST",
-                  body: JSON.stringify({
-                    requestId: card.requestId,
-                    ...response,
-                    reviewedSha256: response.behavior === "allow" && card.skillRequest
-                      ? reviewedSkillSha256(card.skillRequest)
-                      : undefined,
-                  }),
+                return apiWithPresence(`/api/threads/${action.threadId ?? host.threadId}/respond`, {
+                  requestId: card.requestId,
+                  ...response,
+                  reviewedSha256: response.behavior === "allow" && card.skillRequest
+                    ? reviewedSkillSha256(card.skillRequest)
+                    : undefined,
                 });
               }
               if (inRoom) return;
