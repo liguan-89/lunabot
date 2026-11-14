@@ -135,6 +135,20 @@ export interface BotMovedTo {
 
 /** One task = one conversation with its own context, thread and provider
  * session. */
+/** One row of the bot's task list for the person, kept by its `tracked_tasks`
+ * tool: a unit of work, not a thread. `needs-you` means it waits on the person. */
+export interface TrackedItem {
+  id: string;
+  title: string;
+  state: "open" | "needs-you" | "done";
+  /** What it waits on, or how it ended. */
+  note?: string;
+  /** The job it belongs to, when it has one. */
+  threadId?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface WireTask extends InboxTask {
   /** Outstanding handoffs, not an active provider turn. */
   waitingForTeammates?: boolean;
@@ -286,6 +300,8 @@ export interface WireBot extends DefaultBotFields, BotAccessFields {
   mainThreadId?: string;
   /** newest first */
   tasks?: WireTask[];
+  /** The task list the bot keeps for the person (its `tracked_tasks` tool). */
+  trackedItems?: TrackedItem[];
   projects?: BotProject[];
   name: string;
   title: string;

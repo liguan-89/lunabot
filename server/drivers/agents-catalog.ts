@@ -276,6 +276,24 @@ const TOOL_DEFINITIONS = [
     inputSchema: { type: "object", additionalProperties: false, properties: {} },
   },
   {
+    name: "tracked_tasks",
+    description:
+      "The task list the person sees for you: one row per unit of work you are carrying, not a thread. When you take on multi-step work, or it grows beyond what a reply covers, create an item; update its note as it moves so the list always reads as your current state; mark it done when finished, or say what it waits on and set needs-you when the person must act. Titles are one short line, notes a sentence. A row can point at one of your threads (list_threads). Keep it honest and short — at most 50 items.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        action: { type: "string", enum: ["list", "create", "update"], description: "list reads the current items; create adds one; update changes a row." },
+        item_id: { type: "string", description: "update only: the item's id, from list or a create's result." },
+        title: { type: "string", description: "create: the item's name, one short line. update: a new title." },
+        note: { type: "string", description: "One sentence: what it waits on or how it ended. update: empty to clear." },
+        state: { type: "string", enum: ["open", "needs-you", "done"], description: "update only. needs-you: it waits on the person; done: finished or abandoned." },
+        thread_id: { type: "string", description: "create only: the thread this work belongs to, from list_threads." },
+      },
+      required: ["action"],
+    },
+  },
+  {
     name: "close_thread",
     description:
       "Mark a thread you opened (or one of your own) as finished once you have read its result: it leaves the person's default sidebar list (still under all threads, with a note saying you closed it) and list_threads reports it as closed. Nothing is deleted — deleting stays the person's decision — and a thread that is still running cannot be closed; wait for it or leave it. Use the thread id from list_threads or from the start_thread result. If a close is refused, do not retry it.",

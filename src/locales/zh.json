@@ -10136,5 +10136,8 @@
   "phone.code.typeIntro": "打开 {app} 应用并输入这个配对码。",
   "phone.signIn.emailCode": "邮件中的登录码",
   "settings.simple.account.noNameHint": "尚未设置",
-  "settings.simple.account.yourName": "你的名字"
+  "settings.simple.account.yourName": "你的名字",
+  "botPanel.tracked.title": "任务清单",
+  "botPanel.tracked.needsYou": "等你处理",
+  "botPanel.tracked.done": "已完成 {count} 项"
 }

@@ -10136,5 +10136,8 @@
   "phone.code.typeIntro": "Open the {app} app and type this pairing code.",
   "phone.signIn.emailCode": "Sign-in code from your email",
   "settings.simple.account.noNameHint": "Not set yet",
-  "settings.simple.account.yourName": "Your name"
+  "settings.simple.account.yourName": "Your name",
+  "botPanel.tracked.title": "Task list",
+  "botPanel.tracked.needsYou": "Needs you",
+  "botPanel.tracked.done": "{count} done"
 }

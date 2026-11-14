@@ -49,7 +49,7 @@ import { isPendingSignInRequest, normalizeSignInSite, signInOutcome, signInResum
 import { createRoomTurnLevels } from "./room-turn-level.ts";
 import { createSignInSettle } from "./host/sign-in-settle.ts"; import { createPersonLanguages, THIS_COMPUTER } from "./host/person-languages.ts"; import "./server-line-packs.ts"; import { conversationLanguage, serverLine, setConversationLanguage } from "./server-lines.ts";
 import { RoomMemberLock } from "./room-member-lock.ts";
-import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts"; import { reviewToolApproval } from "./approval-review.ts";
+import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts"; import { reviewToolApproval } from "./approval-review.ts"; import { reconcileTrackedTasks } from "./tracked-tasks-reconcile.ts";
 import { bindSafetyFloor, denyAtSafetyFloor, heldAtSafetyFloor, safetyFloorOn } from "./safety-floor-gate.ts";
 import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
 import { providerMcpTool, providerToolAllowKey } from "./provider-tool-allow.ts";
@@ -594,7 +594,7 @@ import { createUpdateCheckRoutes, serverUpdateChecker } from "./routes/update-ch
 import { createBrowserSiteRoutes } from "./routes/browser-sites.ts";
 import { createInternalSignInRoutes } from "./routes/sign-in.ts";
 import { createInternalMcpRoutes } from "./routes/internal-mcp.ts";
-import { createInternalThreadRoutes } from "./routes/internal-threads.ts";
+import { createInternalThreadRoutes } from "./routes/internal-threads.ts"; import { createInternalTrackedTaskRoutes } from "./routes/internal-tracked-tasks.ts";
 import { createBrowserEvidenceRoutes } from "./routes/browser-evidence.ts";
 import { createSignInCardRoutes } from "./routes/sign-in-cards.ts";
 import { createInternalChiefTeamRoutes } from "./routes/internal-chief-team.ts"; import { createInternalModelRoutes } from "./routes/internal-models.ts"; import { createOwnThreads } from "./host/own-threads.ts";
@@ -5396,6 +5396,29 @@ bus.subscribe((event: RuntimeEvent) => {
     skillReview.botSettled(bot.id);
   } catch (error) {
     console.warn(`skill review: could not count a turn: ${(error as Error).message}`);
+  }
+});
+
+bus.subscribe((event: RuntimeEvent) => {
+  if (shouldIgnoreProviderEvent(event)) return;
+  if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+  try {
+    const bot = store.botByThread(event.threadId);
+    if (!bot?.trackedItems?.length || store.groupByThread(event.threadId)) return;
+    if (isInternalTurn(event.threadId) || isUnattended(bot.id, event.threadId) || routines?.runForThread(event.threadId)) return;
+    if (cloudGuestDriven(event.threadId) || (CLOUD_PERSONAL && !cloudOwnerOnlyThread(event.threadId))) return;
+    const messages = store.activePath(event.threadId);
+    const turnMessages = messages.filter((message) => message.turnId === event.turnId
+      && message.kind === "text" && (message.role === "bot" || message.role === "user"));
+    const turnText = turnMessages.slice(-6).map((message) => `${message.role === "bot" ? "bot" : "person"}: ${message.text ?? ""}`).join("\n");
+    void reconcileTrackedTasks({ decider, items: bot.trackedItems, turnText }).then((moves) => {
+      if (!moves?.size) return;
+      const current = store.bot(bot.id);
+      if (!current?.trackedItems) return;
+      store.patchBot(bot.id, { trackedItems: current.trackedItems.map((item) => moves.has(item.id) ? { ...item, state: moves.get(item.id)!, updatedAt: Date.now() } : item) });
+    }).catch(() => {});
+  } catch (error) {
+    console.warn(`tracked tasks: could not reconcile a turn: ${(error as Error).message}`);
   }
 });
 
@@ -13278,6 +13301,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
         shown: (id) => !proactive.fence.confines(id) && !botApiThread(id) && (CLOUD_TEAM ? teamHost.readableFrom(internalCapability.threadId)(id) : cloudLendingView(internalCapability) ? cloudOwnerOnlyThread(id) : true),
         threadBusy, queuedThreadPosition, queuedReason: queuedStatus,
+      }), createInternalTrackedTaskRoutes({
+        store, from: internalSender, fromThreadId: internalCapability.threadId,
+        ownsThread: (botId, threadId) => Boolean(connectorThread(botId, threadId)),
       }), createToolTimingRoute(usageTrace, internalCapability.threadId)], { req, res, url, path, method, auth, json, readBody })) return;
       if (method === "POST" && path === "/api/internal/attach-file") {
         const from = internalSender;

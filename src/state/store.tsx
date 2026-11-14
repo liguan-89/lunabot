@@ -278,6 +278,8 @@ export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" |
   threadId: string;
   mainThreadId?: string;
   tasks?: Task[];
+  /** The task list the bot keeps for the person (its `tracked_tasks` tool). */
+  trackedItems?: import("../../shared/wire").TrackedItem[];
   projects?: BotProject[];
   name: string;
   title: string;

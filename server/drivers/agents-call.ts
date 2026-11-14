@@ -426,6 +426,42 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     });
     return { text: `Threads, newest first:\n${lines.join("\n")}` };
   }
+  if (name === "tracked_tasks") {
+    const action = String(args.action ?? "").trim();
+    if (action === "list") {
+      const r = await api("/api/internal/tracked-tasks");
+      if (r.error) return { text: `Couldn't read the task list: ${String(r.error)}`, isError: true };
+      const items = Array.isArray(r.items) ? r.items.filter(jsonRecord) : [];
+      if (!items.length) return { text: "The task list is empty." };
+      const lines = items.map((item) =>
+        `- ${String(item.title)} (${String(item.state)})${item.note ? `: ${String(item.note)}` : ""}${item.threadId ? ` [thread id: ${String(item.threadId)}]` : ""} [item id: ${String(item.id)}]`);
+      return { text: `Task list:\n${lines.join("\n")}` };
+    }
+    if (action === "create") {
+      const title = String(args.title ?? "").trim();
+      if (!title) return { text: "tracked_tasks create needs title (one short line).", isError: true };
+      const body: Record<string, unknown> = { title };
+      if (typeof args.note === "string" && args.note.trim()) body.note = args.note;
+      if (typeof args.thread_id === "string" && args.thread_id.trim()) body.threadId = args.thread_id;
+      const r = await api("/api/internal/tracked-tasks", { method: "POST", body: JSON.stringify(body) });
+      if (r.error) return { text: `Couldn't add the item: ${String(r.error)}`, isError: true };
+      const itemId = jsonRecord(r.item) ? String(r.item.id ?? "") : "";
+      return { text: `Added "${title}" to the person's task list${itemId ? ` [item id: ${itemId}]` : ""}.` };
+    }
+    if (action === "update") {
+      const itemId = String(args.item_id ?? "").trim();
+      if (!itemId) return { text: "tracked_tasks update needs item_id, from list or a create's result.", isError: true };
+      const body: Record<string, unknown> = {};
+      if (typeof args.title === "string" && args.title.trim()) body.title = args.title;
+      if (args.note !== undefined) body.note = typeof args.note === "string" && args.note.trim() ? args.note : null;
+      if (args.state !== undefined) body.state = args.state;
+      if (!Object.keys(body).length) return { text: "tracked_tasks update needs one of title, note or state.", isError: true };
+      const r = await api(`/api/internal/tracked-tasks/${encodeURIComponent(itemId)}`, { method: "PATCH", body: JSON.stringify(body) });
+      if (r.error) return { text: `Couldn't update the item: ${String(r.error)}`, isError: true };
+      return { text: "Updated." };
+    }
+    return { text: "tracked_tasks action is list, create or update.", isError: true };
+  }
   if (name === "close_thread") {
     const threadId = String(args.thread_id ?? "").trim();
     if (!threadId) return { text: "close_thread needs the thread_id from list_threads or start_thread.", isError: true };
