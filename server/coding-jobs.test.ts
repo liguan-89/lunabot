@@ -12,7 +12,7 @@ afterEach(() => { for (const d of dirs.splice(0)) rmSync(d, { recursive: true, f
 const okRun = (over: Partial<Record<string, { code?: number; stdout?: string; stderr?: string }>> = {}): GitRun =>
   async (args) => {
     const key = args.join(" ");
-    for (const [match, out] of Object.entries(over)) if (key.includes(match)) return { code: out.code ?? 0, stdout: out.stdout ?? "", stderr: out.stderr ?? "" };
+    for (const [match, out] of Object.entries(over)) if (key.includes(match)) return { code: out?.code ?? 0, stdout: out?.stdout ?? "", stderr: out?.stderr ?? "" };
     if (key.includes("--show-toplevel")) return { code: 0, stdout: "/repo\n", stderr: "" };
     if (key.includes("rev-parse")) return { code: 0, stdout: "abc123\n", stderr: "" };
     return { code: 0, stdout: "", stderr: "" };

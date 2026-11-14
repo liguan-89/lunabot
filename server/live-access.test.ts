@@ -27,7 +27,7 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-interface Place { resolve?: Partial<ResolveOptions>; othersOnLoopback?: boolean; provider?: "azure" | "openai" }
+interface Place { resolve?: Partial<ResolveOptions>; othersOnLoopback?: boolean; provider?: "azure" | "openai" | "qwen" | "volc" }
 
 /** "gets a call", or the words the person reads and who said them. */
 function verdict(headers: Record<string, string>, place: Place = {}): string {
@@ -172,6 +172,7 @@ describe("the words for a session without the admin scope", () => {
   it("name Azure only for a call start, and only with Azure chosen", () => {
     expect(verdict(device(["client"]), { provider: "openai" })).toBe("sign-in gate 403: forbidden: this session lacks the admin scope");
     expect(liveScopeRefusal({ live: { provider: "azure" } }, "post", LIVE)).toBe(LIVE_OWN_PROVIDER_REFUSAL);
+    expect(liveScopeRefusal({ live: { provider: "volc" } }, "post", LIVE)).toBe(LIVE_OWN_PROVIDER_REFUSAL);
     expect(liveScopeRefusal({ live: { provider: "azure" } }, "GET", "/api/live/call")).toBeNull();
     expect(liveScopeRefusal({ live: { provider: "azure" } }, "PATCH", "/api/live/settings")).toBeNull();
     expect(liveScopeRefusal({}, "POST", LIVE)).toBeNull();

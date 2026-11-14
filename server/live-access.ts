@@ -6,7 +6,7 @@ export const LIVE_OWN_PROVIDER_REFUSAL = "Live calls here go through the server'
 
 /** Providers without a client-event allowlist (LIVE_DATA_CHANNEL): the caller's channel is unrestricted, so only an admin or the single owner may hold one. */
 export function ownProviderLive(cfg: Pick<AppConfig, "live">): boolean {
-  return cfg.live?.provider === "azure" || cfg.live?.provider === "qwen";
+  return cfg.live?.provider === "azure" || cfg.live?.provider === "qwen" || cfg.live?.provider === "volc";
 }
 
 export interface LiveCallPlace {

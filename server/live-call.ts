@@ -11,7 +11,9 @@ export const MAX_SDP_BYTES = 64 * 1024;
 export const LIVE_NEEDS_KEY = "Live calls use your own OpenAI key. Add it in Settings → API keys.";
 export const LIVE_NEEDS_AZURE = "Live calls through Azure OpenAI need the resource endpoint, the GPT-Live deployment name and its key. Add them in Call settings.";
 export const LIVE_NEEDS_QWEN = "Live calls through Qwen need the realtime gateway's https address and its key. Add them in Call settings.";
+export const LIVE_NEEDS_VOLC = "Live calls through Doubao need the speech app's App ID and its Access Token as the Live key. Add them in Call settings.";
 export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls over this gateway use a WebSocket audio path that is not built yet. Use OpenAI or Azure for Live calls for now.";
+export const LIVE_VOLC_TRANSPORT = "Doubao realtime calls use a WebSocket audio path that is not built yet. Use OpenAI or Azure for Live calls for now.";
 
 /** The client's data channel is untrusted: it may only hang up; every append goes over the sideband.
  * Exception: Azure OpenAI refuses `session.client`, so an Azure call goes without this list and its caller's channel keeps
@@ -52,7 +54,7 @@ export interface LiveEndpoint {
 }
 
 export function liveProviderName(provider: LiveProvider): string {
-  return provider === "azure" ? "Azure OpenAI" : provider === "qwen" ? "Qwen" : "OpenAI";
+  return provider === "azure" ? "Azure OpenAI" : provider === "qwen" ? "Qwen" : provider === "volc" ? "Doubao" : "OpenAI";
 }
 
 export const LIVE_QWEN_MODEL = "qwen3.5-omni-flash-realtime";
@@ -85,6 +87,174 @@ export function qwenLiveEndpoint(endpoint: string | undefined, model: string | u
 /** The realtime socket a Qwen session opens: `session.created` answers the connect. */
 export function qwenRealtimeUrl(endpoint: LiveEndpoint): string {
   return `${endpoint.apiBase}/realtime?model=${encodeURIComponent(endpoint.model)}`;
+}
+
+export const VOLC_LIVE_HOST = "wss://openspeech.bytedance.com";
+export const LIVE_VOLC_MODEL = "1.2.1.1";
+const VOLC_RESOURCE_ID = "volc.speech.dialog";
+const VOLC_APP_KEY = "PlgvMymc7f3tQnJ6";
+
+export function volcAppId(raw: string | undefined): string | null {
+  const id = raw?.trim() ?? "";
+  return /^\d{4,20}$/.test(id) ? id : null;
+}
+
+export function volcLiveModel(raw: string | undefined): string | null {
+  const name = raw?.trim() || LIVE_VOLC_MODEL;
+  return /^[\w.-]{1,32}$/.test(name) ? name : null;
+}
+
+/** The realtime root is fixed (openspeech.bytedance.com); OMB_LIVE_VOLC_ENDPOINT swaps in a loopback ws root for tests. */
+export function volcLiveEndpoint(appId: string | undefined, model: string | undefined, env: NodeJS.ProcessEnv = process.env): LiveEndpoint | null {
+  if (!volcAppId(appId)) return null;
+  const version = volcLiveModel(model);
+  const override = env.OMB_LIVE_VOLC_ENDPOINT?.trim() ?? "";
+  const root = /^wss?:\/\/127\.0\.0\.1:\d{1,5}$/.test(override) ? override : VOLC_LIVE_HOST;
+  return version ? { provider: "volc", apiBase: root, model: version } : null;
+}
+
+export function volcRealtimeUrl(endpoint: LiveEndpoint): string {
+  return `${endpoint.apiBase}/api/v3/realtime/dialogue`;
+}
+
+/** Doubao's realtime dialogue API takes the speech app's App ID and Access Token in its own X-Api-* headers; the App Key and Resource ID are fixed product constants. */
+export function volcAuthHeaders(appId: string, accessToken: string, connectId?: string): Record<string, string> {
+  return {
+    "X-Api-App-ID": appId,
+    "X-Api-Access-Key": accessToken,
+    "X-Api-Resource-Id": VOLC_RESOURCE_ID,
+    "X-Api-App-Key": VOLC_APP_KEY,
+    ...(connectId ? { "X-Api-Connect-Id": connectId } : {}),
+  };
+}
+
+// The dialogue socket's v1 binary protocol: 4-byte header (version|header-size, message-type|flags, JSON|no-compression,
+// reserved) + event id + [session id size + session id] + payload size + payload. Session-level events carry the id field.
+export const VOLC_EVENT_START_CONNECTION = 1;
+export const VOLC_EVENT_START_SESSION = 100;
+export const VOLC_EVENT_CONNECTION_STARTED = 50;
+export const VOLC_EVENT_SESSION_STARTED = 150;
+
+export function volcFrame(event: number, payload: string, sessionId?: string): Buffer {
+  const parts: Buffer[] = [Buffer.from([0x11, 0x14, 0x10, 0x00])];
+  const ev = Buffer.alloc(4);
+  ev.writeUInt32BE(event);
+  parts.push(ev);
+  if (sessionId !== undefined) {
+    const id = Buffer.from(sessionId, "utf8");
+    const size = Buffer.alloc(4);
+    size.writeUInt32BE(id.length);
+    parts.push(size, id);
+  }
+  const body = Buffer.from(payload, "utf8");
+  const size = Buffer.alloc(4);
+  size.writeUInt32BE(body.length);
+  parts.push(size, body);
+  return Buffer.concat(parts);
+}
+
+export interface VolcFrame {
+  /** 0b1111 is an error packet; 0b1001 a full server response; 0b1011 audio. */
+  type: number;
+  event?: number;
+  code?: number;
+  sessionId?: string;
+  payload?: string;
+}
+
+export function volcDecodeFrame(data: Buffer): VolcFrame | null {
+  if (data.length < 4) return null;
+  const type = data[1] >> 4;
+  const flags = data[1] & 0xf;
+  let at = 4;
+  const frame: VolcFrame = { type };
+  if (type === 0xf && data.length >= at + 4) {
+    frame.code = data.readUInt32BE(at);
+    at += 4;
+  }
+  if ((flags === 0b0001 || flags === 0b0011) && data.length >= at + 4) at += 4;
+  if (flags & 0x4) {
+    if (data.length < at + 4) return null;
+    frame.event = data.readUInt32BE(at);
+    at += 4;
+  }
+  if (data.length >= at + 4) {
+    const idSize = data.readUInt32BE(at);
+    if (idSize > 0 && idSize <= 256 && data.length >= at + 4 + idSize + 4) {
+      frame.sessionId = data.subarray(at + 4, at + 4 + idSize).toString("utf8");
+      at += 4 + idSize;
+    }
+  }
+  if (data.length >= at + 4) {
+    const size = data.readUInt32BE(at);
+    at += 4;
+    if (data.length >= at + size) frame.payload = data.subarray(at, at + size).toString("utf8");
+  }
+  return frame;
+}
+
+export interface VolcProbeResult {
+  ok: boolean;
+  dialogId?: string;
+  error?: string;
+}
+
+/** Opens the dialogue socket and drives it through StartConnection → ConnectionStarted (50) and StartSession →
+ * SessionStarted (150): reaching 150 means App ID, Access Token and the model's activation are all good. The socket
+ * carries only these control frames; the key goes to openspeech.bytedance.com alone. */
+interface VolcSocket {
+  close(): void;
+  send(data: Buffer): void;
+  on(event: "message", fn: (data: unknown) => void): void;
+  on(event: "error", fn: (error: unknown) => void): void;
+  on(event: "close", fn: () => void): void;
+  on(event: "open", fn: () => void): void;
+}
+
+export function probeVolcLive(endpoint: LiveEndpoint, appId: string, accessToken: string, deps: { ws?: (url: string, headers: Record<string, string>) => VolcSocket; timeoutMs?: number } = {}): Promise<VolcProbeResult> {
+  if (endpoint.provider !== "volc") return Promise.resolve({ ok: false, error: "not a volc endpoint" });
+  const make = deps.ws ?? ((url, headers) => new WebSocket(url, { headers }) as unknown as VolcSocket);
+  return new Promise((resolve) => {
+    const done = (result: VolcProbeResult) => { clearTimeout(timer); try { socket.close(); } catch { /* already closed */ } resolve(result); };
+    const timer = setTimeout(() => done({ ok: false, error: "timeout" }), deps.timeoutMs ?? 8_000);
+    const socket = make(volcRealtimeUrl(endpoint), volcAuthHeaders(appId, accessToken));
+    const sessionId = `probe-${Date.now().toString(36)}`;
+    socket.on("error", () => done({ ok: false, error: "connect" }));
+    socket.on("close", () => done({ ok: false, error: "closed" }));
+    socket.on("open", () => {
+      socket.send(volcFrame(VOLC_EVENT_START_CONNECTION, "{}"));
+    });
+    let connected = false;
+    socket.on("message", (data) => {
+      const frame = volcDecodeFrame(Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer));
+      if (!frame) return;
+      if (frame.type === 0xf) {
+        let message = "rejected";
+        try {
+          message = String((JSON.parse(frame.payload ?? "{}") as { error?: unknown }).error ?? message).slice(0, 200);
+        } catch { /* not JSON */ }
+        done({ ok: false, error: message });
+        return;
+      }
+      if (frame.event === VOLC_EVENT_CONNECTION_STARTED && !connected) {
+        connected = true;
+        socket.send(volcFrame(VOLC_EVENT_START_SESSION, JSON.stringify({
+          asr: { audio_info: { format: "pcm", sample_rate: 16000, channel: 1 } },
+          tts: { speaker: "zh_female_vv_jupiter_bigtts", audio_config: { channel: 1, format: "pcm_s16le", sample_rate: 24000 } },
+          dialog: { extra: { model: endpoint.model } },
+        }), sessionId));
+        return;
+      }
+      if (frame.event === VOLC_EVENT_SESSION_STARTED) {
+        let dialogId: string | undefined;
+        try {
+          const id = (JSON.parse(frame.payload ?? "{}") as { dialog_id?: unknown }).dialog_id;
+          if (typeof id === "string") dialogId = id;
+        } catch { /* not JSON */ }
+        done({ ok: true, ...(dialogId ? { dialogId } : {}) });
+      }
+    });
+  });
 }
 
 /** Only a loopback http URL is accepted, read at call time. */
@@ -301,6 +471,7 @@ export async function createLiveSession(input: CreateLiveSessionInput): Promise<
   const endpoint = input.endpoint ?? openAiLiveEndpoint();
   const provider = liveProviderName(endpoint.provider);
   if (endpoint.provider === "qwen") throw new LiveSessionError(LIVE_QWEN_TRANSPORT, 400);
+  if (endpoint.provider === "volc") throw new LiveSessionError(LIVE_VOLC_TRANSPORT, 400);
   const key = input.key.trim();
   if (!key) throw new LiveSessionError(`Add an ${provider} API key to use Live calls.`, 409);
   if (!input.sdp.trim() || Buffer.byteLength(input.sdp) > MAX_SDP_BYTES) {
@@ -366,6 +537,9 @@ export function liveErrorMessage(status: number, param?: string, provider: LiveP
     if (status === 401 || status === 403) return "The Qwen realtime gateway rejected the API key. Check the key for Live calls.";
     if (status === 404) return "The Qwen realtime gateway has no realtime model by that name. Check the endpoint and the model.";
     if (status === 429) return "The Qwen realtime gateway is limiting sessions right now (rate limit or quota). Try again in a moment.";
+  } else if (provider === "volc") {
+    if (status === 401 || status === 403) return "Doubao speech rejected the App ID or Access Token. Check the speech app's credentials.";
+    if (status === 429) return "Doubao speech is limiting sessions right now (rate limit or quota). Try again in a moment.";
   } else {
     if (status === 401) return "OpenAI rejected the API key. Check the key for Live calls.";
     if (status === 403) return "This OpenAI project has no access to GPT-Live. Check the project's model access and billing.";

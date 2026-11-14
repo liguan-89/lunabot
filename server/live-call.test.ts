@@ -23,9 +23,19 @@ import {
   openAiLiveEndpoint,
   liveAuthHeaders,
   probeQwenLive,
+  probeVolcLive,
   qwenLiveEndpoint,
   qwenRealtimeRoot,
   qwenRealtimeUrl,
+  volcAuthHeaders,
+  volcDecodeFrame,
+  volcFrame,
+  volcLiveEndpoint,
+  volcRealtimeUrl,
+  VOLC_EVENT_CONNECTION_STARTED,
+  VOLC_EVENT_SESSION_STARTED,
+  VOLC_EVENT_START_CONNECTION,
+  VOLC_EVENT_START_SESSION,
   type LiveEndpoint,
 } from "./live-call.ts";
 import { CLOUD_HOME_PLACE } from "./system-prompt.ts";
@@ -446,7 +456,7 @@ describe("the Qwen realtime gateway", () => {
       on: (event: string, fn: (arg: unknown) => void) => {
         handlers.set(event, [...handlers.get(event) ?? [], fn]);
         queueMicrotask(() => {
-          if (close && event === "close") fn();
+          if (close && event === "close") fn(undefined);
           if (event === "message") for (const message of messages) fn(message);
           if (!messages.length && event === "error") fn(new Error("refused"));
         });
@@ -478,5 +488,99 @@ describe("the Qwen realtime gateway", () => {
     const silent = { close: vi.fn(), on: vi.fn() };
     expect(await probeQwenLive(endpoint, "k", { ws: (() => silent) as never, timeoutMs: 30 })).toEqual({ ok: false, error: "timeout" });
     expect(silent.close).toHaveBeenCalled();
+  });
+});
+
+describe("the Doubao realtime speech service", () => {
+  const endpoint = volcLiveEndpoint("6255978659", "", {})!;
+
+  it("requires a numeric App ID and defaults the model to O2.0", () => {
+    expect(endpoint).toEqual({ provider: "volc", apiBase: "wss://openspeech.bytedance.com", model: "1.2.1.1" });
+    expect(volcRealtimeUrl(endpoint)).toBe("wss://openspeech.bytedance.com/api/v3/realtime/dialogue");
+    expect(volcLiveEndpoint("", "1.2.1.1", {})).toBeNull();
+    expect(volcLiveEndpoint("app-123", "1.2.1.1", {})).toBeNull();
+    expect(volcLiveEndpoint("6255978659", "2.2.0.0", {})?.model).toBe("2.2.0.0");
+    expect(volcLiveEndpoint("6255978659", "bad model!", {})).toBeNull();
+    expect(volcLiveEndpoint("6255978659", "", { OMB_LIVE_VOLC_ENDPOINT: "ws://127.0.0.1:8042" })?.apiBase).toBe("ws://127.0.0.1:8042");
+    expect(volcLiveEndpoint("6255978659", "", { OMB_LIVE_VOLC_ENDPOINT: "wss://evil.example" })?.apiBase).toBe("wss://openspeech.bytedance.com");
+  });
+
+  it("puts the App ID and Access Token in the service's own headers", () => {
+    expect(volcAuthHeaders("6255978659", "tok")).toEqual({
+      "X-Api-App-ID": "6255978659",
+      "X-Api-Access-Key": "tok",
+      "X-Api-Resource-Id": "volc.speech.dialog",
+      "X-Api-App-Key": "PlgvMymc7f3tQnJ6",
+    });
+    expect(volcAuthHeaders("6255978659", "tok", "c-1")["X-Api-Connect-Id"]).toBe("c-1");
+  });
+
+  it("frames a session event as v1 binary and decodes the answer", () => {
+    const sent = volcFrame(VOLC_EVENT_START_SESSION, '{"a":1}', "s1");
+    expect(sent.subarray(0, 4)).toEqual(Buffer.from([0x11, 0x14, 0x10, 0x00]));
+    const decoded = volcDecodeFrame(sent);
+    expect(decoded).toMatchObject({ event: VOLC_EVENT_START_SESSION, sessionId: "s1", payload: '{"a":1}' });
+    const noId = volcDecodeFrame(volcFrame(VOLC_EVENT_START_CONNECTION, "{}"));
+    expect(noId).toMatchObject({ event: VOLC_EVENT_START_CONNECTION, payload: "{}" });
+    expect(noId?.sessionId).toBeUndefined();
+    expect(volcDecodeFrame(Buffer.from([0x11]))).toBeNull();
+  });
+
+  it("never runs the WebRTC session flow: the service answers only its own socket", async () => {
+    const fetchImpl = okFetch();
+    await expect(createLiveSession({ key: "k", endpoint, sdp: OFFER, bot: BOT, history: [], cloudHome: false, fetchImpl }))
+      .rejects.toMatchObject({ status: 400, message: expect.stringContaining("WebSocket audio path") });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("names credential failures for the caller", () => {
+    expect(liveErrorMessage(401, undefined, "volc")).toContain("Doubao speech rejected the App ID or Access Token");
+    expect(liveErrorMessage(429, undefined, "volc")).toContain("limiting");
+  });
+
+  function fakeDialogue(fail?: Buffer) {
+    const handlers = new Map<string, Array<(arg?: unknown) => void>>();
+    const sent: Buffer[] = [];
+    const socket = {
+      close: vi.fn(),
+      send: (data: Buffer) => {
+        sent.push(data);
+        const event = volcDecodeFrame(data)?.event;
+        queueMicrotask(() => {
+          const reply = fail ?? (event === VOLC_EVENT_START_CONNECTION
+            ? volcFrame(VOLC_EVENT_CONNECTION_STARTED, "{}", "conn-1")
+            : event === VOLC_EVENT_START_SESSION
+              ? volcFrame(VOLC_EVENT_SESSION_STARTED, '{"dialog_id":"d-1"}', "s-x")
+              : null);
+          if (reply) for (const fn of handlers.get("message") ?? []) fn(reply);
+        });
+      },
+      on: (event: string, fn: (arg?: unknown) => void) => {
+        handlers.set(event, [...handlers.get(event) ?? [], fn]);
+        if (event === "open") queueMicrotask(() => fn());
+      },
+    };
+    return { socket, sent };
+  }
+
+  it("probe: StartConnection then StartSession through to SessionStarted proves the credentials", async () => {
+    const { socket, sent } = fakeDialogue();
+    const make = vi.fn(() => socket);
+    const result = await probeVolcLive(endpoint, "6255978659", "tok", { ws: make as never });
+    expect(result).toEqual({ ok: true, dialogId: "d-1" });
+    expect(make).toHaveBeenCalledWith("wss://openspeech.bytedance.com/api/v3/realtime/dialogue", volcAuthHeaders("6255978659", "tok"));
+    expect(sent.map((f) => volcDecodeFrame(f)?.event)).toEqual([VOLC_EVENT_START_CONNECTION, VOLC_EVENT_START_SESSION]);
+    const session = JSON.parse(volcDecodeFrame(sent[1])?.payload ?? "{}");
+    expect(session.dialog.extra.model).toBe("1.2.1.1");
+    expect(socket.close).toHaveBeenCalled();
+  });
+
+  it("probe: an error packet or a dead socket is a failed probe", async () => {
+    const errFrame = Buffer.concat([Buffer.from([0x11, 0xf4, 0x10, 0x00]), (() => { const c = Buffer.alloc(4); c.writeUInt32BE(45000000); return c; })(), (() => { const e = Buffer.alloc(4); e.writeUInt32BE(152); return e; })(), volcFrame(0, '{"error":"bad speaker"}').subarray(8)]);
+    const rejected = await probeVolcLive(endpoint, "6255978659", "tok", { ws: (() => fakeDialogue(errFrame).socket) as never });
+    expect(rejected).toEqual({ ok: false, error: "bad speaker" });
+    const silent = { close: vi.fn(), send: vi.fn(), on: vi.fn() };
+    expect(await probeVolcLive(endpoint, "1", "t", { ws: (() => silent) as never, timeoutMs: 30 })).toEqual({ ok: false, error: "timeout" });
+    expect(await probeVolcLive({ provider: "qwen", apiBase: "x", model: "y" }, "1", "t")).toEqual({ ok: false, error: "not a volc endpoint" });
   });
 });

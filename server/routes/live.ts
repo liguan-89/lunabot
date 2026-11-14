@@ -2,7 +2,7 @@
 import type { IncomingMessage } from "node:http";
 import { z } from "zod";
 import type { LiveProvider, LiveSettings } from "../../shared/wire.ts";
-import { azureLiveDeployment, azureOpenAiRoot, LiveSessionError, MAX_SDP_BYTES, qwenLiveDeployment, qwenRealtimeRoot, type QwenProbeResult } from "../live-call.ts";
+import { azureLiveDeployment, azureOpenAiRoot, LiveSessionError, MAX_SDP_BYTES, qwenLiveDeployment, qwenRealtimeRoot, volcAppId, volcLiveModel, type QwenProbeResult, type VolcProbeResult } from "../live-call.ts";
 import { LiveCallBusyError, type LiveCallController } from "../live-call-controller.ts";
 import { PASS, type RouteContext, type RouteHandler } from "./table.ts";
 
@@ -10,9 +10,11 @@ export interface LiveRouteDeps {
   calls: Pick<LiveCallController, "start" | "end" | "current" | "deviceRevoked">;
   resolveTarget(botId: string, threadId: string | undefined): { botId: string; botName: string; threadId: string } | null;
   settings(): LiveSettings;
-  saveSettings(patch: { provider?: LiveProvider; azureEndpoint?: string; azureDeployment?: string; qwenEndpoint?: string; qwenModel?: string; voice?: string; readTypedReplies?: boolean; idleMinutes?: number }): Promise<LiveSettings>;
+  saveSettings(patch: { provider?: LiveProvider; azureEndpoint?: string; azureDeployment?: string; qwenEndpoint?: string; qwenModel?: string; volcAppId?: string; volcModel?: string; voice?: string; readTypedReplies?: boolean; idleMinutes?: number }): Promise<LiveSettings>;
   /** Connects the realtime socket with the saved key and reports what `session.created` answered. Admin scope only: it proves the key works. */
   probeQwen?(): Promise<QwenProbeResult>;
+  /** Drives the Doubao dialogue socket through StartConnection + StartSession and reports the answer. Admin scope only: it proves the app's credentials work. */
+  probeVolc?(): Promise<VolcProbeResult>;
 }
 
 const id = z.string().regex(/^[\w-]{1,120}$/);
@@ -26,13 +28,16 @@ const sessionBody = z.object({
 const endBody = z.object({ callId: z.string().min(1).max(120) }).strict();
 // Strict, so `key` is refused rather than ignored: the key is saved only through the credential store or PUT /api/config.
 const settingsBody = z.object({
-  provider: z.enum(["openai", "azure", "qwen"]).optional(),
+  provider: z.enum(["openai", "azure", "qwen", "volc"]).optional(),
   // "" clears the field. Anything else must be an https Azure OpenAI host, since the key is sent there.
   azureEndpoint: z.string().trim().max(300).refine((url) => url === "" || azureOpenAiRoot(url) !== null).optional(),
   azureDeployment: z.string().trim().max(64).refine((name) => name === "" || azureLiveDeployment(name) === name).optional(),
   // "" clears the field. Anything else must be an https base, since the key is sent to its origin's realtime socket.
   qwenEndpoint: z.string().trim().max(300).refine((url) => url === "" || qwenRealtimeRoot(url) !== null).optional(),
   qwenModel: z.string().trim().max(64).refine((name) => name === "" || qwenLiveDeployment(name) === name).optional(),
+  // "" clears the field. The App ID is digits and the model a version like "1.2.1.1".
+  volcAppId: z.string().trim().max(32).refine((id) => id === "" || volcAppId(id) === id).optional(),
+  volcModel: z.string().trim().max(32).refine((name) => name === "" || volcLiveModel(name) === name).optional(),
   voice: z.string().trim().max(40).regex(/^[a-z]*$/).optional(),
   readTypedReplies: z.boolean().optional(),
   idleMinutes: z.number().int().min(1).max(60).optional(),
@@ -101,6 +106,8 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
         if (field === "azureDeployment") return json(res, 400, { error: "The Azure deployment name may use letters, digits, '-', '_' and '.', up to 64 characters." });
         if (field === "qwenEndpoint") return json(res, 400, { error: "The Qwen endpoint must be the gateway's https address, like https://dashscope.aliyuncs.com." });
         if (field === "qwenModel") return json(res, 400, { error: "The Qwen realtime model name may use letters, digits, '-', '_' and '.', up to 64 characters." });
+        if (field === "volcAppId") return json(res, 400, { error: "The Doubao speech app's App ID is its digits, like 6255978659." });
+        if (field === "volcModel") return json(res, 400, { error: "The Doubao dialogue model is a version like 1.2.1.1 (O2.0) or 2.2.0.0 (SC2.0)." });
         return json(res, 400, { error: "Those Live settings are not valid." });
       }
       if (!Object.keys(parsed.data).length) return json(res, 400, { error: "nothing to save" });
@@ -111,6 +118,12 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
       if (!auth.scopes.includes("admin")) return json(res, 403, { error: "Only an admin can test the Live call connection." });
       if (!deps.probeQwen) return json(res, 404, { error: "No Qwen realtime provider is set up." });
       return json(res, 200, { probe: await deps.probeQwen() });
+    }
+
+    if (method === "POST" && path === "/api/live/volc/probe") {
+      if (!auth.scopes.includes("admin")) return json(res, 403, { error: "Only an admin can test the Live call connection." });
+      if (!deps.probeVolc) return json(res, 404, { error: "No Doubao realtime provider is set up." });
+      return json(res, 200, { probe: await deps.probeVolc() });
     }
 
     return PASS;

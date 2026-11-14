@@ -6,6 +6,8 @@ import crypto from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from "node:fs";
 import path from "node:path";
 
+type JsonWebKey = import("node:crypto").webcrypto.JsonWebKey;
+
 export class WebAuthnError extends Error {
   readonly reason: string;
   constructor(reason: string) {

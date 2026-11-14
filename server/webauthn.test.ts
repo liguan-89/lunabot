@@ -7,7 +7,7 @@ const RP_HASH = crypto.createHash("sha256").update("localhost").digest();
 
 // CBOR encoder for the shapes WebAuthn uses: text, bytes, ints (incl. negative), maps.
 function cborEnc(value: unknown): Buffer {
-  const head = (major: number, n: number) => {
+  const head = (major: number, n: number): Buffer => {
     if (n < 24) return Buffer.from([(major << 5) | n]);
     if (n < 256) return Buffer.from([(major << 5) | 24, n]);
     if (n < 65536) return Buffer.from([(major << 5) | 25, n >> 8, n & 0xff]);
@@ -108,7 +108,7 @@ describe("assertion", () => {
   it("verifies a real signature over authData‖hash(clientData) and reports the new counter", () => {
     const { auth, credential } = enroll();
     auth.nextCount();
-    const options = assertOptions([credential]) as { challenge: string };
+    const options = assertOptions([credential]) as { challenge: string; allowCredentials: unknown };
     expect(options.allowCredentials).toEqual([{ type: "public-key", id: credential.credentialId }]);
     expect(assertWith(credential, auth.assertion(options.challenge))).toEqual({ credentialId: credential.credentialId, signCount: 1 });
   });

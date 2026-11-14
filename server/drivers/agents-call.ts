@@ -577,7 +577,7 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     if (id && rows.length === 0) return { text: `No coding job ${id} is known here — check the id against a delegate_coding receipt.`, isError: true };
     return { text: JSON.stringify({ jobs: rows.map((job) => {
       const j = job as Record<string, unknown>;
-      const harvest = jsonRecord(j.harvest) ?? {};
+      const harvest: Record<string, unknown> = jsonRecord(j.harvest) ? j.harvest : {};
       return { id: j.id, title: j.title, repo: j.repo, worktree: j.worktree, branch: j.branch, threadId: j.threadId, createdAt: j.createdAt, commits: harvest.commits ?? [], diffStat: harvest.diffStat ?? "", dirty: harvest.dirty ?? [], error: harvest.error };
     }) }) };
   }

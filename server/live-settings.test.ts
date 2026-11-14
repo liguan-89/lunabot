@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { AppConfig } from "./config.ts";
 import { nestedKeyStatus } from "./key-hint.ts";
-import { LIVE_NEEDS_AZURE, LIVE_NEEDS_KEY, LIVE_NEEDS_QWEN } from "./live-call.ts";
+import { LIVE_NEEDS_AZURE, LIVE_NEEDS_KEY, LIVE_NEEDS_QWEN, LIVE_NEEDS_VOLC } from "./live-call.ts";
 import { LIVE_KEY_NEEDS_ENDPOINT, liveConfigWithEnv, liveKeyTarget, liveSavePatch, usableLiveKey, type LiveConfig } from "./live-config.ts";
 import { LIVE_IDLE_MINUTES_DEFAULT, liveCallEndpoint, liveCallKey, liveCallSettings, liveSettingsFor, liveSettingsForClient, liveSetupProblem } from "./live-settings.ts";
 
@@ -302,5 +302,61 @@ describe("a saved Live key", () => {
       expect(usable(undefined, { OMB_OPENAI_LIVE_KEY: "sk-env" })).toBe("sk-env");
       expect(usable({ voice: "cedar" }, { OMB_OPENAI_LIVE_KEY: "sk-env", OMB_LIVE_PROVIDER: "openai" })).toBe("sk-env");
     });
+  });
+});
+
+describe("Live calls through Doubao realtime speech", () => {
+  const volc = { provider: "volc" as const, volcAppId: "6255978659", volcModel: "1.2.1.1" };
+  const keyFor = "volc";
+
+  it("never falls back to the OpenAI API key: the speech app's own token is required", () => {
+    const cfg = { live: volc, openai: { key: "sk-openai" } } as AppConfig;
+    expect(liveCallKey(cfg)).toBeNull();
+    expect(liveSetupProblem(cfg)).toBe(LIVE_NEEDS_VOLC);
+  });
+
+  it("is ready with the App ID, the token and a valid model version", () => {
+    const cfg = { live: { ...volc, key: "volc-token", keyFor } } as AppConfig;
+    expect(liveCallKey(cfg)).toEqual({ key: "volc-token", source: "live" });
+    expect(liveCallEndpoint(cfg)).toEqual({ provider: "volc", apiBase: "wss://openspeech.bytedance.com", model: "1.2.1.1" });
+    const settings = liveSettingsFor(cfg);
+    expect(settings).toMatchObject({ configured: true, keySource: "live", provider: "volc", volcAppId: "6255978659", volcModel: "1.2.1.1" });
+    expect(JSON.stringify(settings)).not.toContain("volc-token");
+  });
+
+  it("reports its own setup problem until the App ID is there, key or not", () => {
+    const cfg = { live: { provider: "volc" as const, key: "k", keyFor } } as AppConfig;
+    expect(liveCallKey(cfg)).toEqual({ key: "k", source: "live" });
+    expect(liveCallEndpoint(cfg)).toBeNull();
+    expect(liveSetupProblem(cfg)).toBe(LIVE_NEEDS_VOLC);
+    expect(liveCallSettings({ live: { provider: "volc" } } as AppConfig)).toMatchObject({ provider: "volc", endpoint: null, key: "", setupProblem: LIVE_NEEDS_VOLC });
+    expect(liveCallSettings({ live: { ...volc, key: "k", keyFor } } as AppConfig)).toMatchObject({ provider: "volc", key: "k", setupProblem: null, endpoint: { provider: "volc" } });
+  });
+
+  it("a caller without the admin scope learns the provider, not the app", () => {
+    const client = liveSettingsForClient(liveSettingsFor({ live: { ...volc, key: "volc-token", keyFor } } as AppConfig));
+    expect(client).toEqual({ configured: true, keySource: "live", provider: "volc", voice: "", readTypedReplies: true, idleMinutes: 5 });
+  });
+
+  it("an empty model means the O2.0 default", () => {
+    expect(liveCallEndpoint({ live: { ...volc, volcModel: "" } } as AppConfig)?.model).toBe("1.2.1.1");
+  });
+
+  it("the key is tied to the service itself: the host is fixed, so saving pairs them by provider", () => {
+    expect(liveKeyTarget({ provider: "volc" })).toBe("volc");
+    expect(liveSavePatch(undefined, { key: "tok", provider: "volc", volcAppId: "6255978659" })).toEqual({ key: "tok", provider: "volc", volcAppId: "6255978659", keyFor: "volc" });
+    const onVolc: LiveConfig = { provider: "volc", volcAppId: "6255978659", key: "tok", keyFor: "volc" };
+    expect(usableLiveKey(onVolc)).toBe("tok");
+    expect(usableLiveKey({ ...onVolc, volcAppId: "9999999999" })).toBe("tok");
+    expect(liveSavePatch(onVolc, { provider: "openai" })).toEqual({ provider: "openai", key: "", keyFor: "nowhere" });
+    expect(liveSavePatch(onVolc, { volcModel: "2.2.0.0" })).toEqual({ volcModel: "2.2.0.0" });
+  });
+
+  it("pairs a token and an App ID set together in the environment", () => {
+    const env = { OMB_OPENAI_LIVE_KEY: "operators", OMB_LIVE_PROVIDER: "volc", OMB_LIVE_VOLC_APP_ID: "6255978659", OMB_LIVE_VOLC_MODEL: "2.2.0.0" };
+    const merged = liveConfigWithEnv(undefined, env);
+    expect(usableLiveKey(merged)).toBe("operators");
+    expect(merged).toMatchObject({ provider: "volc", volcAppId: "6255978659", volcModel: "2.2.0.0", keyFor: "volc" });
+    expect(usableLiveKey(liveConfigWithEnv({ provider: "volc" }, { OMB_OPENAI_LIVE_KEY: "operators" }))).toBeUndefined();
   });
 });
