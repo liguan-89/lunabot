@@ -86,6 +86,7 @@ instance.adapter.onEvent((event) => {
 const evidence: unknown[] = [];
 async function turn(kind: string, toolScope: { allow: string[] }, resumeCursor?: string) {
   scenario = kind; round = 0; const before = payloads.length; const eventStart = events.length;
+  const approvalsBefore = approvals;
   const { turnId } = await instance.adapter.sendTurn({ threadId: "scope-contract", text: "Complete only the selected disposable fixture tools.", cwd: home, model: "fixture/fixture", approvalMode: "ask", toolScope, resumeCursor,
     integrations: { custom: { mail: { command: process.execPath, args: [mail], env: { RECEIPT: receipt } } } },
   });
@@ -95,20 +96,22 @@ async function turn(kind: string, toolScope: { allow: string[] }, resumeCursor?:
   assert(completed?.ok === true, "Pi turn must complete successfully");
   assert(payloads.length > before, JSON.stringify(events.slice(eventStart).filter((event) => event.type === "runtime.error")));
   const names = payloads[before]!.tools?.map((tool) => tool.function.name) ?? [];
-  evidence.push({ scenario: kind, ok: completed.ok, names, schemaBytes: Buffer.byteLength(JSON.stringify(payloads[before]!.tools ?? [])), requests: payloads.length - before });
-  return { names, cursor: events.slice(eventStart).find((event) => event.type === "session.started")?.sessionId as string | undefined };
+  const turnApprovals = approvals - approvalsBefore;
+  evidence.push({ scenario: kind, ok: completed.ok, names, schemaBytes: Buffer.byteLength(JSON.stringify(payloads[before]!.tools ?? [])), requests: payloads.length - before, approvals: turnApprovals });
+  return { names, approvals: turnApprovals, cursor: events.slice(eventStart).find((event) => event.type === "session.started")?.sessionId as string | undefined };
 }
 try {
   const native = await turn("native", { allow: ["native:read", "native:edit", "native:write"] });
   assert.deepEqual([...native.names].sort(), ["edit", "read", "write"]);
   assert.equal(readFileSync(artifact, "utf8"), "verified drafting");
+  assert.equal(native.approvals, 1, "Ask must gate pi's own write before it runs");
   assert.equal(existsSync(blocked), false, "Withheld bash must never execute");
   assert.deepEqual((await turn("empty", { allow: [] }, native.cursor)).names, []);
   assert.deepEqual((await turn("unknown", { allow: ["native:unknown_tool"] })).names, []);
   const selected = await turn("mail", { allow: ["mcp:mail:read_notes"] });
   assert.deepEqual(selected.names, ["mail_read_notes"]);
   assert.equal(readFileSync(receipt, "utf8"), "read_notes\n", "Only the raw selected MCP operation executes");
-  assert.equal(approvals, 1, "The selected custom tool still needs a human approval");
+  assert.equal(approvals, 2, "Ask gates pi's own write and the selected custom tool");
   assert.deepEqual((await turn("empty", { allow: [] }, selected.cursor)).names, []);
   console.log(JSON.stringify({ ok: true, cli, evidence, approvals, withheldNativeExecuted: false, withheldMcpExecuted: false }));
 } finally {

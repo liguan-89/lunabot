@@ -274,10 +274,10 @@ describe("Pi MCP extension registration", () => {
   const scopedApi = (initial: string[]) => {
     let active = initial;
     const tools: RegisteredTool[] = [];
-    const handlers = new Map<string, (event?: any) => any>();
+    const handlers = new Map<string, (...args: any[]) => any>();
     return { tools, handlers, current: () => active, restore: (names: string[]) => { active = names; }, api: {
       registerTool(tool: RegisteredTool) { tools.push(tool); },
-      on(event: string, handler: (event?: any) => any) { handlers.set(event, handler); },
+      on(event: string, handler: (...args: any[]) => any) { handlers.set(event, handler); },
       getActiveTools: () => [...active], setActiveTools: (names: string[]) => { active = names; },
     } };
   };
@@ -474,6 +474,52 @@ describe("Pi MCP extension registration", () => {
       tools[0].execute("call-1", {}, undefined, undefined, { ui: { confirm: async () => true } }),
     ).resolves.toMatchObject({ content: [{ type: "text", text: "still alive" }] });
     await handlers.get("session_shutdown")?.();
+  });
+
+  it("asks before pi's own mutating tools under ask, auto and edits, never under full", async () => {
+    const ui = (answer: boolean) => {
+      const asked: string[] = [];
+      return { asked, ctx: { hasUI: true, ui: { confirm: async (title: string) => { asked.push(title); return answer; } } } };
+    };
+
+    scopeConfig(undefined, { approvalMode: "ask" });
+    const f = scopedApi(["read", "bash", "edit", "write"]);
+    await extension(f.api);
+    const allow = ui(true);
+    expect(await f.handlers.get("tool_call")?.({ toolName: "read" }, allow.ctx)).toBeUndefined();
+    expect(allow.asked).toEqual([]);
+    expect(await f.handlers.get("tool_call")?.({ toolName: "bash", input: { command: "echo hi" } }, allow.ctx)).toBeUndefined();
+    expect(allow.asked).toEqual(["Allow bash?"]);
+    const deny = ui(false);
+    for (const toolName of ["bash", "edit", "write"]) {
+      expect(await f.handlers.get("tool_call")?.({ toolName, input: {} }, deny.ctx)).toMatchObject({ block: true });
+    }
+    expect(deny.asked).toEqual(["Allow bash?", "Allow edit?", "Allow write?"]);
+    expect(await f.handlers.get("tool_call")?.({ toolName: "bash", input: {} }, { hasUI: false })).toMatchObject({ block: true });
+
+    // Approve-for-me has no pi reviewer: it falls back to asking.
+    scopeConfig(undefined, { approvalMode: "auto" });
+    const auto = scopedApi(["read", "bash"]);
+    await extension(auto.api);
+    const autoDeny = ui(false);
+    expect(await auto.handlers.get("tool_call")?.({ toolName: "bash", input: {} }, autoDeny.ctx)).toMatchObject({ block: true });
+    expect(autoDeny.asked).toEqual(["Allow bash?"]);
+
+    // Auto-accept edits approves file changes but still asks about shell.
+    scopeConfig(undefined, { approvalMode: "edits" });
+    const edits = scopedApi(["read", "bash", "edit", "write"]);
+    await extension(edits.api);
+    const editsAllow = ui(true);
+    expect(await edits.handlers.get("tool_call")?.({ toolName: "edit", input: {} }, editsAllow.ctx)).toBeUndefined();
+    expect(await edits.handlers.get("tool_call")?.({ toolName: "write", input: {} }, editsAllow.ctx)).toBeUndefined();
+    expect(editsAllow.asked).toEqual([]);
+    expect(await edits.handlers.get("tool_call")?.({ toolName: "bash", input: {} }, editsAllow.ctx)).toBeUndefined();
+    expect(editsAllow.asked).toEqual(["Allow bash?"]);
+
+    scopeConfig(undefined, { approvalMode: "full" });
+    const full = scopedApi(["read", "bash"]);
+    await extension(full.api);
+    expect(await full.handlers.get("tool_call")?.({ toolName: "bash", input: {} }, ui(true).ctx)).toBeUndefined();
   });
 
   it("throws when an MCP tool result declares isError", async () => {

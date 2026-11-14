@@ -75,7 +75,7 @@ interface PiToolDefinition {
 /** The slice of Pi 0.84's ExtensionAPI this standalone file uses; the user's installed Pi supplies it. */
 interface PiExtensionApi {
   registerTool(definition: PiToolDefinition): void;
-  on(event: string, handler: (event?: Record<string, unknown>, context?: { abort?(): void }) => unknown): void;
+  on(event: string, handler: (event?: Record<string, unknown>, context?: { abort?(): void; hasUI?: boolean; ui?: PiToolContext["ui"] }) => unknown): void;
   getActiveTools?(): string[];
   setActiveTools?(names: string[]): void;
 }
@@ -518,6 +518,10 @@ function summarizeParams(params: unknown): string {
   }
 }
 
+/** pi's default built-ins are [read, bash, edit, write]; read needs no approval. */
+const PI_MUTATING_TOOLS = new Set(["bash", "edit", "write"]);
+const PI_SHELL_TOOLS = new Set(["bash"]);
+
 const ASK_USER_NOT_ANSWERED = "The person did not answer this question. Do not guess an answer; ask again later or proceed without it.";
 
 /** The shared ask_user tool over Pi's own dialogs: in RPC mode each select is one question card, asked in turn.
@@ -594,10 +598,34 @@ export default async function (pi: PiExtensionApi): Promise<void> {
   const clients: StdioMcp[] = [];
   const serverEntries = Object.entries(config.mcpServers ?? {}).filter(([name]) => scope === undefined || canUseMcpServer(scope, name));
 
+  const allowed = (name: string) => directoryTools.has(name)
+    ? scope !== undefined && canUseMcpServer(scope, directoryTools.get(name)!)
+    : scope !== undefined && allowsTool(scope, identities.get(name) ?? { kind: "native", name });
+
+  // pi has no reviewer of its own: Ask, Auto-accept edits and Approve-for-me's
+  // fallback put its mutating built-ins behind the same card the MCP gate uses.
+  const gatedNative = config.approvalMode === "ask" || config.approvalMode === "auto" ? PI_MUTATING_TOOLS
+    : config.approvalMode === "edits" ? PI_SHELL_TOOLS
+    : undefined;
+
+  if (scope !== undefined || gatedNative) {
+    pi.on("tool_call", async (event, ctx) => {
+      const toolName = event?.toolName;
+      if (scope !== undefined && (enforcementFailed || typeof toolName !== "string" || !allowed(toolName))) {
+        return { block: true, reason: "Tool selection excludes this tool" };
+      }
+      if (typeof toolName === "string" && gatedNative?.has(toolName)) {
+        const detail = summarizeParams(event?.input);
+        const confirmed = typeof ctx?.ui?.confirm === "function"
+          ? await ctx.ui.confirm(`Allow ${toolName}?`, detail || `Run ${toolName}`)
+          : false;
+        if (!confirmed) return { block: true, reason: "Blocked by the user" };
+      }
+      return undefined;
+    });
+  }
+
   if (scope !== undefined) {
-    const allowed = (name: string) => directoryTools.has(name)
-      ? canUseMcpServer(scope, directoryTools.get(name)!)
-      : allowsTool(scope, identities.get(name) ?? { kind: "native", name });
     const intersect = () => {
       if (enforcementFailed) throw new Error("Pi tool selection enforcement is unavailable");
       try {
@@ -618,7 +646,6 @@ export default async function (pi: PiExtensionApi): Promise<void> {
       }
     };
     for (const event of ["session_start", "session_switch", "model_select", "before_agent_start", "context"]) pi.on(event, () => { intersect(); });
-    pi.on("tool_call", (event) => !enforcementFailed && typeof event?.toolName === "string" && allowed(event.toolName) ? undefined : { block: true, reason: "Tool selection excludes this tool" });
     // Providers serialize tools before this hook, so the final payload is filtered too.
     pi.on("before_provider_request", (event, context) => {
       let selected = new Set<string>();
