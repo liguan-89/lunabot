@@ -230,7 +230,7 @@
     },
     {
       "name": "usage_limits",
-      "description": "Each AI account's usage limits: percent used, reset time, when checked. status: ok, unknown (no data now; see why) or unsupported.",
+      "description": "Each AI account's usage limits: percent used, reset time, when checked. status: ok, unknown (no data now; see why) or unsupported. `you` says what the quota went on: your turns and tokens across your threads so far, and your routines' runs over the last 7 days, biggest first.",
       "inputSchema": {
         "type": "object",
         "additionalProperties": false,
@@ -292,6 +292,25 @@
         "destructiveHint": false,
         "idempotentHint": true,
         "openWorldHint": false
+      }
+    },
+    {
+      "name": "proactivity",
+      "description": "How much DEX BOT initiates for the person. standard: proactive work posts briefs and suggestions with notifications. quiet: those keep working but post without a ping. Read it when asked how active to be; set quiet when the person asks not to be disturbed or standard when they want to hear from it again. For anything bigger than a level change, ask first with a card (show_widget).",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "standard",
+              "quiet"
+            ],
+            "description": "Leave out to read the current level."
+          }
+        },
+        "required": []
       }
     },
     {

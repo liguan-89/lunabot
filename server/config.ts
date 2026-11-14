@@ -427,6 +427,8 @@ const appConfigSchema = z.object({
   }).strict().optional(),
   loopGuard: loopGuardConfigSchema.optional(),
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
+  /** How much DEX BOT initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
+  proactivity: z.enum(["standard", "quiet"]).optional(),
   localVm: localVmConfigSchema.optional(),
   features: featureConfigSchema.optional(),
   onboarding: onboardingConfigSchema.optional(),
@@ -485,6 +487,7 @@ export interface AppConfig extends HelperConfig {
   decisions?: { retentionDays?: number; rules?: { allow?: string[]; deny?: string[] } };
   loopGuard?: LoopGuardConfig;
   safetyFloor?: { enabled?: boolean };
+  proactivity?: "standard" | "quiet";
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
@@ -953,7 +956,7 @@ export function saveConfig(
   }
   keepImageModels();
   if (checkedPatch.vps !== undefined) disk.vps = normalizeVpsConfig(checkedPatch.vps);
-  for (const key of ["language", "computerName", "everyBotRules"] as const) if (checkedPatch[key] !== undefined) disk[key] = checkedPatch[key];
+  for (const key of ["language", "computerName", "everyBotRules", "proactivity"] as const) if (checkedPatch[key] !== undefined) disk[key] = checkedPatch[key];
   if (checkedPatch.customDomain !== undefined) disk.customDomain = checkedPatch.customDomain;
   if (checkedPatch.signIn !== undefined) disk.signIn = checkedPatch.signIn;
   // Replace the section so clearing a backup cannot revive the old selection.

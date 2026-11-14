@@ -590,3 +590,35 @@ describe("blank optional arguments", () => {
     ]);
   });
 });
+
+describe("proactivity", () => {
+  const recording = (calls: Array<{ path: string; init: any }>, answer: Record<string, unknown>) => context({
+    client: {
+      api: async (path, init) => { calls.push({ path, init }); return answer; },
+      apiResponse: async () => ({ ok: true, status: 200, body: {} }),
+    },
+  });
+
+  it("reads the level with a GET and sets it with a PUT", async () => {
+    const calls: Array<{ path: string; init: any }> = [];
+    const ctx = recording(calls, { level: "quiet" });
+    expect(await callTool("proactivity", {}, ctx)).toEqual({ text: "Proactivity is quiet." });
+    expect((await callTool("proactivity", { level: "quiet" }, ctx)).text).toBe("Proactivity is quiet. Briefs and suggestions keep working but post without a ping.");
+    expect(await callTool("proactivity", { level: "standard" }, ctx)).toEqual({ text: "Proactivity is quiet. The person hears about briefs and suggestions again." });
+    expect(calls).toEqual([
+      { path: "/api/internal/proactivity", init: undefined },
+      { path: "/api/internal/proactivity", init: { method: "PUT", body: JSON.stringify({ level: "quiet" }) } },
+      { path: "/api/internal/proactivity", init: { method: "PUT", body: JSON.stringify({ level: "standard" }) } },
+    ]);
+  });
+
+  it("turns a route failure into an error result", async () => {
+    const ctx = context({
+      client: {
+        api: async () => ({ error: "source conversation does not belong to sender" }),
+        apiResponse: async () => ({ ok: true, status: 200, body: {} }),
+      },
+    });
+    expect(await callTool("proactivity", {}, ctx)).toMatchObject({ isError: true });
+  });
+});

@@ -32,6 +32,8 @@ export interface HelperSuggestionDeps {
   cloud: boolean;
   /** A decision model is set up and on, or the person switched the helper models off: nothing to suggest. */
   settled(): boolean;
+  /** The person asked for quiet: suggestions stay unposted. */
+  muted?(): boolean;
   owner(): BotRecord | null;
   mainThread(botId: string): string | undefined;
   threadBusy(botId: string, threadId: string): boolean;
@@ -66,7 +68,7 @@ export function createHelperSuggestion(deps: HelperSuggestionDeps) {
   return {
     /** After a check of the proactive routine: Gmail is connected (as `inbox`, its address once read). Posts the card when due. */
     consider(input: { gmailConnected: boolean; inbox?: string }): { posted: string } | null {
-      if (deps.cloud || !input.gmailConnected || deps.settled()) return null;
+      if (deps.cloud || !input.gmailConnected || deps.settled() || deps.muted?.() === true) return null;
       const inbox = input.inbox?.trim().toLowerCase() || undefined;
       if (!due(inbox)) return null;
       const bot = deps.owner();

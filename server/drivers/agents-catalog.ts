@@ -276,6 +276,19 @@ const TOOL_DEFINITIONS = [
     inputSchema: { type: "object", additionalProperties: false, properties: {} },
   },
   {
+    name: "proactivity",
+    description:
+      "How much DEX BOT initiates for the person. standard: proactive work posts briefs and suggestions with notifications. quiet: those keep working but post without a ping. Read it when asked how active to be; set quiet when the person asks not to be disturbed or standard when they want to hear from it again. For anything bigger than a level change, ask first with a card (show_widget).",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        level: { type: "string", enum: ["standard", "quiet"], description: "Leave out to read the current level." },
+      },
+      required: [],
+    },
+  },
+  {
     name: "tracked_tasks",
     description:
       "The task list the person sees for you: one row per unit of work you are carrying, not a thread. When you take on multi-step work, or it grows beyond what a reply covers, create an item; update its note as it moves so the list always reads as your current state; mark it done when finished, or say what it waits on and set needs-you when the person must act. Titles are one short line, notes a sentence. A row can point at one of your threads (list_threads). Keep it honest and short — at most 50 items.",

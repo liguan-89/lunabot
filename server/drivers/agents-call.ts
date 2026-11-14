@@ -426,6 +426,14 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     });
     return { text: `Threads, newest first:\n${lines.join("\n")}` };
   }
+  if (name === "proactivity") {
+    const level = args.level === undefined ? undefined : String(args.level);
+    if (level !== undefined && level !== "standard" && level !== "quiet") return { text: "proactivity level is standard or quiet.", isError: true };
+    const r = await api("/api/internal/proactivity", level === undefined ? undefined : { method: "PUT", body: JSON.stringify({ level }) });
+    if (r.error) return { text: `Couldn't ${level === undefined ? "read" : "set"} the proactivity level: ${String(r.error)}`, isError: true };
+    return { text: `Proactivity is ${String(r.level)}.${level === "quiet" ? " Briefs and suggestions keep working but post without a ping." : level === "standard" ? " The person hears about briefs and suggestions again." : ""}` };
+  }
+
   if (name === "tracked_tasks") {
     const action = String(args.action ?? "").trim();
     if (action === "list") {

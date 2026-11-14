@@ -15,7 +15,7 @@ const guest: RequestAuth = { kind: "loopback", scopes: ["client"], trust: "servi
 const dirs: string[] = [];
 afterEach(() => { for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
-function setup(options: { cloud?: boolean } = {}) {
+function setup(options: { cloud?: boolean; muted?: boolean } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-helper-suggestion-"));
   dirs.push(dir);
   const store = new Store(() => ({ instanceId: "codex", model: "gpt-5.5" }));
@@ -25,7 +25,7 @@ function setup(options: { cloud?: boolean } = {}) {
   let busy = false;
   const make = () => createHelperSuggestion({
     store, dataDir: dir, cloud: options.cloud ?? false, settled: () => settled, owner: () => proactiveOwner(store),
-    mainThread: (botId) => store.bot(botId)!.threadId, threadBusy: () => busy,
+    muted: () => options.muted === true, mainThread: (botId) => store.bot(botId)!.threadId, threadBusy: () => busy,
   });
   let suggestion = make();
   const thread = () => store.bot(chief.id)!.threadId;
@@ -49,6 +49,12 @@ describe("the add-a-key suggestion", () => {
     expect(card!.card).toBeUndefined();
     expect(card!.widget).toBeUndefined();
     expect(s.store.taskByThread(s.chief.id, s.thread())?.unread).toBe(true);
+  });
+
+  it("stays unposted while the person asked for quiet", () => {
+    const s = setup({ muted: true });
+    expect(s.suggestion.consider({ gmailConnected: true, inbox: "me@x.test" })).toBeNull();
+    expect(s.cards()).toEqual([]);
   });
 
   it("is never shown on Cloud, where the keys come with the plan", () => {

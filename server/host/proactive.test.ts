@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "../config.ts";
+import type { Notification } from "../../shared/notification.ts";
+import type { NeedsYouItem } from "../../shared/today.ts";
 import { RoutineManager } from "../routines.ts";
 import { Store } from "../store.ts";
 import { createProactive, WATCH_NAME } from "./proactive.ts";
@@ -16,7 +18,7 @@ afterEach(() => {
 
 type Services = Record<string, { connected: boolean; accounts?: Array<{ id: string; status: string }> }>;
 
-function setup(options: { team?: boolean; driver?: string; configured?: () => boolean; cloud?: boolean; services?: Services } = {}) {
+function setup(options: { team?: boolean; driver?: string; configured?: () => boolean; cloud?: boolean; services?: Services; proactivity?: () => "standard" | "quiet"; needsYou?: NeedsYouItem[] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-proactive-"));
   dirs.push(dir);
   const store = new Store(() => ({ instanceId: "claude", model: "claude-sonnet-5" }));
@@ -24,6 +26,7 @@ function setup(options: { team?: boolean; driver?: string; configured?: () => bo
   store.setChiefOfStaff(chief.id);
   const reads: string[] = [];
   const accounts: Array<string | undefined> = [];
+  const notified: Notification[] = [];
   const relay = async (_cfg: AppConfig, payload: never) => {
     const frame = payload as { method: string; params?: { arguments?: { tools?: Array<{ tool_slug: string; account?: string }> } } };
     if (frame.method === "tools/call") reads.push(frame.params!.arguments!.tools![0]!.tool_slug);
@@ -35,13 +38,14 @@ function setup(options: { team?: boolean; driver?: string; configured?: () => bo
     store, cfg: {} as AppConfig, dataDir: dir, team: options.team ?? false, routines: () => routines,
     composio: { configured: options.configured ?? (() => true), connectedServices: async () => options.services ?? { gmail: { connected: true }, googlecalendar: { connected: true } }, relayMcp: relay },
     registry: { get: () => ({ driverKind: options.driver ?? "claudeAgent", adapter: {} as never }) },
-    mainThread: (botId) => store.bot(botId)?.threadId, threadBusy: () => false, notify: () => {}, engineName: () => "Claude", needsYou: () => [],
+    mainThread: (botId) => store.bot(botId)?.threadId, threadBusy: () => false, notify: (n) => { if (n) notified.push(n); }, engineName: () => "Claude", needsYou: () => options.needsYou ?? [],
+    proactivity: options.proactivity,
     hostTimeZone: () => "UTC", decide: () => {}, stale: () => false, release: () => {}, owned: () => {},
     ...(options.cloud !== undefined ? { cloud: options.cloud } : {}),
   });
   const proactive = make();
   routines = new RoutineManager({ file: join(dir, "routines.json"), botState: () => "ready", createTask: () => ({ threadId: "t" }), startTurn: async () => {}, checks: proactive.checks });
-  return { store, chief, proactive, make, reads, accounts, routines: () => routines! };
+  return { store, chief, proactive, make, reads, accounts, notified, routines: () => routines! };
 }
 
 describe("the Chief's default watch", () => {
@@ -135,5 +139,28 @@ describe("the suggestion to add a helper-model key", () => {
     expect(await suggested({ cloud: true })).toEqual([]);
     expect(await suggested({ cloud: false, team: true })).toEqual([]);
     expect(await suggested({})).toEqual([]);
+  });
+});
+
+describe("proactivity quiet", () => {
+  const signedOut: NeedsYouItem = { kind: "signed-out", id: "x", at: 0, instanceId: "claude", botIds: [] };
+
+  it("posts the brief on first open but never pings, where standard pings once", async () => {
+    const s = setup({ proactivity: () => "quiet", needsYou: [signedOut] });
+    s.proactive.ensureWatch();
+    expect(await s.proactive.brief.active("desktop", "UTC")).toMatchObject({ open: { botId: s.chief.id } });
+    expect(s.notified).toEqual([]);
+
+    const standard = setup({ needsYou: [signedOut] });
+    standard.proactive.ensureWatch();
+    await standard.proactive.brief.active("desktop", "UTC");
+    expect(standard.notified).toHaveLength(1);
+  });
+
+  it("keeps the add-a-key suggestion unposted while quiet", async () => {
+    const s = setup({ cloud: false, proactivity: () => "quiet" });
+    const watch = s.proactive.ensureWatch()!;
+    await s.proactive.checks.check(watch, { manual: true });
+    expect(s.store.messagesFor(s.store.bot(s.chief.id)!.threadId).filter((message) => message.setupSuggestion)).toEqual([]);
   });
 });

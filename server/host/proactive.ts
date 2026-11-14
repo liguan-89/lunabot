@@ -71,6 +71,8 @@ export interface ProactiveDeps {
   mainThread: BriefDeps["mainThread"];
   threadBusy: BriefDeps["threadBusy"];
   notify(notification: Notification | null): void;
+  /** "quiet" keeps proactive work going without its pings: no brief notifications, no suggestion cards. */
+  proactivity?(): "standard" | "quiet";
   engineName(instanceId: string): string;
   needsYou(): NeedsYouItem[];
   hostTimeZone(): string | undefined;
@@ -131,7 +133,7 @@ export function createProactive(deps: ProactiveDeps) {
   const brief = createBrief({
     store, dataDir: deps.dataDir, hosted: deps.team, watching, mainThread: deps.mainThread, threadBusy: deps.threadBusy, runs,
     needsYou: deps.needsYou, engineName: deps.engineName, hostTimeZone: deps.hostTimeZone, language: () => cfg.language,
-    notify: (bot, threadId, detail) => deps.notify(briefNotification(bot, threadId, detail)),
+    notify: (bot, threadId, detail) => { if (deps.proactivity?.() !== "quiet") deps.notify(briefNotification(bot, threadId, detail)); },
     session: () => (composio.configured(cfg) ? reads.session() : null),
     address: () => checks.address(),
     failRun: (runId, why) => deps.routines()?.rejectResult(runId, why),
@@ -146,6 +148,7 @@ export function createProactive(deps: ProactiveDeps) {
     store, dataDir: deps.dataDir, cloud: deps.cloud !== false || deps.team, owner, mainThread: deps.mainThread, threadBusy: deps.threadBusy,
     // Set up and on, or switched off on purpose: either way there is nothing to suggest.
     settled: () => deciderEnabled(cfg) || cfg.decider?.enabled === false || cfg.decider?.provider === "off",
+    muted: () => deps.proactivity?.() === "quiet",
   });
   const checks = createRoutineChecks({
     dataDir: deps.dataDir, reads, mayRead, fenced, runs, timeZone: brief.timeZone, dismissedFrom: brief.dismissedFrom,
