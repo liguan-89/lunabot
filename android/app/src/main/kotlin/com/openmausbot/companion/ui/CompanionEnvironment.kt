@@ -13,6 +13,7 @@ import java.net.URI
 import com.openmausbot.companion.discovery.CompanionDiscovery
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.sharing.ShareInbox
+import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.OnboardingPreferences
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.update.AppUpdater
@@ -120,6 +121,8 @@ class CompanionEnvironment(
     val voicePreview: VoicePreviewPlayer,
     /** One-at-a-time transcript voice notes; app-scoped, pauses in place. */
     val voiceNotes: VoiceNotePlayer,
+    /** On-device ASR model files: Settings downloads, the voice sheet reads readiness. */
+    val speechModels: ModelManager,
     /** Composer dictation; bind to the chat screen lifecycle. */
     val dictation: SpeechDictation,
     /**

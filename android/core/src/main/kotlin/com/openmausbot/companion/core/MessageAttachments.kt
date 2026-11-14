@@ -46,7 +46,8 @@ object AttachmentPolicy {
      * Audio the computer's upload route stores as a file. The server's
      * `FILE_MIMES` already lists all of these; the phone policy was simply
      * narrower, which is why hold-to-talk had nowhere to send its clip.
-     * `audio/mp4` is the recorder's format (AAC in an MP4 container).
+     * `audio/wav` is the recorder's format (16 kHz mono PCM16): the on-device
+     * recognizer and the computer's transcribe route both take it as-is.
      */
     val AUDIO_MIME_TYPES: Set<String> = setOf(
         "audio/mp4", "audio/x-m4a", "audio/aac", "audio/mpeg", "audio/ogg", "audio/opus",

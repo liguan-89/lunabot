@@ -2306,6 +2306,23 @@ class Session(
         return activeClient.speak(text, voiceId)
     }
 
+    /**
+     * Best-effort voice-message transcription on the computer. Null means "no
+     * words": the clip still sends as an audio attachment, so a computer that
+     * is offline, too old for the route, or has no ASR key is silent by
+     * design rather than an error banner.
+     */
+    suspend fun transcribeVoice(wav: ByteArray): String? {
+        val activeClient = client ?: return null
+        return try {
+            activeClient.transcribe(wav).trim().ifEmpty { null }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Throwable) {
+            null
+        }
+    }
+
     /** Save the ElevenLabs key on the computer. The server's reason when it refuses, null on success. */
     suspend fun updateVoiceKey(key: String): String? {
         val activeClient = client ?: return "此电脑当前离线。"

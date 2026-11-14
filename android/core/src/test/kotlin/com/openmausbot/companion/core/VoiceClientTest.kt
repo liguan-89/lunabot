@@ -106,6 +106,19 @@ class VoiceClientTest {
     }
 
     @Test
+    fun aVoiceClipGoesUpAsWavAndComesBackAsWords() = runBlocking {
+        server.enqueue(json("""{"text":"你好"}"""))
+        val wav = "RIFF....WAVEfmt ".toByteArray() + ByteArray(100) { it.toByte() }
+        val text = client.transcribe(wav)
+        val request = server.takeRequest()
+        assertEquals("POST", request.method)
+        assertEquals("/api/tts/transcribe", request.path)
+        assertEquals("audio/wav", request.headers["Content-Type"])
+        assertContentEquals(wav, request.body.readByteArray())
+        assertEquals("你好", text)
+    }
+
+    @Test
     fun theServersRefusalReadsAsItsOwnSentence() = runBlocking {
         server.enqueue(MockResponse().setResponseCode(400).setHeader("Content-Type", "application/json").setBody("""{"error":"ElevenLabs rejected that key"}"""))
         val error = assertFailsWith<APIError.Status> { client.updateVoiceKey("bad") }

@@ -260,6 +260,10 @@ dependencies {
     // Share inbound: apply EXIF orientation while downsampling shared photos.
     implementation("androidx.exifinterface:exifinterface:1.4.2")
 
+    // 端侧流式语音识别（sherpa-onnx 1.13.5）。模型不在 APK 里，首次使用时
+    // 按需下载到 filesDir，见 speech/ModelManager。
+    implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:1.13.5")
+
     // Chrome Custom Tabs, for the cloud desktop's noVNC viewer — the Android
     // counterpart of the SFSafariViewController iOS uses. A hardened browser
     // process with its own visible origin, cookie jar and WebSocket support,

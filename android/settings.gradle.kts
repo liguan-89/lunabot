@@ -14,6 +14,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // sherpa-onnx 的 Android AAR 不在 Maven Central，上游只发 Jitpack 坐标。
+        maven("https://jitpack.io")
     }
 }
 

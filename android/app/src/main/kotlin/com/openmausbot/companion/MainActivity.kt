@@ -212,6 +212,7 @@ class MainActivity : ComponentActivity() {
             avatars = app.avatars,
             voicePreview = app.voicePreview,
             voiceNotes = app.voiceNotes,
+            speechModels = app.speechModels,
             dictation = dictation,
             chatDrafts = chatDrafts,
             requestPermissions = { permissions -> permissionRequests.request(permissions) },

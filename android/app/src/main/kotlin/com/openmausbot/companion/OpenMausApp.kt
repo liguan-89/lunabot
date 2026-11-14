@@ -19,6 +19,7 @@ import com.openmausbot.companion.notifications.LocalNotificationPoster
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.phone.PhoneJobRunner
 import com.openmausbot.companion.sharing.ShareInbox
+import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.AlwaysOnPreferences
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.DataStoreConnectionStore
@@ -63,6 +64,9 @@ class OpenMausApp : Application() {
     lateinit var voicePreview: VoicePreviewPlayer
         private set
     lateinit var voiceNotes: VoiceNotePlayer
+        private set
+    /** The on-device ASR model's files; one root for Settings' download and the sheet's check. */
+    lateinit var speechModels: ModelManager
         private set
     lateinit var linger: SessionLingerController
         private set
@@ -137,6 +141,7 @@ class OpenMausApp : Application() {
         avatars = AvatarImageStore(fetch = session::avatarData)
         voicePreview = VoicePreviewPlayer(this)
         voiceNotes = VoiceNotePlayer(this)
+        speechModels = ModelManager(this)
 
         // iOS resets the avatar cache inside signOut. Observe Unpaired here so
         // the platform cache cannot outlive the pairing that minted its URLs.

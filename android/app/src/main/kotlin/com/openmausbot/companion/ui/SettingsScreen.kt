@@ -81,6 +81,7 @@ import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
 import com.openmausbot.companion.storage.ThemeMode
+import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
@@ -122,6 +123,7 @@ fun SettingsScreen(
     val notifications by environment.notifications.access.collectAsState()
     val activityDetail by environment.chatPreferences.activityDetail.collectAsState()
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
+    val voiceAsrMode by environment.chatPreferences.voiceAsrMode.collectAsState()
     val phoneCalendar by environment.chatPreferences.phoneCalendar.collectAsState()
     val phoneContacts by environment.chatPreferences.phoneContacts.collectAsState()
     val phoneReminders by environment.chatPreferences.phoneReminders.collectAsState()
@@ -180,6 +182,7 @@ fun SettingsScreen(
     var pendingComputerRemoval by remember { mutableStateOf<Connection?>(null) }
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
+    var choosingVoiceAsr by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
     val account = environment.cloudAccount
@@ -666,6 +669,13 @@ fun SettingsScreen(
                     chevron = true,
                     onClick = { editingQuickReplies = true },
                 )
+                SettingsDivider()
+                SettingsRow(
+                    title = "语音消息转文字",
+                    value = voiceAsrLabel(voiceAsrMode),
+                    chevron = true,
+                    onClick = { choosingVoiceAsr = true },
+                )
             }
 
             // Routine schedules live on the computer this phone is bound to.
@@ -921,6 +931,68 @@ fun SettingsScreen(
                             onClick = {
                                 environment.chatPreferences.setActivityDetail(detail)
                                 choosingActivity = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (choosingVoiceAsr) {
+        val modelProgress by environment.speechModels.progress.collectAsState()
+        var modelReady by remember { mutableStateOf(environment.speechModels.isReady()) }
+        var modelFailed by remember { mutableStateOf(false) }
+        // A finished download flips the flow back to null; re-read the files.
+        LaunchedEffect(modelProgress) {
+            if (modelProgress == null) modelReady = environment.speechModels.isReady()
+        }
+        SettingsSheet(title = "语音消息转文字", onDismiss = { choosingVoiceAsr = false }) {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SettingsSection {
+                    VoiceAsrMode.entries.forEachIndexed { index, mode ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = voiceAsrLabel(mode),
+                            subtitle = voiceAsrCaption(mode),
+                            trailing = {
+                                if (mode == voiceAsrMode) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = minisAccent,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                            onClick = { environment.chatPreferences.setVoiceAsrMode(mode) },
+                        )
+                    }
+                }
+                if (voiceAsrMode == VoiceAsrMode.DEVICE) {
+                    // App scope: leaving the sheet must not cancel the download.
+                    SettingsSection(
+                        footer = if (modelFailed) {
+                            { SettingsFootnote("模型下载失败，请检查网络后重试。") }
+                        } else {
+                            null
+                        },
+                    ) {
+                        SettingsRow(
+                            title = when {
+                                modelReady -> "端侧识别模型已就绪"
+                                modelProgress != null -> "正在下载模型"
+                                else -> "下载端侧识别模型（约 25 MB）"
+                            },
+                            value = modelProgress?.let { "${(it * 100).toInt()}%" },
+                            onClick = if (modelReady || modelProgress != null) {
+                                null
+                            } else {
+                                {
+                                    environment.appScope.launch {
+                                        modelFailed = !environment.speechModels.ensure()
+                                    }
+                                }
                             },
                         )
                     }
@@ -1467,6 +1539,18 @@ private fun themeLabel(mode: ThemeMode): String = when (mode) {
     ThemeMode.SYSTEM -> "跟随系统"
     ThemeMode.LIGHT -> "浅色"
     ThemeMode.DARK -> "深色"
+}
+
+private fun voiceAsrLabel(mode: VoiceAsrMode): String = when (mode) {
+    VoiceAsrMode.OFF -> "关闭"
+    VoiceAsrMode.DEVICE -> "手机端侧"
+    VoiceAsrMode.ONLINE -> "电脑在线"
+}
+
+private fun voiceAsrCaption(mode: VoiceAsrMode): String? = when (mode) {
+    VoiceAsrMode.OFF -> null
+    VoiceAsrMode.DEVICE -> "识别在手机上完成，需先下载模型"
+    VoiceAsrMode.ONLINE -> "识别在电脑上完成"
 }
 
 /** The right-hand status of the one update row. */

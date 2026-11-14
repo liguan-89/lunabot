@@ -24,6 +24,21 @@ enum class ThemeMode(val wireValue: String) {
     }
 }
 
+/** Where a voice message's transcript is produced: nowhere, on the phone, or on the computer. */
+enum class VoiceAsrMode(val wireValue: String) {
+    OFF("off"),
+    DEVICE("device"),
+    ONLINE("online"),
+    ;
+
+    companion object {
+        // Online is the default: the device path needs a downloaded model
+        // first, and a failed remote transcribe still degrades to audio-only.
+        fun fromWire(value: String?): VoiceAsrMode =
+            entries.firstOrNull { it.wireValue == value } ?: ONLINE
+    }
+}
+
 /**
  * Phone-local controls for how a conversation is presented.
  *
@@ -55,6 +70,17 @@ class ChatPreferences(
         ThemeMode.fromWire(prefs.getString(THEME_MODE, null)),
     )
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _voiceAsrMode = MutableStateFlow(
+        VoiceAsrMode.fromWire(prefs.getString(VOICE_ASR_MODE, null)),
+    )
+    val voiceAsrMode: StateFlow<VoiceAsrMode> = _voiceAsrMode.asStateFlow()
+
+    fun setVoiceAsrMode(mode: VoiceAsrMode) {
+        if (_voiceAsrMode.value == mode && prefs.contains(VOICE_ASR_MODE)) return
+        prefs.edit { putString(VOICE_ASR_MODE, mode.wireValue) }
+        _voiceAsrMode.value = mode
+    }
 
     /**
      * Whether bots on the paired computer may read this phone's calendar.
@@ -197,6 +223,7 @@ class ChatPreferences(
         private const val ACTIVITY_DETAIL = "companion.prefs.activityDetail"
         private const val QUICK_REPLIES = "companion.prefs.quickReplies"
         private const val THEME_MODE = "companion.prefs.themeMode"
+        private const val VOICE_ASR_MODE = "companion.prefs.voiceAsr"
         private const val PHONE_CALENDAR = "companion.prefs.phone.calendar"
         private const val PHONE_CONTACTS = "companion.prefs.phone.contacts"
         private const val PHONE_REMINDERS = "companion.prefs.phone.reminders"

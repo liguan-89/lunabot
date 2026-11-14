@@ -597,6 +597,24 @@ class CompanionClient(
     }
 
     /**
+     * One voice clip heard by the computer's ASR provider: the raw WAV goes
+     * up as the body, `{text}` comes back. The upload client because a minute
+     * of speech is a real transfer plus a remote transcription round-trip,
+     * not an action's twenty seconds.
+     */
+    suspend fun transcribe(wav: ByteArray): String = send<TranscribeResponse>(
+        makeRequest(
+            "POST",
+            "/api/tts/transcribe",
+            rawBody = wav.toRequestBody(WAV_MEDIA_TYPE),
+        ),
+        uploadClient,
+    ).text
+
+    @Serializable
+    private data class TranscribeResponse(val text: String = "")
+
+    /**
      * Split a reply into utterances the way the desktop does — on the server,
      * next to the transform that shapes replies — and learn whether the
      * computer can voice them at all.
@@ -1361,6 +1379,7 @@ class CompanionClient(
         }
         private val AVATAR_MIME_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
+        private val WAV_MEDIA_TYPE = "audio/wav".toMediaType()
         private val EMPTY_BODY: RequestBody = ByteArray(0).toRequestBody(null)
         private const val HEX_DIGITS = "0123456789ABCDEF"
 

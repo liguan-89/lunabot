@@ -20,6 +20,7 @@ import com.openmausbot.companion.discovery.CompanionDiscovery
 import com.openmausbot.companion.discovery.DiscoveryState
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.sharing.ShareInbox
+import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.OnboardingPreferences
 import com.openmausbot.companion.update.AppUpdater
@@ -122,6 +123,7 @@ internal class WiringScene(
         avatars = AvatarImageStore(fetch = { null }),
         voicePreview = VoicePreviewPlayer(context),
         voiceNotes = voiceNotes ?: VoiceNotePlayer(context),
+        speechModels = ModelManager(context),
         dictation = SpeechDictation(
             context = context,
             hasRecordAudio = { false },

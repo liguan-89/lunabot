@@ -62,10 +62,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.openmausbot.companion.R
-import com.openmausbot.companion.dictation.SpeechDictation
+import com.openmausbot.companion.speech.SherpaTranscriber
+import com.openmausbot.companion.storage.VoiceAsrMode
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.mutableLongStateOf
 
 /** One minute is the ceiling; the server's own file limit is far above this. */
@@ -95,22 +101,23 @@ fun VoiceMessageSheet(
     val environment = LocalCompanion.current
     val context = LocalContext.current
     val recorder = remember { VoiceRecorder(context) }
-    // A recognizer alongside the recorder: the transcript rides the audio
-    // attachment, so a bot reads words instead of guessing at an m4a. Its own
-    // instance — the composer's dictation holder owns the composer text.
-    val transcriber = remember {
-        SpeechDictation(
-            context = context,
-            hasRecordAudio = { environment.permissions.recordAudioGranted() },
-            requestRecordAudio = { onResult -> environment.mic.ensure(onResult) },
-            preferredLanguages = { emptyList() },
-        )
-    }
-    val heard by transcriber.transcript.collectAsState()
+    // The phone-side recognizer: fed the same PCM the recorder writes, so it
+    // needs no second microphone client. Loaded only while the model is on
+    // disk and the person chose device transcription.
+    val sherpa = remember { SherpaTranscriber(environment.speechModels) }
+    val asrMode by environment.chatPreferences.voiceAsrMode.collectAsState()
+    var heard by remember { mutableStateOf("") }
+    var transcribing by remember { mutableStateOf(false) }
     val haptics = rememberHaptics()
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val cancelThreshold = with(density) { 72.dp.toPx() }
+
+    // The PCM the recorder produces also feeds sherpa through this channel;
+    // the consumer job serializes native decode off the capture thread. Both
+    // are null outside a device-mode recording.
+    val pcmChunks = remember { AtomicReference<Channel<ByteArray>?>(null) }
+    val pcmJob = remember { AtomicReference<Job?>(null) }
 
     // null while the system permission sheet is up, so the button explains
     // itself instead of silently doing nothing.
@@ -125,16 +132,41 @@ fun VoiceMessageSheet(
         environment.mic.ensure { granted -> permission = granted }
     }
 
+    // Load the native engine before the hold, not during it: the first
+    // construction reads the three model files through onnxruntime.
+    LaunchedEffect(asrMode) {
+        if (asrMode == VoiceAsrMode.DEVICE && environment.speechModels.isReady()) {
+            withContext(Dispatchers.Default) { sherpa.ensureEngine() }
+        }
+    }
+
+    fun stopPcm() {
+        pcmChunks.getAndSet(null)?.close()
+        pcmJob.getAndSet(null)?.cancel()
+        sherpa.cancel()
+    }
+
     fun startRecording() {
-        if (recording || permission != true) return
+        if (recording || transcribing || permission != true) return
         hint = null
-        if (!recorder.start()) {
+        heard = ""
+        val chunks = Channel<ByteArray>(Channel.UNLIMITED)
+        if (!recorder.start(onChunk = { pcm -> chunks.trySend(pcm) })) {
             hint = "无法开始录音，请重试。"
             return
         }
-        // Best effort: on devices that refuse two mic clients the recognizer
-        // errors out and the clip still sends on its own.
-        transcriber.toggle("")
+        // 模型未就绪时端侧退化为在线：本次录音按 online 处理。
+        val wantDevice = asrMode == VoiceAsrMode.DEVICE && environment.speechModels.isReady()
+        if (wantDevice && sherpa.begin(onPartial = { text -> heard = text })) {
+            pcmChunks.set(chunks)
+            pcmJob.set(
+                scope.launch(Dispatchers.Default) {
+                    for (chunk in chunks) sherpa.accept(chunk)
+                },
+            )
+        } else {
+            chunks.close()
+        }
         recording = true
         cancelling = false
         elapsed = 0L
@@ -149,19 +181,29 @@ fun VoiceMessageSheet(
         val duration = recorder.elapsedMs()
         if (cancel || duration < VOICE_MIN_MS) {
             recorder.cancel()
-            transcriber.stop()
+            stopPcm()
             hint = if (cancel) "已取消" else "说话时间太短"
             return
         }
         scope.launch {
             val clip = recorder.stop()
-            val transcript = heard.trim()
-            transcriber.stop()
             if (clip == null) {
+                stopPcm()
                 hint = "没有录到声音，请重试。"
-            } else {
-                onSend(clip, transcript)
+                return@launch
             }
+            pcmChunks.getAndSet(null)?.close()
+            pcmJob.getAndSet(null)?.join()
+            var transcript = withContext(Dispatchers.Default) { sherpa.finish() }.trim()
+            // One fallback covers every path that produced no words: online
+            // mode, a device model that was not downloaded in time, or sherpa
+            // hearing nothing. Off stays audio-only by definition.
+            if (transcript.isEmpty() && asrMode != VoiceAsrMode.OFF) {
+                transcribing = true
+                transcript = environment.session.transcribeVoice(clip.data).orEmpty()
+                transcribing = false
+            }
+            onSend(clip, transcript)
         }
     }
 
@@ -169,7 +211,8 @@ fun VoiceMessageSheet(
     DisposableEffect(Unit) {
         onDispose {
             recorder.release()
-            transcriber.stop()
+            stopPcm()
+            sherpa.release()
         }
     }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -177,7 +220,7 @@ fun VoiceMessageSheet(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP) {
                 recorder.cancel()
-                transcriber.stop()
+                stopPcm()
                 recording = false
                 cancelling = false
             }
@@ -202,7 +245,7 @@ fun VoiceMessageSheet(
     fun dismiss() {
         if (recording) {
             recorder.cancel()
-            transcriber.stop()
+            stopPcm()
             recording = false
         }
         onDismiss()
@@ -293,6 +336,7 @@ fun VoiceMessageSheet(
                     text = when {
                         permission == false -> "需要麦克风权限才能发送语音消息"
                         permission == null -> "正在请求麦克风权限…"
+                        transcribing -> "正在转写…"
                         recording && cancelling -> "松开取消"
                         recording -> "上滑取消 · 松开发送"
                         hint != null -> hint!!

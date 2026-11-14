@@ -45,6 +45,10 @@
 -keep class com.google.mlkit.** { *; }
 -keep class com.google.android.gms.internal.mlkit_vision_barcode.** { *; }
 
+# sherpa-onnx is reached from native code the same way: the JNI side reads the
+# Kotlin config and result data classes by field name.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
+
 # Keep the line numbers and source file names in crash reports; the app is
 # sideloaded and a stack trace is the only diagnostic a user can send.
 -keepattributes SourceFile, LineNumberTable

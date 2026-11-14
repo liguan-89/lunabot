@@ -1287,7 +1287,7 @@ private fun LoadedChat(
                     // The computer stores the bytes under a name derived from
                     // the MIME type; this name is what the transcript shows.
                     name = clip.name,
-                    mime = "audio/mp4",
+                    mime = "audio/wav",
                     kind = PendingMessageAttachment.Kind.FILE,
                 )
                 scope.launch {
