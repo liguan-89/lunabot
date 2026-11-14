@@ -3,7 +3,7 @@
   "name": "呼波特 AI 电话数字员工",
   "version": "2.1.1",
   "description": "Drive the WhoBot (呼波特) phone-call service: find a benchmark digital employee, run web or real test calls, create and tune agents, and place outbound calls such as booking a restaurant on the person's behalf.",
-  "defaultEnabled": false,
+  "defaultEnabled": true,
   "triggerTerms": [
     "打电话",
     "外呼",
@@ -12,6 +12,7 @@
     "订餐厅",
     "phone call",
     "call a restaurant",
+    "call the restaurant",
     "outbound call"
   ],
   "requiredCapabilities": []
