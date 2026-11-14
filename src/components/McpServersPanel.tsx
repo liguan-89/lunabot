@@ -422,10 +422,18 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
     const name = existing?.name ?? hostedServerName(app, servers);
     forgetProbe(name);
     try {
-      const entry = { type: "http", url: app.url, headers: { [HOSTED_KEY_HEADER]: `Bearer ${key}` }, enabled: false };
+      let entry: Record<string, unknown>;
+      let vaultKeys: string[] | undefined;
+      if ("placement" in app.key && app.key.placement === "query") {
+        const saved = await api("/api/vault/secrets", { method: "POST", body: JSON.stringify({ name: `${app.label} key`, value: key }) });
+        entry = { type: "transport" in app ? app.transport : "http", url: `${app.url}${app.url.includes("?") ? "&" : "?"}${app.key.param}=vault:${saved.secret.id}`, enabled: false };
+        vaultKeys = [saved.secret.id];
+      } else {
+        entry = { type: "http", url: app.url, headers: { [HOSTED_KEY_HEADER]: `Bearer ${key}` }, enabled: false };
+      }
       listed((await api(existing ? `/api/mcp/servers/${name}` : "/api/mcp/servers", {
         method: existing ? "PUT" : "POST",
-        body: JSON.stringify(existing ? entry : { name, ...entry }),
+        body: JSON.stringify(existing ? { ...entry, ...(vaultKeys ? { vaultKeys } : {}) } : { name, ...entry, ...(vaultKeys ? { vaultKeys } : {}) }),
       })).servers);
       const tested = await signedInToolsCheck(name, api, undefined, app.label, "hostedMcp.keyTestFailed");
       if (!mounted.current) return;
@@ -462,9 +470,14 @@ export function McpServersPanel({ embedded = false, hostedCards, hideHosted = fa
     setNotice(null);
     forgetProbe(server.name);
     try {
-      // A key card's server is the key, so disconnecting removes it and the key with it.
+      // A key card's server is the key, so disconnecting removes it and the key with it — a `vault:<id>` pointer's
+      // secret goes too, so a query-placed key is gone for real.
       if (card && "key" in card) {
+        const items = isRemoteMcpListing(server)
+          ? [...server.url.matchAll(/vault:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/g)].map((match) => match[1]!)
+          : [];
         listed((await api(`/api/mcp/servers/${server.name}`, { method: "DELETE" })).servers);
+        for (const item of items) await api(`/api/vault/secrets/${item}`, { method: "DELETE" }).catch(() => {});
         return;
       }
       if (hostedOf(server)) {

@@ -1,4 +1,4 @@
-import { CreditCard, Mail, PhoneCall, RadioTower, Smartphone, type LucideIcon } from "lucide-react";
+import { CreditCard, Mail, MapPin, PhoneCall, Plane, RadioTower, Smartphone, type LucideIcon } from "lucide-react";
 
 import whopLogo from "@/assets/whop/logo.png";
 import type { LocaleKey } from "@/locales";
@@ -11,9 +11,12 @@ export interface HostedMcpApp {
   readonly label: string;
   /** Its official hosted MCP endpoint. A server is this app only at exactly this address, over streamable HTTP. */
   readonly url: string;
+  /** The older SSE transport instead of streamable HTTP. */
+  readonly transport?: "sse";
   /** A service with no browser sign-in takes a key the person pastes, sent as `Authorization: Bearer`; `url` is where
-   * they make one. Without it the card signs in with browser OAuth. */
-  readonly key?: { readonly url: string };
+   * they make one. Without it the card signs in with browser OAuth. `placement: "query"` services take the key as a
+   * URL parameter named `param`, saved as a `vault:<id>` pointer instead of a header. */
+  readonly key?: { readonly url: string; readonly placement?: "header" | "query"; readonly param?: string };
   /** Its licensed logo, or a neutral lucide glyph when the service publishes none we may ship. */
   readonly icon: { readonly image: string } | { readonly glyph: LucideIcon };
   readonly description: LocaleKey;
@@ -84,6 +87,27 @@ export const HOSTED_MCP_APPS = [
     notice: "agentphone.notice",
     keywords: "agentphone phone number sms text call calls",
   },
+  {
+    id: "tencent-map",
+    label: "腾讯地图",
+    transport: "sse",
+    url: "https://mcp.map.qq.com/sse?format=0",
+    key: { url: "https://lbs.qq.com/dev/console/quick-register", placement: "query", param: "key" },
+    icon: { glyph: MapPin },
+    description: "tencentMap.description",
+    notice: "tencentMap.notice",
+    keywords: "tencent map 腾讯地图 地图 位置 地点 餐厅 路线 poi address route place",
+  },
+  {
+    id: "variflight",
+    label: "飞常准",
+    url: "https://c-gw.variflight.com/chat_message/mcp/api/legacy",
+    key: { url: "https://cmcp.variflight.com/" },
+    icon: { glyph: Plane },
+    description: "variflight.description",
+    notice: "variflight.notice",
+    keywords: "variflight 飞常准 航班 飞机 航班动态 机票 flight flights airline",
+  },
 ] as const satisfies readonly HostedMcpApp[];
 
 /** A row of the table, with its own literal id. */
@@ -94,16 +118,24 @@ export type HostedConnections = Readonly<Record<HostedMcpAppId, boolean>>;
 
 interface ServerAddress { type?: string; url?: string }
 
-/** The hosted app this server is, by exact address: type "http", https, the app's origin, its path with or without a
- * trailing slash, no query, hash or userinfo. A look-alike host or a URL carrying a key is never branded. */
+/** The hosted app this server is, by exact address: https, the app's origin, its path with or without a trailing
+ * slash, the transport it declares, no hash or userinfo, and only the app's own query parameters — plus at most the
+ * key parameter a `placement: "query"` app takes. A look-alike host or a URL carrying other secrets is never branded. */
 export function hostedMcpApp(server: ServerAddress): HostedApp | undefined {
-  if (server.type !== "http" || !server.url) return undefined;
+  const type = server.type ?? "http";
+  if (!server.url) return undefined;
   let address: URL;
   try { address = new URL(server.url); } catch { return undefined; }
-  if (address.search || address.hash || address.username || address.password) return undefined;
+  if (address.hash || address.username || address.password) return undefined;
   return HOSTED_MCP_APPS.find((app) => {
+    if (type !== ("transport" in app ? app.transport : "http")) return false;
     const own = new URL(app.url);
-    return address.origin === own.origin && (address.pathname === own.pathname || address.pathname === `${own.pathname}/`);
+    if (address.origin !== own.origin) return false;
+    if (address.pathname !== own.pathname && address.pathname !== `${own.pathname}/`) return false;
+    const keyParam = "key" in app && "placement" in app.key && app.key.placement === "query" ? app.key.param : undefined;
+    const extra = [...address.searchParams.keys()].filter((name) => name !== keyParam);
+    if (extra.length !== own.searchParams.size) return false;
+    return extra.every((name) => address.searchParams.get(name) === own.searchParams.get(name));
   });
 }
 
@@ -122,10 +154,15 @@ export const HOSTED_KEY_HEADER = "Authorization";
 export function hostedConnections(
   servers: ReadonlyArray<ServerAddress & { enabled: boolean; auth?: "signed-in" | "needs-sign-in"; headerKeys?: readonly string[] }>,
 ): HostedConnections {
-  const holdsKey = (server: (typeof servers)[number]) => server.headerKeys?.some((name) => name.toLowerCase() === HOSTED_KEY_HEADER.toLowerCase()) === true;
+  const holdsKey = (app: HostedApp, server: (typeof servers)[number]) => {
+    if ("key" in app && "placement" in app.key && app.key.placement === "query") {
+      try { return Boolean(server.url && new URL(server.url).searchParams.get(app.key.param ?? "")); } catch { return false; }
+    }
+    return server.headerKeys?.some((name) => name.toLowerCase() === HOSTED_KEY_HEADER.toLowerCase()) === true;
+  };
   return Object.fromEntries(HOSTED_MCP_APPS.map((app) => [
     app.id,
-    servers.some((server) => hostedMcpApp(server) === app && server.enabled && ("key" in app ? holdsKey(server) : server.auth === "signed-in")),
+    servers.some((server) => hostedMcpApp(server) === app && server.enabled && ("key" in app ? holdsKey(app, server) : server.auth === "signed-in")),
   ])) as HostedConnections;
 }
 

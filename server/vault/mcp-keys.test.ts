@@ -49,6 +49,13 @@ describe("a Vault key behind a vault: pointer in an MCP server", () => {
     expect(keys.oauthClient("other", { clientId: "app", clientSecret: pointer })).toEqual({ clientId: "app" });
   });
 
+  it("swaps a pointer inside the URL itself, like a key query parameter", () => {
+    const { keys, pointer } = setup();
+    const server = { type: "sse" as const, url: `https://maps.example/sse?format=0&key=${pointer}`, headers: {} };
+    expect(keys.resolve("stripe", server, "ledger")).toEqual({ ok: true, server: { ...server, url: `https://maps.example/sse?format=0&key=${KEY}` } });
+    expect(keys.resolve("evil", server, "ledger")).toMatchObject({ ok: false, reason: "removed" });
+  });
+
   it("reads nothing for a server the pointer was never given to, whatever the text says", () => {
     const { keys, pointer } = setup();
     expect(keys.resolve("evil", remote({ Authorization: pointer }), "ledger")).toMatchObject({ ok: false, reason: "removed" });

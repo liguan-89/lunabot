@@ -73,6 +73,9 @@ beforeEach(() => {
       servers.push({ auth: "needs-sign-in", ...saved(body) } as Listing);
       return Promise.resolve({ servers: structuredClone(servers) });
     }
+    if (path === "/api/vault/secrets" && init?.method === "POST") {
+      return Promise.resolve({ secret: { id: "00000000-0000-4000-8000-0000000000aa", name: body.name, source: "settings", bots: "all" } });
+    }
     const named = /^\/api\/mcp\/servers\/([^/]+)(\/sign-out|\/test)?$/.exec(path);
     const server = named && servers.find((entry) => entry.name === named[1]);
     if (server && !named[2] && init?.method === "PUT") { Object.assign(server, saved(body)); return Promise.resolve({ servers: structuredClone(servers) }); }
@@ -229,7 +232,7 @@ describe.each(HOSTED_MCP_APPS.filter((app) => !("key" in app)))("The $label card
   });
 });
 
-describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("The $label key card", (app) => {
+describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app && !("placement" in app.key && app.key.placement === "query")))("The $label key card", (app) => {
   const keyField = () => card(app).querySelector<HTMLInputElement>('input[type="password"]')!;
   async function typeKey(value: string) {
     await act(async () => {
@@ -307,7 +310,38 @@ describe.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("The $label key car
   it("opens the service's own page for making a key", async () => {
     await mount();
     await act(async () => button(app, `Get a ${app.label} key`).click());
-    expect(openExternalLink).toHaveBeenCalledWith(app.key.url);
+    expect(openExternalLink).toHaveBeenCalledWith("key" in app ? app.key.url : undefined);
+  });
+});
+
+describe("the 腾讯地图 key card", () => {
+  const app = HOSTED_MCP_APPS.find((candidate) => candidate.id === "tencent-map")!;
+  const keyField = () => card(app).querySelector<HTMLInputElement>('input[type="password"]')!;
+
+  it("puts the key in the Vault, points the server's URL at it, and switches the server on once its tools load", async () => {
+    await mount();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(keyField(), "tencent-key");
+      keyField().dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => button(app, "Connect").click());
+    await settle();
+
+    expect(calls("POST").filter(([path]) => path === "/api/vault/secrets"))
+      .toEqual([["/api/vault/secrets", { name: "腾讯地图 key", value: "tencent-key" }]]);
+    expect(added()).toEqual([{
+      name: "tencent-map",
+      type: "sse",
+      url: "https://mcp.map.qq.com/sse?format=0&key=vault:00000000-0000-4000-8000-0000000000aa",
+      enabled: false,
+      vaultKeys: ["00000000-0000-4000-8000-0000000000aa"],
+    }]);
+    expect(fixture.runMcpSignIn).not.toHaveBeenCalled();
+
+    await act(async () => testRequest!.resolve({ ok: true, tools: [{ name: "searchPlace" }] }));
+    await settle();
+    expect(calls("PATCH")).toEqual([["/api/mcp/servers/tencent-map", { enabled: true }]]);
+    expect(card(app).querySelector('input[type="password"]')).toBeNull();
   });
 });
 

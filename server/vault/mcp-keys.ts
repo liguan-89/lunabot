@@ -91,13 +91,15 @@ export function createMcpKeys(deps: McpKeysDeps) {
 
   /** The server as it is to be started or called (`botId` absent: for the person, Test or a start check). */
   function resolve<T extends KeyedServer>(name: string, server: T, botId?: string): { ok: true; server: T } | McpKeyOff {
-    if (!holdsVaultPointer("url" in server ? [server.headers, server.oauth?.clientSecret] : server.env)) return { ok: true, server };
+    if (!holdsVaultPointer("url" in server ? [server.url, server.headers, server.oauth?.clientSecret] : server.env)) return { ok: true, server };
     if ("url" in server) {
+      const url = swapped(name, server.url, botId, true);
+      if (typeof url !== "string") return url;
       const headers = swappedAll(name, server.headers, botId, true);
       if (!headers.ok) return headers;
       const client = server.oauth?.clientSecret ? swapped(name, server.oauth.clientSecret, botId, true) : undefined;
       if (typeof client === "object") return client;
-      return { ok: true, server: { ...server, headers: headers.values, ...(server.oauth ? { oauth: { ...server.oauth, ...(client === undefined ? {} : { clientSecret: client }) } } : {}) } as T };
+      return { ok: true, server: { ...server, url, headers: headers.values, ...(server.oauth ? { oauth: { ...server.oauth, ...(client === undefined ? {} : { clientSecret: client }) } } : {}) } as T };
     }
     const env = swappedAll(name, server.env, botId);
     if (!env.ok) return env;
@@ -115,7 +117,7 @@ export function createMcpKeys(deps: McpKeysDeps) {
   /** Reads a linked manager's values `server` points at, so `resolve` finds them: a turn, a Test or a start check asks
    * this first. Never logged; held only in this process, and masked as every linked value is. */
   async function warm(name: string, server: KeyedServer): Promise<void> {
-    const raw = "url" in server ? [...Object.values(server.headers), server.oauth?.clientSecret ?? ""] : Object.values(server.env);
+    const raw = "url" in server ? [server.url, ...Object.values(server.headers), server.oauth?.clientSecret ?? ""] : Object.values(server.env);
     const items = [...new Set(raw.flatMap((text) => [...text.matchAll(POINTER)].map((match) => match[1]!)))].filter((item) => LINKED_ID.test(item) && deps.store.mcpServerKeys(name).includes(item));
     if (!items.length || items.every((item) => now() - (linked.get(item)?.at ?? -Infinity) < LINKED_FRESH_MS)) return;
     await deps.linked.fresh().catch(() => {});

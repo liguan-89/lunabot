@@ -13,17 +13,29 @@ describe("hosted MCP apps", () => {
 
   describe.each(HOSTED_MCP_APPS.map((app) => [app.id, app] as const))("%s", (_id, app) => {
     const { host } = new URL(app.url);
+    const transport = "transport" in app ? app.transport : "http";
+    const withSlash = (url: string) => { const parsed = new URL(url); parsed.pathname = `${parsed.pathname}/`; return parsed.toString(); };
     it("is recognized at its official endpoint, with or without a trailing slash, under any local name", () => {
-      expect(hostedMcpApp({ type: "http", url: app.url })).toBe(app);
-      expect(hostedMcpApp({ type: "http", url: `${app.url}/` })).toBe(app);
+      expect(hostedMcpApp({ type: transport, url: app.url })).toBe(app);
+      expect(hostedMcpApp({ type: transport, url: withSlash(app.url) })).toBe(app);
     });
     it("does not brand other servers, transports or modified URLs", () => {
       const bare = host.split(".").slice(-2).join(".");
       for (const url of [app.url.replace("https:", "http:"), `https://${host}.evil.test/mcp`, `https://${bare}/mcp`, `${app.url}?key=secret`, `${app.url}#hash`, `https://key@${host}${new URL(app.url).pathname}`, `https://${host}/docs`, "invalid"]) {
-        expect(hostedMcpApp({ type: "http", url }), url).toBeUndefined();
+        expect(hostedMcpApp({ type: transport, url }), url).toBeUndefined();
       }
-      expect(hostedMcpApp({ type: "sse", url: app.url })).toBeUndefined();
+      expect(hostedMcpApp({ type: transport === "sse" ? "http" : "sse", url: app.url })).toBeUndefined();
       expect(hostedMcpApp({})).toBeUndefined();
+    });
+    it("treats a changed query as another server unless it takes its key as a parameter", () => {
+      const parsed = new URL(app.url);
+      parsed.searchParams.set("other", "x");
+      expect(hostedMcpApp({ type: transport, url: parsed.toString() })).toBeUndefined();
+      if ("key" in app && "placement" in app.key && app.key.placement === "query") {
+        parsed.searchParams.delete("other");
+        parsed.searchParams.set(app.key.param, "anything");
+        expect(hostedMcpApp({ type: transport, url: parsed.toString() })).toBe(app);
+      }
     });
     it("is named after itself and never takes an existing server's name", () => {
       expect(hostedServerName(app, [])).toBe(app.id);
@@ -34,7 +46,13 @@ describe("hosted MCP apps", () => {
   });
 
   type Extra = { enabled: boolean; auth?: "signed-in" | "needs-sign-in"; headerKeys?: string[] };
-  const connectedWith = (app: HostedApp, extra: Extra) => hostedConnections([{ type: "http", url: app.url, ...extra }])[app.id];
+  const keyedUrl = (app: HostedApp, value?: string) => {
+    if (!("key" in app) || !("placement" in app.key) || app.key.placement !== "query") return app.url;
+    const url = new URL(app.url);
+    if (value !== undefined) url.searchParams.set(app.key.param, value);
+    return url.toString();
+  };
+  const connectedWith = (app: HostedApp, extra: Extra, url = keyedUrl(app)) => hostedConnections([{ type: "transport" in app ? app.transport : "http", url, ...extra }])[app.id];
 
   it.each(HOSTED_MCP_APPS.filter((app) => !("key" in app)))("$label is connected only while its server is on and signed in", (app) => {
     expect(connectedWith(app, { enabled: true, auth: "signed-in" })).toBe(true);
@@ -44,7 +62,7 @@ describe("hosted MCP apps", () => {
     expect(connectedWith(app, { enabled: true, headerKeys: ["Authorization"] })).toBe(false);
   });
 
-  it.each(HOSTED_MCP_APPS.filter((app) => "key" in app))("$label is connected only while its server is on and holds its key", (app) => {
+  it.each(HOSTED_MCP_APPS.filter((app) => "key" in app && !("placement" in app.key && app.key.placement === "query")))("$label is connected only while its server is on and holds its key", (app) => {
     expect(connectedWith(app, { enabled: true, headerKeys: ["Authorization"] })).toBe(true);
     expect(connectedWith(app, { enabled: true, headerKeys: ["authorization"] })).toBe(true);
     expect(connectedWith(app, { enabled: true, headerKeys: [] })).toBe(false);
@@ -53,8 +71,15 @@ describe("hosted MCP apps", () => {
     expect(connectedWith(app, { enabled: true, auth: "signed-in" })).toBe(false);
   });
 
+  it.each(HOSTED_MCP_APPS.filter((app) => "key" in app && "placement" in app.key && app.key.placement === "query"))("$label is connected only while its server is on and its URL carries the key parameter", (app) => {
+    expect(connectedWith(app, { enabled: true, headerKeys: [] }, keyedUrl(app, "vault:abc"))).toBe(true);
+    expect(connectedWith(app, { enabled: true, headerKeys: [] })).toBe(false);
+    expect(connectedWith(app, { enabled: false, headerKeys: [] }, keyedUrl(app, "vault:abc"))).toBe(false);
+    expect(connectedWith(app, { enabled: true, auth: "signed-in" })).toBe(false);
+  });
+
   it("takes a pasted key exactly for the services with no browser sign-in, each with an https page to make one", () => {
-    expect(HOSTED_MCP_APPS.filter((app) => "key" in app).map((app) => app.id)).toEqual(["vapi", "telnyx"]);
+    expect(HOSTED_MCP_APPS.filter((app) => "key" in app).map((app) => app.id)).toEqual(["vapi", "telnyx", "tencent-map", "variflight"]);
     for (const app of HOSTED_MCP_APPS) if ("key" in app) expect(app.key.url).toMatch(/^https:\/\//);
   });
 
