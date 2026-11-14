@@ -123,8 +123,12 @@ export interface ConfigStatus {
   /** WebAuthn presence confirmation: `required` asks for an enrolled authenticator's signature on every card "allow";
    * `enrolled` is how many are on file. Absent from older servers — treat as not required. */
   webauthn?: { required: boolean; enrolled: number };
-  /** Feishu bot channel: configured-or-not. Absent from older servers. */
-  feishu?: { configured: boolean; botId: string };
+  /** Feishu bot channel: configured-or-not and the non-secret app id; the secret is never echoed. */
+  feishu?: { configured: boolean; botId: string; appId: string };
+  /** DingTalk bot channel: configured-or-not and the non-secret app key; the secret is never echoed. */
+  dingtalk?: { configured: boolean; botId: string; appKey: string };
+  /** WeCom bot channel: configured-or-not and non-secret ids; secrets are never echoed. */
+  wecom?: { configured: boolean; botId: string; corpId: string; agentId: string };
   /** The bot's own mailbox: configured-or-not. Absent from older servers. */
   botMail?: { configured: boolean; address: string; botId: string };
   /** Keys kept inside another setting (voice, decisions, pictures, live calls), by their desktop credential name. */
