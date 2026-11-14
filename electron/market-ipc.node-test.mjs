@@ -33,8 +33,8 @@ function harness({ subscription = SUBSCRIPTION, reveal = async () => REVEALED, r
     rotateToken: rotate,
   };
   const localRequest = async (route, init) => {
-    requests.push({ route, init, body: JSON.parse(init.body) });
-    return { ok: true, json: async () => ({ instanceId: "openai-compat-test" }) };
+    requests.push({ route, init, body: init.body ? JSON.parse(init.body) : undefined });
+    return { ok: true, json: async () => ({}) };
   };
   installMarketIpc({
     ipcMain, localOnly: (_channel, handler) => handler, client: () => client, openBrowser: async (url) => { opened.push(url); },
@@ -43,26 +43,28 @@ function harness({ subscription = SUBSCRIPTION, reveal = async () => REVEALED, r
   return { handlers, opened, requests, writes, store, record: () => record, setRecord: (value) => { record = value; } };
 }
 
-test("installs the issued key as an OpenAI-compatible engine without returning the key", async () => {
+test("installs the issued key as the custom provider without returning the key", async () => {
   const harnessed = harness();
   const result = await harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id);
-  assert.deepEqual(result, { instanceId: "openai-compat-test", models: ["claude-sonnet-4-5", "gpt-5.2"], expiresAt: 1_900_000_000, url: "https://api.tk1688.com/v1", installed: true });
-  assert.equal(harnessed.requests.length, 1);
-  assert.equal(harnessed.requests[0].route, "/api/instances/openai-compat");
+  assert.deepEqual(result, { instanceId: "pi", models: ["claude-sonnet-4-5", "gpt-5.2"], expiresAt: 1_900_000_000, url: "https://api.tk1688.com/v1", installed: true });
+  assert.equal(harnessed.requests.length, 2);
+  assert.equal(harnessed.requests[0].route, "/api/config");
   assert.deepEqual(harnessed.requests[0].body, {
-    displayName: "TK1688 API", url: "https://api.tk1688.com/v1", key: REVEALED.token, models: ["claude-sonnet-4-5", "gpt-5.2"],
+    openaiCompat: { url: "https://api.tk1688.com/v1", key: REVEALED.token, models: ["claude-sonnet-4-5", "gpt-5.2"] },
   });
+  assert.equal(harnessed.requests[0].init.method, "PATCH");
+  assert.equal(harnessed.requests[1].route, "/api/instances/pi/refresh-models");
   assert.equal(JSON.stringify(result).includes("sk-test"), false);
-  assert.equal(harnessed.record().instance_id, "openai-compat-test");
+  assert.equal(harnessed.record().instance_id, "pi");
   assert.equal(harnessed.record().subscription_id, SUBSCRIPTION.subscription_id);
 });
 
-test("reuses an install that is still live instead of adding a second engine", async () => {
+test("reuses an install that is still live instead of writing the provider again", async () => {
   const harnessed = harness();
   await harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id);
   const again = await harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id);
-  assert.equal(again.instanceId, "openai-compat-test");
-  assert.equal(harnessed.requests.length, 1);
+  assert.equal(again.instanceId, "pi");
+  assert.equal(harnessed.requests.length, 2);
 });
 
 test("rotates when the key was already shown once", async () => {
@@ -73,7 +75,7 @@ test("rotates when the key was already shown once", async () => {
   });
   await harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id);
   assert.equal(rotated, 1);
-  assert.match(harnessed.requests[0].body.key, /^sk-rotated-/);
+  assert.match(harnessed.requests[0].body.openaiCompat.key, /^sk-rotated-/);
 });
 
 test("refuses an expired subscription before revealing a key", async () => {
@@ -102,7 +104,7 @@ test("rebuilds a token row that reveal says is gone", async () => {
   });
   await harnessed.handlers.get("market:install")(undefined, SUBSCRIPTION.subscription_id);
   assert.equal(rotated, 1);
-  assert.match(harnessed.requests[0].body.key, /^sk-test-/);
+  assert.match(harnessed.requests[0].body.openaiCompat.key, /^sk-test-/);
 });
 
 test("rebuilds directly when the subscription has no token row", async () => {
@@ -126,8 +128,8 @@ test("does not open a browser for an order that settled without a checkout page"
 
 test("reports the persisted install", async () => {
   const harnessed = harness();
-  harnessed.setRecord({ subscription_id: SUBSCRIPTION.subscription_id, instance_id: "openai-compat-test", expires_at: 1_900_000_000, models: [], url: "https://api.tk1688.com/v1" });
+  harnessed.setRecord({ subscription_id: SUBSCRIPTION.subscription_id, instance_id: "pi", expires_at: 1_900_000_000, models: [], url: "https://api.tk1688.com/v1" });
   assert.deepEqual(await harnessed.handlers.get("market:installed")(), {
-    subscriptionId: SUBSCRIPTION.subscription_id, instanceId: "openai-compat-test", expiresAt: 1_900_000_000,
+    subscriptionId: SUBSCRIPTION.subscription_id, instanceId: "pi", expiresAt: 1_900_000_000,
   });
 });

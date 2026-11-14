@@ -1,5 +1,5 @@
 const SUBSCRIPTION_ID = /^sub_[A-Za-z0-9_-]{8,64}$/;
-const INSTALL_NAME = "TK1688 API";
+const PI_INSTANCE = "pi";
 
 function subscriptionOf(list, subscriptionId) {
   if (!list || !Array.isArray(list.subscriptions)) return null;
@@ -47,19 +47,23 @@ export function installMarketIpc({ ipcMain, localOnly, client, openBrowser, loca
       revealed = await client().rotateToken(subscriptionId);
     }
     const models = revealed.models.length ? revealed.models : subscription.models;
-    const response = await localRequest("/api/instances/openai-compat", {
-      method: "POST",
+    // pi-only: the one custom provider is cfg.openaiCompat, not an engine instance.
+    const response = await localRequest("/api/config", {
+      method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ displayName: INSTALL_NAME, url: apiBase, key: revealed.token, ...(models.length ? { models } : {}) }),
+      body: JSON.stringify({ openaiCompat: { url: apiBase, key: revealed.token, ...(models.length ? { models } : {}) } }),
     });
     const body = await response.json().catch(() => null);
-    if (!response.ok || typeof body?.instanceId !== "string") {
-      const said = typeof body?.error === "string" ? body.error : "Could not add TK1688 as an engine.";
+    if (!response.ok) {
+      const said = typeof body?.error === "string" ? body.error : "Could not add TK1688 as the model provider.";
       throw new Error(said);
     }
-    const saved = { subscription_id: subscriptionId, instance_id: body.instanceId, expires_at: revealed.expires_at, models, url: apiBase, installed_at: now() };
+    try {
+      await localRequest(`/api/instances/${PI_INSTANCE}/refresh-models`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+    } catch (error) { log(`market: provider saved but the model list did not refresh (${error?.message ?? error})`); }
+    const saved = { subscription_id: subscriptionId, instance_id: PI_INSTANCE, expires_at: revealed.expires_at, models, url: apiBase, installed_at: now() };
     try { await providerStore.write(saved); } catch (error) { log(`market: could not save the installed engine (${error?.message ?? error})`); }
-    return { instanceId: body.instanceId, models, expiresAt: revealed.expires_at, url: apiBase, installed: true };
+    return { instanceId: PI_INSTANCE, models, expiresAt: revealed.expires_at, url: apiBase, installed: true };
   }
 
   handle("market:state", () => client().state());
