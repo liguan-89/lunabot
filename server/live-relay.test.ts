@@ -4,7 +4,7 @@ import { WebSocket } from "ws";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { qwenLiveEndpoint, volcAudioTask, volcDecodeFrame, volcFrame, volcLiveEndpoint, VOLC_EVENT_START_CONNECTION, VOLC_EVENT_START_SESSION, VOLC_EVENT_TASK_REQUEST } from "./live-call.ts";
-import { LiveRelays, openProviderLink, type ProviderSocket, type RelaySink } from "./live-relay.ts";
+import { LiveRelays, liveRelayResolver, openProviderLink, type ProviderSocket, type RelaySink } from "./live-relay.ts";
 
 const servers: Server[] = [];
 const clients: WebSocket[] = [];
@@ -145,6 +145,34 @@ describe("volcAudioTask", () => {
   });
 });
 
+describe("liveRelayResolver", () => {
+  const auth = { kind: "session" } as never;
+  const deps = (over: Partial<Parameters<typeof liveRelayResolver>[0]> = {}) => ({
+    refusal: () => null,
+    settings: () => ({ key: "k", endpoint: qwenEndpoint }),
+    appId: () => undefined,
+    bot: (botId: string) => botId === "atlas" ? { name: "Atlas", title: "", description: "" } : null,
+    target: (botId: string, threadId: string | null) =>
+      botId === "atlas" && (threadId === null || threadId === "t1") ? { botId, botName: "Atlas", threadId: threadId ?? "bot-thread" } : null,
+    instructions: () => "be kind",
+    ...over,
+  });
+
+  it("carries the validated bot+chat into the call record info, with a sane client fallback", () => {
+    const ok = liveRelayResolver(deps())(auth, "atlas", "t1", "desktop");
+    expect("options" in ok && ok.options.call).toEqual({ botId: "atlas", botName: "Atlas", threadId: "t1", client: "desktop" });
+    const main = liveRelayResolver(deps())(auth, "atlas", null, "watch");
+    expect("options" in main && main.options.call).toEqual({ botId: "atlas", botName: "Atlas", threadId: "bot-thread", client: "web" });
+  });
+
+  it("refuses a chat that isn't the bot's and skips the record info with no bot", () => {
+    const wrong = liveRelayResolver(deps())(auth, "atlas", "not-atlas", null);
+    expect("error" in wrong && wrong.error).toBe("That bot or chat does not exist.");
+    const nobody = liveRelayResolver(deps())(auth, null);
+    expect("options" in nobody && nobody.options.call).toBeUndefined();
+  });
+});
+
 describe("LiveRelays over a real socket", () => {
   it("bridges client binary frames and provider events end to end", async () => {
     const provider = new FakeSocket();
@@ -173,5 +201,55 @@ describe("LiveRelays over a real socket", () => {
     client.send(JSON.stringify({ t: "end" }));
     expect(await closed).toBe(1000);
     expect(provider.closed).toBe(true);
+  });
+
+  it("writes the call record on hang-up, and nothing when the provider never came up", async () => {
+    const recorded: Array<{ threadId: string; botName: string; record: { endReason: string; seconds: number; client: string } }> = [];
+    const provider = new FakeSocket();
+    const relays = new LiveRelays({ record: (input) => recorded.push(input) });
+    relaySets.push(relays);
+    const server = createServer();
+    servers.push(server);
+    server.on("upgrade", (req, socket, head) => relays.accept({ req, socket: socket as Socket, head }, {
+      endpoint: qwenEndpoint, key: "k", ws: () => provider,
+      call: { botId: "atlas", botName: "Atlas", threadId: "t1", client: "desktop" },
+    }));
+    await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
+    const port = (server.address() as AddressInfo).port;
+    const client = new WebSocket(`ws://127.0.0.1:${port}/api/live/relay`);
+    clients.push(client);
+    await new Promise<void>((open) => client.on("open", open));
+    provider.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
+    await new Promise<void>((done) => setTimeout(done, 30));
+    const closed = new Promise<number>((done) => client.on("close", done));
+    client.send(JSON.stringify({ t: "end" }));
+    expect(await closed).toBe(1000);
+    expect(recorded).toHaveLength(1);
+    expect(recorded[0]!.threadId).toBe("t1");
+    expect(recorded[0]!.botName).toBe("Atlas");
+    expect(recorded[0]!.record).toMatchObject({ botId: "atlas", client: "desktop", endReason: "hung-up" });
+    expect(recorded[0]!.record.seconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it("records nothing when the call never reached ready", async () => {
+    const recorded: unknown[] = [];
+    const provider = new FakeSocket();
+    const relays = new LiveRelays({ record: (input) => recorded.push(input) });
+    relaySets.push(relays);
+    const server = createServer();
+    servers.push(server);
+    server.on("upgrade", (req, socket, head) => relays.accept({ req, socket: socket as Socket, head }, {
+      endpoint: qwenEndpoint, key: "k", ws: () => provider,
+      call: { botId: "atlas", botName: "Atlas", threadId: "t1", client: "web" },
+    }));
+    await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
+    const port = (server.address() as AddressInfo).port;
+    const client = new WebSocket(`ws://127.0.0.1:${port}/api/live/relay`);
+    clients.push(client);
+    await new Promise<void>((open) => client.on("open", open));
+    const closed = new Promise<number>((done) => client.on("close", done));
+    provider.emit("message", Buffer.from(JSON.stringify({ type: "error", error: { message: "bad key" } })));
+    expect(await closed).toBe(1011);
+    expect(recorded).toHaveLength(0);
   });
 });

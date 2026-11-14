@@ -265,11 +265,11 @@ export async function startLiveCall(target: { botId: string; threadId: string; p
   }
 }
 
-/** The WebSocket-transport call: mic → PCM → /api/live/relay → provider; the server call record does not exist here. */
+/** The WebSocket-transport call: mic → PCM → /api/live/relay → provider; the server writes the call record. */
 async function startSocketCall(target: { botId: string; threadId: string }, mine: number): Promise<void> {
   try {
     const proto = globalThis.location?.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${globalThis.location?.host ?? ""}/api/live/relay?botId=${encodeURIComponent(target.botId)}`;
+    const url = `${proto}//${globalThis.location?.host ?? ""}/api/live/relay?botId=${encodeURIComponent(target.botId)}&threadId=${encodeURIComponent(target.threadId)}&client=${liveClient(deps.capabilities())}`;
     const call = await deps.openPcmCall({
       url,
       events: {

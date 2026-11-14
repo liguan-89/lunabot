@@ -12720,6 +12720,28 @@ function liveCallTitle(botId: string, threadId: string, excerpt: string): Promis
   const gate = threadTitleGate(bot);
   return gate.ok ? generateThreadTitle(gate.instance, excerpt, "call") : null;
 }
+const liveCallTarget = (botId: string, threadId: string | null | undefined) => {
+  const bot = store.bot(botId);
+  if (!bot) return null;
+  const target = threadId ?? bot.threadId;
+  if (store.botByThread(target)?.id !== bot.id) return null;
+  return { botId: bot.id, botName: bot.name, threadId: target };
+};
+const recordLiveCallRow = (input: { threadId: string; botName: string; record: import("../shared/live-call-wire.ts").LiveCallRecord }) => {
+  const row = recordLiveCall({
+    chatExists: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
+    appendMessage: (threadId, message) => store.appendMessage(threadId, message),
+  }, input);
+  if (row) {
+    void titleLiveCall({
+      messagesFor: (threadId) => store.messagesFor(threadId),
+      patchMessage: (threadId, messageId, patch) => store.patchMessage(threadId, messageId, patch),
+      excerpt: callTitleExcerpt,
+      title: liveCallTitle,
+      scrub: redactSecretsInText,
+    }, { threadId: input.threadId, row });
+  }
+};
 const liveCalls = new LiveCallController({
   store,
   send: async ({ auth, botId, threadId, text, callId }) => {
@@ -12758,21 +12780,7 @@ const liveCalls = new LiveCallController({
   attachUrl: (sessionId, endpoint) => liveAttachUrl(sessionId, endpoint),
   speakable: (text) => toUtterances(text),
   // One "call" row per call: its id, times and length, never anything said on it.
-  recordCall: (input) => {
-    const row = recordLiveCall({
-      chatExists: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
-      appendMessage: (threadId, message) => store.appendMessage(threadId, message),
-    }, input);
-    if (row) {
-      void titleLiveCall({
-        messagesFor: (threadId) => store.messagesFor(threadId),
-        patchMessage: (threadId, messageId, patch) => store.patchMessage(threadId, messageId, patch),
-        excerpt: callTitleExcerpt,
-        title: liveCallTitle,
-        scrub: redactSecretsInText,
-      }, { threadId: input.threadId, row });
-    }
-  },
+  recordCall: recordLiveCallRow,
   log: (line) => console.log(line),
 });
 sessions.onSessionRevoked((sessionId) => liveCalls.sessionRevoked(sessionId));
@@ -12783,16 +12791,10 @@ ROUTES.push(createDataRoutes({
   compileChart, validateVegaLite, renderer: chartRenderer,
   exportRoots: dataExportRoots,
 }));
-const liveRelays = new LiveRelays();
+const liveRelays = new LiveRelays({ record: recordLiveCallRow });
 ROUTES.push(createLiveRoutes({
   calls: liveCalls,
-  resolveTarget: (botId, threadId) => {
-    const bot = store.bot(botId);
-    if (!bot) return null;
-    const target = threadId ?? bot.threadId;
-    if (store.botByThread(target)?.id !== bot.id) return null;
-    return { botId: bot.id, botName: bot.name, threadId: target };
-  },
+  resolveTarget: liveCallTarget,
   settings: () => liveSettingsFor(cfg),
   saveSettings: async (patch) => {
     if (providerConfigBusy) throw Object.assign(new Error("Settings are already being updated. Try again in a moment."), { status: 409 });
@@ -12820,6 +12822,7 @@ ROUTES.push(createLiveRoutes({
     settings: () => liveCallSettings(cfg),
     appId: () => cfg.live?.volcAppId,
     bot: (botId) => { const bot = store.bot(botId); return bot ? { name: bot.name, title: bot.title, description: bot.description } : null; },
+    target: liveCallTarget,
     instructions: (bot) => liveInstructions(bot, { cloudHome: Boolean(CLOUD_HOME) }),
   }),
 }));

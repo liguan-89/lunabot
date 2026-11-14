@@ -21,7 +21,7 @@ export interface LiveRouteDeps {
   upgrades?: Pick<Upgrades, "route" | "pending">;
   relays?: Pick<LiveRelays, "accept">;
   /** Resolves the provider socket target for a browser relay call; `error` refuses with that message and status. */
-  relay?(auth: RequestAuth, botId: string | null): { options: LiveRelayOptions } | { error: string; status?: number };
+  relay?(auth: RequestAuth, botId: string | null, threadId?: string | null, client?: string | null): { options: LiveRelayOptions } | { error: string; status?: number };
 }
 
 const id = z.string().regex(/^[\w-]{1,120}$/);
@@ -75,7 +75,7 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
     if (method === "GET" && path === LIVE_RELAY_PATH) {
       const pending = deps.upgrades?.pending(req);
       if (!pending || !deps.relays || !deps.relay) return PASS;
-      const target = deps.relay(auth, url.searchParams.get("botId"));
+      const target = deps.relay(auth, url.searchParams.get("botId"), url.searchParams.get("threadId"), url.searchParams.get("client"));
       if ("error" in target) return json(res, target.status ?? 403, { error: target.error });
       if (pending.socket.destroyed) return;
       pending.release();
