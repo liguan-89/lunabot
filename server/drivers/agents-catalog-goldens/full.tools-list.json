@@ -295,6 +295,28 @@
       }
     },
     {
+      "name": "propose_grant",
+      "description": "Ask the person for a temporary permission, in their own words, on a card they confirm or refuse. The grant covers only what it says (\"billing mails may be sent\") and ends at its deadline, up to a week out. Use it when the person agrees to stop being asked about something for a while — never widen it past their words. It does nothing until they tap Grant; matching approvals then settle themselves, and a refusal or an expired card leaves every approval asking as before.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "The permission in plain words, as the person stated it — what may happen, not the action you want to do right now."
+          },
+          "hours": {
+            "type": "number",
+            "description": "How long the grant lasts, 0.25 to 168 hours (a week). \"Tonight\" is until midnight in the person's timezone."
+          }
+        },
+        "required": [
+          "text",
+          "hours"
+        ]
+      }
+    },
+    {
       "name": "proactivity",
       "description": "How much DEX BOT initiates for the person. standard: proactive work posts briefs and suggestions with notifications. quiet: those keep working but post without a ping. Read it when asked how active to be; set quiet when the person asks not to be disturbed or standard when they want to hear from it again. For anything bigger than a level change, ask first with a card (show_widget).",
       "inputSchema": {

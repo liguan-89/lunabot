@@ -4,6 +4,7 @@ import { t } from "@/lib/i18n";
 import { AppMessage } from "./app/AppMessage";
 import { BugReportNote } from "./BugReportNote";
 import { GoalRunRow } from "./GoalRunCard";
+import { GrantProposal } from "./GrantProposal";
 import { HelperKeySuggestion } from "./HelperKeySuggestion";
 import { MessageBoundary } from "./MessageBoundary";
 import { WidgetMessage } from "./widget/WidgetMessage";
@@ -11,7 +12,7 @@ import { WidgetMessage } from "./widget/WidgetMessage";
 export function richRowKind(message: Message): Message["kind"] {
   // MausBot's follow-up is text the model reads, drawn under its intro's card row (OptionsCardRow).
   if (message.helperFollowup) return "options";
-  if (message.setupSuggestion || (message.kind === "goal.run" && message.goalRun)) return "widget";
+  if (message.setupSuggestion || message.grantProposal || (message.kind === "goal.run" && message.goalRun)) return "widget";
   if (message.kind === "widget" && !message.widget) return "text";
   if (message.kind === "app" && !message.app) return "text";
   return message.kind;
@@ -23,6 +24,8 @@ export function RichMessageRow({ botId, botName, threadId, message, room }: { bo
     <MessageBoundary fallbackText={message.text ?? ""}>
       {message.setupSuggestion
         ? <HelperKeySuggestion threadId={threadId} message={message} />
+        : message.grantProposal
+          ? <GrantProposal threadId={threadId} message={message} />
         : message.kind === "goal.run"
           ? <GoalRunRow botId={botId} threadId={threadId} message={message} />
           : message.kind === "app"

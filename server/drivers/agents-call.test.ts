@@ -622,3 +622,27 @@ describe("proactivity", () => {
     expect(await callTool("proactivity", {}, ctx)).toMatchObject({ isError: true });
   });
 });
+
+describe("propose_grant", () => {
+  it("posts the proposal to the internal route and tells the bot the card is only a proposal", async () => {
+    const calls: Array<{ path: string; init: any }> = [];
+    const ctx = context({
+      client: {
+        api: async (path, init) => { calls.push({ path, init }); return { ok: true, proposalId: "p1" }; },
+        apiResponse: async () => ({ ok: true, status: 200, body: {} }),
+      },
+    });
+    expect((await callTool("propose_grant", { text: "billing mails may be sent", hours: 4 }, ctx)).text).toContain("the person taps Grant or Refuse");
+    expect(calls).toEqual([{ path: "/api/internal/grants", init: { method: "POST", body: JSON.stringify({ text: "billing mails may be sent", hours: 4 }) } }]);
+  });
+
+  it("turns a route failure into an error result", async () => {
+    const ctx = context({
+      client: {
+        api: async () => ({ error: "hours must be between 0.25 and 168" }),
+        apiResponse: async () => ({ ok: true, status: 200, body: {} }),
+      },
+    });
+    expect(await callTool("propose_grant", { text: "x", hours: 999 }, ctx)).toMatchObject({ isError: true });
+  });
+});

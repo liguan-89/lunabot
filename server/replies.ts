@@ -32,7 +32,8 @@ export function speakerOf(name: PersonName, line: Pick<Message, "sender">): stri
 }
 
 /** A card the app posted, not the bot: a server-built widget, or the add-a-key suggestion (a plain text row). */
-const appCard = (message: Pick<Message, "serverCard" | "setupSuggestion">): boolean => message.serverCard === true || message.setupSuggestion !== undefined;
+const appCard = (message: Pick<Message, "serverCard" | "setupSuggestion" | "grantProposal">): boolean =>
+  message.serverCard === true || message.setupSuggestion !== undefined || message.grantProposal !== undefined;
 /** An app card's records block: the add-a-key suggestion is the app's own fixed text, not built from mail, calendar or bots. */
 const appCardRecords = (card: Pick<Message, "setupSuggestion">, text: string): string => cardRecords(text, card.setupSuggestion ? SETUP_RECORDS_SOURCE : CARD_RECORDS_SOURCE);
 

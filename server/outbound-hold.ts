@@ -6,6 +6,7 @@ import { appendDecision } from "./decision-log.ts";
 import { buildNotification } from "./notify.ts";
 import type { OutboundRequestService } from "./outbound-requests.ts";
 import { outboundCard } from "./outbound-requests.ts";
+import type { PermissionGrant } from "./permission-grants.ts";
 import type { BotRecord, GroupRecord, Store } from "./store.ts";
 import { turnWaitedOnPerson } from "./waiting-on-person.ts";
 
@@ -24,6 +25,8 @@ export interface OutboundHoldDeps {
   connectorThread: (botId: string, threadId: string) => { group?: GroupRecord } | null;
   activeGroupTurnForBot: (botId: string) => { threadId: string } | null;
   notify: (notification: Notification | null) => void;
+  /** A live temporary grant that covers this send, when the person left one; it answers the card for them. */
+  coveredByGrant?: (input: { tool: string; summary: string }) => Promise<PermissionGrant | null>;
 }
 
 export type OutboundHoldAnswer = { ok: true; approved: boolean } | { ok: false; text: string };
@@ -80,6 +83,24 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
           store.setTaskActivity(currentSender.id, threadId, "waiting-on-you");
         }
         notify(buildNotification("approval", currentSender, threadId, summary, { avatarUrl: currentSender.avatarUrl }));
+        if (deps.coveredByGrant) {
+          try {
+            const grant = await deps.coveredByGrant({ tool: outboundTool, summary });
+            const resolved = grant ? outboundRequests.resolve({ threadId, requestId: held.requestId, behavior: "allow" }) : null;
+            if (grant && resolved?.claimed && resolved.state === "allowed") {
+              store.patchMessage(threadId, card.id, { card: { ...card.card!, answered: "allow" } });
+              appendDecision(DATA_DIR, {
+                threadId, requestId: held.requestId, botId: currentSender.id, botName: currentSender.name,
+                tool: outboundTool, summary, decision: "auto-approved", source: "temporary-grant", rule: grant.text,
+              });
+              store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
+                name: `Temporary grant allowed the send: ${summary.slice(0, 120)}`, ok: true,
+              } });
+            }
+          } catch {
+            // A failed grant check leaves the card exactly where it is: the person still decides.
+          }
+        }
         const answer = await held.answer;
         outboundRequests.forget(held.requestId);
         if (active()) {

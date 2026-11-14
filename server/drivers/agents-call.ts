@@ -426,6 +426,12 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     });
     return { text: `Threads, newest first:\n${lines.join("\n")}` };
   }
+  if (name === "propose_grant") {
+    const r = await api("/api/internal/grants", { method: "POST", body: JSON.stringify({ text: args.text, hours: args.hours }) });
+    if (r.error) return { text: `Couldn't propose the grant: ${String(r.error)}`, isError: true };
+    return { text: "The grant card is up. Nothing is allowed yet — the person taps Grant or Refuse on it." };
+  }
+
   if (name === "proactivity") {
     const level = args.level === undefined ? undefined : String(args.level);
     if (level !== undefined && level !== "standard" && level !== "quiet") return { text: "proactivity level is standard or quiet.", isError: true };

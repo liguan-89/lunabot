@@ -124,11 +124,12 @@ export function autoVerdict(
 /** `unavailable` and `allowed-once` have no transcript row, so callers do not ask for one. */
 export function undeliveredApprovalTool(
   outcome: Exclude<RequestOutcome, "allowed-once" | "unavailable"> | "failed",
-  source: AutoVerdictSource,
+  source: AutoVerdictSource | "temporary-grant",
 ): FailedTurnTool | { name: string; ok: false } {
   if (outcome !== "rejected") return failedTurnTool("could not deliver approval to the provider; retry the task after reconnecting.");
   const grant = source === "command-allowlist" ? "the saved command permission"
-    : source === "tool-allowlist" ? "the saved tool permission" : "Full access";
+    : source === "tool-allowlist" ? "the saved tool permission"
+      : source === "temporary-grant" ? "the temporary permission" : "Full access";
   return { name: `The provider rejected this action despite ${grant}.`, ok: false };
 }
 

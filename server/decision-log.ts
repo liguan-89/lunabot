@@ -41,7 +41,8 @@ export type DecisionSource =
   | "team-memory"
   | "outside-write"
   | "auto-review"
-  | "auto-review-shadow";
+  | "auto-review-shadow"
+  | "temporary-grant";
 
 /** Who answered a card: a signed-in session (a portal session's id is its membership grant and is never written), `loopback`, or `worker`. */
 export type DecisionActor =

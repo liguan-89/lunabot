@@ -22,7 +22,7 @@ const calls = [{ slug: "GMAIL_SEND_EMAIL", arguments: { to: "ana@example.com", s
 function setup(bot: HoldBot) {
   const dataDir = mkdtempSync(join(tmpdir(), "outbound-hold-"));
   dirs.push(dataDir);
-  const appended: Array<{ threadId: string; message: { id: string; card?: Record<string, unknown> } & Record<string, unknown> }> = [];
+  const appended: Array<{ threadId: string; message: { id: string; card?: Record<string, unknown>; kind?: string; tool?: { name: string } } & Record<string, unknown> }> = [];
   const patches: Array<{ threadId: string; messageId: string; patch: Record<string, unknown> }> = [];
   const activity: string[] = [];
   const notified: Array<Notification | null> = [];
@@ -59,7 +59,7 @@ function setup(bot: HoldBot) {
     notify: (notification) => notified.push(notification),
   };
   const input = { bot, threadId: "t1", tool: "GMAIL_SEND_EMAIL", calls, opaque: false, fullAccess: false };
-  return { hold: createOutboundHold(deps), dataDir, appended, patches, activity, notified, outboundRequests, input };
+  return { hold: createOutboundHold(deps), deps, dataDir, appended, patches, activity, notified, outboundRequests, input };
 }
 
 const bot = (outbound: HoldBot["outbound"], notifications = true): HoldBot => ({ id: "b1", name: "Scout", color: "green", outbound, notifications });
@@ -153,6 +153,35 @@ describe("createOutboundHold", () => {
   it("refuses at dispatch when the hold was not approved and the policy is ask", async () => {
     const { hold, input } = setup(bot({ policy: "ask" }));
     expect(() => hold.beforeDispatch({ ...input, fullAccess: false, approved: false })).toThrow(/outbound policy changed/);
+  });
+
+  it("a live grant covering the send answers the card for the person", async () => {
+    const held = setup(bot({ policy: "ask" }));
+    const covered = vi.fn(async () => ({ id: "g1", text: "billing mails may be sent", expiresAt: 9_999, createdAt: 1 }));
+    held.hold = createOutboundHold({ ...held.deps, coveredByGrant: covered });
+
+    const pending = held.hold.hold({ ...held.input, active: () => true });
+    await expect(pending).resolves.toEqual({ ok: true, approved: true });
+    expect(covered).toHaveBeenCalledWith({ tool: "GMAIL_SEND_EMAIL", summary: expect.any(String) });
+    expect(held.patches).toMatchObject([{ patch: { card: { answered: "allow" } } }]);
+    expect(held.appended.some((row) => row.message.kind === "activity" && String((row.message.tool as { name: string }).name).startsWith("Temporary grant"))).toBe(true);
+
+    await flushDecisionLog(held.dataDir);
+    expect(readDecisions(held.dataDir, 10)).toMatchObject([
+      { decision: "card-shown", source: "outbound" },
+      { decision: "auto-approved", source: "temporary-grant", rule: "billing mails may be sent" },
+    ]);
+  });
+
+  it("no covering grant, or a failing check, leaves the card for the person", async () => {
+    for (const coveredByGrant of [async () => null, async () => { throw new Error("decider down"); }] as const) {
+      const held = setup(bot({ policy: "ask" }));
+      held.hold = createOutboundHold({ ...held.deps, coveredByGrant });
+      const pending = held.hold.hold({ ...held.input, active: () => true });
+      const requestId = held.appended[0].message.card!.requestId as string;
+      held.outboundRequests.resolve({ threadId: "t1", requestId, behavior: "deny" });
+      await expect(pending).resolves.toMatchObject({ ok: false });
+    }
   });
 });
 

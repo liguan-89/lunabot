@@ -496,6 +496,9 @@ export interface WireMessage extends ServerTextLine, HelperIntroField, SetupCard
   serverCard?: true;
   /** A setup suggestion the device renders in its own words (server/host/helper-suggestion.ts); `text` is the English. */
   setupSuggestion?: { kind: "helperKey"; answer?: "notNow" };
+  /** A temporary permission the bot proposes for the person to grant or refuse (server/permission-grants.ts);
+   * `expiresAt` is when the grant would stop covering; `text` is the English. */
+  grantProposal?: { id: string; text: string; expiresAt: number; answer?: "granted" | "refused" | "expired" };
   /** A person's line Set me up turned into a setup request: the bot reads it as `/setup <text>`; the chat shows `text`. */
   setupRequest?: true;
   /** app rows (kind "app"): bot HTML or an MCP server's UI. `text` is always the readable fallback. */

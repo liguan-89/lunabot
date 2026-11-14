@@ -303,6 +303,14 @@ const threadsPatchSchema = threadsConfigSchema.extend({
   eventLogMaxBytes: threadsConfigSchema.shape.eventLogMaxBytes.nullable(),
   eventLogRetentionDays: threadsConfigSchema.shape.eventLogRetentionDays.nullable(),
 });
+const permissionGrantSchema = z.object({
+  id: z.string().min(1).max(64),
+  text: z.string().min(1).max(300),
+  expiresAt: z.number(),
+  createdAt: z.number(),
+}).strict();
+export type PermissionGrantConfig = z.infer<typeof permissionGrantSchema>;
+
 const appConfigSchema = z.object({
   /** Set only by the verified domain endpoint, never by a config patch. */
   customDomain: z.string().optional(),
@@ -424,6 +432,8 @@ const appConfigSchema = z.object({
       allow: z.array(z.string().max(500)).max(50).optional(),
       deny: z.array(z.string().max(500)).max(50).optional(),
     }).strict().optional(),
+    /** Time-boxed permissions the person confirmed on a card; each is words a matching approval may resolve under until expiresAt. */
+    grants: z.array(permissionGrantSchema).max(20).optional(),
   }).strict().optional(),
   loopGuard: loopGuardConfigSchema.optional(),
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
@@ -484,7 +494,7 @@ export interface AppConfig extends HelperConfig {
   openai?: { key?: string };
   openrouter?: { key?: string };
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
-  decisions?: { retentionDays?: number; rules?: { allow?: string[]; deny?: string[] } };
+  decisions?: { retentionDays?: number; rules?: { allow?: string[]; deny?: string[] }; grants?: PermissionGrantConfig[] };
   loopGuard?: LoopGuardConfig;
   safetyFloor?: { enabled?: boolean };
   proactivity?: "standard" | "quiet";
