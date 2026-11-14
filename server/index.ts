@@ -12762,6 +12762,57 @@ function liveHistoryFor(threadId: string): LiveHistoryMessage[] {
 function liveSignedIn(auth: RequestAuth): boolean {
   return auth.kind !== "session" || sessions.isLive(auth.session.id);
 }
+const LIVE_DELEGATE_WAIT_MS = 90_000;
+/** Resolves with the first completed turn's bot text once the thread's newest person message is ours, else null on timeout. */
+function liveRelayReplyWaiter(threadId: string, expectedText: string, ms: number): { promise: Promise<string | null>; cancel(): void } {
+  let finish: (text: string | null) => void = () => {};
+  const off = bus.subscribe((event: RuntimeEvent) => {
+    if (event.type !== "turn.completed" || !event.ok || event.threadId !== threadId || !event.turnId) return;
+    const path = store.activePath(threadId);
+    if (path.findLast((m) => m.role === "user")?.text?.trim() !== expectedText) return;
+    const texts = path.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim());
+    if (texts.length) finish(texts.join("\n"));
+  });
+  const promise = new Promise<string | null>((resolve) => {
+    finish = (text) => { off(); resolve(text); };
+    setTimeout(() => finish(null), ms).unref();
+  });
+  return { promise, cancel: () => finish(null) };
+}
+
+/** The delegate behind the socket call's tool: sends the request into the call's chat exactly like a WebRTC
+ * delegation (via "call", one callId per call) and waits for the turn's reply to speak back. */
+function liveRelayDelegate(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string) => Promise<string>) | null {
+  if (!liveSignedIn(auth)) return null;
+  const callId = randomUUID();
+  return async (request: string): Promise<string> => {
+    const text = request.trim().slice(0, 2000);
+    if (!text) return "没有听到要转交的内容。";
+    const waiter = liveRelayReplyWaiter(call.threadId, text, LIVE_DELEGATE_WAIT_MS);
+    try {
+      const receipt = await acceptDirectSend({
+        botId: call.botId, threadId: call.threadId, text,
+        sendId: phones.sendIdFor(auth),
+        sender: messageSender(auth),
+        trigger: usageTriggerFor(auth),
+        via: "call",
+        callId,
+        personPresent: true,
+        admin: runActor(auth).admin,
+      });
+      if ("queued" in receipt) {
+        waiter.cancel();
+        return `${call.botName} 正在处理其他请求，这条已经排队，结果会出现在对话里。`;
+      }
+      return (await waiter.promise) ?? `${call.botName} 还在处理，结果会出现在对话里。`;
+    } catch (error) {
+      waiter.cancel();
+      const detail = error instanceof Error ? error.message.trim().slice(0, 160) : "";
+      return `请求没能发给 ${call.botName}${detail ? `：${detail}` : "。"}`;
+    }
+  };
+}
+
 /** On the bot's own engine, which already saw the requests, so nothing new reaches OpenAI. */
 function liveCallTitle(botId: string, threadId: string, excerpt: string): Promise<string | null> | null {
   const bot = store.projectBotForTask(botId, threadId);
@@ -12873,6 +12924,7 @@ ROUTES.push(createLiveRoutes({
     bot: (botId) => { const bot = store.bot(botId); return bot ? { name: bot.name, title: bot.title, description: bot.description } : null; },
     target: liveCallTarget,
     instructions: (bot) => liveInstructions(bot, { cloudHome: Boolean(CLOUD_HOME) }),
+    delegate: (auth, call) => liveRelayDelegate(auth, call),
   }),
 }));
 

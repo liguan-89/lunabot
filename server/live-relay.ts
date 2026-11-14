@@ -15,6 +15,8 @@ import {
   volcAudioTask,
   volcAuthHeaders,
   volcDecodeFrame,
+  VOLC_DUPLEX_MODEL,
+  volcDuplexRealtimeUrl,
   volcFrame,
   volcRealtimeUrl,
   VOLC_EVENT_CONNECTION_STARTED,
@@ -38,6 +40,8 @@ export interface LiveRelayOptions {
   instructions?: string;
   /** When the call belongs to a bot's chat: what the call row records once it ends. */
   call?: { botId: string; botName: string; threadId: string; client: LiveClient };
+  /** Sends the request into the call's chat as a person message and resolves with the bot's reply text. */
+  delegate?: (request: string) => Promise<string>;
   /** Test seam: replaces the provider socket factory. */
   ws?: (url: string, headers: Record<string, string>) => ProviderSocket;
 }
@@ -77,15 +81,82 @@ function defaultSocket(url: string, headers: Record<string, string>): ProviderSo
   return new WebSocket(url, { headers }) as unknown as ProviderSocket;
 }
 
+/** The voice model's one tool: hand the user's request to the bot's own chat and speak what comes back. */
+function delegateTool(botName: string): Record<string, unknown> {
+  return {
+    type: "function",
+    name: "delegate",
+    description: `Delegate work to ${botName} — its own files, tools, memory and services on the owner's computer. Use it whenever the user asks a question or asks for work. Report only what the result says.`,
+    parameters: {
+      type: "object",
+      properties: { request: { type: "string", description: `The user's request for ${botName}, in the user's own words.` } },
+      required: ["request"],
+      additionalProperties: false,
+    },
+  };
+}
+
+interface DelegationCall {
+  callId: string;
+  request: string;
+}
+
+// `response.function_call_arguments.done` arrives as OpenAI's flat {call_id, name, arguments} or Doubao's
+// {items: [{call_id, name, arguments}]}. Anything that is not our tool is ignored.
+function delegationCalls(payload: Record<string, unknown>): DelegationCall[] {
+  const items = Array.isArray(payload.items) ? payload.items : [payload];
+  const calls: DelegationCall[] = [];
+  for (const raw of items) {
+    const item = raw as { call_id?: unknown; name?: unknown; arguments?: unknown };
+    if (item?.name !== "delegate" || typeof item.call_id !== "string" || !item.call_id || typeof item.arguments !== "string") continue;
+    try {
+      const args = JSON.parse(item.arguments) as { request?: unknown };
+      if (typeof args.request === "string" && args.request.trim()) calls.push({ callId: item.call_id, request: args.request.trim().slice(0, 2000) });
+    } catch { /* arguments not JSON yet */ }
+  }
+  return calls;
+}
+
+// One delegated turn at a time per call: a second call waits instead of racing the same chat.
+class DelegateQueue {
+  readonly #delegate: (request: string) => Promise<string>;
+  readonly #seen = new Set<string>();
+  #queue: Promise<void> = Promise.resolve();
+
+  constructor(delegate: (request: string) => Promise<string>) {
+    this.#delegate = delegate;
+  }
+
+  run(socket: ProviderSocket, payload: Record<string, unknown>, result: (callId: string, text: string) => unknown[]): void {
+    for (const call of delegationCalls(payload)) {
+      if (this.#seen.has(call.callId)) continue;
+      this.#seen.add(call.callId);
+      this.#queue = this.#queue.then(async () => {
+        let text: string;
+        try {
+          text = (await this.#delegate(call.request)).slice(0, 4000) || "The request returned no answer.";
+        } catch {
+          text = "The request could not be run. Try again in a moment.";
+        }
+        if (socket.readyState !== 1) return;
+        for (const event of result(call.callId, text)) socket.send(JSON.stringify(event));
+      });
+    }
+  }
+}
+
 /** Qwen's gateway speaks the OpenAI realtime JSON event shape; audio travels as base64 inside
  * input_audio_buffer.append / response output_audio deltas. */
 function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: RelaySink): ProviderLink {
   let ready = false;
+  const delegate = options.delegate && options.call
+    ? new DelegateQueue(options.delegate)
+    : null;
   socket.on("open", () => { /* the gateway speaks first: session.created */ });
   socket.on("error", () => sink.error("The Qwen realtime connection failed."));
   socket.on("close", () => sink.end());
   socket.on("message", (data) => {
-    let event: { type?: string; delta?: string; transcript?: string; error?: { message?: string } };
+    let event: Record<string, unknown> & { type?: string; delta?: string; transcript?: string; error?: { message?: string } };
     try { event = JSON.parse(asBuffer(data).toString("utf8")); } catch { return; }
     if (event.type === "session.created") {
       socket.send(JSON.stringify({
@@ -97,6 +168,7 @@ function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
           input_audio_format: "pcm16",
           output_audio_format: "pcm16",
           turn_detection: { type: "server_vad" },
+          ...(delegate ? { tools: [delegateTool(options.call!.botName)], tool_choice: "auto" } : {}),
         },
       }));
       if (!ready) { ready = true; sink.ready(); }
@@ -113,6 +185,13 @@ function qwenLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
     }
     if ((event.type === "response.output_audio_transcript.delta" || event.type === "response.audio_transcript.delta" || event.type === "response.audio_transcript.done") && event.transcript) {
       sink.transcript("assistant", event.transcript);
+      return;
+    }
+    if (event.type === "response.function_call_arguments.done" && delegate) {
+      delegate.run(socket, event, (callId, text) => [
+        { type: "conversation.item.create", item: { type: "function_call_output", call_id: callId, output: text } },
+        { type: "response.create" },
+      ]);
       return;
     }
     if (event.type === "error") {
@@ -182,13 +261,107 @@ function volcLink(socket: ProviderSocket, options: LiveRelayOptions, sink: Relay
   };
 }
 
+/** Doubao Seeduplex realtime dialogue: JSON events on /api/v3/duplex/realtime/dialogue — the only volc transport
+ * with function calling, so the delegate tool rides on it. The legacy console headers still authenticate it. */
+function volcDuplexLink(socket: ProviderSocket, options: LiveRelayOptions, sink: RelaySink): ProviderLink {
+  let ready = false;
+  const delegate = options.delegate && options.call
+    ? new DelegateQueue(options.delegate)
+    : null;
+  socket.on("open", () => {
+    socket.send(JSON.stringify({
+      type: "session.create",
+      session: {
+        model: VOLC_DUPLEX_MODEL,
+        ...(options.instructions ? { instructions: options.instructions } : {}),
+        audio: {
+          input: { format: { type: "pcm", rate: 16000 } },
+          output: {
+            format: { type: "pcm_s16le", rate: 24000 },
+            voice: options.voice ?? "zh_female_vv_jupiter_bigtts",
+          },
+        },
+        ...(delegate ? { tools: [delegateTool(options.call!.botName)] } : {}),
+      },
+    }));
+  });
+  socket.on("error", () => sink.error("The Doubao realtime connection failed."));
+  socket.on("close", () => sink.end());
+  socket.on("message", (data) => {
+    let event: Record<string, unknown> & { type?: string; delta?: string; transcript?: string; status_code?: number; message?: string };
+    try { event = JSON.parse(asBuffer(data).toString("utf8")); } catch { return; }
+    if (event.type === "session.created") {
+      if (!ready) { ready = true; sink.ready(); }
+      return;
+    }
+    if (event.type === "response.output_audio.delta" && event.delta) {
+      sink.audio(Buffer.from(event.delta, "base64"));
+      return;
+    }
+    if ((event.type === "conversation.item.input_audio_transcription.delta" || event.type === "conversation.item.input_audio_transcription.completed") && event.transcript) {
+      sink.transcript("user", event.transcript);
+      return;
+    }
+    if ((event.type === "response.output_text.delta" || event.type === "response.output_text.done") && event.transcript) {
+      sink.transcript("assistant", event.transcript);
+      return;
+    }
+    if (event.type === "response.function_call_arguments.done" && delegate) {
+      delegate.run(socket, event, (callId, text) => [
+        { type: "conversation.item.create", items: [{ call_id: callId, role: "tool", content: [{ type: "input_text", text }] }] },
+      ]);
+      return;
+    }
+    if (event.type === "error") {
+      sink.error(String(event.message ?? `The Doubao realtime session failed (${event.status_code ?? "error"}).`).slice(0, 300));
+      return;
+    }
+    if (event.type === "session.closed" || event.type === "session.finished") sink.end();
+  });
+  return {
+    sendPcm(pcm) {
+      if (!ready || socket.readyState !== 1) return;
+      socket.send(JSON.stringify({ type: "input_audio_buffer.append", audio: pcm.toString("base64") }));
+    },
+    close() { try { socket.close(); } catch { /* already closed */ } },
+  };
+}
+
+/** Doubao prefers the Seeduplex transport and falls back to the legacy binary protocol when the account refuses
+ * it before the call is ready — a legacy call still works, it just cannot delegate. */
+function volcAutoLink(make: (url: string, headers: Record<string, string>) => ProviderSocket, options: LiveRelayOptions, sink: RelaySink): ProviderLink {
+  let committed = false;
+  let fell = false;
+  let inner: ProviderLink;
+  // Closing the refused duplex socket raises "close" too: the swap happens once, before that close is seen.
+  const fallback = () => { if (fell) return; fell = true; const prev = inner; inner = legacy(); prev.close(); sink.event("volc:legacy-fallback", "duplex refused before ready"); };
+  const guarded: RelaySink = {
+    ready: () => { committed = true; sink.ready(); },
+    audio: (pcm) => sink.audio(pcm),
+    transcript: (role, delta) => sink.transcript(role, delta),
+    event: (name, data) => sink.event(name, data),
+    error: (message) => { if (committed) sink.error(message); else fallback(); },
+    end: () => { if (committed) sink.end(); else fallback(); },
+  };
+  const legacy = () => volcLink(make(volcRealtimeUrl(options.endpoint), volcAuthHeaders(options.appId ?? "", options.key)), options, sink);
+  inner = volcDuplexLink(
+    make(volcDuplexRealtimeUrl(options.endpoint), { ...volcAuthHeaders(options.appId ?? "", options.key), "X-Api-Request-Id": randomUUID() }),
+    options,
+    guarded,
+  );
+  return {
+    sendPcm(pcm) { inner.sendPcm(pcm); },
+    close() { inner.close(); },
+  };
+}
+
 export function openProviderLink(options: LiveRelayOptions, sink: RelaySink): ProviderLink {
   const make = options.ws ?? defaultSocket;
   if (options.endpoint.provider === "qwen") {
     return qwenLink(make(qwenRealtimeUrl(options.endpoint), liveAuthHeaders("qwen", options.key)), options, sink);
   }
   if (options.endpoint.provider === "volc") {
-    return volcLink(make(volcRealtimeUrl(options.endpoint), volcAuthHeaders(options.appId ?? "", options.key)), options, sink);
+    return volcAutoLink(make, options, sink);
   }
   throw new Error(`provider ${options.endpoint.provider} has no socket transport`);
 }
@@ -204,6 +377,8 @@ export function liveRelayResolver(deps: {
   bot(botId: string): LiveBot | null;
   target(botId: string, threadId: string | null): { botId: string; botName: string; threadId: string } | null;
   instructions(bot: LiveBot): string;
+  /** Wires a call's chat to the delegate tool; null keeps the provider session tool-less (calls still work). */
+  delegate?(auth: RequestAuth, call: { botId: string; botName: string; threadId: string }): ((request: string) => Promise<string>) | null;
 }): (auth: RequestAuth, botId: string | null, threadId?: string | null, client?: string | null) => { options: LiveRelayOptions } | { error: string; status?: number } {
   return (auth, botId, threadId = null, client = null) => {
     const refusal = deps.refusal(auth);
@@ -215,6 +390,7 @@ export function liveRelayResolver(deps: {
     if (settings.setupProblem || !settings.key) return { error: settings.setupProblem || "Live calls need a provider key.", status: 409 };
     let instructions: string | undefined;
     let call: LiveRelayOptions["call"];
+    let delegate: LiveRelayOptions["delegate"];
     if (botId) {
       const bot = deps.bot(botId);
       if (!bot) return { error: "That bot does not exist.", status: 404 };
@@ -222,6 +398,7 @@ export function liveRelayResolver(deps: {
       const target = deps.target(botId, threadId);
       if (!target) return { error: "That bot or chat does not exist.", status: 404 };
       call = { ...target, client: LIVE_CLIENTS.has(client as LiveClient) ? client as LiveClient : "web" };
+      delegate = deps.delegate?.(auth, target) ?? undefined;
     }
     return {
       options: {
@@ -230,6 +407,7 @@ export function liveRelayResolver(deps: {
         ...(settings.endpoint.provider === "volc" && deps.appId() ? { appId: deps.appId() } : {}),
         ...(instructions ? { instructions } : {}),
         ...(call ? { call } : {}),
+        ...(delegate ? { delegate } : {}),
       },
     };
   };

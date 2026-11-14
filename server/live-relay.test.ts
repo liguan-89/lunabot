@@ -86,51 +86,138 @@ describe("qwen provider link", () => {
 });
 
 describe("volc provider link", () => {
-  it("drives StartConnection → StartSession → ready, then sends TaskRequest audio", () => {
-    const socket = new FakeSocket();
+  it("opens the duplex session first and falls back to the legacy protocol when refused before ready", () => {
+    const duplex = new FakeSocket();
+    const legacy = new FakeSocket();
+    const sockets = [duplex, legacy];
     const { calls, record } = sink();
-    const link = openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "6255978659", ws: () => socket }, record);
-    socket.emit("open");
-    expect(volcDecodeFrame(socket.sent[0] as Buffer)?.event).toBe(VOLC_EVENT_START_CONNECTION);
-    socket.emit("message", volcFrame(50, "{}"));
-    const start = volcDecodeFrame(socket.sent[1] as Buffer);
+    const link = openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "6255978659", ws: () => sockets.shift()! }, record);
+    duplex.emit("open");
+    const create = JSON.parse(String(duplex.sent[0])) as { type: string; session: { model: string; audio: { input: { format: { rate: number } } } } };
+    expect(create.type).toBe("session.create");
+    expect(create.session.model).toBe("1.2.6.1");
+    expect(create.session.audio.input.format.rate).toBe(16000);
+    // duplex 拒绝（旧账号/未开通）→ 回落旧二进制协议，并向客户端明示降级
+    duplex.emit("message", Buffer.from(JSON.stringify({ type: "error", status_code: 40000001, message: "unsupported" })));
+    expect(calls).toEqual([["event", "volc:legacy-fallback:duplex refused before ready"]]);
+    calls.length = 0;
+    expect(legacy.sent).toHaveLength(0);
+    legacy.emit("open");
+    expect(volcDecodeFrame(legacy.sent[0] as Buffer)?.event).toBe(VOLC_EVENT_START_CONNECTION);
+    link.sendPcm(Buffer.alloc(640, 7));
+    legacy.emit("message", volcFrame(50, "{}"));
+    const start = volcDecodeFrame(legacy.sent[1] as Buffer);
     expect(start?.event).toBe(VOLC_EVENT_START_SESSION);
     expect(start?.sessionId).toMatch(/^call-/);
     const session = JSON.parse(start?.payload ?? "{}") as { dialog: { extra: { model: string } } };
     expect(session.dialog.extra.model).toBe("1.2.1.1");
-    socket.emit("message", volcFrame(150, "{}", start!.sessionId));
+    legacy.emit("message", volcFrame(150, "{}", start!.sessionId));
     expect(calls).toEqual([["ready", null]]);
     link.sendPcm(Buffer.alloc(640, 7));
-    const task = volcDecodeFrame(socket.sent[2] as Buffer);
+    const task = volcDecodeFrame(legacy.sent[2] as Buffer);
     expect(task?.event).toBe(VOLC_EVENT_TASK_REQUEST);
     expect(task?.sessionId).toBe(start!.sessionId);
   });
 
-  it("decodes audio packets to raw bytes and error packets to messages", () => {
+  it("stays on duplex once ready: relays audio and transcripts", () => {
     const socket = new FakeSocket();
     const { calls, record } = sink();
-    openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "6255978659", ws: () => socket }, record);
+    const link = openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "6255978659", ws: () => socket }, record);
     socket.emit("open");
-    socket.emit("message", volcFrame(50, "{}"));
-    socket.emit("message", volcFrame(150, "{}", volcDecodeFrame(socket.sent[1] as Buffer)!.sessionId));
-    // 服务器下行音频帧：mt=0b1011, flags 0b0100 带事件 350, 纯二进制载荷
-    const audio = Buffer.concat([
-      Buffer.from([0x11, 0xb4, 0x10, 0x00]),
-      (() => { const b = Buffer.alloc(4); b.writeUInt32BE(350); return b; })(),
-      (() => { const b = Buffer.alloc(4); b.writeUInt32BE(4); return b; })(),
-      Buffer.from([1, 2, 3, 4]),
-    ]);
-    socket.emit("message", audio);
-    expect(calls[1]).toEqual(["audio", Buffer.from([1, 2, 3, 4])]);
-    // 错误帧：mt=0b1111 + code + JSON
-    const errPayload = Buffer.from(JSON.stringify({ error: "quota" }));
-    socket.emit("message", Buffer.concat([
-      Buffer.from([0x11, 0xf0, 0x10, 0x00]),
-      (() => { const b = Buffer.alloc(4); b.writeUInt32BE(45000000); return b; })(),
-      (() => { const b = Buffer.alloc(4); b.writeUInt32BE(errPayload.length); return b; })(),
-      errPayload,
-    ]));
-    expect(calls[2]).toEqual(["error", "quota"]);
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created", session: { id: "d1" } })));
+    expect(calls).toEqual([["ready", null]]);
+    link.sendPcm(Buffer.from([1, 2, 3, 4]));
+    const append = JSON.parse(String(socket.sent[1])) as { type: string; audio: string };
+    expect(append.type).toBe("input_audio_buffer.append");
+    expect(Buffer.from(append.audio, "base64")).toEqual(Buffer.from([1, 2, 3, 4]));
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "response.output_audio.delta", delta: Buffer.from([9]).toString("base64") })));
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "conversation.item.input_audio_transcription.completed", transcript: "帮我查下文件" })));
+    expect(calls.slice(1)).toEqual([["audio", Buffer.from([9])], ["transcript", "user:帮我查下文件"]]);
+    // ready 后报错不再回落
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "error", status_code: 45000000, message: "quota" })));
+    expect(calls[3]).toEqual(["error", "quota"]);
+  });
+});
+
+describe("delegate tool bridge", () => {
+  const call = { botId: "atlas", botName: "Atlas", threadId: "t1", client: "android" as const };
+
+  it("declares the delegate tool on duplex session.create and returns results via conversation.item.create", async () => {
+    const socket = new FakeSocket();
+    const { record } = sink();
+    const requests: string[] = [];
+    const delegate = async (request: string) => { requests.push(request); return "查到了，文件在 ~/Downloads"; };
+    openProviderLink({ endpoint: volcEndpoint, key: "k", appId: "1", call, delegate, ws: () => socket }, record);
+    socket.emit("open");
+    const create = JSON.parse(String(socket.sent[0])) as { session: { tools?: Array<{ name: string; description: string }> } };
+    expect(create.session.tools?.[0]?.name).toBe("delegate");
+    expect(create.session.tools?.[0]?.description).toContain("Atlas");
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created", session: { id: "d1" } })));
+    socket.emit("message", Buffer.from(JSON.stringify({
+      type: "response.function_call_arguments.done",
+      items: [{ call_id: "fc1", name: "delegate", arguments: JSON.stringify({ request: "我的文件在哪" }) }],
+    })));
+    await new Promise((done) => setTimeout(done, 20));
+    expect(requests).toEqual(["我的文件在哪"]);
+    const result = JSON.parse(String(socket.sent[1])) as { type: string; items: Array<{ call_id: string; role: string; content: Array<{ text: string }> }> };
+    expect(result.type).toBe("conversation.item.create");
+    expect(result.items[0]).toMatchObject({ call_id: "fc1", role: "tool" });
+    expect(result.items[0]!.content[0]!.text).toBe("查到了，文件在 ~/Downloads");
+  });
+
+  it("declares the tool on qwen session.update and answers with function_call_output + response.create", async () => {
+    const socket = new FakeSocket();
+    const { record } = sink();
+    const delegate = async () => "结果文本";
+    openProviderLink({ endpoint: qwenEndpoint, key: "k", call, delegate, ws: () => socket }, record);
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
+    const update = JSON.parse(String(socket.sent[0])) as { session: { tools?: unknown[]; tool_choice?: string } };
+    expect(update.session.tool_choice).toBe("auto");
+    expect(update.session.tools).toHaveLength(1);
+    socket.emit("message", Buffer.from(JSON.stringify({
+      type: "response.function_call_arguments.done",
+      call_id: "q1", name: "delegate", arguments: JSON.stringify({ request: "帮我看日程" }),
+    })));
+    await new Promise((done) => setTimeout(done, 20));
+    const output = JSON.parse(String(socket.sent[1])) as { type: string; item: { type: string; call_id: string; output: string } };
+    expect(output).toMatchObject({ type: "conversation.item.create", item: { type: "function_call_output", call_id: "q1", output: "结果文本" } });
+    expect(JSON.parse(String(socket.sent[2]))).toMatchObject({ type: "response.create" });
+  });
+
+  it("dedupes a repeated call_id and keeps a tool-less session when no delegate is wired", async () => {
+    const socket = new FakeSocket();
+    const { record } = sink();
+    const calls: string[] = [];
+    const delegate = async (request: string) => { calls.push(request); return "done"; };
+    openProviderLink({ endpoint: qwenEndpoint, key: "k", call, delegate, ws: () => socket }, record);
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
+    const done = { type: "response.function_call_arguments.done", call_id: "dup", name: "delegate", arguments: JSON.stringify({ request: "查邮件" }) };
+    socket.emit("message", Buffer.from(JSON.stringify(done)));
+    socket.emit("message", Buffer.from(JSON.stringify(done)));
+    await new Promise((done_) => setTimeout(done_, 20));
+    expect(calls).toEqual(["查邮件"]);
+    // 没有 delegate 的通话：session.update 不带 tools
+    const bare = new FakeSocket();
+    openProviderLink({ endpoint: qwenEndpoint, key: "k", call, ws: () => bare }, record);
+    bare.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
+    const update = JSON.parse(String(bare.sent[0])) as { session: { tools?: unknown[] } };
+    expect(update.session.tools).toBeUndefined();
+  });
+
+  it("reports a delegate failure as the tool result instead of dropping the call", async () => {
+    const socket = new FakeSocket();
+    const { calls, record } = sink();
+    const delegate = async () => { throw new Error("send exploded"); };
+    openProviderLink({ endpoint: qwenEndpoint, key: "k", call, delegate, ws: () => socket }, record);
+    socket.emit("message", Buffer.from(JSON.stringify({ type: "session.created" })));
+    socket.emit("message", Buffer.from(JSON.stringify({
+      type: "response.function_call_arguments.done",
+      call_id: "bad", name: "delegate", arguments: JSON.stringify({ request: "整理桌面" }),
+    })));
+    await new Promise((done) => setTimeout(done, 20));
+    const output = JSON.parse(String(socket.sent[1])) as { item: { output: string } };
+    expect(output.item.output).toContain("could not be run");
+    expect(calls).toEqual([["ready", null]]);
   });
 });
 
@@ -170,6 +257,16 @@ describe("liveRelayResolver", () => {
     expect("error" in wrong && wrong.error).toBe("That bot or chat does not exist.");
     const nobody = liveRelayResolver(deps())(auth, null);
     expect("options" in nobody && nobody.options.call).toBeUndefined();
+  });
+
+  it("wires the delegate when the dep provides one, and stays tool-less when it returns null", () => {
+    const delegate = async (request: string) => `done:${request}`;
+    const wired = liveRelayResolver(deps({ delegate: () => delegate }))(auth, "atlas", "t1", null);
+    expect("options" in wired && wired.options.delegate).toBe(delegate);
+    const unsigned = liveRelayResolver(deps({ delegate: () => null }))(auth, "atlas", "t1", null);
+    expect("options" in unsigned && unsigned.options.delegate).toBeUndefined();
+    const nobody = liveRelayResolver(deps({ delegate: () => delegate }))(auth, null);
+    expect("options" in nobody && nobody.options.delegate).toBeUndefined();
   });
 });
 

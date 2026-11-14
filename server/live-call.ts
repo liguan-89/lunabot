@@ -117,6 +117,14 @@ export function volcRealtimeUrl(endpoint: LiveEndpoint): string {
   return `${endpoint.apiBase}/api/v3/realtime/dialogue`;
 }
 
+// The Seeduplex dialogue API fixes its model field; the configured volcModel only drives the legacy binary protocol.
+export const VOLC_DUPLEX_MODEL = "1.2.6.1";
+
+/** Seeduplex realtime dialogue: JSON event frames, the only volc transport that supports function calling. */
+export function volcDuplexRealtimeUrl(endpoint: LiveEndpoint): string {
+  return `${endpoint.apiBase}/api/v3/duplex/realtime/dialogue`;
+}
+
 /** Doubao's realtime dialogue API takes the speech app's App ID and Access Token in its own X-Api-* headers; the App Key and Resource ID are fixed product constants. */
 export function volcAuthHeaders(appId: string, accessToken: string, connectId?: string): Record<string, string> {
   return {
