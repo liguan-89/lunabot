@@ -39,6 +39,7 @@ function world(overrides: Partial<PhonesDeps> = {}) {
     dataDir: dir, shared: false, cloudHome: false, cloudOwnerKey: null, loopbackTrust: "owner", sharedMembership: () => false,
     store: { messagesFor: () => lines, bot: () => chief, groupByThread: () => undefined, appendMessage: () => {} } as unknown as PhonesDeps["store"],
     sessions: { list: () => [], isLive: () => true, onSessionRevoked: () => () => {} }, routines: () => null, ownerOrAdmin: (auth) => auth.scopes.includes("admin"), cloudOwnerSession: () => false,
+    smsOwners: () => [],
     cloudLendingRefusal: () => null,
     cloudLendingTurn: () => ({ thread: lines, request: { ...requests.get(THREAD), generations: new Set([TURN.generation]) }, generation: TURN.generation, starters: [], reportsFromOthers: false,
       ownerPerson: () => true, cardAnswerer: () => undefined, routineRun: () => null }) as unknown as CloudLendingTurn,
@@ -121,6 +122,24 @@ describe("whose phones", () => {
     send("guest-send-0000000001", { origin: { kind: "user" } }, "p_guest");
     expect(phones.turnOwner(TURN)).toBeNull();
     expect(phones.integration(chief, TURN)).toBeNull();
+  });
+
+  it("a number listed in sms.owners texts in as the owner; any other number stays a stranger", () => {
+    const { phones, send } = world({ smsOwners: () => ["+8613800000000"] });
+    // An sms: sender id is `sms:<phoneKey>|<number>` — the owner's listed number reaches the phone's tools.
+    send("sms-send-000000000001", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613800000000`);
+    expect(phones.turnOwner(TURN)).toBe("owner");
+    expect(phones.integration(chief, TURN)).toMatchObject({ env: { OMB_MCP_TOKEN_DEVICE: "turn-token", OMB_HARNESS_URL: "http://127.0.0.1:1" } });
+    // An unlisted number is nobody's owner.
+    send("sms-send-000000000002", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613999999999`);
+    expect(phones.turnOwner(TURN)).toBeNull();
+    expect(phones.integration(chief, TURN)).toBeNull();
+  });
+
+  it("without sms.owners an SMS sender is never the owner", () => {
+    const { phones, send } = world();
+    send("sms-send-000000000003", { origin: { kind: "user" } }, `sms:session:${PHONE_SESSION.id}|+8613800000000`);
+    expect(phones.turnOwner(TURN)).toBeNull();
   });
 
   it("a Team Cloud or hosted workspace, a server several people sign in to, and a service-trust machine get no phone", () => {

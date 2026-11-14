@@ -481,6 +481,12 @@ const appConfigSchema = z.object({
    * phone sends itself. `botId` present = on; empty to disable. */
   sms: z.object({
     botId: z.string().trim().max(200).optional(),
+    /** Numbers whose texts count as the owner's own turn. Caller-ID is the whole claim — spoofable,
+     *  so this trades safety for convenience; an entry gets everything owner-only (the phone's tools). */
+    owners: z.union([
+      z.array(z.string().trim().min(1).max(64)).max(20),
+      z.string().transform((value) => value.split(/[,\n;]/).map((entry) => entry.trim()).filter(Boolean)),
+    ]).optional(),
   }).strict().optional(),
   /** Presence confirmation (WebAuthn): when `required` and at least one authenticator is enrolled,
    * every "allow" answer on a card must carry a valid assertion — a click alone never grants. */
@@ -555,7 +561,7 @@ export interface AppConfig extends HelperConfig {
   /** See the `botMail` field in appConfigSchema. */
   botMail?: { address?: string; botId?: string };
   /** See the `sms` field in appConfigSchema. */
-  sms?: { botId?: string };
+  sms?: { botId?: string; owners?: string[] };
   /** See the `webauthn` field in appConfigSchema. */
   webauthn?: { required?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };

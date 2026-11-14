@@ -28,7 +28,7 @@ const FIELD_SPECS: Record<ChannelKey, readonly FieldSpec[]> = {
     { key: "agentId", label: "settings.channels.field.agentId" },
   ],
   botMail: [{ key: "address", label: "settings.channels.field.address", mailbox: true }],
-  sms: [],
+  sms: [{ key: "owners", label: "settings.channels.field.smsOwners" }],
 };
 
 const NAME_KEYS: Record<ChannelKey, LocaleKey> = {
@@ -69,7 +69,11 @@ export function ChannelsSettings() {
     setError(null);
     const status = statusOf(key);
     const next: Record<string, string> = { botId: status.botId ?? bots[0]?.id ?? "" };
-    for (const spec of FIELD_SPECS[key]) if (!spec.secret) next[spec.key] = typeof status[spec.key] === "string" ? status[spec.key] as string : "";
+    for (const spec of FIELD_SPECS[key]) {
+      if (spec.secret) continue;
+      const stored = status[spec.key];
+      next[spec.key] = typeof stored === "string" ? stored : Array.isArray(stored) ? (stored as string[]).join(", ") : "";
+    }
     setValues(next);
     setOpen(key);
   };

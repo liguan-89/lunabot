@@ -2865,6 +2865,7 @@ const emailHost = createEmailHost({ service: emailService, dataDir: DATA_DIR, bo
 const phones = createPhones({
   dataDir: DATA_DIR, shared: Boolean(HOSTED_WORKSPACE || CLOUD_TEAM), cloudHome: Boolean(CLOUD_HOME), cloudOwnerKey: CLOUD_OWNER_KEY,
   loopbackTrust: LOOPBACK.trust, sharedMembership, store, sessions, routines: () => routines, ownerOrAdmin, cloudOwnerSession,
+  smsOwners: () => cfg.sms?.owners ?? [],
   cloudLendingRefusal: cloudOwnTurnRefusal, cloudLendingTurn, originIsUser: (turn) => turnOrigin(turn).kind === "user", request: (threadId) => directRequestOwners.get(threadId),
   nudge: (frame) => broadcast(frame, { adminOnly: true }), harnessUrl: `http://127.0.0.1:${PORT}`,
   mint: (botId, turn) => mintInternalCapability({ botId, ...turn, kind: "device", depth: 0, skillAuthoring: false, createdBots: 0, openedThreads: 0 }),
@@ -12063,7 +12064,7 @@ function configStatus() {
     dingtalk: { configured: Boolean(cfg.dingtalk?.appKey && cfg.dingtalk.appSecret && cfg.dingtalk.botId), botId: cfg.dingtalk?.botId ?? "", appKey: cfg.dingtalk?.appKey ?? "" },
     wecom: { configured: Boolean(cfg.wecom?.corpId && cfg.wecom.corpSecret && cfg.wecom.token && cfg.wecom.encodingAesKey && cfg.wecom.agentId && cfg.wecom.botId), botId: cfg.wecom?.botId ?? "", corpId: cfg.wecom?.corpId ?? "", agentId: cfg.wecom?.agentId ?? "" },
     botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
-    sms: { configured: Boolean(cfg.sms?.botId), botId: cfg.sms?.botId ?? "" },
+    sms: { configured: Boolean(cfg.sms?.botId), botId: cfg.sms?.botId ?? "", owners: cfg.sms?.owners ?? [] },
     webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),

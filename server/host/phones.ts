@@ -39,6 +39,8 @@ export interface PhonesDeps {
   routines(): { listRoutines(): Routine[] } | null;
   ownerOrAdmin(auth: RequestAuth): boolean;
   cloudOwnerSession(auth: RequestAuth): boolean;
+  /** Numbers whose SMS turns count as the owner's (cfg.sms.owners); caller-ID is the whole claim. */
+  smsOwners(): string[];
   /** The lent-Mac test on a Cloud home: null when the turn may use the owner's things. */
   cloudLendingRefusal(turn: Turn): string | null;
   cloudLendingTurn(turn: Turn): CloudLendingTurn;
@@ -86,7 +88,15 @@ export function createPhones(deps: PhonesDeps) {
     if (deps.cloudHome) return deps.cloudLendingRefusal(turn) === null ? deps.cloudOwnerKey : null;
     if (!desktopPhones()) return null;
     const lending = desktopLendingTurn({ ...deps.cloudLendingTurn(turn), thread: store.messagesFor(turn.threadId) }, {
-      adminPersons: () => new Set(deps.sessions.list().filter((session) => session.scopes.includes("admin")).map((session) => personKey(session))),
+      adminPersons: () => {
+        const persons = new Set(deps.sessions.list().filter((session) => session.scopes.includes("admin")).map((session) => personKey(session)));
+        // An sms: sender id is `sms:<phoneKey>|<number>`; a number in sms.owners texts in as the owner.
+        const numbers = deps.smsOwners();
+        if (numbers.length) for (const phone of registry.forOwner(DESKTOP_OWNER)) {
+          for (const number of numbers) persons.add(`sms:${phone.key}|${number}`);
+        }
+        return persons;
+      },
       originIsUser: () => deps.originIsUser(turn),
       ownerWrote: (id) => {
         const routine = deps.routines()?.listRoutines().find((candidate) => candidate.id === id);

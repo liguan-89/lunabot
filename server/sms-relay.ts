@@ -55,7 +55,10 @@ export function createSmsRelay(deps: SmsRelayDeps): { push(phoneKey: string, eve
       const phoneKey = chatId.slice(0, sep);
       const to = chatId.slice(sep + 1);
       for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
-        void deps.replySms(phoneKey, to, text).catch((error) => console.warn(`sms: reply failed: ${(error as Error).message}`));
+        void deps.replySms(phoneKey, to, text)
+          // jobs.request resolves {ok:false} rather than rejecting, so a dropped reply must be told apart by the outcome.
+          .then((outcome) => { if ((outcome as { ok?: boolean } | null)?.ok === false) console.warn(`sms: reply not sent: ${(outcome as { error?: string }).error ?? "unknown"}`); })
+          .catch((error) => console.warn(`sms: reply failed: ${(error as Error).message}`));
       }
     } catch (error) {
       console.warn(`sms: reply failed: ${(error as Error).message}`);
