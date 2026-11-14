@@ -99,6 +99,7 @@ import { BUILT_IN_DATA_SYSTEM_PROMPT } from "./data/instructions.ts";
 import { DATA_INTERNAL_MCP_PATH, dataRpc } from "./data/rpc.ts";
 import { removeRetiredAppFiles } from "./retired-apps.ts"; import { createEmailRoutes } from "./routes/email.ts"; import { createEmailHost, EMAIL_INTERNAL_MCP_PATH, emailAccess } from "./email/host.ts"; import { createEmailService } from "./email/service.ts"; import { createPostizRoutes } from "./routes/postiz.ts"; import { createPostiz } from "./postiz/service.ts";
 import { createPhones } from "./host/phones.ts";
+import { macAppCall } from "./host/mac-apps.ts";
 import { NOT_THE_OWNER } from "./phones/owner.ts";
 import { PHONE_INTERNAL_MCP_PATH } from "./phones/rpc.ts";
 import { isLongPollPath } from "./routes/phones.ts";
@@ -13660,6 +13661,15 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
           const status = typeof (error as { status?: unknown }).status === "number" ? (error as { status: number }).status : 500;
           return json(res, status, { error: error instanceof Error ? error.message : "could not run the command" });
         }
+      }
+      if (method === "POST" && path === "/api/internal/mac-apps") {
+        const threadId = internalCapability.threadId;
+        if (!connectorThread(internalSender.id, threadId)) {
+          return json(res, 403, { error: "source conversation does not belong to sender" });
+        }
+        const body = await readInternalBody();
+        const result = await macAppCall(body);
+        return json(res, result.ok ? 200 : 409, result);
       }
       if (method === "GET" && path === "/api/internal/rooms") {
         const from = internalSender;

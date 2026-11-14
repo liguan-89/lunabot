@@ -266,6 +266,12 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     if (Array.isArray(result?.content)) return { text: "", passthrough: result };
     return { text: JSON.stringify(result) };
   }
+  if (name === "mac_apps") {
+    const r = await api("/api/internal/mac-apps", { method: "POST", body: JSON.stringify(args) });
+    if (r.ok !== true) return { text: `mac_apps could not do that: ${String(r.error ?? "unknown error")}`, isError: true };
+    const items = r.items as unknown[] | undefined;
+    return { text: items ? `${items.length} item(s): ${JSON.stringify(items)}` : `Done: ${String(r.name ?? "")}` };
+  }
   if (name === "tool_result_read") {
     if (typeof args.id !== "string" || !/^r-[0-9a-f-]{36}$/.test(args.id) ||
       (args.offset !== undefined && (!Number.isSafeInteger(args.offset) || Number(args.offset) < 0))) {

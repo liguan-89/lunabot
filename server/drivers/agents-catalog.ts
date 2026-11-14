@@ -637,6 +637,24 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "mac_apps",
+    description:
+      "Read and add items in the Mac's own apps — Reminders, Notes, Calendar — on the machine this server runs on. list returns the default reminder list, your note names, or calendar events in the next N days (default 7); create adds one item. macOS asks the person's permission the first time each app is touched; a refusal comes back as an error you report plainly, never retry in a loop. Only on macOS — on other systems it answers that it does not work there.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        app: { type: "string", enum: ["reminders", "notes", "calendar"] },
+        action: { type: "string", enum: ["list", "create"] },
+        title: { type: "string", description: "create: the item's title or summary." },
+        body: { type: "string", description: "create: optional reminder body, note text or event description." },
+        calendar: { type: "string", description: "create on calendar: the calendar's name; absent is the first calendar." },
+        days: { type: "number", description: "list on calendar: how many days ahead to look, at most 31." },
+      },
+      required: ["app", "action"],
+    },
+  },
+  {
     name: "send_voice_note",
     description:
       "Send the user a voice note: a short spoken message synthesized with your configured voice, stored as audio, and attached to your reply when the turn ends. Write the note as speakable words, exactly as it should be said — no lists, links or markdown meant for screens. The words are kept as the note's transcript, which the person can open to read instead of listening; they are not repeated in your reply, so do not write them out again. Use it for warmth, tone or emphasis a written line cannot carry; use ordinary text otherwise.",

@@ -1,7 +1,7 @@
 {
   "default": {
-    "bytes": 69820,
-    "sha256": "6f0b71b0167ac354806ae8f470c3f25bad49aab62259d0061d37e49f0755e7c9",
+    "bytes": 70940,
+    "sha256": "9dd5651e2f4d19fbd03176cd1ebd363e27dabae81e1b0dc39cc10c2b4c9504b5",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -39,6 +39,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -60,8 +61,8 @@
     ]
   },
   "voice": {
-    "bytes": 70601,
-    "sha256": "fea066c3e434762c13ecbe5e53c6055496463ce9933ad413a7cf4fb14e691179",
+    "bytes": 71721,
+    "sha256": "d3e34c9ce1e00a7604d21c2fed87a13442258b6e363720e4f1d0c15a67472b0f",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -99,6 +100,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -121,8 +123,8 @@
     ]
   },
   "shared": {
-    "bytes": 72085,
-    "sha256": "03248778d28b4f685ce65a2357c172cce45b1b29069ed17c7f1dff932fdd827d",
+    "bytes": 73205,
+    "sha256": "6ebd7449decd53946fd0a0a40b703a6ca26a08c43f13016c34d89cbd23b5f818",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -162,6 +164,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -183,8 +186,8 @@
     ]
   },
   "shared+voice": {
-    "bytes": 72866,
-    "sha256": "c4feaf7d44796ae3f73c0754ac8b64aaca48d9e642fc9a7a5f2973024223b718",
+    "bytes": 73986,
+    "sha256": "39b8d4b085dc0b1a44949d11e5d602cc5cf7c1fbb9740f8823648b402f6a6173",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -224,6 +227,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -246,8 +250,8 @@
     ]
   },
   "skills": {
-    "bytes": 72896,
-    "sha256": "3a0ff930c5053eb7bc330799b52cc7eaa4cf7dd5b9252c1bcee8c654f132a386",
+    "bytes": 74016,
+    "sha256": "8c7e7a235e0b4be138b97ad32e19b504a731bf34fa7a4d34a2633d0271a379f3",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -285,6 +289,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -308,8 +313,8 @@
     ]
   },
   "skills+voice": {
-    "bytes": 73677,
-    "sha256": "5e65bf91f0a2aee4d014e4be70a9a6c5e386cb2774ad1570a5c4ed4ab5cb3436",
+    "bytes": 74797,
+    "sha256": "6a7007defd545b8350d2a0fdf1b1b16a11426ee2e731d1f68cf26205629765da",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -347,6 +352,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -371,8 +377,8 @@
     ]
   },
   "skills+shared": {
-    "bytes": 75161,
-    "sha256": "effb5a7664bb0f6b20dfd59576e33be80e1e7036720a26ad7799df01999b1aeb",
+    "bytes": 76281,
+    "sha256": "19dc154ef6996abb8b12b592df6d7e466761dfd81e1fca95e99a1eb181e17aa3",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -412,6 +418,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -435,8 +442,8 @@
     ]
   },
   "skills+shared+voice": {
-    "bytes": 75942,
-    "sha256": "9aa606861038271a3c6a50e36ae2d032c7b56a680404af56a49bc6dc38bc5955",
+    "bytes": 77062,
+    "sha256": "0008a63b37f3ac1742e1897655b779177d36bb84f389a0024792b3f3f761d980",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -476,6 +483,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -500,8 +508,8 @@
     ]
   },
   "non-chief": {
-    "bytes": 60604,
-    "sha256": "d5bba3636d85bf306a49a0901dd5fee77cbe845b520e8e8d2cd4da5959a5594e",
+    "bytes": 61724,
+    "sha256": "d9586f9e78a5d966c730bb53aef84157d5a8c6e6702f4474a4aa0dfc272796fa",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -533,6 +541,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -553,8 +562,8 @@
     ]
   },
   "voice+non-chief": {
-    "bytes": 61385,
-    "sha256": "4ed7cd9926b3847bfb1a3e5cdb8919da5bed77a7322c6c72ed108b407ee32e5f",
+    "bytes": 62505,
+    "sha256": "0d546ca00f24786b7a4695b61017f431bfa4b341d75ff637bdebe7b8ab987b4d",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -586,6 +595,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -607,8 +617,8 @@
     ]
   },
   "shared+non-chief": {
-    "bytes": 62869,
-    "sha256": "7e4fc5c84dd3655d7e867fc401e4855320d593deda75e9e4473130342c44079c",
+    "bytes": 63989,
+    "sha256": "be7ee79304e03225b2f83f0605dd2ff85439da5089ec02987b84fc509ed8d4c7",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -642,6 +652,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -662,8 +673,8 @@
     ]
   },
   "shared+voice+non-chief": {
-    "bytes": 63650,
-    "sha256": "d6ec415079abc456968904fb9eb300e439a109826686e42d1448eaddd64ff44c",
+    "bytes": 64770,
+    "sha256": "190c08f33b78a0425133f977835514d9bd8c37905380eb2a1c34bc13fb4faeb9",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -697,6 +708,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -718,8 +730,8 @@
     ]
   },
   "skills+non-chief": {
-    "bytes": 63680,
-    "sha256": "c84e917751d6c8e3fc018393c7d816d1118dad6fd4fcb15df9475f443d51cd2b",
+    "bytes": 64800,
+    "sha256": "9c5a435efff00f5f7b4ae57ce3a84bc40b765d0fdf9341f9fabb386c3d4409dd",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -751,6 +763,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -773,8 +786,8 @@
     ]
   },
   "skills+voice+non-chief": {
-    "bytes": 64461,
-    "sha256": "393ce6adf8124766c3e40b45869682b9f943d2d3cb20fbcf694cce569c10e0e1",
+    "bytes": 65581,
+    "sha256": "671ef8bf56b4ad899d589b36271d719dd231a29b20477b625c32168877ac5bca",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -806,6 +819,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -829,8 +843,8 @@
     ]
   },
   "skills+shared+non-chief": {
-    "bytes": 65945,
-    "sha256": "4d7a51604f938b834fd7aadd8c5f22a36239d984a7681c1fd8900807c0352b7d",
+    "bytes": 67065,
+    "sha256": "d3556f363513f2e9ee29957a0569cc54118228eb9fff08bea95329760fa2e5ac",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -864,6 +878,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -886,8 +901,8 @@
     ]
   },
   "skills+shared+voice+non-chief": {
-    "bytes": 66726,
-    "sha256": "249ff48d961585269d7165d9b80868782c7eda5f87bfd7eb42c4d4616b4362a7",
+    "bytes": 67846,
+    "sha256": "8bc85f1f5214d7f68b9d5002a49fb31cfba5f27a939a564a494c38fa2118a938",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -921,6 +936,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -944,8 +960,8 @@
     ]
   },
   "skills+shared+voice+cloud-home": {
-    "bytes": 75708,
-    "sha256": "d219576805a609c6fbc6b3589fd9b5bb413d060ac656b68f1fdcec963d53ad15",
+    "bytes": 76828,
+    "sha256": "e18b1993f93213118917f4cc099af704d9ce003a20da1d0db31637fbfd9e780d",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -984,6 +1000,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -1009,8 +1026,8 @@
     ]
   },
   "skills+shared+voice+non-chief+cloud-home": {
-    "bytes": 66492,
-    "sha256": "ac1ae953fc0aacc258ad454ae61a12e8e5528dc4c95747ca76e0ed1f1408f8f9",
+    "bytes": 67612,
+    "sha256": "5d9a62ec0b73cac1d9aadeb4ad58e9c0ace9fe7fc5fe51d182f02e04157d2c28",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1043,6 +1060,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -1067,8 +1085,8 @@
     ]
   },
   "skills+shared+voice+x": {
-    "bytes": 79781,
-    "sha256": "b6970302a6aa569afe1e6be74cb09f418977f424505f7cf63fc362e781af2424",
+    "bytes": 80901,
+    "sha256": "05e396888220100a234dc1a2a9423d37ce4ace4a56987e21fd6a58784e546710",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1108,6 +1126,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "x_search",
       "research_search",
@@ -1136,8 +1155,8 @@
     ]
   },
   "skills+shared+voice+x+team": {
-    "bytes": 79781,
-    "sha256": "b6970302a6aa569afe1e6be74cb09f418977f424505f7cf63fc362e781af2424",
+    "bytes": 80901,
+    "sha256": "05e396888220100a234dc1a2a9423d37ce4ace4a56987e21fd6a58784e546710",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1177,6 +1196,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "x_search",
       "research_search",
@@ -1205,8 +1225,8 @@
     ]
   },
   "skills+shared+voice+x+team+images": {
-    "bytes": 80554,
-    "sha256": "5790f92e544ee864cba08cfc93bf58f0de61ed127f7a23951b8283b85df53574",
+    "bytes": 81674,
+    "sha256": "d35c00f8656f2ddbe2139f881641c0f6df243683365a0c012c9a08ea44dc3429",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1246,6 +1266,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "x_search",
       "research_search",
@@ -1275,8 +1296,8 @@
     ]
   },
   "default+legacy-switches": {
-    "bytes": 69820,
-    "sha256": "6f0b71b0167ac354806ae8f470c3f25bad49aab62259d0061d37e49f0755e7c9",
+    "bytes": 70940,
+    "sha256": "9dd5651e2f4d19fbd03176cd1ebd363e27dabae81e1b0dc39cc10c2b4c9504b5",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1314,6 +1335,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -1335,8 +1357,8 @@
     ]
   },
   "default+mausbot": {
-    "bytes": 70471,
-    "sha256": "350f4a61b3265298df0a6176073fb057a046d418b2f0d37015dad03cc3d028b8",
+    "bytes": 71591,
+    "sha256": "455f34a75ab7aa559aaec647065750afdd8238966e3e55d81cb0ec6a1b3b81a7",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1374,6 +1396,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -1397,8 +1420,8 @@
     ]
   },
   "skills+shared+voice+mausbot": {
-    "bytes": 76593,
-    "sha256": "bb7a516b5ca456cfbf661c93918f960d497425580f5d7d91cd74eaf61a644d81",
+    "bytes": 77713,
+    "sha256": "e79100f6f3a0962cffaab1d2d55b84a7c2b29f5860739df668467cd900c47657",
     "tools": [
       "tool_result_read",
       "list_shared_computers",
@@ -1438,6 +1461,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "send_voice_note",
       "decide",
       "extract",
@@ -1464,8 +1488,8 @@
     ]
   },
   "default+no-computer-pick": {
-    "bytes": 68616,
-    "sha256": "ef6333884997a19b990268a6aa2150a7d00dd9de8044fd64e5722bfb8d027fae",
+    "bytes": 69736,
+    "sha256": "08e493f95794dfafe9d1a7e1582613a3329ea3afe856d5c32abf258b42d238ae",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1502,6 +1526,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -1523,8 +1548,8 @@
     ]
   },
   "default+room": {
-    "bytes": 66972,
-    "sha256": "a7a8c78c5cab436778efd04988410e4e30aa54468d8ca8aa84dc4b0121d4d9b1",
+    "bytes": 68092,
+    "sha256": "a1c8f39467f556c029086755b5e81a31dad76c38e75ad80f3b5ba7afb96cb59b",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1561,6 +1586,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -1579,8 +1605,8 @@
     ]
   },
   "non-chief+room": {
-    "bytes": 57756,
-    "sha256": "92895f01f1c4665489d5b6a5a6627ce47e246bcdd1e27605f64889d2897dacac",
+    "bytes": 58876,
+    "sha256": "b3beb46f77897f5e165fe3108259468586bc9e7a5b5728143ad8627a46b88dfc",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1611,6 +1637,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "message_person",
@@ -1628,8 +1655,8 @@
     ]
   },
   "default+images": {
-    "bytes": 70593,
-    "sha256": "ecf5ee63778eff38ab4a5f00c6ce70cd3fbb1ae0e50d88b6de58ccc7124e8d4c",
+    "bytes": 71713,
+    "sha256": "34e9c51723e193cca7897968974b0f64be1dcec494963504ca1b024aa0958bc9",
     "tools": [
       "tool_result_read",
       "list_room_targets",
@@ -1667,6 +1694,7 @@
       "fill_login",
       "fill_payment",
       "watch_me",
+      "mac_apps",
       "decide",
       "extract",
       "generate_image",
