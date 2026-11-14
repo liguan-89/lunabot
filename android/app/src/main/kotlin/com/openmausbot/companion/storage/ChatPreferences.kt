@@ -115,6 +115,21 @@ class ChatPreferences(
     }
 
     /**
+     * Whether the notification-listener relay may run: RCS/5G messages never
+     * fire SMS_RECEIVED, so the messaging app's own notification is the only
+     * readable signal. The system grant is asked for separately; this pref is
+     * the person's opt-in on top of it.
+     */
+    private val _phoneNotifyRelay = MutableStateFlow(prefs.getBoolean(PHONE_NOTIFY_RELAY, false))
+    val phoneNotifyRelay: StateFlow<Boolean> = _phoneNotifyRelay.asStateFlow()
+
+    fun setPhoneNotifyRelay(enabled: Boolean) {
+        if (_phoneNotifyRelay.value == enabled && prefs.contains(PHONE_NOTIFY_RELAY)) return
+        prefs.edit { putBoolean(PHONE_NOTIFY_RELAY, enabled) }
+        _phoneNotifyRelay.value = enabled
+    }
+
+    /**
      * This installation's id for the phone-tools registration. Stable for the
      * life of the install so a re-registration updates the same device record;
      * a fresh pairing changes the key the server stores it under, not this.
@@ -187,6 +202,7 @@ class ChatPreferences(
         private const val PHONE_REMINDERS = "companion.prefs.phone.reminders"
         private const val PHONE_LOCATION = "companion.prefs.phone.location"
         private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
+        private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 
         private fun threadKey(connectionId: String, botId: String): String =

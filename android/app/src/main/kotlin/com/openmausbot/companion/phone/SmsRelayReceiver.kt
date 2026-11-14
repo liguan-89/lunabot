@@ -41,6 +41,8 @@ class SmsRelayReceiver : BroadcastReceiver() {
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             try {
                 for (event in inboundSmsEvents(parts)) {
+                    // The same text's notification reaches SmsNotificationRelay; whichever path runs first wins.
+                    if (!SmsEventDedup.note(event.from, event.text)) continue
                     app.session.connect()
                     val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                         app.session.status.first { it is Session.Status.Live }

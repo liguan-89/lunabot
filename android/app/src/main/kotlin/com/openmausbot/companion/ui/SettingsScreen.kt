@@ -1,6 +1,7 @@
 package com.openmausbot.companion.ui
 
 import android.content.ClipData
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
@@ -84,6 +85,7 @@ import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.net.toUri
 import java.net.URI
@@ -125,6 +127,7 @@ fun SettingsScreen(
     val phoneReminders by environment.chatPreferences.phoneReminders.collectAsState()
     val phoneLocation by environment.chatPreferences.phoneLocation.collectAsState()
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
+    val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val haptics = rememberHaptics()
@@ -518,6 +521,7 @@ fun SettingsScreen(
                 )
             }
 
+            val phoneToolsContext = LocalContext.current
             val toggleCalendar: (Boolean) -> Unit = { enabled ->
                 if (enabled) {
                     calendarPermissions.launch(
@@ -566,6 +570,19 @@ fun SettingsScreen(
                     environment.chatPreferences.setPhoneMessages(false)
                 }
             }
+            // 5G/RCS texts never reach SMS_RECEIVED; the messaging app's notification is the only
+            // readable signal. The system grant lives on its own page — the switch remembers intent.
+            val toggleNotifyRelay: (Boolean) -> Unit = { enabled ->
+                environment.chatPreferences.setPhoneNotifyRelay(enabled)
+                if (enabled && !notificationListenerGranted(phoneToolsContext)) {
+                    runCatching {
+                        phoneToolsContext.startActivity(
+                            android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                        )
+                    }
+                }
+            }
             val toolsFailure = phoneToolsStatus as? Session.PhoneToolsStatus.Failed
             SettingsSection(
                 label = "手机工具",
@@ -608,6 +625,14 @@ fun SettingsScreen(
                     checked = phoneMessages,
                     onCheckedChange = toggleMessages,
                 )
+                if (phoneMessages) {
+                    SettingsDivider()
+                    SettingsSwitchRow(
+                        title = "转发短信通知（5G 消息）",
+                        checked = phoneNotifyRelay,
+                        onCheckedChange = toggleNotifyRelay,
+                    )
+                }
                 if (phoneCalendar || phoneContacts || phoneReminders || phoneLocation || phoneMessages) {
                     SettingsDivider()
                     SettingsRow(
@@ -1518,3 +1543,6 @@ internal fun wrapAddress(address: String): String {
 
 /** Long enough to keep a host readable, short enough to fit a phone line. */
 private const val ADDRESS_WRAP_RUN = 16
+
+private fun notificationListenerGranted(context: Context): Boolean =
+    NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
