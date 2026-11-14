@@ -42,9 +42,11 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the sidebar tiles", () => {
-  it.each([true, false])("draws the main tile and a pinned tile the same: 78 by 92, radius 8, a 56px avatar over a one-line 13px medium name (main %s)", (primary) => {
+  it.each([true, false])("draws the main tile and a pinned tile the same: 78 by 92, no plate behind the portrait, a 56px avatar over a one-line 13px medium name (main %s)", (primary) => {
     const html = renderToStaticMarkup(createElement(SidebarBotTile, { ...props(bot({ chiefOfStaff: primary })), primary }));
-    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\bh-\\[92px\\] w-\\[78px\\][^"]*\\brounded-\\[8px\\]`));
+    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\bh-\\[92px\\] w-\\[78px\\][^"]*\\[--tile:var\\(--color-panel\\)\\]`));
+    expect(html).not.toContain("bg-[var(--tile)]");
+    expect(html).not.toContain("rounded-[8px]");
     expect(html).toContain('width="56px" height="56px"');
     expect(html).toMatch(/truncate text-center text-\[13px\] font-medium leading-4 text-ink"[^>]*>DEX BOT</);
     expect(html).not.toContain("data-provider-mark");
@@ -59,10 +61,10 @@ describe("the sidebar tiles", () => {
     expect(tileHtml({}, true)).not.toContain('data-testid="chief-badge"');
   });
 
-  it("fills the selected tile and marks it current, and shows working, waiting and unread as a dot on the avatar", () => {
+  it("marks the current tile without painting a plate, and shows working, waiting and unread as a dot on the avatar", () => {
     const selected = renderToStaticMarkup(createElement(SidebarBotTile, { ...props(bot(), true), primary: true }));
     expect(selected).toContain('aria-current="page"');
-    expect(selected).toContain("[--tile:var(--color-raised)]");
+    expect(selected).not.toContain("bg-[var(--tile)]");
     expect(renderToStaticMarkup(createElement(SidebarBotTile, props(bot({ busy: true }))))).toContain('data-testid="working-dot"');
     expect(renderToStaticMarkup(createElement(SidebarBotTile, props(bot({ activity: "waiting-on-you" }))))).toContain('data-testid="waiting-dot"');
     const unread = renderToStaticMarkup(createElement(SidebarBotTile, props(bot({ unread: true }))));

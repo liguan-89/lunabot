@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { t } from "@/lib/i18n";
+import { useAdvancedMode } from "@/lib/interface-mode";
 import { usePlaceLook } from "@/lib/place-look";
-import { computerName } from "@/lib/places";
+import { computerName, usePlaces } from "@/lib/places";
 import { useStore } from "@/state/store";
 import { PlaceMark } from "./PlacesRail";
 
@@ -32,12 +33,15 @@ export function windowPlaceName(place: WorkspaceState, team: string | undefined)
 }
 
 /** The middle of the window frame's top bar: the place on screen, its mark as the rail draws it and its name, quiet. It
- * stays part of the bar's drag region. */
+ * stays part of the bar's drag region. Simple mode names a place only when there is another to switch to; with one
+ * place the frame stays wordless and the chat gets the attention. */
 export function WindowPlaceTitle() {
   const place = useWindowPlace();
   const look = usePlaceLook();
+  const advanced = useAdvancedMode();
+  const places = usePlaces();
   const { state } = useStore();
-  if (!place) return <span aria-hidden="true" />;
+  if (!place || (!advanced && places.places.length === 0)) return <span aria-hidden="true" />;
   const name = windowPlaceName(place, state.config?.team?.name);
   return <div data-window-place className="flex min-w-0 items-center justify-center gap-1.5 px-2 text-[12px] font-medium text-ink-secondary">
     <PlaceMark place={{ kind: place.local ? "computer" : place.role ? "team" : "cloud", name, color: look?.color ?? place.color ?? null }} size={16} />

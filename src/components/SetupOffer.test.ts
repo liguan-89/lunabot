@@ -35,11 +35,6 @@ function renderOffer(message: Message, transcript: Message[] = [message]) {
     close: all.find((node) => node.props["aria-label"] === "Close") };
 }
 const press = (node: Node | undefined) => (node!.props.onClick as () => void)();
-const key = (card: Node | undefined, value: string) => {
-  const event = { key: value, preventDefault: vi.fn(), metaKey: false, ctrlKey: false, altKey: false };
-  (card!.props.onKeyDown as (event: unknown) => void)(event);
-  return event;
-};
 
 function renderChip(of: Bot) {
   let tree: ReactNode = null;
@@ -68,14 +63,14 @@ describe("the setup card under a new bot's greeting", () => {
   const offered = { ...greeting, setupChoices: ["Plan my trips", "Watch the news"] } as Message;
   const label = (node: Node) => nodes(node.props.children).map((child) => child.props.children).filter((text) => typeof text === "string").join("|");
 
-  it("asks what to help with first, with the greeting's own answers lettered in order, then Something else", () => {
+  it("asks what to help with first, as starter chips in the greeting's own order, then Something else", () => {
     const view = renderOffer(offered);
     expect(view.html).toContain("Pick a starting point");
-    expect(view.choices.map(label)).toEqual(["Plan my trips|A", "Watch the news|B", "Something else|C"]);
+    expect(view.choices.map(label)).toEqual(["Plan my trips", "Watch the news", "Something else"]);
   });
 
   it("offers its own answers on an older greeting that carries none", () => {
-    expect(renderOffer(greeting).choices.map((node) => label(node).split("|")[0])).toEqual(["Research and digging into topics", "Keeping an eye on things for me", "Email, calendar and messages", "Bookings, shopping and errands", "Data, spreadsheets and reports", "Something else"]);
+    expect(renderOffer(greeting).choices.map(label)).toEqual(["Research and digging into topics", "Keeping an eye on things for me", "Email, calendar and messages", "Bookings, shopping and errands", "Data, spreadsheets and reports", "Something else"]);
   });
 
   it("is not shown for a bot given a role or instructions, when the AI cannot set the bot up, or once closed", () => {
@@ -108,35 +103,23 @@ describe("the setup card under a new bot's greeting", () => {
     expect(fixture.dispatch).toHaveBeenCalledWith({ type: "messageAdded", threadId: "t1", message: CANNED });
   });
 
-  it("picks with the answer's letter key, and leaves other keys alone", async () => {
-    const view = renderOffer(offered);
-    expect(key(view.card, "b").preventDefault).toHaveBeenCalled();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(fixture.api).toHaveBeenCalledWith("/api/bots/b1/setup-request", { method: "POST", body: JSON.stringify({ threadId: "t1", text: "Watch the news" }) });
-    fixture.api.mockClear();
-    expect(key(renderOffer(offered).card, "z").preventDefault).not.toHaveBeenCalled();
-    expect(key(renderOffer(offered).card, "Enter").preventDefault).not.toHaveBeenCalled();
-    expect(fixture.api).not.toHaveBeenCalled();
-  });
-
-  it("settles once answered: the answers go quiet and the answer shows", () => {
+  it("settles once answered: only the answer stays, with no chips left behind", () => {
     const picked = { id: "u1", role: "user", kind: "text", at: 2, text: "Watch the news", setupRequest: true } as Message;
     const settled = renderOffer(offered, [offered, picked]);
     expect(settled.html).toContain("Your answer");
     expect(settled.html).toContain("Watch the news");
-    expect(settled.choices.every((node) => node.props.disabled === true)).toBe(true);
+    expect(settled.choices).toHaveLength(0);
     expect(settled.close).toBeUndefined();
     expect(settled.card!.props.onKeyDown).toBeUndefined();
     fixture.bots = [bot({ soul: "Watches the news." })];
     expect(renderOffer(offered, [offered, picked]).html, "the answer stays after the bot is set up").toContain("Your answer");
   });
 
-  it("settles quietly, with no answer, when the person writes something else first", () => {
+  it("leaves the conversation alone when the person writes something else first", () => {
     for (const text of ["What's the weather in Paris?", "/learn the inbox"]) {
       const view = renderOffer(offered, [offered, { id: "u1", role: "user", kind: "text", at: 2, text } as Message]);
-      expect(view.html).toContain("Pick a starting point");
-      expect(view.html).not.toContain("Your answer");
-      expect(view.choices.every((node) => node.props.disabled === true)).toBe(true);
+      expect(view.html).toBe("");
+      expect(view.choices).toHaveLength(0);
     }
     fixture.instances = [{ instanceId: "claude", capabilities: { agentsMcp: false } }];
     expect(renderOffer(offered, [offered, { id: "u1", role: "user", kind: "text", at: 2, text: "hello" } as Message]).html, "never drawn, never settled").toBe("");

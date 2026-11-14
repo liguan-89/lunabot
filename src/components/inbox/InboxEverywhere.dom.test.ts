@@ -94,6 +94,15 @@ describe("the Inbox row", () => {
     expect(document.querySelector("[data-inbox-count]")).toBeNull();
   });
 
+  it("is an icon-only top-row button in Simple, keeping its count and its name for screen readers", async () => {
+    setInboxView(placeView([approval, news, read]));
+    await mount(row({ compact: true }));
+    expect(inboxButton()!.textContent).not.toContain("Inbox");
+    expect(document.querySelector("[data-inbox-count]")?.textContent).toBe("2");
+    expect(inboxButton()!.getAttribute("aria-label")).toBe("Inbox, 2 waiting");
+    expect(inboxButton()!.className).toContain("rounded-full");
+  });
+
   it("opens and closes the inbox, and shows a dot while a bot is at work", async () => {
     setInboxView(placeView([]));
     await mount(row({ running: true }));

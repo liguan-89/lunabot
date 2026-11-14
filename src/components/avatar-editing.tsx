@@ -20,7 +20,9 @@ export type AvatarPatch = Partial<
   Pick<Bot, "avatarCrop" | "avatarUrl" | "avatarZoom" | "avatarFocusX" | "avatarFocusY" | "color" | "mascotExpression" | "mascotBody" | "mascotFaceColor">
 >;
 
-export const RESET_MASCOT_PATCH: AvatarPatch = { avatarCrop: "mascot", color: "green", mascotExpression: null, mascotBody: "cursor", mascotFaceColor: null };
+/** Reset returns the bot to its own colour and the app's flat face: no body, no expression override, no image. It does
+ * not recolor the bot — a preset face follows the colour the bot already wears. */
+export const RESET_MASCOT_PATCH: AvatarPatch = { avatarCrop: "mascot", mascotExpression: null, mascotBody: null, mascotFaceColor: null };
 
 export const CROP_LABEL = {
   mascot: "Mascot",

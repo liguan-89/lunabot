@@ -25,7 +25,8 @@ function show(message: Message, transcript: Message[] = [message]) {
 }
 const card = () => container.querySelector<HTMLElement>("[data-setup-card]");
 const labels = () => [...container.querySelectorAll<HTMLButtonElement>("[data-ask-choice]")].map((button) => button.querySelector("span")!.textContent);
-const press = (key: string) => act(() => void card()!.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true })));
+const buttons = () => [...container.querySelectorAll<HTMLButtonElement>("[data-ask-choice]")];
+const click = (index: number) => act(() => buttons()[index]!.click());
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -43,28 +44,27 @@ afterEach(() => {
 });
 
 describe("the setup card while its answers are written", () => {
-  it("keeps a quiet frame with the title and the close button, takes no letter, and closes", () => {
+  it("keeps a quiet frame with the title and the close button, and takes no pick while it waits", () => {
     show(greeting({ setupChoicesPending: true }));
     expect(card()!.textContent).toContain("Pick a starting point");
     expect(card()!.getAttribute("aria-busy")).toBe("true");
-    expect(container.querySelectorAll("[data-setup-waiting] > div")).toHaveLength(6);
+    expect(container.querySelectorAll("[data-setup-waiting] > span")).toHaveLength(3);
     expect(container.querySelectorAll("kbd")).toHaveLength(0);
     expect(card()!.textContent).not.toContain("Something else");
-    press("a");
-    press("f");
+    expect(buttons()).toHaveLength(0);
     expect(fixture.api).not.toHaveBeenCalled();
     act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Close"]')!.click());
     expect(fixture.api).toHaveBeenCalledWith("/api/bots/b1/setup-request", { method: "DELETE", body: JSON.stringify({ threadId: "t1" }) });
     expect(card()).toBeNull();
   });
 
-  it("fills once with the written answers, and a letter picks the answer on screen", async () => {
+  it("fills once with the written answers, and a chip picks the answer on screen", () => {
     show(greeting({ setupChoicesPending: true }));
     show(greeting({ setupChoices: PERSONAL }));
     expect(container.querySelector("[data-setup-waiting]")).toBeNull();
     expect(labels()).toEqual([...PERSONAL, "Something else"]);
     expect(card()!.getAttribute("aria-busy")).toBeNull();
-    press("b");
+    click(1);
     expect(fixture.api).toHaveBeenCalledWith("/api/bots/b1/setup-request", { method: "POST", body: JSON.stringify({ threadId: "t1", text: PERSONAL[1] }) });
   });
 
@@ -82,47 +82,44 @@ describe("the setup card while its answers are written", () => {
     expect(labels()).toEqual([...FIXED, "Something else"]);
   });
 
-  it("shows a settled card as a greyed list, never a waiting one", () => {
+  it("leaves no offer behind once a person writes their own first line", () => {
     const message = greeting({ setupChoicesPending: true });
     show(message, [message, { id: "u1", role: "user", kind: "text", at: Date.now(), text: "help me plan a trip" } as Message]);
+    expect(card()).toBeNull();
     expect(container.querySelector("[data-setup-waiting]")).toBeNull();
-    expect(labels()).toEqual([...FIXED, "Something else"]);
-    expect([...container.querySelectorAll<HTMLButtonElement>("[data-ask-choice]")].every((button) => button.disabled)).toBe(true);
     expect(container.querySelector('button[aria-label="Close"]')).toBeNull();
   });
 
-  it("keeps the first list it showed when the answers change afterwards, so a letter never picks a job that was not on screen", () => {
+  it("keeps the first list it showed when the answers change afterwards", () => {
     show(greeting({ setupChoicesPending: true }));
     act(() => void vi.advanceTimersByTime(8_000));
     expect(labels()).toEqual([...FIXED, "Something else"]);
     show(greeting({ setupChoices: PERSONAL }));
     expect(labels()).toEqual([...FIXED, "Something else"]);
-    press("c");
+    click(2);
     expect(fixture.api).toHaveBeenCalledWith("/api/bots/b1/setup-request", { method: "POST", body: JSON.stringify({ threadId: "t1", text: FIXED[2] }) });
   });
 });
 
 describe("the setup card while a rename rewrites its answers", () => {
-  const buttons = () => [...container.querySelectorAll<HTMLButtonElement>("[data-ask-choice]")];
   const rewriting = () => container.querySelector("[data-setup-updating]") !== null;
   const picked = (text: string) => ["/api/bots/b1/setup-request", { method: "POST", body: JSON.stringify({ threadId: "t1", text }) }];
 
-  it("keeps the answers on screen, quiet, takes no letter or click, then swaps the new ones in at once", () => {
+  it("keeps the answers on screen, quiet, takes no click, then swaps the new ones in at once", () => {
     show(greeting());
     show(greeting({ setupChoicesUpdating: Date.now() }));
     expect(rewriting()).toBe(true);
     expect(card()!.getAttribute("aria-busy")).toBe("true");
     expect(labels()).toEqual([...FIXED, "Something else"]);
     expect(buttons().every((button) => button.disabled)).toBe(true);
-    press("a");
-    press("f");
-    act(() => buttons()[1]!.click());
+    click(0);
+    click(5);
     expect(fixture.api).not.toHaveBeenCalled();
     show(greeting({ setupChoices: PERSONAL }));
     expect(rewriting()).toBe(false);
     expect(card()!.getAttribute("aria-busy")).toBeNull();
     expect(labels()).toEqual([...PERSONAL, "Something else"]);
-    press("b");
+    click(1);
     expect(fixture.api).toHaveBeenCalledWith(...picked(PERSONAL[1]!));
   });
 
@@ -133,7 +130,7 @@ describe("the setup card while a rename rewrites its answers", () => {
     show(greeting({ setupChoices: PERSONAL }));
     expect(rewriting()).toBe(false);
     expect(buttons().some((button) => button.disabled)).toBe(false);
-    press("c");
+    click(2);
     expect(fixture.api).toHaveBeenCalledWith(...picked(PERSONAL[2]!));
   });
 
@@ -153,15 +150,14 @@ describe("the setup card while a rename rewrites its answers", () => {
     root = createRoot(container);
     show(greeting({ setupChoicesUpdating: Date.now() - 20_000 }));
     expect(rewriting()).toBe(false);
-    press("a");
+    click(0);
     expect(fixture.api).toHaveBeenCalledWith(...picked(FIXED[0]!));
   });
 
-  it("never shows a rewrite on a settled card", () => {
+  it("never shows a rewrite on a settled offer", () => {
     const message = greeting({ setupChoicesUpdating: Date.now() });
     show(message, [message, { id: "u1", role: "user", kind: "text", at: Date.now(), text: "help me hire" } as Message]);
     expect(rewriting()).toBe(false);
-    expect(card()!.getAttribute("aria-busy")).toBeNull();
-    expect(buttons().every((button) => button.disabled)).toBe(true);
+    expect(card()).toBeNull();
   });
 });

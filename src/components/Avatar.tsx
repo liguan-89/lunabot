@@ -17,6 +17,8 @@ import { isCarvedBody, type BotBodyId } from "../../shared/bot-body";
 import { useFestivalDress, wornBody } from "@/lib/festival-dress";
 import { t } from "@/lib/i18n";
 import { CarvedAvatar } from "./CarvedAvatar";
+import { PresetFace } from "./PresetFace";
+import { moodForState, seedOf, type FaceLife } from "@/lib/preset-face-rig";
 import { steelBodyImage } from "@/lib/steel-body";
 
 export const EYE_SCALE = 1.12;
@@ -217,7 +219,15 @@ export const MausAvatar = memo(forwardRef(MausAvatarComponent));
 
 export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
   readable?: boolean;
+  /** Where a bot without a usable image lands: the phone's flat portrait (lists, headers, transcripts) or the
+   * expressive mascot (calls, onboarding, the live turn). */
+  fallback?: "mascot" | "preset";
+  /** The portrait's pace: a row glances and blinks, a large hero breathes. */
+  life?: FaceLife;
+  /** The commander's crown, drawn in the portrait and leaning with its gaze. */
+  crown?: boolean;
   bot: {
+    id?: string;
     name?: string;
     color: MausColor;
     avatarUrl?: string | null;
@@ -245,7 +255,7 @@ export function resolveBotAvatarOutcome(params: {
   return "flatImage";
 }
 
-export function BotAvatar({ bot, size = 44, label, readable = false, ...mascotProps }: BotAvatarProps) {
+export function BotAvatar({ bot, size = 44, label, readable = false, fallback = "mascot", life = "glance", crown = false, ...mascotProps }: BotAvatarProps) {
   const profile = botAvatarProfile(bot);
   const festival = useFestivalDress();
   const [imageFailed, setImageFailed] = useState(false);
@@ -259,6 +269,22 @@ export function BotAvatar({ bot, size = 44, label, readable = false, ...mascotPr
   });
 
   if (outcome !== "flatImage") {
+    // The flat portrait is the app's bot image in every list, header and transcript. A bot that deliberately chose a
+    // mascot body (anything but the old default, `cursor`) keeps it everywhere; the old default now means the preset.
+    const explicitMascot = Boolean(bot.mascotBody && bot.mascotBody !== "cursor");
+    if (fallback === "preset" && !explicitMascot) {
+      return (
+        <PresetFace
+          color={bot.color}
+          size={size}
+          label={label ?? bot.name}
+          life={life}
+          mood={moodForState(mascotProps.state)}
+          seed={seedOf(bot.id ?? bot.name)}
+          crown={crown}
+        />
+      );
+    }
     return (
       <MausAvatar
         bodyId={wornBody(bot.mascotBody, bot.color, festival)}

@@ -321,7 +321,9 @@ function EngineRow({ instance, bare = false }: { instance: InstanceInfo; bare?: 
 }
 
 function simpleStatus(instance: InstanceInfo, ready: boolean): string {
-  if (ready) return instance.snapshot.authenticated === true && instance.snapshot.account?.email ? instance.snapshot.account.email : t("onboarding.engines.ready");
+  // A provider that works says nothing beyond its name; an account email is still worth a line. Only what needs the
+  // person's hand keeps a second line.
+  if (ready) return instance.snapshot.authenticated === true ? instance.snapshot.account?.email ?? "" : "";
   return instance.snapshot.state === "available" && instance.snapshot.authenticated === false ? t("model.signInRequired") : t("onboarding.engines.needsSetup");
 }
 
@@ -339,7 +341,7 @@ function SimpleEngines({ rows, isReady, renderEngine, more }: {
       <SettingsGroup label={t("settings.simple.ai.yours")} actions={<RefreshEngines />}>
         <SettingsRows>
           {featured.map((instance) => {
-            const ready = isReady(instance), open = opened === instance.instanceId;
+            const ready = isReady(instance), open = opened === instance.instanceId, status = simpleStatus(instance, ready);
             return (
               <div key={instance.instanceId} data-simple-engine={instance.instanceId} className="group">
                 <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
@@ -347,7 +349,7 @@ function SimpleEngines({ rows, isReady, renderEngine, more }: {
                     <InstanceProviderMark instance={instance} size={14} subtle />
                     <span className="flex min-w-0 flex-col gap-0.5">
                       <span className="truncate text-[14px] leading-5 text-ink">{instance.displayName}</span>
-                      <span className="truncate text-[13px] leading-[18px] text-ink-secondary">{simpleStatus(instance, ready)}</span>
+                      {status && <span className="truncate text-[13px] leading-[18px] text-ink-secondary">{status}</span>}
                     </span>
                   </span>
                   <button type="button" aria-expanded={open} className="ui-button ml-auto shrink-0" onClick={() => setOpened(open ? null : instance.instanceId)}>

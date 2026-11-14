@@ -15,7 +15,7 @@ export function InboxSender({ from, size = 16 }: { from: NonNullable<Message["in
   const { state } = useStore();
   if (from.email) return <PersonFace person={face({ name: from.name, email: from.email })} size={size} />;
   const bot = state.bots.find((one) => one.id === from.botId);
-  return <BotAvatar bot={bot ?? { name: from.name, color: "blue" }} state="happy" size={size} motion="none" motionKey={0} animated={false} />;
+  return <BotAvatar bot={bot ?? { name: from.name, color: "blue" }} state="happy" size={size} fallback="preset" motion="none" motionKey={0} animated={false} />;
 }
 
 /** Where an inbox line came from, as a link that opens it there; none for a line from a conversation the person can't read. */

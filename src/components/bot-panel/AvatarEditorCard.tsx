@@ -135,7 +135,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         {tab === "bot" && (
           <>
             <div className="grid grid-cols-5 gap-1.5">
-              {MASCOT_BODY_IDS.map((id) => bodyButton(id, bodyName(id)))}
+              {MASCOT_BODY_IDS.filter((id) => id !== "cursor").map((id) => bodyButton(id, bodyName(id)))}
             </div>
             <div className="flex flex-wrap justify-center gap-2 px-1 pb-1 pt-3.5">
               {MAUS_COLOR_NAMES.map((color) => (

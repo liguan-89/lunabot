@@ -1,9 +1,9 @@
-// The setup card under a new bot's greeting (server/setup-request.ts): "What should I help you with first?" with a few
-// answers, then Something else. A pick sends its words, which the server runs as setup at once; Something else is
+// The setup offer under a new bot's greeting (server/setup-request.ts): "What should I help you with first?" with a few
+// starter chips, then Something else. A pick sends its words, which the server runs as setup at once; Something else is
 // answered by the bot's own line, and the next thing the person types is what the bot sets itself up for. While it
-// waits, a chip above the message box says so and its x stops it. Once answered, the card stays, quiet, with the answer.
-// While its answers are written, at first or after the bot is renamed, it takes no pick.
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+// waits, a chip above the message box says so and its x stops it. Once answered, only the answer stays, as one quiet
+// line. While its answers are written, at first or after the bot is renamed, it takes no pick.
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 
 import { currentReactor, useReactor } from "@/lib/cloud-guest";
@@ -11,10 +11,9 @@ import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
 import { api, useStore, type Bot, type Message } from "@/state/store";
-import { moveChoiceFocus, returnFocusToComposer } from "./AskCard";
+import { returnFocusToComposer } from "./AskCard";
 
 const blank = (bot: Pick<Bot, "soul" | "description">): boolean => !bot.soul?.trim() && !bot.description?.trim();
-const LETTERS = "ABCDEFGH";
 const FALLBACK_CHOICES: LocaleKey[] = [
   "chat.setupCard.research", "chat.setupCard.watch", "chat.setupCard.inbox", "chat.setupCard.errands", "chat.setupCard.data",
 ];
@@ -22,7 +21,7 @@ const FALLBACK_CHOICES: LocaleKey[] = [
  * is one a restart left behind: the server ends a wait within 7 s. */
 const PENDING_GRACE_MS = 8_000;
 const STALE_WAIT_MS = 20_000;
-const PLACEHOLDER_WIDTHS = ["62%", "48%", "56%", "44%", "58%", "30%"];
+const PLACEHOLDER_WIDTHS = [72, 96, 64];
 
 /** The server closes the card once the bot is given instructions or the card is closed; the bot's own fields and the
  * transcript cover the moments before that reaches this screen. The conversation's AI must have the tools a bot sets
@@ -36,7 +35,7 @@ export function SetupOffer({ botId, threadId, message, transcript }: { botId: st
   const [rewriteWaitedOut, setRewriteWaitedOut] = useState<number | null>(null);
   // A double click lands before the disabled buttons are drawn.
   const sending = useRef(false);
-  // The list on screen changes only when a wait the card showed ends, so a letter key always picks a job on screen.
+  // The list on screen changes only when a wait the card showed ends, so a pick is always a chip on screen.
   const shown = useRef<{ id: string; choices: string[] } | null>(null);
   const showedWait = useRef(false);
   const waitedOnce = useRef(false);
@@ -62,6 +61,8 @@ export function SetupOffer({ botId, threadId, message, transcript }: { botId: st
   if (first ? !first.setupRequest && !capable : !(blank(bot) && capable)) return null;
   const settled = first !== undefined;
   const answer = first?.setupRequest ? first : undefined;
+  // Once a person has written their own first line, the offer has done its job: no answer to show, nothing left to say.
+  if (settled && !answer) return null;
   const pending = waiting && !settled;
   const updating = rewriting && !settled;
   if (pending || updating) waitedOnce.current = true;
@@ -69,7 +70,6 @@ export function SetupOffer({ botId, threadId, message, transcript }: { botId: st
     shown.current = { id: message.id, choices: message.setupChoices?.length ? message.setupChoices : FALLBACK_CHOICES.map((key) => t(key)) };
   }
   showedWait.current = pending || updating;
-  const quiet = settled || updating;
   const choices = pending ? [] : shown.current!.choices;
   const title = t("chat.setupCard.heading");
 
@@ -95,54 +95,46 @@ export function SetupOffer({ botId, threadId, message, transcript }: { botId: st
     void api(`/api/bots/${botId}/setup-request`, { method: "DELETE", body: JSON.stringify({ threadId }) }).catch(() => setClosed(false));
   };
   const options = [...choices.map((choice) => ({ label: choice, pick: () => ask(choice) })), { label: t("chat.setupCard.other"), pick: () => ask() }];
-  const byLetter = (event: KeyboardEvent<HTMLElement>) => {
-    const index = LETTERS.indexOf(event.key.toUpperCase());
-    if (event.key.length !== 1 || index < 0 || index >= options.length || event.metaKey || event.ctrlKey || event.altKey) {
-      moveChoiceFocus(event);
-      return;
-    }
-    event.preventDefault();
-    options[index]!.pick();
-  };
 
   return (
-    <section data-setup-card={message.id} aria-label={title} aria-busy={busy || pending || updating || undefined} onKeyDown={quiet || pending ? undefined : byLetter}
-      className="w-full max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-[18px] bg-composer px-2 pb-2 pt-3 ring-[0.5px] ring-ink/10">
-      <div className="flex items-start justify-between gap-2 ps-3 pe-1">
-        <div className="min-w-0">
-          <h3 dir="auto" className="py-px text-[16px] font-semibold leading-[22px] text-ink">{title}</h3>
-          {!settled && <p dir="auto" className="text-[13px] leading-[18px] text-ink-tertiary">{t("chat.setupCard.hint", { name: bot.name })}</p>}
+    <section data-setup-card={message.id} aria-label={title} aria-busy={busy || pending || updating || undefined}
+      className="w-full max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] pt-1">
+      {settled && answer ? (
+        <div data-setup-answer="" className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-[13px] leading-5">
+          <span className="shrink-0 text-ink-tertiary">{t("chat.setupCard.answer")}</span>
+          <span dir="auto" className="min-w-0 break-words text-ink">{answer.text}</span>
         </div>
-        {!settled && <button type="button" onClick={close} aria-label={t("common.close")} title={t("common.close")}
-          className="-mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full text-ink-tertiary hover:bg-ink/[0.07] hover:text-ink-secondary">
-          <X size={15} aria-hidden="true" />
-        </button>}
-      </div>
-      {pending ? <div data-setup-waiting="" className="mt-1.5 flex flex-col">
-        {PLACEHOLDER_WIDTHS.map((width) => (
-          <div key={width} className="flex min-h-10 items-center px-3 py-2">
-            <span className="h-4 rounded-md bg-ink/[0.06] motion-safe:animate-pulse" style={{ width }} />
+      ) : (
+        <>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 dir="auto" className="text-[14px] font-semibold leading-5 text-ink">{title}</h3>
+              <p dir="auto" className="mt-0.5 text-[12px] leading-4 text-ink-tertiary">{t("chat.setupCard.hint", { name: bot.name })}</p>
+            </div>
+            <button type="button" onClick={close} aria-label={t("common.close")} title={t("common.close")}
+              className="-mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full text-ink-tertiary hover:bg-ink/[0.07] hover:text-ink-secondary">
+              <X size={14} aria-hidden="true" />
+            </button>
           </div>
-        ))}
-      </div> : <div key={choices.join("\n")} data-setup-updating={updating ? "" : undefined}
-        className={cn("mt-2 flex flex-col", updating ? "motion-safe:animate-pulse" : waitedOnce.current && "motion-safe:animate-msg-in")}>
-        {options.map((option, index) => (
-          <button key={option.label} type="button" data-ask-choice="" disabled={quiet || busy} onClick={option.pick}
-            className={cn("group flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-start",
-              quiet ? "cursor-default" : "hover:bg-ink/[0.05] disabled:cursor-default")}>
-            <span dir="auto" className={cn("min-w-0 flex-1 break-words text-[14px] leading-5", quiet ? "text-ink-tertiary" : "text-ink")}>{option.label}</span>
-            {/* The letter picks the row from the keyboard; it trails the words so they line up with the heading. */}
-            <kbd className="shrink-0 font-mono text-[12px] text-ink-tertiary">{LETTERS[index]}</kbd>
-          </button>
-        ))}
-      </div>}
-      {settled && answer && (
-        <div data-setup-answer="" className="mx-3 mb-1 mt-1.5 border-t border-hairline/40 pt-2.5">
-          <div className="text-[12px] leading-4 text-ink-tertiary">{t("chat.setupCard.answer")}</div>
-          <div dir="auto" className="mt-0.5 break-words text-[14px] leading-5 text-ink">{answer.text}</div>
-        </div>
+          {pending ? <div data-setup-waiting="" className="mt-2.5 flex flex-wrap gap-1.5">
+            {PLACEHOLDER_WIDTHS.map((width) => (
+              <span key={width} className="h-7 rounded-full bg-ink/[0.06] motion-safe:animate-pulse" style={{ width }} />
+            ))}
+          </div> : <div key={choices.join("\n")} data-setup-updating={updating ? "" : undefined}
+            className={cn("mt-2.5 flex flex-wrap gap-1.5", updating ? "motion-safe:animate-pulse" : waitedOnce.current && "motion-safe:animate-msg-in")}>
+            {options.map((option) => (
+              <button key={option.label} type="button" data-ask-choice="" disabled={updating || busy} onClick={option.pick}
+                className={cn("max-w-full rounded-full border px-3 py-1.5 text-start text-[13px] leading-4 transition-colors duration-150",
+                  updating ? "border-hairline/30 text-ink-tertiary" : "border-hairline/50 text-ink-secondary hover:border-hairline hover:bg-raised hover:text-ink",
+                  "disabled:cursor-default")}>
+                <span dir="auto" className="break-words">{option.label}</span>
+              </button>
+            ))}
+          </div>}
+          {error && <p role="alert" dir="auto" className="mt-1.5 text-[12px] text-danger">{error}</p>}
+        </>
       )}
-      {error && <p role="alert" dir="auto" className="mx-3 mb-1 mt-1 text-[12px] text-danger">{error}</p>}
+      {settled && answer && error && <p role="alert" dir="auto" className="mt-1 text-[12px] text-danger">{error}</p>}
     </section>
   );
 }

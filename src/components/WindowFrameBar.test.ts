@@ -17,8 +17,10 @@ const fixture = vi.hoisted(() => ({
   frameDrawn: vi.fn(),
   notifications: [] as Array<{ read: boolean }>,
   notificationsOpen: false,
+  advanced: true,
 }));
 vi.mock("@/lib/chrome-rail", () => ({ useChromeRail: () => fixture.rail, setChromeRailHidden: () => {}, sayFrameDrawn: fixture.frameDrawn }));
+vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => fixture.advanced }));
 vi.mock("@/lib/updater", () => ({ useUpdaterState: () => fixture.update }));
 vi.mock("@/lib/place-look", () => ({ usePlaceLook: () => fixture.look }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ state: { config: fixture.config, notifications: fixture.notifications, notificationsOpen: fixture.notificationsOpen }, dispatch: fixture.dispatch }) }));
@@ -50,6 +52,7 @@ beforeEach(() => {
   fixture.frameDrawn.mockClear();
   fixture.notifications = [];
   fixture.notificationsOpen = false;
+  fixture.advanced = true;
   place = { local: false, name: "My Cloud", origin: "https://cloud.example", color: "blue" };
   Object.assign(window, { ogb: { workspaces: { state: async () => place, onChanged: () => () => {}, menu: async () => {} } } });
 });
@@ -107,6 +110,14 @@ describe("the window frame's top bar", () => {
     await mount(createElement(WindowFrameBar));
     expect(middle()!.querySelector("span:last-child")!.textContent).toBe(name);
     expect(Boolean(middle()!.querySelector("svg.lucide-laptop")), "This computer's laptop").toBe(shown.local);
+  });
+
+  it("keeps the middle wordless in Simple with one place: the chat gets the attention", async () => {
+    fixture.advanced = false;
+    await mount(createElement(WindowFrameBar));
+    expect(middle()).toBeNull();
+    expect([...bar()!.children].map((child) => child.getAttribute("data-frame-bar-start") !== null ? "start" : child.hasAttribute("data-window-place") ? "place" : "end"))
+      .toEqual(["start", "end", "end"]);
   });
 
   it("names nothing where main says nothing (a browser, a remote client, an older app)", async () => {

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Crown, Pencil } from "lucide-react";
+import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -83,19 +83,14 @@ export function PanelHero({ bot, activeState, patch, editorOpen, onToggleEditor 
         onClick={onToggleEditor}
         className="group relative rounded-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-border"
       >
-        <BotAvatar bot={bot} size={64} state={activeState} />
+        <BotAvatar bot={bot} size={64} state={activeState} fallback="preset" life="alive" crown={bot.chiefOfStaff} />
         <span
           aria-hidden="true"
           className="absolute inset-0 flex items-center justify-center rounded-[18px] bg-black/0 text-white opacity-0 transition-[opacity,background-color] group-hover:bg-black/40 group-hover:opacity-100 group-focus-visible:bg-black/40 group-focus-visible:opacity-100 group-focus-within:opacity-100 touch:opacity-100 motion-reduce:transition-none"
         >
           <Pencil size={20} />
         </span>
-        {bot.chiefOfStaff && (
-          <span data-panel-chief title={t("chat.chiefOfStaff")} className="absolute -bottom-0.5 -right-0.5 flex size-[22px] items-center justify-center rounded-full bg-accent text-accent-ink ring-[3px] ring-app">
-            <Crown size={12} aria-hidden="true" />
-            <span className="sr-only">{t("chat.chiefOfStaff")}</span>
-          </span>
-        )}
+        {bot.chiefOfStaff && <span data-panel-chief className="sr-only">{t("chat.chiefOfStaff")}</span>}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute left-1/2 top-[calc(100%+4px)] z-10 -translate-x-1/2 whitespace-nowrap rounded-md border border-hairline bg-menu px-[7px] py-0.5 text-[12px] text-ink opacity-0 transition-opacity group-hover:opacity-100"

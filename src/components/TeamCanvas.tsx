@@ -57,7 +57,7 @@ function BotCard({ bot, selected, moving, connected, tagged = false, sent, onCom
         onArrange(bot, event.key === "ArrowUp" ? -1 : 1);
       }}
       className="flex h-[82px] w-full cursor-grab items-center gap-3 rounded-t-xl px-4 text-left active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-accent">
-      <BotAvatar bot={bot} size={38} motion="none" motionKey={0} animated={false} />
+      <BotAvatar bot={bot} size={38} fallback="preset" motion="none" motionKey={0} animated={false} />
       <span className="min-w-0 flex-1">
         <span className="flex items-center gap-1.5"><span className="truncate text-[14px] font-semibold">{name}</span>
           {bot.chiefOfStaff && <Crown size={12} className="shrink-0 text-warning" aria-label={t("chat.chiefOfStaff")} />}</span>
@@ -496,7 +496,7 @@ export function TeamCanvas({ sections, canManage, onMove, onInstructions, onMemo
       })}
     </div>
     {dragged && <div className="pointer-events-none absolute z-40 rounded-xl border border-accent/40 bg-card px-4 py-3 text-[13px] shadow-lg" style={{ left: dragged.point.x + 16, top: dragged.point.y + 16 }}>
-      <span className="flex items-center gap-2"><BotAvatar bot={dragged.bot} size={24} animated={false} />{dragged.bot.name}</span>
+      <span className="flex items-center gap-2"><BotAvatar bot={dragged.bot} size={24} fallback="preset" animated={false} />{dragged.bot.name}</span>
       {dropHint && <p className="mt-1 text-[10px] text-ink-secondary">{dropHint}</p>}
     </div>}
     <div className="pointer-events-none absolute inset-x-5 bottom-5 flex items-end justify-between gap-3">

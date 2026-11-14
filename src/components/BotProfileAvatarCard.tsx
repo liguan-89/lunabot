@@ -168,7 +168,7 @@ export function BotProfileAvatarCard({
               {t("botIdentity.body")}
             </div>
             <div className="grid grid-cols-5 gap-1.5">
-              {MASCOT_BODY_IDS.map((id) => (
+              {MASCOT_BODY_IDS.filter((id) => id !== "cursor").map((id) => (
                 <BodyButton key={id} id={id} name={bodyName(id)} bot={bot} busy={busy} onPatch={onPatch} />
               ))}
             </div>

@@ -1,4 +1,4 @@
-import { Crown, Loader2, Phone } from "lucide-react";
+import { Loader2, Phone } from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
@@ -75,8 +75,8 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
       onKeyDown={onKeyDown}
       onContextMenu={(event) => openBotContextMenu(onMenu, bot.id, event)}
       className={cn(
-        "flex h-[92px] w-[78px] shrink-0 cursor-pointer flex-col items-center rounded-[8px] bg-[var(--tile)] px-1 pt-2 transition-colors duration-150", SIMPLE_ROW_FOCUS,
-        selected ? "[--tile:var(--color-raised)]" : "[--tile:var(--color-panel)] hover:[--tile:color-mix(in_srgb,var(--color-raised)_50%,var(--color-panel))]",
+        // No plate behind the portrait: the face and its name sit on the sidebar the way the phone draws them.
+        "flex h-[92px] w-[78px] shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]", SIMPLE_ROW_FOCUS,
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
     >
@@ -85,15 +85,13 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
           bot={bot}
           state={stateForBot({ ...bot, messages: visible })}
           size={56}
+          fallback="preset"
+          life={primary ? "alive" : "glance"}
+          crown={primary && Boolean(bot.chiefOfStaff)}
           motion={mascotMotion?.kind ?? "none"}
           motionKey={mascotMotion?.nonce ?? 0}
           animated={working || noticing || (mascotMotion?.kind ?? "none") !== "none"}
         />
-        {primary && bot.chiefOfStaff && (
-          <span data-testid="chief-badge" className={cn("absolute -bottom-px -right-px flex size-4 items-center justify-center rounded-full bg-[#E8993A] text-white", RING)}>
-            <Crown size={10} strokeWidth={1.5} fill="currentColor" aria-hidden="true" />
-          </span>
-        )}
         {onLiveCall ? (
           <span data-testid="live-call-badge" className={cn("absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-success", RING)}>
             <Phone size={9} strokeWidth={2.5} aria-hidden="true" />
