@@ -30,7 +30,7 @@ Grok/Copilot 等驱动已删除。
 | `npx tsc -b && npx tsc -p tsconfig.server.json --noEmit` | 通过 |
 | `npx oxlint --deny-warnings <改动文件>` | 通过 |
 
-自动恢复修复后的复验（同口径）：`pi.test.ts` 93/93（含 3 个新用例）、
+自动恢复修复后的复验（同口径）：`server/drivers/pi.test.ts` 93/93（含 3 个新用例）、
 `automatic-recovery.e2e` 3/3（含真实恢复用例）、`incidents.e2e` 10/10、
 两个棘轮与 `tsc -b`/`tsc --noEmit`/oxlint 均通过；全量非 e2e 套件
 28,459 通过、3 失败（基线 2 个已知项 + `vps-ssh-init` 在与 e2e 并行
@@ -80,7 +80,7 @@ Grok/Copilot 等驱动已删除。
    （`session.ts`）。修复后 mux RST 能一路传回手机，`activeStreams` 归零；顺带把
    `remoteReset` 改为干净销毁（RST 到达时 Node client 可能已剥掉 error 监听，
    带 error 的 destroy 偶发炸掉进程，约 50% 复现于并行跑）。回归用例在
-   `sidecar.test.ts`（"resets an upload whose harness goes quiet"）。另修配方自身的
+   `companion/test/e2e/sidecar.test.ts`（"resets an upload whose harness goes quiet"）。另修配方自身的
    两处 rebrand 遗留（health `openmausbot`→`dexbot`、节点 `*.openmausbot.com`→
    `*.dexai.vip`），`phone-relay.e2e` 2/2 恢复。
 2. **`server/drivers/pi.test.ts` 的 willRetry 用例在 4 路并发下偶发失败**；
@@ -97,7 +97,7 @@ Grok/Copilot 等驱动已删除。
    `TurnNotStartedError` 并在 `startupRecovery` 下安静结算，harness 的
    `automaticRecovery` 因此在同实例的备用模型上重放一次。prompt 已被接受
    之后的失败仍一律报告、绝不重放（e2e 两面都有覆盖：
-   `automatic-recovery.e2e.test.ts`，fixture 旋钮 `FAKE_PI_EXIT_ON_FIRST_MODEL`）。
+   `server/automatic-recovery.e2e.test.ts`，fixture 旋钮 `FAKE_PI_EXIT_ON_FIRST_MODEL`）。
    退休的签名拒绝/限额拒绝类别仍然没有 pi 等价物。
 5. **agents tool bridge 对 pi 永远拒绝**：`engineBridgeRefusal` 对 `piAgent` 一律返回
    拒绝，bridge 在本 build 不可能启用；测试已改为断言这个拒绝。
@@ -124,11 +124,15 @@ Grok/Copilot 等驱动已删除。
 4. 若要恢复 plan 限额/登录状态，需要 pi 或自定义 provider 暴露对应读数；目前没有。
 5. 剩余旧 e2e 按需分批迁移（每批 5 个、并行子代理）；不必一次性清完。
    进度（2026-11-14）：legacy 清单实测 190 个（文档原记 233，期间已消化）。
-   第一批 5 个已收编进 `test:e2e:pi`（现 121 个）：digest、digest-control、
-   recent-work、native-replay、phone-relay——它们在 pi-only 构建上原样通过
-   （其中 phone-relay 需先修 §5.1 的停顿流与 rebrand 遗留）。纯 fixture 桶
-   其余 14 个判定为真迁移（依赖 Claude Code 技能目录、engine family 默认值、
-   审批级别等已删能力）。
+   第一批收编 3 个进 `test:e2e:pi`（现 119 个）：digest、digest-control、
+   phone-relay——原样通过（phone-relay 需先修 §5.1 的停顿流与 rebrand 遗留；
+   digest 两个此前被误记为已迁移）。native-replay 与 recent-work 试收编后
+   确定性失败，退回 legacy：前者还在 PATCH 旧的 `openaiCompat` 实例 API
+   （pi-only 已挪到 `/api/config`），后者等的房间上下文 system prompt 需要
+   room-context 式迁移。纯 fixture 桶其余配方判定为真迁移（依赖 Claude Code
+   技能目录、engine family 默认值、审批级别等已删能力）。
+   另：`server/vps-ssh-init.test.ts` 的 initialization 竞态用例在并行负载下
+   复现失败（单跑通过），与 willRetry 同类，已列入观察。
 
 ## 7. 交接注意
 
