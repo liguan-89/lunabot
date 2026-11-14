@@ -49,7 +49,7 @@ import { isPendingSignInRequest, normalizeSignInSite, signInOutcome, signInResum
 import { createRoomTurnLevels } from "./room-turn-level.ts";
 import { createSignInSettle } from "./host/sign-in-settle.ts"; import { createPersonLanguages, THIS_COMPUTER } from "./host/person-languages.ts"; import "./server-line-packs.ts"; import { conversationLanguage, serverLine, setConversationLanguage } from "./server-lines.ts";
 import { RoomMemberLock } from "./room-member-lock.ts";
-import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts"; import { reviewToolApproval } from "./approval-review.ts"; import { reconcileTrackedTasks } from "./tracked-tasks-reconcile.ts";
+import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, HELD_NOTE, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts"; import { reviewToolApproval } from "./approval-review.ts"; import { reconcileTrackedTasks } from "./tracked-tasks-reconcile.ts";
 import { bindSafetyFloor, denyAtSafetyFloor, heldAtSafetyFloor, safetyFloorOn } from "./safety-floor-gate.ts";
 import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
 import { providerMcpTool, providerToolAllowKey } from "./provider-tool-allow.ts";
@@ -440,7 +440,7 @@ import { listSignedInSites, signOutOfSites } from "./browser-sites.ts";
 import { HeldSecrets, VaultStore } from "./vault-store.ts";
 import { OnePasswordLogins, onePasswordUnavailable, sdkOnePasswordClient, type OnePasswordSdk } from "./onepassword.ts";
 import { nativeRequire } from "./data/engine.ts";
-import { createFillLoginTurn } from "./host/fill-login-turn.ts"; import { createFillPaymentTurn } from "./host/fill-payment-turn.ts"; import { PaymentCards } from "./payment-cards.ts"; import { createPaymentCardRoutes } from "./routes/payment-cards.ts";
+import { createFillLoginTurn } from "./host/fill-login-turn.ts"; import { createFillPaymentTurn } from "./host/fill-payment-turn.ts"; import { createWatchMeTurn, type WatchPrompt } from "./host/watch-me-turn.ts"; import { DemoWatch } from "./demo-watch.ts"; import { PaymentCards } from "./payment-cards.ts"; import { createPaymentCardRoutes } from "./routes/payment-cards.ts";
 import { BotLogins, cardLoginPlace, cardSignInElsewhere, observeSignInPage, type ObservedPage } from "./bot-logins.ts";
 import { relayFrame } from "./browser-relay.ts";
 import { browserEvidence, stepContext } from "./browser-steps.ts";
@@ -470,7 +470,7 @@ import { profileRevision, profileSnapshot } from "./profile-revision.ts";
 import { flushAllProfileHistory, flushProfileHistory, readHistory, recordProfileChange, soulChanges } from "./profile-versions.ts";
 import { TeamMemory, TEAM_MEMORY_KINDS, type TeamMemoryKind } from "./team-memory.ts";
 import { describeTool } from "./activity.ts";
-import { OutboundRequestService } from "./outbound-requests.ts";
+import { OutboundRequestService, outboundCard } from "./outbound-requests.ts";
 import { createOutboundHold, OUTBOUND_HOLD_MS, type OutboundHoldAnswer } from "./outbound-hold.ts";
 import { connectorCallsIn, outboundCallsIn } from "../shared/outbound.ts";
 import { connectorAccessDecision, describeConnectorScopes } from "../shared/connector-scopes.ts";
@@ -2354,11 +2354,12 @@ function cancelDirectTurnDispatch(botId: string, expectedThreadId?: string): Dir
   return claim;
 }
 
+const demoWatch = new DemoWatch();
 const {
   browserRuntime, browserLive, usedBrowserSessions, browserSweep, temporaryBrowserSessions,
   currentBrowserSession, forgetTemporaryBrowser, myChromeAvailable, usesMyChrome, lentChromeSummary, browserSessionSpec, browserIntegration,
   browserReady, currentBrowserSpec, loginInput, browserSystemPrompt, closeBrowser, browserEngineSwitched, eraseDeletedBrowser, engineSummary, browserSessionsOf, signedInSitesTarget, uploadPaths, eraseAudienceBrowsers,
-} = createBrowserHost({ cfg, store: () => store, turnResources, activeInternalGenerationByThread, mintInternalCapability, DESKTOP_MANAGED, CLOUD_HOME, HOSTED_WORKSPACE, PORT, engineMemory, audienceOf: teamHost.browserAudience, ...(CLOUD_TEAM ? { browserBox: (fd: number, ro: readonly string[]) => botBox.browserBox(fd, ro) } : {}), lendRefusal: (turn) => cloudLendingRefusal({ botId: store.botByThread(turn.threadId)?.id ?? "", threadId: turn.threadId, generation: turn.generation }), device: () => deviceLinks.route(CLOUD_HOME_LENDER) ?? sharedComputers.internetAway(CLOUD_HOME_LENDER) ?? { unshared: true as const }, lentChrome: CLOUD_PERSONAL ? { route: () => deviceLinks.chromeRoute(CLOUD_HOME_LENDER), lender: () => sharedComputers.chromeLender(CLOUD_HOME_LENDER) } : undefined });
+} = createBrowserHost({ cfg, store: () => store, turnResources, activeInternalGenerationByThread, mintInternalCapability, DESKTOP_MANAGED, CLOUD_HOME, HOSTED_WORKSPACE, PORT, engineMemory, audienceOf: teamHost.browserAudience, demoWatch, ...(CLOUD_TEAM ? { browserBox: (fd: number, ro: readonly string[]) => botBox.browserBox(fd, ro) } : {}), lendRefusal: (turn) => cloudLendingRefusal({ botId: store.botByThread(turn.threadId)?.id ?? "", threadId: turn.threadId, generation: turn.generation }), device: () => deviceLinks.route(CLOUD_HOME_LENDER) ?? sharedComputers.internetAway(CLOUD_HOME_LENDER) ?? { unshared: true as const }, lentChrome: CLOUD_PERSONAL ? { route: () => deviceLinks.chromeRoute(CLOUD_HOME_LENDER), lender: () => sharedComputers.chromeLender(CLOUD_HOME_LENDER) } : undefined });
 
 const dataSheets = new DataSheetRegistry({
   broadcast: (frame) => broadcast({ ...frame }),
@@ -11904,6 +11905,35 @@ const { fillPaymentForTurn } = createFillPaymentTurn({
   stepContext: (bot, turn) => stepContext(bot, turn, () => liveTurnByThread.get(turn.threadId) ?? null),
   turnActive: (turn) => internalCapabilityIsActive(turn as InternalCapability),
 });
+const { watchMeForTurn } = createWatchMeTurn({
+  place: signInPlace, current: (bot, threadId) => botForThread(bot.id, threadId) ?? bot, builtInBrowserOn: () => builtInBrowserEnabled(cfg),
+  target: botBrowserTarget, demoWatch,
+  evalPage: (session, spec, env, script) => loginInput(session, spec, env).engine(["eval", script]).then((data) => data?.result ?? null),
+  timeoutMs: OUTBOUND_HOLD_MS,
+  turnActive: (turn) => internalCapabilityIsActive(turn as InternalCapability),
+  prompt: (input): WatchPrompt => {
+    const { app, calls } = outboundCard([{ slug: "watch_me", ...(input.goal ? { arguments: { goal: input.goal } } : {}) }]);
+    const subtitle = input.goal ? `Show: ${input.goal}` : "Take the browser and show the steps.";
+    const held = outboundRequests.open({ botId: input.bot.id, threadId: input.threadId, tool: "watch_me", timeoutMs: input.timeoutMs });
+    const card = store.appendMessage(input.threadId, {
+      role: "bot", kind: "options",
+      card: {
+        title: "Watch you do it?", subtitle, options: ["Done", "Deny"], requestId: held.requestId, tool: "watch_me",
+        held: HELD_NOTE["approval.held.watch"], heldCode: "approval.held.watch",
+        outboundRequest: { tool: "watch_me", app, calls },
+      },
+    });
+    notify(buildNotification("approval", input.bot, input.threadId, subtitle, { avatarUrl: input.bot.avatarUrl }));
+    return {
+      answer: held.answer,
+      finishCard(state) {
+        if (state !== "unavailable") outboundRequests.resolve({ threadId: input.threadId, requestId: held.requestId, behavior: state });
+        const stale = store.messagesFor(input.threadId).find((m) => m.id === card.id);
+        if (stale?.card && !stale.card.answered) store.patchMessage(input.threadId, stale.id, { card: { ...stale.card, answered: state, dismissed: state !== "allow" } });
+      },
+    };
+  },
+});
 
 async function localVmPayload(target: LocalVmTarget, auth: RequestAuth) {
   const status = localVmUpdates.describe(target, await containerComputerStatus(undefined, undefined, target));
@@ -14654,6 +14684,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (method === "POST" && path === "/api/internal/fill-payment") {
         const body = await readInternalBody();
         const outcome = await fillPaymentForTurn(internalSender, internalCapability, body.card);
+        requireActiveInternalCapability();
+        return json(res, 200, outcome);
+      }
+      if (method === "POST" && path === "/api/internal/watch-me") {
+        const body = await readInternalBody();
+        const outcome = await watchMeForTurn(internalSender, internalCapability, body.goal);
         requireActiveInternalCapability();
         return json(res, 200, outcome);
       }

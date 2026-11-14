@@ -137,6 +137,7 @@ export function undeliveredApprovalTool(
 export const HELD_NOTE = {
   "approval.held.outbound": "This sends something on your behalf, so it asks you first.",
   "approval.held.native": "The provider requires your approval for this action.",
+  "approval.held.watch": "This records the steps you show in the browser.",
   "approval.held.sandbox":
     "This loosens the AI's own safety limits, so only Full access can approve it automatically.",
   "approval.held.undeliveredFull": "Full access couldn't deliver this approval.",

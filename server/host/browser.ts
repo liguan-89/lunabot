@@ -29,6 +29,7 @@ import {
   setBrowserViewport,
 } from "../browser-engine.ts";
 import { BrowserSweep, browserIdleMs, type BrowserCleanupWireRequest } from "../browser-lifecycle-cleanup.ts";
+import { DEMO_HARVEST, type DemoWatch } from "../demo-watch.ts";
 import { AudienceBrowsers, audienceBrowserSuffix } from "../browser/audience.ts";
 import type { BrowserSitesTarget } from "../browser-sites.ts";
 import { namedUploadPaths } from "../browser-upload.ts";
@@ -79,6 +80,8 @@ export interface BrowserHostDeps {
   audienceOf?(threadId: string): Audience;
   /** The box every Chrome of the bots' browsers runs in (a Team Cloud's), or none. */
   browserBox?(seccompFd: number, ro: readonly string[]): LauncherBox | null;
+  /** watch_me's registry: a person's own browser input is recorded while a demo watch is open on that session. */
+  demoWatch?: Pick<DemoWatch, "due" | "append" | "notifyHandedBack">;
 }
 
 /** The lent computer's connection for a browser's pages, under the rule for everything it lends: only while the last
@@ -114,9 +117,15 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   const browserBox = deps.browserBox;
   const boxed = Boolean(browserBox?.(LAUNCHER_SECCOMP_FD, []));
   if (browserBox) chromeLauncher.boxWith(() => browserBox(LAUNCHER_SECCOMP_FD, []));
+  const demoWatch = deps.demoWatch;
   const agentBrowserLive = new BrowserLive({ runtime: agentBrowserRuntime, devTools: {
     url: (port) => relay(port, { action: "cdp_url" }, { timeoutMs: 5_000, maxBytes: 65_536 }).then((answer) => answer.data?.cdpUrl),
-  } });
+  }, ...(demoWatch ? { capture: {
+    due: (session) => demoWatch.due(session),
+    script: () => DEMO_HARVEST,
+    append: (session, result) => demoWatch.append(session, result),
+    released: (session) => demoWatch.notifyHandedBack(session),
+  } } : {}) });
   const host: HostKind = DESKTOP_MANAGED ? "desktop" : CLOUD_HOME || existsSync("/.dockerenv") ? "container" : "server";
   const idleMs = () => browserIdleMs(cfg, { cloudHome: Boolean(CLOUD_HOME) });
   const chromeEngine = new ChromeEngine({

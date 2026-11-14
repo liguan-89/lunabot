@@ -1142,6 +1142,20 @@
       }
     },
     {
+      "name": "watch_me",
+      "description": "Learn a task by watching the person do it in your browser. Call it when they offer to show you the steps, or when showing beats describing: it opens a card asking them to take the browser and demonstrate, records their clicks, typing and page loads while they hold it, and hands you the steps back as a numbered list when they tap Done or hand the browser back. Passwords and card numbers are never recorded — the step says the field, not the value. Repeat the steps yourself right away, or save them as a skill if the person asks you to remember the task. It only works while this conversation is on the browser; on chat, ask them to describe the steps instead.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "goal": {
+            "type": "string",
+            "description": "What you want to learn, shown on the card so the person knows what to demonstrate."
+          }
+        }
+      }
+    },
+    {
       "name": "send_voice_note",
       "description": "Send the user a voice note: a short spoken message synthesized with your configured voice, stored as audio, and attached to your reply when the turn ends. Write the note as speakable words, exactly as it should be said — no lists, links or markdown meant for screens. The words are kept as the note's transcript, which the person can open to read instead of listening; they are not repeated in your reply, so do not write them out again. Use it for warmth, tone or emphasis a written line cannot carry; use ordinary text otherwise.",
       "inputSchema": {

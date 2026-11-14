@@ -15,6 +15,8 @@ export class FakeLoginPage {
   /** Every key pressed and element clicked through the relay. */
   readonly pressed: string[] = [];
   readonly clicked: string[] = [];
+  /** Every pointer event the person's view sent, as "type x,y". */
+  readonly mouse: string[] = [];
   /** What the page's scripts saw: field name → the last value an input event carried. */
   readonly state: Record<string, string> = {};
   /** Each form the page sent, as field name → value. */
@@ -69,8 +71,9 @@ export class FakeLoginPage {
     this.engineCalls.push(args);
     if (args[0] === "get" && args[1] === "url") return { url: this.window.location.href };
     if (args[0] === "eval") return { result: this.window.eval(args[1]!) as unknown };
-    if (args[0] === "stream" && args[1] === "status") return this.streamEnabled ? { enabled: true, port: this.streamPort } : { enabled: false };
-    if (args[0] === "stream" && args[1] === "enable") { this.streamEnabled = true; return { enabled: true, port: this.streamPort }; }
+    if (args[0] === "--version") return { version: "stand-in" };
+    if (args[0] === "stream" && args[1] === "status") return this.streamEnabled ? { enabled: true, port: this.streamPort, connected: true } : { enabled: false };
+    if (args[0] === "stream" && args[1] === "enable") { this.streamEnabled = true; return { enabled: true, port: this.streamPort, connected: true }; }
     throw new Error(`unexpected engine command: ${args[0]}`);
   }
 
@@ -90,12 +93,31 @@ export class FakeLoginPage {
   async press(key: string): Promise<void> {
     this.pressed.push(key);
     this.onKey?.(key);
+    const keyTarget = this.window.document.activeElement as { dispatchEvent(event: unknown): boolean } | null;
+    keyTarget?.dispatchEvent(new this.window.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
     const field = this.window.document.activeElement as unknown as { form?: unknown } | null;
     const form = field?.form as unknown as { requestSubmit(): void; querySelectorAll(selector: string): ArrayLike<{ type?: string }> } | null | undefined;
     if (key !== "Enter" || !form) return;
     const buttons = Array.from(form.querySelectorAll("button, input[type=submit]")).filter((el) => el.type === "submit");
     if (buttons.length || form.querySelectorAll("input:not([type=hidden])").length === 1) form.requestSubmit();
     this.deliver();
+  }
+
+  /** A pointer event the person's live view sent: a press+release pair lands as the click a browser would fire. */
+  async mouseInput(event: { type?: string; x?: number; y?: number }): Promise<void> {
+    const { type, x = 0, y = 0 } = event;
+    this.mouse.push(`${type ?? "?"} ${x},${y}`);
+    if (type !== "mouseReleased") return;
+    const doc = this.window.document;
+    const at = (doc.elementFromPoint?.(x, y) ?? doc.body) as unknown as { dispatchEvent(event: unknown): boolean };
+    at.dispatchEvent(new this.window.MouseEvent("click", { bubbles: true, cancelable: true }));
+    this.deliver();
+  }
+
+  /** A raw key down or up the person's live view sent, at the focused element. */
+  async keyEvent(event: { type?: string; key?: string; code?: string }): Promise<void> {
+    const target = (this.window.document.activeElement ?? this.window.document.body) as unknown as { dispatchEvent(event: unknown): boolean };
+    target.dispatchEvent(new this.window.KeyboardEvent(String(event.type), { key: event.key, code: event.code, bubbles: true, cancelable: true }));
   }
 
   /** A real click: the page's handlers run, and a submit button then sends its form unless they kept it. */

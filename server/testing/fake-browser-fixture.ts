@@ -1,5 +1,6 @@
 // A happy-dom page behind a stand-in agent-browser: nothing reaches a real browser, the user's data or port 8799.
 import { mkdtempSync, writeFileSync, existsSync, readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -23,10 +24,12 @@ export async function browserFixture(url: string, cuaRecord?: string, html = LOG
     const reply = (data: unknown) => { res.writeHead(200, { "content-type": "application/json" }); res.end(JSON.stringify(data)); };
     try {
       if (req.url === "/api/command") {
-        const command = JSON.parse(raw) as { action?: string; subaction?: string; text?: string; key?: string; selector?: string };
+        const command = JSON.parse(raw) as { action?: string; subaction?: string; text?: string; key?: string; code?: string; selector?: string; type?: string; x?: number; y?: number };
         if (command.action === "keyboard" && command.subaction === "insertText" && typeof command.text === "string") await page.insertText(command.text);
         else if (command.action === "press" && typeof command.key === "string") await page.press(command.key);
         else if (command.action === "click" && typeof command.selector === "string") await page.click(command.selector);
+        else if (command.action === "input_mouse") await page.mouseInput(command);
+        else if (command.action === "input_keyboard") await page.keyEvent(command);
         else return reply({ success: false });
         return reply({ success: true, data: {} });
       }
@@ -44,6 +47,17 @@ export async function browserFixture(url: string, cuaRecord?: string, html = LOG
     } catch (error) {
       return reply({ success: false, error: error instanceof Error ? error.message : String(error) });
     }
+  });
+  // The live view opens a WebSocket on the stream port the stand-in advertises: accept the upgrade and stay silent,
+  // as a daemon that has no new frames does. The sockets are tracked so close() can drop them — an upgraded socket
+  // otherwise keeps a closing server listening forever.
+  const upgraded = new Set<import("node:stream").Duplex>();
+  bridge.on("upgrade", (req, socket) => {
+    const accept = createHash("sha1").update(`${req.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
+    upgraded.add(socket);
+    socket.on("data", () => {});
+    socket.on("close", () => upgraded.delete(socket));
   });
   await new Promise<void>((ready) => bridge.listen(port, "127.0.0.1", ready));
 
@@ -90,6 +104,7 @@ else bridge("/engine", { args, proxy: process.env.AGENT_BROWSER_PROXY }).then((t
     close: async () => {
       page.close();
       await fixture.close();
+      for (const socket of upgraded) socket.destroy();
       await new Promise((done) => bridge.close(done));
       await removeTempDir(tools);
     },

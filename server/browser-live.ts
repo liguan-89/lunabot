@@ -301,6 +301,16 @@ interface Left {
   done: boolean;
 }
 
+/** watch_me's tap: while a demo watch is open on the session, each of the person's inputs harvests the page's captured steps. */
+export interface BrowserLiveCapture {
+  /** A watch is open and the throttle lets another harvest through. */
+  due(session: string): boolean;
+  script(): string;
+  append(session: string, result: unknown): void;
+  /** The person's hold on this session ended — by hand-back, a dropped view's grace, or a close. */
+  released(session: string): void;
+}
+
 /** How a view reaches its browser's DevTools, to watch the page's own dialogs: without it, they are not watched. */
 export interface BrowserLiveDevTools {
   /** The browser's DevTools address, from its daemon's stream port. */
@@ -320,12 +330,24 @@ export class BrowserLive {
   /** Each watched browser's page dialogs, and the views that watch them. */
   private readonly dialogs = new Map<string, { watch: DialogWatch; views: Set<string> }>();
   private readonly devTools?: BrowserLiveDevTools;
+  private readonly capture?: BrowserLiveCapture;
   private order = 0;
-  constructor({ runtime, devTools, holdLimits = HOLD_LIMITS }: { runtime: BrowserRuntime; devTools?: BrowserLiveDevTools; holdLimits?: HoldLimits }) {
+  constructor({ runtime, devTools, holdLimits = HOLD_LIMITS, capture }: { runtime: BrowserRuntime; devTools?: BrowserLiveDevTools; holdLimits?: HoldLimits; capture?: BrowserLiveCapture }) {
     this.runtime = runtime;
     this.devTools = devTools;
     this.holdLimits = holdLimits;
+    this.capture = capture;
     runtime.onIdleClose((session) => this.asleep(session));
+  }
+
+  /** Drains the demo steps the page collected since the last harvest; a page mid-navigation answers nothing, so the
+   * next input or the closing harvest catches up. */
+  private async harvestDemo(viewer: Viewer): Promise<void> {
+    if (!this.capture?.due(viewer.session)) return;
+    try {
+      const data = await this.command(viewer, ["eval", this.capture.script()], COMMAND_TIMEOUT_MS, true);
+      this.capture.append(viewer.session, data?.result);
+    } catch { /* a busy or navigating page skips this harvest */ }
   }
 
   private current(viewer: Viewer): boolean {
@@ -513,6 +535,7 @@ export class BrowserLive {
       if (this.runtime.heldBy(session) !== person) return;
       for (const viewer of this.viewsOf(session, person)) this.abandonPressedInput(viewer);
       this.runtime.release(session, person);
+      this.capture?.released(session);
       this.control(session);
     };
     if (left && !left.done) void left.settled.then(finish); else finish();
@@ -910,6 +933,7 @@ export class BrowserLive {
           this.left.delete(viewer.session);
           this.clock(viewer.session).used();
           this.clock(viewer.session).watched(true);
+          await this.harvestDemo(viewer);
         }
         return { ok: true, waited: waited === true };
       } catch { throw this.refusal(viewer, "Another browser view or bot action is using this browser. Try again shortly."); }
@@ -939,6 +963,7 @@ export class BrowserLive {
           throw error instanceof BrowserBusyError && viewer.port && await this.ended(viewer.port) ? new BrowserSlowActionError() : error;
         });
       });
+      await this.harvestDemo(viewer);
       return refused ? { ok: true, notice: INPUT_REFUSED } : { ok: true };
     } catch (error) {
       if (error instanceof BrowserInputUnconfirmedError && viewer.pendingActions === 1 && await this.restartUnresponsive(viewer)) {
