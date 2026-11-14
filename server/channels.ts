@@ -5,7 +5,9 @@ import { WebSocket } from "ws";
 import type { AppConfig } from "./config.ts";
 import { onConfigSaved } from "./config.ts";
 import { connectFeishu, type FeishuChannel, type WsLike } from "./feishu.ts";
-import { createFeishuChats } from "./feishu-chats.ts";
+import { connectDingtalk, type DingtalkChannel, type DingtalkWs } from "./dingtalk.ts";
+import { createWecom, type WecomChannel } from "./wecom.ts";
+import { createChannelChats } from "./channel-chats.ts";
 import { createBotMailChats, pollBotMail, replyBotMail, type BotMailBox } from "./bot-mail.ts";
 import { isInternalTurn } from "./internal-turns.ts";
 import type { DirectSendInput, DirectSendReceipt } from "./direct-send.ts";
@@ -26,13 +28,13 @@ export interface ChannelsDeps {
   ignoreEvent(event: RuntimeEvent): boolean;
 }
 
-export function createChannels(deps: ChannelsDeps): void {
+export function createChannels(deps: ChannelsDeps): { wecomRoute: WecomChannel["handle"] } {
   const { store, cfg, bus, emailService } = deps;
 
   // Feishu self-built-app channel (server/feishu.ts): one app answers as one bot over the platform's
   // long connection, so no public callback URL is needed. Each chat_id maps to a task; inbound text is
   // a person message, and a turn that chat triggered posts its bot replies back to the chat.
-  const feishuChats = createFeishuChats(join(deps.dataDir, "feishu-chats.json"));
+  const feishuChats = createChannelChats(join(deps.dataDir, "feishu-chats.json"));
   let feishuChannel: FeishuChannel | null = null;
   const syncFeishu = () => {
     feishuChannel?.close();
@@ -90,6 +92,120 @@ export function createChannels(deps: ChannelsDeps): void {
       }
     } catch (error) {
       console.warn(`feishu: reply failed: ${(error as Error).message}`);
+    }
+  });
+
+  // DingTalk self-built-app channel (server/dingtalk.ts): Stream mode, same wiring as Feishu — each
+  // conversationId maps to a task; replies go back through the latest delivery's session webhook.
+  const dingtalkChats = createChannelChats(join(deps.dataDir, "dingtalk-chats.json"));
+  let dingtalkChannel: DingtalkChannel | null = null;
+  const syncDingtalk = () => {
+    dingtalkChannel?.close();
+    dingtalkChannel = null;
+    const dc = cfg.dingtalk;
+    if (!dc?.appKey || !dc.appSecret || !dc.botId) return;
+    const botId = dc.botId;
+    if (!store.bot(botId)) { console.warn(`dingtalk: no such bot ${botId}`); return; }
+    dingtalkChannel = connectDingtalk({ appKey: dc.appKey, appSecret: dc.appSecret, baseUrl: dc.baseUrl }, {
+      fetch,
+      ws: (url) => new WebSocket(url) as unknown as DingtalkWs,
+      log: (line) => console.log(line),
+      onText: (inbound) => {
+        try {
+          let threadId = dingtalkChats.threadFor(inbound.chatId);
+          if (!threadId || !store.taskByThread(botId, threadId)) {
+            const task = store.createTask(botId, inbound.text);
+            if (!task) return;
+            threadId = task.threadId;
+            dingtalkChats.set(inbound.chatId, threadId);
+          }
+          void deps.acceptDirectSend({
+            botId, threadId, text: inbound.text,
+            sendId: `dingtalk:${inbound.messageId}`,
+            sender: { name: `钉钉 ${inbound.senderNick ?? inbound.senderId}`, id: `dingtalk:${inbound.senderId}` },
+            trigger: { kind: "user", label: `dingtalk:${inbound.senderId}` },
+            personPresent: false,
+          }).catch((error) => console.warn(`dingtalk: inbound rejected: ${(error as Error).message}`));
+        } catch (error) {
+          console.warn(`dingtalk: inbound failed: ${(error as Error).message}`);
+        }
+      },
+    });
+  };
+  syncDingtalk();
+  onConfigSaved((before, after) => {
+    if (JSON.stringify(before.dingtalk ?? null) !== JSON.stringify(after.dingtalk ?? null)) setImmediate(() => syncDingtalk());
+  });
+  bus.subscribe((event: RuntimeEvent) => {
+    if (deps.ignoreEvent(event)) return;
+    if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+    const channel = dingtalkChannel;
+    if (!channel) return;
+    const chatId = dingtalkChats.chatFor(event.threadId);
+    if (!chatId) return;
+    try {
+      const messages = store.activePath(event.threadId);
+      const fromChat = !isInternalTurn(event.threadId) && !deps.routineRunForThread(event.threadId)
+        && messages.findLast((m) => m.role === "user")?.sender?.id?.startsWith("dingtalk:");
+      if (!fromChat) return;
+      for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
+        channel.sendText(chatId, text).catch((error) => console.warn(`dingtalk: send failed: ${(error as Error).message}`));
+      }
+    } catch (error) {
+      console.warn(`dingtalk: reply failed: ${(error as Error).message}`);
+    }
+  });
+
+  // WeCom self-built-app channel (server/wecom.ts): no long connection exists, so messages arrive on
+  // the public /api/wecom/callback route this returns; everything else mirrors the channels above.
+  // cfg is read per request, so saving config needs no re-registration.
+  const wecomChats = createChannelChats(join(deps.dataDir, "wecom-chats.json"));
+  const wecomChannel = createWecom(() => {
+    const wc = cfg.wecom;
+    return wc?.corpId && wc.corpSecret && wc.token && wc.encodingAesKey && wc.agentId
+      ? { corpId: wc.corpId, corpSecret: wc.corpSecret, token: wc.token, encodingAesKey: wc.encodingAesKey, agentId: wc.agentId, baseUrl: wc.baseUrl }
+      : null;
+  }, {
+    fetch,
+    log: (line) => console.log(line),
+    onText: (inbound) => {
+      try {
+        const botId = cfg.wecom?.botId;
+        if (!botId || !store.bot(botId)) { console.warn(`wecom: no such bot ${botId ?? ""}`); return; }
+        let threadId = wecomChats.threadFor(inbound.chatKey);
+        if (!threadId || !store.taskByThread(botId, threadId)) {
+          const task = store.createTask(botId, inbound.text);
+          if (!task) return;
+          threadId = task.threadId;
+          wecomChats.set(inbound.chatKey, threadId);
+        }
+        void deps.acceptDirectSend({
+          botId, threadId, text: inbound.text,
+          sendId: `wecom:${inbound.messageId}`,
+          sender: { name: `企微 ${inbound.senderId}`, id: `wecom:${inbound.senderId}` },
+          trigger: { kind: "user", label: `wecom:${inbound.senderId}` },
+          personPresent: false,
+        }).catch((error) => console.warn(`wecom: inbound rejected: ${(error as Error).message}`));
+      } catch (error) {
+        console.warn(`wecom: inbound failed: ${(error as Error).message}`);
+      }
+    },
+  });
+  bus.subscribe((event: RuntimeEvent) => {
+    if (deps.ignoreEvent(event)) return;
+    if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+    const chatKey = wecomChats.chatFor(event.threadId);
+    if (!chatKey) return;
+    try {
+      const messages = store.activePath(event.threadId);
+      const fromChat = !isInternalTurn(event.threadId) && !deps.routineRunForThread(event.threadId)
+        && messages.findLast((m) => m.role === "user")?.sender?.id?.startsWith("wecom:");
+      if (!fromChat) return;
+      for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
+        wecomChannel.sendText(chatKey, text).catch((error) => console.warn(`wecom: send failed: ${(error as Error).message}`));
+      }
+    } catch (error) {
+      console.warn(`wecom: reply failed: ${(error as Error).message}`);
     }
   });
 
@@ -163,4 +279,6 @@ export function createChannels(deps: ChannelsDeps): void {
       console.warn(`bot mail: reply failed: ${(error as Error).message}`);
     }
   });
+
+  return { wecomRoute: (req, res, url) => wecomChannel.handle(req, res, url) };
 }

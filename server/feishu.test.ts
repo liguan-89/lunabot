@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 
 import { connectFeishu, decodeFrame, encodeFrame, textFromEvent, type FeishuFrame, type WsLike } from "./feishu.ts";
-import { createFeishuChats } from "./feishu-chats.ts";
+import { createChannelChats } from "./channel-chats.ts";
 
 const frame = (over: Partial<FeishuFrame> = {}): FeishuFrame => ({
   seqId: 1, logId: 2, service: 3, method: 1, headers: [], ...over,
@@ -155,9 +155,9 @@ describe("feishu chats", () => {
     const dir = mkdtempSync(join(tmpdir(), "feishu-chats-"));
     try {
       const file = join(dir, "feishu-chats.json");
-      const chats = createFeishuChats(file);
+      const chats = createChannelChats(file);
       chats.set("oc_1", "t_1");
-      expect(createFeishuChats(file).threadFor("oc_1")).toBe("t_1");
+      expect(createChannelChats(file).threadFor("oc_1")).toBe("t_1");
       expect(chats.chatFor("t_1")).toBe("oc_1");
       expect(chats.threadFor("oc_missing")).toBeUndefined();
     } finally {

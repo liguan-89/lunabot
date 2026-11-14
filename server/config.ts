@@ -448,6 +448,28 @@ const appConfigSchema = z.object({
     /** Operator override for the open-platform origin (private deploys, fixtures). */
     baseUrl: z.string().trim().max(2048).refine((value) => !value || /^https?:\/\//i.test(value), "baseUrl must start with http(s)://").optional(),
   }).strict().optional(),
+  /** A DingTalk self-built app channel over Stream mode: app credentials and the bot that answers its
+   * chats. All three keys present = on; null each out to disable. config.json only, like `feishu`. */
+  dingtalk: z.object({
+    appKey: z.string().trim().max(200).optional(),
+    appSecret: z.string().trim().max(500).optional(),
+    botId: z.string().trim().max(200).optional(),
+    /** Operator override for the open-platform origin (private deploys, fixtures). */
+    baseUrl: z.string().trim().max(2048).refine((value) => !value || /^https?:\/\//i.test(value), "baseUrl must start with http(s)://").optional(),
+  }).strict().optional(),
+  /** A WeCom (企业微信) self-built app channel over its receiving-message callback — the only inbound
+   * path WeCom offers, so unlike feishu/dingtalk this needs a public URL on this server pointed at
+   * /api/wecom/callback. All keys present = on; null each out to disable. config.json only. */
+  wecom: z.object({
+    corpId: z.string().trim().max(200).optional(),
+    corpSecret: z.string().trim().max(500).optional(),
+    token: z.string().trim().max(200).optional(),
+    encodingAesKey: z.string().trim().max(200).optional(),
+    agentId: z.string().trim().max(200).optional(),
+    botId: z.string().trim().max(200).optional(),
+    /** Operator override for the qyapi.weixin.qq.com origin (fixtures, private deploys). */
+    baseUrl: z.string().trim().max(2048).refine((value) => !value || /^https?:\/\//i.test(value), "baseUrl must start with http(s)://").optional(),
+  }).strict().optional(),
   /** A mailbox the bot owns end to end: address must be a connected Email account; every unread
    * message in its INBOX becomes a person message, and the reply goes back by email. */
   botMail: z.object({
@@ -520,6 +542,10 @@ export interface AppConfig extends HelperConfig {
   proactivity?: "standard" | "quiet";
   /** See the `feishu` field in appConfigSchema. */
   feishu?: { appId?: string; appSecret?: string; botId?: string; baseUrl?: string };
+  /** See the `dingtalk` field in appConfigSchema. */
+  dingtalk?: { appKey?: string; appSecret?: string; botId?: string; baseUrl?: string };
+  /** See the `wecom` field in appConfigSchema. */
+  wecom?: { corpId?: string; corpSecret?: string; token?: string; encodingAesKey?: string; agentId?: string; botId?: string; baseUrl?: string };
   /** See the `botMail` field in appConfigSchema. */
   botMail?: { address?: string; botId?: string };
   /** See the `webauthn` field in appConfigSchema. */
@@ -978,7 +1004,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "botMail", "webauthn"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

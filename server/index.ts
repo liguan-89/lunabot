@@ -5272,7 +5272,7 @@ onConfigSaved((before, after) => {
   if (JSON.stringify(before.cacheKeepWarm ?? null) !== JSON.stringify(after.cacheKeepWarm ?? null)) setImmediate(() => cacheKeepWarm.refresh());
 });
 
-createChannels({
+const channels = createChannels({
   store, cfg, dataDir: DATA_DIR, bus, emailService,
   acceptDirectSend: (input) => acceptDirectSend(input),
   routineRunForThread: (threadId) => routines?.runForThread(threadId),
@@ -11999,6 +11999,8 @@ function configStatus() {
     tts: tts.describeVoice(cfg),
     decider: describeDecider(cfg), helpers: describeHelpers(cfg),
     feishu: { configured: Boolean(cfg.feishu?.appId && cfg.feishu.appSecret && cfg.feishu.botId), botId: cfg.feishu?.botId ?? "" },
+    dingtalk: { configured: Boolean(cfg.dingtalk?.appKey && cfg.dingtalk.appSecret && cfg.dingtalk.botId), botId: cfg.dingtalk?.botId ?? "" },
+    wecom: { configured: Boolean(cfg.wecom?.corpId && cfg.wecom.corpSecret && cfg.wecom.token && cfg.wecom.encodingAesKey && cfg.wecom.agentId && cfg.wecom.botId), botId: cfg.wecom?.botId ?? "" },
     botMail: { configured: Boolean(cfg.botMail?.address && cfg.botMail.botId), address: cfg.botMail?.address ?? "", botId: cfg.botMail?.botId ?? "" },
     webauthn: { required: Boolean(cfg.webauthn?.required), enrolled: webAuthnCredentials.length },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
@@ -12932,6 +12934,8 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         ...phoneRelay?.pairedOver(req),
       });
     }
+    // Public like the pairing routes above: WeCom's servers call back, its signature is the credential.
+    if (await channels.wecomRoute(req, res, url)) return;
     const gate = resolveRequestAuth(req, {
       sessions,
       cookieName: SESSION_COOKIE,
