@@ -4,13 +4,13 @@
 // Mac's own connect reaches, under a public address. My Cloud itself is offline: it resolves no name and fetches nothing.
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { connect as tcpConnect, type AddressInfo, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createCloudPowerGate } from "../electron/cloud-power.mjs";
 import { createComputerSharing } from "../electron/computer-sharing.mjs";
@@ -20,6 +20,7 @@ import { findChrome, launchPipeChrome } from "./testing/chrome-pipe.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns, type PiMcpConfig } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -91,18 +92,24 @@ async function adminPairing(): Promise<string> {
   return paired.body.token;
 }
 
-const turnDumps = () => join(home, "turns");
-type Turn = { mcpConfig: { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> } };
-/** The newest turn of `botId` whose engine was started after `before`. */
-async function turnOf(botId: string, before: Set<string>): Promise<Turn> {
+const dump = () => piDumpPath(join(home, ".openmausbot"));
+type Turn = { mcpConfig: PiMcpConfig | null };
+
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
+  const env = agents?.env ?? {};
+  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+};
+
+/** The newest turn of `botId` whose engine was started after `before` rows of the launch log. */
+async function turnOf(botId: string, before: number): Promise<Turn> {
   let found: Turn | undefined;
   await expect.poll(() => {
-    for (const name of readdirSync(turnDumps())) {
-      if (before.has(name) || !name.endsWith(".json")) continue;
-      try {
-        const turn = JSON.parse(readFileSync(join(turnDumps(), name), "utf8")) as Turn;
-        if (turn.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === botId) { found = turn; return true; }
-      } catch {}
+    for (const turn of piTurns(dump()).slice(before)) {
+      if (agentsEnv(turn.launch?.mcpConfig?.mcpServers?.agents).OMB_BOT_ID !== botId) continue;
+      found = { mcpConfig: turn.launch?.mcpConfig ?? null };
+      return true;
     }
     return false;
   }, { timeout: 15_000 }).toBe(true);
@@ -126,11 +133,11 @@ async function gateOf(botId: string): Promise<number> {
 
 /** A bot's turn: its agents proxy (for shared_computer) and its own browser's egress gate. */
 async function botTurn(name: string) {
-  const bot = (await api("POST", "/api/bots", { token: owner, body: { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot;
-  const before = new Set(readdirSync(turnDumps()));
+  const bot = (await api("POST", "/api/bots", { token: owner, body: { name, modelSelection: { instanceId: "pi", model: "fake-model" } } })).body.bot;
+  const before = piTurns(dump()).length;
   expect((await api("POST", `/api/bots/${bot.id}/messages`, { token: owner, body: { text: "Open instagram and read my Mac." } })).status).toBe(202);
   const turn = await turnOf(bot.id, before);
-  const agents = turn.mcpConfig.mcpServers.agents!;
+  const agents = turn.mcpConfig!.mcpServers!.agents! as { command: string; args: string[]; env: Record<string, string> };
   const spawned = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(spawned);
   const replies = new Map<number, (value: any) => void>();
@@ -217,14 +224,11 @@ beforeAll(async () => {
   home = realpathSync(mkdtempSync(join(tmpdir(), "omb-use-my-mac-")));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  mkdirSync(turnDumps());
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(turnDumps())} + "/" + process.pid + ".json"; process.env.FAKE_CLAUDE_TEXT_DUMP = ${JSON.stringify(join(home, "one-shot.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // The "*" plan covers every bot's turn: its gate file is never written, so each turn stays open and a recipe can
+  // keep calling the turn's own agents tools while it is live.
+  writeFileSync(join(home, "room-plan.json"), JSON.stringify({ "*": { gateFile: join(home, "turn-release") } }));
   // The bot's browser engine as the server finds it: it names the Chrome its turns would drive, through the gate.
   // It writes down the egress gate each command's Chrome would go through: the bot's own, for the life of the server.
   writeFileSync(join(home, "agent-browser"), `#!${process.execPath}
@@ -236,8 +240,7 @@ process.stdout.write(JSON.stringify({ success: true, data: args[0] === "session"
 `, { mode: 0o755 });
   chmodSync(join(home, "agent-browser"), 0o755);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+    pi: { driver: "piAgent", environment: { FAKE_PI_DUMP: dump(), FAKE_PI_ROOM_PLAN: join(home, "room-plan.json") }, config: { cli } },
   } }));
   website = createServer((req, res) => {
     visits.push({ peer: req.socket.remotePort!, host: String(req.headers.host) });

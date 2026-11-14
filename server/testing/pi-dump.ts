@@ -17,6 +17,8 @@ export interface PiLaunch {
   /** The fake process's pid: a warm child keeps its pid across the turns it runs. */
   pid?: number;
   argv: string[];
+  /** The working folder the child was spawned in. */
+  cwd?: string;
   envConfigured: string[];
   mcpConfig: PiMcpConfig | null;
 }
@@ -32,11 +34,14 @@ export interface PiTurn {
 /** The fixture's launch log for a data dir, as `launchVerificationServer` points FAKE_PI_DUMP at. */
 export const piDumpPath = (dataDir: string) => join(dataDir, "fake-pi-dump.jsonl");
 
-/** Every turn the fixture's pi processes were given, in order, each with the launch it ran on. */
+/** Every turn the fixture's pi processes were given, in order, each with the launch it ran on. A prompt row carries
+ * its process's pid, so a turn is paired with its own launch even when another process's launch line lands between
+ * them (a warm child's second turn, or two servers writing one log); a row without a pid keeps the line it follows. */
 export function piTurns(path: string): PiTurn[] {
   if (!existsSync(path)) return [];
   const turns: PiTurn[] = [];
   let launch: PiLaunch | null = null;
+  const byPid = new Map<number, PiLaunch>();
   for (const line of readFileSync(path, "utf8").split("\n")) {
     if (!line.trim()) continue;
     let row: Record<string, any>;
@@ -46,11 +51,15 @@ export function piTurns(path: string): PiTurn[] {
       continue;
     }
     if (row.argv) {
-      launch = { ...(typeof row.pid === "number" ? { pid: row.pid } : {}), argv: row.argv, envConfigured: row.envConfigured ?? [], mcpConfig: row.mcpConfig ?? null };
+      launch = { ...(typeof row.pid === "number" ? { pid: row.pid } : {}), argv: row.argv, ...(typeof row.cwd === "string" ? { cwd: row.cwd } : {}), envConfigured: row.envConfigured ?? [], mcpConfig: row.mcpConfig ?? null };
+      if (typeof launch.pid === "number") byPid.set(launch.pid, launch);
       continue;
     }
     const message = row.prompt?.message;
-    if (typeof message === "string") turns.push({ launch, prompt: message, ...(Array.isArray(row.prompt.images) ? { images: row.prompt.images } : {}) });
+    if (typeof message === "string") {
+      const own = typeof row.pid === "number" ? byPid.get(row.pid) ?? launch : launch;
+      turns.push({ launch: own, prompt: message, ...(Array.isArray(row.prompt.images) ? { images: row.prompt.images } : {}) });
+    }
   }
   return turns;
 }

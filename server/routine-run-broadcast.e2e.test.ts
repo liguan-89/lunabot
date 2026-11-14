@@ -10,7 +10,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_CLI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(28800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const OWNER = "owner@example.test";
@@ -80,7 +80,7 @@ posixOnly("a routine run's task on the event stream", () => {
     mkdirSync(data, { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({
       signIn: { admins: [OWNER], members: [] },
-      instances: { grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } } },
+      instances: { pi: { driver: "piAgent", config: { cli: FAKE_CLI } } },
     }));
     const registry = new SessionRegistry({ file: join(data, "sessions.json"), emailScopes: () => ["admin", "client"] });
     token = registry.issue({ label: "Owner's laptop", email: OWNER, scopes: ["admin", "client"] }).token;
@@ -116,7 +116,7 @@ posixOnly("a routine run's task on the event stream", () => {
     const created = await api("POST", "/api/bots", { name: "Report Otter" });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     const bot = created.body.bot as { id: string; threadId: string };
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "grok", model: "fake-model" } })).status).toBe(200);
+    expect((await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "pi", model: "fake-model" } })).status).toBe(200);
     // Something in the active conversation for the frame to have carried.
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Summarise the week", threadId: bot.threadId })).status).toBe(202);
     const replied = await waitFor(async () => {

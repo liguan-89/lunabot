@@ -59,7 +59,7 @@ async function fixture(over: Partial<Record<keyof BotMessageRouteDeps, unknown>>
   const startTurn: BotMessageRouteDeps["startTurn"] = async (botId, text, opts = {}) => {
     state.started.push({ text, opts });
     state.prompts.push(promptWithReply(text, opts.replyTo));
-    return store.appendMessage(opts.threadId ?? store.bot(botId)!.threadId, { role: "user", kind: "text", text, replyToId: opts.replyTo?.id, sendId: opts.sendId });
+    return store.appendMessage(opts.threadId ?? store.bot(botId)!.threadId, { role: "user", kind: "text", text, replyToId: opts.replyTo?.id, sendId: opts.sendId, ...(opts.replyTo?.widgetPress ? { widgetPress: true } : {}) });
   };
 
   const accept: BotMessageRouteDeps["acceptDirectSend"] = (input, guardedStart) => {
@@ -77,10 +77,10 @@ async function fixture(over: Partial<Record<keyof BotMessageRouteDeps, unknown>>
         if (waiting) return { ok: true as const, queued: true as const, queueId: waiting.id, threadId: input.threadId };
       }
       if (state.busy) {
-        const queued = queueSteeredMessage(input.botId, input.threadId, input.text, { replyToId: input.replyTo?.id, sendId: input.sendId });
+        const queued = queueSteeredMessage(input.botId, input.threadId, input.text, { replyToId: input.replyTo?.id, sendId: input.sendId, ...(input.replyTo?.widgetPress ? { widgetPress: true } : {}) });
         return { ok: true as const, queued: true as const, queueId: queued.id, threadId: input.threadId };
       }
-      const message = store.appendMessage(input.threadId, { role: "user", kind: "text", text: input.text, replyToId: input.replyTo?.id, sendId: input.sendId });
+      const message = store.appendMessage(input.threadId, { role: "user", kind: "text", text: input.text, replyToId: input.replyTo?.id, sendId: input.sendId, ...(input.replyTo?.widgetPress ? { widgetPress: true } : {}) });
       return { ok: true as const, threadId: input.threadId, message };
     });
   };
@@ -524,15 +524,17 @@ describe("POST /api/bots/:id/messages with widgetAction", () => {
     expect(state.prompts.at(-1)).toBe(typedForm("Merge the two ready"));
     noPress();
 
-    const pressed = await post({ threadId, sendId: "send-press-0123456789ab", widgetAction: { messageId: widgetId, ref: "confirm" } });
+    // The typed replies above withdrew that widget, so the press answers a fresh one.
+    const pressedId = show("pullRequests");
+    const pressed = await post({ threadId, sendId: "send-press-0123456789ab", widgetAction: { messageId: pressedId, ref: "confirm" } });
     expect(pressed.status, JSON.stringify(pressed.body)).toBe(202);
     expect(state.prompts.at(-1)).toContain('\npressed: "Merge the two ready"\naction: pr.merge\npayload: {"prs":[750,739]}\n--- end widget ---\n');
     const edited = await edit(pressed.body.message.id, { threadId, text: "Merge the two ready" });
     expect(edited.status, JSON.stringify(edited.body)).toBe(202);
-    expect(state.started.at(-1)).toMatchObject({ text: "Merge the two ready", opts: { editedMessageId: pressed.body.message.id, replyTo: { id: widgetId } } });
+    expect(state.started.at(-1)).toMatchObject({ text: "Merge the two ready", opts: { editedMessageId: pressed.body.message.id, replyTo: { id: pressedId } } });
     expect(state.started.at(-1)!.opts.replyTo).not.toHaveProperty("widgetPress");
     expect(state.prompts.at(-1)).toBe(typedForm("Merge the two ready"));
-    expect(sent().map((message) => message.replyToId)).toEqual([widgetId, widgetId, widgetId, widgetId]);
+    expect(sent().map((message) => message.replyToId)).toEqual([widgetId, widgetId, pressedId, pressedId]);
   });
 
   it("keeps an ordinary send as it was: text required, and a null widgetAction means no press", async () => {

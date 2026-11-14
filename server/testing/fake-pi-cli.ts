@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Fake of the pi coding agent's `--mode rpc --no-session` stdio surface for pi.ts tests. Env knobs:
 //   FAKE_PI_PERMISSION_ON  prompts containing this substring run the permission ask (Run bash: echo hi?) instead of the plan
+//   FAKE_PI_PERMISSION_ON_STEER  an accepted steer carrying this substring raises the same ask once it lands
 //   FAKE_PI_QUESTION_ON  prompts containing this substring ask a select question ("Which colour?") instead of the plan
 //   FAKE_PI_MODE  happy (default) | tooluse | priced | priced-stop | permission | interleave | question-select | question-input
 //     | turn-error | no-models | exit-early | compaction | compaction-recovery
@@ -64,13 +65,25 @@ interface RegisteredTool {
  * calls their tools through the same client, so a scripted step exercises the actual extension and agents proxy. */
 async function mountMcpTools(): Promise<MountedTool[]> {
   const tools: MountedTool[] = [];
+  // A scoped turn's receipt is written inside the extension's session_start hook, which real pi fires at boot.
+  const activeTools = new Set<string>();
+  const sessionStartHooks: (() => unknown)[] = [];
   try {
     await piMcpExtension({
       registerTool: (definition: RegisteredTool) => {
         tools.push({ name: definition.name, label: definition.label, invoke: definition.execute });
+        activeTools.add(definition.name);
       },
-      on: () => {},
+      on: (event: string, handler: () => unknown) => {
+        if (event === "session_start") sessionStartHooks.push(handler);
+      },
+      getActiveTools: () => [...activeTools],
+      setActiveTools: (names: string[]) => {
+        activeTools.clear();
+        for (const name of names) activeTools.add(name);
+      },
     });
+    for (const hook of sessionStartHooks) await hook();
     return tools;
   } catch (error) {
     process.stderr.write(`[fake-pi] mounting MCP tools failed: ${String((error as Error)?.message ?? error)}\n`);
@@ -147,6 +160,7 @@ if (process.env.FAKE_PI_DUMP) {
       JSON.stringify({
         pid: process.pid,
         argv,
+        cwd: process.cwd(),
         envConfigured: ["PATH", "HOME", "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY", "BOX_TOKEN"].filter(
           (k) => process.env[k] !== undefined,
         ),
@@ -802,7 +816,7 @@ function handle(cmd: any) {
         try {
           appendFileSync(
             process.env.FAKE_PI_DUMP,
-            JSON.stringify({ prompt: { message: cmd.message, ...(Array.isArray(cmd.images) ? { images: cmd.images } : {}) } }) + "\n",
+            JSON.stringify({ pid: process.pid, prompt: { message: cmd.message, ...(Array.isArray(cmd.images) ? { images: cmd.images } : {}) } }) + "\n",
           );
         } catch {}
       }
@@ -906,6 +920,19 @@ function handle(cmd: any) {
         return;
       }
       steerAck(cmd, !process.env.FAKE_PI_STEER_REFUSE);
+      // An accepted steer carrying this marker raises the turn's own permission ask once it lands, the way
+      // those words would run real work into something gated mid-turn.
+      const steerPermissionOn = process.env.FAKE_PI_PERMISSION_ON_STEER;
+      if (
+        !process.env.FAKE_PI_STEER_REFUSE && steerPermissionOn &&
+        typeof cmd.message === "string" && cmd.message.includes(steerPermissionOn)
+      ) {
+        send({
+          type: "extension_ui_request", id: "ask-steer", method: "confirm",
+          title: process.env.FAKE_PI_CONFIRM_TITLE ?? "Run bash: echo hi?",
+          ...(typeof process.env.FAKE_PI_CONFIRM_MESSAGE === "string" ? { message: process.env.FAKE_PI_CONFIRM_MESSAGE } : {}),
+        });
+      }
       return;
     }
     case "extension_ui_response": {
@@ -926,6 +953,9 @@ function handle(cmd: any) {
     }
     case "abort":
       turnAborted = true;
+      // A stopped turn's open dialog is gone: settle it as cancelled so a scripted ask unwinds.
+      for (const waiter of uiWaiters.values()) waiter(undefined);
+      uiWaiters.clear();
       send({ type: "turn_end", message: { stopReason: "cancelled", usage: { input: 0, output: 0 } }, usage: { input: 0, output: 0 } });
       return;
     default:

@@ -1,8 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -11,11 +11,12 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 
 let child: ChildProcess;
 let home = "";
 let base = "";
+let model = "";
 let stderr = "";
 
 const envelope = (payload: Record<string, string>) => `<openmaus-goal>${JSON.stringify(payload)}</openmaus-goal>`;
@@ -36,35 +37,43 @@ const api = async (method: string, path: string, body?: unknown): Promise<{ stat
   return { status: response.status, body: await response.json() };
 };
 
-const fixture = (displayName: string, environment: Record<string, string>) => ({
-  driver: "claudeAgent",
-  displayName,
-  environment,
-  config: { cli: FAKE_CLAUDE },
-});
+// 本版只有一个 pi 实例，环境开关却是进程级的：包一层 .mjs，按引擎 spawn 的 OMB_BOT_ID
+// 为该 bot 挑 FAKE_PI_MODE/REPLIES——与旧夹具每 bot 一台 claude 的语义一致。目录探测没有
+// OMB_BOT_ID，落到 happy 默认，requireAvailableModel 才能拿到模型列表。
+let botMapPath = "";
+
+const wrapper = (data: string, fakeCli: string, mapPath: string) => [
+  "#!/usr/bin/env node",
+  'import { existsSync, readFileSync } from "node:fs";',
+  'import { join } from "node:path";',
+  'import { pathToFileURL } from "node:url";',
+  `const bots = existsSync(${JSON.stringify(mapPath)}) ? JSON.parse(readFileSync(${JSON.stringify(mapPath)}, "utf8")) : {};`,
+  'const spec = bots[process.env.OMB_BOT_ID ?? ""] ?? {};',
+  'if (spec.compat !== false) process.env.FAKE_PI_CLAUDE_COMPAT = "1";',
+  'process.env.FAKE_PI_MODE = spec.mode ?? "happy";',
+  "if (spec.replies) {",
+  "  process.env.FAKE_PI_REPLIES = JSON.stringify(spec.replies);",
+  `  process.env.FAKE_PI_REPLY_STATE = join(${JSON.stringify(data)}, \`reply-state-\${process.env.OMB_BOT_ID}.txt\`);`,
+  "}",
+  `await import(${JSON.stringify(pathToFileURL(fakeCli).href)});`,
+].join("\n");
 
 beforeAll(async () => {
+  chmodSync(FAKE_PI, 0o755);
   home = mkdtempSync(join(tmpdir(), "omb-goal-wait-cap-"));
   const data = join(home, ".openmausbot");
   const staticDir = join(home, "static");
+  botMapPath = join(home, "goal-cap-bots.json");
+  const cliPath = join(home, "goal-cap-cli.mjs");
+  writeFileSync(cliPath, wrapper(home, FAKE_PI, botMapPath), { mode: 0o700 });
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Goal wait cap test</title>");
   writeFileSync(join(staticDir, "assets", "smoke.css"), "body{}");
   writeFileSync(join(data, "config.json"), JSON.stringify({
+    features: { smartSetupChoices: false },
     instances: {
-      reassignLead: fixture("Reassigning lead", {
-        FAKE_CLAUDE_MODE: "happy",
-        FAKE_CLAUDE_REPLIES: JSON.stringify(reassignLeadReplies),
-        FAKE_CLAUDE_REPLY_STATE: join(home, "reassign-lead-replies.txt"),
-      }),
-      hang: fixture("Hanging teammate", { FAKE_CLAUDE_MODE: "hang" }),
-      helper: fixture("Helper", {
-        FAKE_CLAUDE_MODE: "happy",
-        FAKE_CLAUDE_REPLIES: JSON.stringify(["Here is the summary draft."]),
-        FAKE_CLAUDE_REPLY_STATE: join(home, "helper-replies.txt"),
-      }),
-      crash: fixture("Crashing lead", { FAKE_CLAUDE_MODE: "exit-early" }),
+      pi: { driver: "piAgent", displayName: "Verification pi", config: { cli: cliPath } },
     },
   }));
   const port = await freePortBlock([0, 1]);
@@ -96,6 +105,13 @@ beforeAll(async () => {
     if (Date.now() >= deadline) throw new Error(`server never became healthy: ${stderr}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
+  for (;;) {
+    const found = ((await api("GET", "/api/instances")).body.instances ?? [])
+      .find((instance: { instanceId: string; models?: { default?: string } }) => instance.instanceId === "pi")?.models?.default;
+    if (found) { model = found; break; }
+    if (Date.now() >= deadline) throw new Error(`the pi instance never reported a default model: ${stderr}`);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 });
 
 afterAll(async () => {
@@ -103,12 +119,16 @@ afterAll(async () => {
   if (home) await removeTempDir(home);
 });
 
-const createBot = async (name: string, instanceId: string) =>
+const createBot = async (name: string) =>
   (await api("POST", "/api/bots", {
     name,
-    modelSelection: { instanceId, model: "claude-sonnet-5" },
+    modelSelection: { instanceId: "pi", model },
     requireAvailableModel: true,
   })).body.bot;
+
+/** botId -> { mode, replies }: written before the bots' first turn; the wrapper reads it at every spawn. */
+const flavors = (entries: Record<string, { mode?: string; replies?: string[]; compat?: boolean }>) =>
+  writeFileSync(botMapPath, JSON.stringify(entries));
 
 const createRoom = async (name: string, leadId: string, memberIds: string[]) =>
   (await api("POST", "/api/groups", {
@@ -125,7 +145,8 @@ const roomState = async (roomId: string) => {
 };
 
 const holdBusy = async (botId: string, text: string) => {
-  expect((await api("POST", `/api/bots/${botId}/messages`, { text })).status).toBe(202);
+  const posted = await api("POST", `/api/bots/${botId}/messages`, { text });
+  expect(posted.status, JSON.stringify(posted.body)).toBe(202);
   await expect.poll(async () => {
     const state = (await api("GET", "/api/bots?messages=0")).body;
     return state.bots.find((bot: { id: string }) => bot.id === botId)?.busy;
@@ -134,9 +155,14 @@ const holdBusy = async (botId: string, text: string) => {
 
 describe("goal wait cap and transient retry", () => {
   it("reassigns through the lead when a worker stays busy past the cap, and still completes", async () => {
-    const lead = await createBot("Lead", "reassignLead");
-    const hang = await createBot("Hang", "hang");
-    const helper = await createBot("Helper", "helper");
+    const lead = await createBot("Lead");
+    const hang = await createBot("Hang");
+    const helper = await createBot("Helper");
+    flavors({
+      [lead.id]: { replies: reassignLeadReplies },
+      [hang.id]: { mode: "hang" },
+      [helper.id]: { replies: ["Here is the summary draft."] },
+    });
     const room = await createRoom("Wait cap team", lead.id, [lead.id, hang.id, helper.id]);
 
     // the worker is stuck in an unrelated direct turn that never settles
@@ -175,8 +201,9 @@ describe("goal wait cap and transient retry", () => {
   });
 
   it("ends blocked, not failed, when the lead itself stays busy past the cap", async () => {
-    const lead = await createBot("Stuck lead", "hang");
-    const helper = await createBot("Idle helper", "helper");
+    const lead = await createBot("Stuck lead");
+    const helper = await createBot("Idle helper");
+    flavors({ [lead.id]: { mode: "hang" }, [helper.id]: { replies: ["Here is the summary draft."] } });
     const room = await createRoom("Stuck lead team", lead.id, [lead.id, helper.id]);
 
     await holdBusy(lead.id, "Never finish this either");
@@ -195,8 +222,9 @@ describe("goal wait cap and transient retry", () => {
   });
 
   it("retries a lead whose provider dies exactly once before the run fails", async () => {
-    const lead = await createBot("Crashing lead", "crash");
-    const helper = await createBot("Spare helper", "helper");
+    const lead = await createBot("Crashing lead");
+    const helper = await createBot("Spare helper");
+    flavors({ [lead.id]: { mode: "turn-error", compat: false }, [helper.id]: { replies: ["Here is the summary draft."] } });
     const room = await createRoom("Crash team", lead.id, [lead.id, helper.id]);
 
     expect((await api("POST", `/api/groups/${room.id}/messages`, { text: "Try anyway", mode: "goal" })).status).toBe(202);
@@ -206,8 +234,6 @@ describe("goal wait cap and transient retry", () => {
       return { cards: cards.length, status: cards[0]?.goalRun?.status };
     }, { timeout: 20_000 }).toEqual({ cards: 1, status: "failed" });
 
-    const state = (await api("GET", `/api/groups/${room.id}/goal-runs`)).body;
-    void state;
     const { room: current } = await roomState(room.id);
     const activity = current?.messages.filter((message: { kind: string }) => message.kind === "activity") ?? [];
     const failures = activity.filter((message: { tool?: { name?: string } }) => /error:/i.test(message.tool?.name ?? ""));
@@ -215,8 +241,9 @@ describe("goal wait cap and transient retry", () => {
   });
 
   it("chat: a responder that stays busy past the cap is skipped with the bounded truth, and the next responder still runs", async () => {
-    const stuck = await createBot("Stuck", "hang");
-    const helper = await createBot("Chat helper", "helper");
+    const stuck = await createBot("Stuck");
+    const helper = await createBot("Chat helper");
+    flavors({ [stuck.id]: { mode: "hang" }, [helper.id]: { replies: ["Here is the summary draft."] } });
     const room = (await api("POST", "/api/groups", {
       name: "Wait cap chat",
       memberIds: [stuck.id, helper.id],

@@ -1,8 +1,7 @@
-// The fake Claude CLI in `slow` mode holds the turn behind a gate; the test drives the broker directly, as the permission proxy does. POSIX-gated.
+// The fake pi CLI in `slow` mode holds the turn behind a gate; a steer carrying the marker raises the turn's
+// own permission ask after it lands — what the broker socket once took mid-turn for the retired engine. POSIX-gated.
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash } from "node:crypto";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,14 +11,18 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const posixOnly = describe.skipIf(process.platform === "win32");
+
+// A steer whose text carries this marker makes the fixture raise the permission ask once it lands.
+const STEER_ASK = "permission please";
 
 let child: ChildProcess;
 let home = "";
 let base = "";
 let stderr = "";
 let finishGate = "";
+let model = "";
 
 const api = async (method: string, path: string, body?: unknown): Promise<{ status: number; body: any }> => {
   const res = await fetch(`${base}${path}`, {
@@ -33,59 +36,31 @@ const getBot = async (id: string) => (await api("GET", "/api/bots?messages=0")).
 const threadMessages = async (threadId: string): Promise<Array<{ kind: string; card?: { requestId?: string; answered?: string } }>> =>
   (await api("GET", `/api/threads/${threadId}/messages`)).body.messages ?? [];
 
-/** Duplicated, not imported: DATA_DIR there is fixed at import time from this process's HOME. Keep in lockstep with claude.ts. */
-function brokerCandidates(threadId: string, botId: string): string[] {
-  const dataDir = join(home, ".openmausbot");
-  const prefix = threadId.replace(/[^\w-]/g, "").slice(0, 4);
-  const digest = createHash("sha256").update(`${botId}\0${threadId}`).digest("hex").slice(0, 4);
-  const scope = createHash("sha256").update(`${dataDir}\0${child.pid}\0${botId}\0${threadId}`).digest("hex").slice(0, 16);
-  return [join(dataDir, `perm-${prefix}${digest}.sock`), join(tmpdir(), `omb-perm-${scope}.sock`)];
-}
-
-async function connectBroker(threadId: string, botId: string): Promise<Socket> {
-  await expect.poll(() => brokerCandidates(threadId, botId).some((path) => existsSync(path)), { timeout: 20_000 }).toBe(true);
-  for (const path of brokerCandidates(threadId, botId)) {
-    if (!existsSync(path)) continue;
-    const socket = await new Promise<Socket | null>((resolve) => {
-      const conn = connect(path);
-      conn.once("connect", () => resolve(conn));
-      conn.once("error", () => resolve(null));
-    });
-    if (socket) return socket;
-  }
-  throw new Error(`no broker socket among ${brokerCandidates(threadId, botId).join(", ")}`);
-}
-
-function ask(conn: Socket, id: string, command: string): { answered: () => boolean } {
-  let answered = false;
-  conn.on("data", (chunk: Buffer) => {
-    for (const line of chunk.toString().split("\n")) {
-      if (!line) continue;
-      try {
-        const msg = JSON.parse(line);
-        if (msg.t === "answer" && msg.id === id) answered = true;
-      } catch {
-      }
-    }
-  });
-  conn.write(JSON.stringify({ t: "ask", id, kind: "permission", tool: "Bash", input: { command } }) + "\n");
-  return { answered: () => answered };
+/** The turn's own permission ask lands as a card on its conversation; `answered()` is whether anything already replied. */
+function ask(threadId: string, requestId: string): { answered: () => Promise<boolean> } {
+  return {
+    answered: async () =>
+      (await threadMessages(threadId)).find((m) => m.card?.requestId === requestId)?.card?.answered !== undefined,
+  };
 }
 
 posixOnly("a steered message does not lift the unattended mark on its own", () => {
   beforeAll(async () => {
-    chmodSync(FAKE_CLAUDE, 0o755);
+    chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-unattended-"));
     const data = join(home, ".openmausbot");
     mkdirSync(data, { recursive: true });
     finishGate = join(home, "finish.gate");
     writeFileSync(join(data, "config.json"), JSON.stringify({
       instances: {
-        claude: {
-          driver: "claudeAgent",
-          environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: finishGate },
-          // acceptEdits: permission asks reach the broker, where a real tool call's ask would arrive.
-          config: { cli: FAKE_CLAUDE, permissionMode: "acceptEdits" },
+        pi: {
+          driver: "piAgent",
+          // The webhook turn holds behind the gate; the steered line carries the marker its ask waits on.
+          environment: {
+            FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: finishGate, FAKE_PI_PERMISSION_ON_STEER: STEER_ASK,
+            FAKE_PI_PROMPTS: join(home, "prompts.jsonl"),
+          },
+          config: { cli: FAKE_PI },
         },
       },
     }));
@@ -99,8 +74,6 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
         USERPROFILE: home,
         OMB_PORT: String(port),
         OMB_WEBHOOK_PORT: String(port + 1),
-        // Under a deep HOME the broker falls back to os.tmpdir(); the child has to agree with this process about where that is.
-        TMPDIR: tmpdir(),
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -115,6 +88,16 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
       if (Date.now() > deadline) throw new Error(`server never came up. stderr:\n${stderr}`);
       await new Promise((resolve) => setTimeout(resolve, 150));
     }
+    for (;;) {
+      const state = await (await fetch(`${base}/api/instances`)).json() as any;
+      const found = (state.instances ?? []).find((instance: { instanceId: string; models?: { default?: string } }) => instance.instanceId === "pi");
+      if (found?.models?.default) {
+        model = found.models.default;
+        break;
+      }
+      if (Date.now() > deadline) throw new Error(`the pi instance never reported a default model: ${stderr}`);
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
   }, 40_000);
 
   afterAll(async () => {
@@ -128,7 +111,7 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
     // auto mode ON: an attended turn would sail straight through
     expect((await api("PATCH", `/api/bots/${bot.id}`, {
       autoApprove: true,
-      modelSelection: { instanceId: "claude", model: "claude-fake" },
+      modelSelection: { instanceId: "pi", model },
     })).status).toBe(200);
     const hook = await api("POST", "/api/webhooks", {
       name: "Nightly build",
@@ -155,24 +138,25 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
     await expect.poll(async () => (await getBot(bot.id))?.busy === true && (await getBot(bot.id))?.threadId !== runThreadId, {
       timeout: 20_000,
     }).toBe(true);
+    // busy flips at dispatch, before the driver owns the turn: a steer sent now would refuse into the queue. Only a
+    // prompt the fake took proves the driver's live entry — the broker socket's existence did the same waiting before.
+    const prompts = join(home, "prompts.jsonl");
+    await expect.poll(() => existsSync(prompts) && readFileSync(prompts, "utf8").trim().length > 0, { timeout: 20_000 }).toBe(true);
 
-    const conn = await connectBroker(runThreadId, bot.id);
     try {
-      const steer = await api("POST", `/api/bots/${bot.id}/messages`, { text: "continue", threadId: runThreadId });
+      const steer = await api("POST", `/api/bots/${bot.id}/messages`, { text: `continue — ${STEER_ASK}`, threadId: runThreadId });
       expect(steer.status).toBe(202);
       expect(steer.body.steered).toBe(true);
 
-      // An ordinary command on purpose: the destructive guard would card `rm -rf` whatever the mark said.
-      const second = ask(conn, "ask-after-steer", "ls -la ./dist");
+      const second = ask(runThreadId, "ask-steer");
       await expect.poll(
-        async () => (await threadMessages(runThreadId)).some((m) => m.kind === "options" && m.card?.requestId === "ask-after-steer"),
+        async () => (await threadMessages(runThreadId)).some((m) => m.kind === "options" && m.card?.requestId === "ask-steer"),
         { timeout: 20_000 },
       ).toBe(true);
-      const card = (await threadMessages(runThreadId)).find((m) => m.card?.requestId === "ask-after-steer");
+      const card = (await threadMessages(runThreadId)).find((m) => m.card?.requestId === "ask-steer");
       expect(card?.card?.answered, "the steered turn auto-approved — the self-POST lifted the unattended mark").toBeUndefined();
-      expect(second.answered()).toBe(false);
+      expect(await second.answered()).toBe(false);
     } finally {
-      conn.destroy();
       writeFileSync(finishGate, "finish");
       await api("POST", `/api/bots/${bot.id}/interrupt`, {}).catch(() => undefined);
     }

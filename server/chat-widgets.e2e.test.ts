@@ -75,21 +75,34 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
     expect(typedPrompt).not.toMatch(/pressed:|action:|payload:|routine\.create/);
     expect(typedPrompt).not.toContain("your session has not seen yet");
     await settledTurn();
-    expect((await transcript()).find((message) => message.id === draft.messageId).widget).not.toHaveProperty("settled");
+    // A typed reply leaves the widget unanswered but withdraws it: only presses settle.
+    const withdrawnDraft = (await transcript()).find((message) => message.id === draft.messageId).widget;
+    expect(withdrawnDraft).not.toHaveProperty("settled");
+    expect(withdrawnDraft).toMatchObject({ withdrawn: { at: expect.any(Number) } });
 
+    // The withdrawn widget refuses presses, so the next gated turn shows a fresh one.
     unlinkSync(gate);
+    await control("send", "--bot", bot.id, "--task", bot.threadId, "--text", "Show it again");
+    await expect.poll(() => Boolean(token = piAgentsToken(piTurnHolding(dumpPath, "Show it again")) ?? ""), { timeout: 15_000 }).toBe(true);
+    const liveDraft = await card({ tool: "show_widget", widget: { type: "Card", title: "Looking for open pull requests", children: [{ type: "Progress", value: 0.3 }] } }, 201, token);
+    await card({ tool: "update_widget", widget_id: liveDraft.messageId, widget: WIDGET_SAMPLES.routineForm }, 201, token);
+    const live = { messageId: liveDraft.messageId };
+    writeFileSync(gate, "finish");
+    await settledTurn();
+
     const sendId = "widget-press-0123456789";
-    const press = { threadId: bot.threadId, sendId, widgetAction: { messageId: draft.messageId, ref: "confirm", rev: 1, values: { days: "mon,tue,wed,thu,fri,sat,sun", report: "discord:releases", stopOnRed: false } } };
-    for (const stale of [{ messageId: draft.messageId, ref: "confirm" }, { messageId: draft.messageId, ref: "confirm", rev: 0 }]) {
+    const press = { threadId: bot.threadId, sendId, widgetAction: { messageId: live.messageId, ref: "confirm", rev: 1, values: { days: "mon,tue,wed,thu,fri,sat,sun", report: "discord:releases", stopOnRed: false } } };
+    for (const stale of [{ messageId: live.messageId, ref: "confirm" }, { messageId: live.messageId, ref: "confirm", rev: 0 }]) {
       expect(await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, sendId, widgetAction: stale }, 409)).toEqual({ error: "This widget changed. Check it and press again." });
     }
     expect(await api("POST", `/api/bots/${bot.id}/messages`, { ...press, widgetAction: { ...press.widgetAction, values: { at: "" } } }, 400)).toEqual({ error: "At is required." });
-    expect(await api("POST", `/api/bots/${bot.id}/messages`, { ...press, widgetAction: { messageId: draft.messageId, ref: "n999", rev: 1 } }, 404)).toEqual({ error: "That button is no longer on this widget." });
-    expect((await transcript()).filter((message) => message.role === "user")).toHaveLength(2);
+    expect(await api("POST", `/api/bots/${bot.id}/messages`, { ...press, widgetAction: { messageId: live.messageId, ref: "n999", rev: 1 } }, 404)).toEqual({ error: "That button is no longer on this widget." });
+    expect((await transcript()).filter((message) => message.role === "user")).toHaveLength(3);
 
     const text = "Create routine\nRuns on: Every day\nStarts: 2026-10-14\nAt: 09:00\nReport to: Discord · #releases";
+    unlinkSync(gate);
     const first = await api("POST", `/api/bots/${bot.id}/messages`, press, 202);
-    expect(first).toMatchObject({ ok: true, threadId: bot.threadId, message: { role: "user", kind: "text", text, replyToId: draft.messageId, sendId } });
+    expect(first).toMatchObject({ ok: true, threadId: bot.threadId, message: { role: "user", kind: "text", text, replyToId: live.messageId, sendId } });
     // The engine stays warm between these turns, so its dump is rewritten in place.
     await expect.poll(turnPrompt, { timeout: 15_000 }).toContain('pressed: "Create routine"');
     const prompt = turnPrompt();
@@ -105,7 +118,7 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
     expect(prompt).not.toContain("your session has not seen yet");
     expect(prompt.split("**New routine: release check**")).toHaveLength(2);
 
-    const settled = (await transcript()).find((message) => message.id === draft.messageId).widget.settled;
+    const settled = (await transcript()).find((message) => message.id === live.messageId).widget.settled;
     expect(settled).toEqual({
       ref: "confirm", label: "Create routine", tone: "confirm", at: expect.any(Number), sendId,
       values: { days: "mon,tue,wed,thu,fri,sat,sun", starts: "2026-10-14", at: "09:00", report: "discord:releases", stopOnRed: false },
@@ -113,12 +126,12 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
 
     const retry = await api("POST", `/api/bots/${bot.id}/messages`, press, 202);
     expect(retry.message.id).toBe(first.message.id);
-    for (const widgetAction of [press.widgetAction, { messageId: draft.messageId, ref: "cancel" }]) {
+    for (const widgetAction of [press.widgetAction, { messageId: live.messageId, ref: "cancel" }]) {
       expect(await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, sendId: "widget-press-another-01", widgetAction }, 409))
         .toEqual({ error: "This was already answered." });
     }
     token = piAgentsToken(piTurns(dumpPath).at(-1))!;
-    expect(await card({ tool: "update_widget", widget_id: draft.messageId, widget: WIDGET_SAMPLES.buildStatus }, 409, token))
+    expect(await card({ tool: "update_widget", widget_id: live.messageId, widget: WIDGET_SAMPLES.buildStatus }, 409, token))
       .toEqual({ error: "The person already answered that widget. Show a new one." });
     const next = await card({ tool: "show_widget", widget: WIDGET_SAMPLES.buildStatus, fallback_text: "  Build 25 is uploading.  " }, 201, token);
     writeFileSync(gate, "finish");
@@ -127,15 +140,18 @@ it("shows, replaces and answers a widget on a bot's own conversation, once per p
 
     const after = await transcript();
     expect(after.filter((message) => message.role === "user").map((message) => [message.text, message.replyToId, message.sendId]))
-      .toEqual([["What is open?", undefined, expect.stringMatching(/^cli-/)], ["Create routine", draft.messageId, undefined], [text, draft.messageId, sendId]]);
-    expect(after.find((message) => message.id === draft.messageId).widget.settled).toEqual(settled);
+      .toEqual([["What is open?", undefined, expect.stringMatching(/^cli-/)], ["Create routine", draft.messageId, undefined], ["Show it again", undefined, expect.stringMatching(/^cli-/)], [text, live.messageId, sendId]]);
+    expect(after.find((message) => message.id === live.messageId).widget.settled).toEqual(settled);
     expect(after.find((message) => message.id === next.messageId)).toMatchObject({ kind: "widget", text: "Build 25 is uploading." });
 
     const listed = (await control("messages", "--bot", bot.id, "--task", bot.threadId, "--limit", "30")).messages as any[];
     expect(listed.find((message) => message.id === draft.messageId)).toMatchObject({
-      kind: "widget", text: shown.text, widget: { v: 1, rev: 1, root: { type: "Card", title: "New routine: release check" }, settled: { ref: "confirm", sendId } },
+      kind: "widget", text: shown.text, widget: { v: 1, rev: 1, root: { type: "Card", title: "New routine: release check" }, withdrawn: { at: expect.any(Number) } },
     });
-    expect(listed.find((message) => message.id === first.message.id)).toMatchObject({ role: "user", replyToId: draft.messageId });
+    expect(listed.find((message) => message.id === live.messageId)).toMatchObject({
+      kind: "widget", text: shown.text, widget: { settled: { ref: "confirm", sendId } },
+    });
+    expect(listed.find((message) => message.id === first.message.id)).toMatchObject({ role: "user", replyToId: live.messageId });
     const exported = await (await fetch(`${fixture.info.url}/api/threads/${bot.threadId}/export`, { headers: { origin: fixture.info.url } })).text();
     expect(exported).toContain(`**Scout:**\n\n${shown.text}\n`);
     expect(exported).toContain("Create routine\nRuns on: Every day");

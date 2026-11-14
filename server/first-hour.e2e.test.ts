@@ -1,13 +1,13 @@
-// A new personal Cloud's first hour end to end on a real Cloud home (temporary home, the fake Claude CLI, a stand-in for
+// A new personal Cloud's first hour end to end on a real Cloud home (temporary home, the fake pi CLI, a stand-in for
 // the connected-apps service): the greeting by name, the connect offer after the first answer, the first look with
 // drafts and nothing sent, the morning brief said once and timed, the phone offered, and what the Admin reads. Nothing
 // here reaches a real Google account or a model.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { cloudPairingSignature, cloudRequestSignature } from "./cloud-home.ts";
@@ -15,6 +15,7 @@ import { MORNING_WAKE_EARLY_MS } from "./host/brief.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piInstructionsAt, piTurnIndex, piTurns } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0f1e2d3c4b5a.fly.dev";
@@ -30,7 +31,7 @@ let home = "", dataDir = "", base = "", log = "", token = "";
 let child: ChildProcess | undefined;
 let broker: BrokerFake;
 let person = "";
-const dumpFile = () => join(home, "turn.json");
+const dump = () => piDumpPath(dataDir);
 const toolCalls = () => join(home, "tool-calls.json");
 
 async function api(method: string, path: string, body?: unknown) {
@@ -58,7 +59,8 @@ async function signed(path: string, method = "GET", body = "") {
   return response.json() as Promise<any>;
 }
 
-const multi = (slug: string, args: Record<string, unknown>) => ({ name: "COMPOSIO_MULTI_EXECUTE_TOOL", server: "composio", input: { tools: [{ tool_slug: slug, arguments: args }] } });
+// The mounted tool's pi name is the server's and the tool's, lowercased and joined: composio's multi-execute.
+const multi = (slug: string, args: Record<string, unknown>) => ({ name: "composio_composio_multi_execute_tool", server: "composio", input: { tools: [{ tool_slug: slug, arguments: args }] } });
 const localClock = (ms: number) => new Intl.DateTimeFormat("en-US", { timeZone: ZONE, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
 
 describe("a new Cloud's first hour", () => {
@@ -83,20 +85,16 @@ describe("a new Cloud's first hour", () => {
     const markers = join(home, "markers.json");
     writeFileSync(markers, JSON.stringify({ "DEX BOT first look": LOOK_REPLY, "inbox is a mess": FIRST_REPLY }));
     writeFileSync(toolCalls(), "[]");
-    const cli = join(home, "fake-claude.mjs");
-    writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "sam.lee@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(dumpFile())};
-process.env.FAKE_CLAUDE_MARKER_REPLIES = ${JSON.stringify(markers)};
-process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = ${JSON.stringify(toolCalls())};
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+    const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+    chmodSync(cli, 0o755);
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({
       profile: { name: "Sam Lee" },
       instances: {
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", displayName: "Fixture", config: { cli } },
+        pi: { driver: "piAgent", displayName: "Fixture", config: { cli }, environment: {
+          // The compat path is the one that plays a turn's scripted calls and answers a marker's reply.
+          FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_DUMP: dump(),
+          FAKE_PI_MARKER_REPLIES: markers, FAKE_PI_TOOL_CALLS_FILE: toolCalls(),
+        } },
       },
     }));
     const port = await freePortBlock([0, 1]);
@@ -166,9 +164,10 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     const offer = rows.findIndex((row) => row.role === "bot" && row.kind === "text" && row.text.startsWith("So I can see what needs you today, connect Gmail and Google Calendar."));
     expect(offer).toBeGreaterThan(rows.findIndex((row) => row.text === FIRST_REPLY));
     expect(offer).toBeLessThan(rows.findIndex((row) => row.kind === "connector"));
-    const dump = JSON.parse(readFileSync(dumpFile(), "utf8"));
-    expect(String(dump.systemPrompt)).toContain("This is Sam's first day with you on their new Cloud.");
-    expect(String(dump.systemPrompt)).toContain("never call COMPOSIO_MANAGE_CONNECTIONS for them");
+    const turns = piTurns(dump());
+    const instructions = piInstructionsAt(turns, piTurnIndex(turns, "inbox is a mess"));
+    expect(instructions).toContain("This is Sam's first day with you on their new Cloud.");
+    expect(instructions).toContain("never call COMPOSIO_MANAGE_CONNECTIONS for them");
   }, 90_000);
 
   it("the moment Gmail is in, delivers a first look whose replies are drafts, and nothing is sent or deleted", async () => {
@@ -192,8 +191,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     const rows = await messages();
     expect(rows.some((row) => row.role === "user" && String(row.text).includes("DEX BOT first look")), "the first look's prompt is never the person's message").toBe(false);
     expect(rows.find((row) => row.id === gmail.id).connector).toMatchObject({ status: "connected", resumed: true });
-    const dump = JSON.parse(readFileSync(dumpFile(), "utf8"));
-    expect(JSON.stringify(dump.prompt)).toContain("DEX BOT first look: Sam just connected Gmail.");
+    expect(piTurns(dump()).some((turn) => turn.prompt.includes("DEX BOT first look: Sam just connected Gmail."))).toBe(true);
     const month = new Date().toISOString().slice(0, 7);
     const decisions = existsSync(join(dataDir, "decisions")) ? readdirSync(join(dataDir, "decisions")).filter((name) => name.startsWith(month)).map((name) => readFileSync(join(dataDir, "decisions", name), "utf8")).join("") : "";
     expect(decisions).toContain(`"tool":"${SEND}"`);

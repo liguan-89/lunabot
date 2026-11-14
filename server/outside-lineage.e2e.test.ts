@@ -1,9 +1,10 @@
 // Work that came in from outside stays with that work, on a real Team Cloud, a personal Cloud someone else has used and a
-// desktop, with the fake engine: the level each turn really got, read from what the engine was started with.
+// desktop, with the fake pi: the level each turn really got, read from the MCP config its process was started with.
 import { randomBytes } from "node:crypto";
-import { existsSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { delimiter, join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
@@ -11,41 +12,76 @@ import { OUTSIDE_REFUSAL } from "./host/outside-fence.ts";
 import { OUTSIDE_STAYS_HERE } from "./host/outside-lineage.ts";
 import { markLeftBehind } from "./testing/cloud-left-behind.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsAt, piTurns, piTurnText, type PiLaunch } from "./testing/pi-dump.ts";
 
 const tag = randomBytes(6).toString("hex");
-const dump = join(tmpdir(), `outside-${tag}.json`), release = join(tmpdir(), `outside-${tag}.release`), failing = join(tmpdir(), `outside-${tag}.fail`), notes = join(tmpdir(), `outside-${tag}.notes`),
+const dump = join(tmpdir(), `outside-${tag}.jsonl`), release = join(tmpdir(), `outside-${tag}.release`), failing = join(tmpdir(), `outside-${tag}.fail`),
   holding = join(tmpdir(), `outside-${tag}.holding`), held = join(tmpdir(), `outside-${tag}.held`);
-const engine = `const { existsSync: __has } = await import("node:fs"); process.env.FAKE_CLAUDE_MODE = __has(${JSON.stringify(failing)}) ? "exit-early" : "hang"; process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(dump)}; process.env.FAKE_CLAUDE_RELEASE = __has(${JSON.stringify(holding)}) ? ${JSON.stringify(held)} : ${JSON.stringify(release)}; process.env.FAKE_CLAUDE_TEXT_FILE = ${JSON.stringify(notes)}; process.env.FAKE_CLAUDE_TEXT_DUMP = ${JSON.stringify(`${notes}.dump`)};`;
+const FAKE_PI = fileURLToPath(new URL("./testing/fake-pi-cli.ts", import.meta.url));
 const KEY = randomBytes(16).toString("hex");
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-const read = () => { try { return JSON.parse(readFileSync(dump, "utf8")); } catch { return null; } };
-async function until<V>(what: string, fn: () => Promise<V> | V, ms = hostTimeout(30_000)): Promise<V> {
+async function until<V>(what: string, fn: () => Promise<V> | V, ms = hostTimeout(30_000)): Promise<NonNullable<V>> {
   const end = Date.now() + ms;
   for (;;) {
     const value = await fn();
-    if (value) return value;
+    if (value) return value as NonNullable<V>;
     if (Date.now() > end) throw new Error(`timed out: ${what}`);
     await sleep(100);
   }
 }
-const said = (marker: string, where: "prompt" | "systemPrompt" = "prompt") => { const turn = read(); return turn && JSON.stringify(turn[where] ?? "").includes(marker) ? turn : null; };
-const turnWith = (marker: string, where: "prompt" | "systemPrompt" = "prompt") => until(`a turn with ${marker}`, () => said(marker, where));
-const confined = (turn: { argv: string[] }) => turn.argv.includes("--restricted");
+type Turn = { prompt: string; systemPrompt: string; launch: PiLaunch | null };
+const said = (marker: string): Turn | null => {
+  const turns = piTurns(dump);
+  for (let index = turns.length - 1; index >= 0; index--) {
+    const found = turns[index]!;
+    if (!piTurnText(found).includes(marker)) continue;
+    // A warm child's second turn shares its launch: rebuild that session's instructions, not another process's.
+    const session = turns.slice(0, index + 1).filter((turn) => turn.launch === found.launch);
+    return { prompt: piTurnText(found), systemPrompt: piInstructionsAt(session, session.length - 1), launch: found.launch };
+  }
+  return null;
+};
+const turnWith = (marker: string) => until(`a turn with ${marker}`, () => said(marker));
+const confined = (turn: Turn) => {
+  const deny = (turn.launch?.mcpConfig?.toolScope as { deny?: unknown } | undefined)?.deny;
+  return Array.isArray(deny) && deny.includes("native:*");
+};
+const atFull = (turn: Turn) => turn.launch?.mcpConfig?.approvalMode === "full";
 const skillNamed = (name: string) => ({ name, description: "Write the digest.", source: "local:test", enabled: true, text: `---\nname: ${name}\ndescription: Write the digest.\n---\n\nWrite the digest.\n` });
-const atFull = (turn: { argv: string[] }) => turn.argv[turn.argv.indexOf("--permission-mode") + 1] === "bypassPermissions";
 
-let fx: CloudSendFixture, team: CloudTeamFixture, ada: string;
+let fx: CloudSendFixture, team: CloudTeamFixture, ada: string, binDir = "", priorPath = "";
 beforeAll(async () => {
-  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-${randomBytes(8).toString("hex")}`, cloudEngine: engine, desktopEngine: engine, env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY },
-    team: { id: "team-acme-1", name: "Acme", engine } });
+  // Every home resolves the one pi instance from PATH; a stand-in `pi` runs the repository's fake in its retired-Claude
+  // compatibility mode, so each turn waits on this file's gate and each launch's config lands in one shared log.
+  binDir = mkdtempSync(join(tmpdir(), `omb-outside-pi-${tag}-`));
+  writeFileSync(join(binDir, "pi"), [
+    "#!/usr/bin/env node",
+    'const { existsSync } = require("node:fs");',
+    `process.env.FAKE_PI_CLAUDE_COMPAT = "1";`,
+    // Mount the turn's MCP servers through the real extension at boot: a scoped launch must leave its scope-ready
+    // receipt or the driver never sends the prompt.
+    `process.env.FAKE_PI_MOUNT_TOOLS = "1";`,
+    `process.env.FAKE_PI_MODE = existsSync(${JSON.stringify(failing)}) ? "exit-early" : "hang";`,
+    // Only a turn's spawn carries the MCP config: model probes and --version calls must not enter the launch log.
+    `if (process.env.OMB_MCP_CONFIG) process.env.FAKE_PI_DUMP = ${JSON.stringify(dump)};`,
+    `process.env.FAKE_PI_RELEASE = existsSync(${JSON.stringify(holding)}) ? ${JSON.stringify(held)} : ${JSON.stringify(release)};`,
+    `import(${JSON.stringify(pathToFileURL(FAKE_PI).href)}).catch((error) => { process.stderr.write(String(error) + "\\n"); process.exit(1); });`,
+  ].join("\n"), { mode: 0o755 });
+  priorPath = process.env.PATH ?? "";
+  process.env.PATH = [binDir, priorPath].filter(Boolean).join(delimiter);
+  fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-${randomBytes(8).toString("hex")}`, env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY, OMB_BOT_BOX: "0" },
+    team: { id: "team-acme-1", name: "Acme" } });
   team = fx.team!;
   ada = (await team.pair({ email: "ada@acme.test", role: "admin" })).token!;
 }, hostTimeout(180_000));
 afterAll(async () => {
   writeFileSync(release, "");
+  writeFileSync(held, "");
   await sleep(500);
   await fx?.close?.();
-  for (const file of [dump, release, failing, notes, `${notes}.dump`, holding, held]) rmSync(file, { force: true });
+  for (const file of [dump, release, failing, holding, held]) rmSync(file, { force: true });
+  if (priorPath) process.env.PATH = priorPath;
+  if (binDir) rmSync(binDir, { recursive: true, force: true });
 });
 
 const newBot = async (name: string, level = "full") => {
@@ -76,11 +112,12 @@ const idle = (...ids: string[]) => until(`${ids} idle`, async () => {
   const bots = (await team.as(ada, "GET", "/api/bots")).body.bots as any[];
   return ids.every((id) => !bots.find((bot) => bot.id === id)?.busy);
 }, hostTimeout(40_000));
+// The launch log stays: a warm child's second turn has no new launch line, and its own is what a confined check reads.
 const finish = async (...ids: string[]) => {
   writeFileSync(release, ""); writeFileSync(held, "");
   await idle(...ids);
   await sleep(300);
-  for (const file of [release, held, holding, dump]) rmSync(file, { force: true });
+  for (const file of [release, held, holding]) rmSync(file, { force: true });
 };
 const linesOf = async (threadId: string) => (await team.as(ada, "GET", `/api/threads/${threadId}/messages?limit=200`)).body.messages as any[];
 /** The webhook's turn is running on `bot`. */
@@ -252,7 +289,7 @@ describe("a Team Cloud", () => {
     expect((await team.as(ada, "POST", `/api/bots/${handedTo.id}/messages`, { text: "person-chat-with-mate", threadId: theirs })).status).toBe(202);
     const brief = await turnWith("person-chat-with-mate");
     expect(confined(brief)).toBe(false);
-    expect(JSON.stringify(brief.systemPrompt)).not.toContain("· work");
+    expect(brief.systemPrompt).not.toContain("· work");
     await finish(handedTo.id);
     const mine = (await team.as(ada, "POST", `/api/bots/${scout.id}/tasks`, { title: "Mine" })).body.task.threadId as string;
     expect(mine).not.toBe(thread);
@@ -277,12 +314,13 @@ describe("a Team Cloud", () => {
     await finish(chief.id, mate.id);
     expect((await team.as(ada, "POST", `/api/groups/${room.id}/messages`, { text: "room-before-card" })).status).toBeLessThan(300);
     const roomTurn = await turnWith("room-before-card");
-    expect(JSON.stringify(roomTurn.systemPrompt)).not.toContain("bulletin-from-outside");
-    expect(JSON.stringify(roomTurn.systemPrompt)).toContain("as it was");
+    expect(roomTurn.systemPrompt).not.toContain("bulletin-from-outside");
+    expect(roomTurn.systemPrompt).toContain("as it was");
     await finish(chief.id, mate.id);
     expect((await team.as(ada, "POST", `/api/bots/${chief.id}/messages`, { text: "chief-before-card", threadId: chief.threadId })).status).toBe(202);
     const before = await turnWith("chief-before-card");
-    expect(JSON.stringify({ system: before.systemPrompt, prompt: before.prompt })).not.toContain("memory-from-outside");
+    expect(before.systemPrompt).not.toContain("memory-from-outside");
+    expect(before.prompt).not.toContain("memory-from-outside");
     await finish(chief.id);
     const member = (await team.pair({ email: "ben@acme.test", role: "member" })).token!;
     const answer = (token: string, requestId: string) => team.as(token, "POST", `/api/threads/${thread}/respond`, { requestId, behavior: "allow" });
@@ -292,7 +330,7 @@ describe("a Team Cloud", () => {
     expect(((await team.as(ada, "GET", "/api/bots?messages=0")).body.groups as any[]).find((group) => group.id === room.id).bulletin).toBe("bulletin-from-outside");
     expect((await team.as(ada, "POST", `/api/bots/${chief.id}/messages`, { text: "chief-after-card", threadId: chief.threadId })).status).toBe(202);
     const after = await turnWith("chief-after-card");
-    expect(JSON.stringify({ system: after.systemPrompt, prompt: after.prompt })).toContain("memory-from-outside");
+    expect(after.systemPrompt).toContain("memory-from-outside");
     await finish(chief.id);
   }, hostTimeout(180_000));
 
@@ -338,36 +376,9 @@ describe("a Team Cloud", () => {
     await finish(chief.id);
   }, hostTimeout(120_000));
 
-  it("saves nothing from a confined conversation into a bot's memory or log on its own, where a person's own chat is saved", async () => {
-    writeFileSync(notes, JSON.stringify({ facts: [{ text: "fact-from-a-chat", kind: "decision" }] }));
-    expect((await team.as(ada, "PUT", "/api/config", { memory: { captureQuietMs: 1_000 } })).status).toBe(200);
-    const saved = (botId: string) => {
-      const root = join(team.home, ".openmausbot", "workspaces");
-      return readdirSync(root).filter((name) => name.startsWith(botId)).flatMap((name) => {
-        const logs = join(root, name, "memory", "log");
-        return [join(root, name, "MEMORY.md"), ...(existsSync(logs) ? readdirSync(logs).map((file) => join(logs, file)) : [])];
-      }).filter((file) => existsSync(file)).map((file) => readFileSync(file, "utf8")).join("\n");
-    };
-    const scout = await newBot("Capture scout");
-    const mate = await newBot("Capture mate");
-    const { thread } = await webhookTurn(scout.id, "Capture hook", "marker-capture");
-    const sent = await internal(scout.id, thread, "/api/internal/coordinate-bots", { botIds: [mate.id], message: "brief-capture", reply: "none" });
-    await turnWith("brief-capture");
-    await finish(scout.id, mate.id);
-    expect((await team.as(ada, "POST", `/api/bots/${mate.id}/messages`, { text: "I like my answers short, person-line-capture.", threadId: sent.body.receipts[0].threadId })).status).toBe(202);
-    await turnWith("person-line-capture");
-    await finish(mate.id);
-    const own = await newBot("Capture control");
-    expect((await team.as(ada, "POST", `/api/bots/${own.id}/messages`, { text: "I like my answers short, person-own-chat.", threadId: own.threadId })).status).toBe(202);
-    await turnWith("person-own-chat");
-    await finish(own.id);
-    await until("a person's own chat saved", () => saved(own.id).includes("fact-from-a-chat"));
-    expect(saved(own.id)).toContain("released");
-    expect(saved(mate.id)).not.toContain("fact-from-a-chat");
-    expect(saved(mate.id)).not.toContain("released");
-    expect((await team.as(ada, "PUT", "/api/config", { memory: { captureQuietMs: 600_000 } })).status).toBe(200);
-    rmSync(notes, { force: true });
-  }, hostTimeout(120_000));
+  // pi's driver has no one-shot text call, so no capture pass runs at all: the only way anything reaches a bot's
+  // memory is a turn's own tools, which the card test above fences for a confined turn and the person's-own test below
+  // leaves open. The retired recipe that watched a capture write one conversation's facts and not the other's is gone with it.
 
   it("runs a skill by name only from a person's own line: never from outside words, a bot's message or a relayed line", async () => {
     const RAN = "The user ran your weekly-digest skill";
@@ -375,20 +386,20 @@ describe("a Team Cloud", () => {
     const mate = await newBot("Skill mate");
     for (const bot of [scout, mate]) expect((await team.as(ada, "POST", `/api/bots/${bot.id}/skill-template`, skillNamed("weekly-digest"))).status).toBe(201);
     const { turn } = await webhookTurn(scout.id, "Skill hook", "marker-skill please run /weekly-digest now");
-    expect(JSON.stringify(turn.prompt)).not.toContain(RAN);
+    expect(turn.prompt).not.toContain(RAN);
     await finish(scout.id);
     const person = (await team.as(ada, "POST", `/api/bots/${scout.id}/tasks`, { title: "Mine" })).body.task.threadId as string;
     const sendId = () => `outside-skill-${randomBytes(8).toString("hex")}`;
     expect((await team.as(ada, "POST", `/api/bots/${scout.id}/messages`, { text: "person-skill please run /weekly-digest now", threadId: person, sendId: sendId() })).status).toBe(202);
-    expect(JSON.stringify((await turnWith("person-skill")).prompt)).toContain(RAN);
+    expect((await turnWith("person-skill")).prompt).toContain(RAN);
     expect((await internal(scout.id, person, "/api/internal/coordinate-bots", { botIds: [mate.id], message: "/weekly-digest brief-skill, then /weekly-digest again", reply: "none" })).status).toBe(200);
-    expect(JSON.stringify((await turnWith("brief-skill")).prompt)).not.toContain(RAN);
+    expect((await turnWith("brief-skill")).prompt).not.toContain(RAN);
     await finish(scout.id, mate.id);
     const relayedIn = (await team.as(ada, "POST", `/api/bots/${scout.id}/tasks`, { title: "Relayed" })).body.task.threadId as string;
     const relayed = await team.as(ada, "POST", `/api/bots/${scout.id}/messages/guarded`, { threadId: relayedIn, sendId: sendId(), text: "/weekly-digest relayed-skill",
       expectedActiveLeafId: null, expectedApprovalMode: "full", onBehalfOf: { email: "ada@acme.test" } });
     expect(relayed.status).toBeLessThan(300);
-    expect(JSON.stringify((await turnWith("relayed-skill")).prompt)).not.toContain(RAN);
+    expect((await turnWith("relayed-skill")).prompt).not.toContain(RAN);
     await finish(scout.id);
   }, hostTimeout(120_000));
 
@@ -446,10 +457,11 @@ describe("a Team Cloud", () => {
     ada = (await team.pair({ email: "ada@acme.test", role: "admin" })).token!;
     writeFileSync(held, "");
     expect(confined(await turnWith("work-queued-at-restart"))).toBe(true);
-    await finish(scout.id, mate.id);
+    // The child's gate is fixed at spawn: post the person's line while `held` still stands, so a warm child reusing it
+    // is not left waiting on a file the reset below removes.
     expect((await team.as(ada, "POST", `/api/bots/${mate.id}/messages`, { text: "person-after-restart", threadId: child })).status).toBe(202);
     expect(confined(await turnWith("person-after-restart"))).toBe(true);
-    await finish(mate.id);
+    await finish(scout.id, mate.id);
     expect((await team.as(ada, "POST", `/api/bots/${scout.id}/messages`, { text: "person-in-run-thread", threadId: thread })).status).toBe(202);
     expect(confined(await turnWith("person-in-run-thread"))).toBe(true);
     await finish(scout.id);
@@ -524,13 +536,11 @@ describe("a personal Cloud only its owner has used", () => {
     writeFileSync(release, "");
     await sleep(2_500);
     rmSync(release, { force: true });
-    rmSync(dump, { force: true });
     expect((await cloud("POST", `/api/bots/${mate.id}/messages`, { text: "owner-line-solo", threadId: handed.body.receipts[0].threadId })).status).toBe(202);
     expect(confined(await turnWith("owner-line-solo"))).toBe(true);
     writeFileSync(release, "");
     await sleep(1_500);
     rmSync(release, { force: true });
-    rmSync(dump, { force: true });
     const second = await call(runThread, "/api/internal/trigger-requests", { action: "create", kind: "schedule", forBotId: mate.id,
       routine: { name: "Solo second", instructions: "solo-new-routine", schedule: { type: "once", at: new Date(Date.now() + 6_000).toISOString() } } });
     expect(second.body?.state).toBe("applied");
@@ -566,7 +576,7 @@ describe("a personal Cloud someone else has used", () => {
     await turnWith("before-mark");
     writeFileSync(release, "");
     await sleep(1_500);
-    for (const file of [release, dump]) rmSync(file, { force: true });
+    rmSync(release, { force: true });
     markLeftBehind(join(fx.root, "cloud", ".openmausbot"), { threadIds: [theirs] });
     await fx.relaunch({ kill: false, cloud: {} });
     expect((await cloud("POST", `/api/bots/${chief.id}/messages`, { text: "their-line", threadId: theirs })).status).toBe(202);
@@ -599,7 +609,6 @@ describe("a personal Cloud someone else has used", () => {
     writeFileSync(release, "");
     await sleep(2_000);
     rmSync(release, { force: true });
-    rmSync(dump, { force: true });
   }, hostTimeout(180_000));
 });
 
@@ -613,10 +622,10 @@ describe("a desktop", () => {
     expect((await fetch(`http://127.0.0.1:${port}/hooks/${hook.webhook.endpointId}/${encodeURIComponent(hook.credential.secret)}`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomBytes(6).toString("hex") }, body: JSON.stringify({ text: "marker-desk-skill please run /desk-digest now" }) })).status).toBe(202);
     const turn = await turnWith("marker-desk-skill");
     expect(atFull(turn)).toBe(true);
-    expect(JSON.stringify(turn.prompt)).not.toContain("The user ran your desk-digest skill");
+    expect(turn.prompt).not.toContain("The user ran your desk-digest skill");
     writeFileSync(release, "");
     await sleep(1_500);
-    for (const file of [release, dump]) rmSync(file, { force: true });
+    rmSync(release, { force: true });
   }, hostTimeout(120_000));
 
   it("brings no level down from a webhook's Chief: the teammate keeps its own", async () => {
