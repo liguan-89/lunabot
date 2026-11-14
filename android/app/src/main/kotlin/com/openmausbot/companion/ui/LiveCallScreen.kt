@@ -168,6 +168,26 @@ internal fun LiveCallScreen(bot: Bot, onDismiss: () -> Unit) {
                     modifier = Modifier.padding(bottom = 36.dp),
                 ) {
                     TouchTarget(
+                        onClick = { call.setSpeaker(!call.speakerOn) },
+                        enabled = live,
+                        size = 68.dp,
+                        contentDescription = if (call.speakerOn) "切到听筒" else "切到扬声器",
+                        modifier = Modifier.graphicsLayer { alpha = if (live) 1f else 0.35f },
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(68.dp)
+                                .background(secondaryTint.copy(alpha = 0.18f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                painter = painterResource(if (call.speakerOn) R.drawable.ic_volume_up else R.drawable.ic_volume_off),
+                                contentDescription = null,
+                                modifier = Modifier.size(30.dp),
+                            )
+                        }
+                    }
+                    TouchTarget(
                         onClick = { call.mute(!call.muted) },
                         enabled = live,
                         size = 68.dp,

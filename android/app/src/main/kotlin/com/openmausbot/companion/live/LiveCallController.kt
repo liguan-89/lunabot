@@ -3,12 +3,14 @@ package com.openmausbot.companion.live
 import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
 import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioRecord
 import android.media.AudioTrack
 import android.media.MediaRecorder
+import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.Stable
@@ -69,6 +71,9 @@ internal class LiveCallController(
         private set
     var muted by mutableStateOf(false)
         private set
+    /** Voice calls default to the loudspeaker; earpiece is opt-in. */
+    var speakerOn by mutableStateOf(true)
+        private set
 
     private var socket: WebSocket? = null
     private var recordThread: Thread? = null
@@ -101,6 +106,27 @@ internal class LiveCallController(
 
     fun mute(next: Boolean) {
         muted = next
+    }
+
+    fun setSpeaker(next: Boolean) {
+        speakerOn = next
+        if (audioActive) routeAudio(next)
+    }
+
+    /** API 31+ ignores isSpeakerphoneOn once a comm device is picked; the
+     * explicit device call is what actually reaches the loudspeaker there. */
+    private fun routeAudio(on: Boolean) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!on) {
+                audioManager.clearCommunicationDevice()
+                return
+            }
+            audioManager.availableCommunicationDevices
+                .firstOrNull { it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER }
+                ?.let { audioManager.setCommunicationDevice(it) }
+        } else {
+            audioManager.isSpeakerphoneOn = on
+        }
     }
 
     /** The red button: say goodbye, then take the audio and socket down. */
@@ -180,7 +206,7 @@ internal class LiveCallController(
         }
         focusRequest = request
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-        audioManager.isSpeakerphoneOn = true
+        routeAudio(speakerOn)
         audioActive = true
 
         val track = AudioTrack.Builder()
@@ -268,7 +294,11 @@ internal class LiveCallController(
         if (audioActive) {
             audioActive = false
             audioManager.mode = previousMode
-            audioManager.isSpeakerphoneOn = previousSpeakerphone
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.clearCommunicationDevice()
+            } else {
+                audioManager.isSpeakerphoneOn = previousSpeakerphone
+            }
         }
         focusRequest?.let { runCatching { audioManager.abandonAudioFocusRequest(it) } }
         focusRequest = null
