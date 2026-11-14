@@ -63,22 +63,34 @@ internal class PhoneMessages(private val context: Context) {
         }
     }
 
-    /** ColorOS's SMS stack rejects the no-+ number form (RCS group lookup), while + fails for local forms — try both. */
+    /**
+     * ColorOS's SMS stack rejects the no-+ number form (RCS group lookup), while + fails local
+     * forms — try both. `divideMessage` is also unreliable on some ROMs: it hits
+     * `TelephonyManager.getGroupIdLevel1`, which throws SecurityException for normal apps.
+     */
     private fun send(manager: SmsManager, to: String, text: String) {
-        val parts = manager.divideMessage(text)
+        val parts = runCatching { manager.divideMessage(text).toList() }.getOrElse { splitParts(text) }
         try {
             if (parts.size <= 1) manager.sendTextMessage(to, null, text, null, null)
-            else manager.sendMultipartTextMessage(to, null, parts, null, null)
+            else manager.sendMultipartTextMessage(to, null, ArrayList(parts), null, null)
         } catch (first: Exception) {
             if (to.startsWith("+") || !to.all(Char::isDigit)) throw first
             try {
                 val international = "+$to"
                 if (parts.size <= 1) manager.sendTextMessage(international, null, text, null, null)
-                else manager.sendMultipartTextMessage(international, null, parts, null, null)
+                else manager.sendMultipartTextMessage(international, null, ArrayList(parts), null, null)
             } catch (_: Exception) {
                 throw first
             }
         }
+    }
+
+    /** 160 chars single / 153 concat for GSM-7bit, 70 / 67 for UCS-2 (Chinese). */
+    private fun splitParts(text: String): List<String> {
+        val gsm7 = text.all { it.code < 0x80 }
+        val single = if (gsm7) 160 else 70
+        if (text.length <= single) return listOf(text)
+        return text.chunked(if (gsm7) 153 else 67)
     }
 
     private fun smsManager(): SmsManager? =
