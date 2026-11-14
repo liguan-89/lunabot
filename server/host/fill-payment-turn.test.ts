@@ -1,7 +1,7 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { PaymentCards } from "../payment-cards.ts";
 import { FakeLoginPage } from "../testing/fake-login-page.ts";
@@ -25,7 +25,7 @@ afterEach(() => { page?.close(); page = null; });
 
 type Held = { always?: boolean; tool: string; calls: Array<{ slug: string; arguments?: unknown }>; active: () => boolean };
 
-function harness(over: Partial<FillPaymentTurnDeps> & { at?: Surface | null; cards?: PaymentCards; holdAnswer?: { ok: boolean; text: string } } = {}) {
+function harness(over: Partial<FillPaymentTurnDeps> & { at?: Surface | null; cards?: PaymentCards; holdAnswer?: { ok: true; approved: boolean } | { ok: false; text: string } } = {}) {
   page = new FakeLoginPage("https://shop.test/checkout", CHECKOUT);
   const rect = { x: 0, y: 0, top: 0, left: 0, right: 10, bottom: 10, width: 10, height: 10, toJSON: () => rect };
   page.window.HTMLElement.prototype.getBoundingClientRect = () => rect as never;
@@ -43,7 +43,7 @@ function harness(over: Partial<FillPaymentTurnDeps> & { at?: Surface | null; car
     stepContext: () => ({ botId: "b1", botName: "Buyer", threadId: "t1", generation: "g1", turnId: () => null, record: false }),
     remember: (value, kind) => { remembered.push([kind, value]); },
     cards,
-    hold: async (input) => { held.push(input as Held); return over.holdAnswer ?? { ok: true, text: "allowed" }; },
+    hold: async (input) => { held.push(input as Held); return over.holdAnswer ?? { ok: true, approved: true }; },
     turnActive: () => true,
     ...over,
   };

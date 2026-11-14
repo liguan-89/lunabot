@@ -1,3 +1,4 @@
+import { isPersistentQuestionCard } from "../../shared/ask-question.ts";
 import type { OptionCardData } from "../../shared/wire.ts";
 import type { Store } from "../store.ts";
 
@@ -43,6 +44,25 @@ export function resumableCards(store: Pick<Store, "activePath">, threadId: strin
     }
   }
   return open;
+}
+
+/** A held approval's answer resolves in memory — a restart leaves the card clickable with nobody to
+ * settle it. Boot expires those; cards answered from their own saved data (grants, connections) carry
+ * no held marker, and question cards are built to be answered late. */
+export function expireOrphanedHolds(
+  rows: ReadonlyArray<{ threadId: string; id: string; card: string | null }>,
+  patch: (threadId: string, messageId: string, card: OptionCardData) => void,
+): number {
+  let expired = 0;
+  for (const row of rows) {
+    if (!row.card) continue;
+    let card: OptionCardData;
+    try { card = JSON.parse(row.card) as OptionCardData; } catch { continue; }
+    if (!(card.held || card.heldCode) || isPersistentQuestionCard(card)) continue;
+    patch(row.threadId, row.id, { ...card, expired: true });
+    expired += 1;
+  }
+  return expired;
 }
 
 /** Whether any of these parked-on cards, on any branch, can still be answered or still has an answer for the turn to hear. */
