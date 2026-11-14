@@ -124,6 +124,9 @@ import { createMemoryUpkeep, dreamConversations, upkeepEnabled } from "./memory-
 import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from "./cache-keepwarm.ts";
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
+import { connectFeishu, type FeishuChannel, type WsLike } from "./feishu.ts";
+import { createFeishuChats } from "./feishu-chats.ts";
+import { WebSocket } from "ws";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
 import { createAboutMe } from "./about-me.ts"; import { createPersonPreference } from "./host/person-preference.ts";
@@ -5260,6 +5263,70 @@ const warmSummaries = createWarmSummaryHost({ store, instance: (id) => registry.
 onThreadSeen((threadId) => warmSummaries.sawThread(threadId));
 onConfigSaved((before, after) => {
   if (JSON.stringify(before.cacheKeepWarm ?? null) !== JSON.stringify(after.cacheKeepWarm ?? null)) setImmediate(() => cacheKeepWarm.refresh());
+});
+
+// Feishu self-built-app channel (server/feishu.ts): one app answers as one bot over the platform's
+// long connection, so no public callback URL is needed. Each chat_id maps to a task; inbound text is
+// a person message, and a turn that chat triggered posts its bot replies back to the chat.
+const feishuChats = createFeishuChats(join(DATA_DIR, "feishu-chats.json"));
+let feishuChannel: FeishuChannel | null = null;
+const syncFeishu = () => {
+  feishuChannel?.close();
+  feishuChannel = null;
+  const fc = cfg.feishu;
+  if (!fc?.appId || !fc.appSecret || !fc.botId) return;
+  const botId = fc.botId;
+  if (!store.bot(botId)) { console.warn(`feishu: no such bot ${botId}`); return; }
+  feishuChannel = connectFeishu({ appId: fc.appId, appSecret: fc.appSecret, baseUrl: fc.baseUrl }, {
+    fetch,
+    ws: (url) => new WebSocket(url) as unknown as WsLike,
+    log: (line) => console.log(line),
+    onText: (inbound) => {
+      try {
+        let threadId = feishuChats.threadFor(inbound.chatId);
+        if (!threadId || !store.taskByThread(botId, threadId)) {
+          const task = store.createTask(botId, inbound.text);
+          if (!task) return;
+          threadId = task.threadId;
+          feishuChats.set(inbound.chatId, threadId);
+        }
+        void acceptDirectSend({
+          botId, threadId, text: inbound.text,
+          sendId: `feishu:${inbound.messageId}`,
+          sender: { name: `飞书 ${inbound.openId}`, id: `feishu:${inbound.openId}` },
+          trigger: { kind: "user", label: `feishu:${inbound.openId}` },
+          personPresent: false,
+        }).catch((error) => console.warn(`feishu: inbound rejected: ${(error as Error).message}`));
+      } catch (error) {
+        console.warn(`feishu: inbound failed: ${(error as Error).message}`);
+      }
+    },
+  });
+};
+syncFeishu();
+onConfigSaved((before, after) => {
+  if (JSON.stringify(before.feishu ?? null) !== JSON.stringify(after.feishu ?? null)) setImmediate(() => syncFeishu());
+});
+bus.subscribe((event: RuntimeEvent) => {
+  if (shouldIgnoreProviderEvent(event)) return;
+  if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+  const channel = feishuChannel;
+  if (!channel) return;
+  const chatId = feishuChats.chatFor(event.threadId);
+  if (!chatId) return;
+  try {
+    const messages = store.activePath(event.threadId);
+    // The triggering person message carries no turnId: the chat asked iff the latest person line is
+    // from it. Side jobs and routine runs on the thread stay quiet.
+    const fromChat = !isInternalTurn(event.threadId) && !routines?.runForThread(event.threadId)
+      && messages.findLast((m) => m.role === "user")?.sender?.id?.startsWith("feishu:");
+    if (!fromChat) return;
+    for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
+      channel.sendText(chatId, text).catch((error) => console.warn(`feishu: send failed: ${(error as Error).message}`));
+    }
+  } catch (error) {
+    console.warn(`feishu: reply failed: ${(error as Error).message}`);
+  }
 });
 bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
@@ -11980,6 +12047,7 @@ function configStatus() {
     opencodeGo: { ...keyStatus(cfg.opencodeGo?.apiKey), providerKeys: Object.keys(openCodeProviderKeys(cfg)) },
     tts: tts.describeVoice(cfg),
     decider: describeDecider(cfg), helpers: describeHelpers(cfg),
+    feishu: { configured: Boolean(cfg.feishu?.appId && cfg.feishu.appSecret && cfg.feishu.botId), botId: cfg.feishu?.botId ?? "" },
     imageGen: avatarImageStatus(cfg), savedKeys: nestedKeyStatus(cfg),
     live: liveSettingsFor(cfg),
     profile: CLOUD_TEAM ? NOBODY_PROFILE : { name: cfg.profile?.name ?? "", email: cfg.profile?.email ?? "", aboutMe: cfg.profile?.aboutMe ?? "", ...(cfg.profile?.avatarUrl ? { avatarUrl: cfg.profile.avatarUrl } : {}) },

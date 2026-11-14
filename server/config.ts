@@ -439,6 +439,15 @@ const appConfigSchema = z.object({
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
   /** How much DEX BOT initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
   proactivity: z.enum(["standard", "quiet"]).optional(),
+  /** A Feishu self-built app channel over the platform's long connection: app credentials and the bot
+   * that answers its chats. All three keys present = on; null each out to disable. config.json only, like `helper`. */
+  feishu: z.object({
+    appId: z.string().trim().max(200).optional(),
+    appSecret: z.string().trim().max(500).optional(),
+    botId: z.string().trim().max(200).optional(),
+    /** Operator override for the open-platform origin (private deploys, fixtures). */
+    baseUrl: z.string().trim().max(2048).refine((value) => !value || /^https?:\/\//i.test(value), "baseUrl must start with http(s)://").optional(),
+  }).strict().optional(),
   localVm: localVmConfigSchema.optional(),
   features: featureConfigSchema.optional(),
   onboarding: onboardingConfigSchema.optional(),
@@ -498,6 +507,8 @@ export interface AppConfig extends HelperConfig {
   loopGuard?: LoopGuardConfig;
   safetyFloor?: { enabled?: boolean };
   proactivity?: "standard" | "quiet";
+  /** See the `feishu` field in appConfigSchema. */
+  feishu?: { appId?: string; appSecret?: string; botId?: string; baseUrl?: string };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
   openaiCompat?: { key?: string; url?: string; model?: string; provider?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
   composio?: { apiKey?: string; userId?: string; sessionId?: string };
@@ -952,7 +963,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

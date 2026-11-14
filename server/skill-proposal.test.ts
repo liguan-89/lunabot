@@ -77,7 +77,7 @@ describe("deciderDraftEngine", () => {
 
   it("posts a plain chat completion to the account's own base URL", async () => {
     const calls: Array<{ url: string; body: Record<string, unknown>; auth: string | null }> = [];
-    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    vi.stubGlobal("fetch", vi.fn(async (input: Parameters<typeof fetch>[0], init?: RequestInit) => {
       calls.push({ url: String(input), body: JSON.parse(String(init?.body)) as Record<string, unknown>, auth: new Headers(init?.headers).get("authorization") });
       return new Response(JSON.stringify({ choices: [{ message: { content: "drafted" } }] }), { status: 200 });
     }));
