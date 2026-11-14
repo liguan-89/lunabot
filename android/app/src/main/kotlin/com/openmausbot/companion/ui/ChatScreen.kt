@@ -1282,20 +1282,21 @@ private fun LoadedChat(
             onDismiss = { showingVoice = false },
             onSend = { clip, transcript ->
                 showingVoice = false
-                val voice = PendingMessageAttachment(
-                    data = clip.data,
-                    // The body already carries the transcript: mark the clip
-                    // in the one field the agent reads, or it spends a turn
-                    // transcribing the .wav all over again.
-                    name = if (transcript.isEmpty()) clip.name else "${clip.name}（已转写）",
-                    mime = "audio/wav",
-                    kind = PendingMessageAttachment.Kind.FILE,
-                )
+                // A recognized clip sends as text only: the wav would just
+                // cost the bot a transcription pass it no longer needs.
+                val voice = if (transcript.isEmpty()) listOf(
+                    PendingMessageAttachment(
+                        data = clip.data,
+                        name = clip.name,
+                        mime = "audio/wav",
+                        kind = PendingMessageAttachment.Kind.FILE,
+                    )
+                ) else emptyList()
                 scope.launch {
                     sendingMessage = true
                     attachmentError = null
                     val sent = try {
-                        session.send(transcript, listOf(voice), chat)
+                        session.send(transcript, voice, chat)
                     } finally {
                         sendingMessage = false
                     }
