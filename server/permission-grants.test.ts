@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "./config.ts";
+import type { Decider } from "./decider/index.ts";
 import type { DecisionRow } from "./decision-log.ts";
 import { activeGrants, createGrantHost, grantCovering, type PermissionGrant } from "./permission-grants.ts";
 import type { Store } from "./store.ts";
@@ -25,14 +26,14 @@ describe("grantCovering", () => {
   const request = { tool: "GMAIL_SEND_EMAIL", summary: "Send invoice to Ada" };
 
   const deciderReturning = (choice: string, pTop = 0.9) => ({
-    ask: vi.fn(async () => ({ ok: true as const, provider: "fake", answers: { grant: { type: "choice" as const, choice, pTop, margin: 0.5, probabilities: {} } }, latencyMs: 1 })),
+    ask: vi.fn(async () => ({ ok: true, provider: "openrouter", answers: { grant: { type: "choice", choice, pTop, margin: 0.5, probabilities: {} } }, latencyMs: 1 })) as unknown as Decider["ask"],
   });
 
   it("returns the grant the helper picked confidently", async () => {
     const decider = deciderReturning("g1");
     const covered = await grantCovering({ decider, request, grants: [grant()], model: "m" });
     expect(covered?.id).toBe("g1");
-    const [state, questions] = decider.ask.mock.calls[0]!.slice(1) as never[];
+    const [state, questions] = vi.mocked(decider.ask).mock.calls[0]!.slice(1) as never[];
     expect(JSON.stringify(state)).toContain("GMAIL_SEND_EMAIL");
     expect(Object.keys((questions as { grant: { options: object } }).grant.options)).toContain("g1");
   });
@@ -41,7 +42,7 @@ describe("grantCovering", () => {
     for (const [choice, p] of [["none", 0.95], ["g1", 0.4]] as const) {
       expect(await grantCovering({ decider: deciderReturning(choice, p), request, grants: [grant()] })).toBeNull();
     }
-    const failing = { ask: async () => ({ ok: false as const, reason: "http_error" as const }) };
+    const failing = { ask: vi.fn(async () => ({ ok: false, provider: "openrouter", reason: "http_error" })) as unknown as Decider["ask"] };
     expect(await grantCovering({ decider: failing, request, grants: [grant()] })).toBeNull();
     expect(await grantCovering({ decider: deciderReturning("g1"), request, grants: [] })).toBeNull();
   });

@@ -106,7 +106,7 @@ import { createDataRoutes } from "./data/routes.ts";
 import { DataSheetRegistry } from "./data/sheet.ts";
 import { DataFailure } from "./data/types.ts";
 import { TeamComputers, teamComputerOwner, type TeamComputerRecord } from "./team-computers.ts";
-import { isEffortLevel, type CardAnswerer, type ResolvedSender, type SignInRequestCardData, type WireBot, type WireGroup, type WireTask } from "../shared/wire.ts";
+import { helperModelAllowed, isEffortLevel, type CardAnswerer, type ResolvedSender, type SignInRequestCardData, type WireBot, type WireGroup, type WireTask } from "../shared/wire.ts";
 import { isPersistentQuestionCard, shouldSettleRequestCard } from "../shared/ask-question.ts";
 import { narrowedToolScope, parseToolScope, toolScopeWidens } from "../shared/tool-scope.ts";
 import type { TeamComputersPayload } from "../shared/team-computer.ts";
@@ -123,6 +123,7 @@ import { hostTimeZone, takesTurnClock, turnClockLine, withTurnClock } from "./tu
 import { createMemoryUpkeep, dreamConversations, upkeepEnabled } from "./memory-upkeep.ts";
 import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from "./cache-keepwarm.ts";
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
+import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
 import { createAboutMe } from "./about-me.ts"; import { createPersonPreference } from "./host/person-preference.ts";
@@ -5424,6 +5425,66 @@ bus.subscribe((event: RuntimeEvent) => {
     }).catch(() => {});
   } catch (error) {
     console.warn(`tracked tasks: could not reconcile a turn: ${(error as Error).message}`);
+  }
+});
+
+bus.subscribe((event: RuntimeEvent) => {
+  if (shouldIgnoreProviderEvent(event)) return;
+  if (event.type !== "turn.completed" || !event.turnId || !event.ok) return;
+  try {
+    if ((cfg.proactivity ?? "standard") !== "standard") return;
+    const bot = store.botByThread(event.threadId);
+    if (!bot || store.groupByThread(event.threadId)) return;
+    if (isInternalTurn(event.threadId) || isUnattended(bot.id, event.threadId) || routines?.runForThread(event.threadId)) return;
+    if (cloudGuestDriven(event.threadId) || (CLOUD_PERSONAL && !cloudOwnerOnlyThread(event.threadId))) return;
+    const reviewing = skillReview.status(bot.id, event.threadId);
+    if (reviewing.reviewing || reviewing.waiting) return;
+    const messages = store.activePath(event.threadId);
+    if (hasPendingSkillProposal(messages)) return;
+    const turnText = [
+      ...messages.filter((message) => message.turnId === event.turnId && message.kind === "text" && (message.role === "bot" || message.role === "user"))
+        .slice(-6).map((message) => `${message.role === "bot" ? "bot" : "person"}: ${message.text ?? ""}`),
+      ...((names) => (names.length ? [`[tools: ${names.join(", ")}]`] : []))(
+        messages.filter((message) => message.kind === "activity" && message.turnId === event.turnId && message.tool?.name && !message.tool.setup)
+          .map((message) => message.tool!.name)),
+    ].join("\n");
+    void (async () => {
+      const skills = skillsHost.reviewSkills(bot.id, listSkills(bot.id).map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+        editable: skill.editable,
+        enabled: skill.enabled,
+        sha256: skill.sha256,
+        ...(skill.editable ? { body: readSkillFile(bot.id, skill.name) } : {}),
+      })));
+      const worth = await skillWorthProposing({ decider, model: cfg.decider?.models?.taskList, skills, turnText });
+      if (!worth) return;
+      const engine = sideJobs.text("skill-review", bot.id)
+        ?? (helperModelAllowed(bot) ? deciderDraftEngine(cfg, { model: cfg.decider?.models?.taskList }) : null);
+      const changes = await draftSkillProposal({ engine, bot, transcript: { messages, room: false }, skills });
+      for (const change of changes) {
+        // Shared-library skills keep their own update path (applyReviewUpdate); a proposal never writes there.
+        if (change.action === "update" && skillsHost.editable(bot.id, change.name)) continue;
+        const staged = stageSkillWrite(bot.id, {
+          action: change.action,
+          targetName: change.action === "update" ? change.name : undefined,
+          files: [{ path: "SKILL.md", content: change.skillMd }],
+          gist: change.gist || undefined,
+          source: learnSource("proposed after this conversation"),
+        });
+        if ("error" in staged) continue;
+        let card: { requestId: string; summary: string };
+        try {
+          card = appendSkillRequestCard({ botId: bot.id, threadId: event.threadId, staged });
+        } catch {
+          rejectStagedSkillWrite(bot.id, staged.id);
+          continue;
+        }
+        appendDecision(DATA_DIR, { threadId: event.threadId, requestId: card.requestId, botId: bot.id, botName: bot.name, tool: "stage_skill", summary: card.summary, decision: "card-shown", source: "skill" });
+      }
+    })().catch((proposalError) => console.warn(`skill proposal: could not draft: ${(proposalError as Error).message}`));
+  } catch (error) {
+    console.warn(`skill proposal: could not check a turn: ${(error as Error).message}`);
   }
 });
 
