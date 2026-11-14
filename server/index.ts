@@ -628,6 +628,7 @@ import { createTodayRoutes } from "./routes/today.ts"; import { createInboxRoute
 import { createToolTimingRoute, createUsageRoutes } from "./routes/usage.ts"; import { createPrivateRecords } from "./host/private-records.ts";
 import { createBotMessageRoutes } from "./routes/bot-messages.ts";
 import { createWebAuthnRoutes } from "./routes/webauthn.ts";
+import { createTemplateRoutes } from "./routes/templates.ts";
 import { assertOptions, loadWebAuthnCredentials, parseAssertionBody, saveWebAuthnCredentials, verifyAssertion, WebAuthnError } from "./webauthn.ts";
 import { clearInternalTurn, isInternalTurn, markInternalTurn } from "./internal-turns.ts"; import { createFirstReplyRescue } from "./first-reply-rescue.ts";
 import { createReactionRoutes } from "./routes/reactions.ts";
@@ -12363,6 +12364,7 @@ ROUTES.push(createWebAuthnRoutes({
   saveCredentials: (credentials) => { webAuthnCredentials = credentials; saveWebAuthnCredentials(DATA_DIR, credentials); },
   ownerName: () => cfg.profile?.name || "owner",
 }));
+ROUTES.push(createTemplateRoutes({ templatesDir: () => join(DATA_DIR, "templates") }));
 const liveRoots = (threadId: string, botId: string | undefined) => { const bot = botId ? store.bot(botId) : store.botByThread(threadId); return bot ? messageFileRootsForThread(bot.id, threadId).filter((root) => root !== ATTACHMENTS_DIR) : null; }; const chatApps = createChatApps({ store, dataDir: DATA_DIR, liveRows: liveAppRows, liveRoots, paused: () => workspaceMaintenance.active || moveFreeze.frozen() });
 const chatAppsMcp = createChatAppsMcp({ store, apps: chatApps, dataDir: DATA_DIR, keys: mcpKeys, storedServers: () => cfg.mcpServers ?? {}, mountedServers: engineMcpServers, personMcp: teamConnections.personMcp, probeAs: (server) => mcpServersHost.probeAs(server), oauth: mcpOAuth });
 ROUTES.push(createChatAppRoutes({ store, apps: chatApps, threadRefusal: cloudThreadRefusal, mcpRpc: chatAppsMcp.rpc, threadVisible: (auth, threadId) => (auth.kind !== "session" || sessions.isLive(auth.session.id)) && visibleTo(viewerFor(auth)).thread(threadId) }));
