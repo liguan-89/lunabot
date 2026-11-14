@@ -303,7 +303,10 @@ private fun LoadedChat(
     val openCall: () -> Unit = {
         focusManager.clearFocus()
         scope.launch {
-            liveCall = session.liveCallRelayReady()
+            // Once a socket call proved viable it stays the pick: re-probing
+            // /api/config on every tap could silently downgrade to the other
+            // call UI on a transient miss.
+            if (!liveCall) liveCall = session.liveCallRelayReady()
             showingCall = true
         }
     }

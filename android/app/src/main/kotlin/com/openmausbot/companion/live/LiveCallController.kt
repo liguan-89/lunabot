@@ -13,6 +13,7 @@ import android.media.MediaRecorder
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -132,6 +133,7 @@ internal class LiveCallController(
     /** The red button: say goodbye, then take the audio and socket down. */
     fun hangUp() {
         if (state !is State.Live && state !is State.Connecting) return
+        Log.d(TAG, "hangUp from $state")
         state = State.Ending
         val ws = socket
         runCatching { ws?.send(LiveRelay.END_MESSAGE) }
@@ -142,6 +144,7 @@ internal class LiveCallController(
     /** Screen gone: same teardown as hanging up, without a goodbye to send. */
     fun stop() {
         if (closed) return
+        Log.d(TAG, "stop from $state")
         closed = true
         mainHandler.removeCallbacks(heardClear)
         releaseAudio()
@@ -175,8 +178,14 @@ internal class LiveCallController(
                 }
             }
             is LiveRelay.Event.Named -> Unit
-            is LiveRelay.Event.Failure -> fail(event.message)
-            LiveRelay.Event.End -> runCatching { socket?.close(1000, null) }
+            is LiveRelay.Event.Failure -> {
+                Log.w(TAG, "relay failure: ${event.message}")
+                fail(event.message)
+            }
+            LiveRelay.Event.End -> {
+                Log.i(TAG, "relay end")
+                runCatching { socket?.close(1000, null) }
+            }
         }
     }
 
@@ -191,12 +200,10 @@ internal class LiveCallController(
                     .build(),
             )
             .setOnAudioFocusChangeListener { change ->
-                when (change) {
-                    AudioManager.AUDIOFOCUS_LOSS,
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
-                    -> hangUp()
-                    AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> Unit
-                }
+                Log.d(TAG, "audio focus change $change")
+                // A ping or navigation cue steals focus only for a moment; a
+                // voice call rides those out and ends only on a lasting loss.
+                if (change == AudioManager.AUDIOFOCUS_LOSS) hangUp()
             }
             .build()
         if (audioManager.requestAudioFocus(request) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) {
@@ -317,6 +324,10 @@ internal class LiveCallController(
     }
 
     private inner class RelayListener : WebSocketListener() {
+        override fun onOpen(webSocket: WebSocket, response: Response) {
+            Log.d(TAG, "socket open")
+        }
+
         override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
             if (closed) return
             val data = bytes.toByteArray()
@@ -332,20 +343,24 @@ internal class LiveCallController(
         }
 
         override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+            Log.i(TAG, "socket closing $code $reason")
             webSocket.close(1000, null)
         }
 
         override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+            Log.i(TAG, "socket closed $code $reason")
             finish()
         }
 
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+            Log.w(TAG, "socket failure ${response?.code ?: "-"}", t)
             if (closed) return
             fail(t.message?.takeIf { it.isNotBlank() } ?: "通话连接失败。")
         }
     }
 
     private companion object {
+        const val TAG = "LiveCall"
         /** 20 ms of 16 kHz mono PCM16 — small enough to keep mouth-to-wire latency low. */
         const val CAPTURE_CHUNK_BYTES = 640
         /** Bounds queued playback; the oldest chunk drops when a player falls behind. */

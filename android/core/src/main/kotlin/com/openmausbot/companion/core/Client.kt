@@ -1058,6 +1058,23 @@ class CompanionClient(
     }
 
     /**
+     * WebSockets outlive any request deadline: actionClient's 20 s
+     * call/read/write limits would amputate a call mid-flight, so sockets get
+     * their own client with no lifetime bounds and protocol pings to keep the
+     * path honest.
+     */
+    private val socketClient = transportClient.newBuilder()
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
+        .dns(endpoint?.dns ?: transportClient.dns)
+        .callTimeout(0, TimeUnit.MILLISECONDS)
+        .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(0, TimeUnit.MILLISECONDS)
+        .writeTimeout(0, TimeUnit.MILLISECONDS)
+        .pingInterval(SOCKET_PING_INTERVAL_SECONDS, TimeUnit.SECONDS)
+        .build()
+
+    /**
      * A WebSocket to a companion path, carrying this device's bearer. The
      * viewer relay speaks raw RFB on the other end, so the caller writes and
      * reads bytes, not frames.
@@ -1079,7 +1096,7 @@ class CompanionClient(
             .url(url)
             .apply { token?.let { header("Authorization", "Bearer $it") } }
             .build()
-        return actionClient.newWebSocket(request, listener)
+        return socketClient.newWebSocket(request, listener)
     }
 
     private suspend fun screenshot(path: String, threadId: String?): ScreenFrame {
@@ -1306,6 +1323,7 @@ class CompanionClient(
         const val ALREADY_DRAINED = "no such queued message"
 
         private const val ACTION_TIMEOUT_SECONDS = 20L
+        private const val SOCKET_PING_INTERVAL_SECONDS = 20L
         /** The server holds a job poll for 20 s; this leaves it room to answer. */
         private const val PHONE_JOB_TIMEOUT_SECONDS = 35L
         private const val PHONE_RESULT_TIMEOUT_SECONDS = 10L
