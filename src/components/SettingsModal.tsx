@@ -30,6 +30,7 @@ import { currentPhonePairingTarget, phonePairingSettingsAction } from "@/lib/pho
 import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BuiltInBrowserRow, ServerSitesRow } from "./BrowserSettingsRows";
 import { VaultSettings } from "./VaultSettings";
+import { PaymentCardsSettings } from "./PaymentCardsSettings";
 import { RemoteComputerSection } from "./RemoteComputerSection";
 import { ConnectedWorkspacesSettings } from "./ConnectedWorkspacesSettings";
 import { PlaceLookCard } from "./PlaceLookCard";
@@ -439,7 +440,7 @@ function SettingsDialog() {
       case "computer":
         return <><BuiltInBrowserRow /><ServerSitesRow /><BrowserProfilesRow /><AdminOnly><LocalComputerSection /></AdminOnly></>;
       case "logins":
-        return <VaultSettings />;
+        return <><VaultSettings /><PaymentCardsSettings /></>;
       case "usage":
         return <AdminOnly note="settings.adminOnly.usage"><UsageSection /></AdminOnly>;
       case "skills":

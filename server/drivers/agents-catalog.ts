@@ -613,6 +613,18 @@ const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: "fill_payment",
+    description:
+      "Pay with a payment card the person saved in DEX BOT. Call it on the checkout page open in your browser: the person confirms the spend on a card first (or it is covered by a standing permission they left), then DEX BOT types the card number, expiry and security code itself — you never see them. It fills, never submits: check the order and press pay yourself once it is right. A payment form inside a protected frame (a Stripe-style widget) cannot be reached: call request_sign_in so the person pays. With no saved card, say so: the person adds one under Settings → Keys and picks which bots may use it. card names one saved card by its name or last four digits when several exist.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        card: { type: "string", description: "Which saved card to pay with, by its name or last four digits. Omit when only one is saved." },
+      },
+    },
+  },
+  {
     name: "send_voice_note",
     description:
       "Send the user a voice note: a short spoken message synthesized with your configured voice, stored as audio, and attached to your reply when the turn ends. Write the note as speakable words, exactly as it should be said — no lists, links or markdown meant for screens. The words are kept as the note's transcript, which the person can open to read instead of listening; they are not repeated in your reply, so do not write them out again. Use it for warmth, tone or emphasis a written line cannot carry; use ordinary text otherwise.",

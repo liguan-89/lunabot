@@ -735,6 +735,14 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
     });
     return { text: typeof r.text === "string" && r.text ? r.text : "fill_login did not answer. Call request_sign_in instead.", ...(r.ok === true ? {} : { isError: true }) };
   }
+  if (name === "fill_payment") {
+    const card = typeof args.card === "string" ? args.card.trim().slice(0, 128) : "";
+    const r = await api("/api/internal/fill-payment", {
+      method: "POST",
+      body: JSON.stringify({ fromBotId: BOT_ID, fromThreadId: THREAD_ID, ...(card ? { card } : {}) }),
+    });
+    return { text: typeof r.text === "string" && r.text ? r.text : "fill_payment did not answer. Ask the person to pay themselves.", ...(r.ok === true ? {} : { isError: true }) };
+  }
   if (name === "send_voice_note") {
     if (typeof args.text !== "string" || !args.text.trim()) {
       return { text: "send_voice_note needs text: the short speakable note, at most 1000 characters.", isError: true };

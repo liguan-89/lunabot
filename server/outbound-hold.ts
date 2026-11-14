@@ -40,8 +40,8 @@ function sendsWithoutAsking(rule: OutboundPolicy | undefined, fullAccess: boolea
 }
 
 export interface OutboundHold {
-  /** A send goes out without asking (Full access with no rule of its own, or "allow") or waits on the "Send on your behalf?" card. `fullAccess`: the turn runs at Full access. */
-  hold(input: { bot: OutboundHoldBot; threadId: string; tool: string; calls: ConnectorCall[]; opaque: boolean; fullAccess: boolean; active: () => boolean }): Promise<OutboundHoldAnswer>;
+  /** A send goes out without asking (Full access with no rule of its own, or "allow") or waits on the "Send on your behalf?" card. `fullAccess`: the turn runs at Full access. `always`: the card shows no matter the access or rule (money spends never skip it; a live grant still settles it). */
+  hold(input: { bot: OutboundHoldBot; threadId: string; tool: string; calls: ConnectorCall[]; opaque: boolean; fullAccess: boolean; always?: boolean; active: () => boolean }): Promise<OutboundHoldAnswer>;
   /** At dispatch time, against the bot as it is now: a send that needs no card is recorded; otherwise the hold must have been approved. Throws the refusal text. */
   beforeDispatch(input: { bot: OutboundHoldBot; threadId: string; tool: string; opaque: boolean; fullAccess: boolean; approved: boolean }): void;
 }
@@ -52,9 +52,9 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
   const { holdMs } = deps;
 
   return {
-    async hold({ bot: currentSender, threadId, tool: outboundTool, calls: outboundCalls, opaque, fullAccess, active }) {
+    async hold({ bot: currentSender, threadId, tool: outboundTool, calls: outboundCalls, opaque, fullAccess, always, active }) {
       const refuseOutbound = (text: string): OutboundHoldAnswer => ({ ok: false, text });
-      if (!sendsWithoutAsking(currentSender.outbound, fullAccess, opaque)) {
+      if (always === true || !sendsWithoutAsking(currentSender.outbound, fullAccess, opaque)) {
         const { app, calls, summary } = outboundCard(outboundCalls);
         const owner = connectorThread(currentSender.id, threadId);
         const held = outboundRequests.open({ botId: currentSender.id, threadId, tool: outboundTool, timeoutMs: holdMs });
