@@ -130,15 +130,34 @@ internal class PhoneJobRunner(
             delay(REGISTRATION_RETRY_MILLIS)
         }
 
+        var claimed = registration.capabilities
         while (currentCoroutineContext().isActive) {
-            if (!calendar.access().canRead && !contacts.access().canRead && !switches.reminders &&
-                !location.access().canRead && !switches.messages
+            val calendarNow = calendar.access()
+            val contactsNow = contacts.access()
+            val locationNow = location.access()
+            if (!calendarNow.canRead && !contactsNow.canRead && !switches.reminders &&
+                !locationNow.canRead && !switches.messages
             ) {
                 // Every permission was revoked under us; don't offer apps we
                 // can no longer read.
                 session.unregisterPhone()
                 session.reportPhoneTools(Session.PhoneToolsStatus.Idle)
                 return
+            }
+            // A system-sheet grant lands after the first registration: the
+            // claimed set has to track the grants as they actually are, or the
+            // computer keeps routing jobs the phone cannot answer (or never
+            // learns it now can).
+            val current = PhoneToolCatalog.capabilities(
+                calendar = calendarNow,
+                contacts = contactsNow,
+                reminders = switches.reminders,
+                location = locationNow,
+                messages = switches.messages && messages.canRelay(),
+            )
+            if (current != claimed) {
+                session.registerPhone(registration.copy(capabilities = current))
+                claimed = current
             }
             val job = try {
                 session.pollPhoneJob()
