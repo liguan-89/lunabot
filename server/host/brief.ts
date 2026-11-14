@@ -572,6 +572,8 @@ export function createBrief(deps: BriefDeps) {
 
   return {
     chief, report, consume, active, serverPress, pressRecords, timeZone,
+    /** The person's last presence ping; undefined before the first one. */
+    lastActiveAt: (): number | undefined => state.lastActiveAt,
     /** Something the brief shows changed outside a check (a watch run failed): edit today's card in place. */
     refresh: (): Promise<unknown> => render({ create: false, notify: true }),
     dismissedFrom: (): string[] => [...new Set(state.dismissed.filter((one) => one.from && now() - one.at <= DISMISSED_MS).reverse().map((one) => one.from))].slice(0, 20),

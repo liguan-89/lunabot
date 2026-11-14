@@ -10140,5 +10140,7 @@
   "botPanel.tracked.title": "任务清单",
   "botPanel.tracked.needsYou": "等你处理",
   "botPanel.tracked.done": "已完成 {count} 项",
-  "widget.withdrawn": "已撤回"
+  "widget.withdrawn": "已撤回",
+  "routines.heldFor.person_away": "因你离开而暂停。你回来后它会重新开启。",
+  "server.routines.held.personAway": "你不在的这段时间，例行任务自己暂停了——你回来后它们正在重新开启。"
 }

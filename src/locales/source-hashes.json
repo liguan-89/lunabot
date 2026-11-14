@@ -43945,7 +43945,9 @@
       "botPanel.tracked.title": "5d32533d2c6c942a97f92f6b57d6c957c41507b4c8478e789a22354cf267129b",
       "botPanel.tracked.needsYou": "74b6abdf59690fdffec2059089487cd63658249da5301cbf065e9977518fbd8f",
       "botPanel.tracked.done": "9e3789bac89ce5141a3811b3d400305237bb119819977f5a10d9d2e3389e6975",
-      "widget.withdrawn": "00c0b03fcfa2ac02fc0be8f640ccb282dc899197395335c38f2051f36f25d98b"
+      "widget.withdrawn": "00c0b03fcfa2ac02fc0be8f640ccb282dc899197395335c38f2051f36f25d98b",
+      "routines.heldFor.person_away": "c4621c937869be01e713f5c2bfcce8390ec640c0f3096e8fc8ef07158b72c715",
+      "server.routines.held.personAway": "c47ecedc4a17de18446aab3dea77c697e3bc886a57947c4604fbf51eb8e2dbdb"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",

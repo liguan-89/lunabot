@@ -21,9 +21,10 @@ export const ROUTINE_HOLD_KEYS: Record<RoutineHoldCause, ServerLineKey> = {
   plan_cancelled: "server.routines.held.planCancelled",
   no_engine: "server.routines.held.noEngine",
   no_connections: "server.routines.held.noConnections",
+  person_away: "server.routines.held.personAway",
 };
 
-interface Saved { away?: true; planCancelled?: true; connectionsGone?: true }
+interface Saved { away?: true; planCancelled?: true; connectionsGone?: true; personAway?: true }
 
 export interface RoutineHoldsHostDeps {
   dataDir: string;
@@ -42,7 +43,7 @@ export function createRoutineHoldsHost(deps: RoutineHoldsHostDeps) {
   let saved: Saved = {};
   try {
     const raw = JSON.parse(readFileSync(file, "utf8")) as Record<string, unknown>;
-    saved = { ...(raw.away === true ? { away: true } : {}), ...(raw.planCancelled === true ? { planCancelled: true } : {}), ...(raw.connectionsGone === true ? { connectionsGone: true } : {}) };
+    saved = { ...(raw.away === true ? { away: true } : {}), ...(raw.planCancelled === true ? { planCancelled: true } : {}), ...(raw.connectionsGone === true ? { connectionsGone: true } : {}), ...(raw.personAway === true ? { personAway: true } : {}) };
   } catch { /* none kept yet */ }
   let rechecked = 0;
   let rechecking = false;
@@ -58,7 +59,7 @@ export function createRoutineHoldsHost(deps: RoutineHoldsHostDeps) {
   }
 
   function causes(): RoutineHoldCause[] {
-    return [...(saved.planCancelled ? ["plan_cancelled" as const] : []), ...(saved.away ? ["no_engine" as const] : []), ...(saved.connectionsGone ? ["no_connections" as const] : [])];
+    return [...(saved.planCancelled ? ["plan_cancelled" as const] : []), ...(saved.away ? ["no_engine" as const] : []), ...(saved.connectionsGone ? ["no_connections" as const] : []), ...(saved.personAway ? ["person_away" as const] : [])];
   }
 
   /** The owner's Chief: the place's own one, else the first made (a Team Cloud's founder's). */
@@ -111,6 +112,11 @@ export function createRoutineHoldsHost(deps: RoutineHoldsHostDeps) {
     /** The engines were read: whether no AI of the owner's own can run here, for sure. */
     engines(away: boolean): void {
       save({ ...saved, away: away ? true : undefined });
+      review();
+    },
+    /** The person's last presence ping is old enough to count as away, or they are back. */
+    personAway(away: boolean): void {
+      save({ ...saved, personAway: away ? true : undefined });
       review();
     },
     /** The Admin's word on the plan: cancelled (routines pause), or renewing again (they turn back on). */

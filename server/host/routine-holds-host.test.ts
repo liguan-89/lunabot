@@ -121,3 +121,43 @@ describe("a Cloud home's routines wait while the owner has left", () => {
     expect(w.state()).toMatchObject({ enabled: true });
   });
 });
+
+describe("the person being away", () => {
+  it("pauses the routines once their pings stop, tells the Chief once, and frees them when they come back", () => {
+    const w = world();
+    w.make();
+    w.host.personAway(true);
+    expect(w.state()).toMatchObject({ enabled: false, heldFor: "person_away" });
+    expect(w.lines).toEqual([{ threadId: "chief-main", name: "notice: Your routines paused themselves while you were away — they're turning back on now that you're back." }]);
+    w.host.personAway(true);
+    expect(w.lines).toHaveLength(1);
+    w.host.personAway(false);
+    expect(w.state().enabled).toBe(true);
+    expect(w.state().heldFor).toBeUndefined();
+  });
+
+  it("keeps the briefing routine running: it fills the card the person returns to", () => {
+    const w = world();
+    w.routines.create({ name: "Brief", prompt: "Sum the night", botId: "chief", deliver: "brief", schedule: { type: "interval", everyMinutes: 60, anchorAt: START + HOUR } } as never);
+    w.make();
+    w.host.personAway(true);
+    const brief = w.routines.listRoutines().find((routine) => routine.name === "Brief")!;
+    expect(brief.enabled).toBe(true);
+    expect(brief.heldFor).toBeUndefined();
+    expect(w.state()).toMatchObject({ enabled: false, heldFor: "person_away" });
+  });
+
+  it("remembers an away pause across a restart", () => {
+    const first = world();
+    first.make();
+    first.host.personAway(true);
+    const second = world(first.dir);
+    second.make();
+    const loaded = second.routines.listRoutines().find((routine) => routine.heldFor === "person_away")!;
+    expect(loaded.enabled).toBe(false);
+    second.host.personAway(false);
+    const freed = second.routines.listRoutines().find((routine) => routine.id === loaded.id)!;
+    expect(freed.enabled).toBe(true);
+    expect(freed.heldFor).toBeUndefined();
+  });
+});

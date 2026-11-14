@@ -37,6 +37,21 @@ function harness(file?: string) {
 }
 
 describe("why routines wait while their owner has left", () => {
+  it("lets a routine ignore a cause it is exempt from, even when re-stamped", () => {
+    type R = { enabled: boolean; heldFor?: "no_engine" | "person_away" };
+    const brief: R = { enabled: true }, other: R = { enabled: true };
+    const exempt = (routine: R, cause: string) => cause === "person_away" && routine === brief;
+    expect(shiftHolds([brief, other], [], ["person_away"], exempt as never)).toMatchObject({ paused: [other] });
+    expect(brief.heldFor).toBeUndefined();
+    expect(other.heldFor).toBe("person_away");
+    // A second cause beginning holds the exempt routine too.
+    expect(shiftHolds([brief], [], ["person_away", "no_engine"], exempt as never)).toMatchObject({ paused: [brief] });
+    expect(brief.heldFor).toBe("no_engine");
+    // And when that cause ends, person_away still does not keep it waiting.
+    expect(shiftHolds([brief], ["person_away", "no_engine"], ["person_away"], exempt as never)).toMatchObject({ resumed: [brief] });
+    expect(brief.heldFor).toBeUndefined();
+  });
+
   it("keeps the causes in one order, each once, and ignores anything else", () => {
     expect(holdCauses(["no_connections", "plan_cancelled", "no_connections", "bogus"])).toEqual(["plan_cancelled", "no_connections"]);
     expect(holdCauses("no_engine")).toEqual([]);

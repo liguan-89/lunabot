@@ -32,8 +32,8 @@ type HeldRun = { routineId: string; status: string; attention?: string; finished
 /** Turns the routines a change of cause holds off (their queued runs cancelled) and the ones it frees back on from `now`.
  * `next` is the routine's first occurrence from `now`; a one-time run whose time passed while it waited stays over. */
 export function applyHolds<R extends HeldRoutine, Run extends HeldRun>(routines: readonly R[], runs: readonly Run[],
-  before: readonly RoutineHoldCause[], after: readonly RoutineHoldCause[], now: number, next: (schedule: R["schedule"], now: number) => number | null): AppliedHolds<R, Run> {
-  const shift = shiftHolds(routines, before, after);
+  before: readonly RoutineHoldCause[], after: readonly RoutineHoldCause[], now: number, next: (schedule: R["schedule"], now: number) => number | null, exempt?: (routine: R, cause: RoutineHoldCause) => boolean): AppliedHolds<R, Run> {
+  const shift = shiftHolds(routines, before, after, exempt);
   for (const routine of shift.paused) Object.assign(routine, { enabled: false, nextRunAt: null });
   for (const routine of shift.resumed) {
     const at = next(routine.schedule, now);
@@ -47,19 +47,23 @@ export function applyHolds<R extends HeldRoutine, Run extends HeldRun>(routines:
 
 /** Stamps the routines a change from `before` to `after` holds or frees. A routine held for a cause that ended takes the
  * first cause still holding; one that is on is held for the first cause that began. */
-export function shiftHolds<T extends { enabled: boolean; heldFor?: RoutineHoldCause }>(routines: readonly T[], before: readonly RoutineHoldCause[], after: readonly RoutineHoldCause[]): HoldShift<T> {
+export function shiftHolds<T extends { enabled: boolean; heldFor?: RoutineHoldCause }>(routines: readonly T[], before: readonly RoutineHoldCause[], after: readonly RoutineHoldCause[], exempt?: (routine: T, cause: RoutineHoldCause) => boolean): HoldShift<T> {
   const began = after.filter((cause) => !before.includes(cause));
   const shift: HoldShift<T> = { paused: [], resumed: [], began };
   for (const routine of routines) {
     if (routine.heldFor !== undefined && !after.includes(routine.heldFor)) {
-      if (after[0]) routine.heldFor = after[0];
+      const remaining = after.find((cause) => !exempt?.(routine, cause));
+      if (remaining) routine.heldFor = remaining;
       else {
         delete routine.heldFor;
         shift.resumed.push(routine);
       }
-    } else if (routine.heldFor === undefined && routine.enabled && began[0]) {
-      routine.heldFor = began[0];
-      shift.paused.push(routine);
+    } else if (routine.heldFor === undefined && routine.enabled) {
+      const stamp = began.find((cause) => !exempt?.(routine, cause));
+      if (stamp) {
+        routine.heldFor = stamp;
+        shift.paused.push(routine);
+      }
     }
   }
   return shift;

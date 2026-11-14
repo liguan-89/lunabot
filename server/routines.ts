@@ -913,7 +913,9 @@ export class RoutineManager {
     const after = holdCauses(causes);
     if (this.unreadable || after.join() === this.holds.join()) return [];
     let held: AppliedHolds<Routine, RoutineRun> | undefined;
-    this.commitMutation(() => { held = applyHolds(this.routines, this.runs, this.holds, after, this.now(), (schedule, now) => this.initialOccurrence(schedule, now)); this.holds = after; });
+    // The briefing routine ignores person_away: it is what fills the card the person returns to.
+    const exempt = (routine: Routine, cause: RoutineHoldCause) => cause === "person_away" && routine.deliver === "brief";
+    this.commitMutation(() => { held = applyHolds(this.routines, this.runs, this.holds, after, this.now(), (schedule, now) => this.initialOccurrence(schedule, now), exempt); this.holds = after; });
     for (const run of held!.cancelled) this.emitRun(run);
     for (const routine of [...held!.paused, ...held!.resumed]) this.emitRoutine(routine);
     return held!.paused.length ? held!.began : [];

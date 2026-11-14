@@ -79,8 +79,8 @@ export type RoutineDelivery = "brief";
 
 /** Why OpenMausBot paused a routine by itself, after its owner left: no AI of theirs is signed in here any more, they
  * removed every connected app and server, or the plan was cancelled. It turns back on once that changes. */
-export type RoutineHoldCause = "plan_cancelled" | "no_engine" | "no_connections";
-export const ROUTINE_HOLD_CAUSES: readonly RoutineHoldCause[] = ["plan_cancelled", "no_engine", "no_connections"];
+export type RoutineHoldCause = "plan_cancelled" | "no_engine" | "no_connections" | "person_away";
+export const ROUTINE_HOLD_CAUSES: readonly RoutineHoldCause[] = ["plan_cancelled", "no_engine", "no_connections", "person_away"];
 
 /** What a finished run left in the chat it reports to: nothing, because it
  * found nothing to tell; a report waiting for a turn there to end; or the bot
