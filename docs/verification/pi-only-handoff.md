@@ -73,16 +73,20 @@ Grok/Copilot 等驱动已删除。
 
 ## 5. 已知问题与产品缺口
 
-1. ~~**`phone-relay` 的「停顿流」用例在本机挂起**~~（已修，2026-11-14）：三层叠加的
+1. **`phone-relay` 的「停顿流」用例在本机挂起**——**companion sidecar 侧已修
+   （2026-11-14），server（`serve --relay`）侧仍挂**。已修的是三层叠加的
    泄漏链——① 响应先于请求体结束时代理不销毁请求（`proxy.ts`）；② `duplexPair` 的
    destroy 不传播到对端，origin 关闭后 `near` 永远等不到写完成（`origin.ts`）；
    ③ 会话桥只看 `socket.readableEnded`，漏掉「流没读到 FIN」的半开形态
    （`session.ts`）。修复后 mux RST 能一路传回手机，`activeStreams` 归零；顺带把
    `remoteReset` 改为干净销毁（RST 到达时 Node client 可能已剥掉 error 监听，
    带 error 的 destroy 偶发炸掉进程，约 50% 复现于并行跑）。回归用例在
-   `companion/test/e2e/sidecar.test.ts`（"resets an upload whose harness goes quiet"）。另修配方自身的
-   两处 rebrand 遗留（health `openmausbot`→`dexbot`、节点 `*.openmausbot.com`→
-   `*.dexai.vip`），`phone-relay.e2e` 2/2 恢复。
+   `companion/test/e2e/sidecar.test.ts`（"resets an upload whose harness goes quiet"），
+   `phone-relay.e2e` 也已修复（含两处 rebrand 遗留：health `openmausbot`→`dexbot`、
+   节点 `*.openmausbot.com`→`*.dexai.vip`，2/2 恢复）。**仍未修**：
+   `server/phone-relay.test.ts` 的 "ends a stream that stalls in its request
+   headers or body" 单测（`streamDeadlines` 路径）依旧挂起——server 侧 relay
+   的 origin 接线是同一泄漏类的另一个实例，修法可参照 companion 三层修复。
 2. **`server/drivers/pi.test.ts` 的 willRetry 用例在 4 路并发下偶发失败**；
    单跑 90/90 通过。是时序抖动，不是逻辑失败。后续在 `awaitResponse` 加了
    死亡子进程即时拒绝（waiter 注册晚于 `close` 事件时原先会挂到超时），
