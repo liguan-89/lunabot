@@ -36,6 +36,7 @@ import { phonePairingLink } from "../shared/pairing-link.ts"; import { personTag
 import { canWorkOnCloud, type CloudEngine } from "../shared/cloud-computer.ts";
 import {
   approvalModeFor,
+  hasNativeAutoReview,
   modelSwitchNeedsAsk,
   isEmergencyApprovalDowngrade,
   isApprovalMode, setDefaultApprovalMode, levelWithin,
@@ -48,7 +49,7 @@ import { isPendingSignInRequest, normalizeSignInSite, signInOutcome, signInResum
 import { createRoomTurnLevels } from "./room-turn-level.ts";
 import { createSignInSettle } from "./host/sign-in-settle.ts"; import { createPersonLanguages, THIS_COMPUTER } from "./host/person-languages.ts"; import "./server-line-packs.ts"; import { conversationLanguage, serverLine, setConversationLanguage } from "./server-lines.ts";
 import { RoomMemberLock } from "./room-member-lock.ts";
-import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts";
+import { approvalHeldNote, approvalHeldReason, approvalModeForOrigin, autoVerdict, deliverFullAccessApproval, undeliveredApprovalTool } from "./auto-approve.ts"; import { readsOwnFiles } from "./own-file-reads.ts"; import { reviewToolApproval } from "./approval-review.ts";
 import { bindSafetyFloor, denyAtSafetyFloor, heldAtSafetyFloor, safetyFloorOn } from "./safety-floor-gate.ts";
 import { CommandAllowlistStore, commandAllowlistCandidate } from "./command-allowlist.ts";
 import { providerMcpTool, providerToolAllowKey } from "./provider-tool-allow.ts";
@@ -6639,6 +6640,59 @@ bus.subscribe((event: RuntimeEvent) => {
             routineRun?.attention ? `${routineRun.routineName}: ${routineRun.attention}` : event.summary,
           ), routineRun ? { routine: true } : undefined);
         }
+      }
+      // Auto on an engine with no reviewer of its own: the card is already up, and the helper model
+      // races the person to answer it. An escalate leaves the card exactly where it is.
+      const reviewInstance = permission && asker && event.requestId && effectiveApprovalMode === "auto" && verdict?.source === "native-approval"
+        ? (runningTurnEngines.get(event.threadId)?.instanceId === providerInstanceId ? runningTurnEngines.get(event.threadId) : registry.get(providerInstanceId))
+        : undefined;
+      if (reviewInstance && asker && event.requestId && !hasNativeAutoReview(reviewInstance.driverKind)) {
+        const requestId = event.requestId;
+        const { tool, summary, commandLine } = event;
+        const reviewAdapter = reviewInstance.adapter;
+        const sourceGeneration = directTurnGenerationByThread.get(event.threadId);
+        const sourceSpeaker = groupSpeakers.get(event.threadId);
+        const isCurrent = () => !shouldIgnoreProviderEvent(event) && (
+          (sourceGeneration !== undefined && directTurnGenerationByThread.get(event.threadId) === sourceGeneration) ||
+          (sourceSpeaker !== undefined && groupSpeakers.get(event.threadId) === sourceSpeaker)
+        );
+        void (async () => {
+          const reviewed = await reviewToolApproval({
+            decider,
+            request: { tool, summary, ...(commandLine ? { commandLine } : {}) },
+            rules: cfg.decisions?.rules,
+          });
+          if (reviewed === "escalate" || !isCurrent()) return;
+          if (reviewed === "approve" && denyAtSafetyFloor({
+            event, requestId, bot: asker, adapter: reviewAdapter, isCurrent, say: pushMessage,
+            release: () => watchdog.setWaitingOnHuman(event.threadId, false),
+          })) return;
+          const outcome = await reviewAdapter.respondToRequest(event.threadId, requestId, { behavior: reviewed === "approve" ? "allow" : "deny", source: "auto" });
+          if (!isCurrent() || outcome === "unavailable") return;
+          watchdog.setWaitingOnHuman(event.threadId, false);
+          if (reviewed === "approve" && outcome !== "allowed-once") {
+            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "native-approval") });
+            return;
+          }
+          pushMessage({
+            role: "bot",
+            kind: "activity",
+            tool: {
+              name: `${reviewed === "approve" ? `Approve for me approved ${tool}` : `Approve for me denied ${tool}`}: ${summary.slice(0, 120)}`,
+              ok: reviewed === "approve",
+            },
+          });
+          appendDecision(DATA_DIR, {
+            threadId: event.threadId,
+            requestId,
+            botId: asker.id,
+            botName: asker.name,
+            tool,
+            summary,
+            decision: reviewed === "approve" ? "auto-approved" : "auto-denied",
+            source: "auto-review",
+          });
+        })().catch(() => {});
       }
       break;
     }

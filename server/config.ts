@@ -412,7 +412,14 @@ const appConfigSchema = z.object({
   }).strict().optional(),
   threads: threadsConfigSchema.optional(),
   /** Minimum days of decision-log month files kept; OMB_DECISION_RETENTION_DAYS wins. */
-  decisions: z.object({ retentionDays: z.number().int().min(1).max(3650).optional() }).strict().optional(),
+  decisions: z.object({
+    retentionDays: z.number().int().min(1).max(3650).optional(),
+    /** Natural-language rules the Auto-mode review applies to tool approvals. */
+    rules: z.object({
+      allow: z.array(z.string().max(500)).max(50).optional(),
+      deny: z.array(z.string().max(500)).max(50).optional(),
+    }).strict().optional(),
+  }).strict().optional(),
   loopGuard: loopGuardConfigSchema.optional(),
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
   localVm: localVmConfigSchema.optional(),
@@ -469,7 +476,7 @@ export interface AppConfig extends HelperConfig {
   openai?: { key?: string };
   openrouter?: { key?: string };
   budgets?: { monthlyUsd?: number; warnAtPercent?: number };
-  decisions?: { retentionDays?: number };
+  decisions?: { retentionDays?: number; rules?: { allow?: string[]; deny?: string[] } };
   loopGuard?: LoopGuardConfig;
   safetyFloor?: { enabled?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };

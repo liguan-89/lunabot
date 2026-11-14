@@ -690,7 +690,18 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               const isQuestion = isSelect || evt.method === "input";
               const selectOptions: string[] = isSelect && Array.isArray(evt.options)
                 ? evt.options.filter((option): option is string => typeof option === "string") : [];
-              const summary = String(evt.title ?? (isQuestion ? "pi has a question" : "pi wants confirmation")).slice(0, isQuestion ? MAX_QUESTION_TEXT : 200);
+              const title = String(evt.title ?? (isQuestion ? "pi has a question" : "pi wants confirmation")).slice(0, isQuestion ? MAX_QUESTION_TEXT : 200);
+              // A gated confirm carries the call's input JSON as `message` — that is what the card must show.
+              const detail = !isQuestion && typeof evt.message === "string" ? evt.message : "";
+              const gated = !isQuestion ? /^Allow (.+)\?$/.exec(title) : null;
+              let commandLine: string | undefined;
+              if (gated?.[1] === "bash" && detail) {
+                try {
+                  const cmd = (JSON.parse(detail) as { command?: unknown }).command;
+                  if (typeof cmd === "string" && cmd) commandLine = cmd;
+                } catch {}
+              }
+              const summary = detail ? `${title} — ${commandLine ?? detail}`.slice(0, 600) : title;
               const question = isSelect
                 ? (parseAskQuestions({
                     questions: [{ question: summary, options: selectOptions }],
@@ -732,8 +743,10 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 requestId: reqId,
                 type: "request.opened",
                 requestType: isQuestion ? "question" : "permission",
-                tool: String(evt.title ?? "pi"),
+                tool: gated?.[1] ?? String(evt.title ?? "pi"),
                 summary,
+                ...(commandLine ? { commandLine } : {}),
+                ...(commandLine && turn.cwd ? { command: { command: commandLine, cwd: turn.cwd } } : {}),
                 ...(choices ? { choices } : {}),
                 ...(question ? { questions: [question] } : {}),
               });
@@ -1090,7 +1103,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             requestId,
             type: "request.resolved",
             behavior: decision.behavior,
-            source: "user",
+            source: decision.source ?? "user",
           });
           return decision.behavior === "allow" ? "allowed-once" : decision.behavior === "answer" ? "answered" : "rejected";
         },

@@ -306,6 +306,8 @@ export interface ProviderAdapter {
       message?: string;
       /** "Always allow this session": the provider's own remembered approval; the app keeps no grant of its own. */
       always?: boolean;
+      /** "auto": the app's own reviewer answered, so the resolved card settles like an automatic grant, not a tap. */
+      source?: "user" | "auto";
     },
   ): Promise<RequestOutcome>;
   /** Deliver a user message into the running turn (drivers with `capabilities.queueing`).

@@ -1123,6 +1123,28 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(recorder.events.some((e) => e.type === "request.resolved")).toBe(true);
   });
 
+  it("surfaces a gated confirm's detail, tool name and bash command for exact grants", async () => {
+    await create(undefined, {
+      FAKE_PI_PERMISSION_ON: "perm-marker",
+      FAKE_PI_CONFIRM_TITLE: "Allow bash?",
+      FAKE_PI_CONFIRM_MESSAGE: JSON.stringify({ command: "echo hi" }),
+    });
+    const cwd = mkdtempSync(join(tmpdir(), "omb-pi-cwd-"));
+    try {
+      await instance.adapter.sendTurn({ threadId: "t-perm-gated", text: "perm-marker", cwd });
+      const opened = await recorder.until((e) => e.type === "request.opened");
+      expect(opened).toMatchObject({
+        requestType: "permission",
+        tool: "bash",
+        summary: expect.stringContaining("echo hi"),
+        command: { command: "echo hi", cwd },
+        commandLine: "echo hi",
+      });
+    } finally {
+      removeTempDir(cwd);
+    }
+  });
+
   it("per-bot Ask restores host approval on a legacy full-auto instance", async () => {
     await create("permission", {}, true);
     expect(instance.adapter.capabilities.localComputerMcp).toBe(true);

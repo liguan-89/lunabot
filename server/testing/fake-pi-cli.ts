@@ -821,7 +821,9 @@ function handle(cmd: any) {
       if (process.env.FAKE_PI_PERMISSION_ON && promptText.includes(process.env.FAKE_PI_PERMISSION_ON)) {
         send({ type: "agent_start" });
         send({ type: "turn_start" });
-        send({ type: "extension_ui_request", id: "ask-1", method: "confirm", title: "Run bash: echo hi?" });
+        send({ type: "extension_ui_request", id: "ask-1", method: "confirm",
+          title: process.env.FAKE_PI_CONFIRM_TITLE ?? "Run bash: echo hi?",
+          ...(typeof process.env.FAKE_PI_CONFIRM_MESSAGE === "string" ? { message: process.env.FAKE_PI_CONFIRM_MESSAGE } : {}) });
         return;
       }
       // A prompt carrying this substring asks the person a question instead, so a shared instance can hold one
