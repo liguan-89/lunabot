@@ -99,6 +99,16 @@ export const HOSTED_MCP_APPS = [
     keywords: "tencent map 腾讯地图 地图 位置 地点 餐厅 路线 poi address route place",
   },
   {
+    id: "baidu-map",
+    label: "百度地图",
+    url: "https://mcp.map.baidu.com/mcp",
+    key: { url: "https://lbsyun.baidu.com/apiconsole/key", placement: "query", param: "ak" },
+    icon: { glyph: MapPin },
+    description: "baiduMap.description",
+    notice: "baiduMap.notice",
+    keywords: "baidu map 百度地图 地图 位置 地点 餐厅 路线 路况 poi address route place traffic",
+  },
+  {
     id: "variflight",
     label: "飞常准",
     url: "https://c-gw.variflight.com/chat_message/mcp/api/legacy",

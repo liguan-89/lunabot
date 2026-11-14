@@ -10099,5 +10099,7 @@
   "keys.openaiCompat.protocol.responses": "OpenAI Responses",
   "keys.openaiCompat.protocol.anthropic": "Anthropic Messages",
   "keys.openaiCompat.models": "Model IDs",
-  "keys.openaiCompat.modelsHint": "Comma-separated, for example gpt-5, claude-sonnet-4-5. These appear in pi's model picker."
+  "keys.openaiCompat.modelsHint": "Comma-separated, for example gpt-5, claude-sonnet-4-5. These appear in pi's model picker.",
+  "baiduMap.description": "Locais, endereços, rotas e trânsito na China, com sua própria AK de servidor do Baidu Maps.",
+  "baiduMap.notice": "Cole uma AK de servidor da plataforma aberta do Baidu Maps (lbsyun.baidu.com), com o serviço MCP habilitado para ela. O {app} a guarda no Vault e nunca a mostra de novo; Desconectar a exclui. Um bot que pode usar o Baidu Maps pode consultar locais, endereços e rotas dentro da cota da sua chave, então escolha quais bots terão acesso em Acesso dos bots."
 }

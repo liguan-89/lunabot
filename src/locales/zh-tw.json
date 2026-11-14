@@ -9960,5 +9960,7 @@
   "agentEndpoints.codexTitle": "Codex direct API",
   "agentEndpoints.codexHint": "使用 API 金鑰執行原生 Codex 代理：可連接 OpenAI，或支援 Responses API 的閘道。每個連線都有各自的金鑰和 Codex 設定，費用由該 URL 背後的供應商計收。",
   "settings.simple.account.noNameHint": "尚未設定",
-  "settings.simple.account.yourName": "你的名稱"
+  "settings.simple.account.yourName": "你的名稱",
+  "baiduMap.description": "透過百度地圖官方服務查詢中國境內的地點、地址、路線和路況，使用你自己的服務端 AK。",
+  "baiduMap.notice": "貼上百度地圖開放平台（lbsyun.baidu.com）的服務端 AK，需為該 AK 開通 MCP 服務。{app} 會將它存入 Vault 且不再顯示，中斷連線時會將其刪除。可以使用百度地圖的機器人能查詢地點、地址和路線，呼叫計入你金鑰的配額，因此請在「機器人存取權」中選擇哪些機器人可以使用。"
 }

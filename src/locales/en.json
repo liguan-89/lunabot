@@ -10191,5 +10191,7 @@
   "tencentMap.description": "Places, addresses and routes in China, on your own Tencent Maps developer key.",
   "tencentMap.notice": "Paste a developer key from the Tencent Maps console. {app} stores it in the Vault and never shows it again, and Disconnect deletes it. A bot that can use Tencent Maps can look up places, addresses and routes on your key's quota, so choose which bots get it under Bot access.",
   "variflight.description": "Live flight status and schedules, on your own VariFlight account.",
-  "variflight.notice": "Paste a user MCP key (sk-user-…) from the VariFlight MCP platform. {app} never shows it again, and Disconnect deletes it. A bot that can use VariFlight can read flights and trips on that key, so choose which bots get it under Bot access."
+  "variflight.notice": "Paste a user MCP key (sk-user-…) from the VariFlight MCP platform. {app} never shows it again, and Disconnect deletes it. A bot that can use VariFlight can read flights and trips on that key, so choose which bots get it under Bot access.",
+  "baiduMap.description": "Places, addresses, routes and traffic in China, on your own Baidu Maps server-side AK.",
+  "baiduMap.notice": "Paste a server-side AK from the Baidu Maps open platform (lbsyun.baidu.com), with the MCP service enabled for it. {app} stores it in the Vault and never shows it again, and Disconnect deletes it. A bot that can use Baidu Maps can look up places, addresses and routes on your key's quota, so choose which bots get it under Bot access."
 }

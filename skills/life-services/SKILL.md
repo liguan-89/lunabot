@@ -1,6 +1,6 @@
 ---
 name: life-services
-description: "Connect an on-demand data source when a task needs real-world lookups: China places, addresses and routes (Tencent Maps), or live flight status and schedules (VariFlight). Use when the person asks to find a place, resolve an address, plan a route, check a flight, or look something up and no connected source covers it."
+description: "Connect an on-demand data source when a task needs real-world lookups: China places, addresses and routes (Tencent Maps or Baidu Maps), or live flight status and schedules (VariFlight). Use when the person asks to find a place, resolve an address, plan a route, check a flight, or look something up and no connected source covers it."
 ---
 
 # Life services data sources
@@ -27,6 +27,15 @@ Its developer key rides inside the address itself (`?key=`). A URL with a key in
 assemble the URL or request the key for a header. Tell the person the Apps panel has a **腾讯地图** card whose
 "Get a key" button opens the Tencent Location console (lbs.qq.com); pasting it there stores it in the Vault and wires
 the server for them.
+
+## 百度地图 — places, addresses, routes and traffic in China
+
+Official endpoint: `https://mcp.map.baidu.com/mcp` (transport `http`). Coverage: geocoding, place search, route
+planning, weather and traffic inside China — the alternative when the person prefers Baidu's data over Tencent's.
+
+Same rule as Tencent Maps: its server-side AK rides inside the address (`?ak=`), so DO NOT assemble the URL or request
+the key. The Apps panel has a **百度地图** card whose "Get a key" button opens the Baidu Maps open platform
+(lbsyun.baidu.com); the AK must be the server-side type with the MCP service enabled for it.
 
 ## 飞常准 (VariFlight) — live flight status and schedules
 

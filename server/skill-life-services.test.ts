@@ -24,6 +24,7 @@ describe("life-services skill guide", () => {
 
   it("points at both official endpoints and keeps keys out of chat", () => {
     expect(guide).toContain("https://mcp.map.qq.com/sse");
+    expect(guide).toContain("https://mcp.map.baidu.com/mcp");
     expect(guide).toContain("https://c-gw.variflight.com/chat_message/mcp/api/legacy");
     expect(guide).toContain("request_credential");
     expect(guide).toContain("Never ask for a key in chat");
