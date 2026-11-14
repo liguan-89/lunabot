@@ -202,10 +202,16 @@ internal class PhoneJobRunner(
                     else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
                 }
             }
-            val outcome = runCatching { withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) { run.await() } }
-                .getOrNull()
-                ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
-            session.completePhoneJob(job.id, outcome.toJson())
+            val outcome = try {
+                withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) { run.await() }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Throwable) {
+                Log.w(TAG, "job=${job.id} executor threw", error)
+                null
+            } ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
+            val posted = session.completePhoneJob(job.id, outcome.toJson())
+            Log.d(TAG, "job=${job.id} outcome posted=$posted")
         }
     }
 

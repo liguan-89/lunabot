@@ -2633,10 +2633,21 @@ class Session(
     suspend fun leasePhoneJob(jobId: String): Boolean =
         guardPhone { client?.leasePhoneJob(jobId) } ?: false
 
-    suspend fun completePhoneJob(jobId: String, outcome: JsonObject): Boolean = guardPhone {
-        client?.completePhoneJob(jobId, outcome)
-        true
-    } ?: false
+    suspend fun completePhoneJob(jobId: String, outcome: JsonObject): Boolean {
+        // The post fails fast on purpose; a retry on a fresh connection is the
+        // recovery for a dead pooled socket or a briefly congested computer.
+        for (attempt in 1..2) {
+            if (guardPhone {
+                    client?.completePhoneJob(jobId, outcome)
+                    true
+                } == true
+            ) {
+                return true
+            }
+            if (attempt == 1) delay(1_000)
+        }
+        return false
+    }
 
     /** Push one inbound SMS for the channels relay; false when the computer could not be told. */
     suspend fun postPhoneEvent(event: PhoneSmsEvent): Boolean {
@@ -2655,6 +2666,8 @@ class Session(
         block()
     } catch (error: Throwable) {
         if (error is CancellationException) throw error
+        // Job delivery, lease and result posts used to fail here without a trace.
+        com.openmausbot.companion.core.e2e.E2eLog.line("phone call failed: ${error.message}")
         null
     }
 

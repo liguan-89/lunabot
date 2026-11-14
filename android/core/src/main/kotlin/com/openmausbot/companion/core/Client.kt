@@ -236,6 +236,21 @@ class CompanionClient(
         .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
         .build()
 
+    /**
+     * A job's answer is worthless once the server stops waiting for it, so the
+     * result post fails fast: a stuck socket or a busy computer is retried by
+     * the caller instead of burning the whole window on one attempt.
+     */
+    private val phoneResultClient = transportClient.newBuilder()
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
+        .dns(endpoint?.dns ?: transportClient.dns)
+        .callTimeout(PHONE_RESULT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(PHONE_RESULT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
     private val avatarGenerationClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
         .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
@@ -1158,7 +1173,7 @@ class CompanionClient(
             "POST",
             "/api/phones/self/jobs/${segment(jobId)}/result",
             body = outcome,
-        ))
+        ), phoneResultClient)
     }
 
     private fun makeRequest(
@@ -1201,8 +1216,8 @@ class CompanionClient(
         }
     }
 
-    private suspend fun sendUnit(request: Request) {
-        val raw = perform(request)
+    private suspend fun sendUnit(request: Request, requestClient: OkHttpClient = actionClient) {
+        val raw = perform(request, requestClient)
         check(raw)
     }
 
@@ -1293,6 +1308,7 @@ class CompanionClient(
         private const val ACTION_TIMEOUT_SECONDS = 20L
         /** The server holds a job poll for 20 s; this leaves it room to answer. */
         private const val PHONE_JOB_TIMEOUT_SECONDS = 35L
+        private const val PHONE_RESULT_TIMEOUT_SECONDS = 10L
         private const val AVATAR_GENERATION_TIMEOUT_SECONDS = 150L
         /** The harness allows the updater three minutes; leave room to hear back. */
         private const val CLAUDE_UPDATE_TIMEOUT_SECONDS = 200L
