@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.JsonObject
@@ -184,8 +185,9 @@ internal class PhoneJobRunner(
 
             val tool = PhoneTool.fromWire(job.tool)
             // A stuck executor would stall this serial poll until the server marks
-            // the phone offline, so the run gets a bound under the server's timeout.
-            val outcome = withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) {
+            // the phone offline. Blocking calls ignore cancellation, so the run
+            // sits on the runner scope and the bound only stops awaiting it.
+            val run = scope.async {
                 when {
                     tool == null -> PhoneToolOutcome.Failure(
                         "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
@@ -199,7 +201,10 @@ internal class PhoneJobRunner(
                     tool.capability == "messages" -> messages.execute(tool, job.arguments)
                     else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
                 }
-            } ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
+            }
+            val outcome = runCatching { withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) { run.await() } }
+                .getOrNull()
+                ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
             session.completePhoneJob(job.id, outcome.toJson())
         }
     }

@@ -16,7 +16,9 @@ import androidx.core.content.ContextCompat
 import com.openmausbot.companion.core.LocationAccess
 import java.util.Locale
 import kotlin.coroutines.resume
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -73,10 +75,11 @@ internal class PhoneLocation(private val context: Context) {
             "unsupported",
         )
 
-        // Geocoder's synchronous lookup blocks on a backend that may be unreachable —
-        // without a bound it stalls the whole job poll, so cap it.
-        val place = runCatching {
-            withTimeoutOrNull(GEOCODE_TIMEOUT_MILLIS) {
+        // Geocoder's synchronous lookup blocks on a backend that may be unreachable.
+        // A blocking call ignores coroutine cancellation, so it runs on its own
+        // coroutine and the timeout only stops awaiting it.
+        val lookup = CoroutineScope(Dispatchers.IO).async {
+            runCatching {
                 Geocoder(context, Locale.getDefault())
                     .getFromLocation(location.latitude, location.longitude, 1)
                     ?.firstOrNull()
@@ -84,8 +87,9 @@ internal class PhoneLocation(private val context: Context) {
                         address.locality ?: address.subAdminArea ?: address.adminArea
                             ?: address.getAddressLine(0)
                     }
-            }
-        }.getOrNull()
+            }.getOrNull()
+        }
+        val place = runCatching { withTimeoutOrNull(GEOCODE_TIMEOUT_MILLIS) { lookup.await() } }.getOrNull()
 
         PhoneToolOutcome.Success(
             buildJsonObject {
