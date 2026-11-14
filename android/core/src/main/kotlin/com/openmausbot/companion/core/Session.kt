@@ -2615,6 +2615,12 @@ class Session(
         true
     } ?: false
 
+    /** Push one inbound SMS for the channels relay; false when the computer could not be told. */
+    suspend fun postPhoneEvent(event: PhoneSmsEvent): Boolean = guardPhone {
+        client?.postPhoneEvent(event)
+        true
+    } ?: false
+
     private suspend fun <T> guardPhone(block: suspend () -> T?): T? = try {
         block()
     } catch (error: Throwable) {

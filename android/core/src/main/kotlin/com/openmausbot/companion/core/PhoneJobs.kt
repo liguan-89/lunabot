@@ -1,5 +1,6 @@
 package com.openmausbot.companion.core
 
+import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.booleanOrNull
@@ -53,6 +54,21 @@ data class PhoneJobPoll(val job: PhoneJob? = null)
 data class PhoneLease(val active: Boolean = false)
 
 /**
+ * What the phone pushes through `POST /api/phones/self/events`: one inbound
+ * text. `sendId` lets the server dedupe the re-broadcasts Android may make
+ * for the same message; on Android it is `<from>:<PDU timestamp millis>`.
+ */
+@Serializable
+data class PhoneSmsEvent(
+    // Required on the wire (a discriminated union): the encoder would drop a
+    // field equal to its default, so it is pinned on.
+    @EncodeDefault val kind: String = "sms",
+    val sendId: String,
+    val from: String,
+    val text: String,
+)
+
+/**
  * What this build knows how to answer. The list is the calendar subset on
  * purpose: a name here is a tool the Android executor implements, and anything
  * else is answered `unsupported` rather than guessed at.
@@ -80,6 +96,9 @@ enum class PhoneTool(
     GET_LOCATION("PHONE_GET_LOCATION", "location", false),
     SEND_MESSAGE("PHONE_SEND_MESSAGE", "messages", true),
     SEND_WHATSAPP("PHONE_SEND_WHATSAPP", "messages", true),
+    // A channel reply the phone sends itself; the server only ever pins `to`
+    // to a number that wrote in, unlike the compose-sheet tools above.
+    REPLY_SMS("PHONE_REPLY_SMS", "messages", true),
     ;
 
     companion object {
@@ -119,6 +138,7 @@ object PhoneToolCatalog {
         "PHONE_RUN_SCENE" to "home",
         "PHONE_SEND_MESSAGE" to "messages",
         "PHONE_SEND_WHATSAPP" to "messages",
+        "PHONE_REPLY_SMS" to "messages",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

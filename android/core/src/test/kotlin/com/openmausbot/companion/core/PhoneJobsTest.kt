@@ -3,6 +3,8 @@ package com.openmausbot.companion.core
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -37,9 +39,9 @@ class PhoneJobsTest {
             mapOf("contacts" to "full", "reminders" to "full"),
             PhoneToolCatalog.capabilities(CalendarAccess.NONE, ContactsAccess.READ_WRITE, reminders = true),
         )
-        // Coarse location is a limited grant; precise is full. Messages open a
-        // composer, so the switch is the whole grant and there is no OS
-        // permission to report.
+        // Coarse location is a limited grant; precise is full. The messages
+        // switch reports `full` only once the runner sees both SMS grants —
+        // this map is the registration's claim, not the permission check.
         assertEquals(
             mapOf("location" to "limited"),
             PhoneToolCatalog.capabilities(CalendarAccess.NONE, location = LocationAccess.COARSE),
@@ -60,13 +62,14 @@ class PhoneJobsTest {
         // the app rather than "unknown tool".
         assertEquals("reminders", PhoneToolCatalog.capabilityOf("PHONE_CREATE_REMINDER"))
         assertEquals("messages", PhoneToolCatalog.capabilityOf("PHONE_SEND_MESSAGE"))
+        assertEquals("messages", PhoneToolCatalog.capabilityOf("PHONE_REPLY_SMS"))
         assertEquals("contacts", PhoneToolCatalog.capabilityOf("PHONE_SEARCH_CONTACTS"))
         assertNull(PhoneToolCatalog.capabilityOf("PHONE_FUTURE_THING"))
     }
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(18, PhoneTool.entries.size)
+        assertEquals(19, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages")
@@ -78,6 +81,7 @@ class PhoneJobsTest {
         assertEquals(PhoneTool.GET_LOCATION, PhoneTool.fromWire("PHONE_GET_LOCATION"))
         assertEquals(PhoneTool.SEND_MESSAGE, PhoneTool.fromWire("PHONE_SEND_MESSAGE"))
         assertEquals(PhoneTool.SEND_WHATSAPP, PhoneTool.fromWire("PHONE_SEND_WHATSAPP"))
+        assertEquals(PhoneTool.REPLY_SMS, PhoneTool.fromWire("PHONE_REPLY_SMS"))
         // Home and nearby places need a vendor SDK this build does not carry.
         assertNull(PhoneTool.fromWire("PHONE_RUN_SCENE"))
     }
@@ -170,5 +174,15 @@ class PhoneJobsTest {
             ),
         )
         assertEquals(mapOf("title" to "Lunch", "allDay" to false), fields)
+    }
+
+    @Test
+    fun `an inbound text serializes as exactly the event the server accepts`() {
+        val event = PhoneSmsEvent(sendId = "+8613800138000:1730000000000", from = "+8613800138000", text = "在吗")
+        val json = CompanionJson.encodeToJsonElement(PhoneSmsEvent.serializer(), event).jsonObject
+        assertEquals(setOf("kind", "sendId", "from", "text"), json.keys)
+        assertEquals("sms", json.getValue("kind").jsonPrimitive.content)
+        assertEquals("+8613800138000:1730000000000", json.getValue("sendId").jsonPrimitive.content)
+        assertEquals("在吗", json.getValue("text").jsonPrimitive.content)
     }
 }

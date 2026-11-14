@@ -131,6 +131,22 @@ class ClientTest {
     }
 
     @Test
+    fun anInboundTextPostsTheSmsEventToTheSelfRoute() = runBlocking {
+        server.enqueue(json("""{"ok":true}"""))
+        client.postPhoneEvent(
+            PhoneSmsEvent(sendId = "+8613800138000:1730000000000", from = "+8613800138000", text = "在吗"),
+        )
+        server.takeRequest().let { request ->
+            assertEquals("POST", request.method)
+            assertEquals("/api/phones/self/events", request.path)
+            val body = CompanionJson.parseToJsonElement(request.body.readUtf8()).jsonObject
+            assertEquals("sms", body.getValue("kind").jsonPrimitive.content)
+            assertEquals("+8613800138000:1730000000000", body.getValue("sendId").jsonPrimitive.content)
+            assertEquals("在吗", body.getValue("text").jsonPrimitive.content)
+        }
+    }
+
+    @Test
     fun localVmTakeoverLeasesTheComputerAndJoinsUnderThatLease() = runBlocking {
         server.enqueue(json("""{"held":true,"owned":true}"""))
         assertTrue(client.takeLocalComputer("b1", "phone-lease-0123456789").held)

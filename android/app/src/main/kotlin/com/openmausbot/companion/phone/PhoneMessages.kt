@@ -1,9 +1,14 @@
 package com.openmausbot.companion.phone
 
+import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
+import android.telephony.SmsManager
+import androidx.core.content.ContextCompat
 import com.openmausbot.companion.core.PhoneTool
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,21 +18,63 @@ import kotlinx.serialization.json.put
 import androidx.core.net.toUri
 
 /**
- * "Send a message" on Android, which is deliberately *not* sending it.
+ * "Send a message" on Android. Two deliberately different paths:
  *
- * The computer's own tool description says the same: PHONE_SEND_MESSAGE and
- * PHONE_SEND_WHATSAPP open a compose sheet, and the message leaves only when
- * the person taps Send. So this class starts the system SMS composer or
- * WhatsApp with the text filled in and reports back that the phone is waiting
- * for the person. It never asks for SEND_SMS, and a bot cannot put a text on
- * the wire by itself.
+ * PHONE_SEND_MESSAGE and PHONE_SEND_WHATSAPP open a compose sheet — the text
+ * leaves only when the person taps Send, and a bot can never put a message on
+ * the wire by itself. PHONE_REPLY_SMS is the channels relay's answer to a
+ * number that wrote in: it sends through SmsManager under the SEND_SMS grant
+ * the messages switch asked for; the server pins `to` to the inbound sender.
  */
 internal class PhoneMessages(private val context: Context) {
     fun execute(tool: PhoneTool, arguments: JsonObject): PhoneToolOutcome = when (tool) {
         PhoneTool.SEND_MESSAGE -> composeSms(arguments)
         PhoneTool.SEND_WHATSAPP -> composeWhatsApp(arguments)
+        PhoneTool.REPLY_SMS -> replySms(arguments)
         else -> PhoneToolOutcome.Failure("这个工具不属于消息。", "unsupported")
     }
+
+    /** The grants the messages switch asked for: reply sending and inbound relay. */
+    fun canRelay(): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+
+    private fun replySms(arguments: JsonObject): PhoneToolOutcome {
+        val to = arguments.string("to")
+            ?: return PhoneToolOutcome.Failure("缺少收件人（to）。", "unsupported")
+        val text = arguments.string("text")
+            ?: return PhoneToolOutcome.Failure("缺少消息内容（text）。", "unsupported")
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.SEND_SMS) != PackageManager.PERMISSION_GRANTED) {
+            return PhoneToolOutcome.Failure("未授予短信权限，请在系统设置中允许。", "unsupported")
+        }
+        return try {
+            val manager = smsManager()
+                ?: return PhoneToolOutcome.Failure("这台设备没有短信功能。", "unsupported")
+            val parts = manager.divideMessage(text)
+            if (parts.size <= 1) {
+                manager.sendTextMessage(to, null, text, null, null)
+            } else {
+                manager.sendMultipartTextMessage(to, null, parts, null, null)
+            }
+            PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("sent", true)
+                    put("channel", "sms")
+                    put("to", to)
+                },
+            )
+        } catch (error: Exception) {
+            PhoneToolOutcome.Failure("短信发送失败：${error.message ?: "未知原因"}。", "unsupported")
+        }
+    }
+
+    private fun smsManager(): SmsManager? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            context.getSystemService(SmsManager::class.java)
+        } else {
+            @Suppress("DEPRECATION")
+            SmsManager.getDefault()
+        }
 
     private fun composeSms(arguments: JsonObject): PhoneToolOutcome {
         val to = arguments.string("to")

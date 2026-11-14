@@ -421,6 +421,8 @@ With Messages allowed in its registration, a phone may also push the texts it re
 
 Replies come back on the same job poll as `PHONE_REPLY_SMS` with `arguments.to` and `arguments.text`. Unlike `PHONE_SEND_MESSAGE` the phone sends it itself — no sheet, no tap — because the destination is only ever the number that wrote in. A phone that does not relay SMS answers the job `{ ok: false, code: "unsupported" }`; the reply is then dropped with a server warning.
 
+The Android app implements this: `SmsRelayReceiver` (manifest, `BROADCAST_SMS`-restricted) reassembles multipart texts, stamps `sendId` as `<from>:<PDU timestamp>`, and posts the event only while the Messages switch and `RECEIVE_SMS` hold; `PhoneMessages.replySms` sends the reply through `SmsManager` under `SEND_SMS`. The registration claims `messages` only while the switch and both grants hold.
+
 ## A bot's MCP servers
 
 The bot panel's Apps page reads `GET /api/bots/:id/mcp-servers`. It answers `{ servers: [{ name, enabled, on, offFor? }] }`

@@ -112,7 +112,9 @@ internal class PhoneJobRunner(
                 contacts = contactsAccess,
                 reminders = switches.reminders,
                 location = locationAccess,
-                messages = switches.messages,
+                // The switch asked for both SMS grants; without them the phone can
+                // neither relay inbound texts nor answer replies, so it claims nothing.
+                messages = switches.messages && messages.canRelay(),
             ),
         )
         // Registration is retried instead of ending the run: the computer is

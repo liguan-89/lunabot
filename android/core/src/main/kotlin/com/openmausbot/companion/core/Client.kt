@@ -1136,6 +1136,15 @@ class CompanionClient(
             phoneJobClient,
         ).active
 
+    /** Push an inbound text the phone received; `sendId` dedupes re-broadcasts. */
+    suspend fun postPhoneEvent(event: PhoneSmsEvent) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/phones/self/events",
+            body = CompanionJson.encodeToJsonElement(PhoneSmsEvent.serializer(), event).jsonObject,
+        ))
+    }
+
     /** Answer a leased job: `{ ok: true, result }` or `{ ok: false, error, code }`. */
     suspend fun completePhoneJob(jobId: String, outcome: JsonObject) {
         sendUnit(makeRequest(

@@ -156,6 +156,16 @@ fun SettingsScreen(
                 granted[android.Manifest.permission.ACCESS_COARSE_LOCATION] == true,
         )
     }
+    // SMS relay needs both halves: receiving to push inbound texts up, sending
+    // to answer them. Refusing either leaves the switch off like the others.
+    val smsPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        environment.chatPreferences.setPhoneMessages(
+            granted[android.Manifest.permission.RECEIVE_SMS] == true &&
+                granted[android.Manifest.permission.SEND_SMS] == true,
+        )
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -544,6 +554,18 @@ fun SettingsScreen(
                     environment.chatPreferences.setPhoneLocation(false)
                 }
             }
+            val toggleMessages: (Boolean) -> Unit = { enabled ->
+                if (enabled) {
+                    smsPermissions.launch(
+                        arrayOf(
+                            android.Manifest.permission.RECEIVE_SMS,
+                            android.Manifest.permission.SEND_SMS,
+                        ),
+                    )
+                } else {
+                    environment.chatPreferences.setPhoneMessages(false)
+                }
+            }
             val toolsFailure = phoneToolsStatus as? Session.PhoneToolsStatus.Failed
             SettingsSection(
                 label = "手机工具",
@@ -579,12 +601,12 @@ fun SettingsScreen(
                     onCheckedChange = toggleLocation,
                 )
                 SettingsDivider()
-                // No permission: this only opens the system composer with the
-                // text filled in, and the person taps Send.
+                // The grants cover the relay (inbound texts push up, replies
+                // send themselves) and the compose-sheet drafts both live under.
                 SettingsSwitchRow(
-                    title = "允许机器人起草短信",
+                    title = "允许机器人收发短信",
                     checked = phoneMessages,
-                    onCheckedChange = { environment.chatPreferences.setPhoneMessages(it) },
+                    onCheckedChange = toggleMessages,
                 )
                 if (phoneCalendar || phoneContacts || phoneReminders || phoneLocation || phoneMessages) {
                     SettingsDivider()

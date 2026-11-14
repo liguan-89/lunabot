@@ -52,10 +52,14 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!--
-      Messages need no permission on purpose: PHONE_SEND_MESSAGE and
-      PHONE_SEND_WHATSAPP open the system SMS composer or WhatsApp with the text
-      filled in, and the person taps Send. The bot never sends silently.
+      SMS relay as a bot tool, behind the messages Settings switch like the
+      grants above: RECEIVE_SMS pushes inbound texts to the computer and
+      SEND_SMS sends the channel's reply to the number that wrote in. Drafts
+      (PHONE_SEND_MESSAGE, a compose sheet the person taps Send on) ride the
+      same switch; refused grants leave it off.
     -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.SEND_SMS" />
     <!--
       Composer dictation only. Asked at the mic button, never at startup — the
       app is fully usable without it, and the IME's own mic is not a substitute
@@ -290,6 +294,20 @@
             android:permission="android.permission.RECEIVE_BOOT_COMPLETED">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!--
+          Inbound SMS for the channels relay. BROADCAST_SMS on the receiver
+          means only the system can deliver this broadcast; the receiver itself
+          also gates on the messages switch before anything is posted upstream.
+        -->
+        <receiver
+            android:name=".phone.SmsRelayReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter>
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
             </intent-filter>
         </receiver>
 

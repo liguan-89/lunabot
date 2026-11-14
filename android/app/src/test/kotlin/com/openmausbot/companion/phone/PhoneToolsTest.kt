@@ -106,6 +106,29 @@ class PhoneToolsTest {
     }
 
     @Test
+    fun `a channel reply without the SMS grant fails before SmsManager is asked`() {
+        val messages = PhoneMessages(context)
+        val outcome = messages.execute(
+            PhoneTool.REPLY_SMS,
+            arguments("to" to "+8613800138000", "text" to "收到"),
+        )
+        val failure = assertIs<PhoneToolOutcome.Failure>(outcome)
+        assertEquals("unsupported", failure.code)
+    }
+
+    @Test
+    fun `compose-sheet tools still need no grant at all`() {
+        val messages = PhoneMessages(context)
+        // SEND_MESSAGE opens the composer; with no activity to catch the intent
+        // in this fixture the honest answer is still a Failure, never a crash.
+        val outcome = messages.execute(
+            PhoneTool.SEND_MESSAGE,
+            arguments("to" to "+8613800138000", "text" to "hi"),
+        )
+        assertIs<PhoneToolOutcome>(outcome)
+    }
+
+    @Test
     fun `outcomes become the exact JSON the job result takes`() {
         val success = PhoneToolOutcome.Success(buildJsonObject { put("deleted", true) }).toJson()
         assertEquals(true, success.getValue("ok").jsonPrimitive.content.toBoolean())
