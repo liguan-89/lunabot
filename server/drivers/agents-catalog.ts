@@ -639,19 +639,19 @@ const TOOL_DEFINITIONS = [
   {
     name: "mac_apps",
     description:
-      "Read and add items in the Mac's own apps — Reminders, Notes, Calendar, Mail — on the machine this server runs on. list returns the default reminder list, your note names, calendar events in the next N days (default 7), or inbox mail with subjects and senders only, never bodies; create adds one item (mail has no create — sending as the person goes through bot mail). macOS asks the person's permission the first time each app is touched; a refusal comes back as an error you report plainly, never retry in a loop. Only on macOS — on other systems it answers that it does not work there.",
+      "Read and manage items in the Mac's own apps — Reminders, Notes, Calendar, Mail — on the machine this server runs on. list returns the default reminder list, your note names, calendar events in the next N days (default 7), or inbox mail with subjects and senders only, never bodies; create adds one item; complete marks a reminder done and delete removes an item — both match the first item with exactly this title; read opens one inbox message by its exact subject and returns its body. Mail has no create — sending as the person goes through bot mail. macOS asks the person's permission the first time each app is touched; a refusal comes back as an error you report plainly, never retry in a loop. Only on macOS — on other systems it answers that it does not work there.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
       properties: {
         app: { type: "string", enum: ["reminders", "notes", "calendar", "mail"] },
-        action: { type: "string", enum: ["list", "create"] },
-        title: { type: "string", description: "create: the item's title or summary." },
+        action: { type: "string", enum: ["list", "create", "complete", "delete", "read"] },
+        title: { type: "string", description: "The item's title or summary — for create, the new item's; for complete/delete/read, the one to act on (first exact match)." },
         body: { type: "string", description: "create: optional reminder body, note text or event description." },
         calendar: { type: "string", description: "create on calendar: the calendar's name; absent is the first calendar." },
         days: { type: "number", description: "list on calendar: how many days ahead to look, at most 31." },
         due: { type: "string", description: "create on reminders: the reminder's due date as an ISO date string." },
-        startsAt: { type: "string", description: "create on calendar: when the event starts, an ISO date string; absent is right now." },
+        startsAt: { type: "string", description: "create on calendar: when the event starts, an ISO date string, absent is right now; delete on calendar: also require the event to start then." },
         minutes: { type: "number", description: "create on calendar: how long the event runs in minutes, default 60." },
       },
       required: ["app", "action"],

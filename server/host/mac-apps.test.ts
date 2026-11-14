@@ -2,11 +2,12 @@ import { describe, expect, it } from "vitest";
 import { macAppCall, macAppScript } from "./mac-apps.ts";
 
 describe("macAppScript", () => {
-  it("rejects unknown apps and actions", () => {
+  it("rejects unknown apps and actions outside each app's matrix", () => {
     expect(macAppScript({ app: "photos", action: "list" })).toHaveProperty("error");
+    expect(macAppScript({ app: "reminders", action: "update" })).toHaveProperty("error");
+    expect(macAppScript({ app: "notes", action: "complete", title: "x" })).toHaveProperty("error");
+    expect(macAppScript({ app: "mail", action: "create", title: "x" })).toHaveProperty("error");
     expect(macAppScript({ app: "reminders", action: "delete" })).toHaveProperty("error");
-    expect(macAppScript({ app: "reminders", action: "create" })).toHaveProperty("error");
-    expect(macAppScript({ app: "mail", action: "create", title: "x" })).toHaveProperty("error", expect.stringContaining("list"));
   });
 
   it("builds reminder list and create scripts with escaped args", () => {
@@ -45,6 +46,30 @@ describe("macAppScript", () => {
     expect(JSON.stringify(listed)).toContain("subject");
     expect(JSON.stringify(listed)).not.toContain("content()");
   });
+
+  it("completes and deletes reminders by first exact name match across lists", () => {
+    const done = macAppScript({ app: "reminders", action: "complete", title: "Tax" });
+    expect(done).toHaveProperty("script", expect.stringContaining("hit.completed = true"));
+    expect(done).toHaveProperty("script", expect.stringContaining("!r.completed()"));
+    const gone = macAppScript({ app: "reminders", action: "delete", title: "Tax" });
+    expect(gone).toHaveProperty("script", expect.stringContaining("app.delete(hit)"));
+    expect(JSON.stringify(gone)).not.toContain("!r.completed()");
+  });
+
+  it("deletes a calendar event by summary, optionally pinned to startsAt", () => {
+    const any = macAppScript({ app: "calendar", action: "delete", title: "Lunch" });
+    expect(any).toHaveProperty("script", expect.stringContaining("e.summary() === \"Lunch\""));
+    expect(JSON.stringify(any)).not.toContain("startDate().getTime");
+    const pinned = macAppScript({ app: "calendar", action: "delete", title: "Lunch", startsAt: "2030-01-05T10:00:00Z" });
+    expect(pinned).toHaveProperty("script", expect.stringContaining(`e.startDate().getTime() - ${Date.parse("2030-01-05T10:00:00Z")}`));
+    expect(macAppScript({ app: "calendar", action: "delete", title: "x", startsAt: "soon" })).toHaveProperty("error", expect.stringContaining("startsAt"));
+  });
+
+  it("reads one mail body by exact subject, bounded", () => {
+    const read = macAppScript({ app: "mail", action: "read", title: "Invoice #7" });
+    expect(read).toHaveProperty("script", expect.stringContaining('m.subject() === "Invoice #7"'));
+    expect(read).toHaveProperty("script", expect.stringContaining("String(m.content()).slice(0, 4000)"));
+  });
 });
 
 describe("macAppCall", () => {
@@ -63,6 +88,11 @@ describe("macAppCall", () => {
   it("reads a created name back", async () => {
     const result = await macAppCall({ app: "reminders", action: "create", title: "x" }, async () => '{"name":"x"}');
     expect(result).toEqual({ ok: true, name: "x" });
+  });
+
+  it("returns a mail read result as an item", async () => {
+    const result = await macAppCall({ app: "mail", action: "read", title: "Hi" }, async () => '{"subject":"Hi","sender":"a@b.c","body":"text"}');
+    expect(result).toEqual({ ok: true, item: { subject: "Hi", sender: "a@b.c", body: "text" } });
   });
 
   it("turns osascript failures into errors", async () => {
