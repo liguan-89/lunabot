@@ -8,18 +8,19 @@ import {
   applyPiLocalCatalog,
   ensurePiCustomProvider,
   ensurePiInjectModel,
+  ensurePiInstanceAgentDir,
   piCatalogFromFrame,
   readPiDefaultModel,
   splitPiModel,
 } from "./pi-model-catalog.ts";
-export { applyPiLocalCatalog, ensurePiCustomProvider, ensurePiInjectModel, splitPiModel };
+export { applyPiLocalCatalog, ensurePiCustomProvider, ensurePiInjectModel, ensurePiInstanceAgentDir, splitPiModel };
 export { parsePiCatalog, preferPiInjectRows } from "./pi-model-catalog.ts";
 import { RuntimeNoticeError, runtimeErrorText } from "./runtime-notice-error.ts";
 // The pi coding agent (@earendil-works/pi-coding-agent) over its own stdio JSON-RPC mode
 // (`pi --mode rpc --no-session`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so
 // this driver holds no key; resumeCursor is pi's `sessionFile` (switch_session).
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { PROVIDER_CREDENTIAL_ENV, stripWorkspaceCredentialEnv } from "../config.ts";
@@ -226,7 +227,14 @@ export const PiDriver: ProviderDriver<PiConfig> = {
   async create(input: DriverCreateInput<PiConfig>): Promise<ProviderInstance> {
     const { instanceId, config } = input;
     const providerEnv = { ...process.env, ...input.environment };
-    const catalogEnv = piEnvironment(providerEnv, { keepCustom: true });
+    const baseEnv = piEnvironment(providerEnv, { keepCustom: true });
+    // A bot's turn gets its own pi agent dir, seeded with the operator's auth and models only: pi otherwise loads the
+    // operator's AGENTS.md, skills, extensions and MCP servers into every turn (lever #5376), overriding the bot's edit
+    // tool and paying their tokens. An explicit PI_CODING_AGENT_DIR from the operator wins.
+    const instancePiDir = baseEnv.PI_CODING_AGENT_DIR
+      ?? ensurePiInstanceAgentDir(instanceId, join(baseEnv.HOME || baseEnv.USERPROFILE || homedir(), ".pi", "agent"), baseEnv);
+    const catalogEnv = { ...baseEnv, PI_CODING_AGENT_DIR: instancePiDir };
+    const piEnv = { ...providerEnv, PI_CODING_AGENT_DIR: instancePiDir };
     let models = EMPTY;
     const readModels = async () => {
       let base = models, listed = false;
@@ -366,10 +374,10 @@ export const PiDriver: ProviderDriver<PiConfig> = {
     const spawnFresh = (contract: ReturnType<typeof spawnContract>, turn: PrewarmInput) => {
       // Before any credential-bearing temp file, so a model setup failure leaves nothing to clean up.
       try {
-        ensurePiCustomProvider({ ...process.env, ...input.environment });
+        ensurePiCustomProvider(piEnv);
       } catch {}
       if (typeof turn.model === "string" && turn.model) {
-        ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
+        ensurePiInjectModel(turn.model, piEnv);
       }
       const mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
       const scopeReadyPath = contract.toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
@@ -385,11 +393,15 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       // spawnCli can throw synchronously, before the caller could remove the credential file.
       try {
         const child = spawnCli(config.cli, [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension], {
+          // The box has its own private /tmp, so the turn's MCP config (and the scope receipt beside it) must be mounted
+          // into it; without this mount pi's extension cannot register the turn's MCP tools or ask_user.
+          box: { rw: [mcpTempDir] },
           stdio: ["pipe", "pipe", "pipe"],
           cwd: turn.cwd,
           env: piEnvironment({
             ...process.env,
             ...input.environment,
+            PI_CODING_AGENT_DIR: instancePiDir,
             // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
             ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
             OMB_THREAD_ID: turn.threadId,

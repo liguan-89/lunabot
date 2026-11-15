@@ -309,6 +309,29 @@ describe("Pi MCP extension registration", () => {
     expect(payload.tools.map((tool) => tool.function.name)).toEqual(["read"]);
   });
 
+  it("bounds a native shell timeout in seconds and refuses a milliseconds-style value", async () => {
+    scopeConfig({ allow: ["native:bash", "native:read"] });
+    const f = scopedApi(["bash", "read"]);
+    await extension(f.api);
+    await f.handlers.get("session_start")?.({});
+
+    const defaulted = { toolName: "bash", input: { command: "echo hi" } as { command: string; timeout?: unknown } };
+    expect(await f.handlers.get("tool_call")?.(defaulted)).toBeUndefined();
+    expect(defaulted.input.timeout).toBe(120);
+
+    const explicit = { toolName: "bash", input: { command: "echo hi", timeout: 0.5 } as { command: string; timeout?: unknown } };
+    expect(await f.handlers.get("tool_call")?.(explicit)).toBeUndefined();
+    expect(explicit.input.timeout).toBe(0.5);
+
+    const huge = { toolName: "bash", input: { command: "echo hi", timeout: 90_000 } };
+    const refused = await f.handlers.get("tool_call")?.(huge);
+    expect(refused).toMatchObject({ block: true });
+    expect(String(refused?.reason)).toMatch(/seconds.*900/);
+
+    expect(await f.handlers.get("tool_call")?.({ toolName: "powershell", input: { command: "x", timeout: "90" } })).toMatchObject({ block: true });
+    expect(await f.handlers.get("tool_call")?.({ toolName: "read" })).toBeUndefined();
+  });
+
   it("does not confirm a refused active-tool clamp or restore a tool another extension disabled", async () => {
     const directory = scopeConfig({ allow: ["native:read", "native:write"] });
     const readyPath = join(directory, "ready.json");

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +14,9 @@ import { buildMcpServers } from "./pi-mcp-servers.ts";
 import {
   applyPiLocalCatalog,
   decodePiFrame,
+  ensurePiCustomProvider,
   ensurePiInjectModel,
+  ensurePiInstanceAgentDir,
   fetchPiModels,
   parsePiCatalog,
   PiDriver,
@@ -1473,7 +1475,7 @@ describe("PiDriver turns (fake CLI)", () => {
     expect(dumps.some((row) => row.setModel?.provider === "omlx" && row.setModel?.modelId === "MiniMax-M3-4bit")).toBe(
       true,
     );
-    const written = JSON.parse(readFileSync(join(home, ".pi", "agent", "models.json"), "utf8")) as {
+    const written = JSON.parse(readFileSync(join(home, ".pi", "instances", "pi-test", "models.json"), "utf8")) as {
       providers: { omlx: { baseUrl: string; models: Array<{ id: string }> } };
     };
     expect(written.providers.omlx.baseUrl).toBe("http://127.0.0.1:8080/v1");
@@ -1596,6 +1598,61 @@ describe("ensurePiInjectModel", () => {
       modelId: "MiniMax-M3-4bit",
     });
     expect(readFileSync(path, "utf8")).toBe("not json");
+  });
+});
+
+describe("ensurePiInstanceAgentDir", () => {
+  it("seeds a per-instance dir with only the operator's auth and models, not their instructions", () => {
+    const home = mkdtempSync(join(tmpdir(), "omb-pi-instance-"));
+    try {
+      const operator = join(home, ".pi", "agent");
+      mkdirSync(operator, { recursive: true });
+      writeFileSync(join(operator, "auth.json"), '{"token":"operator"}');
+      writeFileSync(join(operator, "models.json"), JSON.stringify({ providers: {} }));
+      writeFileSync(join(operator, "AGENTS.md"), "operator-only instructions");
+      const dir = ensurePiInstanceAgentDir("inst-one", operator, { HOME: home });
+      expect(dir).toBe(join(home, ".pi", "instances", "inst-one"));
+      expect(readFileSync(join(dir, "auth.json"), "utf8")).toBe('{"token":"operator"}');
+      expect(existsSync(join(dir, "models.json"))).toBe(true);
+      expect(existsSync(join(dir, "AGENTS.md"))).toBe(false);
+    } finally {
+      removeTempDir(home);
+    }
+  });
+
+  it("keeps an instance's own files when it already has them", () => {
+    const home = mkdtempSync(join(tmpdir(), "omb-pi-instance-own-"));
+    try {
+      const operator = join(home, ".pi", "agent");
+      mkdirSync(operator, { recursive: true });
+      writeFileSync(join(operator, "auth.json"), '{"token":"operator"}');
+      const dir = ensurePiInstanceAgentDir("inst-two", operator, { HOME: home });
+      writeFileSync(join(dir, "auth.json"), '{"token":"instance"}');
+      expect(ensurePiInstanceAgentDir("inst-two", operator, { HOME: home })).toBe(dir);
+      expect(readFileSync(join(dir, "auth.json"), "utf8")).toBe('{"token":"instance"}');
+    } finally {
+      removeTempDir(home);
+    }
+  });
+
+  it("writes the custom provider into the instance dir, leaving the operator's models.json alone", () => {
+    const home = mkdtempSync(join(tmpdir(), "omb-pi-instance-provider-"));
+    try {
+      const operator = join(home, ".pi", "agent");
+      mkdirSync(operator, { recursive: true });
+      const operatorModels = JSON.stringify({ providers: { keep: { baseUrl: "https://operator", models: [] } } });
+      writeFileSync(join(operator, "models.json"), operatorModels);
+      const dir = ensurePiInstanceAgentDir("inst-three", operator, { HOME: home });
+      ensurePiCustomProvider({
+        HOME: home, PI_CODING_AGENT_DIR: dir,
+        DEXBOT_PI_CUSTOM_BASE_URL: "https://gateway.example/v1", DEXBOT_PI_CUSTOM_MODELS: "model-a",
+      });
+      expect(readFileSync(join(operator, "models.json"), "utf8")).toBe(operatorModels);
+      const written = JSON.parse(readFileSync(join(dir, "models.json"), "utf8")) as { providers: Record<string, { models?: Array<{ id: string }> }> };
+      expect(Object.values(written.providers).some((provider) => provider.models?.some((model) => model.id === "model-a"))).toBe(true);
+    } finally {
+      removeTempDir(home);
+    }
   });
 });
 
