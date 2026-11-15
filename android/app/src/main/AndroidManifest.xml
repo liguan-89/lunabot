@@ -46,6 +46,14 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!--
+      File reads as a bot tool, behind their own Settings switch: gallery
+      photos through the media grant, and one folder the person picks with the
+      system folder picker (a persisted tree grant). READ_EXTERNAL_STORAGE is
+      the pre-Android-13 spelling of the photo grant.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!--
       Location as a bot tool, also behind its own Settings switch. Coarse
       registers as `limited` and precise as `full`; neither is asked at startup.
     -->

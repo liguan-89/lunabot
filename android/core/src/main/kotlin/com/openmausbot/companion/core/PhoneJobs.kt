@@ -114,6 +114,8 @@ enum class PhoneTool(
     CLIPBOARD_GET("PHONE_CLIPBOARD_GET", "phoneUi", false),
     CLIPBOARD_SET("PHONE_CLIPBOARD_SET", "phoneUi", true),
     NOTIF_LIST("PHONE_NOTIF_LIST", "phoneUi", false),
+    FILE_LIST("PHONE_FILE_LIST", "phoneUi", false),
+    FILE_READ("PHONE_FILE_READ", "phoneUi", false),
     ;
 
     companion object {
@@ -169,6 +171,8 @@ object PhoneToolCatalog {
         "PHONE_CLIPBOARD_GET" to "phoneUi",
         "PHONE_CLIPBOARD_SET" to "phoneUi",
         "PHONE_NOTIF_LIST" to "phoneUi",
+        "PHONE_FILE_LIST" to "phoneUi",
+        "PHONE_FILE_READ" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

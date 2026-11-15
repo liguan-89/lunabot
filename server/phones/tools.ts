@@ -68,6 +68,8 @@ const tools: PhoneTool[] = [
   tool("PHONE_CLIPBOARD_GET", "Read the phone's clipboard as plain text. Read only.", {}),
   tool("PHONE_CLIPBOARD_SET", "Replace the phone's clipboard with text, for pasting a long value into a field. Asks the person first.", { text: { type: "string", minLength: 1, maxLength: 4000, description: "The text to place on the clipboard." } }, ["text"]),
   tool("PHONE_NOTIF_LIST", "List the last notifications other apps posted on the phone, newest first. Answers only while the person has granted notification access. Read only.", { package: TEXT(200, "Only this Android package's notifications."), limit: { type: "integer", minimum: 1, maximum: 20, description: "How many to return." }, sinceMinutes: { type: "integer", minimum: 1, maximum: 1440, description: "Only notifications from this many minutes ago." } }),
+  tool("PHONE_FILE_LIST", "List files the person allowed this bot to see: gallery photos and files in the one folder they granted. Answers only while the file switch is on. Read only.", { query: TEXT(120, "Part of a file name to match."), kind: { type: "string", enum: ["any", "image", "document"], description: "Photos only, the granted folder only, or both." }, limit: { type: "integer", minimum: 1, maximum: 12, description: "How many to return." } }),
+  tool("PHONE_FILE_READ", "Read one file by fileId from PHONE_FILE_LIST: an image comes back as a picture, a text file as text, and a PDF as recognized text from its first pages. Read only.", { fileId: TEXT(200, "A fileId from PHONE_FILE_LIST."), pages: { type: "integer", minimum: 1, maximum: 5, description: "PDF pages to read." } }, ["fileId"]),
 ];
 
 /** Catalog in PHONE_TOOL_NAMES order. */

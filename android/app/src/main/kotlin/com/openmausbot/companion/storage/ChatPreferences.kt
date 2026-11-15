@@ -151,6 +151,29 @@ class ChatPreferences(
     }
 
     /**
+     * Whether bots may look through this phone's photos and one folder the
+     * person grants. Off until they turn it on; the media permission is asked
+     * only then, and the folder grant is a separate deliberate pick.
+     */
+    private val _phoneFiles = MutableStateFlow(prefs.getBoolean(PHONE_FILES, false))
+    val phoneFiles: StateFlow<Boolean> = _phoneFiles.asStateFlow()
+
+    fun setPhoneFiles(enabled: Boolean) {
+        if (_phoneFiles.value == enabled && prefs.contains(PHONE_FILES)) return
+        prefs.edit { putBoolean(PHONE_FILES, enabled) }
+        _phoneFiles.value = enabled
+    }
+
+    /** The folder the person granted with the system picker; null while none. */
+    private val _phoneFilesTree = MutableStateFlow(prefs.getString(PHONE_FILES_TREE, null))
+    val phoneFilesTree: StateFlow<String?> = _phoneFilesTree.asStateFlow()
+
+    fun setPhoneFilesTree(uri: String?) {
+        prefs.edit { if (uri == null) remove(PHONE_FILES_TREE) else putString(PHONE_FILES_TREE, uri) }
+        _phoneFilesTree.value = uri
+    }
+
+    /**
      * Whether the notification-listener relay may run: RCS/5G messages never
      * fire SMS_RECEIVED, so the messaging app's own notification is the only
      * readable signal. The system grant is asked for separately; this pref is
@@ -240,6 +263,8 @@ class ChatPreferences(
         private const val PHONE_LOCATION = "companion.prefs.phone.location"
         private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
         private const val PHONE_UI = "companion.prefs.phone.ui"
+        private const val PHONE_FILES = "companion.prefs.phone.files"
+        private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
         private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 

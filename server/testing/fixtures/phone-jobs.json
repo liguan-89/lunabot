@@ -1243,6 +1243,71 @@
           "required": [],
           "additionalProperties": false
         }
+      },
+      {
+        "name": "PHONE_FILE_LIST",
+        "description": "List files the person allowed this bot to see: gallery photos and files in the one folder they granted. Answers only while the file switch is on. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 120,
+              "description": "Part of a file name to match."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "any",
+                "image",
+                "document"
+              ],
+              "description": "Photos only, the granted folder only, or both."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "How many to return."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_FILE_READ",
+        "description": "Read one file by fileId from PHONE_FILE_LIST: an image comes back as a picture, a text file as text, and a PDF as recognized text from its first pages. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "A fileId from PHONE_FILE_LIST."
+            },
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "PDF pages to read."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "fileId"
+          ],
+          "additionalProperties": false
+        }
       }
     ]
   }

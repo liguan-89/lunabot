@@ -138,6 +138,8 @@ fun SettingsScreen(
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
     val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
+    val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
+    val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -185,6 +187,35 @@ fun SettingsScreen(
     val phoneUiNetworkPermissions = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
     ) { environment.phoneUi.refresh() }
+
+    // Photos need the media grant on 13+, the storage grant before that; the
+    // switch only turns on when the dialog was accepted, like the others.
+    val filesContext = LocalContext.current
+    val filePermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        val grantedNow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            granted[android.Manifest.permission.READ_MEDIA_IMAGES] == true
+        } else {
+            granted[android.Manifest.permission.READ_EXTERNAL_STORAGE] == true
+        }
+        environment.chatPreferences.setPhoneFiles(grantedNow)
+    }
+    // One folder, deliberately picked: a persisted tree grant the system enforces
+    // on every file open.
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                filesContext.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            environment.chatPreferences.setPhoneFilesTree(uri.toString())
+        }
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -672,7 +703,7 @@ fun SettingsScreen(
             SettingsSection(
                 label = "手机界面",
                 footer = {
-                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过。机器人要截图、识别画面文字、读取剪贴板或最近通知时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
+                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过。机器人要截图、识别画面文字、读取剪贴板、最近通知或你允许的文件时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
                     if (phoneUiStatus == PhoneUiStatus.Failed) {
                         SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
                     }
@@ -749,6 +780,55 @@ fun SettingsScreen(
                             )
                         }
                         PhoneUiStatus.Pairing -> Unit
+                    }
+                    SettingsDivider()
+                    // Files are a separate consent on top of the screen switch:
+                    // the media grant plus, optionally, one picked folder.
+                    SettingsSwitchRow(
+                        title = "允许机器人读取相册与文件夹",
+                        checked = phoneFiles,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                environment.chatPreferences.setPhoneFiles(false)
+                            } else {
+                                val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    android.Manifest.permission.READ_MEDIA_IMAGES
+                                } else {
+                                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+                                }
+                                val already = ContextCompat.checkSelfPermission(filesContext, permission) ==
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (already) environment.chatPreferences.setPhoneFiles(true)
+                                else filePermissions.launch(arrayOf(permission))
+                            }
+                        },
+                    )
+                    if (phoneFiles) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "授权一个文件夹",
+                            value = phoneFilesTree?.let(::treeLabel) ?: "未授权",
+                            chevron = true,
+                            onClick = { folderPicker.launch(null) },
+                        )
+                        if (phoneFilesTree != null) {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "取消文件夹授权",
+                                destructive = true,
+                                onClick = {
+                                    phoneFilesTree?.let { stored ->
+                                        runCatching {
+                                            filesContext.contentResolver.releasePersistableUriPermission(
+                                                android.net.Uri.parse(stored),
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                            )
+                                        }
+                                    }
+                                    environment.chatPreferences.setPhoneFilesTree(null)
+                                },
+                            )
+                        }
                     }
                     if (phoneUiStatus == PhoneUiStatus.Ready) {
                         SettingsDivider()
@@ -1162,6 +1242,13 @@ private fun phoneUiStatusLabel(status: PhoneUiStatus): String = when (status) {
     PhoneUiStatus.Ready -> "已就绪"
     PhoneUiStatus.Failed -> "连接失败"
 }
+
+/** A granted folder's own name, without the provider plumbing in the URI. */
+private fun treeLabel(stored: String): String =
+    android.net.Uri.decode(stored)
+        .substringAfterLast("/tree/")
+        .substringAfterLast(':')
+        .ifEmpty { "已授权" }
 
 private fun openDeveloperOptions(context: Context) {
     runCatching {

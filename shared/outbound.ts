@@ -67,6 +67,9 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
   "PHONE_CLIPBOARD_GET",
   // Listing recent notifications only reads what the person already let this app see.
   "PHONE_NOTIF_LIST",
+  // Listing and reading the phone's allowed files only reads.
+  "PHONE_FILE_LIST",
+  "PHONE_FILE_READ",
 ]);
 
 /** Driving the phone's screen reaches every app on it, so each control but observing and waiting sends something

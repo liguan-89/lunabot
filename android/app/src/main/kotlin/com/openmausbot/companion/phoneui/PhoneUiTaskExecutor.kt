@@ -8,6 +8,7 @@ import android.util.Base64
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationManagerCompat
 import com.openmausbot.companion.core.PhoneTool
+import com.openmausbot.companion.phone.PhoneFileStore
 import com.openmausbot.companion.phone.PhoneNoticeStore
 import com.openmausbot.companion.phone.PhoneToolOutcome
 import com.openmausbot.companion.phoneui.shell.PhoneUiPolicy
@@ -34,13 +35,16 @@ import kotlinx.serialization.json.put
  *
  * Contract for [com.openmausbot.companion.phone.PhoneJobRunner]:
  * `suspend fun execute(tool: PhoneTool, arguments: JsonObject): PhoneToolOutcome`,
- * dispatching on `tool.wire`; unknown wires answer `unsupported`. Every call
- * fails closed unless the helper is attached, the accessibility service is
- * connected and the helper could create its own display — there is no
+ * dispatching on `tool.wire`; unknown wires answer `unsupported`. Screen
+ * actions fail closed unless the helper is attached, the accessibility service
+ * is connected and the helper could create its own display — there is no
  * fallback to the phone's primary display for input and no shell/ADB/network
- * access. Pixels leave this slice only through PHONE_UI_SCREENSHOT (a JPEG of
- * the helper's own display) and PHONE_UI_OCR (recognized text, never the
- * frame), and only when a bot asks for them.
+ * access. File and notification reads, and clipboard reads through the helper,
+ * answer without a display, so a sleeping helper cannot turn a read into a
+ * permission error. Pixels leave this slice only through PHONE_UI_SCREENSHOT
+ * and PHONE_FILE_READ (a picture of the helper's display or of a file the
+ * person allowed) and PHONE_UI_OCR (recognized text, never the frame), and
+ * only when a bot asks for them.
  *
  * Every driving action follows the same shape: fingerprint the screen, run
  * the action, wait for the screen to actually change, then look at whether an
@@ -52,6 +56,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val appContext = context.applicationContext
     private val bridge = PhoneUiShellBridge.of(context)
     private val packageManager = appContext.packageManager
+    private val files = PhoneFileStore(appContext)
     private val lock = Any()
 
     private var session: PhoneUiDisplaySession? = null
@@ -61,7 +66,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val pickerPackages: Set<String> by lazy { PhoneUiSystemPickers.resolve(packageManager) }
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
-    private enum class Action { OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT, SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST }
+    private enum class Action {
+        OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT,
+        SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ,
+    }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
     private class Step(val before: String) {
@@ -72,8 +80,23 @@ internal class PhoneUiTaskExecutor(context: Context) {
         val action = actionOf(tool.wire)
             ?: return@withContext PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
         try {
+            // Reads that need neither the helper nor the screen answer first:
+            // a sleeping helper must not turn them into a permission error.
+            when (action) {
+                Action.FILE_LIST -> return@withContext fileList(arguments)
+                Action.FILE_READ -> return@withContext fileRead(arguments)
+                Action.NOTIF_LIST -> return@withContext noticeList(arguments)
+                else -> Unit
+            }
             val shell = bridge.shell.value
                 ?: return@withContext PhoneToolOutcome.Failure("手机 UI 助手未连接，无法操作屏幕。", CODE_DENIED)
+            // The clipboard lives in a system service the helper reaches; the
+            // screen is not involved.
+            when (action) {
+                Action.CLIPBOARD_GET -> return@withContext clipboardGet(shell)
+                Action.CLIPBOARD_SET -> return@withContext clipboardSet(shell, arguments)
+                else -> Unit
+            }
             val service = PhoneUiAccessibilityService.instance.value
                 ?: return@withContext PhoneToolOutcome.Failure("无障碍服务没有开启，请在系统设置中允许。", CODE_DENIED)
             val session = acquireSession(shell, arguments)
@@ -83,9 +106,6 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 Action.WAIT -> waitTool(shell, service, session, arguments)
                 Action.SCREENSHOT -> screenshot(shell, service, session)
                 Action.OCR -> ocr(session, arguments)
-                Action.CLIPBOARD_GET -> clipboardGet(shell)
-                Action.CLIPBOARD_SET -> clipboardSet(shell, arguments)
-                Action.NOTIF_LIST -> noticeList(arguments)
                 else -> write(shell, service, session) { step ->
                     when (action) {
                         Action.LAUNCH -> launch(shell, arguments, session, step)
@@ -134,6 +154,8 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_CLIPBOARD_GET" -> Action.CLIPBOARD_GET
         "PHONE_CLIPBOARD_SET" -> Action.CLIPBOARD_SET
         "PHONE_NOTIF_LIST" -> Action.NOTIF_LIST
+        "PHONE_FILE_LIST" -> Action.FILE_LIST
+        "PHONE_FILE_READ" -> Action.FILE_READ
         else -> null
     }
 
@@ -318,6 +340,85 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 )
             },
         )
+    }
+
+    /**
+     * Files the person allowed: gallery photos and the folder they granted.
+     * Refuses while the switch is off or no source is readable, so an empty
+     * answer never has to stand in for a missing permission.
+     */
+    private fun fileList(arguments: JsonObject): PhoneToolOutcome {
+        if (!files.enabled()) {
+            return PhoneToolOutcome.Failure("机器人读取文件还没有开启。请在设置的「手机界面」里打开。", CODE_DENIED)
+        }
+        val kind = (arguments.string("kind") ?: "any").lowercase()
+        if (kind !in setOf("any", "image", "document")) {
+            return PhoneToolOutcome.Failure("kind 只支持 any、image、document。", CODE_UNSUPPORTED)
+        }
+        if (!files.photosGranted() && files.treeUri() == null) {
+            return PhoneToolOutcome.Failure(
+                "还没有可读的来源：请允许相册权限，或在设置里授权一个文件夹。",
+                CODE_DENIED,
+            )
+        }
+        val limit = (arguments.int("limit") ?: 10).coerceIn(1, 12)
+        val entries = runCatching { files.list(arguments.string("query"), kind, limit) }
+            .getOrElse { return PhoneToolOutcome.Failure("列文件失败：${it.message ?: "未知错误"}", CODE_DENIED) }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("count", entries.size)
+                put(
+                    "files",
+                    JsonArray(
+                        entries.map { entry ->
+                            buildJsonObject {
+                                put("fileId", entry.fileId)
+                                put("name", entry.name)
+                                entry.mime?.let { put("mime", it) }
+                                put("size", entry.sizeBytes)
+                                put("modifiedAt", entry.modifiedAt)
+                                put("source", entry.source)
+                            }
+                        },
+                    ),
+                )
+            },
+        )
+    }
+
+    private suspend fun fileRead(arguments: JsonObject): PhoneToolOutcome {
+        if (!files.enabled()) {
+            return PhoneToolOutcome.Failure("机器人读取文件还没有开启。请在设置的「手机界面」里打开。", CODE_DENIED)
+        }
+        val fileId = arguments.string("fileId")
+            ?: return PhoneToolOutcome.Failure("缺少参数 fileId。", CODE_UNSUPPORTED)
+        val pages = (arguments.int("pages") ?: 3).coerceIn(1, 5)
+        return try {
+            when (val content = files.read(fileId, pages)) {
+                is PhoneFileStore.Content.Image -> PhoneToolOutcome.Success(
+                    buildJsonObject {
+                        put("name", content.name)
+                        put("mimeType", content.mime)
+                        put("image", Base64.encodeToString(content.bytes, Base64.NO_WRAP))
+                        put("width", content.width)
+                        put("height", content.height)
+                    },
+                )
+                is PhoneFileStore.Content.Text -> PhoneToolOutcome.Success(
+                    buildJsonObject {
+                        put("name", content.name)
+                        put("text", content.text)
+                        put("truncated", content.truncated)
+                    },
+                )
+                is PhoneFileStore.Content.Unsupported -> PhoneToolOutcome.Failure(
+                    "「${content.name}」是 ${content.mime ?: "未知类型"}，目前只能读图片、文本和 PDF。",
+                    CODE_UNSUPPORTED,
+                )
+            }
+        } catch (problem: PhoneFileStore.FileProblem) {
+            PhoneToolOutcome.Failure(problem.message ?: "读取文件失败。", problem.code)
+        }
     }
 
     // MARK: - The shape every driving action shares
