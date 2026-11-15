@@ -72,6 +72,8 @@ export async function resolveTarget(host: string): Promise<ResolvedAddress[]> {
   const literal = isIP(host);
   if (literal) return [{ address: host, family: literal }];
   if (namesThisMachine(host)) return LOOPBACK_NAMES;
+  // A resolver (or a DNS proxy in front of it) may answer even nonsense; a host name is labels of letters, digits, `-` and `_`.
+  if (host.length > 253 || !/^[A-Za-z0-9._-]+\.?$/.test(host)) return [];
   return lookup(host, { all: true, verbatim: true }).catch(() => []);
 }
 
