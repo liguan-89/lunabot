@@ -15,7 +15,7 @@ export type PreviewStreamHostSetup =
   | { readonly need: "libraries"; readonly command: string };
 
 /** The server's LIBRARIES_COMMAND and SANDBOX_STEPS_URL: a close reason is too short to carry the link. */
-export const PREVIEW_STREAM_LIBRARIES_COMMAND = "sudo openmausbot browser install --with-deps";
+export const PREVIEW_STREAM_LIBRARIES_COMMAND = "sudo dexbot browser install --with-deps";
 export const PREVIEW_STREAM_SANDBOX_STEPS_URL = "https://cloud.dexai.vip/docs#self-hosting";
 
 export type PreviewViewportSetting =

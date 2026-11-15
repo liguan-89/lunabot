@@ -132,12 +132,12 @@ describe("openmausbot sentinel", () => {
     const plist = `<key>ProgramArguments</key>\n<array>\n<string>/old/node</string>\n<string>/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js</string>\n<string>sentinel</string>\n</array>`;
     const host = (present: string[]) => ({ platform: "darwin" as const, home: "/Users/maus", exists: (path: string) => path === unit || present.includes(path), read: () => plist });
     expect(runSentinelCli(["--check-install"], io, {}, host(["/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js"]))).toBe(1);
-    expect(lines.join("\n")).toContain("stale install: /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist needs /old/node, which no longer exists; rerun openmausbot service install --sentinel");
+    expect(lines.join("\n")).toContain("stale install: /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist needs /old/node, which no longer exists; rerun dexbot service install --sentinel");
     lines.length = 0;
     expect(runSentinelCli(["--check-install", "--json"], io, {}, host(["/old/node", "/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js"]))).toBe(0);
     expect(JSON.parse(lines[0]!)).toMatchObject({ ok: true, status: "ok", node: "/old/node" });
     lines.length = 0;
     expect(runSentinelCli(["--check-install"], io, {}, { ...host([]), exists: () => false })).toBe(1);
-    expect(lines.join("\n")).toContain("install one with openmausbot service install --sentinel");
+    expect(lines.join("\n")).toContain("install one with dexbot service install --sentinel");
   });
 });

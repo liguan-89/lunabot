@@ -262,7 +262,7 @@ readline.createInterface({ input: process.stdin }).on("line", (line) => {
   connector.pause();
   await expect.poll(async () => (await api("POST", "/api/mcp/servers/local/test", { token: owner })).status, { timeout: 8000 }).toBe(409);
   const paused = await api("POST", "/api/mcp/servers/local/test", { token: owner });
-  expect(paused.body.error).toMatch(/^local runs on .+, which no longer lends itself to My Cloud: OpenMausBot on it is paused or signed out\.$/);
+  expect(paused.body.error).toMatch(/^local runs on .+, which no longer lends itself to My Cloud: DEX BOT on it is paused or signed out\.$/);
   const before = macRequests.length;
   const refused = await call("tools/call", { name: "search_notes", arguments: { q: "plan" } });
   expect(refused.result.isError).toBe(true);

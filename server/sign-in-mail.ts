@@ -77,7 +77,7 @@ export function createSignInMail(options: { url: string; from?: string; now?: ()
       pending.set(email, { hash: digest(code), sentAt: now(), tries: 0 });
       try {
         await (await transport).sendMail({
-          from: sender, to: email, subject: target ? `Your DexBot sign-in code for ${target}` : "Your DEX BOT sign-in code",
+          from: sender, to: email, subject: target ? `Your DEX BOT sign-in code for ${target}` : "Your DEX BOT sign-in code",
           text: `Your code to sign in to ${target ?? "DEX BOT"} is\n\n    ${code.slice(0, 4)} ${code.slice(4)}\n\nIt works once, for the next ten minutes.\n`
             + "If you did not ask to sign in, ignore this email: nobody gets in without the code.\n",
         });

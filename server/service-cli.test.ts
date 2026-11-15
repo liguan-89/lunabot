@@ -37,15 +37,15 @@ describe("openmausbot service", () => {
     const npx = { action: "install" as const, dataDir: join(dir, "x"), port: 8799, publicUrl: "https://maus.example.com", script: "/home/maus/.npm/_npx/deadbeef/node_modules/openmausbot/dist-server/openmausbot.js", node: "/usr/bin/node", platform: "linux" as const, home: "/home/maus", user: "maus" };
     const installs: string[] = [];
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return false; } }, io)).toBe(1);
-    expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} openmausbot@latest`);
+    expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} dexbot@latest`);
     expect(existsSync(join(dir, "x", "dexbot.service"))).toBe(false);
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return true; }, exists: () => true }, io)).toBe(0);
     const pinned = readFileSync(join(dir, "x", "dexbot.service"), "utf8");
-    const script = join(dir, "x", "app", "latest", "node_modules", "openmausbot", "dist-server", "openmausbot.js");
+    const script = join(dir, "x", "app", "latest", "node_modules", "dexbot", "dist-server", "openmausbot.js");
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
     expect(pinned).not.toContain("--no-pair");
-    expect(pinned).toContain('Environment="OMB_CLI_PREFIX=npx openmausbot"');
+    expect(pinned).toContain('Environment="OMB_CLI_PREFIX=npx dexbot"');
     expect(installs).toEqual([join(dir, "x", "app", "latest"), join(dir, "x", "app", "latest")]);
   });
 
@@ -69,7 +69,7 @@ describe("openmausbot service", () => {
     expect(plist).toContain("<string>/usr/bin/node</string>");
     expect(plist).not.toContain("ELECTRON_RUN_AS_NODE");
     expect(plist).toContain(`<string>${sentinelOut}</string>`);
-    expect(out.join("\n")).toContain("openmausbot sentinel --check-install");
+    expect(out.join("\n")).toContain("dexbot sentinel --check-install");
     expect(existsSync(dataDir)).toBe(false);
     expect(out.join("\n")).toContain("launchctl bootstrap gui/$(id -u) /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist");
     expect(out.join("\n")).toContain(`issues: ${join(sentinelOut, "issues.jsonl")}`);
