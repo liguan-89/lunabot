@@ -18,8 +18,12 @@ package com.openmausbot.companion.phoneui.shell
 
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
+import android.content.ClipData
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.os.Binder
@@ -367,6 +371,51 @@ class PhoneUiShellService(
         return clipboard.setText(text)
     }
 
+    /**
+     * Hands a content URI to another app's share screen on our display.
+     * Shell already holds storage access, so the read grant it issues is one
+     * the target can use; the app itself need not be in the foreground.
+     */
+    override fun shareIntent(displayId: Int, contentUri: String, mime: String, packageName: String): Int {
+        if (!ownDisplay(displayId)) return START_ERROR
+        if (!PhoneUiPolicy.isShareAllowed(contentUri, mime, packageName)) return START_ERROR
+        synchronized(launchLock) {
+            val uri = Uri.parse(contentUri)
+            val intent = Intent(Intent.ACTION_SEND).apply {
+                type = mime
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newRawUri("DEX BOT", uri)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                setPackage(packageName)
+            }
+            // The app granted the target read access before asking; shell
+            // cannot delegate a grant it does not hold, so the flag is not set.
+            val handles = runCatching {
+                context.packageManager.queryIntentActivities(intent, 0)
+                    .any { it.activityInfo?.packageName == packageName }
+            }.getOrDefault(false)
+            if (!handles) return START_NOT_FOUND
+            // The framework call rejects a SEND intent carrying a stream for a
+            // virtual display (START_NOT_CURRENT_USER_ACTIVITY), so the share
+            // goes through `am`, exactly as a shell user would start it.
+            val component = queryShareComponent(packageName, intent) ?: return START_NOT_FOUND
+            val started = sh(
+                "am", "start", "--display", "$displayId",
+                "-a", Intent.ACTION_SEND, "-t", mime,
+                "--eu", Intent.EXTRA_STREAM, uri.toString(),
+                "-n", component,
+            )
+            return if (started.first == 0) START_OK else START_FALLBACK_FAILED
+        }
+    }
+
+    private fun queryShareComponent(packageName: String, intent: Intent): String? = runCatching {
+        context.packageManager.queryIntentActivities(intent, 0)
+            .firstOrNull { it.activityInfo?.packageName == packageName }
+            ?.activityInfo
+            ?.let { ComponentName(it.packageName, it.name).flattenToShortString() }
+    }.getOrNull()
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
     override fun releaseAll() {
@@ -453,6 +502,9 @@ class PhoneUiShellService(
         const val START_IN_USE_ON_MAIN = 1
         const val START_NOT_FOUND = 2
         const val START_ERROR = 3
+
+        /** The `am start` fallback did not report success. */
+        const val START_FALLBACK_FAILED = 5
 
         private val TASK_INFO: Class<*> by lazy { Class.forName("android.app.TaskInfo") }
         private const val VIRTUAL_KEYBOARD = -1 // KeyCharacterMap.VIRTUAL_KEYBOARD

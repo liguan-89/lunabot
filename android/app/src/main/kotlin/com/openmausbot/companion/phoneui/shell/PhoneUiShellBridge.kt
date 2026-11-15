@@ -157,4 +157,8 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
     fun readClipboard(): String? = aidl.readClipboard()
 
     fun writeClipboard(text: String): Boolean = aidl.writeClipboard(text)
+
+    /** 0=opened 2=no handler 3=error; the helper validates the URI, mime and package shape. */
+    fun shareIntent(displayId: Int, contentUri: String, mime: String, packageName: String): Int =
+        aidl.shareIntent(displayId, contentUri, mime, packageName)
 }

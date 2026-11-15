@@ -116,6 +116,7 @@ enum class PhoneTool(
     NOTIF_LIST("PHONE_NOTIF_LIST", "phoneData", false),
     FILE_LIST("PHONE_FILE_LIST", "phoneData", false),
     FILE_READ("PHONE_FILE_READ", "phoneData", false),
+    FILE_SHARE("PHONE_FILE_SHARE", "phoneUi", true),
     ;
 
     companion object {
@@ -173,6 +174,7 @@ object PhoneToolCatalog {
         "PHONE_NOTIF_LIST" to "phoneData",
         "PHONE_FILE_LIST" to "phoneData",
         "PHONE_FILE_READ" to "phoneData",
+        "PHONE_FILE_SHARE" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

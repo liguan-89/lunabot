@@ -76,7 +76,7 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
  * somewhere and asks the person first, like any outbound call. */
 const PHONE_UI_WRITES: ReadonlySet<string> = new Set([
   "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
-  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET",
+  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE",
 ]);
 
 /** One of the phone-screen controls (never PHONE_UI_OBSERVE); accepts the MCP-shaped `mcp__device__…` name too. */

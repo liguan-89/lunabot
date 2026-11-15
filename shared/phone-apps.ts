@@ -28,6 +28,7 @@ export const PHONE_TOOL_NAMES = [
   "PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
   "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR",
   "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ",
+  "PHONE_FILE_SHARE",
 ] as const;
 export type PhoneToolName = (typeof PHONE_TOOL_NAMES)[number];
 
@@ -45,7 +46,7 @@ const TOOL_CAPABILITY: Record<PhoneToolName, PhoneCapability> = {
   PHONE_UI_KEY: "phoneUi", PHONE_UI_BACK: "phoneUi", PHONE_UI_WAIT: "phoneUi",
   PHONE_UI_SCREENSHOT: "phoneUi", PHONE_UI_OCR: "phoneUi",
   PHONE_CLIPBOARD_GET: "phoneUi", PHONE_CLIPBOARD_SET: "phoneUi", PHONE_NOTIF_LIST: "phoneData",
-  PHONE_FILE_LIST: "phoneData", PHONE_FILE_READ: "phoneData",
+  PHONE_FILE_LIST: "phoneData", PHONE_FILE_READ: "phoneData", PHONE_FILE_SHARE: "phoneUi",
 };
 
 export function isPhoneToolName(name: unknown): name is PhoneToolName {

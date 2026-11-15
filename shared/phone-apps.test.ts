@@ -7,7 +7,7 @@ describe("phone tool vocabulary", () => {
     for (const name of PHONE_TOOL_NAMES) expect(PHONE_CAPABILITIES).toContain(phoneToolCapability(name));
     expect(phoneToolCapability("PHONE_SEND_WHATSAPP")).toBe("messages");
     expect(phoneToolCapability("PHONE_FIND_PLACES_NEARBY")).toBe("location");
-    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET"]) {
+    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]) {
       expect(phoneToolCapability(name)).toBe("phoneUi");
     }
     // Files and notifications stand apart from the screen: their reads need no helper.
@@ -27,7 +27,7 @@ describe("phone tool vocabulary", () => {
     expect(phoneToolSends("PHONE_CREATE_REMINDER")).toBe(false);
   });
   it("observing the screen is read-only, every other UI control is outbound under either spelling", () => {
-    for (const name of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET"]) {
+    for (const name of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]) {
       expect(isOutboundTool(name), name).toBe(true);
       expect(isOutboundTool(`mcp__device__${name}`), name).toBe(true);
       expect(isPhoneWrite(name), name).toBe(true);

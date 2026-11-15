@@ -88,13 +88,15 @@ class PhoneJobsTest {
         assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_FILE_READ"))
         assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_NOTIF_LIST"))
         assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_CLIPBOARD_GET"))
+        // Sharing a file is a screen action (the compose screen must open on our display).
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_FILE_SHARE"))
         assertEquals(mapOf("phoneData" to "full"), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneData = true))
         assertEquals(emptyMap(), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneData = false))
     }
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(36, PhoneTool.entries.size)
+        assertEquals(37, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")

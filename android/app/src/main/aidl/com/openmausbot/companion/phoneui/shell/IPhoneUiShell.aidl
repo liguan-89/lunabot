@@ -52,6 +52,11 @@ interface IPhoneUiShell {
     // Replace the clipboard with plain text; refuses control characters and
     // oversized input.
     boolean writeClipboard(String text) = 15;
+// Hand a content URI to [packageName]'s share screen on [displayId]. 0=opened
+    // 2=no handler 3=error 5=start failed. The helper resolves the grant as
+    // shell, which already holds storage access, so the target can read the
+    // file without the app staying in the foreground.
+    int shareIntent(int displayId, String contentUri, String mime, String packageName) = 16;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

@@ -1,6 +1,8 @@
 package com.openmausbot.companion.phoneui
 
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Bundle
@@ -69,7 +71,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
 
     private enum class Action {
         OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT,
-        SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ,
+        SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SHARE,
     }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
@@ -116,6 +118,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
                         Action.SCROLL -> scroll(shell, service, session, arguments, step)
                         Action.SWIPE -> swipeTool(shell, service, session, arguments, step)
                         Action.KEY -> key(shell, service, session, arguments, step)
+                        Action.FILE_SHARE -> shareFile(shell, service, session, arguments, step)
                         Action.BACK -> key(shell, service, session, buildJsonObject { put("key", "back") }, step)
                         else -> PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
                     }
@@ -157,6 +160,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_NOTIF_LIST" -> Action.NOTIF_LIST
         "PHONE_FILE_LIST" -> Action.FILE_LIST
         "PHONE_FILE_READ" -> Action.FILE_READ
+        "PHONE_FILE_SHARE" -> Action.FILE_SHARE
         else -> null
     }
 
@@ -852,6 +856,88 @@ internal class PhoneUiTaskExecutor(context: Context) {
             buildJsonObject {
                 put("swiped", true)
                 put("direction", direction)
+            },
+        )
+    }
+
+    private suspend fun shareFile(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        if (!files.enabled()) {
+            return PhoneToolOutcome.Failure("机器人读取文件还没有开启。请在设置的「手机界面」里打开。", CODE_DENIED)
+        }
+        val fileId = arguments.string("fileId")
+            ?: return PhoneToolOutcome.Failure("缺少参数 fileId。", CODE_UNSUPPORTED)
+        val requested = arguments.string("package")
+        if (requested != null && !PhoneUiRules.isValidPackageName(requested)) {
+            return PhoneToolOutcome.Failure("包名不合法。", CODE_UNSUPPORTED)
+        }
+        val uri = try {
+            files.uriFor(fileId)
+        } catch (problem: PhoneFileStore.FileProblem) {
+            return PhoneToolOutcome.Failure(problem.message ?: "文件编号无效。", problem.code)
+        }
+        val mime = files.mimeOf(uri, "文件")
+        // The helper opens the share screen as shell (which already holds
+        // storage access), so the file grant works while this app is in the
+        // background — a start from here would be blocked as a background
+        // activity launch. The target must hold a URI grant first: shell cannot
+        // delegate one it does not own.
+        val target = requested ?: runCatching {
+            packageManager.resolveActivity(
+                Intent(Intent.ACTION_SEND).setType(mime),
+                PackageManager.MATCH_DEFAULT_ONLY,
+            )?.activityInfo?.packageName
+        }.getOrNull() ?: return PhoneToolOutcome.Failure(
+            "没有能接收 $mime 的默认应用；请指定接收的应用包名。",
+            CODE_UNSUPPORTED,
+        )
+        if (requested != null) {
+            val resolvesTo = runCatching {
+                packageManager.queryIntentActivities(
+                    Intent(Intent.ACTION_SEND).setType(mime).setPackage(requested),
+                    0,
+                )
+            }.getOrNull()?.any { it.activityInfo?.packageName == requested } ?: false
+            if (!resolvesTo) {
+                return PhoneToolOutcome.Failure("「$requested」没有能接收 $mime 的分享入口。", CODE_UNSUPPORTED)
+            }
+        }
+        val granted = runCatching {
+            appContext.grantUriPermission(target, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            true
+        }.getOrDefault(false)
+        if (!granted) {
+            return PhoneToolOutcome.Failure("无法把这个文件授权给「$target」。", CODE_DENIED)
+        }
+        val shareCode = runCatching { shell.shareIntent(session.displayId, uri.toString(), mime, target) }.getOrDefault(-1)
+        when (shareCode) {
+            0 -> Unit
+            2 -> return PhoneToolOutcome.Failure("「$target」没有能接收 $mime 的分享入口。", CODE_UNSUPPORTED)
+            4 -> return PhoneToolOutcome.Failure("系统拒绝把这个文件交给「$target」。", CODE_DENIED)
+            5 -> return PhoneToolOutcome.Failure("系统没有在受控屏幕上启动「$target」。", CODE_DENIED)
+            else -> return PhoneToolOutcome.Failure("无法在受控屏幕上打开分享（$shareCode）。", CODE_DENIED)
+        }
+        // A start the system silently dropped looks like success; a compose
+        // screen appearing is the only proof it landed on our display.
+        val changed = awaitChange(service, session, step.before)
+        step.changed = changed
+        if (!changed) {
+            return PhoneToolOutcome.Failure(
+                "分享没有开在受控屏幕上（系统可能拦截了后台启动）。",
+                CODE_DENIED,
+            )
+        }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("shared", true)
+                put("mime", mime)
+                put("package", target)
+                put("note", "分享面板已开在受控屏幕上：接着观察、选目标、填收件人；发送按钮仍需审批。")
             },
         )
     }

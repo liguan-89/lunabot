@@ -56,6 +56,17 @@ object PhoneUiPolicy {
         text.length in 1..MAX_CLIPBOARD_CHARS &&
             text.all { it.code >= 32 || it == '\n' || it == '\t' }
 
+    /**
+     * What the helper may hand to another app: a content URI, a plain mime
+     * type and a package name. Nothing else reaches the share intent.
+     */
+    fun isShareAllowed(contentUri: String, mime: String, packageName: String): Boolean =
+        contentUri.startsWith("content://") && contentUri.length <= 2048 &&
+            contentUri.none { it.isWhitespace() } &&
+            mime.length in 3..200 && mime.all { it.isLetterOrDigit() || it == '/' || it == '+' || it == '.' || it == '-' || it == '*' } &&
+            packageName.length in 3..200 && packageName.count { it == '.' } >= 1 &&
+            packageName.all { it.isLetterOrDigit() || it == '.' || it == '_' }
+
     const val MAX_CLIPBOARD_CHARS = 4_000
 
     // DisplayManager.VIRTUAL_DISPLAY_FLAG_*; several are hidden constants.
