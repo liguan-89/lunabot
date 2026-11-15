@@ -30,7 +30,8 @@ const DESKTOP_OWNER = "owner";
 
 /** Saves a phone file into the attachment store; the caller appends the message row. */
 const savePhoneAttachment: NonNullable<PhoneHostDeps["saveAttachment"]> = async ({ name, mime, bytes }) => {
-  const safeName = name.replace(/[\\/\u0000]/g, "_").trim().slice(0, 200) || "file";
+  // A NUL is stripped with replaceAll rather than a character class: a control character in a regex literal is a lint error.
+  const safeName = name.replace(/[\\/]/g, "_").replaceAll("\u0000", "_").trim().slice(0, 200) || "file";
   if (extensionForMime(mime)) {
     if (bytes.byteLength > IMAGE_MAX_BYTES) return { ok: false, text: `这张图片超过 ${Math.round(IMAGE_MAX_BYTES / 1_048_576)} MB，没有放进对话。` };
     const saved = saveImage(bytes, mime);
