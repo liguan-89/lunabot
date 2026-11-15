@@ -186,21 +186,30 @@ class PhoneUiShellService(
      * REAL_GET_TASKS so it sees every app's tasks. API 33+ has the overload
      * with a displayId; earlier versions take everything and filter here.
      */
-    private fun allTasks(): List<Any> {
-        val methods = taskManager.javaClass.methods.filter { it.name == "getTasks" }
-        val plain = methods.firstOrNull { it.parameterTypes.size == 3 }
-            ?: error("getTasks(int,int,boolean) missing")
-        return (plain.invoke(taskManager, MAX_TASKS, false, false) as List<*>).filterNotNull()
-    }
-
     private fun tasksOn(displayId: Int): List<Any> {
+        val methods = taskManager.javaClass.methods.filter { it.name == "getTasks" }
+        val withDisplay = methods.firstOrNull { it.parameterTypes.size == 4 }
+        val tasks = if (withDisplay != null) {
+            withDisplay.invoke(taskManager, MAX_TASKS, false, false, displayId)
+        } else {
+            methods.first { it.parameterTypes.size == 3 }.invoke(taskManager, MAX_TASKS, false, false)
+        } as List<*>
         val displayField = TASK_INFO.getField("displayId")
-        return allTasks().filter { displayField.getInt(it) == displayId }
+        return tasks.filterNotNull().filter { displayField.getInt(it) == displayId }
     }
 
+    /**
+     * One task by id, looked up on the main display and on every display this
+     * helper holds. The per-display query is the only one that exists on
+     * current systems, so there is no "all tasks" call to make.
+     */
     private fun task(taskId: Int): Any? {
         val idField = TASK_INFO.getField("taskId")
-        return allTasks().firstOrNull { idField.getInt(it) == taskId }
+        val displays = synchronized(displays) { displays.keys.toList() } + Display.DEFAULT_DISPLAY
+        for (displayId in displays) {
+            tasksOn(displayId).firstOrNull { idField.getInt(it) == taskId }?.let { return it }
+        }
+        return null
     }
 
     override fun injectKey(displayId: Int, keyCode: Int): Boolean {

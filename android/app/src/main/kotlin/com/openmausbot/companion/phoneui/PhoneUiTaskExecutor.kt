@@ -323,13 +323,17 @@ internal class PhoneUiTaskExecutor(context: Context) {
     ): PhoneToolOutcome {
         val ref = arguments.string("ref")
             ?: return PhoneToolOutcome.Failure("缺少参数 ref。", CODE_UNSUPPORTED)
-        val snapshot = service.snapshot(session.displayId)
-            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
-        val element = snapshot.elements.firstOrNull { it.ref == ref }
-            ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
+        // Resolve the caller's ref before taking a fresh snapshot: a snapshot
+        // rotates the registry, so the ref must be turned into a node first.
         val node = service.resolveNode(ref, session.displayId)
             ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
-        val outward = PhoneUiClickFallback.mayBeOutward(element.text ?: element.description, element.viewId)
+        val label = runCatching { node.text?.toString() ?: node.contentDescription?.toString() }.getOrNull()
+        val viewId = runCatching { node.viewIdResourceName }.getOrNull()
+        val bounds = nodeBoundsOf(node)
+        val outward = PhoneUiClickFallback.mayBeOutward(label, viewId)
+        // Fresh refs for the target-under-the-point channel and the answer.
+        val snapshot = service.snapshot(session.displayId)
+            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
 
         val clickable = clickableAncestor(node)
         val clicked = clickable != null && perform(clickable, AccessibilityNodeInfo.ACTION_CLICK)
@@ -348,7 +352,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (outward) {
             return PhoneToolOutcome.Failure("这个按钮像发送、支付或确认一类的动作，没有改用坐标再点一次。", CODE_DENIED)
         }
-        val bounds = boundsOf(element) ?: return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
+        if (bounds == null) return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
         val x = bounds.centerX()
         val y = bounds.centerY()
         val tapped = runCatching { shell.injectTap(session.displayId, x, y) }.getOrDefault(false)
@@ -373,7 +377,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
             screenHeight = session.height,
             candidates = snapshot.elements.mapNotNull { candidate ->
                 val rect = boundsOf(candidate) ?: return@mapNotNull null
-                if (!candidate.clickable || candidate.ref == ref) return@mapNotNull null
+                if (!candidate.clickable) return@mapNotNull null
+                // Never the same element again: its click was already tried and
+                // the coordinate tap already landed on that same spot.
+                if (rect == bounds) return@mapNotNull null
                 PhoneUiClickFallback.Candidate(
                     item = candidate,
                     left = rect.left,
