@@ -249,6 +249,10 @@ dependencies {
     // directly, and a direct use deserves a direct dependency.
     implementation("androidx.compose.animation:animation")
     implementation("androidx.activity:activity-compose:1.13.0")
+    // Backdrop blur for the floating chrome: records the transcript into a
+    // GraphicsLayer once per frame and samples it blurred under each capsule —
+    // the API-31+ path; older devices fall back to the style's solid tint.
+    implementation("dev.chrisbanes.haze:haze:1.6.6")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.11.0")
     implementation("androidx.lifecycle:lifecycle-process:2.11.0")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.11.0")

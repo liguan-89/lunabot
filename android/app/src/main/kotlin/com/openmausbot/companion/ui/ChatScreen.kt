@@ -97,7 +97,16 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.painterResource
@@ -551,6 +560,21 @@ private fun LoadedChat(
     // Captured once: the two jump paths run inside effects, where
     // LocalDensity.current cannot be read.
     val density = LocalDensity.current
+    // The two blur bands sample the transcript: each draws the recorded list
+    // under a tint whose blur ramps toward the screen edge, so content melts
+    // away underneath the capsules instead of stopping at them.
+    val hazeState = rememberHazeState()
+    val bandHazeStyle = HazeStyle(
+        // The material body: a fixed radius the eye reads as one surface.
+        // Tints stay OUT of the style — hazeEffect paints them as one uniform
+        // rectangle whose hard edge is exactly the "colour block" that kept
+        // showing up; the canvas wash is a separate gradient scrim that fades
+        // with the same geometry instead.
+        backgroundColor = Color.Transparent,
+        tints = emptyList(),
+        fallbackTint = HazeTint(minisCanvas.copy(alpha = 0.72f)),
+        blurRadius = 18.dp,
+    )
     // Whether new content keeps the transcript pinned to the newest row. True
     // until the reader scrolls up: a bot that streams while someone is reading
     // history must not drag them back down on every token. Sending, jumping to a
@@ -917,13 +941,16 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                        .hazeSource(hazeState)
                         .fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
                         // Room for the floating face when scrolled to the top.
                         top = HEADER_CLEARANCE,
-                        bottom = 16.dp,
+                        // The last message scrolls clear of the floating
+                        // composer; everything earlier passes underneath it.
+                        bottom = BOTTOM_CHROME_HEIGHT + 8.dp,
                     ),
                     // Grok gives each turn a little air; 6 dp made a run of
                     // bubbles read as one block even when the speakers changed.
@@ -1069,6 +1096,58 @@ private fun LoadedChat(
                 // Fully qualified: this Box sits inside the screen's Column, so
                 // the bare name resolves to the ColumnScope overload and the
                 // horizontal alignment below has nowhere to go.
+                // iOS materials, ported: one fixed blur radius per material
+                // view — a radius ramp has no counterpart in UIBlurEffect and
+                // reads as slabs. What fades is the material itself: its
+                // opacity runs from full at the screen edge to nothing at the
+                // inner line, so content melts into the canvas the way a
+                // UIVisualEffectView dissolves when it ends.
+                // Cross-fade, the way the two directions feather into each
+                // other: the sharp transcript is hidden by an inverse canvas
+                // gradient (opaque at the edge, gone at the inner line) while
+                // the blurred copy fades in over it. One ink fades out as the
+                // other fades in, so glyphs never double-darken.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .fillMaxWidth()
+                        .height(TOP_BAND_HEIGHT)
+                        .background(
+                            Brush.verticalGradient(
+                                0f to minisCanvas.copy(alpha = 0.92f),
+                                0.55f to minisCanvas.copy(alpha = 0.35f),
+                                1f to Color.Transparent,
+                            ),
+                        )
+                        .hazeEffect(hazeState, bandHazeStyle) {
+                            progressive = HazeProgressive.LinearGradient(
+                                startIntensity = 1f,
+                                endIntensity = 0f,
+                                easing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f),
+                            )
+                        },
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(BOTTOM_CHROME_HEIGHT)
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                0.45f to minisCanvas.copy(alpha = 0.35f),
+                                1f to minisCanvas.copy(alpha = 0.92f),
+                            ),
+                        )
+                        .hazeEffect(hazeState, bandHazeStyle) {
+                            progressive = HazeProgressive.LinearGradient(
+                                startIntensity = 0f,
+                                endIntensity = 1f,
+                                easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f),
+                            )
+                        },
+                )
+
                 androidx.compose.animation.AnimatedVisibility(
                     visible = canScrollDown && itemCount > 0,
                     enter = fadeIn(tween(150)) + scaleIn(
@@ -1078,7 +1157,7 @@ private fun LoadedChat(
                     exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.8f, animationSpec = tween(120)),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = 10.dp),
+                        .padding(end = 16.dp, bottom = BOTTOM_CHROME_HEIGHT + 10.dp),
                 ) {
                     ScrollToLatestButton(
                         live = tail != TranscriptTail.NONE,
@@ -1123,12 +1202,11 @@ private fun LoadedChat(
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
                 )
-            }
 
-            Composer(
-                modifier = Modifier
-                    .align(Alignment.CenterHorizontally)
-                    .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
+                Composer(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
                 name = chat.name,
                 draft = draft,
                 accessory = ComposerAccessories.accessory(
@@ -1221,6 +1299,7 @@ private fun LoadedChat(
                 // A chip is the whole message, sent on the tap.
                 onSelectChip = { submit(it.prompt) },
             )
+            }
         }
 
         PlusSheet(
@@ -1400,6 +1479,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.itemsIndexedKeyed(
 private val HEADER_BAR = 56.dp
 private val HEADER_SCRIM_FADE = 24.dp
 private val HEADER_CLEARANCE = 128.dp
+
+// The top band spans the header plus a short tail — narrow enough that most
+// of the transcript stays untouched.
+private val TOP_BAND_HEIGHT = 52.dp
+
+// The floating bottom chrome — quick chips, the composer — occupies this much
+// above the window edge; the blur band and the list's clearance both use it.
+private val BOTTOM_CHROME_HEIGHT = 104.dp
 
 /**
  * Search over the messages this phone has loaded.
@@ -1632,9 +1719,8 @@ private fun highlighted(text: String, query: String, highlight: Color): Annotate
  * Back on the left with the rest-of-app unread count, the bot's computer on the
  * right, and the bot itself between them over its name.
  *
- * The strip behind the two buttons is opaque and then fades out, so the
- * transcript slides under the chrome and disappears rather than stopping at a
- * line. The face and the name pill float below it on their own tiles.
+ * The header paints nothing behind the controls: the transcript reads through
+ * the gaps and only the solid pills — back, identity, actions — occlude it.
  */
 @Composable
 private fun ChatHeader(
@@ -1650,21 +1736,7 @@ private fun ChatHeader(
 ) {
     Column(
         modifier = modifier
-            .fillMaxWidth()
-            // A fade, not a translucent strip: the transcript dissolves into the
-            // canvas instead of showing through the title, which is what a blur
-            // would do on iOS. The controls float on top as white circles.
-            .background(
-                Brush.verticalGradient(
-                    // The bar itself must be opaque: at 0.62 the transcript
-                    // showed through the last 20 dp of the title row, and a
-                    // message line landing there read as part of the header.
-                    // Only the tail below the controls dissolves.
-                    0f to minisCanvas,
-                    0.86f to minisCanvas,
-                    1f to minisCanvas.copy(alpha = 0f),
-                ),
-            ),
+            .fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier
@@ -1674,11 +1746,13 @@ private fun ChatHeader(
         ) {
             BackPill(unreadElsewhere = unreadElsewhere, onBack = onBack)
 
+            Spacer(Modifier.weight(1f))
+
             Row(
                 modifier = Modifier
-                    .weight(1f)
                     .heightIn(min = 44.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .chromeCapsule(surface = true)
+                    .clip(CircleShape)
                     .clickable(
                         role = Role.Button,
                         onClick = if (chat.supportsTasks) onOpenThreads else onOpenProfile,
@@ -1692,7 +1766,7 @@ private fun ChatHeader(
                             if (chat.supportsTasks) "${chat.name}，打开任务列表"
                             else "${chat.name}，编辑机器人资料"
                     }
-                    .padding(vertical = 3.dp),
+                    .padding(start = 14.dp, end = 14.dp, top = 3.dp, bottom = 3.dp),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -1719,6 +1793,7 @@ private fun ChatHeader(
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.widthIn(max = 200.dp),
                     )
                     if (chat is Chat.BotChat && chat.bot.chiefOfStaff == true) {
                         Spacer(Modifier.width(4.dp))
@@ -1732,6 +1807,8 @@ private fun ChatHeader(
                     }
                 }
             }
+
+            Spacer(Modifier.weight(1f))
 
             // One action, the way Grok Bot has one: everything that used to be
             // three separate circles now sits behind the ellipsis.
@@ -2251,7 +2328,7 @@ private fun Composer(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
         ) {
-            Row(
+                Row(
                 modifier = Modifier
                     .weight(1f)
                     // Grok Bot's bar is a thin white pill on the grey canvas,
