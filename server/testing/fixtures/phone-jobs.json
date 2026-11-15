@@ -875,7 +875,7 @@
       },
       {
         "name": "PHONE_UI_OBSERVE",
-        "description": "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe again after every action, and never guess a ref.",
+        "description": "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe before a step; every driving action also returns the screen as it is afterwards, so read that instead of observing again. Never guess a ref.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -914,7 +914,7 @@
       },
       {
         "name": "PHONE_UI_TAP",
-        "description": "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE.",
+        "description": "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -937,7 +937,7 @@
       },
       {
         "name": "PHONE_UI_TYPE",
-        "description": "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted.",
+        "description": "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted. Fields that refuse direct text get plain-ASCII key events instead; other text is refused rather than typed as something else.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -967,7 +967,7 @@
       },
       {
         "name": "PHONE_UI_SCROLL",
-        "description": "Scroll the phone's current screen, or the element named by ref, one step up or down.",
+        "description": "Scroll the phone's current screen, or the element named by ref, one step up or down. Falls back to a real swipe when the list ignores the scroll action.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -997,11 +997,101 @@
         }
       },
       {
+        "name": "PHONE_UI_SWIPE",
+        "description": "Swipe one finger across the phone's whole screen, for screens that ignore a scroll action: carousels, sheets, short-video feeds. The finger travels in `direction`, so swiping up scrolls the content down.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down",
+                "left",
+                "right"
+              ],
+              "description": "Where the finger moves."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_KEY",
+        "description": "Press one navigation key on the phone, such as enter to submit a search or del to clear a field.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "enum": [
+                "back",
+                "enter",
+                "del",
+                "tab",
+                "up",
+                "down",
+                "left",
+                "right"
+              ],
+              "description": "Which key."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "key"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
         "name": "PHONE_UI_BACK",
         "description": "Go back one screen on the phone.",
         "inputSchema": {
           "type": "object",
           "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_WAIT",
+        "description": "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "change",
+                "settle"
+              ],
+              "description": "change waits for any change; settle waits for the screen to stop."
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 6000,
+              "description": "Longest wait in milliseconds."
+            },
             "phone": {
               "type": "string",
               "maxLength": 100,

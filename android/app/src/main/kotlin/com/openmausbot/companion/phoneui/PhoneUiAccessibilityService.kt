@@ -64,6 +64,11 @@ class PhoneUiAccessibilityService : AccessibilityService() {
         private const val PAIRING_NODE_LIMIT = 400
         private const val PAIRING_TEXT_LIMIT = 200
         private const val PAIRING_READ_DEPTH = 30
+
+        /** Fingerprints stay cheap: the first few hundred nodes are enough to see a screen change. */
+        private const val FINGERPRINT_NODES = 300
+        private const val FNV_OFFSET = -3750763034362895579L
+        private const val FNV_PRIME = 1099511628211L
     }
 
     private val refLock = Any()
@@ -71,6 +76,14 @@ class PhoneUiAccessibilityService : AccessibilityService() {
 
     /** The display the current snapshot was taken on; -1 before the first snapshot. */
     private var snapshotDisplayId: Int = -1
+
+    /** When the last accessibility event of any kind arrived, for quiet-time measurement. */
+    private var lastEventAtMs = 0L
+
+    /** When the person last touched the phone's own screen, or 0. */
+    private val mainTouchAtMs = java.util.concurrent.atomic.AtomicLong(0L)
+
+    val lastMainScreenTouchAtMs: Long get() = mainTouchAtMs.get()
 
     internal inline fun <T> withLatestSnapshot(block: () -> T): T = synchronized(refLock, block)
 
@@ -81,7 +94,9 @@ class PhoneUiAccessibilityService : AccessibilityService() {
             flags = flags or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                 AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
-            eventTypes = eventTypes or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+            eventTypes = eventTypes or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_VIEW_CLICKED or
+                AccessibilityEvent.TYPE_TOUCH_INTERACTION_START
             feedbackType = feedbackType or AccessibilityServiceInfo.FEEDBACK_GENERIC
             notificationTimeout = EVENT_TIMEOUT_MS
         }
@@ -99,6 +114,15 @@ class PhoneUiAccessibilityService : AccessibilityService() {
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
+        val now = System.currentTimeMillis()
+        lastEventAtMs = now
+        // A touch on the person's own screen means they are driving; a spill
+        // check must not move what they just opened themselves.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            event.displayId == Display.DEFAULT_DISPLAY && isUserTouch(event.eventType)
+        ) {
+            mainTouchAtMs.set(now)
+        }
         // Only a window change means a different window is in front, so refs
         // issued for the previous window must not resolve. Content changes are
         // routine — clocks tick, lists scroll and the UI updates after our own
@@ -153,6 +177,70 @@ class PhoneUiAccessibilityService : AccessibilityService() {
         if (displayId != snapshotDisplayId) return null
         val node = refs.resolve(ref) ?: return null
         return if (runCatching { node.refresh() }.getOrDefault(false)) node else null
+    }
+
+    /**
+     * One reading for [PhoneUiStability]: the tree fingerprint plus how long
+     * the screen has been quiet. Registers no refs, so it never invalidates a
+     * snapshot a bot is still working from.
+     */
+    fun reading(displayId: Int): PhoneUiStability.Reading =
+        PhoneUiStability.Reading(
+            fingerprint(displayId),
+            (System.currentTimeMillis() - lastEventAtMs).coerceAtLeast(0),
+        )
+
+    /**
+     * A cheap fingerprint of the application windows on [displayId]: node
+     * count, classes, text, descriptions and bounds, folded with FNV-1a.
+     * Password fields contribute their bounds only. Two screens that look the
+     * same to a bot produce the same fingerprint, which is exactly what
+     * "did my action change anything" needs.
+     */
+    fun fingerprint(displayId: Int): String {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return "unsupported"
+        var hash = FNV_OFFSET
+        var count = 0
+        val windows = runCatching { windowsOnAllDisplays[displayId].orEmpty() }.getOrDefault(emptyList())
+        for (window in windows) {
+            if (window.type != AccessibilityWindowInfo.TYPE_APPLICATION) continue
+            val root = window.root ?: continue
+            val seen = HashSet<AccessibilityNodeInfo>()
+            val pending = ArrayDeque<Pair<AccessibilityNodeInfo, Int>>()
+            pending.addLast(root to 0)
+            while (pending.isNotEmpty() && count < FINGERPRINT_NODES) {
+                val (node, depth) = pending.removeFirst()
+                if (!seen.add(node)) continue
+                count++
+                val password = runCatching { node.isPassword }.getOrDefault(false)
+                val text = if (password) null else runCatching { node.text?.toString() }.getOrNull()
+                val description = if (password) null else runCatching { node.contentDescription?.toString() }.getOrNull()
+                val className = runCatching { node.className?.toString() }.getOrNull()
+                val bounds = runCatching { Rect().also(node::getBoundsInScreen) }.getOrNull()
+                hash = fold(hash, text)
+                hash = fold(hash, description)
+                hash = fold(hash, className)
+                hash = fold(hash, bounds?.let { "${it.left},${it.top},${it.right},${it.bottom}" })
+                if (depth < PhoneUiRules.MAX_TREE_DEPTH) {
+                    for (index in 0 until node.childCount) {
+                        node.getChild(index)?.let { pending.addLast(it to depth + 1) }
+                    }
+                }
+            }
+        }
+        return "$count:${java.lang.Long.toHexString(hash)}"
+    }
+
+    private fun fold(hash: Long, value: String?): Long {
+        val next = (hash xor (value?.hashCode()?.toLong() ?: 0L)) * FNV_PRIME
+        return next
+    }
+
+    private fun isUserTouch(eventType: Int): Boolean = when (eventType) {
+        AccessibilityEvent.TYPE_VIEW_CLICKED,
+        AccessibilityEvent.TYPE_TOUCH_INTERACTION_START,
+        -> true
+        else -> false
     }
 
     /**

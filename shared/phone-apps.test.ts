@@ -7,12 +7,12 @@ describe("phone tool vocabulary", () => {
     for (const name of PHONE_TOOL_NAMES) expect(PHONE_CAPABILITIES).toContain(phoneToolCapability(name));
     expect(phoneToolCapability("PHONE_SEND_WHATSAPP")).toBe("messages");
     expect(phoneToolCapability("PHONE_FIND_PLACES_NEARBY")).toBe("location");
-    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK"]) {
+    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT"]) {
       expect(phoneToolCapability(name)).toBe("phoneUi");
     }
   });
-  it("splits reads from writes by verb; only observing the screen reads", () => {
-    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE"]);
+  it("splits reads from writes by verb; only observing and waiting on the screen read", () => {
+    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT"]);
   });
   it("is classed by the existing outbound rules with no special case", () => {
     expect(isOutboundTool("PHONE_SEND_MESSAGE")).toBe(true);
@@ -23,7 +23,7 @@ describe("phone tool vocabulary", () => {
     expect(phoneToolSends("PHONE_CREATE_REMINDER")).toBe(false);
   });
   it("observing the screen is read-only, every other UI control is outbound under either spelling", () => {
-    for (const name of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK"]) {
+    for (const name of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK"]) {
       expect(isOutboundTool(name), name).toBe(true);
       expect(isOutboundTool(`mcp__device__${name}`), name).toBe(true);
       expect(isPhoneWrite(name), name).toBe(true);
@@ -32,6 +32,9 @@ describe("phone tool vocabulary", () => {
     expect(isOutboundTool("mcp__device__PHONE_UI_OBSERVE")).toBe(false);
     expect(isReadOnlyTool("PHONE_UI_OBSERVE")).toBe(true);
     expect(isReadOnlyTool("mcp__device__PHONE_UI_OBSERVE")).toBe(true);
+    expect(isOutboundTool("PHONE_UI_WAIT")).toBe(false);
+    expect(isReadOnlyTool("PHONE_UI_WAIT")).toBe(true);
+    expect(isPhoneWrite("PHONE_UI_WAIT")).toBe(false);
     expect(phoneToolSends("PHONE_UI_TAP")).toBe(false);
   });
   it("normalizes grants", () => {

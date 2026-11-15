@@ -24,6 +24,15 @@ describe("phone tools", () => {
     expect(phoneToolCallProblem("PHONE_UI_TYPE", { ref: "e3" })).toMatch(/text/);
     expect(phoneToolCallProblem("PHONE_UI_SCROLL", { direction: "down" })).toBeNull();
     expect(phoneToolCallProblem("PHONE_UI_SCROLL", { direction: "sideways" })).toMatch(/direction/);
+    expect(phoneToolCallProblem("PHONE_UI_SWIPE", { direction: "left" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_SWIPE", { direction: "diagonal" })).toMatch(/direction/);
+    expect(phoneToolCallProblem("PHONE_UI_SWIPE", {})).toMatch(/direction/);
+    expect(phoneToolCallProblem("PHONE_UI_KEY", { key: "enter" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_KEY", { key: "home" })).toMatch(/key/);
+    expect(phoneToolCallProblem("PHONE_UI_WAIT", {})).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_WAIT", { mode: "change", timeoutMs: 1_000 })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_WAIT", { mode: "forever" })).toMatch(/mode/);
+    expect(phoneToolCallProblem("PHONE_UI_WAIT", { timeoutMs: 99_999 })).toMatch(/timeoutMs/);
     expect(phoneToolCallProblem("PHONE_UI_BACK", {})).toBeNull();
     const observe = PHONE_TOOLS.find((t) => t.name === "PHONE_UI_OBSERVE")!;
     expect(JSON.stringify(observe.inputSchema)).not.toMatch(/screenshot/i);

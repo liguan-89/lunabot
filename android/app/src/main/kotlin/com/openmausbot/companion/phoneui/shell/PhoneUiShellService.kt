@@ -8,10 +8,11 @@
  * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
  * translated into English, and trimmed to the IPhoneUiShell surface. No
  * clipboard, audio muting, device unlock, device files, call audio, devtools
- * sockets, shell command endpoint, task moving, orientation watch, display
- * keep-awake or IME policy remain. Every display-bound endpoint requires a
- * display this service created (ownDisplay), which excludes the primary
- * display from all event injection.
+ * sockets, shell command endpoint, orientation watch or IME policy remain;
+ * task moving is kept only as a bounded main-display <-> own-display move, and
+ * display keep-awake only pokes the helper's own display group. Every
+ * display-bound input endpoint requires a display this service created
+ * (ownDisplay), which excludes the primary display from all event injection.
  */
 package com.openmausbot.companion.phoneui.shell
 
@@ -30,6 +31,7 @@ import android.util.Log
 import android.view.Display
 import android.view.InputDevice
 import android.view.InputEvent
+import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
@@ -67,6 +69,9 @@ class PhoneUiShellService(
     /** Launch occupancy check and launch cannot interleave with another launch. */
     private val launchLock = Any()
 
+    /** Keeps every display that forms its own group from timing out. */
+    private val awake = PhoneUiDisplayAwake()
+
     override fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
     } catch (t: Throwable) {
@@ -89,6 +94,7 @@ class PhoneUiShellService(
         val id = vd.display.displayId
         synchronized(displays) { displays[id] = vd }
         setFullscreenWindowingMode(id)
+        if (awake.needed(flags)) awake.start(id)
         return id
     }
 
@@ -118,6 +124,7 @@ class PhoneUiShellService(
     private fun ownDisplay(displayId: Int): Boolean = synchronized(displays) { displayId in displays }
 
     override fun releaseDisplay(displayId: Int) {
+        awake.stop(displayId)
         val vd = synchronized(displays) { displays.remove(displayId) }
         vd?.release()
     }
@@ -179,16 +186,21 @@ class PhoneUiShellService(
      * REAL_GET_TASKS so it sees every app's tasks. API 33+ has the overload
      * with a displayId; earlier versions take everything and filter here.
      */
-    private fun tasksOn(displayId: Int): List<Any> {
+    private fun allTasks(): List<Any> {
         val methods = taskManager.javaClass.methods.filter { it.name == "getTasks" }
-        val withDisplay = methods.firstOrNull { it.parameterTypes.size == 4 }
-        val tasks = if (withDisplay != null) {
-            withDisplay.invoke(taskManager, MAX_TASKS, false, false, displayId)
-        } else {
-            methods.first { it.parameterTypes.size == 3 }.invoke(taskManager, MAX_TASKS, false, false)
-        } as List<*>
+        val plain = methods.firstOrNull { it.parameterTypes.size == 3 }
+            ?: error("getTasks(int,int,boolean) missing")
+        return (plain.invoke(taskManager, MAX_TASKS, false, false) as List<*>).filterNotNull()
+    }
+
+    private fun tasksOn(displayId: Int): List<Any> {
         val displayField = TASK_INFO.getField("displayId")
-        return tasks.filterNotNull().filter { displayField.getInt(it) == displayId }
+        return allTasks().filter { displayField.getInt(it) == displayId }
+    }
+
+    private fun task(taskId: Int): Any? {
+        val idField = TASK_INFO.getField("taskId")
+        return allTasks().firstOrNull { idField.getInt(it) == taskId }
     }
 
     override fun injectKey(displayId: Int, keyCode: Int): Boolean {
@@ -259,9 +271,82 @@ class PhoneUiShellService(
         null
     }
 
+    /**
+     * Reading the main display is allowed: spill detection has to know which
+     * task sits on the person's screen. Nothing here injects into it.
+     */
+    override fun topTaskId(displayId: Int): Int = try {
+        if (displayId != Display.DEFAULT_DISPLAY && !ownDisplay(displayId)) {
+            -1
+        } else {
+            tasksOn(displayId).firstOrNull()?.let { TASK_INFO.getField("taskId").getInt(it) } ?: -1
+        }
+    } catch (t: Throwable) {
+        Log.e(TAG, "topTaskId failed", t)
+        -1
+    }
+
+    override fun packageOfTask(taskId: Int): String? = try {
+        task(taskId)?.let { packagesOf(it).firstOrNull() }
+    } catch (t: Throwable) {
+        Log.e(TAG, "packageOfTask failed", t)
+        null
+    }
+
+    /**
+     * IActivityTaskManager.moveRootTaskToDisplay(taskId, displayId), the call
+     * behind `am display move-stack`. Used for the two directions this slice
+     * needs: an app that opened on the person's screen is moved back to the
+     * helper's display, and a task the person chose is left alone. Targets are
+     * this helper's display or the main display, nothing else.
+     */
+    override fun moveTask(taskId: Int, displayId: Int): Boolean {
+        if (taskId < 0) return false
+        if (displayId != Display.DEFAULT_DISPLAY && !ownDisplay(displayId)) return false
+        return try {
+            taskManager.javaClass.getMethod("moveRootTaskToDisplay", Int::class.java, Int::class.java)
+                .invoke(taskManager, taskId, displayId)
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "moveRootTaskToDisplay unavailable, falling back to am", t)
+            sh("am", "display", "move-stack", "$taskId", "$displayId").first == 0
+        }
+    }
+
+    /**
+     * Type printable ASCII into the focused field on [displayId]. Key events
+     * are synthesized from the virtual keyboard map, so the field sees normal
+     * typing (and its listeners) instead of a set-text jump; control
+     * characters and non-ASCII are refused by policy rather than mistyped.
+     */
+    override fun typeText(displayId: Int, text: String): Boolean {
+        if (!ownDisplay(displayId)) return false
+        if (!PhoneUiPolicy.isTextAllowed(text)) return false
+        return try {
+            val map = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD)
+            var sent = true
+            for (ch in text) {
+                val events = map.getEvents(charArrayOf(ch)) ?: return false
+                for (event in events) {
+                    val now = SystemClock.uptimeMillis()
+                    val copy = KeyEvent(
+                        now, now, event.action, event.keyCode, 0, event.metaState,
+                        VIRTUAL_KEYBOARD, 0, 0, InputDevice.SOURCE_KEYBOARD,
+                    )
+                    sent = inject(copy, displayId) && sent
+                }
+            }
+            sent
+        } catch (t: Throwable) {
+            Log.w(TAG, "typeText failed", t)
+            false
+        }
+    }
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
     override fun releaseAll() {
+        awake.stopAll()
         val all = synchronized(displays) {
             displays.values.toList().also { displays.clear() }
         }

@@ -23,7 +23,8 @@ export const PHONE_TOOL_NAMES = [
   "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY",
   "PHONE_LIST_HOME", "PHONE_SET_ACCESSORY", "PHONE_RUN_SCENE",
   "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
-  "PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK",
+  "PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE",
+  "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT",
 ] as const;
 export type PhoneToolName = (typeof PHONE_TOOL_NAMES)[number];
 
@@ -37,7 +38,8 @@ const TOOL_CAPABILITY: Record<PhoneToolName, PhoneCapability> = {
   PHONE_LIST_HOME: "home", PHONE_SET_ACCESSORY: "home", PHONE_RUN_SCENE: "home",
   PHONE_SEND_MESSAGE: "messages", PHONE_SEND_WHATSAPP: "messages",
   PHONE_UI_OBSERVE: "phoneUi", PHONE_UI_LAUNCH: "phoneUi", PHONE_UI_TAP: "phoneUi",
-  PHONE_UI_TYPE: "phoneUi", PHONE_UI_SCROLL: "phoneUi", PHONE_UI_BACK: "phoneUi",
+  PHONE_UI_TYPE: "phoneUi", PHONE_UI_SCROLL: "phoneUi", PHONE_UI_SWIPE: "phoneUi",
+  PHONE_UI_KEY: "phoneUi", PHONE_UI_BACK: "phoneUi", PHONE_UI_WAIT: "phoneUi",
 };
 
 export function isPhoneToolName(name: unknown): name is PhoneToolName {

@@ -39,6 +39,14 @@ object PhoneUiPolicy {
 
     fun isKeyAllowed(keyCode: Int): Boolean = keyCode in ALLOWED_KEYS
 
+    /**
+     * Text the helper may type through key events: printable ASCII only, short
+     * enough to be one field's content. Control characters could trigger other
+     * editor actions, and anything else needs an IME this slice does not own.
+     */
+    fun isTextAllowed(text: String): Boolean =
+        text.length in 1..256 && text.all { it in ' '..'~' }
+
     // DisplayManager.VIRTUAL_DISPLAY_FLAG_*; several are hidden constants.
     private const val FLAG_PUBLIC = 1 shl 0
     private const val FLAG_OWN_CONTENT_ONLY = 1 shl 3

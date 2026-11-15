@@ -104,7 +104,10 @@ enum class PhoneTool(
     UI_TAP("PHONE_UI_TAP", "phoneUi", true),
     UI_TYPE("PHONE_UI_TYPE", "phoneUi", true),
     UI_SCROLL("PHONE_UI_SCROLL", "phoneUi", true),
+    UI_SWIPE("PHONE_UI_SWIPE", "phoneUi", true),
+    UI_KEY("PHONE_UI_KEY", "phoneUi", true),
     UI_BACK("PHONE_UI_BACK", "phoneUi", true),
+    UI_WAIT("PHONE_UI_WAIT", "phoneUi", false),
     ;
 
     companion object {
@@ -150,7 +153,10 @@ object PhoneToolCatalog {
         "PHONE_UI_TAP" to "phoneUi",
         "PHONE_UI_TYPE" to "phoneUi",
         "PHONE_UI_SCROLL" to "phoneUi",
+        "PHONE_UI_SWIPE" to "phoneUi",
+        "PHONE_UI_KEY" to "phoneUi",
         "PHONE_UI_BACK" to "phoneUi",
+        "PHONE_UI_WAIT" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

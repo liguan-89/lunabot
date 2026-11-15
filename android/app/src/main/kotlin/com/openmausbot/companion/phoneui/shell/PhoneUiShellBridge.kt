@@ -141,5 +141,16 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
 
     fun injectKey(displayId: Int, keyCode: Int): Boolean = aidl.injectKey(displayId, keyCode)
 
+    /** Printable ASCII into the focused field; the helper refuses anything else. */
+    fun typeText(displayId: Int, text: String): Boolean = aidl.typeText(displayId, text)
+
     fun topPackage(displayId: Int): String? = aidl.topPackage(displayId)
+
+    /** Task id of the top task on [displayId]; -1 when it has no task. */
+    fun topTaskId(displayId: Int): Int = aidl.topTaskId(displayId)
+
+    fun packageOfTask(taskId: Int): String? = aidl.packageOfTask(taskId)
+
+    /** Move a root task to one of our displays or the main display. */
+    fun moveTask(taskId: Int, displayId: Int): Boolean = aidl.moveTask(taskId, displayId)
 }

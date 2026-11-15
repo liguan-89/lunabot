@@ -197,7 +197,8 @@ describe("phone MCP host", () => {
   it("a send goes straight to the phone: no card of DEX BOT's own, the person taps Send there", async () => {
     expect(PHONE_TOOL_NAMES.filter((name) => isOutboundTool(name))).toEqual([
       "PHONE_RESPOND_TO_INVITE", "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
-      "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK",
+      "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
+      "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK",
     ]);
     const h = harness();
     h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { calendar: "full", messages: "send" }));
@@ -318,7 +319,7 @@ describe("phone MCP host", () => {
     driver.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
     const driverRequest = vi.spyOn(driver.jobs, "request");
     const listed = await driver.handle({ method: "tools/list" }) as PhoneToolsList;
-    expect(listed.tools.map((tool) => tool.name)).toEqual(["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK"]);
+    expect(listed.tools.map((tool) => tool.name)).toEqual(["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT"]);
     const tap = driver.handle(call("PHONE_UI_TAP", { ref: "e1" }));
     const job = await answerNext(driver.jobs, IPHONE, () => ({ ok: true, result: { screen: "Home" } }));
     expect(job).toMatchObject({ tool: "PHONE_UI_TAP", arguments: { ref: "e1" } });

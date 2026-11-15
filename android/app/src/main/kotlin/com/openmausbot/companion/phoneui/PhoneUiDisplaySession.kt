@@ -19,6 +19,8 @@ import com.openmausbot.companion.phoneui.shell.PhoneUiShell
 internal class PhoneUiDisplaySession private constructor(
     val shell: PhoneUiShell,
     val displayId: Int,
+    val width: Int,
+    val height: Int,
     private val reader: ImageReader,
 ) : AutoCloseable {
     override fun close() {
@@ -36,7 +38,7 @@ internal class PhoneUiDisplaySession private constructor(
                 displayId = shell.createDisplay(reader.surface, width, height, dpi)
                 if (displayId < 0) return null
                 reader.setOnImageAvailableListener({ it.acquireLatestImage()?.close() }, drainHandler)
-                return PhoneUiDisplaySession(shell, displayId, reader)
+                return PhoneUiDisplaySession(shell, displayId, width, height, reader)
             } finally {
                 if (displayId < 0) runCatching { reader?.close() }
             }

@@ -1,8 +1,8 @@
 package com.openmausbot.companion.phoneui
 
 import android.content.Context
+import android.graphics.Rect
 import android.os.Bundle
-import android.view.KeyEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.openmausbot.companion.core.PhoneTool
 import com.openmausbot.companion.phone.PhoneToolOutcome
@@ -16,9 +16,9 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.put
 
 /**
@@ -31,46 +31,68 @@ import kotlinx.serialization.json.put
  * dispatching on `tool.wire`; unknown wires answer `unsupported`. Every call
  * fails closed unless the helper is attached, the accessibility service is
  * connected and the helper could create its own display — there is no
- * fallback to the phone's primary display, no shell/ADB/network access and
- * no screen capture anywhere in this slice.
+ * fallback to the phone's primary display for input, no shell/ADB/network
+ * access and no screen capture anywhere in this slice.
  *
- * The display session lives across calls (a launch followed by observes and
- * taps acts on the same display) and is released after an idle timeout or
- * [release]; every creation and teardown path releases both the ImageReader
- * surface and the display.
+ * Every driving action follows the same shape: fingerprint the screen, run
+ * the action, wait for the screen to actually change, then look at whether an
+ * app escaped onto the person's own screen ([PhoneUiSpill]) and pull it back
+ * when it did. The result carries the fresh screen so a bot does not need a
+ * separate observe between steps.
  */
 internal class PhoneUiTaskExecutor(context: Context) {
+    private val appContext = context.applicationContext
     private val bridge = PhoneUiShellBridge.of(context)
-    private val packageManager = context.applicationContext.packageManager
+    private val packageManager = appContext.packageManager
     private val lock = Any()
 
     private var session: PhoneUiDisplaySession? = null
     private var lastUsedAtMs = 0L
 
-    private enum class Action { OBSERVE, LAUNCH, TAP, TYPE, SCROLL, BACK }
+    /** Resolved once: which packages are the system's own questions, and which are home. */
+    private val pickerPackages: Set<String> by lazy { PhoneUiSystemPickers.resolve(packageManager) }
+    private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
+
+    private enum class Action { OBSERVE, LAUNCH, TAP, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT }
+
+    /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
+    private class Step(val before: String) {
+        var changed: Boolean? = null
+    }
 
     internal suspend fun execute(tool: PhoneTool, arguments: JsonObject): PhoneToolOutcome = withContext(Dispatchers.IO) {
         val action = actionOf(tool.wire)
-            ?: return@withContext PhoneToolOutcome.Failure("这个工具不属于手机 UI。", "unsupported")
+            ?: return@withContext PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
         try {
             val shell = bridge.shell.value
-                ?: return@withContext PhoneToolOutcome.Failure("手机 UI 助手未连接，无法操作屏幕。", "denied")
+                ?: return@withContext PhoneToolOutcome.Failure("手机 UI 助手未连接，无法操作屏幕。", CODE_DENIED)
             val service = PhoneUiAccessibilityService.instance.value
-                ?: return@withContext PhoneToolOutcome.Failure("无障碍服务没有开启，请在系统设置中允许。", "denied")
+                ?: return@withContext PhoneToolOutcome.Failure("无障碍服务没有开启，请在系统设置中允许。", CODE_DENIED)
             val session = acquireSession(shell, arguments)
-                ?: return@withContext PhoneToolOutcome.Failure("无法创建受控的虚拟显示器。", "denied")
+                ?: return@withContext PhoneToolOutcome.Failure("无法创建受控的虚拟显示器。", CODE_DENIED)
             when (action) {
-                Action.OBSERVE -> service.withLatestSnapshot { observe(shell, service, session) }
-                Action.LAUNCH -> launch(shell, arguments, session)
-                Action.TAP -> service.withLatestSnapshot { tap(service, session, arguments) }
-                Action.TYPE -> service.withLatestSnapshot { type(service, session, arguments) }
-                Action.SCROLL -> service.withLatestSnapshot { scroll(service, session, arguments) }
-                Action.BACK -> back(shell, session)
+                Action.OBSERVE -> observe(shell, service, session)
+                Action.WAIT -> waitTool(shell, service, session, arguments)
+                else -> write(shell, service, session) { step ->
+                    when (action) {
+                        Action.LAUNCH -> launch(shell, arguments, session, step)
+                        Action.TAP -> tap(shell, service, session, arguments, step)
+                        Action.TYPE -> type(shell, service, session, arguments, step)
+                        Action.SCROLL -> scroll(shell, service, session, arguments, step)
+                        Action.SWIPE -> swipeTool(shell, service, session, arguments, step)
+                        Action.KEY -> key(shell, service, session, arguments, step)
+                        Action.BACK -> key(shell, service, session, buildJsonObject { put("key", "back") }, step)
+                        else -> PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
+                    }
+                }
             }
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (error: Throwable) {
-            PhoneToolOutcome.Failure(error.message?.takeIf { it.isNotBlank() } ?: "手机 UI 操作失败。", "denied")
+            PhoneToolOutcome.Failure(
+                error.message?.takeIf { it.isNotBlank() } ?: "手机 UI 操作失败。",
+                CODE_DENIED,
+            )
         }
     }
 
@@ -88,7 +110,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_UI_TAP" -> Action.TAP
         "PHONE_UI_TYPE" -> Action.TYPE
         "PHONE_UI_SCROLL" -> Action.SCROLL
+        "PHONE_UI_SWIPE" -> Action.SWIPE
+        "PHONE_UI_KEY" -> Action.KEY
         "PHONE_UI_BACK" -> Action.BACK
+        "PHONE_UI_WAIT" -> Action.WAIT
         else -> null
     }
 
@@ -115,11 +140,117 @@ internal class PhoneUiTaskExecutor(context: Context) {
         }
     }
 
+    // MARK: - The shape every driving action shares
+
+    private suspend fun write(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        body: suspend (Step) -> PhoneToolOutcome,
+    ): PhoneToolOutcome {
+        val before = service.reading(session.displayId)
+        val topBefore = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
+        val startedAt = System.currentTimeMillis()
+        val step = Step(before.fingerprint)
+        val outcome = body(step)
+        // A spill verdict already says what happened on the person's screen;
+        // re-checking it would move the same task twice. A failure is answered
+        // as-is rather than costing another stabilization window.
+        if (outcome is PhoneToolOutcome.Failure) return outcome
+        if (step.changed == null) {
+            step.changed = awaitChange(service, session, step.before)
+        }
+        spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
+            return withScreen(spill, shell, service, session, step.changed)
+        }
+        return withScreen(outcome, shell, service, session, step.changed)
+    }
+
+    private suspend fun awaitChange(
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        before: String,
+        capMs: Long = PhoneUiStability.CAP_MS,
+    ): Boolean = PhoneUiStability.awaitChange(
+        now = { System.currentTimeMillis() },
+        sleep = { delay(it) },
+        read = { service.reading(session.displayId) },
+        before = before,
+        capMs = capMs,
+    )
+
+    /**
+     * An app started from a background context lands on the person's own
+     * screen where our display cannot see it. If that happened during this
+     * action, move the task back to our display (it keeps its own launching
+     * app, unlike a relaunch) or stop for a system picker.
+     */
+    private suspend fun spillAfter(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        since: Long,
+        topBefore: Int,
+    ): PhoneToolOutcome? {
+        val arrival = awaitMainArrival(shell, topBefore) ?: return null
+        val pkg = arrival.packageName ?: return null
+        val decision = PhoneUiSpill.decide(
+            arrivals = listOf(arrival),
+            since = since,
+            topBefore = topBefore,
+            userTouchedAt = service.lastMainScreenTouchAtMs.takeIf { it > 0 },
+            excludedPackages = setOf(appContext.packageName),
+            pickerPackages = pickerPackages,
+            homePackages = homePackages,
+        )
+        return when (decision.verdict) {
+            PhoneUiSpill.Verdict.None -> null
+            PhoneUiSpill.Verdict.LeaveForUser -> PhoneToolOutcome.Failure(
+                "「$pkg」在用户的屏幕上问要用哪个应用。停在这里，让用户自己选；不要再点。",
+                CODE_NEEDS_USER,
+            )
+            PhoneUiSpill.Verdict.PullBack -> {
+                val before = service.reading(session.displayId)
+                val moved = runCatching { shell.moveTask(arrival.taskId, session.displayId) }.getOrDefault(false)
+                if (!moved) {
+                    return PhoneToolOutcome.Failure(
+                        "「$pkg」开到了用户的屏幕上，但这个系统不允许把它移回来。别再在这里操作，告诉用户屏幕上的情况。",
+                        CODE_OPENED_ELSEWHERE,
+                    )
+                }
+                awaitChange(service, session, before.fingerprint)
+                PhoneToolOutcome.Success(
+                    buildJsonObject {
+                        put("pulledBack", pkg)
+                        put("note", "这个应用本来开在用户的屏幕上，已经移回受控显示器；接着在这里操作。")
+                    },
+                )
+            }
+        }
+    }
+
+    private suspend fun awaitMainArrival(shell: PhoneUiShell, topBefore: Int): PhoneUiSpill.Arrival? {
+        mainArrival(shell, topBefore)?.let { return it }
+        val deadline = System.currentTimeMillis() + SPILL_PROBE_MS
+        while (System.currentTimeMillis() < deadline) {
+            delay(SPILL_POLL_MS)
+            mainArrival(shell, topBefore)?.let { return it }
+        }
+        return null
+    }
+
+    private fun mainArrival(shell: PhoneUiShell, topBefore: Int): PhoneUiSpill.Arrival? {
+        val top = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
+        if (top < 0 || top == topBefore) return null
+        val pkg = runCatching { shell.packageOfTask(top) }.getOrNull()
+        return PhoneUiSpill.Arrival(top, pkg, System.currentTimeMillis())
+    }
+
     // MARK: - Actions
 
     private fun observe(shell: PhoneUiShell, service: PhoneUiAccessibilityService, session: PhoneUiDisplaySession): PhoneToolOutcome {
         val snapshot = service.snapshot(session.displayId)
-            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", "unsupported")
+            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
         val topPackage = runCatching { shell.topPackage(session.displayId) }.getOrNull()
         return PhoneToolOutcome.Success(
             buildJsonObject {
@@ -132,27 +263,38 @@ internal class PhoneUiTaskExecutor(context: Context) {
         )
     }
 
-    private suspend fun launch(shell: PhoneUiShell, arguments: JsonObject, session: PhoneUiDisplaySession): PhoneToolOutcome {
+    private suspend fun launch(
+        shell: PhoneUiShell,
+        arguments: JsonObject,
+        session: PhoneUiDisplaySession,
+        step: Step,
+    ): PhoneToolOutcome {
         val pkg = arguments.string("app")
-            ?: return PhoneToolOutcome.Failure("缺少参数 app。", "unsupported")
+            ?: return PhoneToolOutcome.Failure("缺少参数 app。", CODE_UNSUPPORTED)
         if (!PhoneUiRules.isValidPackageName(pkg)) {
-            return PhoneToolOutcome.Failure("包名不合法。", "unsupported")
+            return PhoneToolOutcome.Failure("包名不合法。", CODE_UNSUPPORTED)
         }
         if (packageManager.getLaunchIntentForPackage(pkg) == null) {
-            return PhoneToolOutcome.Failure("这个应用没有安装，或者没有桌面入口。", "unsupported")
+            return PhoneToolOutcome.Failure("这个应用没有安装，或者没有桌面入口。", CODE_UNSUPPORTED)
         }
         return when (shell.launchApp(session.displayId, pkg)) {
-            0 -> settle(shell, pkg, session)
+            0 -> settle(shell, pkg, session, step)
             1 -> PhoneToolOutcome.Failure("该应用正在主屏幕前台运行，请先在主屏幕退出它。", "foreground_required")
-            2 -> PhoneToolOutcome.Failure("这个应用没有桌面入口。", "unsupported")
-            else -> PhoneToolOutcome.Failure("启动应用失败。", "denied")
+            2 -> PhoneToolOutcome.Failure("这个应用没有桌面入口。", CODE_UNSUPPORTED)
+            else -> PhoneToolOutcome.Failure("启动应用失败。", CODE_DENIED)
         }
     }
 
-    private suspend fun settle(shell: PhoneUiShell, pkg: String, session: PhoneUiDisplaySession): PhoneToolOutcome {
+    private suspend fun settle(
+        shell: PhoneUiShell,
+        pkg: String,
+        session: PhoneUiDisplaySession,
+        step: Step,
+    ): PhoneToolOutcome {
         val deadline = System.currentTimeMillis() + PhoneUiRules.LAUNCH_SETTLE_TIMEOUT_MS
         while (System.currentTimeMillis() < deadline) {
             if (runCatching { shell.topPackage(session.displayId) }.getOrNull() == pkg) {
+                step.changed = true
                 return PhoneToolOutcome.Success(
                     buildJsonObject {
                         put("launched", true)
@@ -166,85 +308,384 @@ internal class PhoneUiTaskExecutor(context: Context) {
         return PhoneToolOutcome.Failure("应用没有在受控显示器上出现在前台。", "timeout")
     }
 
-    private fun tap(service: PhoneUiAccessibilityService, session: PhoneUiDisplaySession, arguments: JsonObject): PhoneToolOutcome {
+    /**
+     * Node click first; when that cannot work, a coordinate tap on the same
+     * element, then a node click on the smallest target under that point.
+     * Controls that look outward or like a toggle are never retried: a second
+     * tap could send twice or flip the state back.
+     */
+    private suspend fun tap(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val ref = arguments.string("ref")
+            ?: return PhoneToolOutcome.Failure("缺少参数 ref。", CODE_UNSUPPORTED)
+        val snapshot = service.snapshot(session.displayId)
+            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
+        val element = snapshot.elements.firstOrNull { it.ref == ref }
+            ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
+        val node = service.resolveNode(ref, session.displayId)
+            ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
+        val outward = PhoneUiClickFallback.mayBeOutward(element.text ?: element.description, element.viewId)
+
+        val clickable = clickableAncestor(node)
+        val clicked = clickable != null && perform(clickable, AccessibilityNodeInfo.ACTION_CLICK)
+        if (clicked) {
+            step.changed = awaitChange(service, session, step.before)
+            return PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("clicked", true)
+                    put("channel", "node")
+                },
+            )
+        }
+        // Nothing was clicked, so a coordinate tap cannot double-fire an
+        // already-delivered click. Outward and toggle controls are still left
+        // alone: their handlers ignore accessibility clicks but honour touches.
+        if (outward) {
+            return PhoneToolOutcome.Failure("这个按钮像发送、支付或确认一类的动作，没有改用坐标再点一次。", CODE_DENIED)
+        }
+        val bounds = boundsOf(element) ?: return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
+        val x = bounds.centerX()
+        val y = bounds.centerY()
+        val tapped = runCatching { shell.injectTap(session.displayId, x, y) }.getOrDefault(false)
+        if (!tapped) return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
+        val changedByTap = awaitChange(service, session, step.before)
+        step.changed = changedByTap
+        if (changedByTap) {
+            return PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("clicked", true)
+                    put("channel", "coordinate")
+                },
+            )
+        }
+        // Last channel: the smallest clickable node under the point, never the
+        // same element again. A custom drawing that ignores injected touches
+        // often still answers a click on the node that owns it.
+        val pick = PhoneUiClickFallback.pickTarget(
+            x = x,
+            y = y,
+            screenWidth = session.width,
+            screenHeight = session.height,
+            candidates = snapshot.elements.mapNotNull { candidate ->
+                val rect = boundsOf(candidate) ?: return@mapNotNull null
+                if (!candidate.clickable || candidate.ref == ref) return@mapNotNull null
+                PhoneUiClickFallback.Candidate(
+                    item = candidate,
+                    left = rect.left,
+                    top = rect.top,
+                    right = rect.right,
+                    bottom = rect.bottom,
+                    label = candidate.text ?: candidate.description,
+                    viewId = candidate.viewId,
+                    scrollable = candidate.scrollable,
+                )
+            },
+        )
+        if (pick != null) {
+            val pickNode = service.resolveNode(pick.ref, session.displayId)
+            if (pickNode != null && perform(pickNode, AccessibilityNodeInfo.ACTION_CLICK)) {
+                step.changed = awaitChange(service, session, step.before)
+                if (step.changed == true) {
+                    return PhoneToolOutcome.Success(
+                        buildJsonObject {
+                            put("clicked", true)
+                            put("channel", "fallback")
+                        },
+                    )
+                }
+            }
+        }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("clicked", true)
+                put("channel", "none")
+            },
+        )
+    }
+
+    private suspend fun type(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val ref = arguments.string("ref")
+            ?: return PhoneToolOutcome.Failure("必须先观察并提供目标输入框的 ref。", CODE_UNSUPPORTED)
+        val text = arguments.string("text")
+            ?: return PhoneToolOutcome.Failure("缺少参数 text。", CODE_UNSUPPORTED)
+        if (text.length > PhoneUiRules.MAX_TYPE_TEXT) {
+            return PhoneToolOutcome.Failure("要输入的文本过长。", CODE_UNSUPPORTED)
+        }
         val node = resolvedNode(service, session, arguments)
-            ?: return PhoneToolOutcome.Failure("元素引用无效或已过期，请先重新观察。", "denied")
+            ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
+        if (node.isPassword) {
+            return PhoneToolOutcome.Failure("不能写入密码字段。", CODE_DENIED)
+        }
+        val supportsSetText = node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
+        if (node.isEditable && supportsSetText) {
+            val args = Bundle().apply {
+                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+            }
+            if (performWith(node, AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+                step.changed = awaitChange(service, session, step.before)
+                return PhoneToolOutcome.Success(
+                    buildJsonObject {
+                        put("typed", true)
+                        put("channel", "set_text")
+                    },
+                )
+            }
+        }
+        // Web views and custom editors expose focus but not set-text; typed key
+        // events reach them the way a person's keyboard would. Non-ASCII needs
+        // an IME, which this slice does not own, so it is refused rather than
+        // written as something else.
+        if (!PhoneUiKeys.typeableText(text)) {
+            return PhoneToolOutcome.Failure(
+                "这个输入框不接受直接写入，而这段文本不是纯英文或数字；手机端还没有输入法接管。",
+                CODE_UNSUPPORTED,
+            )
+        }
+        runCatching { node.performAction(AccessibilityNodeInfo.ACTION_FOCUS) }
+        val focused = runCatching { node.refresh() && node.isFocused }.getOrDefault(false)
+        if (!focused) {
+            return PhoneToolOutcome.Failure("这个输入框无法获得焦点，不能输入。", CODE_DENIED)
+        }
+        if (!runCatching { shell.typeText(session.displayId, text) }.getOrDefault(false)) {
+            return PhoneToolOutcome.Failure("写入没有生效。", CODE_DENIED)
+        }
+        step.changed = awaitChange(service, session, step.before)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("typed", true)
+                put("channel", "keys")
+            },
+        )
+    }
+
+    private suspend fun scroll(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val forward = when (arguments.string("direction")?.lowercase()) {
+            null, "", "down", "forward" -> true
+            "up", "backward" -> false
+            else -> return PhoneToolOutcome.Failure("direction 只支持 up 或 down。", CODE_UNSUPPORTED)
+        }
+        val node = resolvedNode(service, session, arguments)
+            ?: return PhoneToolOutcome.Failure(STALE_REF, CODE_DENIED)
+        val scrollable = scrollableAncestor(node)
+        if (scrollable != null) {
+            val action = if (forward) {
+                AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
+            } else {
+                AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
+            }
+            if (perform(scrollable, action)) {
+                step.changed = awaitChange(service, session, step.before)
+                return PhoneToolOutcome.Success(
+                    buildJsonObject {
+                        put("scrolled", true)
+                        put("channel", "node")
+                    },
+                )
+            }
+        }
+        // Lists in web views, launchers and short-video apps ignore the scroll
+        // action; a real finger stroke is what their own gesture handling sees.
+        val area = scrollable?.let { nodeBoundsOf(it) }
+        if (!gesture(shell, session, if (forward) "up" else "down", area)) {
+            return PhoneToolOutcome.Failure("滚动没有生效。", CODE_DENIED)
+        }
+        step.changed = awaitChange(service, session, step.before)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("scrolled", true)
+                put("channel", "gesture")
+            },
+        )
+    }
+
+    private suspend fun swipeTool(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val direction = arguments.string("direction")?.lowercase()
+            ?: return PhoneToolOutcome.Failure("缺少参数 direction。", CODE_UNSUPPORTED)
+        if (direction !in setOf("up", "down", "left", "right")) {
+            return PhoneToolOutcome.Failure("direction 只支持 up、down、left、right。", CODE_UNSUPPORTED)
+        }
+        if (!gesture(shell, session, direction, null)) {
+            return PhoneToolOutcome.Failure("滑动手势没有生效。", CODE_DENIED)
+        }
+        step.changed = awaitChange(service, session, step.before)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("swiped", true)
+                put("direction", direction)
+            },
+        )
+    }
+
+    private suspend fun key(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val name = arguments.string("key") ?: "back"
+        val code = PhoneUiKeys.codeOf(name)
+            ?: return PhoneToolOutcome.Failure("不支持的按键。可选：back、enter、del、tab、up、down、left、right。", CODE_UNSUPPORTED)
+        if (!runCatching { shell.injectKey(session.displayId, code) }.getOrDefault(false)) {
+            return PhoneToolOutcome.Failure("按键没有生效。", CODE_DENIED)
+        }
+        step.changed = awaitChange(service, session, step.before)
+        return PhoneToolOutcome.Success(buildJsonObject { put("key", name) })
+    }
+
+    private suspend fun waitTool(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+    ): PhoneToolOutcome {
+        val mode = (arguments.string("mode") ?: "change").lowercase()
+        val timeout = (arguments.int("timeoutMs") ?: 2_500).coerceIn(300, 6_000).toLong()
+        val read = { service.reading(session.displayId) }
+        return when (mode) {
+            "settle" -> {
+                PhoneUiStability.awaitSettled({ System.currentTimeMillis() }, { delay(it) }, read, timeout)
+                withScreen(
+                    PhoneToolOutcome.Success(buildJsonObject { put("settled", true) }),
+                    shell, service, session, null,
+                )
+            }
+            "change" -> {
+                val before = read().fingerprint
+                val changed = PhoneUiStability.awaitChange(
+                    now = { System.currentTimeMillis() },
+                    sleep = { delay(it) },
+                    read = read,
+                    before = before,
+                    capMs = timeout,
+                )
+                withScreen(
+                    PhoneToolOutcome.Success(buildJsonObject { put("changed", changed) }),
+                    shell, service, session, null,
+                )
+            }
+            else -> PhoneToolOutcome.Failure("mode 只支持 change 或 settle。", CODE_UNSUPPORTED)
+        }
+    }
+
+    // MARK: - Screen and gesture plumbing
+
+    private fun withScreen(
+        outcome: PhoneToolOutcome,
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        changed: Boolean?,
+    ): PhoneToolOutcome {
+        if (outcome !is PhoneToolOutcome.Success) return outcome
+        val snapshot = service.snapshot(session.displayId) ?: return outcome
+        val top = runCatching { shell.topPackage(session.displayId) }.getOrNull()
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                outcome.result.forEach { (key, value) -> put(key, value) }
+                changed?.let { put("changed", it) }
+                put("snapshot", snapshot.id)
+                top?.let { put("topPackage", it) }
+                if (snapshot.truncated) put("truncated", true)
+                put("elements", JsonArray(snapshot.elements.map(::elementJson)))
+            },
+        )
+    }
+
+    /**
+     * One finger stroke across [area] (or the whole display). [finger] is the
+     * direction the finger travels; the screen content moves the other way.
+     */
+    private fun gesture(shell: PhoneUiShell, session: PhoneUiDisplaySession, finger: String, area: Rect?): Boolean {
+        val rect = area ?: Rect(0, 0, session.width, session.height)
+        if (rect.width() <= 0 || rect.height() <= 0) return false
+        val cx = rect.centerX()
+        val cy = rect.centerY()
+        val dx = (rect.width() * GESTURE_TRAVEL).toInt().coerceAtLeast(20)
+        val dy = (rect.height() * GESTURE_TRAVEL).toInt().coerceAtLeast(20)
+        val (fx, fy, tx, ty) = when (finger) {
+            "up" -> listOf(cx, cy + dy, cx, cy - dy)
+            "down" -> listOf(cx, cy - dy, cx, cy + dy)
+            "left" -> listOf(cx + dx, cy, cx - dx, cy)
+            "right" -> listOf(cx - dx, cy, cx + dx, cy)
+            else -> return false
+        }
+        val points = GESTURE_POINTS
+        val xs = IntArray(points + 1)
+        val ys = IntArray(points + 1)
+        val times = LongArray(points + 1)
+        for (i in 0..points) {
+            val t = i.toFloat() / points
+            xs[i] = (fx + (tx - fx) * t).toInt()
+            ys[i] = (fy + (ty - fy) * t).toInt()
+            times[i] = GESTURE_MS * i / points
+        }
+        return runCatching { shell.injectStroke(session.displayId, xs, ys, times) }.getOrDefault(false)
+    }
+
+    private fun clickableAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         var target = node
         var hops = 0
         while (!target.isClickable) {
-            if (hops++ >= PhoneUiRules.MAX_ANCESTOR_HOPS) {
-                return PhoneToolOutcome.Failure("该元素及其上层元素都不可点击。", "denied")
-            }
-            val parent = target.parent
-                ?: return PhoneToolOutcome.Failure("该元素及其上层元素都不可点击。", "denied")
-            if (parent.windowId != node.windowId) {
-                return PhoneToolOutcome.Failure("最近的可点击元素不在目标窗口内。", "denied")
-            }
+            if (hops++ >= PhoneUiRules.MAX_ANCESTOR_HOPS) return null
+            val parent = target.parent ?: return null
+            if (parent.windowId != node.windowId) return null
             target = parent
         }
-        val performed = runCatching { target.performAction(AccessibilityNodeInfo.ACTION_CLICK) }.getOrDefault(false)
-        return when {
-            performed -> PhoneToolOutcome.Success(buildJsonObject { put("clicked", true) })
-            else -> PhoneToolOutcome.Failure("点击没有被执行。", "denied")
-        }
+        return target
     }
 
-    private fun type(service: PhoneUiAccessibilityService, session: PhoneUiDisplaySession, arguments: JsonObject): PhoneToolOutcome {
-        val ref = arguments.string("ref")
-            ?: return PhoneToolOutcome.Failure("必须先观察并提供目标输入框的 ref。", "unsupported")
-        val text = arguments.string("text")
-            ?: return PhoneToolOutcome.Failure("缺少参数 text。", "unsupported")
-        if (text.length > PhoneUiRules.MAX_TYPE_TEXT) {
-            return PhoneToolOutcome.Failure("要输入的文本过长。", "unsupported")
+    private fun scrollableAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
+        var target: AccessibilityNodeInfo? = node
+        var hops = 0
+        while (target != null) {
+            if (target.isScrollable) return target
+            if (hops++ >= PhoneUiRules.MAX_ANCESTOR_HOPS) return null
+            val parent = target.parent ?: return null
+            if (parent.windowId != node.windowId) return null
+            target = parent
         }
-        val node = resolvedNode(service, session, arguments)
-            ?: return PhoneToolOutcome.Failure("元素引用无效或已过期，请先重新观察。", "denied")
-        if (node.isPassword) {
-            return PhoneToolOutcome.Failure("不能写入密码字段。", "denied")
-        }
-        val supportsSetText = node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
-        if (!node.isEditable || !supportsSetText) {
-            return PhoneToolOutcome.Failure("该元素不是可编辑输入框。", "denied")
-        }
-        val args = Bundle().apply {
-            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-        }
-        val performed = runCatching {
-            node.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, args)
-        }.getOrDefault(false)
-        return when {
-            performed -> PhoneToolOutcome.Success(buildJsonObject { put("typed", true) })
-            else -> PhoneToolOutcome.Failure("写入没有生效。", "denied")
-        }
+        return null
     }
 
-    private fun scroll(service: PhoneUiAccessibilityService, session: PhoneUiDisplaySession, arguments: JsonObject): PhoneToolOutcome {
-        val node = resolvedNode(service, session, arguments)
-            ?: return PhoneToolOutcome.Failure("元素引用无效或已过期，请先重新观察。", "denied")
-        if (!node.isScrollable) {
-            return PhoneToolOutcome.Failure("该元素不可滚动。", "denied")
-        }
-        val action = when (arguments.string("direction")?.lowercase()) {
-            null, "", "down", "forward" -> AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
-            "up", "backward" -> AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD
-            else -> return PhoneToolOutcome.Failure("direction 只支持 up 或 down。", "unsupported")
-        }
-        val performed = runCatching { node.performAction(action) }.getOrDefault(false)
-        return when {
-            performed -> PhoneToolOutcome.Success(buildJsonObject { put("scrolled", true) })
-            else -> PhoneToolOutcome.Failure("滚动没有生效。", "denied")
-        }
+    private fun perform(node: AccessibilityNodeInfo, action: Int): Boolean =
+        runCatching { node.performAction(action) }.getOrDefault(false)
+
+    private fun performWith(node: AccessibilityNodeInfo, action: Int, args: Bundle): Boolean =
+        runCatching { node.performAction(action, args) }.getOrDefault(false)
+
+    private fun boundsOf(element: PhoneUiElement): Rect? {
+        val bounds = element.bounds
+        if (bounds.size != 4) return null
+        val rect = Rect(bounds[0], bounds[1], bounds[2], bounds[3])
+        return if (rect.width() > 0 && rect.height() > 0) rect else null
     }
 
-    private fun back(shell: PhoneUiShell, session: PhoneUiDisplaySession): PhoneToolOutcome {
-        // The helper refuses every key outside its whitelist; BACK is on it,
-        // and the display id here is always one this slice created.
-        val performed = runCatching { shell.injectKey(session.displayId, KeyEvent.KEYCODE_BACK) }.getOrDefault(false)
-        return when {
-            performed -> PhoneToolOutcome.Success(buildJsonObject { put("back", true) })
-            else -> PhoneToolOutcome.Failure("返回键没有生效。", "denied")
-        }
-    }
+    private fun nodeBoundsOf(node: AccessibilityNodeInfo): Rect? =
+        runCatching { Rect().also(node::getBoundsInScreen) }.getOrNull()
 
     /** The node a ref points at, refreshed; null when the ref is not from the latest snapshot. */
     private fun resolvedNode(
@@ -271,7 +712,30 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (element.scrollable) put("scrollable", true)
         if (element.password) put("password", true)
     }
+
+    private companion object {
+        /** The person's own display; readable for spill detection, never injected into. */
+        const val MAIN_DISPLAY = 0
+
+        /** How long a main-screen arrival may take after an action before it is missed. */
+        const val SPILL_PROBE_MS = 1_200L
+        const val SPILL_POLL_MS = 150L
+
+        /** A stroke covers this share of the area it runs in. */
+        const val GESTURE_TRAVEL = 0.3f
+        const val GESTURE_POINTS = 8
+        const val GESTURE_MS = 280L
+
+        const val CODE_DENIED = "denied"
+        const val CODE_UNSUPPORTED = "unsupported"
+        const val CODE_NEEDS_USER = "needs_user"
+        const val CODE_OPENED_ELSEWHERE = "opened_elsewhere"
+        const val STALE_REF = "元素引用无效或已过期，请先重新观察。"
+    }
 }
 
 private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.contentOrNull?.trim()?.takeIf { it.isNotEmpty() }
+
+private fun JsonObject.int(key: String): Int? =
+    (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.intOrNull
