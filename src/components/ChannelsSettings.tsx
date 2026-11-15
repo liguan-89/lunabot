@@ -7,6 +7,7 @@ import { t } from "@/lib/i18n";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { Card } from "./SettingsPrimitives";
+import { Select } from "./Select";
 
 type ChannelKey = "feishu" | "dingtalk" | "wecom" | "botMail" | "sms";
 
@@ -152,11 +153,11 @@ export function ChannelsSettings() {
                       const options = [...new Set([...(emails ?? []), fieldValue(spec)].filter(Boolean))];
                       return (
                         <div key={spec.key}>
-                          <select value={fieldValue(spec)} onChange={(event) => setValues({ ...values, [spec.key]: event.target.value })}
-                            required aria-label={label} className={FIELD} data-channel-field={spec.key}>
+                          <Select value={fieldValue(spec)} onChange={(event) => setValues({ ...values, [spec.key]: event.target.value })}
+                            required aria-label={label} className="w-full" data-channel-field={spec.key}>
                             <option value="" disabled>{label}</option>
                             {options.map((address) => <option key={address} value={address}>{address}</option>)}
-                          </select>
+                          </Select>
                           {emails !== null && emails.length === 0 && (
                             <p className="mt-1 text-[12px] text-ink-tertiary">{t("settings.channels.mailboxEmpty")}</p>
                           )}
@@ -172,11 +173,11 @@ export function ChannelsSettings() {
                     );
                   })}
                   <div className="flex items-center gap-2">
-                    <select value={values.botId ?? ""} onChange={(event) => setValues({ ...values, botId: event.target.value })}
-                      required aria-label={t("settings.channels.bot")} className={`${FIELD} flex-1`} data-channel-field="botId">
+                    <Select value={values.botId ?? ""} onChange={(event) => setValues({ ...values, botId: event.target.value })}
+                      required aria-label={t("settings.channels.bot")} className="flex-1" data-channel-field="botId">
                       <option value="" disabled>{t("settings.channels.bot")}</option>
                       {bots.map((bot) => <option key={bot.id} value={bot.id}>{bot.name}</option>)}
-                    </select>
+                    </Select>
                     <button type="submit" className="ui-button ui-button-sm ui-button-primary" disabled={busy}>
                       {busy && <Loader2 size={13} className="animate-spin" />}{t("settings.channels.save")}
                     </button>
