@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "../config.ts";
 import { createDecider, deciderPatchKey, deciderReady, deciderSavePatch, describeDecider } from "./index.ts";
+import { LAYA_DEFAULT_MODEL, type LocalLayaService } from "./local-laya.ts";
 import { DECIDER_LOG_DIR, flushDeciderLog } from "./log.ts";
 import { jevEndpoint, parseJevResponse } from "./jev.ts";
 import { KEY_CHECK_QUESTION, KEY_CHECK_STATE, RELAY_MAX_STATE_BYTES, relayAccepts } from "./relay.ts";
@@ -17,6 +18,17 @@ const ON: AppConfig = { decider: { enabled: true, key: KEY, jobs: { roomRouting:
 const OPTIONS = { maya: "Maya, Product Designer bot.", theo: "Theo, Frontend Engineer bot." };
 const QUESTION = { instructions: "Which bot should answer `new_message`?", options: OPTIONS };
 const STATE = { new_message: { from: "Milind", text: "PRIVATE-MESSAGE-TEXT the navbar overlaps on Safari" } };
+
+const LOCAL_LAYA: LocalLayaService = {
+  supported: true,
+  status: () => ({ available: true, installed: true, running: true, busy: false, error: null, progress: null, model: LAYA_DEFAULT_MODEL }),
+  installed: () => true,
+  start: async () => ({ available: true, installed: true, running: true, busy: false, error: null, progress: null, model: LAYA_DEFAULT_MODEL }),
+  test: async () => ({ ok: true }),
+  verified: () => true,
+  stop: async () => ({ available: true, installed: true, running: false, busy: false, error: null, progress: null, model: LAYA_DEFAULT_MODEL }),
+  credential: () => ({ baseUrl: "http://127.0.0.1:8732", key: "local-laya-test-token" }),
+};
 
 type FetchMock = ReturnType<typeof vi.fn<typeof fetch>>;
 
@@ -35,6 +47,19 @@ function decider(config: AppConfig, fetchImpl: FetchMock, dataDir?: string) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("decider gates: never a call, never a throw", () => {
+  it("uses the explicit local service for both account gating and the backend call", async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(choiceBody("maya", { maya: 0.9, theo: 0.1 })));
+    const local = createDecider({
+      config: () => ({ decider: { provider: "laya", enabled: true } }),
+      localLaya: LOCAL_LAYA,
+      fetch: fetchImpl,
+    });
+    await expect(local.choose("roomRouting", STATE, QUESTION)).resolves.toMatchObject({ ok: true, provider: "laya", answers: { choice: "maya" } });
+    expect(fetchImpl).toHaveBeenCalledWith(new URL("http://127.0.0.1:8732/v1/systemone"), expect.objectContaining({
+      headers: expect.objectContaining({ authorization: "Bearer local-laya-test-token" }),
+    }));
+  });
+
   it.each([
     ["the switch is off", { decider: { enabled: false, key: KEY } }, "disabled"],
     ["the decider was never set up", {}, "disabled"],

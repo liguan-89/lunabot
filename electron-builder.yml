@@ -130,6 +130,8 @@ mac:
     # node_modules entry of any tree it copies (app-builder-lib util/filter).
     - from: dist-native/duckdb/darwin-${arch}/node_modules
       to: duckdb/node_modules
+    - from: laya-service
+      to: laya-service
   extendInfo:
     NSMicrophoneUsageDescription: DEX BOT uses the microphone for voice dictation into the composer.
     NSSpeechRecognitionUsageDescription: DEX BOT transcribes your voice on-device to type messages for you.

@@ -10,6 +10,7 @@ const fixture = vi.hoisted(() => ({
   values: [] as unknown[], index: 0, effects: [] as Array<() => unknown>,
   config: null as ConfigStatus | null,
   api: vi.fn(), dispatch: vi.fn(),
+  refs: [] as Array<{ current: number }>,
 }));
 vi.mock("react", async (original) => ({
   ...await original<typeof import("react")>(),
@@ -17,6 +18,11 @@ vi.mock("react", async (original) => ({
     const index = fixture.index++;
     if (!(index in fixture.values)) fixture.values[index] = initial;
     return [fixture.values[index], (next: unknown) => { fixture.values[index] = next; }];
+  },
+  useRef: (initial: unknown) => {
+    const index = fixture.index++;
+    if (!(index in fixture.refs)) fixture.refs[index] = { current: initial as number };
+    return fixture.refs[index];
   },
   useEffect: (effect: () => unknown) => { fixture.effects.push(effect); },
 }));
@@ -42,6 +48,7 @@ function render() {
   const byTestId = (id: string) => all.filter((node) => node.props["data-testid"] === id);
   return {
     html,
+    all,
     switches: all.filter((node) => node.type === Switch),
     master: byTestId("decider-master")[0]!,
     job: byTestId("decider-job-roomRouting")[0]!,
@@ -58,6 +65,7 @@ const type = (node: Node, value: string) => (node.props.onChange as (event: { ta
 const flush = async () => { for (let i = 0; i < 10; i++) await Promise.resolve(); };
 const status = (decider: NonNullable<ConfigStatus["decider"]>) => ({ decider } as ConfigStatus);
 const change = (node: Node, value: string) => (node.props.onChange as (event: { target: { value: string } }) => void)({ target: { value } });
+
 const runEffects = () => { for (const effect of fixture.effects) effect(); };
 const SHARED = { configured: true, keySource: "shared", sharedKey: true } as const;
 const openrouter = (extra: Partial<NonNullable<ConfigStatus["decider"]>> = {}) =>
@@ -71,9 +79,17 @@ const MODELS = {
   ],
 };
 const optionsOf = (node: Node) => nodes(node.props.children).filter((child) => child.type === "option").map((child) => child.props.value);
+const layaStatus = (patch: Partial<{
+  available: boolean; installed: boolean; running: boolean; busy: boolean;
+  operation: "idle" | "starting" | "ready" | "error"; model: string; progress: string; error: string;
+}> = {}) => ({
+  available: true, installed: false, running: false, busy: false, operation: "idle" as const,
+  model: "aac6fef/laya-multilingual-coreml", ...patch,
+});
 
 beforeEach(() => {
   fixture.values = [];
+  fixture.refs = [];
   fixture.config = status({ provider: "jev", configured: false, enabled: false, jobs: { roomRouting: true } });
   fixture.api.mockReset();
   fixture.dispatch.mockReset().mockImplementation(({ config }: { config: ConfigStatus }) => { fixture.config = config; });
@@ -105,12 +121,61 @@ describe("DecisionModelSettings", () => {
   it("offers both providers, with Jev selected for an existing install and no model picker", () => {
     const view = render();
     expect(view.provider!.props.value).toBe("jev");
-    expect(optionsOf(view.provider!)).toEqual(["jev", "openrouter"]);
+    expect(optionsOf(view.provider!)).toEqual(["jev", "laya", "openrouter"]);
     expect(view.html).toContain("TypeSafe Jev");
     expect(view.model).toBeUndefined();
-    expect(fixture.effects).toHaveLength(1);
+    expect(fixture.effects).toHaveLength(2);
     runEffects();
     expect(fixture.api).not.toHaveBeenCalled();
+  });
+
+  it("shows local Laya setup immediately, then enables decisions only after the service is verified", async () => {
+    const config = status({ provider: "laya", configured: true, enabled: true, jobs: { roomRouting: true } });
+    fixture.api.mockResolvedValueOnce(layaStatus({ progress: "Downloading the local model…", operation: "starting", busy: true }));
+    change(render().provider!, "laya");
+    await flush();
+    let view = render();
+    expect(view.provider!.props.value).toBe("laya");
+    expect(view.html).toContain("Downloading the local model");
+    expect(view.all.some((node) => node.props["data-testid"] === "decider-save")).toBe(false);
+    expect(view.html).not.toContain("Jev API key");
+    expect(view.master.props.disabled).toBe(true);
+    expect(fixture.api).toHaveBeenCalledWith("/api/decider/laya/start", { method: "POST", body: "{}", timeoutMs: 10_000 });
+
+    fixture.api.mockResolvedValueOnce(layaStatus({ installed: true, running: true, busy: false, operation: "ready" })).mockResolvedValueOnce(config);
+    runEffects();
+    await flush();
+    view = render();
+    expect(view.html).toContain("Ready · aac6fef/laya-multilingual-coreml");
+    expect(view.master.props.checked).toBe(true);
+    expect(view.master.props.disabled).toBe(false);
+    expect(fixture.dispatch).toHaveBeenCalledWith({ type: "configStatus", config });
+  });
+
+  it("cancels a pending Laya setup before returning to Jev", async () => {
+    fixture.api.mockResolvedValueOnce(layaStatus({ progress: "Setting up the local model…", operation: "starting", busy: true }));
+    change(render().provider!, "laya");
+    let view = render();
+    expect(view.html).toContain("Cancel setup");
+    click(view.all.find((node) => node.props["data-testid"] === "local-laya-stop")!);
+    expect(render().provider!.props.value).toBe("laya");
+    fixture.api.mockResolvedValueOnce(layaStatus()).mockResolvedValueOnce(status({ provider: "jev", configured: true, enabled: true, jobs: { roomRouting: true } }));
+    await flush();
+    view = render();
+    expect(view.provider!.props.value).toBe("jev");
+    expect(view.html).toContain("Jev API key");
+    expect(fixture.api).toHaveBeenLastCalledWith("/api/config");
+  });
+
+  it("shows a local fixed error and does not enable decisions when setup fails", async () => {
+    fixture.api.mockRejectedValueOnce(new Error("private process output /Users/example/secret"));
+    change(render().provider!, "laya");
+    await flush();
+    const view = render();
+    expect(view.html).toContain("Local Laya setup failed. Try again.");
+    expect(view.html).not.toContain("private process output");
+    expect(view.master.props.checked).toBe(false);
+    expect(view.master.props.disabled).toBe(true);
   });
 
   it("lists the coming-soon jobs with no switch", () => {

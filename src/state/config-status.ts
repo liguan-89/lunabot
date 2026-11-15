@@ -101,7 +101,7 @@ export interface ConfigStatus {
    * saved. OpenRouter only: `keySource` says which key is in use (its own, or
    * the one under Settings → API keys); `sharedKey`: that one is on file. */
   decider?: {
-    provider: "jev" | "workersai" | "openrouter";
+    provider: "jev" | "laya" | "workersai" | "openrouter";
     /** The OpenRouter model in use; present only while OpenRouter is the provider. */
     model?: string;
     configured: boolean;

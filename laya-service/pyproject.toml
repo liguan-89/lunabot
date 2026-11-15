@@ -1,0 +1,10 @@
+[project]
+name = "dexbot-laya-service"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "laya-jev-api @ https://github.com/smallnest/laya-jev-api/archive/0d87482afaa9d2bc26dd84082ae6f56c98c5462a.tar.gz",
+]
+
+[tool.uv]
+package = false

@@ -319,7 +319,7 @@ import {
 } from "./store.ts";
 import * as tts from "./tts/index.ts";
 import { voiceNoteFailure } from "./tts/errors.ts";
-import { createDecider, deciderReady, describeDecider } from "./decider/index.ts"; import { createExtractor, describeHelpers } from "./extractor/index.ts";
+import { createDecider, bindLocalLaya, deciderReady, describeDecider } from "./decider/index.ts"; import { createLocalLaya } from "./decider/local-laya.ts"; import { createExtractor, describeHelpers } from "./extractor/index.ts";
 import { createStopLineRoutes } from "./routes/stop-line.ts"; import { decideRoomResponder } from "./decider/room-routing.ts"; import { roomRoutingInput } from "./host/room-routing-input.ts";
 import { createLiveSession, liveAttachUrl, liveHistoryFrom, liveInstructions, LiveSessionError, probeQwenLive, probeVolcLive, type LiveBot, type LiveHistoryMessage } from "./live-call.ts";
 import { LiveCallController, LiveCallSignedOutError, openLiveSocket } from "./live-call-controller.ts";
@@ -593,7 +593,7 @@ import { createBotLifecycleRoutes } from "./routes/bot-lifecycle.ts";
 import { createBotSkillsRoutes } from "./routes/bot-skills.ts";
 import { createSkillShareRoutes } from "./routes/skill-share.ts";
 import { createTeamContextRoutes } from "./routes/team-context.ts";
-import { createAppSuggestions } from "./host/app-suggestions.ts"; import { createAppFindRoute, createAppSuggestionRoutes } from "./routes/app-suggestions.ts"; import { appPickAvailable } from "./decider/app-picks.ts"; import { managedConnectorUnavailableReason } from "../shared/connector-availability.ts"; import { createDeciderRoutes } from "./routes/decider.ts"; import { createCloudSendRoutes } from "./routes/cloud-send.ts"; import { claudeCodeSkillInputs } from "./setup-import.ts"; import { createCloudConnectionsHost } from "./cloud-connections-host.ts";
+import { createAppSuggestions } from "./host/app-suggestions.ts"; import { createAppFindRoute, createAppSuggestionRoutes } from "./routes/app-suggestions.ts"; import { appPickAvailable } from "./decider/app-picks.ts"; import { managedConnectorUnavailableReason } from "../shared/connector-availability.ts"; import { createDeciderRoutes } from "./routes/decider.ts"; import { createLocalLayaRoutes } from "./routes/local-laya.ts"; import { createCloudSendRoutes } from "./routes/cloud-send.ts"; import { claudeCodeSkillInputs } from "./setup-import.ts"; import { createCloudConnectionsHost } from "./cloud-connections-host.ts";
 import { createUpdateCheckRoutes, serverUpdateChecker } from "./routes/update-check.ts"; import { createSeatsRoutes } from "./routes/seats.ts"; import { createTimeZoneRoutes } from "./routes/time-zone.ts";
 import { createBrowserSiteRoutes } from "./routes/browser-sites.ts";
 import { createInternalSignInRoutes } from "./routes/sign-in.ts";
@@ -790,7 +790,10 @@ const decorateHostedProvider = undefined;
 bindThreadLogCapProvider(() => threadEventLogMaxBytes(cfg));
 bindDecisionRetention(() => decisionRetentionDays(cfg.decisions?.retentionDays));
 bindSafetyFloor(() => cfg);
-const decider = createDecider({ config: () => cfg, dataDir: DATA_DIR }); const extractor = createExtractor({ config: () => cfg, timeZone: () => proactive.brief.timeZone() });
+const localLaya = createLocalLaya({ dataDir: DATA_DIR, projectDir: process.env.OMB_RESOURCES_PATH ? join(process.env.OMB_RESOURCES_PATH, "laya-service") : join(process.cwd(), "laya-service"), enabled: DESKTOP_MANAGED && !CLOUD_HOME && !HOSTED_WORKSPACE });
+bindLocalLaya(localLaya);
+const decider = createDecider({ config: () => cfg, dataDir: DATA_DIR, localLaya });
+const extractor = createExtractor({ config: () => cfg, timeZone: () => proactive.brief.timeZone() });
 const customDomainVerifier = createCustomDomainVerifier({ environmentId: ENVIRONMENT_ID });
 const emailSignIn = createEmailSignIn({
   allow: signInAllowList,
@@ -12413,6 +12416,17 @@ const cloudMoveRoutes = createCloudMoveRoutes();
 ROUTES.push(createHostedSlackRoutes({ bot: (id) => store.bot(id), hostedReady: () => Boolean(workspaceAccess) && entitled("admin") })); ROUTES.push(createStopLineRoutes());
 const orgInstallStatuses = () => orgLibrary?.installStatuses() ?? new Map();
 ROUTES.push(createBotPresetRoutes({ presets: presetStore, orgStatuses: orgInstallStatuses })); ROUTES.push(createWorkspaceBannerRoutes({ changed: () => broadcast({ kind: "config", ...configStatus() }) })); ROUTES.push(createStarterAwakeRoutes({ awake: starterAwake }));
+ROUTES.push(createLocalLayaRoutes({
+  local: localLaya,
+  desktopManaged: DESKTOP_MANAGED && !CLOUD_HOME && !HOSTED_WORKSPACE,
+  config: () => cfg,
+  saveProvider: (provider) => {
+    saveConfig({ decider: { provider, ...(provider === "laya" ? { enabled: true } : {}) } });
+    Object.assign(cfg, loadConfig());
+    broadcast({ kind: "config", ...configStatus() }, { adminOnly: true });
+  },
+  useLocal: () => cfg.decider?.provider === "laya" && localLaya.verified(),
+}));
 ROUTES.push(createSharedComputerRoutes({ enabled: (auth) => lendingEnabled() || (ownerLends() && ownHome.owner(auth)), computers: sharedComputers, sessionLive: (id) => sessions.isLive(id), environmentId: ENVIRONMENT_ID,
   cloudHomeLender: CLOUD_HOME ? CLOUD_HOME_LENDER : null, principal: sessionLendingPrincipal, personKey, power: () => cloudPower, links: CLOUD_HOME ? deviceLinks : null, upgrades, asks: computerAsks?.asks ?? null, answerer: cardAnswererFor }));
 // `routines` is assigned at boot, so it is read per request.
@@ -12709,6 +12723,7 @@ const postiz = createPostiz({ cfg: () => cfg, mcpOAuth, persistMcpServers: persi
   computerProviderConfigTransitions, managedBoatOwners, providerOperationConflict, perBotLocalVmCountForModeChange,
   checkedModelSelection, policyModelRefusal, browserSessionSpec, configStatus,
   configForAccess: (status, auth) => configForAccess(status as ReturnType<typeof configStatus>, auth.scopes.includes("admin"), auth.kind === "session" ? auth.session : null),
+  layaReady: () => localLaya.verified(),
   ...(CLOUD_TEAM ? { ownProfile: (auth: RequestAuth, profile: { name?: string; avatarUrl?: string; aboutMe?: string }) => auth.kind === "session" ? (teamHost.saveMemberProfile(auth.session, profile), true) : false, ownHints: (auth: RequestAuth, hints: string[]) => auth.kind === "session" ? (teamWelcome.save(personKey(auth.session), { hints }), true) : false } : {}),
   resyncOpenCodeProviderKeys, revokeEngineCapabilities, reloadProviders, broadcast, drainQueuedSends, postiz,
 }));
@@ -15864,6 +15879,15 @@ let pausedSent = starterAwake.paused().join(); store.onChange((change) => { if (
 server.listen(PORT, listenHost(server), async () => {
   companyRuntimeReady(); cloudHealth?.speed.ready();
   console.log(`dexbot server on http://127.0.0.1:${PORT}`);
+  if (localLaya?.installed() && cfg.decider?.provider === "laya") {
+    void localLaya.start().then(async () => {
+      const checked = await localLaya.test();
+      if (!checked.ok) {
+        await localLaya.stop();
+        broadcast({ kind: "local-laya", state: localLaya.status() }, { adminOnly: true });
+      }
+    }).catch(() => {});
+  }
   personWaits.boot(); browserSweep.start(); startCloudTeamPolicy({ cloudHome: CLOUD_HOME, dataDir: DATA_DIR, managed: managedPolicy, sessions }); startCloudTeamRoster({ cloudHome: CLOUD_HOME, sessions }); moveFreeze.hold(() => appTriggers.start(), () => void appTriggers.stop()); startCloudHomeConnectedApps({ cloudHome: CLOUD_HOME !== null, dataDir: DATA_DIR, cloudGrant: CLOUD_ENV.OMB_CLOUD_CONNECTED_APPS_GRANT, ownKey: () => composio.connectionMode(cfg) === "self-hosted", apply: (access) => { composio.setManagedBrokerAccess(access); broadcast({ kind: "config", ...configStatus() }); } });
   void afterFirstEngineRead().then(() => { if (builtInBrowserEnabled(cfg)) chromeLauncher.start(); });
   followupsReady = true; engineUpdates.start();
@@ -15922,6 +15946,7 @@ function runtimeHoldsRoot(threadId: string): boolean {
 
 const gracefulShutdown = createGracefulShutdown({
   cleanup: [
+    () => localLaya?.stop(),
     () => {
       followupsReady = false;
       companyShutdown = true;

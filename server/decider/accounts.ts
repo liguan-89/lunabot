@@ -6,6 +6,7 @@ import { WORKERS_AI_ACCOUNT_ID } from "./config.ts";
 import { OPENROUTER_DEFAULT_BASE_URL } from "./openrouter.ts";
 import type { DeciderProvider } from "./types.ts";
 import { WORKERS_AI_DEFAULT_BASE_URL } from "./workers-ai.ts";
+import { layaEndpoint, type LocalLayaService } from "./local-laya.ts";
 
 export interface HelperAccount extends ServiceCredential {
   provider: DeciderProvider;
@@ -36,6 +37,13 @@ export function workersAiAccount(cfg: AppConfig, draft: { token?: string; accoun
   const accountId = draft.accountId?.trim() || cfg.decider?.workersAiAccountId?.trim();
   if (!token || !accountId || !WORKERS_AI_ACCOUNT_ID.test(accountId)) return null;
   return { provider: "workersai", token, accountId: accountId.toLowerCase(), api: cfg.decider?.workersAiBaseUrl?.trim() || WORKERS_AI_DEFAULT_BASE_URL, included: false };
+}
+
+export function layaAccount(cfg: AppConfig, localLaya: LocalLayaService | null): HelperAccount | null {
+  if (cfg.decider?.provider !== "laya") return null;
+  const credential = localLaya?.credential();
+  if (!credential || !layaEndpoint(credential.baseUrl)) return null;
+  return { provider: "laya", token: credential.key, api: credential.baseUrl, included: false };
 }
 
 export function jevAccount(cfg: AppConfig, draft?: string): HelperAccount | null {

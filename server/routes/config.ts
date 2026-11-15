@@ -71,6 +71,7 @@ export interface ConfigRouteDeps {
   /** After browserEngine.engine changed: closes the viewers and the browsers the other engine ran. */
   browserEngineSwitched(): void;
   decider: Pick<Decider, "testKey">;
+  layaReady?(): boolean;
   sharedComputers: Pick<SharedComputers, "close">;
   sharedComputerControl: Pick<SharedComputerControl, "close">;
   hostedModels: boolean;
@@ -118,7 +119,7 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
     localVmIdleMs, localVmIdles, localVmActiveThreads, localVmLifecycleBusy, localVmImageBusy, localVmModeChangeBusy,
     providerConfigBusy, computerProviderConfigTransitions, managedBoatOwners, providerOperationConflict,
     perBotLocalVmCountForModeChange, checkedModelSelection, policyModelRefusal, browserSessionSpec, configStatus,
-    configForAccess, resyncOpenCodeProviderKeys, revokeEngineCapabilities, reloadProviders, broadcast, drainQueuedSends, ownProfile, ownHints, postiz,
+    configForAccess, resyncOpenCodeProviderKeys, revokeEngineCapabilities, reloadProviders, broadcast, drainQueuedSends, ownProfile, ownHints, postiz, layaReady,
   } = deps;
   return async ({ req, res, url, path, method, auth, json, readBody }) => {
     // API keys are never echoed back: booleans only.
@@ -179,7 +180,8 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
       }
       if (!Object.keys(patch).length) return json(res, 400, { error: "nothing to save" });
       if (patch.decider) {
-        const planned = deciderSavePatch(patch.decider, cfg.decider, { included: deciderIncludedHere(), shared: deciderSharedKeyUsable(cfg) });
+        if (patch.decider.provider === "laya" && (hostedModels || !layaReady?.())) return json(res, 400, { error: "Start and test the local Laya model from desktop settings first." });
+        const planned = deciderSavePatch(patch.decider, cfg.decider, { included: deciderIncludedHere(), shared: deciderSharedKeyUsable(cfg), local: patch.decider.provider === "laya" && layaReady?.() === true });
         if (!planned.ok) return json(res, 400, refusalBody(planned));
         patch.decider = planned.patch;
       }
@@ -478,7 +480,8 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
       if (deciderKey) {
         const check = await decider.testKey(deciderKey.check);
         if (!check.ok && check.reason === "rejected") {
-          return json(res, 400, { ...userError(DECIDER_KEY_ERROR[deciderKey.provider]), code: "decider_rejected" });
+          const keyProvider = deciderKey.provider === "jev" || deciderKey.provider === "openrouter" || deciderKey.provider === "workersai" ? deciderKey.provider : "jev";
+          return json(res, 400, { ...userError(DECIDER_KEY_ERROR[keyProvider]), code: "decider_rejected" });
         }
       }
       if (patch.browserProfiles !== undefined) {
