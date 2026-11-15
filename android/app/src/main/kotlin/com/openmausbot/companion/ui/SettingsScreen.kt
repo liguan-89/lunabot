@@ -672,7 +672,7 @@ fun SettingsScreen(
             SettingsSection(
                 label = "手机界面",
                 footer = {
-                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过，不上传截图。操作需要桌面端权限审批。可随时关闭或取消配对。")
+                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过。机器人要截图、识别画面文字、读取剪贴板或最近通知时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
                     if (phoneUiStatus == PhoneUiStatus.Failed) {
                         SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
                     }
