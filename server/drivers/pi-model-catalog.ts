@@ -96,6 +96,23 @@ function piAgentDir(env: Record<string, string | undefined>): string {
   return join(env.HOME || env.USERPROFILE || homedir(), ".pi", "agent");
 }
 
+/** The environment one pi instance's spawns and catalog reads get: an explicit PI_CODING_AGENT_DIR wins; otherwise the
+ *  instance's own dir (seeded with auth and models only) keeps the operator's AGENTS.md, skills and extensions out of a
+ *  bot's turn. `providerEnv` keeps the custom-provider variables the spawn itself needs. */
+export function piInstanceEnvs(
+  instanceId: string,
+  baseEnv: Record<string, string | undefined>,
+  providerEnv: Record<string, string | undefined> = baseEnv,
+): { dir: string; catalogEnv: Record<string, string | undefined>; piEnv: Record<string, string | undefined> } {
+  const dir = baseEnv.PI_CODING_AGENT_DIR
+    ?? ensurePiInstanceAgentDir(instanceId, join(baseEnv.HOME || baseEnv.USERPROFILE || homedir(), ".pi", "agent"), baseEnv);
+  return {
+    dir,
+    catalogEnv: { ...baseEnv, PI_CODING_AGENT_DIR: dir },
+    piEnv: { ...providerEnv, PI_CODING_AGENT_DIR: dir },
+  };
+}
+
 /** Create DEX BOT's own pi agent dir for this instance and link `auth.json` + `models.json` from the operator's
  * `~/.pi/agent`, so a bot's turn does not inherit the operator's AGENTS.md, skills or extensions. The dir sits under
  * the real HOME (`~/.pi/instances/<id>`) rather than the data folder, which a bot box hides behind a tmpfs. */

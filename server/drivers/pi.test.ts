@@ -11,12 +11,12 @@ import { recordEvents, type EventRecorder } from "../testing/events.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import { encodeInjectId, localHost } from "./local-inject.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
+import { ensurePiInstanceAgentDir } from "./pi-model-catalog.ts";
 import {
   applyPiLocalCatalog,
   decodePiFrame,
   ensurePiCustomProvider,
   ensurePiInjectModel,
-  ensurePiInstanceAgentDir,
   fetchPiModels,
   parsePiCatalog,
   PiDriver,
