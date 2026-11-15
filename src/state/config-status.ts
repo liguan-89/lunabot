@@ -109,7 +109,7 @@ export interface ConfigStatus {
     sharedKey?: boolean;
     included?: boolean;
     enabled: boolean;
-    jobs: { roomRouting: boolean };
+    jobs: { roomRouting: boolean; inboxTriage?: boolean; browserClicks?: boolean; toolSelection?: boolean; placement?: boolean };
   };
   /** The decision and extraction models' keys: which of the person's own are on file, never a key. */
   helpers?: {

@@ -1,12 +1,13 @@
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import { removeTempDir } from "../testing/cleanup.ts";
 import { forbiddenCommand } from "./cdp/testing/real-chrome.ts";
 import { BROWSER_CONTROL_REFUSAL } from "./control.ts";
 import { REDDIT_REFUSAL } from "./egress/reddit.ts";
+import type { ClickChoiceInput } from "./click-choice.ts";
 import { BrowserService, type BrowserServiceOptions } from "./service.ts";
 import type { Backend } from "./backends.ts";
 import { FakeBackend, FakeChrome, type FakeDocument, type FakePage } from "./testing/fake-chrome.ts";
@@ -43,9 +44,20 @@ const swapPage = (): FakeDocument => ({
   ],
 });
 
+/** Two elements with the same text, for an ambiguous text selector. */
+const DUP: FakeDocument = {
+  title: "Dup",
+  text: "Same",
+  elements: [
+    { role: "button", name: "Same", selector: "#first", box: [10, 100, 80, 30], onClick: (page) => { page.text += "\nclicked A"; } },
+    { role: "button", name: "Same", selector: "#second", box: [10, 200, 80, 30], onClick: (page) => { page.text += "\nclicked B"; } },
+  ],
+};
+
 function documents(url: string): FakeDocument {
   if (url.endsWith("/form")) return FORM;
   if (url.endsWith("/swap")) return swapPage();
+  if (url.endsWith("/dup")) return DUP;
   return { title: url.split("/").pop() ?? "", text: `page ${url}`, elements: [] };
 }
 
@@ -86,6 +98,36 @@ describe("the bots' browser tools", () => {
     const clicked = text(await call("agent_browser_click", { ref: "e2" }));
     expect(clicked).toContain("Clicked e2.");
     expect(clicked).toContain(`Text that appeared on the page: "Hello".`);
+  });
+
+  it("lets the decision model pick an intent click among the snapshot's elements", async () => {
+    const choose = vi.fn(async (_session: string, input: ClickChoiceInput) => ({ ref: input.intent ? "e2" : "e1", pTop: 0.9 }));
+    const { call, text } = setup({ chooseClick: { enabled: () => true, choose } });
+    await call("agent_browser_open", { url: "https://example.com/form" });
+    const clicked = text(await call("agent_browser_click", { intent: "submit the form" }));
+    expect(clicked).toContain("Clicked e2 (picked by the decision model, 90%)");
+    expect(clicked).toContain(`Text that appeared on the page: "Hello".`);
+    expect(choose).toHaveBeenCalledWith("bot-a", expect.objectContaining({ intent: "submit the form" }));
+  });
+
+  it("lets the decision model break a tie when a text selector matches several elements", async () => {
+    const choose = vi.fn(async (_session: string, input: ClickChoiceInput) => ({ ref: input.selector ? "e2" : "e1", pTop: 0.88 }));
+    const { call, text } = setup({ chooseClick: { enabled: () => true, choose } });
+    await call("agent_browser_open", { url: "https://example.com/dup" });
+    const clicked = text(await call("agent_browser_click", { selector: "text=Same" }));
+    expect(clicked).toContain("picked by the decision model, 88%");
+    expect(clicked).toContain("matched 2");
+    expect(clicked).toContain("clicked B");
+  });
+
+  it("does not snapshot or ask when browser clicks is off", async () => {
+    const choose = vi.fn(async () => ({ ref: "e1", pTop: 0.9 }));
+    const { call, text } = setup({ chooseClick: { enabled: () => false, choose } });
+    await call("agent_browser_open", { url: "https://example.com/form" });
+    const result = await call("agent_browser_click", { intent: "submit" });
+    expect(result.isError).toBe(true);
+    expect(text(result)).toContain("Intent clicks need the local decision model");
+    expect(choose).not.toHaveBeenCalled();
   });
 
   it("accepts the names agent-browser advertised, with their arguments", async () => {

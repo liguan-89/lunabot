@@ -101,8 +101,6 @@ export function deciderFailureText(result: { reason: string; status?: number }, 
   return key ? t(key) : t("decider.error.other");
 }
 
-const COMING_SOON: LocaleKey[] = ["decider.jobs.browserClicks", "decider.jobs.toolSelection", "decider.jobs.placement"];
-
 export function DecisionModelSettings() {
   const { state, dispatch } = useStore();
   const decider = state.config?.decider;
@@ -121,6 +119,11 @@ export function DecisionModelSettings() {
   const ownKey = configured && !included && !usingShared && !laya;
   const enabled = laya && decider?.provider !== "laya" ? false : decider?.enabled ?? false;
   const roomRouting = decider?.jobs.roomRouting ?? true;
+  const extraJobs = [
+    { id: "browserClicks", on: decider?.jobs.browserClicks ?? false, label: "decider.jobs.browserClicks", detail: "decider.jobs.browserClicksDetail" },
+    { id: "toolSelection", on: decider?.jobs.toolSelection ?? false, label: "decider.jobs.toolSelection", detail: "decider.jobs.toolSelectionDetail" },
+    { id: "placement", on: decider?.jobs.placement ?? false, label: "decider.jobs.placement", detail: "decider.jobs.placementDetail" },
+  ] as const;
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -474,12 +477,20 @@ export function DecisionModelSettings() {
               className="cursor-pointer"
             />
           </li>
-          {COMING_SOON.map((label) => (
-            <li key={label} data-testid="decider-coming-soon" aria-disabled="true" className="flex items-center justify-between gap-4 border-t border-hairline/40 py-2 opacity-50">
-              <span className="text-[13px] text-ink-secondary">{t(label)}</span>
-              <span className="rounded bg-control px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-secondary">
-                {t("decider.jobs.comingSoon")}
-              </span>
+          {extraJobs.map((job) => (
+            <li key={job.id} className="flex items-start justify-between gap-4 border-t border-hairline/40 py-2">
+              <div className="min-w-0">
+                <div className="text-[13px] font-medium text-ink">{t(job.label)}</div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">{t(job.detail)}</div>
+              </div>
+              <Switch
+                data-testid={`decider-job-${job.id}`}
+                aria-label={t(job.label)}
+                checked={enabled && job.on}
+                disabled={!enabled || switching}
+                onClick={() => void patch({ jobs: { [job.id]: !job.on } })}
+                className="cursor-pointer"
+              />
             </li>
           ))}
         </ul>

@@ -4,7 +4,8 @@ import { sessionKindOf, type CdpSession, type Params } from "./connection.ts";
 import { AuthChallenges, type AuthChallenge } from "./auth.ts";
 import { Dialogs, type PendingDialog } from "./dialogs.ts";
 import { DriverError, parseNetError } from "./errors.ts";
-import { evaluate, valueInWorld, type EvaluateOptions } from "./evaluate.ts";
+import { callOnNode, evaluate, valueInWorld, type EvaluateOptions } from "./evaluate.ts";
+import { snapshotCandidates } from "./candidates.ts";
 import { FileChoosers, setInputFiles } from "./files.ts";
 import { FrameTree, type FrameTreeNode } from "./frames.ts";
 import { PageHealth, type HealthReport } from "./health.ts";
@@ -14,7 +15,7 @@ import { Keyboard } from "./keyboard.ts";
 import { RefTable, type RefCounter } from "./refs.ts";
 import { captureScreenshot, type Screenshot, type ScreenshotOptions } from "./screencast.ts";
 import { SecretGuard } from "./secrets.ts";
-import { resolveElement } from "./selectors.ts";
+import { countSelector, parseSelector, resolveElement } from "./selectors.ts";
 import { takeSnapshot, visibleText, type Snapshot } from "./snapshot.ts";
 import { releaseSession, setUpDocumentSession, setUpWorkerSession, type TargetSetup } from "./targets.ts";
 import { Lifecycle, waitFor, type LoadState, type WaitConditions, type WaitContext } from "./wait.ts";
@@ -312,6 +313,37 @@ export class CdpPage implements ActionContext, WaitContext {
     const snapshot = await takeSnapshot(this.frames, this.refs, { maskValue: mask });
     const image = includeImage ? await this.screenshot() : undefined;
     return { url: this.url(), title: this.#title, ...snapshot, ...(image ? { image } : {}) };
+  }
+
+  /** Snapshot refs matching a selector, for a decision model to choose among when several elements match. */
+  async clickCandidates(input: string): Promise<Array<{ ref: string; role?: string; name?: string }>> {
+    this.#ready();
+    if (await countSelector(this.frames, input) <= 1) return [];
+    const selector = parseSelector(input);
+    const snapshot = await this.snapshot();
+    const out: Array<{ ref: string; role?: string; name?: string }> = [];
+    for (const candidate of snapshotCandidates(snapshot.tree)) {
+      let matches = false;
+      try {
+        if (selector.engine === "role") {
+          const role = candidate.role?.toLowerCase();
+          const name = candidate.name ?? "";
+          matches = role === selector.role && (selector.name === undefined || (selector.partial ? name.toLowerCase().includes(selector.name.toLowerCase()) : name === selector.name));
+        } else if (selector.engine === "text") {
+          const value = await callOnNode<string>(this.frames, this.refs.resolve(candidate.ref), "function () { return String(this.innerText ?? this.textContent ?? ''); }");
+          const normal = (text: string) => text.replace(/\s+/g, " ").trim();
+          const wanted = normal(selector.text);
+          matches = selector.exact ? normal(value) === wanted : normal(value).toLowerCase().includes(wanted.toLowerCase());
+        } else {
+          matches = await callOnNode<boolean>(this.frames, this.refs.resolve(candidate.ref), "function (css) { return this.matches(css); }", [selector.css]);
+        }
+      } catch {
+        matches = false;
+      }
+      if (matches) out.push(candidate);
+      if (out.length >= 200) break;
+    }
+    return out;
   }
 
   async visibleText(maxChars?: number): Promise<string> {

@@ -85,6 +85,13 @@ describe("one conversation's agents tools", () => {
     expect(await names({ ...CHAT, bot: { ...CHAT.bot, xResearch: false } })).toEqual([]);
   });
 
+  it("lists select_tool only while the tool-selection job is on", async () => {
+    const names = async (conversation: AgentsConversation) =>
+      (JSON.parse((await everyTurn(conversation))[0]!.wire) as { tools: Array<{ name: string }> }).tools.map((tool) => tool.name);
+    expect(await names(CHAT)).not.toContain("select_tool");
+    expect(await names({ ...CHAT, host: { ...HOST, toolSelection: true } })).toContain("select_tool");
+  });
+
   it("leaves select_computer out only where the conversation can never pick a computer", async () => {
     const selects = async (conversation: AgentsConversation) => (await everyTurn(conversation))[0]!.wire.includes('"name":"select_computer"');
     expect(await selects({ ...CHAT, bot: { ...CHAT.bot, computer: "off" } })).toBe(false);

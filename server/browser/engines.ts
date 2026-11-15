@@ -17,6 +17,7 @@ import { browserRoot } from "./chrome/profile.ts";
 import { browserLanguage, browserTimeZone, languageList } from "./chrome/wrapper.ts";
 import { displayScreen } from "./display.ts";
 import type { Download } from "./cdp/downloads.ts";
+import type { ClickChoice } from "./click-choice.ts";
 import { BrowserService, type BrowserTarget } from "./service.ts";
 import { LiveV1 } from "./viewers/live-v1.ts";
 import { StreamV2, type StreamRequest } from "./viewers/stream-v2.ts";
@@ -49,6 +50,8 @@ export interface ChromeEngineOptions {
   idleMs(): number;
   held?(session: string): boolean;
   egressNotice(key: string): string | null;
+  /** A decision model's pick among click candidates, when the browserClicks job is on. */
+  chooseClick?: ClickChoice;
   log?: (line: string) => void;
 }
 
@@ -99,6 +102,7 @@ export class ChromeEngine {
       idleMs: options.idleMs,
       held: options.held,
       egressNotice: options.egressNotice,
+      ...(options.chooseClick ? { chooseClick: options.chooseClick } : {}),
       ...(options.log ? { log: options.log } : {}),
     });
     this.live = new LiveV1({ service: this.service, target: (session) => this.target(session) });

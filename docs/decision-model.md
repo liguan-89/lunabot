@@ -11,7 +11,8 @@ on [OpenRouter](https://openrouter.ai).
 Everything is in **Settings → Decision and extraction** (Advanced mode): the
 Cloudflare Workers AI card, the Jev/OpenRouter picker under **Another key**,
 for OpenRouter the model, one master switch, each key with **Save** and
-**Test**, and a switch for room routing (**Who answers in rooms**). Each
+**Test**, and switches for room routing (**Who answers in rooms**), browser
+clicks, tool selection and where work runs. Each
 provider keeps its own key, but picking a provider does not choose whose key
 decides: the fixed order below does. To use Workers AI or OpenRouter while a
 Jev key is saved, clear the Jev key (an `OMB_JEV_API_KEY` in the environment
@@ -107,8 +108,37 @@ New rooms start on Auto while the decider and its room job are on. Existing
 rooms keep their mode. With the decision model off, an Auto room shows a
 one-line hint and answers like lead mode.
 
-Browser clicks, tool selection and where work runs are listed as "Coming
-soon" and have no switch yet.
+### Browser clicks, tool selection and where work runs
+
+These three jobs are off until switched on in **Settings → Decision and
+extraction**. They use the person's own Jev, Workers AI, Laya or OpenRouter
+key; the included Cloud relay does not accept their seams yet.
+
+**Browser clicks.** With the job on and the bots' browser on the built-in
+Chrome engine, `agent_browser_click` may pass `intent` instead of a ref: the
+decision model picks one visible, enabled element from a fresh snapshot. A
+selector that matches several elements is resolved the same way. The model
+sees the page address and title, the bot's words and the candidates' roles
+and names; it never sees the page's text beyond those names. If it is unsure,
+says none, times out or fails, the click is not made: the tool asks for a ref,
+or the existing "ambiguous selector" error stands. The legacy agent-browser
+engine keeps its old behaviour.
+
+**Tool selection.** With the job on, the bot's agents tools include
+`select_tool`. The bot passes a task and 2–50 tools with names and optional
+one-line descriptions; the decision model returns one tool name with a
+probability, or says none fits. The bot still calls the tool itself. An unsure
+answer returns the closest candidates instead of a choice. The tool is not
+listed while the job is off.
+
+**Where work runs.** On Auto only, the decision model may choose among the
+computers that are available for the turn (`cloud`, `vm`, `local`); `keep`
+means today's automatic choice. A pick never overrides a person's pin, the
+bot's **Works on**, **Off**, a routine's cloud placement, a team computer or
+a handoff. It is bounded to about 1.2 seconds; an unsure answer, `keep`, a
+timeout or any failure leaves the existing Auto choice in place. The chosen
+surface is then subject to the same mount and refusal checks as any other
+place.
 
 ## It fails open
 
@@ -260,7 +290,7 @@ mentioned**.
   "workersAiToken": "",
   "workersAiAccountId": "",
   "workersAiBaseUrl": "https://api.cloudflare.com/client/v4",
-  "jobs": { "roomRouting": true, "inboxTriage": true }
+  "jobs": { "roomRouting": true, "inboxTriage": true, "browserClicks": false, "toolSelection": false, "placement": false }
 }
 ```
 

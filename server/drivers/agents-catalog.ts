@@ -1069,7 +1069,8 @@ function catalogTools(profile: CatalogProfile) {
     (profile.computerSelection === true || tool.name !== "select_computer") &&
     (profile.room !== true || !ROOM_REFUSED_TOOL_NAMES.has(tool.name)) &&
     (profile.imageGeneration === true || !IMAGE_TOOL_NAMES.has(tool.name)) &&
-    (profile.meetings === true || !MEETING_TOOL_NAMES.has(tool.name)));
+    (profile.meetings === true || !MEETING_TOOL_NAMES.has(tool.name)) &&
+    (profile.toolSelection === true || tool.name !== "select_tool"));
   const AUTHORING_TOOLS = profile.skillAuthoring
     ? BOT_SCOPED_TOOLS
     : BOT_SCOPED_TOOLS.filter((tool) => !SKILL_TOOL_NAMES.has(tool.name));

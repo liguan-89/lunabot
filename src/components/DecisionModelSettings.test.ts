@@ -178,11 +178,25 @@ describe("DecisionModelSettings", () => {
     expect(view.master.props.disabled).toBe(true);
   });
 
-  it("lists the coming-soon jobs with no switch", () => {
+  it("lists the new jobs as switches, off until switched on", () => {
     const view = render();
     for (const label of ["Browser clicks", "Tool selection", "Where work runs"]) expect(view.html).toContain(label);
-    expect(view.html.match(/Coming soon/g)).toHaveLength(3);
-    expect(view.switches).toHaveLength(2);
+    expect(view.html).not.toContain("Coming soon");
+    expect(view.switches).toHaveLength(5);
+    for (const id of ["browserClicks", "toolSelection", "placement"]) {
+      const toggle = view.all.find((node) => node.props["data-testid"] === `decider-job-${id}`)!;
+      expect(toggle.props.checked).toBe(false);
+      expect(toggle.props.disabled).toBe(true);
+    }
+  });
+
+  it("switches a new job on without touching the others", async () => {
+    fixture.config = status({ provider: "jev", configured: true, enabled: true, jobs: { roomRouting: true } });
+    fixture.api.mockResolvedValue(fixture.config);
+    const toggle = render().all.find((node) => node.props["data-testid"] === "decider-job-browserClicks")!;
+    click(toggle);
+    await flush();
+    expect(fixture.api).toHaveBeenLastCalledWith("/api/config", { method: "PUT", body: JSON.stringify({ decider: { jobs: { browserClicks: true } } }) });
   });
 
   it("every button shows a pointer cursor", () => {

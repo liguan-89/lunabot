@@ -13,6 +13,7 @@ import { BrowserRuntime, TransportError, attachesToChrome, browserRuntimeEnv, fo
 import { RelayTimeout, relay, relayCommand, relayInput } from "../browser-relay.ts";
 import { browserSteps } from "../browser-steps.ts";
 import { BrowserLive } from "../browser-live.ts";
+import type { ClickChoice } from "../browser/click-choice.ts";
 import { browserEgress, type EgressSetup } from "../browser/egress/registry.ts";
 import {
   agentBrowserIntegration,
@@ -82,6 +83,8 @@ export interface BrowserHostDeps {
   browserBox?(seccompFd: number, ro: readonly string[]): LauncherBox | null;
   /** watch_me's registry: a person's own browser input is recorded while a demo watch is open on that session. */
   demoWatch?: Pick<DemoWatch, "due" | "append" | "notifyHandedBack">;
+  /** A decision model's pick among click candidates, when the browserClicks job is on. */
+  chooseClick?: ClickChoice;
 }
 
 /** The lent computer's connection for a browser's pages, under the rule for everything it lends: only while the last
@@ -135,6 +138,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     egressNotice: (key) => browserEgress.takeNotice(key),
     idleMs,
     held: (session) => !turnResources.free(`browser:${session}`),
+    ...(deps.chooseClick ? { chooseClick: deps.chooseClick } : {}),
     log: (line) => console.warn(line),
   });
   const lendRefusal = deps.lendRefusal ?? ((): LendRefusal => "unproven");

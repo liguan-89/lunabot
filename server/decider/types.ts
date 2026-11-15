@@ -4,8 +4,8 @@ export type DeciderProvider = "jev" | "laya" | "workersai" | "openrouter";
 /** chat: a chat model asked for strict JSON; decisions: OpenRouter's Decisions API (output modality `decisions`). */
 export type OpenRouterApi = "chat" | "decisions";
 
-export type DeciderJob = "roomRouting" | "inboxTriage";
-export const DECIDER_JOBS: readonly DeciderJob[] = ["roomRouting", "inboxTriage"];
+export type DeciderJob = "roomRouting" | "inboxTriage" | "browserClicks" | "toolSelection" | "placement";
+export const DECIDER_JOBS: readonly DeciderJob[] = ["roomRouting", "inboxTriage", "browserClicks", "toolSelection", "placement"];
 
 /** botDecide: a bot's own `decide` tool call. */
 export type DeciderSeam = DeciderJob | "keyCheck" | "botDecide";

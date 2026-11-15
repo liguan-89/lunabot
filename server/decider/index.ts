@@ -69,9 +69,11 @@ export function deciderEnabled(cfg: AppConfig, service?: LocalLayaService | null
   return helpersOn(cfg, deciderAccount(cfg, undefined, service));
 }
 
-/** Absent means on. */
+/** The original jobs are on unless switched off; the newer opt-in jobs are off until switched on. */
+const DEFAULT_ON_JOBS: ReadonlySet<DeciderJob> = new Set(["roomRouting", "inboxTriage"]);
 export function deciderJobOn(cfg: AppConfig, job: DeciderJob): boolean {
-  return cfg.decider?.jobs?.[job] !== false;
+  const value = cfg.decider?.jobs?.[job];
+  return value === undefined ? DEFAULT_ON_JOBS.has(job) : value !== false;
 }
 
 export function deciderReady(cfg: AppConfig, job: DeciderJob, service?: LocalLayaService | null): boolean {
@@ -97,7 +99,13 @@ export function describeDecider(cfg: AppConfig, service?: LocalLayaService | nul
     ...(provider === "openrouter" && deciderSharedKeyUsable(cfg) ? { sharedKey: true as const } : {}),
     ...(account?.included ? { included: true as const } : {}),
     enabled: deciderEnabled(cfg, service),
-    jobs: { roomRouting: deciderJobOn(cfg, "roomRouting") },
+    jobs: {
+      roomRouting: deciderJobOn(cfg, "roomRouting"),
+      inboxTriage: deciderJobOn(cfg, "inboxTriage"),
+      browserClicks: deciderJobOn(cfg, "browserClicks"),
+      toolSelection: deciderJobOn(cfg, "toolSelection"),
+      placement: deciderJobOn(cfg, "placement"),
+    },
   };
 }
 
