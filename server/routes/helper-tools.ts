@@ -162,11 +162,21 @@ export function createHelperToolRoutes(deps: HelperToolDeps) {
     if (ctx.path === SELECT_TOOL) {
       const choice = toolChoices(body);
       if (typeof choice === "string") return void ctx.json(ctx.res, 400, { error: choice });
+      // Measured against the Local Laya model: the tool's own name as the key and the person's action in the
+      // instructions answered every fitting case right, where t1..tn keys and a bare task read as "none".
+      const byKey = new Map<string, { name: string; description?: string }>();
       const options: Record<string, string> = {};
-      for (const [index, tool] of choice.tools.entries()) options[`t${index + 1}`] = `${tool.name}${tool.description ? ` — ${tool.description}` : ""}`;
+      const used = new Set<string>(["none"]);
+      for (const tool of choice.tools) {
+        let key = tool.name;
+        for (let index = 2; used.has(key); index++) key = `${tool.name} (${index})`;
+        used.add(key);
+        options[key] = tool.description ? `${tool.name}: ${tool.description}` : tool.name;
+        byKey.set(key, tool);
+      }
       options.none = "None of these tools fits; do it another way.";
       const result = await deps.decider.choose("toolSelection", { task: choice.task }, {
-        instructions: "Pick the one tool that directly does this task. Choose none when no tool fits; do not guess.",
+        instructions: `The person wants to: ${choice.task}\nWhich tool carries that out? Pick exactly one, or none.`,
         options,
       }, { timeoutMs: TOOL_SELECTION_TIMEOUT_MS });
       if (!result.ok) {
@@ -174,7 +184,7 @@ export function createHelperToolRoutes(deps: HelperToolDeps) {
         return void ctx.json(ctx.res, off ? 409 : 502, { error: off ? HELPER_MESSAGES.toolSelectionOff : FAILURE[result.reason] ?? "The decision model's answer could not be read. Try again." });
       }
       const answer = result.answers;
-      const picked = answer.choice.startsWith("t") ? choice.tools[Number(answer.choice.slice(1)) - 1] : undefined;
+      const picked = byKey.get(answer.choice);
       if (answer.choice === "none" || !picked) {
         return void ctx.json(ctx.res, 200, {
           text: `${JSON.stringify({ tool: null, p: round(answer.pTop), by: BY[result.provider] })}\nThe decision model says none of these tools fits; do it another way.`,
@@ -185,7 +195,7 @@ export function createHelperToolRoutes(deps: HelperToolDeps) {
           .filter(([key]) => key !== "none")
           .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
           .slice(0, 3)
-          .map(([key, p]) => ({ tool: choice.tools[Number(key.slice(1)) - 1]?.name ?? key, p: round(p ?? 0) }));
+          .map(([key, p]) => ({ tool: byKey.get(key)?.name ?? key, p: round(p ?? 0) }));
         return void ctx.json(ctx.res, 200, {
           text: `${JSON.stringify({ tool: null, p: round(answer.pTop), candidates, by: BY[result.provider] })}\nThe decision model is not sure; choose yourself.`,
         });

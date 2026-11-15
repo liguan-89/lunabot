@@ -96,30 +96,30 @@ describe("decide", () => {
 
 describe("select_tool", () => {
   const TOOLS = [{ name: "read_file", description: "Read a file" }, { name: "browser_click", description: "Click an element" }];
-  const picked = (choice: string, pTop: number) => (async () => ({
+  const picked = (choice: string, pTop: number, probabilities: Record<string, number> = { read_file: 0.92, browser_click: 0.08 }) => (async () => ({
     ok: true, provider: "jev", latencyMs: 10,
-    answers: { type: "choice", choice, pTop, margin: 0.8, probabilities: { t1: 0.92, t2: 0.08 } },
+    answers: { type: "choice", choice, pTop, margin: 0.8, probabilities },
   })) as never;
 
-  it("asks the decision model which tool fits and answers with the name", async () => {
-    const { status, payload, choose } = await call("/api/internal/helpers/select-tool", { task: "Read the invoice", tools: TOOLS }, { choose: picked("t1", 0.92) });
+  it("asks the decision model which tool fits, keyed by the tool's own name, and answers with it", async () => {
+    const { status, payload, choose } = await call("/api/internal/helpers/select-tool", { task: "Read the invoice", tools: TOOLS }, { choose: picked("read_file", 0.92) });
     expect(status).toBe(200);
     expect(choose).toHaveBeenCalledWith("toolSelection", { task: "Read the invoice" }, {
-      instructions: expect.stringContaining("Pick the one tool"),
-      options: { t1: "read_file — Read a file", t2: "browser_click — Click an element", none: expect.any(String) },
+      instructions: expect.stringContaining("Read the invoice"),
+      options: { read_file: "read_file: Read a file", browser_click: "browser_click: Click an element", none: expect.any(String) },
     }, expect.objectContaining({ timeoutMs: 10_000 }));
     expect(JSON.parse(payload!.text!.split("\n")[0]!)).toEqual({ tool: "read_file", p: 0.92, by: "Jev" });
   });
 
   it("does not pretend a choice when the model is unsure", async () => {
-    const { status, payload } = await call("/api/internal/helpers/select-tool", { task: "Read the invoice", tools: TOOLS }, { choose: picked("t1", 0.51) });
+    const { status, payload } = await call("/api/internal/helpers/select-tool", { task: "Read the invoice", tools: TOOLS }, { choose: picked("read_file", 0.51) });
     expect(status).toBe(200);
     expect(JSON.parse(payload!.text!.split("\n")[0]!)).toMatchObject({ tool: null, p: 0.51 });
     expect(payload!.text).toContain("not sure");
   });
 
   it("honours none of these tools", async () => {
-    const { status, payload } = await call("/api/internal/helpers/select-tool", { task: "Do something else", tools: TOOLS }, { choose: picked("none", 0.9) });
+    const { status, payload } = await call("/api/internal/helpers/select-tool", { task: "Do something else", tools: TOOLS }, { choose: picked("none", 0.9, { read_file: 0.1, browser_click: 0.1, none: 0.8 }) });
     expect(status).toBe(200);
     expect(JSON.parse(payload!.text!.split("\n")[0]!)).toEqual({ tool: null, p: 0.9, by: "Jev" });
     expect(payload!.text).toContain("none of these tools fits");

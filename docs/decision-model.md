@@ -117,26 +117,36 @@ key; the included Cloud relay does not accept their seams yet.
 **Browser clicks.** With the job on and the bots' browser on the built-in
 Chrome engine, `agent_browser_click` may pass `intent` instead of a ref: the
 decision model picks one visible, enabled element from a fresh snapshot. A
-selector that matches several elements is resolved the same way. The model
-sees the page address and title, the bot's words and the candidates' roles
-and names; it never sees the page's text beyond those names. If it is unsure,
-says none, times out or fails, the click is not made: the tool asks for a ref,
-or the existing "ambiguous selector" error stands. The legacy agent-browser
-engine keeps its old behaviour.
+selector that matches several elements is resolved the same way. The question
+offers each element by its own accessible name (a repeated name is told apart
+as "Save (2)"), because the Local Laya model answered a ref-keyed question by
+position — `e1` for every intent — and a name-keyed one every case right. The
+model sees the person's request, the bot's words and the page's address and
+title; it never sees the page's text beyond those names. If it is unsure, says
+none, times out or fails, the click is not made: the tool asks for a ref, or
+the existing "ambiguous selector" error stands. The legacy agent-browser engine
+keeps its old behaviour.
 
 **Tool selection.** With the job on, the bot's agents tools include
 `select_tool`. The bot passes a task and 2–50 tools with names and optional
 one-line descriptions; the decision model returns one tool name with a
-probability, or says none fits. The bot still calls the tool itself. An unsure
-answer returns the closest candidates instead of a choice. The tool is not
-listed while the job is off.
+probability, or says none fits. The question keys each option by the tool's own
+name and puts the person's action in the instructions: measured on the Local
+Laya model, `t1`-style keys with a bare task answered "none" for four fitting
+cases out of six, while this form answered six of seven right. The bot still
+calls the tool itself. An unsure answer returns the closest candidates instead
+of a choice. The tool is not listed while the job is off.
 
-**Where work runs.** On Auto only, the decision model may choose among the
-computers that are available for the turn (`cloud`, `vm`, `local`); `keep`
-means today's automatic choice. A pick never overrides a person's pin, the
-bot's **Works on**, **Off**, a routine's cloud placement, a team computer or
-a handoff. It is bounded to about 1.2 seconds; an unsure answer, `keep`, a
-timeout or any failure leaves the existing Auto choice in place. The chosen
+**Where work runs.** On Auto only, and only after a pin, Works on, Off, a
+routine's cloud placement, a team computer and a handoff are ruled out. A
+narrow set of words in the request proposes one place — the person's own files,
+apps or screen for this computer; untrusted or risky work for the Local VM;
+work that must outlive the person's computer for the cloud — and the decision
+model is asked one yes/no to confirm it. A miss, a veto, an unsure answer or
+any failure leaves today's Auto choice exactly as it was. Measured on the Local
+Laya model over fifteen requests, this confirmed twelve and never moved work to
+a wrong place; asking the model to choose among the places directly picked a
+wrong one in six of ten cases. It is bounded to 1.5 seconds, and the chosen
 surface is then subject to the same mount and refusal checks as any other
 place.
 

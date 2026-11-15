@@ -8233,10 +8233,9 @@ async function beginTurn(
         ]);
         if (options) {
           const picked = await decidePlacement(decider, {
-            request: text,
-            bot: { name: bot.name, ...(bot.title ? { title: bot.title } : {}), ...(bot.description ? { description: bot.description } : {}) },
+            request: redactSecretsInText(text),
+            bot: { name: bot.name },
             options,
-            ...(dispatchTask?.surface ? { current: dispatchTask.surface } : {}),
           });
           if (picked.kind === "pick") wants = picked.surface;
         }
