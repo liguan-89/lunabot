@@ -460,6 +460,7 @@ describe("a Stop that wins against a provider dispatch", () => {
       store: { bot: () => undefined },
       directTurnDispatchClaims: new Map([["t1", { id: "gen-1", botId: "bot1", threadId: "t1", phase: "dispatching" }]]),
       compactionControllers: new Map(), directTurnGenerationByThread: new Map([["t1", "gen-1"]]), clearTurnDigestState() {},
+      DemoWatch: class {},
     });
     vm.runInContext(code, context, { filename: "index.ts (dispatch cancel fixture)" });
     return { cancel: (threadId: string) => context.cancelDirectTurnDispatch("bot1", threadId), quarantined };

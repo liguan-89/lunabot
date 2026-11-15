@@ -12,7 +12,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const RELAY_PATH = "/relay/api/cloud/services/decider";
 // What the Admin's relay accepts, pinned here as literals: changing the app's
 // copy must fail this test, because the relay would refuse it.
@@ -105,9 +105,9 @@ beforeAll(async () => {
   engineDump = join(home, "engine-dump.json");
   writeFileSync(join(data, "config.json"), JSON.stringify({
     instances: {
-      quick: {
-        driver: "claudeAgent", displayName: "Quick fixture", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: engineDump },
+      pi: {
+        driver: "piAgent", displayName: "Quick fixture", config: { cli: FAKE_PI },
+        environment: { FAKE_PI_MODE: "happy", FAKE_PI_DUMP: engineDump },
       },
     },
     // Where an own key goes: never where the included token goes.
@@ -177,7 +177,7 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
     expect(config.text).not.toContain(INCLUDED);
     for (const name of ["Maya", "Theo"]) {
       bots[name] = (await api("POST", "/api/bots", {
-        name, modelSelection: { instanceId: "quick", model: "claude-sonnet-5" }, requireAvailableModel: true,
+        name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, requireAvailableModel: true,
       })).body.bot;
     }
     const created = await api("POST", "/api/groups", { name: "Launch", memberIds: [bots.Maya!.id, bots.Theo!.id] });
@@ -249,9 +249,9 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
     expect(rows).not.toContain(INCLUDED);
     expect(log).not.toContain(INCLUDED);
     expect(existsSync(engineDump)).toBe(true);
-    const engine = JSON.parse(readFileSync(engineDump, "utf8")).env;
-    expect(engine).not.toHaveProperty("OMB_CLOUD_DECIDER_TOKEN");
-    expect(JSON.stringify(engine)).not.toContain(INCLUDED);
+    const launches = readFileSync(engineDump, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    expect(JSON.stringify(launches)).not.toContain(INCLUDED);
+    expect(JSON.stringify(launches)).not.toContain("OMB_CLOUD_DECIDER_TOKEN");
     // A tool started with a copy of the server's own environment, as it is:
     // the token is gone from it, not merely filtered on the way out.
     const dump = join(home, "cli-env.json");

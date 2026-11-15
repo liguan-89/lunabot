@@ -16,6 +16,8 @@ vi.mock("./ProIntroduction", () => ({ useCloudPlan: () => null, CloudPlanRow: ()
 vi.mock("./BrowserSettingsRows", () => ({ BuiltInBrowserRow: () => null, ServerSitesRow: () => null }));
 vi.mock("./AppSettingsRows", async (original) => ({ ...await original<object>(), BrowserProfilesRow: () => null }));
 vi.mock("./VaultSettings", () => ({ VaultSettings: () => null }));
+vi.mock("./PaymentCardsSettings", () => ({ PaymentCardsSettings: () => null }));
+vi.mock("./ChannelsSettings", () => ({ ChannelsSettings: () => null }));
 
 const { SimpleAiPage, SimpleBillingPage, SimpleComputerPage } = await import("./SettingsSimplePages");
 

@@ -112,13 +112,13 @@ it("offers the connected email accounts for the bot mailbox", async () => {
   expect(puts()).toEqual([{ botMail: { address: "bot@acme.test", botId: "b1" } }]);
 });
 
-it("the SMS row is only the answering bot and saves { sms: { botId } }", async () => {
+it("the SMS row saves the owner numbers", async () => {
   fixture.config = { sms: { configured: false, botId: "" } };
   await render();
   await openForm("sms");
   const form = host.querySelector('[data-channel-form="sms"]')!;
-  expect([...form.querySelectorAll("[data-channel-field]")].map((field) => field.getAttribute("data-channel-field"))).toEqual(["botId"]);
-  await setInput("sms", "botId", "b2");
+  expect([...form.querySelectorAll("[data-channel-field]")].map((field) => field.getAttribute("data-channel-field"))).toEqual(["owners", "botId"]);
+  await setInput("sms", "owners", "+15550100, +15550101");
   await submit("sms");
-  expect(puts()).toEqual([{ sms: { botId: "b2" } }]);
+  expect(puts()).toEqual([{ sms: { owners: "+15550100, +15550101", botId: "" } }]);
 });

@@ -6,6 +6,8 @@ import { endpointBaseUrl, endpointDisplayUrl } from "../openai-compat-endpoints.
 
 describe("base URL handling", () => {
   it("keeps origin and path only", () => {
+    expect(endpointBaseUrl("")).toBeNull();
+    expect(endpointBaseUrl("   ")).toBeNull();
     expect(endpointBaseUrl(" http://localhost:11434/v1/ ")).toBe("http://localhost:11434/v1");
     expect(endpointBaseUrl("https://a.example/v1#x")).toBeNull();
     expect(endpointDisplayUrl({ url: "https://user:pw@a.example/v1?key=s#f" })).toBe("https://a.example/v1");
