@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.util.Base64
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.FileProvider
 import com.openmausbot.companion.core.PhoneTool
 import com.openmausbot.companion.phone.PhoneFileStore
 import com.openmausbot.companion.phone.PhoneNoticeStore
@@ -71,7 +72,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
 
     private enum class Action {
         OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT,
-        SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SHARE,
+        SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SEND, FILE_SHARE,
     }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
@@ -88,6 +89,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
             when (action) {
                 Action.FILE_LIST -> return@withContext fileList(arguments)
                 Action.FILE_READ -> return@withContext fileRead(arguments)
+                Action.FILE_SEND -> return@withContext fileSend(arguments)
                 Action.NOTIF_LIST -> return@withContext noticeList(arguments)
                 else -> Unit
             }
@@ -160,6 +162,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_NOTIF_LIST" -> Action.NOTIF_LIST
         "PHONE_FILE_LIST" -> Action.FILE_LIST
         "PHONE_FILE_READ" -> Action.FILE_READ
+        "PHONE_FILE_SEND" -> Action.FILE_SEND
         "PHONE_FILE_SHARE" -> Action.FILE_SHARE
         else -> null
     }
@@ -421,6 +424,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 )
                 is PhoneFileStore.Content.Unsupported -> PhoneToolOutcome.Failure(
                     "「${content.name}」是 ${content.mime ?: "未知类型"}，目前只能读图片、文本和 PDF。",
+                    CODE_UNSUPPORTED,
+                )
+                is PhoneFileStore.Content.Bytes -> PhoneToolOutcome.Failure(
+                    "PHONE_FILE_READ 不返回原始文件内容。",
                     CODE_UNSUPPORTED,
                 )
             }
@@ -860,6 +867,31 @@ internal class PhoneUiTaskExecutor(context: Context) {
         )
     }
 
+    private fun fileSend(arguments: JsonObject): PhoneToolOutcome {
+        if (!files.enabled()) {
+            return PhoneToolOutcome.Failure("机器人读取文件还没有开启。请在设置的「手机界面」里打开。", CODE_DENIED)
+        }
+        val fileId = arguments.string("fileId")
+            ?: return PhoneToolOutcome.Failure("缺少参数 fileId。", CODE_UNSUPPORTED)
+        val content = try {
+            files.bytesFor(fileId)
+        } catch (problem: PhoneFileStore.FileProblem) {
+            return PhoneToolOutcome.Failure(problem.message ?: "读取文件失败。", problem.code)
+        }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put(
+                    "attachment",
+                    buildJsonObject {
+                        put("name", content.name)
+                        put("mime", content.mime)
+                        put("data", Base64.encodeToString(content.data, Base64.NO_WRAP))
+                    },
+                )
+            },
+        )
+    }
+
     private suspend fun shareFile(
         shell: PhoneUiShell,
         service: PhoneUiAccessibilityService,
@@ -908,13 +940,18 @@ internal class PhoneUiTaskExecutor(context: Context) {
             }
         }
         val granted = runCatching {
-            appContext.grantUriPermission(target, uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            true
-        }.getOrDefault(false)
-        if (!granted) {
-            return PhoneToolOutcome.Failure("无法把这个文件授权给「$target」。", CODE_DENIED)
-        }
-        val shareCode = runCatching { shell.shareIntent(session.displayId, uri.toString(), mime, target) }.getOrDefault(-1)
+            // A folder document's grant belongs to this app and cannot be
+            // handed on; the copy served by our own provider can.
+            val shareUri = if (files.isFolderFile(fileId)) {
+                val copy = files.copyForShare(fileId)
+                FileProvider.getUriForFile(appContext, "${appContext.packageName}.share", copy)
+            } else {
+                uri
+            }
+            appContext.grantUriPermission(target, shareUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            shareUri
+        }.getOrNull() ?: return PhoneToolOutcome.Failure("无法把这个文件授权给「$target」。", CODE_DENIED)
+        val shareCode = runCatching { shell.shareIntent(session.displayId, granted.toString(), mime, target) }.getOrDefault(-1)
         when (shareCode) {
             0 -> Unit
             2 -> return PhoneToolOutcome.Failure("「$target」没有能接收 $mime 的分享入口。", CODE_UNSUPPORTED)

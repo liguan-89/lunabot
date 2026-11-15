@@ -11,12 +11,12 @@ describe("phone tool vocabulary", () => {
       expect(phoneToolCapability(name)).toBe("phoneUi");
     }
     // Files and notifications stand apart from the screen: their reads need no helper.
-    for (const name of ["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ"]) {
+    for (const name of ["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]) {
       expect(phoneToolCapability(name)).toBe("phoneData");
     }
   });
   it("splits reads from writes by verb; observing, waiting, screenshots, OCR and clipboard reads are reads", () => {
-    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ"]);
+    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
   });
   it("is classed by the existing outbound rules with no special case", () => {
     expect(isOutboundTool("PHONE_SEND_MESSAGE")).toBe(true);

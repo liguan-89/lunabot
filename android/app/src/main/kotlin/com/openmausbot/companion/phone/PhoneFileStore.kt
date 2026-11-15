@@ -50,6 +50,7 @@ internal class PhoneFileStore(private val context: Context) {
         class Image(val name: String, val mime: String, val bytes: ByteArray, val width: Int, val height: Int) : Content
         class Text(val name: String, val text: String, val truncated: Boolean) : Content
         class Unsupported(val name: String, val mime: String?, val sizeBytes: Long) : Content
+        class Bytes(val name: String, val mime: String, val data: ByteArray) : Content
     }
 
     class FileProblem(message: String, val code: String) : Exception(message)
@@ -71,6 +72,82 @@ internal class PhoneFileStore(private val context: Context) {
         if (kind != "image" && out.size < limit) out.addAll(listTree(query, limit - out.size))
         return out
     }
+
+    /**
+     * The file's bytes for putting it into the conversation, read whole and
+     * bounded: the chat transport carries base64 JSON, so a small cap keeps one
+     * attachment from stalling the job.
+     */
+    fun bytesFor(fileId: String, maxBytes: Long = MAX_ATTACH_BYTES): Content.Bytes {
+        val uri = uriOf(fileId)
+        val name = displayName(uri) ?: "文件"
+        val mime = mimeOf(uri, name)
+        val size = sizeOf(uri)
+        if (size > maxBytes) throw FileProblem("$name 超过 ${maxBytes / (1_024 * 1_024)} MB，不能放进对话。", "too_large")
+        val data = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
+            ?: throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+        if (data.size > maxBytes) throw FileProblem("$name 超过 ${maxBytes / (1_024 * 1_024)} MB，不能放进对话。", "too_large")
+        return Content.Bytes(name, mime, data)
+    }
+
+    fun uriFor(fileId: String): Uri = uriOf(fileId)
+
+    /** True for a file inside the granted folder, whose URI cannot be re-delegated. */
+    fun isFolderFile(fileId: String): Boolean = fileId.startsWith(TREE_PREFIX)
+
+    /**
+     * Copies a file out of the granted folder into the share cache and returns
+     * the copy. A SAF document URI's grant belongs to this app and cannot be
+     * handed on, so the share provider serves the copy instead. Old copies are
+     * swept first so the directory never holds more than a few.
+     */
+    fun copyForShare(fileId: String): java.io.File {
+        val uri = uriOf(fileId)
+        val name = displayName(uri) ?: "文件"
+        val safe = name.replace(Regex("[^\\p{L}\\p{N}._-]"), "_").take(80).ifEmpty { "file" }
+        val dir = java.io.File(context.cacheDir, SHARE_DIR)
+        if (!dir.exists() && !dir.mkdirs()) throw FileProblem("无法准备分享缓存。", "denied")
+        sweepShareCache(dir)
+        val copy = java.io.File(dir, "${java.util.UUID.randomUUID()}-$safe")
+        val written = runCatching {
+            resolver.openInputStream(uri)?.use { input ->
+                copy.outputStream().use { output ->
+                    var total = 0L
+                    val buffer = ByteArray(64 * 1_024)
+                    while (true) {
+                        val read = input.read(buffer)
+                        if (read <= 0) break
+                        total += read
+                        if (total > MAX_SHARE_BYTES) throw FileProblem("$name 超过 25 MB，没有分享。", "too_large")
+                        output.write(buffer, 0, read)
+                    }
+                    total > 0
+                }
+            }
+        }.getOrElse { error ->
+            copy.delete()
+            if (error is FileProblem) throw error else throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+        }
+        if (written != true) {
+            copy.delete()
+            throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+        }
+        return copy
+    }
+
+    /** At most [SHARE_KEEP] copies, nothing older than an hour. */
+    private fun sweepShareCache(dir: java.io.File) {
+        val cutoff = System.currentTimeMillis() - SHARE_TTL_MS
+        val files = dir.listFiles()?.sortedByDescending { it.lastModified() } ?: return
+        files.forEachIndexed { index, file ->
+            if (index >= SHARE_KEEP || file.lastModified() < cutoff) runCatching { file.delete() }
+        }
+    }
+
+    fun mimeOf(uri: Uri, name: String): String = (runCatching { resolver.getType(uri) }.getOrNull()
+        ?.takeIf { it.isNotBlank() && it != "*/*" }
+        ?: guessMime(name)
+        ?: "application/octet-stream").lowercase()
 
     suspend fun read(fileId: String, pages: Int): Content {
         val uri = uriOf(fileId)
@@ -322,5 +399,10 @@ internal class PhoneFileStore(private val context: Context) {
         const val MAX_PDF_PAGES = 5
         const val MAX_PDF_RENDER_WIDTH = 1024
         val TEXTUAL_TYPES = setOf("application/json", "application/xml", "text/csv", "text/tab-separated-values")
+        const val SHARE_DIR = "bot-share"
+        const val MAX_SHARE_BYTES = 25L * 1_024 * 1_024
+        const val SHARE_KEEP = 3
+        const val SHARE_TTL_MS = 60L * 60 * 1_000
+        const val MAX_ATTACH_BYTES = 8L * 1_024 * 1_024
     }
 }

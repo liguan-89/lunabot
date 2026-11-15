@@ -96,7 +96,7 @@ class PhoneJobsTest {
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(37, PhoneTool.entries.size)
+        assertEquals(38, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")

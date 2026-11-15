@@ -1310,6 +1310,29 @@
         }
       },
       {
+        "name": "PHONE_FILE_SEND",
+        "description": "Put one phone file into this conversation so the person can open it there; the file itself travels to the computer, not through the bot's own hands. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "A fileId from PHONE_FILE_LIST."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "fileId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
         "name": "PHONE_FILE_SHARE",
         "description": "Hand one file to another app's share screen, opened on the phone's controlled display with the file already attached. Name the app that should receive it, or leave the package out to get the system chooser there. Asks the person first.",
         "inputSchema": {

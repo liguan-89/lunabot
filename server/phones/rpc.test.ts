@@ -48,6 +48,9 @@ function harness(options: {
   bot?: () => BotRecord | null;
   holdOutbound?: (input: HoldInput) => Promise<HoldAnswer>;
   approvalMode?: () => string;
+  saveAttachment?: (input: { name: string; mime: string; bytes: Buffer }) => Promise<
+    { ok: true; attachment: { kind: "image" | "file"; path: string; mime: string; name?: string } } | { ok: false; text: string }
+  >;
 } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-phone-rpc-"));
   dirs.push(dir);
@@ -69,6 +72,7 @@ function harness(options: {
       return options.holdOutbound ? options.holdOutbound(input) : { ok: true, approved: false };
     },
     approvalMode: options.approvalMode ?? (() => "full"),
+    saveAttachment: options.saveAttachment,
   });
   let checks = 0;
   const handle = (body: unknown) => host.handle(body, TURN, () => { checks++; });
@@ -90,7 +94,7 @@ describe("phone MCP host", () => {
     const files = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
     files.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
     expect(((await files.handle({ method: "tools/list" }) as PhoneToolsList).tools.map((tool) => tool.name)))
-      .toEqual(["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ"]);
+      .toEqual(["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
     // A screen grant does not reach into files, and a file grant does not reach the screen.
     const screenOnly = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneUi: "read" } }) });
     screenOnly.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
@@ -99,6 +103,41 @@ describe("phone MCP host", () => {
     const phoneScreen = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
     phoneScreen.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
     expect(((await phoneScreen.handle({ method: "tools/list" }) as PhoneToolsList).tools)).toEqual([]);
+  });
+
+  it("a file the phone sends lands in the chat, never in the model's hands", async () => {
+    const h = harness({
+      bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }),
+      saveAttachment: async ({ name, mime }) => ({ ok: true, attachment: { kind: "file", path: "/tmp/saved", mime, name } }),
+    });
+    h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full" }));
+    const pending = h.handle(call("PHONE_FILE_SEND", { fileId: "tree:abc" }));
+    await answerNext(h.jobs, IPHONE, () => ({
+      ok: true,
+      result: { attachment: { name: "合同.pdf", mime: "application/pdf", data: Buffer.from("%PDF-1.4").toString("base64") } },
+    }));
+    const result = await pending as PhoneToolResult;
+    expect(result.isError).toBeUndefined();
+    // The base64 of %PDF-1.4 must not reach the model, only the note does.
+    expect(text(result)).not.toContain("JVBERi0");
+    expect(text(result)).toContain("合同.pdf");
+    expect(h.messages.at(-1)).toMatchObject({
+      threadId: TURN.threadId,
+      message: { role: "bot", kind: "text", attachments: [{ kind: "file", name: "合同.pdf" }] },
+    });
+  });
+
+  it("a server without an attachment store refuses instead of dropping the file", async () => {
+    const h = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full" }));
+    const pending = h.handle(call("PHONE_FILE_SEND", { fileId: "tree:abc" }));
+    await answerNext(h.jobs, IPHONE, () => ({
+      ok: true,
+      result: { attachment: { name: "a.pdf", mime: "application/pdf", data: Buffer.from("%PDF").toString("base64") } },
+    }));
+    const result = await pending as PhoneToolResult;
+    expect(result).toMatchObject({ isError: true, structuredContent: { code: "unsupported" } });
+    expect(h.messages).toEqual([]);
   });
 
   it("tools/list shows what the bot may run on the paired phone", async () => {

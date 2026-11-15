@@ -377,6 +377,21 @@
         </provider>
 
         <!--
+          The copy a granted-folder file is shared through: SAF document URIs
+          cannot be re-delegated, so the bytes are copied here and this provider
+          grants the one receiving app read access to that copy.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+
+        <!--
           Where the shell-identity phone-UI helper (app_process, uid 2000)
           hands its virtual-display binder over. Exported because shell must
           reach it, but gated behind INTERACT_ACROSS_USERS_FULL — shell has it,

@@ -51,6 +51,8 @@ describe("phone tools", () => {
     expect(phoneToolCallProblem("PHONE_FILE_READ", { fileId: "photo:12" })).toBeNull();
     expect(phoneToolCallProblem("PHONE_FILE_READ", {})).toMatch(/fileId/);
     expect(phoneToolCallProblem("PHONE_FILE_READ", { fileId: "photo:12", pages: 9 })).toMatch(/pages/);
+    expect(phoneToolCallProblem("PHONE_FILE_SEND", { fileId: "photo:12" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_FILE_SEND", {})).toMatch(/fileId/);
     expect(phoneToolCallProblem("PHONE_FILE_SHARE", { fileId: "photo:12" })).toBeNull();
     expect(phoneToolCallProblem("PHONE_FILE_SHARE", { fileId: "photo:12", package: "com.tencent.mm" })).toBeNull();
     expect(phoneToolCallProblem("PHONE_FILE_SHARE", {})).toMatch(/fileId/);

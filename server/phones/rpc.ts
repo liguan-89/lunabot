@@ -24,9 +24,28 @@ export interface PhoneRpcDeps {
   run(phone: PhoneTarget, name: PhoneToolName, args: Record<string, unknown>): Promise<PhoneJobOutcome>;
   /** A successful write (sends included): the handler records it in the bot's activity. */
   onWrite?(record: { tool: PhoneToolName; phone: string; summary: string; summaryCode?: string; summaryParams?: ServerTextParams }): void;
+  /** Puts a file the phone returned into the conversation. Absent: the server cannot, and the call fails closed. */
+  attachFile?(input: PhoneAttachmentInput): Promise<{ ok: true; text: string } | { ok: false; text: string }>;
 }
 
 export type PhoneToolsList = { tools: (typeof PHONE_TOOLS)[number][]; instructions: string };
+
+/** A file the phone returned for the conversation: the job answer carries base64, and this server turns it into an
+ * attachment row instead of handing the bytes to the model. */
+export type PhoneAttachmentInput = { name: string; mime: string; bytes: Buffer };
+
+/** At most this many base64 characters: 8 MB of file is about 10.7 MB encoded. */
+const PHONE_ATTACHMENT_MAX_B64 = 12 * 1024 * 1024;
+
+function phoneAttachment(result: unknown): { name: string; mime: string; data: string } | null {
+  if (!result || typeof result !== "object") return null;
+  const attachment = (result as { attachment?: unknown }).attachment;
+  if (!attachment || typeof attachment !== "object") return null;
+  const { name, mime, data } = attachment as Record<string, unknown>;
+  if (typeof name !== "string" || typeof mime !== "string" || typeof data !== "string") return null;
+  if (!name.trim() || !data || data.length > PHONE_ATTACHMENT_MAX_B64) return null;
+  return { name: name.trim().slice(0, 200), mime: mime.slice(0, 200), data };
+}
 
 export async function phoneRpc(
   request: { method?: unknown; params?: unknown } | null | undefined,
@@ -52,6 +71,15 @@ export async function phoneRpc(
   const outcome = await deps.run(target, name, jobArgs);
   deps.assertActive();
   if (!outcome.ok) return phoneErrorResult(outcome.error, outcome.code ? { code: outcome.code } : {});
+  // A file for the conversation is saved and attached here; the model is told
+  // what happened, never handed the bytes back.
+  const attachment = phoneAttachment(outcome.result);
+  if (attachment) {
+    if (!deps.attachFile) return phoneErrorResult("This server cannot put files into the chat.", { code: "unsupported" });
+    const saved = await deps.attachFile({ name: attachment.name, mime: attachment.mime, bytes: Buffer.from(attachment.data, "base64") });
+    if (!saved.ok) return phoneErrorResult(saved.text, { code: "denied" });
+    return phoneOkResult({ text: saved.text }, { name: target.name, platform: target.platform });
+  }
   if (isPhoneWrite(name)) deps.onWrite?.({ tool: name, phone: target.name, ...phoneWriteSummary(name, target.name) });
   return phoneOkResult(outcome.result, { name: target.name, platform: target.platform });
 }

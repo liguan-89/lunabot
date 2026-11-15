@@ -41,6 +41,14 @@ export interface PhoneHostDeps {
    * so every screen write waits on the person.
    */
   approvalMode?(botId: string, threadId: string): string;
+  /**
+   * Saves a file the phone sent for the chat and returns the attachment row to
+   * append. Absent fails closed: this host cannot put files in the chat.
+   */
+  saveAttachment?(input: { name: string; mime: string; bytes: Buffer }): Promise<
+    | { ok: true; attachment: { kind: "image" | "file"; path: string; mime: string; name?: string } }
+    | { ok: false; text: string }
+  >;
 }
 
 export interface PhoneOutboundHoldInput {
@@ -194,6 +202,17 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             ...(bot && deps.inRoom(capability.threadId) ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
           });
         },
+        attachFile: deps.saveAttachment ? async (input) => {
+          const saved = await deps.saveAttachment!(input);
+          if (!saved.ok) return saved;
+          const bot = deps.bot(capability.botId);
+          deps.appendMessage(capability.threadId, {
+            role: "bot", kind: "text", text: "",
+            attachments: [saved.attachment],
+            ...(bot && deps.inRoom(capability.threadId) ? { from: { botId: bot.id, name: bot.name, color: bot.color } } : {}),
+          });
+          return { ok: true as const, text: `已把「${saved.attachment.name ?? input.name}」放进这个对话。` };
+        } : undefined,
       });
     },
   };
