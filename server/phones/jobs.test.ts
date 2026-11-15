@@ -21,6 +21,22 @@ describe("phone jobs", () => {
     expect(jobs.busy(KEY)).toBe(false);
   });
 
+  it("one file for the chat may ride a larger answer; every other tool keeps the 256 KB ceiling", async () => {
+    const jobs = new PhoneJobs();
+    // 600 KB of base64: well over the normal ceiling, far inside a phone file's limit.
+    const big = { ok: true as const, result: { attachment: { name: "a.png", mime: "image/png", data: "A".repeat(600_000) } } };
+    const send = jobs.request(KEY, "PHONE_FILE_SEND", {}, turn());
+    const job = await jobs.poll(KEY);
+    jobs.lease(KEY, job!.id);
+    jobs.complete(KEY, job!.id, big);
+    await expect(send).resolves.toMatchObject({ ok: true });
+    const read = jobs.request(KEY, "PHONE_FILE_READ", {}, turn());
+    const second = await jobs.poll(KEY);
+    jobs.lease(KEY, second!.id);
+    jobs.complete(KEY, second!.id, big);
+    await expect(read).resolves.toMatchObject({ ok: false, code: "too_large" });
+  });
+
   it("re-delivers a job that was polled but never leased after 10 s", async () => {
     vi.useFakeTimers();
     const jobs = new PhoneJobs();
