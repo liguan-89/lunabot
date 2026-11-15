@@ -44075,7 +44075,11 @@
       "settings.channels.smsHint": "80c2b46f586571ae7ff743bb71b724141a0b62e78b835170137bd3d6542830fa",
       "settings.channels.note": "b219c48d76b608dab5065f9ae0f245dc792bd2c891c15374b988aeacbe4ea550",
       "serverError.voice.liveKeyRequired": "644121a4bf0ae4a2da199683b231033618b567aab800f53fcd370d6abcb7471c",
-      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde"
+      "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde",
+      "attach.copyImage": "3cb27ae0fbca8ae3efdf8fa92493efc9cae666d90b99ae18d2cadf586f5dad32",
+      "attach.copyImageAria": "29bcb449a544d268db71d0014ec64ea9d2b79195c8e17b4e775ddb483b579f2d",
+      "attach.imageCopied": "d2f93ee383fa87452f9a67e88bcfd22d6b26782d777a4d751c3e16b260fc54d4",
+      "attach.copyImageFailed": "1b711a9276f5accb89acffd2a86b0c86c379e9382cb74f8cddb0da27c7e1494c"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
