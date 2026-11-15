@@ -86,11 +86,13 @@ object MinisTokens {
 
     // Liquid Gloss: a translucent fill, a rim that catches the light and a
     // short sheen. Alphas are the look — there is no backdrop blur here, so
-    // the glass reads through what sits behind it. Light glass is a cool
-    // white-grey, not pure white, or it disappears on a white page.
-    val GlassLight = Color(0xCCF4F5F9)
+    // the glass reads through what sits behind it. In light mode the fill is
+    // near-opaque white and the rim a dark hairline: the previous translucent
+    // grey (0xCCF4F5F9) sat within 3/255 of the F4F4F5 canvas, and on it the
+    // search field, menus and chips all but vanished.
+    val GlassLight = Color(0xF7FFFFFF)
     val GlassDark = Color(0xD91C1C1E)
-    val ControlLight = Color(0xE6F2F2F7)
+    val ControlLight = Color(0xFFFFFFFF)
     val ControlDark = Color(0xE62C2C2E)
     // The floating chat header sits on scrolling text, so it is a step more
     // opaque than the rest of the chrome.
@@ -98,7 +100,7 @@ object MinisTokens {
     val GlassHeaderDark = Color(0xF51C1C1E)
     val SheenLight = Color(0x1AFFFFFF)
     val SheenDark = Color(0x14FFFFFF)
-    val RimLight = Color(0x59FFFFFF)
+    val RimLight = Color(0x24000000)
     val RimDark = Color(0x2EFFFFFF)
 }
 
