@@ -131,3 +131,16 @@ Apache License, Version 2.0 (third_party/mika/LICENSE). Our ADB SPAKE2 client
 is the separately noted port; the automation loop was rewritten for this app's
 per-display accessibility reader and its own pairing controller, and is not a
 copy of Mika's coordinator.
+
+The Android app's action stabilization, coordinate click retry, main-screen
+spill handling, system-picker detection, display keep-awake, key whitelist and
+typed-key fallback (PhoneUiStability, PhoneUiClickFallback, PhoneUiSpill,
+PhoneUiSystemPickers, PhoneUiDisplayAwake, PhoneUiKeys and
+PhoneUiShellService.typeText) adapt Mika's ChangeWait, FrameFreshness,
+ClickFallback, MainScreenSpill, SystemPickers, DisplayAwake and AsciiTextKeys,
+https://github.com/wangzan101/Mika, Copyright 2026 wangzan101, used under the
+Apache License, Version 2.0 (third_party/mika/LICENSE). They were rewritten
+for this app's plain accessibility-tree reader and its own tool surface:
+Mika's frame-brightness channel, task-stack listener, per-app audio ledger and
+task-moving heuristics are not ported, and a spilled task is pulled back with
+one bounded root-task move instead.
