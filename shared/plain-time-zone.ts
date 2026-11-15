@@ -37,3 +37,9 @@ export function plainWeekdays(weekdays: readonly number[]): string {
   const days = [...weekdays].sort((a, b) => a - b).join(",");
   return days === "0,1,2,3,4,5,6" ? "every day" : days === "1,2,3,4,5" ? "weekdays" : weekdays.map((day) => WEEKDAYS[day]).join(", ");
 }
+
+/** The same days in `locale` ("星期一", "Montag"): callers choose the every-day/weekdays phrase themselves. */
+export function weekdayNames(weekdays: readonly number[], locale = "en"): string[] {
+  const format = new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" });
+  return [...weekdays].sort((a, b) => a - b).map((day) => format.format(Date.UTC(2023, 0, 1 + day)));
+}

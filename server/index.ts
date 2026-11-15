@@ -2124,10 +2124,10 @@ async function bindTurnComputer(owner: TurnOwner, resource: string, exclusive = 
     const waitedMs = waitedSince === undefined ? 0 : Date.now() - waitedSince;
     if (outcome === "acquired") turnResources.noteWait(resource, waitedMs);
     const text = outcome === "acquired"
-      ? computerFreeAfterText(holder, waitedMs)
+      ? computerFreeAfterText(holder, waitedMs, threadLanguage(owner.threadId))
       : outcome === "parked"
-        ? computerParkedText(holder, COMPUTER_WAIT_MAX_MS)
-        : computerStoppedWaitingText(holder, waitedMs);
+        ? computerParkedText(holder, COMPUTER_WAIT_MAX_MS, threadLanguage(owner.threadId))
+        : computerStoppedWaitingText(holder, waitedMs, threadLanguage(owner.threadId));
     store.appendMessage(owner.threadId, {
       role: "bot", kind: "activity",
       tool: { name: text, ok: true },
@@ -2153,7 +2153,7 @@ async function bindTurnComputer(owner: TurnOwner, resource: string, exclusive = 
         ({ holder, threadRef: holderThreadRef } = blocker ? holderOfTurn(blocker) : { holder: undefined, threadRef: undefined });
         waitingMessage = store.appendMessage(owner.threadId, {
           role: "bot", kind: "activity",
-          tool: { name: computerWaitingText(holder, { position, estimateMs }) },
+          tool: { name: computerWaitingText(holder, { position, estimateMs }, threadLanguage(owner.threadId)) },
           ...(holderThreadRef ? { threadRef: holderThreadRef } : {}),
         });
         waitedSince = Date.now();
@@ -2169,7 +2169,7 @@ async function bindTurnComputer(owner: TurnOwner, resource: string, exclusive = 
         endWait("parked");
         owner.computerParkedOn = resource;
         computerParks.set(owner.generation, resource);
-        throw new ComputerWaitParked(computerParkedText(holder, COMPUTER_WAIT_MAX_MS), resource, owner.generation);
+        throw new ComputerWaitParked(computerParkedText(holder, COMPUTER_WAIT_MAX_MS, threadLanguage(owner.threadId)), resource, owner.generation);
       }
       await new Promise<void>(resolve => setTimeout(resolve, 100));
     }
@@ -2542,7 +2542,7 @@ async function moveOffComputerEngine(): Promise<void> {
   });
   writeComputerEngineMoveLines(moves, (move) => {
     const bot = store.bot(move.botId);
-    if (bot) store.appendMessage(move.threadId, { role: "bot", kind: "activity", tool: { name: computerEngineMoveText(move, bot.name, engine), ok: true } });
+    if (bot) store.appendMessage(move.threadId, { role: "bot", kind: "activity", tool: { name: computerEngineMoveText(move, bot.name, engine, conversationLanguage(move.threadId)), ok: true } });
   });
 }
 let computerEngineMoveRunning: Promise<void> | null = null;
@@ -2746,7 +2746,7 @@ function healThreadModel(botId: string, threadId: string): void {
   if (!bot || !own || bot.approvalGrant || threadBusy(botId, threadId)) return;
   if (!store.followBotModel(botId, [threadId], (from, to) => hostedModels?.resetTask(from, to) ?? {}).length) return;
   store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
-    name: `notice: This thread's model (${modelName(own)}) isn't available, so it now uses ${bot.name}'s model (${modelName(bot.modelSelection)}).`,
+    name: serverLine(threadLanguage(threadId), "server.engine.threadModelUnavailable", { model: modelName(own), bot: bot.name, newModel: modelName(bot.modelSelection) }),
     ok: true,
   } });
 }
@@ -2850,7 +2850,7 @@ const computerAsks = CLOUD_PERSONAL ? createComputerAsksHost({ store, notify, le
 const { stopThreadForPerson, stopOnTypedCommand, restartForPerson } = createPersonStop({
   store, routines: () => routines, handoffs: () => handoffs, interruptDirectThread, stopping: (botId, threadId) => idleThreads.stopping(botId, threadId), clearUnattended,
   stopGoal: (threadId) => oneOnOneGoals.stop(threadId), markStopped: (threadId, by) => personStops.stop(threadId, liveTurns.running(threadId), directTurnDispatchClaims.has(threadId), by), working: (botId, threadId) => threadBusy(botId, threadId) || coordinator.activeDirect(threadId), asking: (threadId) => coordinator.awaitingAnswer(threadId) || Boolean(openPersonCard(threadId)), language: threadLanguage, stopRefusal: (threadId, by) => runOwners.stopRefusal(threadId, by),
-}); const teamMessages = createTeamMessages({ place: CLOUD_TEAM ? null : createPlaceInbox({ dataDir: DATA_DIR, store, openCards: openCardRows, waiting: () => personWaits.waiting(), send: (notification) => { broadcast({ kind: "notify", notification: logNotification(notification) }); }, sees: (auth, threadId) => visibleTo(viewerFor(auth)).thread(threadId), mayAnswer: (auth, threadId, requestId) => cardAnswerRefusal(auth, threadId, requestId, "allow") === null, viewer: (auth) => placeInboxViewer(auth, { personal: CLOUD_PERSONAL, owner: cloudOwnerSession, personOf: personKey }), guestOf: (threadId) => { if (!CLOUD_PERSONAL || !cloudGuestDriven(threadId)) return null; const person = [...cloudThreadStarters(threadId), threadPersonKey(threadId)].find((one) => one && one !== CLOUD_OUTSIDE_KEY && !cloudOwnerPerson(one)); return person ?? null; }, guestName: (threadId) => guestNameIn(store.messagesFor(threadId)), handedBy: (threadId) => { const from = delegatorOf(threadId); return from && from.threadId !== threadId ? from.botId ?? store.botByThread(from.threadId)?.id ?? null : null; } }), team: CLOUD_TEAM, dataDir: DATA_DIR, store, confined: (threadId) => cloudGuestDriven(threadId), people: teamOwners.people, personName: teamHost.personName, audienceOf: teamHost.audienceOf, starters: threadStarters, notify, sees: (person) => visibleTo(person.role === "member" ? { kind: "member", email: person.email } : { kind: "all", email: person.email }), inbox: { askedPerson: teamOwners.routing.askedPerson, delivered: (item, delivery) => teamAway.delivered(item, delivery), changed: (threadId) => { const bot = store.botByThread(threadId); if (bot) broadcast({ kind: "bot", bot: wireBot(bot) }); }, ensureOwnBot: (email) => { ensureDefaultBot(store, { dataDir: DATA_DIR, person: email, team: CLOUD_TEAM?.name ?? null, opened: (made) => void mausbotOwnChat.claim(made) }); }, handedFrom: (threadId) => { const from = delegatorOf(threadId); return from && from.threadId !== threadId ? from.threadId : null; }, continueTurn: relayedTurn({ store, startTurn, state: (botId, threadId) => ({ atCapacity: botAtThreadCapacity(botId, threadId), threadBusy: threadBusy(botId, threadId), groupTurn: roomTurnHolds(activeGroupTurnForBot(botId), threadId, false), parksBehindCoordination: parksBehindCoordination(botId, threadId) }) }), representative: { generate: async (botId, prompt) => (await sideJobs.text("representative", botId)?.generateText(prompt, { timeoutMs: 60_000 })) ?? null, busy: createPersonCalendar({ access: (person) => teamConnections.personApps().includes("googlecalendar") ? teamConnections.people.appsAccess(person) : null, connected: async (access) => (await composio.connectedServices(...teamConnections.via(access))).googlecalendar?.connected === true, relay: (payload, session, signal, access) => composio.relayMcp(teamConnections.via(access)[0], payload as never, session, undefined, signal, teamConnections.via(access)[1]) }).busy } } });
+}); const teamMessages = createTeamMessages({ place: CLOUD_TEAM ? null : createPlaceInbox({ dataDir: DATA_DIR, store, openCards: openCardRows, waiting: () => personWaits.waiting(), send: (notification) => { broadcast({ kind: "notify", notification: logNotification(notification) }); }, sees: (auth, threadId) => visibleTo(viewerFor(auth)).thread(threadId), mayAnswer: (auth, threadId, requestId) => cardAnswerRefusal(auth, threadId, requestId, "allow") === null, viewer: (auth) => placeInboxViewer(auth, { personal: CLOUD_PERSONAL, owner: cloudOwnerSession, personOf: personKey }), guestOf: (threadId) => { if (!CLOUD_PERSONAL || !cloudGuestDriven(threadId)) return null; const person = [...cloudThreadStarters(threadId), threadPersonKey(threadId)].find((one) => one && one !== CLOUD_OUTSIDE_KEY && !cloudOwnerPerson(one)); return person ?? null; }, guestName: (threadId) => guestNameIn(store.messagesFor(threadId)), handedBy: (threadId) => { const from = delegatorOf(threadId); return from && from.threadId !== threadId ? from.botId ?? store.botByThread(from.threadId)?.id ?? null : null; } }), team: CLOUD_TEAM, dataDir: DATA_DIR, store, confined: (threadId) => cloudGuestDriven(threadId), people: teamOwners.people, personName: teamHost.personName, audienceOf: teamHost.audienceOf, starters: threadStarters, notify, sees: (person) => visibleTo(person.role === "member" ? { kind: "member", email: person.email } : { kind: "all", email: person.email }), inbox: { askedPerson: teamOwners.routing.askedPerson, delivered: (item, delivery) => teamAway.delivered(item, delivery), changed: (threadId) => { const bot = store.botByThread(threadId); if (bot) broadcast({ kind: "bot", bot: wireBot(bot) }); }, ensureOwnBot: (email) => { ensureDefaultBot(store, { dataDir: DATA_DIR, person: email, team: CLOUD_TEAM?.name ?? null, language: appLanguage(), opened: (made) => void mausbotOwnChat.claim(made) }); }, handedFrom: (threadId) => { const from = delegatorOf(threadId); return from && from.threadId !== threadId ? from.threadId : null; }, continueTurn: relayedTurn({ store, startTurn, state: (botId, threadId) => ({ atCapacity: botAtThreadCapacity(botId, threadId), threadBusy: threadBusy(botId, threadId), groupTurn: roomTurnHolds(activeGroupTurnForBot(botId), threadId, false), parksBehindCoordination: parksBehindCoordination(botId, threadId) }) }), representative: { generate: async (botId, prompt) => (await sideJobs.text("representative", botId)?.generateText(prompt, { timeoutMs: 60_000 })) ?? null, busy: createPersonCalendar({ access: (person) => teamConnections.personApps().includes("googlecalendar") ? teamConnections.people.appsAccess(person) : null, connected: async (access) => (await composio.connectedServices(...teamConnections.via(access))).googlecalendar?.connected === true, relay: (payload, session, signal, access) => composio.relayMcp(teamConnections.via(access)[0], payload as never, session, undefined, signal, teamConnections.via(access)[1]) }).busy } } });
 const imageTools = createImageToolRoutes({ config: () => cfg, dataDir: DATA_DIR, liveTurn: (threadId) => liveTurnByThread.get(threadId), key: turnAttachmentKey, images: (key) => (turnAttachmentsByTurn.get(key) ?? []).filter((item) => item.kind === "image").length, park: (key, image) => { const saved = saveImage(image.bytes, image.mime); turnAttachmentsByTurn.set(key, [...turnAttachmentsByTurn.get(key) ?? [], { kind: "image", path: saved.path, mime: saved.mime }]); } });
 const noAiNotice = createNoAiNotice({ team: CLOUD_TEAM, dataDir: DATA_DIR, people: () => teamOwners.people?.list() ?? [], personName: teamHost.personName, inbox: () => teamMessages.inbox, language: personLanguages.forLine, threadLanguage: conversationLanguage });
 const botNameClash = createBotNameClash({ store, people: () => teamMessages.people(), profileName: () => cfg.profile?.name });
@@ -2907,7 +2907,7 @@ for (const pending of startupCatalogs) {
     broadcast({ kind: "config", ...configStatus() });
   }, () => {});
 }
-const firstHourFresh = Boolean(CLOUD_PERSONAL) && store.needsSeed(); testedAi.seed({ defaultBot: !CLOUD_TEAM, ...(firstHourFresh ? { intro: (bot) => greetingMessage(bot, { name: cfg.profile?.name }, cfg.language) } : {}) }); moveFreeze.hold(() => { if (!CLOUD_TEAM) ensureDefaultBot(store, { dataDir: DATA_DIR }); }, () => {}); if (CLOUD_TEAM) readTeamRolesWith((email) => sessions.list().filter((session) => session.email?.toLowerCase() === email && session.teamRole).sort((a, b) => b.createdAt - a.createdAt)[0]?.teamRole ?? null); if (CLOUD_TEAM) void mausbotOwnChat.claimAll();
+const firstHourFresh = Boolean(CLOUD_PERSONAL) && store.needsSeed(); testedAi.seed({ defaultBot: !CLOUD_TEAM, ...(firstHourFresh ? { intro: (bot) => greetingMessage(bot, { name: cfg.profile?.name }, cfg.language) } : {}) }); moveFreeze.hold(() => { if (!CLOUD_TEAM) ensureDefaultBot(store, { dataDir: DATA_DIR, language: appLanguage() }); }, () => {}); if (CLOUD_TEAM) readTeamRolesWith((email) => sessions.list().filter((session) => session.email?.toLowerCase() === email && session.teamRole).sort((a, b) => b.createdAt - a.createdAt)[0]?.teamRole ?? null); if (CLOUD_TEAM) void mausbotOwnChat.claimAll();
 hostedModels?.reconcile(store);
 if (skillsLibraryEnabled(cfg)) {
   try {
@@ -4871,7 +4871,7 @@ async function answerRequest(
       commandAllowlist.add(remembered.botId, remembered.candidate);
     } catch {
       store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
-        name: "Command allowed once, but its allowlist rule could not be saved. Try again from the permissions menu.", ok: false,
+        name: serverLine(threadLanguage(threadId), "server.approval.commandRuleNotSaved"), ok: false,
       } });
     }
   }
@@ -4908,7 +4908,7 @@ async function answerRequest(
     if (!persistentQuestion && !existing?.card?.answered) store.appendMessage(threadId, {
       role: "bot",
       kind: "activity",
-      tool: { name: "Couldn't deliver that answer — the request is no longer open, so the action was not run", ok: false },
+      tool: { name: serverLine(threadLanguage(threadId), "server.approval.answerNotDelivered"), ok: false },
     });
   }
   return outcome;
@@ -5597,14 +5597,14 @@ function ingestEngineHook(capability: InternalCapability, body: unknown): { ok: 
   if (name === "PreCompact" || (name === "SessionStart" && payload.source === "compact")) roomSessions.distrust(threadId, capability.botId);
   if (name === "PreCompact") {
     const trigger = payload.trigger === "manual" ? "manual" : "auto";
-    chip(`context compaction started (${trigger})`);
+    chip(serverLine(conversationLanguage(threadId), "server.context.compactionStarted", { trigger }));
     return { ok: true };
   }
   if (name === "SessionStart") {
     if (payload.source !== "compact") return { ok: true, ignored: `SessionStart ${String(payload.source ?? "")}` };
     const bot = store.bot(capability.botId);
     const digests = sinceFreshStart(store.activePath(threadId)).filter((m) => m.kind === "digest" && m.digest).slice(-DIGESTS_AFTER_COMPACTION);
-    chip(`context compacted — re-sent the last ${digests.length} digest${digests.length === 1 ? "" : "s"}`);
+    chip(serverLine(conversationLanguage(threadId), digests.length === 1 ? "server.context.compactedOne" : "server.context.compactedMany", { count: digests.length }));
     if (!digests.length) return { ok: true };
     const context = digests.map((m) => digestPromptLine(m.digest!, m.from?.name ?? store.bot(m.digest!.botId)?.name ?? bot?.name ?? "the bot")).join("\n");
     return { ok: true, context };
@@ -5834,7 +5834,7 @@ async function computerCallGate(internalCapability: InternalCapability, signal?:
     const lazyClaim = slot && slot.owner.generation === generation ? slot : undefined;
     let held: ControlState;
     if (snapshot.held && snapshot.heldSinceMs !== null && Date.now() - snapshot.heldSinceMs >= COMPUTER_WAIT_MAX_MS) {
-      return { held: true, helpOpen, blockedReason: computerPersonAwayText(COMPUTER_WAIT_MAX_MS) };
+      return { held: true, helpOpen, blockedReason: computerPersonAwayText(COMPUTER_WAIT_MAX_MS, threadLanguage(threadId)) };
     } else if (snapshot.held) {
       personHeld = true;
       held = { held: true, helpOpen, reason: "person" };
@@ -6276,7 +6276,7 @@ function continueComputerSelection(threadId: string, generation: string | undefi
     store.patchTask(bot.id, threadId, { surface, surfaceSource: "auto", ...pin });
     const text = `The computer selection is now ${surfaceLabel(surface)}. Continue the ${selection.handoff ? "handed-off" : "user's original"} request using the tools mounted for this turn; verify the result before claiming success.\n\n${selection.text}`;
     if (selection.handoff) directCoordinationSettlers.delete(generation!); /* the continuing turn owns the hand-off's result */ void startTurn(bot.id, text, selection.handoff ? { ...selection.handoff.opts, threadId, computerSelectionContinuation: true } : { threadId, userMessage: selection.source, computerSelectionContinuation: true, dataContext: selection.dataContext }).catch(error => {
-      const why = `Could not continue on ${surfaceLabel(surface)}: ${error instanceof Error ? error.message : String(error)}`; selection.handoff?.opts?.coordination?.settle({ ok: false, text: why });
+      const why = serverLine(threadLanguage(threadId), "server.surface.couldNotContinue", { surface: surfaceLabel(surface, threadLanguage(threadId)), error: error instanceof Error ? error.message : String(error) }); selection.handoff?.opts?.coordination?.settle({ ok: false, text: why });
       if (store.taskByThread(bot.id, threadId)) store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: why, ok: false } }); });
   });
   return true;
@@ -6592,7 +6592,9 @@ bus.subscribe((event: RuntimeEvent) => {
             role: "bot",
             kind: "activity",
             tool: {
-              name: `generated image could not be attached — ${error instanceof Error ? error.message : "invalid image"}`.slice(0, 160),
+              name: serverLine(threadLanguage(event.threadId), "server.image.attachFailed", {
+                error: error instanceof Error ? error.message : serverLine(threadLanguage(event.threadId), "server.image.invalid"),
+              }).slice(0, 160),
               ok: false,
             },
           });
@@ -6681,7 +6683,10 @@ bus.subscribe((event: RuntimeEvent) => {
           role: "bot",
           kind: "activity",
           tool: {
-            name: `Approve for me: ${providerLabel(event.provider)}'s automatic reviewer is not available${model ? ` for ${model}` : ""}, so this bot asks before each action. Choose a model it supports, or Full access, to stop the prompts.`,
+            name: serverLine(threadLanguage(event.threadId), "server.approval.reviewerUnavailable", {
+              provider: providerLabel(event.provider),
+              model: model ? serverLine(threadLanguage(event.threadId), "server.approval.reviewerForModel", { model }) : "",
+            }),
             ok: true,
           },
         });
@@ -6707,7 +6712,7 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent()) return;
           if (outcome !== "allowed-once") {
             watchdog.setWaitingOnHuman(event.threadId, false);
-            if (outcome !== "unavailable") pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, verdict.source) });
+            if (outcome !== "unavailable") pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, verdict.source, threadLanguage(event.threadId)) });
             return;
           }
           pushMessage({
@@ -6740,10 +6745,10 @@ bus.subscribe((event: RuntimeEvent) => {
         card: {
           title:
             permission && event.approvalScope === "local-computer"
-              ? "Local computer approval"
+              ? serverLine(threadLanguage(event.threadId), "server.approval.localComputer")
               : permission
-                ? "Approval needed"
-                : "Your bot has a question",
+                ? serverLine(threadLanguage(event.threadId), "server.approval.needed")
+                : serverLine(threadLanguage(event.threadId), "server.approval.question"),
           ...runtimeRequestCardFields(event, {
             permission, guestDriven, commandAllowlist: command ?? undefined, allowKey: toolAllowKey ?? undefined,
             held: approvalHeldReason(heldContext) ?? (permission && guestDriven && routineRun ? confinedWhy(event.threadId) : undefined),
@@ -6813,14 +6818,14 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent() || outcome === "unavailable") return;
           watchdog.setWaitingOnHuman(event.threadId, false);
           if (reviewed === "approve" && outcome !== "allowed-once") {
-            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "native-approval") });
+            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "native-approval", threadLanguage(event.threadId)) });
             return;
           }
           pushMessage({
             role: "bot",
             kind: "activity",
             tool: {
-              name: `${reviewed === "approve" ? `Approve for me approved ${tool}` : `Approve for me denied ${tool}`}: ${summary.slice(0, 120)}`,
+              name: serverLine(threadLanguage(event.threadId), reviewed === "approve" ? "server.approval.approvedBy" : "server.approval.deniedBy", { tool, summary: summary.slice(0, 120) }),
               ok: reviewed === "approve",
             },
           });
@@ -6864,13 +6869,13 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent() || outcome === "unavailable") return;
           watchdog.setWaitingOnHuman(event.threadId, false);
           if (outcome !== "allowed-once") {
-            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "temporary-grant") });
+            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "temporary-grant", threadLanguage(event.threadId)) });
             return;
           }
           pushMessage({
             role: "bot",
             kind: "activity",
-            tool: { name: `Temporary grant approved ${tool}: ${summary.slice(0, 120)}`, ok: true },
+            tool: { name: serverLine(threadLanguage(event.threadId), "server.approval.grantApproved", { tool, summary: summary.slice(0, 120) }), ok: true },
           });
           appendDecision(DATA_DIR, {
             threadId: event.threadId,
@@ -11552,7 +11557,8 @@ function appendSkillRequestCard(args: {
   };
 } & Pick<SkillRequestCardData, "shared">): { requestId: string; summary: string } {
   const requestId = randomUUID();
-  const copy = skillCardCopy(args.staged);
+  const language = conversationLanguage(args.threadId);
+  const copy = skillCardCopy(args.staged, language);
   const payload: SkillRequestCardData = {
     version: 1,
     requestId,
@@ -11579,8 +11585,11 @@ function appendSkillRequestCard(args: {
     card: {
       title: copy.title,
       subtitle: copy.subtitle,
-      options: args.applied ? [] : [args.staged.action === "create" ? "Enable" : "Update", "Deny"],
-      ...(args.applied ? { answered: "allow", autoApplied: true, title: `Skill "${args.staged.name}" ${args.staged.action === "create" ? "enabled" : "updated"}` } : {}),
+      options: args.applied ? [] : [
+        serverLine(language, args.staged.action === "create" ? "server.skill.enable" : "server.skill.update"),
+        serverLine(language, "server.skill.deny"),
+      ],
+      ...(args.applied ? { answered: "allow", autoApplied: true, title: serverLine(language, args.staged.action === "create" ? "server.skill.appliedEnable" : "server.skill.appliedUpdate", { name: args.staged.name }) } : {}),
       requestId,
       tool: copy.tool,
       skillRequest: payload,
@@ -11955,13 +11964,16 @@ const { watchMeForTurn } = createWatchMeTurn({
   timeoutMs: OUTBOUND_HOLD_MS,
   turnActive: (turn) => internalCapabilityIsActive(turn as InternalCapability),
   prompt: (input): WatchPrompt => {
+    const language = threadLanguage(input.threadId);
     const { app, calls } = outboundCard([{ slug: "watch_me", ...(input.goal ? { arguments: { goal: input.goal } } : {}) }]);
-    const subtitle = input.goal ? `Show: ${input.goal}` : "Take the browser and show the steps.";
+    const subtitle = input.goal ? serverLine(language, "server.watchMe.show", { goal: input.goal }) : serverLine(language, "server.watchMe.subtitle");
     const held = outboundRequests.open({ botId: input.bot.id, threadId: input.threadId, tool: "watch_me", timeoutMs: input.timeoutMs });
     const card = store.appendMessage(input.threadId, {
       role: "bot", kind: "options",
       card: {
-        title: "Watch you do it?", subtitle, options: ["Done", "Deny"], requestId: held.requestId, tool: "watch_me",
+        title: serverLine(language, "server.watchMe.title"), subtitle,
+        options: [serverLine(language, "server.watchMe.done"), serverLine(language, "server.watchMe.deny")],
+        requestId: held.requestId, tool: "watch_me",
         held: HELD_NOTE["approval.held.watch"], heldCode: "approval.held.watch",
         outboundRequest: { tool: "watch_me", app, calls },
       },
@@ -12237,7 +12249,7 @@ async function stopCompanyInstances(ids: string[]) {
     watchdog.settle(threadId); closeOpenApprovals(threadId); directTurnBots.delete(threadId);
     routines?.failThread(threadId, "Company connection changed while this thread was running", { stopReason: "interrupted" });
     if (store.taskByThread(botId, threadId)) {
-      store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: "Company connection changed — choose whether to reconnect or use a personal model", ok: false } });
+      store.appendMessage(threadId, { role: "bot", kind: "activity", tool: { name: serverLine(threadLanguage(threadId), "server.engine.companyChanged"), ok: false } });
       store.setTaskActivity(botId, threadId, "idle");
     }
   }
@@ -12486,7 +12498,7 @@ ROUTES.push(createThreadRoutes({
   companionMutationToken: () => companionMutationToken,
   cliOwnerToken: () => cliOwnerToken,
   pageSize, messagePage, messageWindow, publicBotQueuedMessages, publicGroupState, wireBot,
-  botComputerControlSnapshot, messageFileRootsForThread, viewerFor, visibleTo, coordinator, groupThreadIsWorking, memberDefaultBot: CLOUD_TEAM ? (email) => { const own = ensureDefaultBot(store, { dataDir: DATA_DIR, person: email, team: CLOUD_TEAM.name, opened: (made) => void mausbotOwnChat.claim(made) }); if (own) void mausbotOwnChat.claim(own); return own; } : undefined,
+  botComputerControlSnapshot, messageFileRootsForThread, viewerFor, visibleTo, coordinator, groupThreadIsWorking, memberDefaultBot: CLOUD_TEAM ? (email) => { const own = ensureDefaultBot(store, { dataDir: DATA_DIR, person: email, team: CLOUD_TEAM.name, language: appLanguage(), opened: (made) => void mausbotOwnChat.claim(made) }); if (own) void mausbotOwnChat.claim(own); return own; } : undefined,
   uploads: uploadsFor(createUploadOwners(DATA_DIR), Boolean(CLOUD_TEAM)),
   attachmentInUse: (name) => threadsReferencing(name).length > 0 || store.bots.some((bot) => bot.avatarUrl === `/api/attachments/${name}`),
   keptAttachments: CLOUD_TEAM ? undefined : keptAttachments,
@@ -12766,6 +12778,7 @@ ROUTES.push(createStatusRoutes({
 ROUTES.push(desktopViewer.route);
 ROUTES.push(createBrowserViewerRoutes({
   upgrades, viewers: browserLive, dataDir: DATA_DIR, person: (auth) => (auth.kind === "session" ? actorKey(auth) : "local-owner"),
+  language: (auth) => personLanguages.forLine(auth.kind === "session" ? actorKey(auth) : undefined),
   audience: (auth, threadId) => teamHost.viewerBrowserAudience({ threadId, sees: (id) => visibleTo(viewerFor(auth)).thread(id), person: auth.kind === "session" ? actorKey(auth) : null }),
   browser: async (botId, audience) => {
     const bot = store.bot(botId);
@@ -12934,6 +12947,7 @@ const recordLiveCallRow = (input: { threadId: string; botName: string; record: i
   const row = recordLiveCall({
     chatExists: (botId, threadId) => Boolean(store.taskByThread(botId, threadId)),
     appendMessage: (threadId, message) => store.appendMessage(threadId, message),
+    line: (botName, duration) => serverLine(conversationLanguage(input.threadId), "server.call.row", { bot: botName, duration }),
   }, input);
   if (row) {
     void titleLiveCall({

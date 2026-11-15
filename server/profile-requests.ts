@@ -9,6 +9,7 @@ import { UNDO_STALE, type DirectApply, type DirectApplyCheck } from "./direct-ap
 import { profileRevision, profileSnapshot } from "./profile-revision.ts";
 import { recordProfileChange } from "./profile-versions.ts";
 import { redactSecretsInText } from "./redact.ts";
+import { conversationLanguage, serverLine, type ServerLineKey } from "./server-lines.ts";
 import type { BotRecord } from "./store.ts";
 
 const MAX_REASON = 500;
@@ -21,9 +22,14 @@ const LABELS: Record<Exclude<(typeof PROFILE_REQUEST_FIELDS)[number], "soul" | "
   notifications: "Notifications",
   speakReplies: "Speak replies",
 };
-const PRIVATE_WORKSPACE = "its private workspace";
+const LABEL_KEYS: Record<keyof typeof LABELS, ServerLineKey> = {
+  name: "server.profileRequest.label.name",
+  title: "server.profileRequest.label.title",
+  description: "server.profileRequest.label.description",
+  notifications: "server.profileRequest.label.notifications",
+  speakReplies: "server.profileRequest.label.speakReplies",
+};
 const CHOOSE_ONE = "Choose at least one of name, title, description, soul, cwd, notifications, speakReplies";
-const toggleText = (value: boolean | undefined): string => (value ? "on" : "off");
 const TEXT_FIELDS = ["name", "title", "description", "soul"] as const;
 
 export interface OptionCardLike {
@@ -167,38 +173,46 @@ export function profileCardCopy(
   before: ProfileRequestChanges,
   changes: ProfileRequestChanges,
   reason: string,
+  language?: string,
 ): ProfileCardCopy {
   const isSetup = !fullProfile.title && !fullProfile.description && !fullProfile.soul;
   const title = target.crossBot
-    ? `Update @${target.name}'s profile?`
+    ? serverLine(language, "server.profileRequest.crossTitle", { name: target.name })
     : isSetup
-      ? `Set up ${target.name}?`
-      : `Update ${target.name}'s profile?`;
+      ? serverLine(language, "server.profileRequest.setup", { name: target.name })
+      : serverLine(language, "server.profileRequest.update", { name: target.name });
 
-  const lines: string[] = target.crossBot ? [`Whose profile: @${target.name}`, `Why: ${reason}`] : [`Why: ${reason}`];
+  const label = (field: keyof typeof LABELS) => serverLine(language, LABEL_KEYS[field]);
+  const toggle = (value: boolean | undefined) => serverLine(language, value ? "server.profileRequest.toggle.on" : "server.profileRequest.toggle.off");
+  const privateWorkspace = serverLine(language, "server.profileRequest.privateWorkspace");
+  const lines: string[] = target.crossBot
+    ? [serverLine(language, "server.profileRequest.whose", { name: target.name }), serverLine(language, "server.profileRequest.why", { reason })]
+    : [serverLine(language, "server.profileRequest.why", { reason })];
   for (const field of PROFILE_REQUEST_FIELDS) {
     if (field === "soul" || field === "cwd") continue;
     if (changes[field] === undefined) continue;
     if (field === "notifications" || field === "speakReplies") {
-      lines.push(`${LABELS[field]}: ${toggleText(before[field] as boolean | undefined)} → ${toggleText(changes[field] as boolean | undefined)}`);
+      lines.push(`${label(field)}: ${toggle(before[field] as boolean | undefined)} → ${toggle(changes[field] as boolean | undefined)}`);
       continue;
     }
-    lines.push(`${LABELS[field]}: "${before[field] ?? ""}" → "${changes[field]}"`);
+    lines.push(`${label(field)}: "${before[field] ?? ""}" → "${changes[field]}"`);
   }
   if (changes.cwd !== undefined) {
-    lines.push(`Working folder: ${before.cwd || PRIVATE_WORKSPACE} → ${changes.cwd || PRIVATE_WORKSPACE}`);
+    lines.push(serverLine(language, "server.profileRequest.workingFolder", { before: before.cwd || privateWorkspace, after: changes.cwd || privateWorkspace }));
   }
   if (changes.soul !== undefined) {
     lines.push(...soulDiffLines(before.soul ?? "", changes.soul));
   }
   const changesText = TEXT_FIELDS.some((field) => changes[field] !== undefined);
-  if (changes.cwd !== undefined) lines.push(`${target.name}'s tools will read and write files in that folder.`);
-  lines.push(changesText ? `Changes what ${target.name} is told on every turn. Nothing runs.` : "Nothing runs.");
+  if (changes.cwd !== undefined) lines.push(serverLine(language, "server.profileRequest.folderTools", { name: target.name }));
+  lines.push(changesText ? serverLine(language, "server.profileRequest.changesEveryTurn", { name: target.name }) : serverLine(language, "server.profileRequest.nothing"));
   const detail = lines.join("\n");
 
   const fields = PROFILE_REQUEST_FIELDS.filter((field) => changes[field] !== undefined);
-  const summary = `${title} · ${fields.join(", ")}`;
-  return { title, summary, detail };
+  const fieldsText = /^en(?:-|$)/i.test(language ?? "en")
+    ? fields.join(", ")
+    : fields.map((field) => field === "soul" || field === "cwd" ? field : label(field)).join(", ");
+  return { title, summary: serverLine(language, "server.profileRequest.summary", { title, fields: fieldsText }), detail };
 }
 
 export class ProfileRequestService {
@@ -287,7 +301,7 @@ export class ProfileRequestService {
       expectedRevision: profileRevision(target),
     };
 
-    const copy = profileCardCopy({ name: targetName, crossBot }, snapshot, before, finalChanges, reason);
+    const copy = profileCardCopy({ name: targetName, crossBot }, snapshot, before, finalChanges, reason, conversationLanguage(args.threadId));
     const grant = submitted ? this.autoApply?.(args.botId, args.threadId, targetBotId) ?? null : null;
     const automatic = grant !== null;
     const persistence = this.canPersist?.(args.botId, args.threadId, !automatic);

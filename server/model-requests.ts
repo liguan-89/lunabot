@@ -4,6 +4,7 @@ import { harnessCapabilityLines, type DriverCapabilities } from "./harness-capab
 import { newId } from "./contracts.ts";
 import { UNDO_STALE, type DirectApply, type DirectApplyCheck } from "./direct-apply.ts";
 import { redactSecretsInText } from "./redact.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import type { BotRecord } from "./store.ts";
 
 const MAX_REASON = 500;
@@ -115,18 +116,19 @@ export function modelCardCopy(args: {
   selection: ModelSelection;
   reason: string;
   capabilityLines: string[];
+  language?: string;
 }): { title: string; summary: string; detail: string } {
   const title = args.crossBot
-    ? "Change @" + args.targetName + "'s default AI and model?"
-    : "Change " + args.targetName + "'s default AI and model?";
+    ? serverLine(args.language, "server.modelRequest.crossTitle", { name: args.targetName })
+    : serverLine(args.language, "server.modelRequest.title", { name: args.targetName });
   const lines: string[] = args.crossBot
-    ? ["Whose default model: @" + args.targetName, "Why: " + args.reason]
-    : ["Why: " + args.reason];
-  lines.push("Default AI and model: " + JSON.stringify(args.before) + " → " + JSON.stringify(args.selection));
+    ? [serverLine(args.language, "server.modelRequest.whose", { name: args.targetName }), serverLine(args.language, "server.modelRequest.why", { reason: args.reason })]
+    : [serverLine(args.language, "server.modelRequest.why", { reason: args.reason })];
+  lines.push(serverLine(args.language, "server.modelRequest.selection", { before: JSON.stringify(args.before), after: JSON.stringify(args.selection) }));
   lines.push(...args.capabilityLines);
-  lines.push("Default models apply to groups and new threads. Every existing thread keeps its current model and permissions.");
-  lines.push("Nothing runs.");
-  return { title, summary: title + " · default AI and model", detail: lines.join("\n") };
+  lines.push(serverLine(args.language, "server.modelRequest.note"));
+  lines.push(serverLine(args.language, "server.modelRequest.nothing"));
+  return { title, summary: serverLine(args.language, "server.modelRequest.summary", { title }), detail: lines.join("\n") };
 }
 
 export class ModelRequestService {
@@ -188,9 +190,10 @@ export class ModelRequestService {
 
     const requestId = newId();
     const targetName = redactSecretsInText(target.name);
+    const language = conversationLanguage(args.threadId);
     const before = structuredClone(target.modelSelection);
     const capabilityLines = this.driverCapabilities
-      ? harnessCapabilityLines(this.driverCapabilities(before.instanceId), this.driverCapabilities(selection.instanceId))
+      ? harnessCapabilityLines(this.driverCapabilities(before.instanceId), this.driverCapabilities(selection.instanceId), language)
       : [];
     const payload: ModelRequestCardData = {
       version: 1,
@@ -204,7 +207,7 @@ export class ModelRequestService {
       selection,
       before,
     };
-    const copy = modelCardCopy({ targetName, crossBot, before, selection, reason, capabilityLines });
+    const copy = modelCardCopy({ targetName, crossBot, before, selection, reason, capabilityLines, language });
     const grant = submitted ? this.autoApply?.(args.botId, args.threadId, targetBotId) ?? null : null;
     const automatic = grant !== null;
     const persistence = this.canPersist?.(args.botId, args.threadId, !automatic);

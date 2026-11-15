@@ -38,6 +38,7 @@ import { movesThreadToTop, nextOpenThread } from "../shared/wire.ts";
 import { parseConnectorTools } from "./connector-tools.ts";
 import { sameModelSelection } from "../shared/thread-model.ts";
 import { initialGreetingMessage } from "./initial-greeting.ts"; import { createDefaultBot, defaultBotRefusal, type DefaultBotIntro } from "./default-bot.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import { appsFromCreator } from "./inherited-apps.ts";
 import { ThreadCache, type ThreadState } from "./thread-cache.ts";
 import { titleFromMessage, UNTITLED_TASK } from "./thread-title.ts";
@@ -881,13 +882,14 @@ export class Store {
         detail: fallbackDetail,
         finishedAt: fallbackFinishedAt,
       };
+      const language = conversationLanguage(hit.threadId);
       const state = resolution.status === "needs-input"
-        ? "needs your input"
+        ? serverLine(language, "server.goal.needsInput")
         : resolution.status === "limit-reached"
-          ? "reached its turn limit"
+          ? serverLine(language, "server.goal.turnLimit")
           : resolution.status;
       this.patchMessage(hit.threadId, hit.message.id, {
-        text: `Goal ${state}: ${resolution.detail}`,
+        text: serverLine(language, "server.goal.text", { state, detail: resolution.detail }),
         goalRun: {
           ...hit.message.goalRun,
           status: resolution.status,

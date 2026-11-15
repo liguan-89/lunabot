@@ -6,6 +6,7 @@ import type { WebhookRequestCardData, WebhookRequestDefinition, WebhookRequestOp
 import { newId } from "./contracts.ts";
 import { UNDO_STALE } from "./direct-apply.ts";
 import { redactSecretsInText } from "./redact.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import type { WebhookManager, WebhookTrigger } from "./webhooks.ts";
 
 export interface WebhookRequestCard {
@@ -94,10 +95,15 @@ function managerInput(definition: Partial<WebhookRequestDefinition>) {
 }
 
 /** What the card and the tool result say the trigger does, credential-scrubbed. */
-export function webhookTriggerSentence(webhook: Pick<WebhookTrigger, "prompt" | "eventTypes">, botName: string): string {
+export function webhookTriggerSentence(webhook: Pick<WebhookTrigger, "prompt" | "eventTypes">, botName: string, language?: string): string {
   const instructions = redactSecretsInText(webhook.prompt).trim();
-  const events = webhook.eventTypes?.length ? ` (only ${webhook.eventTypes.join(", ")})` : "";
-  return `When another app sends something${events}, ${botName} ${instructions ? `follows: ${instructions.slice(0, 400)}` : "does what it is asked"}`;
+  const events = webhook.eventTypes?.length
+    ? serverLine(language, "server.trigger.webhook.only", { events: webhook.eventTypes.join(", ") })
+    : "";
+  const when = serverLine(language, "server.trigger.webhook.when", { events });
+  return `${when}, ${instructions
+    ? serverLine(language, "server.trigger.webhook.follows", { bot: botName, instructions: instructions.slice(0, 400) })
+    : serverLine(language, "server.trigger.webhook.does", { bot: botName })}`;
 }
 
 const ACTION_TITLE: Record<WebhookRequestOperation["action"], string> = {
@@ -180,7 +186,7 @@ export class WebhookRequestService {
     const subject = after ?? before!;
     const resultId = subject.id;
     const botName = this.options.botName(owner);
-    const summary = webhookTriggerSentence(subject, botName);
+    const summary = webhookTriggerSentence(subject, botName, conversationLanguage(args.threadId));
     const requestId = newId();
     const payload: WebhookRequestCardData = {
       version: 1,

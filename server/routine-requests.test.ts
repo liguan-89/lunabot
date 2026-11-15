@@ -9,6 +9,7 @@ import {
   RoutineRequestService,
   consequenceLine,
   routineRequestFingerprint,
+  scheduleText,
   type RoutineProposalInput,
   type RoutineRequestMessage,
   type RoutineRequestOptionCard,
@@ -1907,6 +1908,14 @@ describe("consequenceLine", () => {
       "Will run 2 days a week; each run starts a fresh session.",
     );
     expect(consequenceLine({ type: "once", at: 0 })).toBe("Will run once; that run starts a fresh session.");
+  });
+
+  it("says the schedule and its consequence in the conversation's language", () => {
+    expect(scheduleText({ type: "daily", time: "09:00", weekdays: [1, 3] }, "Asia/Shanghai", undefined, "zh"))
+      .toContain("星期一和星期三");
+    expect(consequenceLine({ type: "daily", time: "09:00", weekdays: [1, 3] }, false, "zh"))
+      .toBe("运行频率：每周 2 天；每次运行都会开启新会话。");
+    expect(consequenceLine({ type: "once", at: 0 }, false, "zh")).toBe("只运行一次；该次运行会开启新的会话。");
   });
 });
 

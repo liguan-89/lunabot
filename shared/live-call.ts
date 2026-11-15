@@ -189,8 +189,3 @@ export function formatCallDuration(seconds: number): string {
   return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
-/** A Live call row's text: what a client that does not know kind "call"
- * shows as a plain line ("Call with Ada · 1:42"). */
-export function liveCallRowText(botName: string, seconds: number): string {
-  return `Call with ${botName} · ${formatCallDuration(seconds)}`;
-}

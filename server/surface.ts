@@ -4,6 +4,7 @@ import { canUseMcpServer } from "../shared/tool-scope.ts";
 import { placeRowText, type PlaceRow, type PlaceSource } from "../shared/place-view.ts";
 import { PLAIN_WORDS } from "./local-computer-guidance.ts";
 import { theirComputer, type LentPlatform } from "./lent-computers.ts";
+import { serverLine } from "./server-lines.ts";
 export type { Surface, PlaceSource };
 
 /** The bot's "Works on" setting; undefined = Auto. */
@@ -146,16 +147,16 @@ export function placeUnavailable(place: Surface, row: PlaceRow, cloudHome = fals
   return new PlaceUnavailableError(place, row, cloudHome);
 }
 
-export function surfaceLabel(surface: Surface): string {
+export function surfaceLabel(surface: Surface, language?: string): string {
   switch (surface) {
     case "cloud":
-      return "the cloud computer";
+      return serverLine(language, "server.surface.cloud");
     case "vm":
-      return "the Local VM";
+      return serverLine(language, "server.surface.vm");
     case "local":
-      return "this computer";
+      return serverLine(language, "server.surface.local");
     case "browser":
-      return "the built-in browser";
+      return serverLine(language, "server.surface.browser");
   }
 }
 

@@ -2,8 +2,9 @@ import { createHash } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
 
 import { formatInstant, routineCronText } from "./routine-cron-text.ts";
-import { conversationLanguage } from "./server-lines.ts";
-import { plainClock, plainTimeZone, plainWeekdays } from "../shared/plain-time-zone.ts";
+import { conversationLanguage, serverLine, type ServerLineKey } from "./server-lines.ts";
+import { plainClock, plainTimeZone, weekdayNames } from "../shared/plain-time-zone.ts";
+import { intlLocale } from "./language.ts";
 import { normalizeCronSchedule, nextCronRuns } from "../shared/routine-schedule.ts";
 import { newId } from "./contracts.ts";
 import { UNDO_STALE, type DirectApply, type DirectApplyCheck } from "./direct-apply.ts";
@@ -50,14 +51,14 @@ const WEEKDAY_NUMBER = {
 
 const RFC3339_WITH_OFFSET =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.\d{1,9})?(?:Z|[+-](\d{2}):(\d{2}))$/i;
-const ACTION_COPY = {
-  create: { title: "Schedule", detail: "Create routine" },
-  update: { title: "Update", detail: "Update routine" },
-  pause: { title: "Pause", detail: "Pause routine" },
-  resume: { title: "Resume", detail: "Resume routine" },
-  run_now: { title: "Run now", detail: "Run routine now" },
-  delete: { title: "Delete", detail: "Delete routine" },
-} as const satisfies Record<RoutineRequestOperation["action"], { title: string; detail: string }>;
+const ACTION_KEYS = {
+  create: { title: "server.routine.action.create", detail: "server.routine.actionDetail.create" },
+  update: { title: "server.routine.action.update", detail: "server.routine.actionDetail.update" },
+  pause: { title: "server.routine.action.pause", detail: "server.routine.actionDetail.pause" },
+  resume: { title: "server.routine.action.resume", detail: "server.routine.actionDetail.resume" },
+  run_now: { title: "server.routine.action.run_now", detail: "server.routine.actionDetail.run_now" },
+  delete: { title: "server.routine.action.delete", detail: "server.routine.actionDetail.delete" },
+} as const satisfies Record<RoutineRequestOperation["action"], { title: ServerLineKey; detail: ServerLineKey }>;
 const ROUTINE_REQUEST_FINGERPRINT_VERSION = 1 as const;
 
 export type { RoutineProposalInput, RoutineToolChangesInput, RoutineToolDefinitionInput, RoutineToolScheduleInput } from "./routine-request-schemas.ts";
@@ -553,53 +554,68 @@ function nextForOperation(operation: RoutineRequestOperation, manager: RoutineMa
   return nextOccurrence(schedule, now);
 }
 
+const dateLocale = (language?: string): string => /^en(?:-|$)/i.test(language ?? "en") ? "en-US" : intlLocale(language);
+const zoneLocale = (language?: string): string => /^en(?:-|$)/i.test(language ?? "en") ? "en" : intlLocale(language);
+
+function weekdaysText(weekdays: readonly number[], language?: string): string {  const sorted = [...weekdays].sort((a, b) => a - b);
+  const joined = sorted.join(",");
+  if (joined === "0,1,2,3,4,5,6") return serverLine(language, "server.routine.days.everyDay");
+  if (joined === "1,2,3,4,5") return serverLine(language, "server.routine.days.weekdays");
+  const names = weekdayNames(sorted, dateLocale(language));
+  return /^en(?:-|$)/i.test(intlLocale(language))
+    ? names.join(", ")
+    : new Intl.ListFormat(dateLocale(language), { style: "long", type: "conjunction" }).format(names);
+}
+
 export function scheduleText(schedule: RoutineRequestSchedule, timeZone: string, engines?: LimitResetEngines, language?: string): string {
   if (schedule.type === "cron") return `${routineCronText(schedule, language)} · Cron: ${schedule.expression}`;
   if (schedule.type === "limit_reset") {
     const name = engines?.name(schedule.engine) ?? schedule.engine;
-    return schedule.repeat === "every_reset" ? `Each time ${name}'s usage limit resets` : `When ${name}'s usage limit resets`;
+    return serverLine(language, schedule.repeat === "every_reset" ? "server.routine.schedule.limitEach" : "server.routine.schedule.limitOnce", { engine: name });
   }
-  const zone = plainTimeZone(timeZone);
-  if (schedule.type === "once") return `${formatInstant(schedule.at, timeZone)} ${zone}`;
+  const zone = plainTimeZone(timeZone, zoneLocale(language));
+  if (schedule.type === "once") return `${formatInstant(schedule.at, timeZone, language)} ${zone}`;
   if (schedule.type === "interval") {
     const restricted = intervalHasRestrictions(schedule);
     const cadence = schedule.anchorAt === undefined
       ? restricted
-        ? `Every ${schedule.everyMinutes} minutes, cadence starting at confirmation; first run is the next allowed time`
-        : `Every ${schedule.everyMinutes} minutes, starting one interval after confirmation`
-      : `Every ${schedule.everyMinutes} minutes, anchored at ${formatInstant(schedule.anchorAt, timeZone)} ${zone}`;
+        ? serverLine(language, "server.routine.schedule.intervalRestricted", { minutes: schedule.everyMinutes })
+        : serverLine(language, "server.routine.schedule.interval", { minutes: schedule.everyMinutes })
+      : serverLine(language, "server.routine.schedule.intervalAnchored", { minutes: schedule.everyMinutes, at: formatInstant(schedule.anchorAt, timeZone, language), zone });
     const restrictions = [
       schedule.weekdays?.length
-        ? `on ${plainWeekdays(schedule.weekdays)} (${zone})`
+        ? serverLine(language, "server.routine.schedule.intervalOn", { days: weekdaysText(schedule.weekdays, language), zone })
         : null,
-      schedule.window ? `during ${plainClock(schedule.window.start)}–${plainClock(schedule.window.end)} ${zone}` : null,
-      schedule.endsAt !== undefined ? `until ${formatInstant(schedule.endsAt, timeZone)} ${zone}` : null,
+      schedule.window ? serverLine(language, "server.routine.schedule.intervalDuring", { start: plainClock(schedule.window.start), end: plainClock(schedule.window.end), zone }) : null,
+      schedule.endsAt !== undefined ? serverLine(language, "server.routine.schedule.intervalUntil", { at: formatInstant(schedule.endsAt, timeZone, language), zone }) : null,
     ].filter((part): part is string => part !== null);
     return restrictions.length ? `${cadence} · ${restrictions.join(" · ")}` : cadence;
   }
-  return `${plainWeekdays(schedule.weekdays)} at ${plainClock(schedule.time)} ${zone}`;
+  return serverLine(language, "server.routine.schedule.weekly", { days: weekdaysText(schedule.weekdays, language), time: plainClock(schedule.time), zone });
 }
 
-export function consequenceLine(schedule: RoutineRequestSchedule, continuity = false): string {
-  const session = continuity ? "each run starts a fresh session with the previous run's report" : "each run starts a fresh session";
-  if (schedule.type === "cron") return `Will run at matching calendar times, ${plainTimeZone(schedule.timeZone)}; ${session}.`;
-  if (schedule.type === "once") return "Will run once; that run starts a fresh session.";
+export function consequenceLine(schedule: RoutineRequestSchedule, continuity = false, language?: string): string {
+  const session = serverLine(language, continuity ? "server.routine.session.continuity" : "server.routine.session.fresh");
+  if (schedule.type === "cron") return serverLine(language, "server.routine.will.cron", { zone: plainTimeZone(schedule.timeZone, zoneLocale(language)), session });
+  if (schedule.type === "once") return serverLine(language, "server.routine.will.once");
   if (schedule.type === "limit_reset") {
-    return schedule.repeat === "every_reset"
-      ? "Will run a minute after each time that usage limit resets, in this conversation."
-      : "Will run once, a minute after that usage limit resets, and continue in this conversation.";
+    return serverLine(language, schedule.repeat === "every_reset" ? "server.routine.will.limitEach" : "server.routine.will.limitOnce");
   }
   if (schedule.type === "interval") {
     if (intervalHasRestrictions(schedule)) {
-      return `Will run every ${schedule.everyMinutes} minutes when its day, time, and end restrictions allow; ${session}.`;
+      return serverLine(language, "server.routine.will.intervalRestricted", { minutes: schedule.everyMinutes, session });
     }
     const runsPerDay = Math.round(1440 / schedule.everyMinutes);
-    const cadence = runsPerDay <= 1 ? "about once a day" : `about ${runsPerDay} times a day`;
-    return `Will run ${cadence}; ${session}.`;
+    const cadence = runsPerDay <= 1
+      ? serverLine(language, "server.routine.cadence.onceADay")
+      : serverLine(language, "server.routine.cadence.timesADay", { count: runsPerDay });
+    return serverLine(language, "server.routine.will.interval", { cadence, session });
   }
   const days = schedule.weekdays.length;
-  const cadence = days === 7 ? "every day" : days === 1 ? "one day a week" : `${days} days a week`;
-  return `Will run ${cadence}; ${session}.`;
+  const cadence = days === 7 ? serverLine(language, "server.routine.cadence.everyDay")
+    : days === 1 ? serverLine(language, "server.routine.cadence.oneDayWeek")
+      : serverLine(language, "server.routine.cadence.daysWeek", { count: days });
+  return serverLine(language, "server.routine.will.interval", { cadence, session });
 }
 
 function effectiveDefinition(operation: RoutineRequestOperation, manager: RoutineManager): RoutineRequestDefinition | null {
@@ -639,25 +655,25 @@ function cardCopy(
   language?: string,
 ): RoutineCardCopy {
   const definition = effectiveDefinition(operation, manager);
-  const actionCopy = ACTION_COPY[operation.action];
-  const actionLabel = actionCopy.title;
+  const actionKeys = ACTION_KEYS[operation.action];
+  const actionLabel = serverLine(language, actionKeys.title);
   const name = redactSecretsInText(definition?.name ?? "routine");
   const forBot = operation.forBot;
-  const forSuffix = forBot ? ` for @${redactSecretsInText(forBot.name)}` : "";
-  const title = `${actionLabel} “${name}”${forSuffix}?`;
+  const forSuffix = forBot ? serverLine(language, "server.routine.forBot", { name: redactSecretsInText(forBot.name) }) : "";
+  const title = serverLine(language, "server.routine.title", { action: actionLabel, name, for: forSuffix });
   if (!definition) {
     return {
       title,
       summary: title,
-      detail: `Action: ${actionCopy.detail}\nName: ${name}`,
+      detail: serverLine(language, "server.routine.detailShort", { action: serverLine(language, actionKeys.detail), name }),
       nextRunAt: null,
       tool: "manage_routine",
     };
   }
   const nextRunAt = nextForOperation(operation, manager, now, engines);
   const scheduleTimeZone = definition.schedule.type === "cron" ? definition.schedule.timeZone : timeZone;
-  const when = operation.action === "run_now" ? "Now" : scheduleText(definition.schedule, timeZone, engines, language);
-  const destination = definition.runOn === "cloud" ? "Bot’s current model on its cloud desktop" : "Bot’s current model, where it usually works";
+  const when = operation.action === "run_now" ? serverLine(language, "server.routine.now") : scheduleText(definition.schedule, timeZone, engines, language);
+  const destination = definition.runOn === "cloud" ? serverLine(language, "server.routine.where.cloud") : serverLine(language, "server.routine.where.local");
   const current = operation.action === "create"
     ? null
     : manager.listRoutines().find((routine) => routine.id === operation.routineId) ?? null;
@@ -667,48 +683,60 @@ function cardCopy(
     definition.schedule.type === "interval" &&
     intervalHasRestrictions(definition.schedule);
   const nextDescription = remainsPaused
-    ? "None — this routine remains paused"
+    ? serverLine(language, "server.routine.next.paused")
     : deferredInterval
       ? deferredRestrictedInterval
-        ? `Next allowed time after confirmation (${plainTimeZone(timeZone)})`
-        : "One interval after confirmation"
+        ? serverLine(language, "server.routine.next.allowedAfter", { zone: plainTimeZone(timeZone, zoneLocale(language)) })
+        : serverLine(language, "server.routine.next.oneInterval")
       : nextRunAt !== null
-        ? formatInstant(nextRunAt, scheduleTimeZone)
+        ? formatInstant(nextRunAt, scheduleTimeZone, language)
         : operation.action === "pause"
-          ? "None — this routine will be paused"
+          ? serverLine(language, "server.routine.next.willPause")
           : operation.action === "delete"
-            ? "None — this routine will be deleted"
-            : definition.schedule.type === "limit_reset" ? "When that limit resets (the time is not known yet)" : "None";
-  const status = remainsPaused ? " · Remains paused" : "";
+            ? serverLine(language, "server.routine.next.willDelete")
+            : definition.schedule.type === "limit_reset" ? serverLine(language, "server.routine.next.limitUnknown") : serverLine(language, "server.routine.next.none");
+  const status = remainsPaused ? serverLine(language, "server.routine.status.remainsPaused") : "";
   // Credential-shaped values never travel back through the bot's MCP response or into the transcript.
   const visibleInstructions = redactSecretsInText(definition.instructions);
   const runLimit = definition.timeoutMinutes === undefined
-    ? "no run limit"
-    : `${definition.timeoutMinutes} min limit`;
+    ? serverLine(language, "server.routine.runLimit.none")
+    : serverLine(language, "server.routine.runLimit.minutes", { count: definition.timeoutMinutes });
+  const detailRunLimit = definition.timeoutMinutes === undefined
+    ? serverLine(language, "server.routine.value.noLimit")
+    : serverLine(language, "server.routine.value.minutes", { count: definition.timeoutMinutes });
   return {
     title,
-    summary: `${actionLabel} “${name}”${forSuffix} · ${when} · ${destination} · ${runLimit}${status}`,
+    summary: serverLine(language, "server.routine.summary", { action: actionLabel, name, for: forSuffix, when, where: destination, limit: runLimit, status }),
     detail: [
-      `Action: ${actionCopy.detail}`,
-      `Name: ${name}`,
-      ...(forBot ? [`For: @${redactSecretsInText(forBot.name)} — each run uses that bot's AI and permissions`] : []),
-      `Schedule: ${when}`,
-      `Next run: ${nextDescription}`,
+      serverLine(language, "server.routine.detail.action", { action: serverLine(language, actionKeys.detail) }),
+      serverLine(language, "server.routine.detail.name", { name }),
+      ...(forBot ? [serverLine(language, "server.routine.detail.for", { name: redactSecretsInText(forBot.name) })] : []),
+      serverLine(language, "server.routine.detail.schedule", { when }),
+      serverLine(language, "server.routine.detail.nextRun", { when: nextDescription }),
       ...(definition.schedule.type === "cron" && nextRunAt !== null && operation.action !== "run_now"
-        ? [`Next 3 runs (${plainTimeZone(scheduleTimeZone)}): ${nextCronRuns(definition.schedule, now, 3).map((at) => formatInstant(at, scheduleTimeZone)).join(" · ")}`]
+        ? [serverLine(language, "server.routine.detail.nextRuns", {
+            zone: plainTimeZone(scheduleTimeZone, zoneLocale(language)),
+            runs: nextCronRuns(definition.schedule, now, 3).map((at) => formatInstant(at, scheduleTimeZone, language)).join(" · "),
+          })]
         : []),
-      `Runs on: ${destination}`,
-      `Run limit: ${definition.timeoutMinutes === undefined ? "No limit" : `${definition.timeoutMinutes} minutes`}`,
-      `Continuity: ${definition.continuity ? "Carries the previous run's report into the next run" : "Each run starts fresh"}`,
-      `While busy: ${definition.overlap === "queue" ? "Queue one scheduled run; skip further occurrences until it starts" : "Skip overlapping scheduled occurrences"}`,
+      serverLine(language, "server.routine.detail.runsOn", { where: destination }),
+      serverLine(language, "server.routine.detail.runLimit", { limit: detailRunLimit }),
+      serverLine(language, "server.routine.detail.continuity", {
+        value: serverLine(language, definition.continuity ? "server.routine.value.continuityOn" : "server.routine.value.continuityOff"),
+      }),
+      serverLine(language, "server.routine.detail.whileBusy", {
+        value: serverLine(language, definition.overlap === "queue" ? "server.routine.value.overlapQueue" : "server.routine.value.overlapSkip"),
+      }),
       ...(definition.runOnStartup || (operation.action === "update" && operation.changes.runOnStartup !== undefined)
-        ? [`On startup: ${definition.runOnStartup ? "Also runs once each time DEX BOT starts" : "Runs only on its schedule"}`]
+        ? [serverLine(language, "server.routine.detail.onStartup", {
+            value: serverLine(language, definition.runOnStartup ? "server.routine.value.startupOn" : "server.routine.value.startupOff"),
+          })]
         : []),
       ...(operation.action === "create" || operation.action === "update"
-        ? [consequenceLine(definition.schedule, Boolean(definition.continuity))]
+        ? [consequenceLine(definition.schedule, Boolean(definition.continuity), language)]
         : []),
       "",
-      "Instructions:",
+      serverLine(language, "server.routine.detail.instructions"),
       visibleInstructions,
     ].join("\n"),
     nextRunAt,
