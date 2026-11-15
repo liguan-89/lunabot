@@ -211,6 +211,19 @@ describe("control-omb ui drives the real renderer", () => {
     await expect.poll(() => evaluate("window.keyTests")).toEqual([{ provider: "openaiCompat" }]);
     await expect.poll(verdict).toBe("Saved key: Model catalog reachable: fixture-model. Authentication and chat not verified.");
 
+    const savedUrl = "http://127.0.0.1:1/v1";
+    await evaluate(`(() => {
+      const field = document.querySelector('[aria-label="Base URL"]');
+      field.value = "https://user:pass@provider.invalid/v1";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.focus();
+      field.blur();
+      return true;
+    })()`);
+    await expect.poll(rowText, { timeout: 10_000 }).toContain("Remove the username, password, query string or fragment");
+    expect(await evaluate("window.keySaves")).toBe(0);
+    expect((await fixtureApi(info.url)("GET", "/api/config")).openaiCompat.url).toBe(savedUrl);
+
     await replace();
     await type("  fixture-draft-key  ");
     await enter();

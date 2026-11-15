@@ -1,15 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { InstanceConfig, InstanceConfigMap } from "./contracts.ts";
+import { compatBaseUrlProblem } from "../shared/compat-base-url.ts";
+
+export { compatBaseUrlProblem, MAX_COMPAT_BASE_URL_LENGTH } from "../shared/compat-base-url.ts";
 
 export const ADDED_ENDPOINT_PREFIX = "openai-compat-";
 
-/** Origin and path only. The driver appends /models and /chat/completions, and fetch refuses URLs with credentials. */
+/** Origin and path only. The driver appends /models and /chat/completions. */
 export function endpointBaseUrl(raw: string): string | null {
-  let url: URL;
-  try { url = new URL(raw.trim()); } catch { return null; }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-  if (url.username || url.password || url.search || url.hash) return null;
+  const value = raw.trim();
+  if (!value || compatBaseUrlProblem(value)) return null;
+  const url = new URL(value);
   return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
 }
 

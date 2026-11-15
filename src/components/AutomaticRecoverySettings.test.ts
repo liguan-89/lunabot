@@ -80,6 +80,16 @@ describe("AutomaticRecoverySettings", () => {
     expect(view.html).toContain('aria-describedby="automatic-recovery-help automatic-recovery-scope automatic-recovery-own"');
   });
 
+  it("disables saving when the draft is changed back to its saved value", () => {
+    fixture.config = { automaticRecovery: { enabled: false } };
+    click(render().toggle);
+    click(render().toggle);
+    const view = render();
+    expect(view.save.props.disabled).toBe(true);
+    click(view.save);
+    expect(fixture.api).not.toHaveBeenCalled();
+  });
+
   it("requires a ready backup, preserves drafts through broadcasts and failed saves, and saves only once", async () => {
     click(render().toggle);
     expect(render().save.props.disabled).toBe(true);

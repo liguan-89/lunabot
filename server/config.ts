@@ -31,6 +31,7 @@ import { liveConfigSchema, liveConfigWithEnv, liveSettingEnv, type LiveConfig } 
 import { browserEngineConfigSchema, isValidCdpTarget, type BrowserEngineConfig } from "./browser/config.ts";
 import { roomContextSettings } from "./room-context-settings.ts";
 import { PI_CUSTOM_ENV, PI_CUSTOM_PROVIDER_NAME } from "./drivers/pi-custom-provider.ts";
+import { compatBaseUrlProblem, MAX_COMPAT_BASE_URL_LENGTH } from "../shared/compat-base-url.ts";
 import { localVmConfigSchema } from "./local-vm-settings.ts";
 export * from "./local-vm-settings.ts";
 
@@ -373,7 +374,7 @@ const appConfigSchema = z.object({
   openaiCompat: z
     .object({
       key: optionalText,
-      url: optionalText,
+      url: z.string().trim().max(MAX_COMPAT_BASE_URL_LENGTH).refine((value) => !compatBaseUrlProblem(value), { message: "enter a valid HTTP(S) base URL without credentials, query string or fragment" }).optional(),
       model: optionalText,
       provider: optionalText,
       protocol: z.enum(["openai", "responses", "anthropic"]).optional(),

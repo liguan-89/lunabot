@@ -10200,4 +10200,7 @@
   "keys.openaiCompat.link": "关于自定义提供方",
   "keys.openaiCompat.url": "基础 URL",
   "keys.openaiCompat.urlHint": "例如 https://api.openai.com/v1、https://api.anthropic.com，或本地 http://localhost:11434/v1。"
+  "keys.openaiCompat.urlError.invalid-url": "请输入完整的 http:// 或 https:// 基础 URL。",
+  "keys.openaiCompat.urlError.unsafe-url": "基础 URL 不能包含用户名、密码、查询参数或片段。",
+  "keys.openaiCompat.urlError.too-long": "基础 URL 不能超过 2048 个字符。",
 }
