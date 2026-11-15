@@ -145,9 +145,9 @@ describe("dexbot pair", () => {
     const failure = await runPair(options).then(() => null, (error: unknown) => error);
     expect(failure).toBeInstanceOf(Error);
     const message = (failure as Error).message;
-    expect(message).toContain("The OpenMausBot desktop app runs this server");
+    expect(message).toContain("The DEX BOT desktop app runs this server");
     expect(message).toContain("Settings → Remote access");
-    expect(message).toContain("openmausbot serve");
+    expect(message).toContain("dexbot serve");
     expect(message).not.toContain("server refused to mint a pairing code");
   });
 

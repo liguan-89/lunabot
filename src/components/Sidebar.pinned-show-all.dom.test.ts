@@ -51,7 +51,23 @@ const click = async (label: string) => {
 const saved = () => JSON.parse(localStorage.getItem(SIDEBAR_SHOW_ALL_KEY) ?? "[]");
 
 beforeEach(() => {
-  localStorage.clear();
+  // This project's happy-dom build exposes a localStorage without clear()/removeItem(); give the file a working one.
+  const existing = globalThis.localStorage as Partial<Storage> | undefined;
+  if (typeof existing?.clear !== "function" || typeof existing?.removeItem !== "function") {
+    const store = new Map<string, string>();
+    Object.defineProperty(globalThis, "localStorage", {
+      configurable: true, writable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => { store.set(key, String(value)); },
+        removeItem: (key: string) => { store.delete(key); },
+        clear: () => { store.clear(); },
+        key: (index: number) => [...store.keys()][index] ?? null,
+        get length() { return store.size; },
+      } satisfies Storage,
+    });
+  }
+  globalThis.localStorage.clear();
   forgetSidebarShowAllForTests();
 });
 afterEach(() => { document.body.innerHTML = ""; });
