@@ -99,6 +99,12 @@ enum class PhoneTool(
     // A channel reply the phone sends itself; the server only ever pins `to`
     // to a number that wrote in, unlike the compose-sheet tools above.
     REPLY_SMS("PHONE_REPLY_SMS", "messages", true),
+    UI_OBSERVE("PHONE_UI_OBSERVE", "phoneUi", false),
+    UI_LAUNCH("PHONE_UI_LAUNCH", "phoneUi", true),
+    UI_TAP("PHONE_UI_TAP", "phoneUi", true),
+    UI_TYPE("PHONE_UI_TYPE", "phoneUi", true),
+    UI_SCROLL("PHONE_UI_SCROLL", "phoneUi", true),
+    UI_BACK("PHONE_UI_BACK", "phoneUi", true),
     ;
 
     companion object {
@@ -139,6 +145,12 @@ object PhoneToolCatalog {
         "PHONE_SEND_MESSAGE" to "messages",
         "PHONE_SEND_WHATSAPP" to "messages",
         "PHONE_REPLY_SMS" to "messages",
+        "PHONE_UI_OBSERVE" to "phoneUi",
+        "PHONE_UI_LAUNCH" to "phoneUi",
+        "PHONE_UI_TAP" to "phoneUi",
+        "PHONE_UI_TYPE" to "phoneUi",
+        "PHONE_UI_SCROLL" to "phoneUi",
+        "PHONE_UI_BACK" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]
@@ -158,6 +170,7 @@ object PhoneToolCatalog {
         reminders: Boolean = false,
         location: LocationAccess = LocationAccess.NONE,
         messages: Boolean = false,
+        phoneUi: Boolean = false,
     ): Map<String, String> = buildMap {
         when (calendar) {
             CalendarAccess.NONE -> Unit
@@ -180,6 +193,9 @@ object PhoneToolCatalog {
         // Sending is the whole of the messages capability; the SMS permission
         // and the Settings switch are the grant.
         if (messages) put("messages", "full")
+        // UI automation is a separate, explicit Settings grant and requires a
+        // shell helper paired through Android Wireless debugging.
+        if (phoneUi) put("phoneUi", "full")
     }
 }
 

@@ -16,7 +16,7 @@ class PhoneJobsTest {
     @Test
     fun `the registration only claims the apps this build can serve`() {
         assertEquals(
-            setOf("calendar", "contacts", "reminders", "location", "messages"),
+            setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi"),
             PhoneToolCatalog.supportedCapabilities,
         )
         assertEquals(
@@ -68,11 +68,26 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `phone UI wire names map to an explicitly opt in capability`() {
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_OBSERVE"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_LAUNCH"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_TAP"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_TYPE"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_SCROLL"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_BACK"))
+        assertEquals(PhoneTool.UI_OBSERVE, PhoneTool.fromWire("PHONE_UI_OBSERVE"))
+        assertFalse(PhoneTool.UI_OBSERVE.writes)
+        assertTrue(PhoneTool.UI_TAP.writes)
+        assertEquals(mapOf("phoneUi" to "full"), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneUi = true))
+        assertEquals(emptyMap(), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneUi = false))
+    }
+
+    @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(19, PhoneTool.entries.size)
+        assertEquals(25, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
-                it.capability in setOf("calendar", "contacts", "reminders", "location", "messages")
+                it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi")
             },
         )
         assertEquals(PhoneTool.CREATE_EVENT, PhoneTool.fromWire("PHONE_CREATE_EVENT"))

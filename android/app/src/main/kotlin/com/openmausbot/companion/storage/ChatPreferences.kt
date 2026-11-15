@@ -140,6 +140,16 @@ class ChatPreferences(
         _phoneMessages.value = enabled
     }
 
+    private val _phoneUi = MutableStateFlow(prefs.getBoolean(PHONE_UI, false))
+    val phoneUi: StateFlow<Boolean> = _phoneUi.asStateFlow()
+
+    @Synchronized
+    fun setPhoneUi(enabled: Boolean) {
+        if (_phoneUi.value == enabled && prefs.contains(PHONE_UI)) return
+        prefs.edit(commit = true) { putBoolean(PHONE_UI, enabled) }
+        _phoneUi.value = enabled
+    }
+
     /**
      * Whether the notification-listener relay may run: RCS/5G messages never
      * fire SMS_RECEIVED, so the messaging app's own notification is the only
@@ -229,6 +239,7 @@ class ChatPreferences(
         private const val PHONE_REMINDERS = "companion.prefs.phone.reminders"
         private const val PHONE_LOCATION = "companion.prefs.phone.location"
         private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
+        private const val PHONE_UI = "companion.prefs.phone.ui"
         private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 

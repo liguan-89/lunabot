@@ -872,6 +872,145 @@
           ],
           "additionalProperties": false
         }
+      },
+      {
+        "name": "PHONE_UI_OBSERVE",
+        "description": "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe again after every action, and never guess a ref.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_LAUNCH",
+        "description": "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android app's package name."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "app"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_TAP",
+        "description": "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_TYPE",
+        "description": "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "What to type, submitted as it is."
+            },
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text",
+            "ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_SCROLL",
+        "description": "Scroll the phone's current screen, or the element named by ref, one step up or down.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ],
+              "description": "Where the content moves."
+            },
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_BACK",
+        "description": "Go back one screen on the phone.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
       }
     ]
   }

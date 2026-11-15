@@ -499,6 +499,17 @@ class NsdDiscovery(
     }
 
     private fun hostAddress(info: NsdServiceInfo): String? {
+        // The advertised Bonjour name follows the computer between networks; a
+        // resolved address is a snapshot that expires on the next DHCP lease or
+        // network switch. Prefer the name when the platform exposes it, and fall
+        // back to the resolved address where it does not.
+        val advertised = if (Build.VERSION.SDK_INT >= 34) {
+            runCatching { info.hostname }.getOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { info.host?.hostName }.getOrNull()
+        }
+        bonjourHost(advertised)?.let { return Connection.urlHost(it) }
         if (Build.VERSION.SDK_INT >= 34) {
             val addresses = info.hostAddresses
             if (!addresses.isNullOrEmpty()) {
@@ -507,6 +518,22 @@ class NsdDiscovery(
         }
         @Suppress("DEPRECATION")
         return info.host?.let(::formatAddress)
+    }
+
+    /**
+     * The Bonjour name behind an NSD result. Android may hand back the SRV
+     * target with the `.local` suffix stripped, so a single DNS label becomes
+     * `<label>.local`; an IP literal, a dotted non-local name or anything that
+     * cannot be one of our labels is not a name.
+     */
+    private fun bonjourHost(raw: String?): String? {
+        val name = raw?.trim()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: return null
+        if (name.endsWith(".local", ignoreCase = true)) return name
+        if (name.length > 63 || name.any { it == ':' || it == ' ' } ||
+            name.all { it.isDigit() || it == '.' } || name.contains('.')
+        ) return null
+        return name.takeIf { candidate -> candidate.all { it.isLetterOrDigit() || it == '-' } }
+            ?.let { "$it.local" }
     }
 
     private fun formatAddress(address: InetAddress): String {

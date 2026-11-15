@@ -56,7 +56,18 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
   "GOOGLECALENDAR_EVENTS_GET",
   "GOOGLECALENDAR_FIND_EVENT",
   "GOOGLECALENDAR_LIST_CALENDARS",
+  // The phone's screen observation reads, though its verb hides behind the UI token.
+  "PHONE_UI_OBSERVE",
 ]);
+
+/** Driving the phone's screen reaches every app on it, so each control but observing sends something somewhere and
+ * asks the person first, like any outbound call. */
+const PHONE_UI_WRITES: ReadonlySet<string> = new Set(["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK"]);
+
+/** One of the phone-screen controls (never PHONE_UI_OBSERVE); accepts the MCP-shaped `mcp__device__…` name too. */
+export function isPhoneUiWrite(name: string): boolean {
+  return PHONE_UI_WRITES.has(name.replace(/^mcp__(?:composio|own_apps|device)__/, ""));
+}
 
 /** The action part of a tool name, as upper-case word tokens. Composio's
  * TOOLKIT_ACTION drops its toolkit; an MCP server's mcp__server__action
@@ -81,7 +92,7 @@ function actionTokens(name: string): string[] {
  * narrower than "not outbound": updates, deletes and other writes do not
  * become reads merely because they send nothing to another person. */
 export function isReadOnlyTool(name: string): boolean {
-  if (KNOWN_READ_SLUGS.has(name.replace(/^mcp__(?:composio|own_apps)__/, ""))) return true;
+  if (KNOWN_READ_SLUGS.has(name.replace(/^mcp__(?:composio|own_apps|device)__/, ""))) return true;
   const tokens = actionTokens(name);
   return tokens.length > 0 && READ_VERBS.has(tokens[0]);
 }
@@ -95,6 +106,7 @@ export function isOutboundTool(name: string): boolean {
   // nothing here can read which; it is treated as a send.
   if (name === "COMPOSIO_PROXY_EXECUTE" || RAW_API_ACTION.test(name)) return true;
   if (AGENTS_X_READS.test(name)) return false;
+  if (isPhoneUiWrite(name)) return true;
   const tokens = actionTokens(name);
   if (tokens.length === 0) return false;
   if (isReadOnlyTool(name)) return false;

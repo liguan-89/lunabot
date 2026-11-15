@@ -27,6 +27,7 @@ const CONTACT_FIELDS = {
   givenName: TEXT(200, "First name."), familyName: TEXT(200, "Last name."), phones: LIST("Phone numbers with country code."),
   emails: LIST("Email addresses."), organization: TEXT(200, "Company."), notes: TEXT(5000, "Notes."),
 };
+const REF = TEXT(64, "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first.");
 
 const tools: PhoneTool[] = [
   tool("PHONE_LIST_EVENTS", "List calendar events on the phone between two times, optionally for one calendar. Read only.", { from: DATE("Range start"), to: DATE("Range end"), calendar: TEXT(200, "Calendar name.") }, ["from", "to"]),
@@ -52,6 +53,12 @@ const tools: PhoneTool[] = [
   tool("PHONE_RUN_SCENE", "Run a home scene by id.", { sceneId: ID }, ["sceneId"]),
   tool("PHONE_SEND_MESSAGE", "Prepare a text message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
   tool("PHONE_SEND_WHATSAPP", "Prepare a WhatsApp message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
+  tool("PHONE_UI_OBSERVE", "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe again after every action, and never guess a ref.", {}),
+  tool("PHONE_UI_LAUNCH", "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.", { app: TEXT(200, "The Android app's package name.") }, ["app"]),
+  tool("PHONE_UI_TAP", "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE.", { ref: REF }, ["ref"]),
+  tool("PHONE_UI_TYPE", "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted.", { text: { type: "string", minLength: 1, maxLength: 2000, description: "What to type, submitted as it is." }, ref: REF }, ["text", "ref"]),
+  tool("PHONE_UI_SCROLL", "Scroll the phone's current screen, or the element named by ref, one step up or down.", { direction: { type: "string", enum: ["up", "down"], description: "Where the content moves." }, ref: REF }, ["direction"]),
+  tool("PHONE_UI_BACK", "Go back one screen on the phone.", {}),
 ];
 
 /** Catalog in PHONE_TOOL_NAMES order. */

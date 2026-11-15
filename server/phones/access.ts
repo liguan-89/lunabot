@@ -28,8 +28,11 @@ export interface PhoneDecisionRow {
 
 export type PhoneAccess = { ok: true; rows: PhoneDecisionRow[] } | { ok: false; text: string; rows: PhoneDecisionRow[] };
 
-/** calendar → "Calendar". */
-export const capName = (cap: PhoneCapability) => cap[0]!.toUpperCase() + cap.slice(1);
+/** calendar → "Calendar", phoneUi → "Phone UI". */
+export const capName = (cap: PhoneCapability) => (cap === "phoneUi" ? "Phone UI" : cap[0]!.toUpperCase() + cap.slice(1));
+
+/** The app's name in a scope refusal: "Phone Calendar"; the screen capability is already "Phone UI". */
+const phoneAppName = (cap: PhoneCapability) => (cap === "phoneUi" ? capName(cap) : `Phone ${capName(cap)}`);
 
 /** PHONE_CREATE_EVENT → "Create event". */
 export function describeAction(name: string): string {
@@ -54,10 +57,10 @@ export function phoneAccess(bot: PhoneBot, allowed: Readonly<Partial<Record<Phon
   const grant = phoneAppsFor(bot)[cap];
   const call = { kind: "tools" as const, invoked: name, names: [name] };
   if (!grant) {
-    return { ok: false, text: connectorScopeRefusalText(call, "app", bot.name, `Phone ${Cap}`, describeAction(name)), rows: [{ tool: name, decision: "auto-denied", rule: `scope:${PHONE_SLUG}:${cap}:app` }] };
+    return { ok: false, text: connectorScopeRefusalText(call, "app", bot.name, phoneAppName(cap), describeAction(name)), rows: [{ tool: name, decision: "auto-denied", rule: `scope:${PHONE_SLUG}:${cap}:app` }] };
   }
   if (grant === "read" && isPhoneWrite(name)) {
-    return { ok: false, text: connectorScopeRefusalText(call, "write", bot.name, `Phone ${Cap}`, describeAction(name)), rows: [{ tool: name, decision: "auto-denied", rule: `scope:${PHONE_SLUG}:${cap}:write` }] };
+    return { ok: false, text: connectorScopeRefusalText(call, "write", bot.name, phoneAppName(cap), describeAction(name)), rows: [{ tool: name, decision: "auto-denied", rule: `scope:${PHONE_SLUG}:${cap}:write` }] };
   }
   return { ok: true, rows: [{ tool: name, ...noticeSummary("chat.notice.phone.allowed", { tool: name }), decision: "auto-approved", rule: `scope:${PHONE_SLUG}:${cap}` }] };
 }

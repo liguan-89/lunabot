@@ -18,6 +18,7 @@ import com.openmausbot.companion.lifecycle.installSessionLinger
 import com.openmausbot.companion.notifications.LocalNotificationPoster
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.phone.PhoneJobRunner
+import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.AlwaysOnPreferences
@@ -83,6 +84,10 @@ class OpenMausApp : Application() {
     lateinit var chatPreferences: ChatPreferences
         private set
     internal lateinit var phoneJobs: PhoneJobRunner
+        private set
+
+    /** The wireless-debugging shell controller; process-wide because the helper bridge is. */
+    lateinit var phoneUi: PhoneUiController
         private set
 
     /** The DEX account this phone signs in with; one account across the desktop and every Cloud. */
@@ -172,6 +177,9 @@ class OpenMausApp : Application() {
         // The runner registers, long-polls, and answers one job at a time for
         // as long as that switch is on.
         chatPreferences = ChatPreferences(this)
+        // Built before the phone-tools runner: the runner observes this
+        // controller's status for its phoneUi capability registration.
+        phoneUi = PhoneUiController(this, appScope, chatPreferences, permissions)
         val versionName = runCatching {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()
@@ -191,6 +199,7 @@ class OpenMausApp : Application() {
             preferences = chatPreferences,
             appVersion = versionName,
             scope = appScope,
+            phoneUi = phoneUi,
         )
         phoneJobs.start()
         // Covers the case where the process was relaunched (not booted) while

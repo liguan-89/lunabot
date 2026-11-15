@@ -26,6 +26,19 @@ class ChatPreferencesTest {
     )
 
     @Test
+    fun `phone ui switch defaults to off and survives a new preferences instance`() {
+        val name = "chat-phone-ui"
+        val prefs = store(name)
+        assertEquals(false, prefs.phoneUi.value)
+
+        prefs.setPhoneUi(true)
+        assertEquals(true, store(name).phoneUi.value)
+
+        prefs.setPhoneUi(false)
+        assertEquals(false, store(name).phoneUi.value)
+    }
+
+    @Test
     fun `activity detail survives a new preferences instance`() {
         val name = "chat-activity-detail"
         store(name).setActivityDetail(ActivityDetail.HIDDEN)

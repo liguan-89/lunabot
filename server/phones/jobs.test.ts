@@ -230,6 +230,21 @@ describe("phone jobs", () => {
     expect(jobs.polling(KEY)).toBe(false);
   });
 
+  it("no routine or background job may drive the phone's screen, though observing reads", async () => {
+    const jobs = new PhoneJobs();
+    for (const tool of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK"]) {
+      const outcome = await jobs.request(KEY, tool, {}, turn({ background: true }));
+      expect(outcome, tool).toEqual({ ok: false, code: "unsupported", error: "Background checks only read the phone." });
+    }
+    expect(jobs.busy(KEY)).toBe(false);
+    const observe = jobs.request(KEY, "PHONE_UI_OBSERVE", {}, turn({ background: true }));
+    const job = await jobs.poll(KEY);
+    expect(job).toMatchObject({ tool: "PHONE_UI_OBSERVE" });
+    jobs.lease(KEY, job!.id);
+    jobs.complete(KEY, job!.id, { ok: true, result: { screen: "Home", refs: ["e1"] } });
+    await expect(observe).resolves.toEqual({ ok: true, result: { screen: "Home", refs: ["e1"] } });
+  });
+
   it("a newer phone's outcome is accepted: an unknown code reads as none and an unknown field is stripped", () => {
     const unknownCode = phoneJobOutcome.safeParse({ ok: false, error: "Needs the new thing.", code: "something_new" });
     expect(unknownCode.success).toBe(true);

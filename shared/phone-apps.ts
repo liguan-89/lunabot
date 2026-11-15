@@ -2,11 +2,14 @@
 // per-bot grants, and the PHONE_* tool names served by the `device` MCP server.
 import { isReadOnlyAction } from "./connector-scopes.ts";
 
-export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "home", "messages"] as const;
+export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi"] as const;
 export type PhoneCapability = (typeof PHONE_CAPABILITIES)[number];
 export type PhoneGrant = "read" | "write";
 /** Per-bot grant; an absent key is off. */
 export type PhoneApps = Partial<Record<PhoneCapability, PhoneGrant>>;
+/** The apps every bot could use before the screen tools existed: a bot with no phoneApps grant keeps getting only these,
+ * never phoneUi. */
+export const DEFAULT_PHONE_CAPABILITIES = PHONE_CAPABILITIES.filter((cap) => cap !== "phoneUi") as readonly Exclude<PhoneCapability, "phoneUi">[];
 
 export const PHONE_SLUG = "phone";
 export const PHONE_MCP_SERVER = "device";
@@ -20,6 +23,7 @@ export const PHONE_TOOL_NAMES = [
   "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY",
   "PHONE_LIST_HOME", "PHONE_SET_ACCESSORY", "PHONE_RUN_SCENE",
   "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
+  "PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK",
 ] as const;
 export type PhoneToolName = (typeof PHONE_TOOL_NAMES)[number];
 
@@ -32,6 +36,8 @@ const TOOL_CAPABILITY: Record<PhoneToolName, PhoneCapability> = {
   PHONE_GET_LOCATION: "location", PHONE_FIND_PLACES_NEARBY: "location",
   PHONE_LIST_HOME: "home", PHONE_SET_ACCESSORY: "home", PHONE_RUN_SCENE: "home",
   PHONE_SEND_MESSAGE: "messages", PHONE_SEND_WHATSAPP: "messages",
+  PHONE_UI_OBSERVE: "phoneUi", PHONE_UI_LAUNCH: "phoneUi", PHONE_UI_TAP: "phoneUi",
+  PHONE_UI_TYPE: "phoneUi", PHONE_UI_SCROLL: "phoneUi", PHONE_UI_BACK: "phoneUi",
 };
 
 export function isPhoneToolName(name: unknown): name is PhoneToolName {
@@ -63,4 +69,5 @@ export function normalizePhoneApps(value: unknown): PhoneApps | null {
   return out;
 }
 
-export const ALL_PHONE_APPS: PhoneApps = Object.fromEntries(PHONE_CAPABILITIES.map((c) => [c, "write"])) as PhoneApps;
+/** What a bot with no phoneApps grant gets: every legacy app, read and write, and never phoneUi. */
+export const ALL_PHONE_APPS: PhoneApps = Object.fromEntries(DEFAULT_PHONE_CAPABILITIES.map((c) => [c, "write"])) as PhoneApps;

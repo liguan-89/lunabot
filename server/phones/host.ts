@@ -1,9 +1,9 @@
 import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // The phone integration's per-turn pieces: the mount, the prompt part and the internal MCP handler (owner check, per-bot
-// verdict, decision rows, the phone job, write activity). A send waits on the person's Send tap on the phone, never on a
-// card of DEX BOT's own.
-import { isOutboundTool } from "../../shared/outbound.ts";
-import { PHONE_MCP_SERVER, phoneToolCapability, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
+// verdict, decision rows, the phone job, write activity). A send waits on the person's Send tap on the phone; a screen
+// write waits on DEX BOT's outgoing-action card, because it reaches every app on the phone.
+import { PHONE_MCP_SERVER, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
+import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
@@ -11,7 +11,7 @@ import type { BotRecord } from "../store.ts";
 import type { PromptPart } from "../system-prompt.ts";
 import { capName, phoneAccess, phoneAppsFor, phoneSystemPrompt, phoneWithheldPrompt, type PhoneAccess, type PhoneBot, type PhonePlace } from "./access.ts";
 import { PHONE_NO_PHONE_TEXT, PHONE_PLACE_PROMPT } from "./instructions.ts";
-import { PHONE_JOB_TIMEOUT_MS, PHONE_SEND_TIMEOUT_MS, type PhoneJobs } from "./jobs.ts";
+import { PHONE_JOB_TIMEOUT_MS, PHONE_SEND_TIMEOUT_MS, type PhoneJobOutcome, type PhoneJobs } from "./jobs.ts";
 import type { PhoneRecord, PhoneRegistry } from "./registry.ts";
 import { phoneRpc, type PhoneRefusal, type PhoneTarget, type PhoneToolsList } from "./rpc.ts";
 import { PHONE_TOOLS, type PhoneToolResult } from "./tools.ts";
@@ -30,7 +30,31 @@ export interface PhoneHostDeps {
   inRoom(threadId: string): boolean;
   appendMessage(threadId: string, message: Record<string, unknown>): void;
   active(capability: TurnCapability): boolean;
+  /**
+   * Screen writes reach every app on the phone, so each one holds for the
+   * same outgoing-action card a connected-app send does. Absent fails closed:
+   * this host cannot ask, so it must not control a screen.
+   */
+  holdOutbound?(input: PhoneOutboundHoldInput): Promise<PhoneOutboundHoldAnswer>;
+  /**
+   * The turn's effective approval mode, read at call time. Absent is `ask`,
+   * so every screen write waits on the person.
+   */
+  approvalMode?(botId: string, threadId: string): string;
 }
+
+export interface PhoneOutboundHoldInput {
+  bot: BotRecord;
+  threadId: string;
+  /** The MCP-shaped name (`mcp__device__PHONE_UI_LAUNCH`) so the card names the phone. */
+  tool: string;
+  fullAccess: boolean;
+  active: () => boolean;
+}
+
+export type PhoneOutboundHoldAnswer =
+  | { ok: true; approved: boolean }
+  | { ok: false; text: string };
 
 export interface PhoneHost {
   /** The owner has a phone that allows an app this bot was granted. */
@@ -126,7 +150,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           if (!match) return { ok: false, code: "no_phone", text: `${PHONE_NO_PHONE_TEXT} Available phones: ${phones.map((phone) => phone.registration.name).join(", ")}.` };
           return allows(match, phoneToolCapability(name)) ? target(match) : notAllowed(match.registration.name, name);
         },
-        run: async (phone, name, args) => {
+        run: async (phone, name, args): Promise<PhoneJobOutcome> => {
           const owner = deps.turnOwner(capability);
           const active = () => {
             if (!deps.active(capability) || owner === null || deps.turnOwner(capability) !== owner) return false;
@@ -134,8 +158,29 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             const current = registry.get(phone.key);
             return Boolean(bot && current && current.owner === owner && phoneAccess(bot, current.registration.capabilities, name).ok);
           };
+          // A screen write reaches every app on the phone: it holds for the
+          // outgoing-action card before any job reaches the device. The hold
+          // itself skips the card at Full access, exactly as a send does.
+          if (isPhoneUiWrite(name)) {
+            const bot = deps.bot(capability.botId);
+            if (!bot) return { ok: false, code: "denied", error: GONE_TEXT };
+            const hold = deps.holdOutbound;
+            if (!hold) return { ok: false, code: "denied", error: "This server cannot ask for approval, so it cannot control a phone screen." };
+            const held = await hold({
+              bot,
+              threadId: capability.threadId,
+              tool: `mcp__${PHONE_MCP_SERVER}__${name}`,
+              fullAccess: (deps.approvalMode?.(bot.id, capability.threadId) ?? "ask") === "full",
+              active,
+            });
+            if (!held.ok) return { ok: false, code: "denied", error: held.text };
+            // The person may have taken the turn back while the card waited.
+            if (!active()) return { ok: false, code: "denied", error: GONE_TEXT };
+          }
           const outcome = await jobs.request(phone.key, name, args, {
-            active, timeoutMs: isOutboundTool(name) ? PHONE_SEND_TIMEOUT_MS : PHONE_JOB_TIMEOUT_MS,
+            // A UI control keeps the short job timeout: it already waited on
+            // the person's approval above, not on a Send tap on the phone.
+            active, timeoutMs: phoneToolSends(name) ? PHONE_SEND_TIMEOUT_MS : PHONE_JOB_TIMEOUT_MS,
             offlineText: `${phone.name} is offline. Open the DEX BOT app on it.`, online: () => registry.online(phone.key),
           });
           if (outcome.ok) registry.used(phone.key);

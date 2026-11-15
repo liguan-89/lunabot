@@ -3,10 +3,15 @@ package com.openmausbot.companion.phone
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import androidx.core.content.ContextCompat
 import com.openmausbot.companion.core.PhoneRegistration
 import com.openmausbot.companion.core.PhoneTool
 import com.openmausbot.companion.core.PhoneToolCatalog
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
+import com.openmausbot.companion.phoneui.PhoneUiTaskExecutor
+import com.openmausbot.companion.phoneui.PhoneUiController
+import com.openmausbot.companion.phoneui.PhoneUiStatus
 import com.openmausbot.companion.storage.ChatPreferences
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
@@ -42,6 +47,7 @@ internal class PhoneJobRunner(
     private val session: Session,
     private val preferences: ChatPreferences,
     private val appVersion: String,
+    private val phoneUi: PhoneUiController,
     private val scope: CoroutineScope,
 ) {
     private val calendar = PhoneCalendar(context)
@@ -51,23 +57,28 @@ internal class PhoneJobRunner(
     private val reminderStore = ReminderStore(java.io.File(context.filesDir, "phone-reminders.json"))
     private val reminderAlarms = ReminderAlarms(context)
     private val reminders = PhoneReminders(reminderStore, reminderAlarms)
+    private val phoneUiExecutor = PhoneUiTaskExecutor(context)
 
     fun start() {
         scope.launch {
-            // Every switch feeds one decision. Observing only the calendar's
-            // meant turning contacts on with calendar off looked like "all
-            // off", and the phone never registered at all.
             combine(
-                preferences.phoneCalendar,
-                preferences.phoneContacts,
-                preferences.phoneReminders,
-                preferences.phoneLocation,
-                preferences.phoneMessages,
-            ) { calendar, contacts, reminders, location, messages ->
-                Switches(calendar, contacts, reminders, location, messages)
+                combine(
+                    preferences.phoneCalendar,
+                    preferences.phoneContacts,
+                    preferences.phoneReminders,
+                    preferences.phoneLocation,
+                    preferences.phoneMessages,
+                ) { calendar, contacts, reminders, location, messages ->
+                    Switches(calendar, contacts, reminders, location, messages)
+                },
+                phoneUi.status,
+                PhoneUiAccessibilityService.instance,
+            ) { switches, phoneUiStatus, accessibilityService ->
+                switches.copy(phoneUi = phoneUiStatus == PhoneUiStatus.Ready && accessibilityService != null)
             }
                 .distinctUntilChanged()
                 .collectLatest { switches ->
+                    if (!switches.phoneUi) phoneUiExecutor.release()
                     if (!switches.any) {
                         session.unregisterPhone()
                         session.reportPhoneTools(Session.PhoneToolsStatus.Idle)
@@ -84,8 +95,9 @@ internal class PhoneJobRunner(
         val reminders: Boolean = false,
         val location: Boolean = false,
         val messages: Boolean = false,
+        val phoneUi: Boolean = false,
     ) {
-        val any: Boolean get() = calendar || contacts || reminders || location || messages
+        val any: Boolean get() = calendar || contacts || reminders || location || messages || phoneUi
     }
 
     private suspend fun runWhileEnabled(switches: Switches) {
@@ -95,7 +107,7 @@ internal class PhoneJobRunner(
         // Enabled in Settings but the Android grants were revoked (or never
         // given): nothing to register, and the screen explains each switch.
         if (!calendarAccess.canRead && !contactsAccess.canRead && !switches.reminders &&
-            !locationAccess.canRead && !switches.messages
+            !locationAccess.canRead && !switches.messages && !switches.phoneUi
         ) {
             session.reportPhoneTools(
                 Session.PhoneToolsStatus.Failed("系统权限尚未授予，请在系统设置中允许日历、联系人或定位。"),
@@ -117,6 +129,7 @@ internal class PhoneJobRunner(
                 // The switch asked for both SMS grants; without them the phone can
                 // neither relay inbound texts nor answer replies, so it claims nothing.
                 messages = switches.messages && messages.canRelay(),
+                phoneUi = switches.phoneUi,
             ),
         )
         // Registration is retried instead of ending the run: the computer is
@@ -138,7 +151,7 @@ internal class PhoneJobRunner(
             val contactsNow = contacts.access()
             val locationNow = location.access()
             if (!calendarNow.canRead && !contactsNow.canRead && !switches.reminders &&
-                !locationNow.canRead && !switches.messages
+                !locationNow.canRead && !switches.messages && !switches.phoneUi
             ) {
                 // Every permission was revoked under us; don't offer apps we
                 // can no longer read.
@@ -156,6 +169,7 @@ internal class PhoneJobRunner(
                 reminders = switches.reminders,
                 location = locationNow,
                 messages = switches.messages && messages.canRelay(),
+                phoneUi = switches.phoneUi,
             )
             if (current != claimed && session.registerPhone(registration.copy(capabilities = current)) == null) {
                 claimed = current
@@ -169,10 +183,12 @@ internal class PhoneJobRunner(
             }
             if (job != null) Log.d(TAG, "job=${job.id} tool=${job.tool}")
             if (job == null) {
-                // A restarted computer drops its phone list; the failed poll is
-                // the only sign, so verify once and re-claim rather than poll
-                // a registry that no longer knows this phone.
-                if (session.lastPhonePollError != null && session.myPhoneRegistered() == false) {
+                // A restarted computer may restore a row persisted by an older
+                // build, so a successful poll does not prove the stored
+                // capabilities match this one. Any poll failure re-claims, and
+                // registration is idempotent; checking only for a missing row
+                // would leave a stale capability set in place forever.
+                if (session.lastPhonePollError != null) {
                     session.registerPhone(registration.copy(capabilities = claimed))
                 }
                 // A 20 s poll that found nothing is the normal case; one that
@@ -199,6 +215,7 @@ internal class PhoneJobRunner(
                     tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
                     tool.capability == "location" -> location.current()
                     tool.capability == "messages" -> messages.execute(tool, job.arguments)
+                    tool.capability == "phoneUi" -> phoneUiExecutor.execute(tool, job.arguments)
                     else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
                 }
             }

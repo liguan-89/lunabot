@@ -5,6 +5,8 @@ export const PHONE_INSTRUCTIONS =
   "The PHONE tools reach the person's own phone: the apps they allowed in the DEX BOT app (calendar, reminders, contacts, location, home, messages). " +
   "Reads need no permission and are free; use them to look before you act. Every write is shown in the chat as it happens. " +
   "PHONE_SEND_MESSAGE and PHONE_SEND_WHATSAPP never send by themselves: they open a sheet on the phone and the message goes only when the person taps Send, so say that it is waiting for them. " +
+  "The PHONE_UI tools see and drive the phone's screen, when the person allowed that and the bot was granted it: PHONE_UI_OBSERVE reads the current screen as short text with opaque element refs (no screenshots), " +
+  "and every other PHONE_UI tool drives the phone and asks the person first like any send. Observe before and after each UI action, and never guess a ref or a package name. " +
   "Pass ids from earlier results, never guessed ones. Dates are ISO 8601 strings with an offset. When more than one phone is paired, name the phone with the optional phone argument. " +
   "If the phone is offline, ask the person to open DEX BOT on it. " +
   "After a failure or an unknown outcome, read the record back with the matching PHONE_GET_ or PHONE_LIST_ tool before repeating a write, and never repeat a send.";
@@ -13,6 +15,7 @@ export const PHONE_INSTRUCTIONS =
 export const PHONE_PROMPT =
   " The person's own phone is reachable through the PHONE tools (calendar, reminders, contacts, location, home and messages), limited to the apps they allowed on that phone and to what this bot was granted. " +
   "Reads need no permission; every change you make is shown in the chat. A message is only sent when the person taps Send on the phone, so never claim it was sent. " +
+  "When Phone UI is granted, the PHONE_UI tools see the screen (PHONE_UI_OBSERVE) and drive it one action at a time; each driving action asks the person first. " +
   "If the phone is offline, ask the person to open DEX BOT on it. " +
   "The phone tools named mcp__phone__ are something else: they drive an Android phone plugged into the computer over USB, never the person's own phone above.";
 

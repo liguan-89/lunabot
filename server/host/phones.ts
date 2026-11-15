@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
-import { createPhoneHost } from "../phones/host.ts";
+import { createPhoneHost, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput } from "../phones/host.ts";
 import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
@@ -54,6 +54,10 @@ export interface PhonesDeps {
   mint(botId: string, turn: { threadId: string; generation: string }): string;
   harnessUrl: string;
   active(turn: Turn): boolean;
+  /** Screen writes hold for the same outgoing-action card a connected-app send does. */
+  holdPhoneOutbound?(input: PhoneOutboundHoldInput): Promise<PhoneOutboundHoldAnswer>;
+  /** The turn's effective approval mode, read at call time; absent is `ask`, so every screen write waits. */
+  approvalMode?(botId: string, threadId: string): string;
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -123,6 +127,8 @@ export function createPhones(deps: PhonesDeps) {
     inRoom: (threadId) => Boolean(store.groupByThread(threadId)),
     appendMessage: (threadId, message) => { store.appendMessage(threadId, message as Parameters<typeof store.appendMessage>[1]); },
     active: deps.active,
+    holdOutbound: deps.holdPhoneOutbound,
+    approvalMode: deps.approvalMode,
   });
 
   return {

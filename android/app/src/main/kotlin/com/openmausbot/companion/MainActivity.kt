@@ -222,6 +222,7 @@ class MainActivity : ComponentActivity() {
             shareInbox = app.shareInbox,
             alwaysOnEnabled = app.alwaysOn.enabled,
             onToggleAlwaysOn = ::toggleAlwaysOn,
+            phoneUi = app.phoneUi,
             // App-scoped: leaving Settings during the download must not cancel it.
             updates = AppUpdater(this),
             appScope = app.appScope,
@@ -263,6 +264,7 @@ class MainActivity : ComponentActivity() {
         // Permissions can change while the app is in the background — a grant
         // made in Settings should take effect on return, not on next launch.
         app.permissions.refresh()
+        app.phoneUi.refresh()
         camera.refresh()
         mic.refresh()
         notifications.refresh()

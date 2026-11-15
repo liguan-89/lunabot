@@ -92,6 +92,19 @@
         android:minSdkVersion="37" />
 
     <!--
+      Phone UI launch: the executor resolves an installed package's launcher
+      intent before asking the shell helper to start it. Without this filter
+      package visibility hides every app DEX BOT does not name, and every
+      launch would answer "not installed" on API 30+.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
+    <!--
       Package visibility (API 30+): without this, SpeechRecognizer cannot see
       RecognitionService providers and isRecognitionAvailable() can falsely
       report none — dictation would never start on modern devices.
@@ -339,5 +352,53 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+          Where the shell-identity phone-UI helper (app_process, uid 2000)
+          hands its virtual-display binder over. Exported because shell must
+          reach it, but gated behind INTERACT_ACROSS_USERS_FULL — shell has it,
+          ordinary apps do not — and everything behind that gate (shell uid,
+          self-reported uid/pid, installed APK path, one-time nonce, binder
+          process identity) is re-checked in code, see
+          PhoneUiHandoffHub.offer. multiprocess=false: one hub per process,
+          and the helper only ever talks to the app's own process.
+        -->
+        <provider
+            android:name=".phoneui.shell.PhoneUiHandoffProvider"
+            android:authorities="${applicationId}.phoneui.helper"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!--
+          The phone-UI reader service: reads the window tree of the shell
+          helper's virtual displays only. Exported because the system Settings
+          process binds it across uid boundaries; BIND_ACCESSIBILITY_SERVICE is
+          a signature permission held by the system, so ordinary apps cannot
+          bind. Its capability ceiling lives in
+          @xml/phoneui_accessibility_service — window state events,
+          generic feedback, window retrieval with view ids; no gestures, no
+          screenshots, no key filtering.
+        -->
+        <service
+            android:name=".phoneui.PhoneUiAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/phoneui_accessibility_service" />
+        </service>
+
+        <!--
+          Filled by the pairing notification's shade reply. Unexported: the
+          notification's explicit PendingIntent is the only way in, and the code
+          it carries is checked before use.
+        -->
+        <receiver
+            android:name=".phoneui.PhoneUiPairingReplyReceiver"
+            android:exported="false" />
     </application>
 </manifest>

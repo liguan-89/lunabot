@@ -266,7 +266,7 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
         if (body.phoneApps === null) patch.phoneApps = undefined;
         else {
           const apps = normalizePhoneApps(body.phoneApps);
-          if (!apps) return json(res, 400, { error: "phoneApps must be { <calendar|reminders|contacts|location|home|messages>: read | write } or null" });
+          if (!apps) return json(res, 400, { error: "phoneApps must be { <calendar|reminders|contacts|location|home|messages|phoneUi>: read | write } or null" });
           patch.phoneApps = apps;
         }
       }

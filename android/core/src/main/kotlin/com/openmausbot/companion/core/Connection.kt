@@ -449,7 +449,13 @@ data class PairingInvite(val connection: Connection, val credential: String) {
 
             values["endpoints"]?.let { encoded ->
                 val endpoints = decodeEndpoints(encoded) ?: return null
-                connection = connection.copy(endpoints = endpoints).dialing(endpoints.first())
+                // A computer that names itself over Bonjour is reachable by that
+                // name on every network it joins; the numeric LAN address in the
+                // same invite expires the moment either end changes networks.
+                // Consent to the name (and hosted), not the ephemeral address.
+                val preferred = endpoints.firstOrNull { it.kind == CompanionEndpointKind.BONJOUR }
+                    ?: endpoints.first()
+                connection = connection.copy(endpoints = endpoints).dialing(preferred)
             }
 
             values["e2e"]?.let { raw ->

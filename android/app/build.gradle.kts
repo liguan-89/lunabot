@@ -194,6 +194,9 @@ android {
 
     buildFeatures {
         compose = true
+        // AGP disables AIDL by default since 8.0; the phone-UI shell helper's
+        // interface is the one .aidl source in the app.
+        aidl = true
     }
 
     packaging {

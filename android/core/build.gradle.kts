@@ -27,6 +27,9 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     testImplementation("com.squareup.okhttp3:okhttp-tls:4.12.0")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.2")
+    // phoneui.adb tests need TLS 1.3 keying-material export, which the JVM does not expose;
+    // Conscrypt is the same TLS implementation Android ships (test classpath only).
+    testImplementation("org.conscrypt:conscrypt-openjdk-uber:2.7.0")
 }
 
 sourceSets.test {

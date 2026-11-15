@@ -1,9 +1,12 @@
 package com.openmausbot.companion.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -71,6 +74,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +84,8 @@ import com.openmausbot.companion.core.ActivityDetail
 import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.phoneui.PhoneUiPairingInput
+import com.openmausbot.companion.phoneui.PhoneUiStatus
 import com.openmausbot.companion.storage.ThemeMode
 import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
@@ -87,6 +93,7 @@ import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.net.toUri
 import java.net.URI
@@ -130,9 +137,13 @@ fun SettingsScreen(
     val phoneLocation by environment.chatPreferences.phoneLocation.collectAsState()
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
+    val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
+    val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val haptics = rememberHaptics()
+    // The system pages may have changed while the person was out of the app.
+    LaunchedEffect(Unit) { environment.phoneUi.refresh() }
 
     // The switch is the consent: Android asks only after the person turns it
     // on, and a refused dialog leaves the switch off rather than claiming an
@@ -171,6 +182,9 @@ fun SettingsScreen(
                 granted[android.Manifest.permission.SEND_SMS] == true,
         )
     }
+    val phoneUiNetworkPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { environment.phoneUi.refresh() }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -184,6 +198,7 @@ fun SettingsScreen(
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
+    var pairingPhoneUi by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
     val account = environment.cloudAccount
     val accountUi by account.state.collectAsState()
@@ -649,6 +664,106 @@ fun SettingsScreen(
                 }
             }
 
+            // 手机界面 (wireless debugging + shell helper): default off, the
+            // system pages open only from an explicit tap, and pairing needs
+            // the port and code the system pairing dialog shows — nothing is
+            // enabled or prompted on the person's behalf.
+            val phoneUiContext = LocalContext.current
+            SettingsSection(
+                label = "手机界面",
+                footer = {
+                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过，不上传截图。操作需要桌面端权限审批。可随时关闭或取消配对。")
+                    if (phoneUiStatus == PhoneUiStatus.Failed) {
+                        SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
+                    }
+                    (phoneToolsStatus as? Session.PhoneToolsStatus.Failed)?.let { failure ->
+                        if (phoneUiStatus == PhoneUiStatus.Ready) SettingsFootnote(failure.message)
+                    }
+                },
+            ) {
+                SettingsSwitchRow(
+                    title = "允许机器人操作手机界面",
+                    checked = phoneUiEnabled,
+                    onCheckedChange = { enabled ->
+                        environment.chatPreferences.setPhoneUi(enabled)
+                        // A deliberate Off tears the helper down; merely
+                        // navigating away never does.
+                        if (!enabled) environment.phoneUi.disable()
+                    },
+                )
+                if (phoneUiEnabled) {
+                    SettingsDivider()
+                    SettingsRow(title = "状态", value = phoneUiStatusLabel(phoneUiStatus))
+                    when (phoneUiStatus) {
+                        PhoneUiStatus.Disabled, PhoneUiStatus.UnsupportedAndroidVersion -> Unit
+                        PhoneUiStatus.NeedsDeveloperOptions -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "打开开发者选项",
+                                external = true,
+                                onClick = { openDeveloperOptions(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NeedsWirelessDebugging -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "打开无线调试",
+                                external = true,
+                                onClick = { openWirelessDebugging(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NeedsLocalNetworkPermission -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "允许附近设备和本地网络",
+                                onClick = {
+                                    phoneUiNetworkPermissions.launch(environment.phoneUi.localNetworkPermissions())
+                                },
+                            )
+                        }
+                        PhoneUiStatus.NeedsAccessibility -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "启用屏幕读取服务",
+                                external = true,
+                                onClick = { openAccessibilitySettings(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NotPaired, PhoneUiStatus.Failed -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "配对设备",
+                                chevron = true,
+                                onClick = { pairingPhoneUi = true },
+                            )
+                        }
+                        PhoneUiStatus.Paired, PhoneUiStatus.HelperConnecting, PhoneUiStatus.Ready -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "取消配对",
+                                destructive = true,
+                                onClick = {
+                                    pairingPhoneUi = false
+                                    environment.phoneUi.forget()
+                                },
+                            )
+                        }
+                        PhoneUiStatus.Pairing -> Unit
+                    }
+                    if (phoneUiStatus == PhoneUiStatus.Ready) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "电脑登记",
+                            value = when (phoneToolsStatus) {
+                                Session.PhoneToolsStatus.Registered -> "已登记"
+                                is Session.PhoneToolsStatus.Failed -> "登记失败"
+                                Session.PhoneToolsStatus.Idle -> "未登记"
+                            },
+                        )
+                    }
+                }
+            }
+
             SettingsSection {
                 SettingsRow(
                     title = "外观",
@@ -1008,6 +1123,14 @@ fun SettingsScreen(
         )
     }
 
+    if (pairingPhoneUi) {
+        PhoneUiPairingSheet(
+            phoneUi = environment.phoneUi,
+            status = phoneUiStatus,
+            onDismiss = { pairingPhoneUi = false },
+        )
+    }
+
     if (signingIn) {
         DexSignInSheet(
             account = environment.cloudAccount,
@@ -1023,6 +1146,157 @@ private fun cloudStatusText(status: String): String = when (status) {
     "offline" -> "离线"
     "stopped" -> "已睡眠"
     else -> status
+}
+
+private fun phoneUiStatusLabel(status: PhoneUiStatus): String = when (status) {
+    PhoneUiStatus.Disabled -> "已关闭"
+    PhoneUiStatus.UnsupportedAndroidVersion -> "此 Android 版本不支持隔离屏幕操作"
+    PhoneUiStatus.NeedsDeveloperOptions -> "需开启开发者选项"
+    PhoneUiStatus.NeedsWirelessDebugging -> "需开启无线调试"
+    PhoneUiStatus.NeedsLocalNetworkPermission -> "需允许附近设备和本地网络"
+    PhoneUiStatus.NeedsAccessibility -> "需启用屏幕读取服务"
+    PhoneUiStatus.NotPaired -> "未配对"
+    PhoneUiStatus.Pairing -> "正在配对"
+    PhoneUiStatus.Paired -> "已配对，等待连接"
+    PhoneUiStatus.HelperConnecting -> "正在连接辅助进程"
+    PhoneUiStatus.Ready -> "已就绪"
+    PhoneUiStatus.Failed -> "连接失败"
+}
+
+private fun openDeveloperOptions(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+}
+
+private fun openAccessibilitySettings(context: Context) {
+    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+}
+
+/** The wireless-debugging page has no public Settings constant: use its component, with developer options as fallback. */
+private fun openWirelessDebugging(context: Context) {
+    val page = runCatching {
+        Intent()
+            .setClassName("com.android.settings", "com.android.settings.Settings\$WirelessDebuggingActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }.getOrNull()
+    if (page != null && runCatching { context.startActivity(page) }.isSuccess) return
+    openDeveloperOptions(context)
+}
+
+/**
+ * Enter the port and six-digit code the system pairing dialog shows. No deep
+ * link: the person walks to the system page themselves and comes back here.
+ */
+@Composable
+private fun PhoneUiPairingSheet(
+    phoneUi: com.openmausbot.companion.phoneui.PhoneUiController,
+    status: PhoneUiStatus,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val autoPairing by phoneUi.autoPairing.collectAsState()
+    val notificationsBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
+    var port by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    // The controller moves past Pairing exactly once pairing succeeded; the
+    // sheet then closes itself like the sign-in sheet does.
+    LaunchedEffect(status) {
+        if (status != PhoneUiStatus.Pairing &&
+            status != PhoneUiStatus.Failed &&
+            status != PhoneUiStatus.NotPaired
+        ) {
+            onDismiss()
+        }
+    }
+    val ready = PhoneUiPairingInput.parse(port, code) != null && status != PhoneUiStatus.Pairing
+    SettingsSheet(
+        title = "配对无线调试",
+        onDismiss = onDismiss,
+        actionLabel = "配对",
+        actionEnabled = ready,
+        onAction = { phoneUi.pair(port, code) },
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "在系统「开发者选项 → 无线调试」中开启无线调试，选择「使用配对码配对设备」，" +
+                    "把显示的端口和 6 位配对码填到下面。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = secondaryTint,
+            )
+            Text(
+                "小米等系统上，离开系统配对页就会关闭配对端口。打开系统页面后，开启屏幕读取服务时" +
+                    " App 会自动读取配对码并配对；也可以展开通知栏里的「配对无线调试」通知手动输入。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = secondaryTint,
+            )
+            if (autoPairing) {
+                Text(
+                    "正在自动读取系统配对窗口里的配对码……保持「输入配对码配对设备」对话框打开即可。",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = secondaryTint,
+                )
+            }
+            SettingsRow(
+                title = "打开系统无线调试页面",
+                external = true,
+                onClick = {
+                    // Both happen before leaving: on MIUI the pairing port closes
+                    // as soon as this app is foreground again, and auto-read
+                    // must already be watching when the dialog appears.
+                    phoneUi.showPairingNotification()
+                    phoneUi.beginAutoPairing()
+                    openWirelessDebugging(context)
+                },
+            )
+            if (notificationsBlocked) {
+                SettingsRow(
+                    title = "允许通知（通知栏配对需要）",
+                    external = true,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    },
+                )
+            }
+            OutlinedTextField(
+                value = port,
+                onValueChange = { port = it.filter(Char::isDigit).take(5) },
+                singleLine = true,
+                label = { Text("配对端口") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = code,
+                onValueChange = { code = it.filter(Char::isDigit).take(6) },
+                singleLine = true,
+                label = { Text("6 位配对码") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (status == PhoneUiStatus.Pairing) {
+                SettingsFootnote("正在配对…")
+            } else if (status == PhoneUiStatus.Failed) {
+                SettingsFootnote("配对失败：配对码每次打开配对窗口都会更换，请重新获取后再试。")
+            }
+        }
+    }
 }
 
 /**
