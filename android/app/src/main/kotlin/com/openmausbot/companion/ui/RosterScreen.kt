@@ -1287,7 +1287,7 @@ private fun RosterBottomBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .chromeCapsule()
+                    .chromeCapsule(surface = true)
                     .height(BAR_HEIGHT)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1335,7 +1335,7 @@ private fun RosterBottomBar(
 
             Box(
                 modifier = Modifier
-                    .chromeCapsule()
+                    .chromeCapsule(surface = true)
                     .clip(CircleShape)
                     .height(BAR_HEIGHT)
                     .clickable(role = Role.Button, onClick = { onBar(bar.cancelSearch()) })

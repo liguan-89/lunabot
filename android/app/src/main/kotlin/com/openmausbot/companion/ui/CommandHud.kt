@@ -1,5 +1,6 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -188,12 +189,12 @@ fun PredictiveChipsRow(
                 leadingIcon = chip.icon?.let { icon ->
                     { Text(quickReplyGlyph(icon), fontSize = 13.sp, color = secondaryTint) }
                 },
-                // Flat and borderless, like the composer's own capsule: a
-                // suggestion is a quiet door, not a second row of buttons.
+                // Same solid capsule the composer and the bottom bar are made
+                // of: a suggestion is a quiet door, not a second row of buttons.
                 shape = CircleShape,
-                border = null,
+                border = BorderStroke(0.5.dp, minisSeparator),
                 colors = AssistChipDefaults.assistChipColors(
-                    containerColor = minisControl,
+                    containerColor = minisCard,
                     labelColor = minisInk,
                     leadingIconContentColor = secondaryTint,
                 ),
