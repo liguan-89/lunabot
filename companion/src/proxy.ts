@@ -559,7 +559,7 @@ export function createProxyHandler(options: ProxyOptions) {
               return;
             }
             finished = true;
-            sendJson(res, 200, { app: "openmausbot", ...(device && version ? { version } : {}) });
+            sendJson(res, 200, { app: "dexbot", ...(device && version ? { version } : {}) });
           });
           return;
         }
