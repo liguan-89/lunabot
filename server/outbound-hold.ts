@@ -7,6 +7,7 @@ import { buildNotification } from "./notify.ts";
 import type { OutboundRequestService } from "./outbound-requests.ts";
 import { outboundCard } from "./outbound-requests.ts";
 import type { PermissionGrant } from "./permission-grants.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import type { BotRecord, GroupRecord, Store } from "./store.ts";
 import { turnWaitedOnPerson } from "./waiting-on-person.ts";
 
@@ -94,7 +95,7 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
                 tool: outboundTool, summary, decision: "auto-approved", source: "temporary-grant", rule: grant.text,
               });
               store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
-                name: `Temporary grant allowed the send: ${summary.slice(0, 120)}`, ok: true,
+                name: serverLine(conversationLanguage(threadId), "server.grants.autoAllowed", { summary: summary.slice(0, 120) }), ok: true,
               } });
             }
           } catch {

@@ -452,10 +452,6 @@ const PENDING: Readonly<Record<string, ReadonlyArray<readonly [file: string, sni
     ["server/surface.ts", "the built-in browser"],
   ],
   "questions, approvals and setup cards": [
-    ["server/auto-approve.ts", "the saved command permission"],
-    ["server/auto-approve.ts", "the saved tool permission"],
-    ["server/auto-approve.ts", "Full access"],
-    ["server/auto-approve.ts", "The provider rejected this action despite  … ."],
     ["server/default-bot.ts", "Hey! I'm  … . I'm new here."],
     ["server/default-bot.ts", "Hi! I'm  … , your helper for everything here."],
     ["server/host/ask-cards.ts", "Waiting on your  …  in @ …"],

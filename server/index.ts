@@ -6697,7 +6697,7 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent()) return;
           if (outcome !== "allowed-once") {
             watchdog.setWaitingOnHuman(event.threadId, false);
-            if (outcome !== "unavailable") pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, verdict.source) });
+            if (outcome !== "unavailable") pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, verdict.source, conversationLanguage(event.threadId)) });
             return;
           }
           pushMessage({
@@ -6803,14 +6803,14 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent() || outcome === "unavailable") return;
           watchdog.setWaitingOnHuman(event.threadId, false);
           if (reviewed === "approve" && outcome !== "allowed-once") {
-            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "native-approval") });
+            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "native-approval", conversationLanguage(event.threadId)) });
             return;
           }
           pushMessage({
             role: "bot",
             kind: "activity",
             tool: {
-              name: `${reviewed === "approve" ? `Approve for me approved ${tool}` : `Approve for me denied ${tool}`}: ${summary.slice(0, 120)}`,
+              name: serverLine(conversationLanguage(event.threadId), reviewed === "approve" ? "server.approval.autoApproved" : "server.approval.autoDenied", { tool, summary: summary.slice(0, 120) }),
               ok: reviewed === "approve",
             },
           });
@@ -6854,13 +6854,13 @@ bus.subscribe((event: RuntimeEvent) => {
           if (!isCurrent() || outcome === "unavailable") return;
           watchdog.setWaitingOnHuman(event.threadId, false);
           if (outcome !== "allowed-once") {
-            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "temporary-grant") });
+            pushMessage({ role: "bot", kind: "activity", tool: undeliveredApprovalTool(outcome, "temporary-grant", conversationLanguage(event.threadId)) });
             return;
           }
           pushMessage({
             role: "bot",
             kind: "activity",
-            tool: { name: `Temporary grant approved ${tool}: ${summary.slice(0, 120)}`, ok: true },
+            tool: { name: serverLine(conversationLanguage(event.threadId), "server.grants.autoApproved", { tool, summary: summary.slice(0, 120) }), ok: true },
           });
           appendDecision(DATA_DIR, {
             threadId: event.threadId,
@@ -11946,12 +11946,13 @@ const { watchMeForTurn } = createWatchMeTurn({
   turnActive: (turn) => internalCapabilityIsActive(turn as InternalCapability),
   prompt: (input): WatchPrompt => {
     const { app, calls } = outboundCard([{ slug: "watch_me", ...(input.goal ? { arguments: { goal: input.goal } } : {}) }]);
-    const subtitle = input.goal ? `Show: ${input.goal}` : "Take the browser and show the steps.";
+    const language = conversationLanguage(input.threadId);
+    const subtitle = input.goal ? serverLine(language, "server.watchMe.show", { goal: input.goal }) : serverLine(language, "server.watchMe.subtitle");
     const held = outboundRequests.open({ botId: input.bot.id, threadId: input.threadId, tool: "watch_me", timeoutMs: input.timeoutMs });
     const card = store.appendMessage(input.threadId, {
       role: "bot", kind: "options",
       card: {
-        title: "Watch you do it?", subtitle, options: ["Done", "Deny"], requestId: held.requestId, tool: "watch_me",
+        title: serverLine(language, "server.watchMe.ask"), subtitle, options: ["Done", "Deny"], requestId: held.requestId, tool: "watch_me",
         held: HELD_NOTE["approval.held.watch"], heldCode: "approval.held.watch",
         outboundRequest: { tool: "watch_me", app, calls },
       },

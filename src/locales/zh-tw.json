@@ -9959,5 +9959,21 @@
   "settings.simple.account.noNameHint": "尚未設定",
   "settings.simple.account.yourName": "你的名稱",
   "baiduMap.description": "透過百度地圖官方服務查詢中國境內的地點、地址、路線和路況，使用你自己的服務端 AK。",
-  "baiduMap.notice": "貼上百度地圖開放平台（lbsyun.baidu.com）的服務端 AK，需為該 AK 開通 MCP 服務。{app} 會將它存入 Vault 且不再顯示，中斷連線時會將其刪除。可以使用百度地圖的機器人能查詢地點、地址和路線，呼叫計入你金鑰的配額，因此請在「機器人存取權」中選擇哪些機器人可以使用。"
+  "baiduMap.notice": "貼上百度地圖開放平台（lbsyun.baidu.com）的服務端 AK，需為該 AK 開通 MCP 服務。{app} 會將它存入 Vault 且不再顯示，中斷連線時會將其刪除。可以使用百度地圖的機器人能查詢地點、地址和路線，呼叫計入你金鑰的配額，因此請在「機器人存取權」中選擇哪些機器人可以使用。",
+  "server.routines.held.personAway": "你不在的這段時間，例行任務自己暫停了——你回來後它們正在重新開啟。",
+  "server.approval.undelivered": "無法將審批請求送達提供者；請重新連線後再試這個任務。",
+  "server.approval.rejectedFullAccess": "儘管已授予全權存取，提供者仍拒絕了此操作。",
+  "server.approval.rejectedCommandPermission": "儘管已儲存命令權限，提供者仍拒絕了此操作。",
+  "server.approval.rejectedToolPermission": "儘管已儲存工具權限，提供者仍拒絕了此操作。",
+  "server.approval.rejectedTemporaryPermission": "儘管有臨時權限，提供者仍拒絕了此操作。",
+  "server.approval.autoApproved": "「替我核准」已核准 {tool}：{summary}",
+  "server.approval.autoDenied": "「替我核准」已拒絕 {tool}：{summary}",
+  "server.grants.propose": "允許我{action}，直到 {until}？",
+  "server.grants.refused": "已拒絕臨時權限：{action}",
+  "server.grants.granted": "已授權至 {until}：{action}",
+  "server.grants.autoAllowed": "臨時權限已允許傳送：{summary}",
+  "server.grants.autoApproved": "臨時權限已核准 {tool}：{summary}",
+  "server.watchMe.show": "示範：{goal}",
+  "server.watchMe.ask": "看著我操作？",
+  "server.watchMe.subtitle": "開啟瀏覽器並示範步驟。"
 }

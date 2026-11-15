@@ -8,6 +8,7 @@ import type { Decider } from "./decider/index.ts";
 import type { ChoiceQuestion } from "./decider/types.ts";
 import type { DecisionRow } from "./decision-log.ts";
 import { ownerOrAdmin, type RequestAuth } from "./request-auth.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import type { BotRecord, Store } from "./store.ts";
 
 export type PermissionGrant = PermissionGrantConfig;
@@ -73,10 +74,11 @@ export function createGrantHost(deps: GrantHostDeps) {
     /** Post the person's confirm card: the grant exists only once they tap Grant on it. */
     propose(input: { bot: BotRecord; threadId: string; text: string; expiresAt: number }) {
       const proposal = { id: randomUUID(), text: input.text, expiresAt: input.expiresAt };
+      const language = conversationLanguage(input.threadId);
       const message = store.appendMessage(input.threadId, {
         role: "bot",
         kind: "text",
-        text: `Let me ${input.text} until ${new Date(input.expiresAt).toLocaleString("en")}?`,
+        text: serverLine(language, "server.grants.propose", { action: input.text, until: new Date(input.expiresAt).toLocaleString(language || "en") }),
         grantProposal: proposal,
       });
       return { proposal, message };
@@ -95,14 +97,15 @@ export function createGrantHost(deps: GrantHostDeps) {
       const answer = input.answer;
       store.patchMessage(input.threadId, input.messageId, { grantProposal: { ...proposal, answer } });
       if (answer === "refused") {
-        store.appendMessage(input.threadId, { role: "bot", kind: "activity", tool: { name: `Refused the temporary permission: ${proposal.text}`, ok: false } });
+        store.appendMessage(input.threadId, { role: "bot", kind: "activity", tool: { name: serverLine(conversationLanguage(input.threadId), "server.grants.refused", { action: proposal.text }), ok: false } });
         return "refused";
       }
       const grants = activeGrants(deps.cfg(), deps.now()).concat({ id: proposal.id, text: proposal.text, expiresAt: proposal.expiresAt, createdAt: deps.now() }).slice(-GRANT_MAX_ACTIVE);
       deps.save({ grants });
       const bot = store.botByThread(input.threadId);
+      const language = conversationLanguage(input.threadId);
       store.appendMessage(input.threadId, { role: "bot", kind: "activity", tool: {
-        name: `Granted until ${new Date(proposal.expiresAt).toLocaleString("en")}: ${proposal.text}`, ok: true,
+        name: serverLine(language, "server.grants.granted", { until: new Date(proposal.expiresAt).toLocaleString(language || "en"), action: proposal.text }), ok: true,
       } });
       deps.decide({
         threadId: input.threadId,

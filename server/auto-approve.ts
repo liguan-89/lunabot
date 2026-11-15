@@ -7,6 +7,7 @@ import { supportsApprovalMode, type ApprovalMode } from "../shared/approval-mode
 import { failedTurnTool, type FailedTurnTool } from "../shared/failed-turn.ts";
 import { isOutboundTool } from "../shared/outbound.ts";
 import type { ProviderAdapter, RequestOutcome } from "./contracts.ts";
+import { serverLine } from "./server-lines.ts";
 
 /** An expired ask must never become a fresh Allow/Deny card. */
 export async function deliverFullAccessApproval(
@@ -121,16 +122,18 @@ export function autoVerdict(
   return { approve: null, source: "no-grant" };
 }
 
-/** `unavailable` and `allowed-once` have no transcript row, so callers do not ask for one. */
+/** `unavailable` and `allowed-once` have no transcript row, so callers do not ask for one. `language` is the language of
+ * the person who reads the row (server-lines.ts); it defaults to English for callers without a conversation. */
 export function undeliveredApprovalTool(
   outcome: Exclude<RequestOutcome, "allowed-once" | "unavailable"> | "failed",
   source: AutoVerdictSource | "temporary-grant",
+  language?: string,
 ): FailedTurnTool | { name: string; ok: false } {
-  if (outcome !== "rejected") return failedTurnTool("could not deliver approval to the provider; retry the task after reconnecting.");
-  const grant = source === "command-allowlist" ? "the saved command permission"
-    : source === "tool-allowlist" ? "the saved tool permission"
-      : source === "temporary-grant" ? "the temporary permission" : "Full access";
-  return { name: `The provider rejected this action despite ${grant}.`, ok: false };
+  if (outcome !== "rejected") return failedTurnTool(serverLine(language, "server.approval.undelivered"));
+  const rejected = source === "command-allowlist" ? "server.approval.rejectedCommandPermission"
+    : source === "tool-allowlist" ? "server.approval.rejectedToolPermission"
+      : source === "temporary-grant" ? "server.approval.rejectedTemporaryPermission" : "server.approval.rejectedFullAccess";
+  return { name: serverLine(language, rejected), ok: false };
 }
 
 /** The client translates by key and falls back to this text, which the server keeps sending for older cards. */
