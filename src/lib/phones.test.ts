@@ -15,11 +15,12 @@ function phone(name: string, capabilities: PublicPhone["registration"]["capabili
 }
 
 describe("phone apps card decisions", () => {
-  it("lists six app rows plus the screen row, which starts off when no phone is registered", () => {
+  it("lists six app rows plus the screen and data rows, which start off when no phone is registered", () => {
     const rows = phoneAppRows({}, []);
-    expect(rows.map((r) => r.cap)).toEqual(["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi"]);
+    expect(rows.map((r) => r.cap)).toEqual(["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi", "phoneData"]);
     expect(rows.slice(0, 6).every((r) => !r.onPhone && r.grant === "write")).toBe(true);
     expect(rows[6]).toEqual({ cap: "phoneUi", grant: null, onPhone: false });
+    expect(rows[7]).toEqual({ cap: "phoneData", grant: null, onPhone: false });
     expect(phoneAppRows({ phoneApps: {} }, []).every((r) => r.grant === null)).toBe(true);
   });
 
@@ -28,10 +29,12 @@ describe("phone apps card decisions", () => {
     expect(Object.keys(effectivePhoneApps({}))).toHaveLength(6);
     expect(effectivePhoneApps({}).home).toBe("write");
     expect(effectivePhoneApps({}).phoneUi).toBeUndefined();
+    expect(effectivePhoneApps({}).phoneData).toBeUndefined();
     expect(effectivePhoneApps(chief)).toEqual(effectivePhoneApps({}));
     expect(effectivePhoneApps({ phoneApps: {} })).toEqual({});
     expect(effectivePhoneApps({ phoneApps: { calendar: "read" } })).toEqual({ calendar: "read" });
     expect(effectivePhoneApps({ phoneApps: { phoneUi: "write" } })).toEqual({ phoneUi: "write" });
+    expect(effectivePhoneApps({ phoneApps: { phoneData: "read" } })).toEqual({ phoneData: "read" });
   });
 
   it("flags rows the phone allows", () => {

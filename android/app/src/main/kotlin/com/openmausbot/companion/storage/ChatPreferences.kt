@@ -174,6 +174,20 @@ class ChatPreferences(
     }
 
     /**
+     * Whether bots may list recent notifications. Separate from the SMS relay
+     * switch: both ride the same system notification access, but this one is
+     * the bot reading every app's notifications, not texts being forwarded.
+     */
+    private val _phoneNotices = MutableStateFlow(prefs.getBoolean(PHONE_NOTICES, false))
+    val phoneNotices: StateFlow<Boolean> = _phoneNotices.asStateFlow()
+
+    fun setPhoneNotices(enabled: Boolean) {
+        if (_phoneNotices.value == enabled && prefs.contains(PHONE_NOTICES)) return
+        prefs.edit { putBoolean(PHONE_NOTICES, enabled) }
+        _phoneNotices.value = enabled
+    }
+
+    /**
      * Whether the notification-listener relay may run: RCS/5G messages never
      * fire SMS_RECEIVED, so the messaging app's own notification is the only
      * readable signal. The system grant is asked for separately; this pref is
@@ -265,6 +279,7 @@ class ChatPreferences(
         private const val PHONE_UI = "companion.prefs.phone.ui"
         private const val PHONE_FILES = "companion.prefs.phone.files"
         private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
+        private const val PHONE_NOTICES = "companion.prefs.phone.notices"
         private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 

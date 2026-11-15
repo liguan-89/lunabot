@@ -64,6 +64,7 @@ export const CHAT_NOTICE = {
   "chat.notice.phone.denied.home": "Home is not allowed on the phone",
   "chat.notice.phone.denied.messages": "Messages is not allowed on the phone",
   "chat.notice.phone.denied.phoneUi": "Phone UI is not allowed on the phone",
+  "chat.notice.phone.denied.phoneData": "Files and notifications are not allowed on the phone",
   "chat.notice.phone.write.PHONE_CREATE_EVENT": "Create event on {phone}",
   "chat.notice.phone.write.PHONE_UPDATE_EVENT": "Update event on {phone}",
   "chat.notice.phone.write.PHONE_DELETE_EVENT": "Delete event on {phone}",

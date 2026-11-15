@@ -140,6 +140,7 @@ fun SettingsScreen(
     val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
     val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
+    val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
     val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -830,6 +831,24 @@ fun SettingsScreen(
                             )
                         }
                     }
+                    SettingsDivider()
+                    // The same system notification access the SMS relay uses,
+                    // but this switch is the bot reading every app's posts.
+                    SettingsSwitchRow(
+                        title = "允许机器人读取最近通知",
+                        checked = phoneNotices,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneNotices(enabled)
+                            if (enabled && !notificationListenerGranted(phoneToolsContext)) {
+                                runCatching {
+                                    phoneToolsContext.startActivity(
+                                        Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }
+                            }
+                        },
+                    )
                     if (phoneUiStatus == PhoneUiStatus.Ready) {
                         SettingsDivider()
                         SettingsRow(

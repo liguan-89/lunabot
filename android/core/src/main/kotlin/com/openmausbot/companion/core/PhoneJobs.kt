@@ -113,9 +113,9 @@ enum class PhoneTool(
     UI_OCR("PHONE_UI_OCR", "phoneUi", false),
     CLIPBOARD_GET("PHONE_CLIPBOARD_GET", "phoneUi", false),
     CLIPBOARD_SET("PHONE_CLIPBOARD_SET", "phoneUi", true),
-    NOTIF_LIST("PHONE_NOTIF_LIST", "phoneUi", false),
-    FILE_LIST("PHONE_FILE_LIST", "phoneUi", false),
-    FILE_READ("PHONE_FILE_READ", "phoneUi", false),
+    NOTIF_LIST("PHONE_NOTIF_LIST", "phoneData", false),
+    FILE_LIST("PHONE_FILE_LIST", "phoneData", false),
+    FILE_READ("PHONE_FILE_READ", "phoneData", false),
     ;
 
     companion object {
@@ -170,9 +170,9 @@ object PhoneToolCatalog {
         "PHONE_UI_OCR" to "phoneUi",
         "PHONE_CLIPBOARD_GET" to "phoneUi",
         "PHONE_CLIPBOARD_SET" to "phoneUi",
-        "PHONE_NOTIF_LIST" to "phoneUi",
-        "PHONE_FILE_LIST" to "phoneUi",
-        "PHONE_FILE_READ" to "phoneUi",
+        "PHONE_NOTIF_LIST" to "phoneData",
+        "PHONE_FILE_LIST" to "phoneData",
+        "PHONE_FILE_READ" to "phoneData",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]
@@ -193,6 +193,8 @@ object PhoneToolCatalog {
         location: LocationAccess = LocationAccess.NONE,
         messages: Boolean = false,
         phoneUi: Boolean = false,
+        /** Files and notifications: reads that need no shell helper, only their own grants. */
+        phoneData: Boolean = false,
     ): Map<String, String> = buildMap {
         when (calendar) {
             CalendarAccess.NONE -> Unit
@@ -218,6 +220,9 @@ object PhoneToolCatalog {
         // UI automation is a separate, explicit Settings grant and requires a
         // shell helper paired through Android Wireless debugging.
         if (phoneUi) put("phoneUi", "full")
+        // File and notification reads stand on their own grants: no helper, no
+        // screen, so they stay available while the UI slice is disconnected.
+        if (phoneData) put("phoneData", "full")
     }
 }
 

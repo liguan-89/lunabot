@@ -11,6 +11,7 @@ import com.openmausbot.companion.core.PhoneTool
 import com.openmausbot.companion.phone.PhoneFileStore
 import com.openmausbot.companion.phone.PhoneNoticeStore
 import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.phoneui.shell.PhoneUiPolicy
 import com.openmausbot.companion.phoneui.shell.PhoneUiShell
 import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
@@ -309,6 +310,9 @@ internal class PhoneUiTaskExecutor(context: Context) {
      * missing grant can never look like "nothing arrived".
      */
     private fun noticeList(arguments: JsonObject): PhoneToolOutcome {
+        if (!ChatPreferences(appContext).phoneNotices.value) {
+            return PhoneToolOutcome.Failure("机器人读取通知还没有开启。请在设置的「手机界面」里打开。", CODE_DENIED)
+        }
         val enabled = runCatching {
             NotificationManagerCompat.getEnabledListenerPackages(appContext).contains(appContext.packageName)
         }.getOrDefault(false)

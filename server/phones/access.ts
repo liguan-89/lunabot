@@ -28,11 +28,12 @@ export interface PhoneDecisionRow {
 
 export type PhoneAccess = { ok: true; rows: PhoneDecisionRow[] } | { ok: false; text: string; rows: PhoneDecisionRow[] };
 
-/** calendar → "Calendar", phoneUi → "Phone UI". */
-export const capName = (cap: PhoneCapability) => (cap === "phoneUi" ? "Phone UI" : cap[0]!.toUpperCase() + cap.slice(1));
+/** calendar → "Calendar", phoneUi → "Phone UI", phoneData → "Files & notifications". */
+export const capName = (cap: PhoneCapability) =>
+  cap === "phoneUi" ? "Phone UI" : cap === "phoneData" ? "Files & notifications" : cap[0]!.toUpperCase() + cap.slice(1);
 
-/** The app's name in a scope refusal: "Phone Calendar"; the screen capability is already "Phone UI". */
-const phoneAppName = (cap: PhoneCapability) => (cap === "phoneUi" ? capName(cap) : `Phone ${capName(cap)}`);
+/** The app's name in a scope refusal: "Phone Calendar"; the screen and data capabilities are already "Phone …". */
+const phoneAppName = (cap: PhoneCapability) => (cap === "phoneUi" || cap === "phoneData" ? capName(cap) : `Phone ${capName(cap)}`);
 
 /** PHONE_CREATE_EVENT → "Create event". */
 export function describeAction(name: string): string {

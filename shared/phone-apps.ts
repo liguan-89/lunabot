@@ -2,14 +2,16 @@
 // per-bot grants, and the PHONE_* tool names served by the `device` MCP server.
 import { isReadOnlyAction } from "./connector-scopes.ts";
 
-export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi"] as const;
+export const PHONE_CAPABILITIES = ["calendar", "reminders", "contacts", "location", "home", "messages", "phoneUi", "phoneData"] as const;
 export type PhoneCapability = (typeof PHONE_CAPABILITIES)[number];
 export type PhoneGrant = "read" | "write";
 /** Per-bot grant; an absent key is off. */
 export type PhoneApps = Partial<Record<PhoneCapability, PhoneGrant>>;
 /** The apps every bot could use before the screen tools existed: a bot with no phoneApps grant keeps getting only these,
- * never phoneUi. */
-export const DEFAULT_PHONE_CAPABILITIES = PHONE_CAPABILITIES.filter((cap) => cap !== "phoneUi") as readonly Exclude<PhoneCapability, "phoneUi">[];
+ * never phoneUi or phoneData. */
+export const DEFAULT_PHONE_CAPABILITIES = PHONE_CAPABILITIES.filter(
+  (cap) => cap !== "phoneUi" && cap !== "phoneData",
+) as readonly Exclude<PhoneCapability, "phoneUi" | "phoneData">[];
 
 export const PHONE_SLUG = "phone";
 export const PHONE_MCP_SERVER = "device";
@@ -42,8 +44,8 @@ const TOOL_CAPABILITY: Record<PhoneToolName, PhoneCapability> = {
   PHONE_UI_TAP_AT: "phoneUi", PHONE_UI_TYPE: "phoneUi", PHONE_UI_SCROLL: "phoneUi", PHONE_UI_SWIPE: "phoneUi",
   PHONE_UI_KEY: "phoneUi", PHONE_UI_BACK: "phoneUi", PHONE_UI_WAIT: "phoneUi",
   PHONE_UI_SCREENSHOT: "phoneUi", PHONE_UI_OCR: "phoneUi",
-  PHONE_CLIPBOARD_GET: "phoneUi", PHONE_CLIPBOARD_SET: "phoneUi", PHONE_NOTIF_LIST: "phoneUi",
-  PHONE_FILE_LIST: "phoneUi", PHONE_FILE_READ: "phoneUi",
+  PHONE_CLIPBOARD_GET: "phoneUi", PHONE_CLIPBOARD_SET: "phoneUi", PHONE_NOTIF_LIST: "phoneData",
+  PHONE_FILE_LIST: "phoneData", PHONE_FILE_READ: "phoneData",
 };
 
 export function isPhoneToolName(name: unknown): name is PhoneToolName {

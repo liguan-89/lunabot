@@ -3,6 +3,7 @@ package com.openmausbot.companion.phone
 import android.content.Context
 import android.os.Build
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.openmausbot.companion.core.PhoneRegistration
 import com.openmausbot.companion.core.PhoneTool
@@ -58,6 +59,14 @@ internal class PhoneJobRunner(
     private val reminderAlarms = ReminderAlarms(context)
     private val reminders = PhoneReminders(reminderStore, reminderAlarms)
     private val phoneUiExecutor = PhoneUiTaskExecutor(context)
+    private val fileStore = PhoneFileStore(context)
+
+    /** File and notification reads need no helper; each has its own system grant. */
+    private fun filesReadable(): Boolean = fileStore.photosGranted() || fileStore.treeUri() != null
+
+    private fun noticesReadable(): Boolean = runCatching {
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    }.getOrDefault(false)
 
     fun start() {
         scope.launch {
@@ -71,10 +80,16 @@ internal class PhoneJobRunner(
                 ) { calendar, contacts, reminders, location, messages ->
                     Switches(calendar, contacts, reminders, location, messages)
                 },
+                preferences.phoneFiles,
+                preferences.phoneNotices,
                 phoneUi.status,
                 PhoneUiAccessibilityService.instance,
-            ) { switches, phoneUiStatus, accessibilityService ->
-                switches.copy(phoneUi = phoneUiStatus == PhoneUiStatus.Ready && accessibilityService != null)
+            ) { switches, files, notices, phoneUiStatus, accessibilityService ->
+                switches.copy(
+                    phoneUi = phoneUiStatus == PhoneUiStatus.Ready && accessibilityService != null,
+                    files = files && filesReadable(),
+                    notices = notices && noticesReadable(),
+                )
             }
                 .distinctUntilChanged()
                 .collectLatest { switches ->
@@ -96,8 +111,13 @@ internal class PhoneJobRunner(
         val location: Boolean = false,
         val messages: Boolean = false,
         val phoneUi: Boolean = false,
+        val files: Boolean = false,
+        val notices: Boolean = false,
     ) {
-        val any: Boolean get() = calendar || contacts || reminders || location || messages || phoneUi
+        /** Files and notifications share one capability: read-only, no helper needed. */
+        val phoneData: Boolean get() = files || notices
+
+        val any: Boolean get() = calendar || contacts || reminders || location || messages || phoneUi || phoneData
     }
 
     private suspend fun runWhileEnabled(switches: Switches) {
@@ -107,7 +127,7 @@ internal class PhoneJobRunner(
         // Enabled in Settings but the Android grants were revoked (or never
         // given): nothing to register, and the screen explains each switch.
         if (!calendarAccess.canRead && !contactsAccess.canRead && !switches.reminders &&
-            !locationAccess.canRead && !switches.messages && !switches.phoneUi
+            !locationAccess.canRead && !switches.messages && !switches.phoneUi && !switches.phoneData
         ) {
             session.reportPhoneTools(
                 Session.PhoneToolsStatus.Failed("系统权限尚未授予，请在系统设置中允许日历、联系人或定位。"),
@@ -130,6 +150,7 @@ internal class PhoneJobRunner(
                 // neither relay inbound texts nor answer replies, so it claims nothing.
                 messages = switches.messages && messages.canRelay(),
                 phoneUi = switches.phoneUi,
+                phoneData = switches.files || switches.notices,
             ),
         )
         // Registration is retried instead of ending the run: the computer is
@@ -150,8 +171,11 @@ internal class PhoneJobRunner(
             val calendarNow = calendar.access()
             val contactsNow = contacts.access()
             val locationNow = location.access()
+            // File and notification grants can also be revoked outside the app.
+            val filesNow = switches.files && filesReadable()
+            val noticesNow = switches.notices && noticesReadable()
             if (!calendarNow.canRead && !contactsNow.canRead && !switches.reminders &&
-                !locationNow.canRead && !switches.messages && !switches.phoneUi
+                !locationNow.canRead && !switches.messages && !switches.phoneUi && !filesNow && !noticesNow
             ) {
                 // Every permission was revoked under us; don't offer apps we
                 // can no longer read.
@@ -170,6 +194,7 @@ internal class PhoneJobRunner(
                 location = locationNow,
                 messages = switches.messages && messages.canRelay(),
                 phoneUi = switches.phoneUi,
+                phoneData = filesNow || noticesNow,
             )
             if (current != claimed && session.registerPhone(registration.copy(capabilities = current)) == null) {
                 claimed = current

@@ -86,6 +86,21 @@ async function answerNext(jobs: PhoneJobs, key: string, answer: (job: PhoneJobDe
 }
 
 describe("phone MCP host", () => {
+  it("files and notifications ride their own capability, never the screen", async () => {
+    const files = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    files.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
+    expect(((await files.handle({ method: "tools/list" }) as PhoneToolsList).tools.map((tool) => tool.name)))
+      .toEqual(["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ"]);
+    // A screen grant does not reach into files, and a file grant does not reach the screen.
+    const screenOnly = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneUi: "read" } }) });
+    screenOnly.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
+    expect(((await screenOnly.handle({ method: "tools/list" }) as PhoneToolsList).tools.map((tool) => tool.name)))
+      .not.toContain("PHONE_FILE_LIST");
+    const phoneScreen = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    phoneScreen.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    expect(((await phoneScreen.handle({ method: "tools/list" }) as PhoneToolsList).tools)).toEqual([]);
+  });
+
   it("tools/list shows what the bot may run on the paired phone", async () => {
     const h = harness();
     h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { calendar: "full" }));
@@ -319,7 +334,7 @@ describe("phone MCP host", () => {
     driver.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
     const driverRequest = vi.spyOn(driver.jobs, "request");
     const listed = await driver.handle({ method: "tools/list" }) as PhoneToolsList;
-    expect(listed.tools.map((tool) => tool.name)).toEqual(["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ"]);
+    expect(listed.tools.map((tool) => tool.name)).toEqual(["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET"]);
     const tap = driver.handle(call("PHONE_UI_TAP", { ref: "e1" }));
     const job = await answerNext(driver.jobs, IPHONE, () => ({ ok: true, result: { screen: "Home" } }));
     expect(job).toMatchObject({ tool: "PHONE_UI_TAP", arguments: { ref: "e1" } });
