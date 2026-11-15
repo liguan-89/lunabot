@@ -137,7 +137,7 @@ export function visibleSidebarThreads<T extends ThreadRowTask>(tasks: T[], activ
   const newestRun = new Map<string, Pick<RoutineRun, "routineId" | "createdAt">>();
   for (const task of tasks) {
     const run = runOf.get(task.threadId);
-    if (!run || task.pinned === true || task.openedBy?.burstId || isArchived(task)) continue;
+    if (!run || task.pinned === true || isArchived(task)) continue;
     if ((task.closedBy || isSnoozed(task)) && !demandsAttention(task, activeId)) continue;
     const seen = newestRun.get(run.routineId);
     if (!seen || run.createdAt > seen.createdAt) newestRun.set(run.routineId, run);
