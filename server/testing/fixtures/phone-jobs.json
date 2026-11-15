@@ -936,6 +936,37 @@
         }
       },
       {
+        "name": "PHONE_UI_TAP_AT",
+        "description": "Tap a pixel point on the phone's screen, for screens no element describes (an image, a canvas, a game). Coordinates use the controlled display's pixels, the same system as element bounds and OCR line boxes.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "Horizontal pixel position."
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "Vertical pixel position."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
         "name": "PHONE_UI_TYPE",
         "description": "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted. Fields that refuse direct text get plain-ASCII key events instead; other text is refused rather than typed as something else.",
         "inputSchema": {
@@ -1091,6 +1122,117 @@
               "minimum": 300,
               "maximum": 6000,
               "description": "Longest wait in milliseconds."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_SCREENSHOT",
+        "description": "Take a JPEG of the phone's screen, for anything the element list cannot describe. Also returns the elements of the same moment with their refs. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_OCR",
+        "description": "Recognize the text on the phone's screen and return it line by line with each line's box, for image or canvas screens the element list cannot describe. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "maxLines": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Longest list of lines to keep."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_CLIPBOARD_GET",
+        "description": "Read the phone's clipboard as plain text. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_CLIPBOARD_SET",
+        "description": "Replace the phone's clipboard with text, for pasting a long value into a field. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The text to place on the clipboard."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_NOTIF_LIST",
+        "description": "List the last notifications other apps posted on the phone, newest first. Answers only while the person has granted notification access. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "package": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Only this Android package's notifications."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "How many to return."
+            },
+            "sinceMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "description": "Only notifications from this many minutes ago."
             },
             "phone": {
               "type": "string",

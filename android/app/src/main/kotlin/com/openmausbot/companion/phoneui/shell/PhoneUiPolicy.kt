@@ -47,6 +47,17 @@ object PhoneUiPolicy {
     fun isTextAllowed(text: String): Boolean =
         text.length in 1..256 && text.all { it in ' '..'~' }
 
+    /**
+     * Text the helper may put on the system clipboard: up to [MAX_CLIPBOARD_CHARS],
+     * with no control characters other than newline and tab. Longer reads are
+     * cut by the caller, never by writing a truncated clip.
+     */
+    fun isClipboardTextAllowed(text: String): Boolean =
+        text.length in 1..MAX_CLIPBOARD_CHARS &&
+            text.all { it.code >= 32 || it == '\n' || it == '\t' }
+
+    const val MAX_CLIPBOARD_CHARS = 4_000
+
     // DisplayManager.VIRTUAL_DISPLAY_FLAG_*; several are hidden constants.
     private const val FLAG_PUBLIC = 1 shl 0
     private const val FLAG_OWN_CONTENT_ONLY = 1 shl 3

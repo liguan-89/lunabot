@@ -46,6 +46,12 @@ interface IPhoneUiShell {
     // Type printable ASCII into whichever field has focus on [displayId], by
     // synthesizing key events; refuses anything else.
     boolean typeText(int displayId, String text) = 13;
+    // The primary clipboard's plain text, bounded by the helper; null when the
+    // clip is not text or the system refuses the read.
+    String readClipboard() = 14;
+    // Replace the clipboard with plain text; refuses control characters and
+    // oversized input.
+    boolean writeClipboard(String text) = 15;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

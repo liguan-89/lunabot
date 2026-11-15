@@ -132,6 +132,11 @@ is the separately noted port; the automation loop was rewritten for this app's
 per-display accessibility reader and its own pairing controller, and is not a
 copy of Mika's coordinator.
 
+The Android app's screen text recognition (PhoneUiOcr) uses Google ML Kit's
+on-device text recognition library (com.google.mlkit:text-recognition-chinese),
+Copyright Google LLC, subject to the ML Kit Terms of Service; the bundled model
+runs on the device and only recognized text leaves it.
+
 The Android app's action stabilization, coordinate click retry, main-screen
 spill handling, system-picker detection, display keep-awake, key whitelist and
 typed-key fallback (PhoneUiStability, PhoneUiClickFallback, PhoneUiSpill,

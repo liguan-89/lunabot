@@ -232,7 +232,7 @@ describe("phone jobs", () => {
 
   it("no routine or background job may drive the phone's screen, though observing reads", async () => {
     const jobs = new PhoneJobs();
-    for (const tool of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK"]) {
+    for (const tool of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET"]) {
       const outcome = await jobs.request(KEY, tool, {}, turn({ background: true }));
       expect(outcome, tool).toEqual({ ok: false, code: "unsupported", error: "Background checks only read the phone." });
     }

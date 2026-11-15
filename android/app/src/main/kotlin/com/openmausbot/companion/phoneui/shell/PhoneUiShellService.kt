@@ -72,6 +72,9 @@ class PhoneUiShellService(
     /** Keeps every display that forms its own group from timing out. */
     private val awake = PhoneUiDisplayAwake()
 
+    /** Clipboard access as shell; reads skip the framework's Settings query. */
+    private val clipboard by lazy { ShellClipboard(context) }
+
     override fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
     } catch (t: Throwable) {
@@ -350,6 +353,18 @@ class PhoneUiShellService(
             Log.w(TAG, "typeText failed", t)
             false
         }
+    }
+
+    override fun readClipboard(): String? = try {
+        clipboard.primaryText()?.take(PhoneUiPolicy.MAX_CLIPBOARD_CHARS)
+    } catch (t: Throwable) {
+        Log.w(TAG, "readClipboard failed", t)
+        null
+    }
+
+    override fun writeClipboard(text: String): Boolean {
+        if (!PhoneUiPolicy.isClipboardTextAllowed(text)) return false
+        return clipboard.setText(text)
     }
 
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())

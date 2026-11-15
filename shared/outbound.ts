@@ -60,12 +60,20 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
   "PHONE_UI_OBSERVE",
   // Waiting changes nothing on the phone; it only lets the screen settle.
   "PHONE_UI_WAIT",
+  // A screenshot and its text recognition only read the screen.
+  "PHONE_UI_SCREENSHOT",
+  "PHONE_UI_OCR",
+  // Reading the clipboard only reads; writing it is a phone-wide side effect and asks first.
+  "PHONE_CLIPBOARD_GET",
+  // Listing recent notifications only reads what the person already let this app see.
+  "PHONE_NOTIF_LIST",
 ]);
 
 /** Driving the phone's screen reaches every app on it, so each control but observing and waiting sends something
  * somewhere and asks the person first, like any outbound call. */
 const PHONE_UI_WRITES: ReadonlySet<string> = new Set([
-  "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK",
+  "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
+  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET",
 ]);
 
 /** One of the phone-screen controls (never PHONE_UI_OBSERVE); accepts the MCP-shaped `mcp__device__…` name too. */

@@ -33,9 +33,34 @@ describe("phone tools", () => {
     expect(phoneToolCallProblem("PHONE_UI_WAIT", { mode: "change", timeoutMs: 1_000 })).toBeNull();
     expect(phoneToolCallProblem("PHONE_UI_WAIT", { mode: "forever" })).toMatch(/mode/);
     expect(phoneToolCallProblem("PHONE_UI_WAIT", { timeoutMs: 99_999 })).toMatch(/timeoutMs/);
+    expect(phoneToolCallProblem("PHONE_UI_TAP_AT", { x: 10, y: 20 })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_TAP_AT", { x: 10 })).toMatch(/y/);
+    expect(phoneToolCallProblem("PHONE_UI_TAP_AT", { x: -1, y: 0 })).toMatch(/x/);
+    expect(phoneToolCallProblem("PHONE_UI_SCREENSHOT", {})).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_OCR", { maxLines: 50 })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_OCR", { maxLines: 0 })).toMatch(/maxLines/);
+    expect(phoneToolCallProblem("PHONE_CLIPBOARD_GET", {})).toBeNull();
+    expect(phoneToolCallProblem("PHONE_CLIPBOARD_SET", { text: "hello" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_CLIPBOARD_SET", {})).toMatch(/text/);
+    expect(phoneToolCallProblem("PHONE_NOTIF_LIST", {})).toBeNull();
+    expect(phoneToolCallProblem("PHONE_NOTIF_LIST", { limit: 5, sinceMinutes: 30 })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_NOTIF_LIST", { limit: 99 })).toMatch(/limit/);
     expect(phoneToolCallProblem("PHONE_UI_BACK", {})).toBeNull();
     const observe = PHONE_TOOLS.find((t) => t.name === "PHONE_UI_OBSERVE")!;
     expect(JSON.stringify(observe.inputSchema)).not.toMatch(/screenshot/i);
+  });
+
+  it("a screenshot becomes an image block, not a base64 pile in the text", () => {
+    const ok = phoneOkResult(
+      { image: "QUJD", mimeType: "image/jpeg", width: 720, height: 1280 },
+      { name: "Omkar's iPhone", platform: "android" },
+    );
+    expect(ok.content[0]).toEqual({ type: "image", data: "QUJD", mimeType: "image/jpeg" });
+    expect(ok.structuredContent).toEqual({
+      mimeType: "image/jpeg", width: 720, height: 1280,
+      phone: { name: "Omkar's iPhone", platform: "android" }, imageBytes: 4,
+    });
+    expect(JSON.stringify(ok.structuredContent)).not.toContain("QUJD");
   });
 
   it("an answer's own phone key never relabels the phone it ran on", () => {

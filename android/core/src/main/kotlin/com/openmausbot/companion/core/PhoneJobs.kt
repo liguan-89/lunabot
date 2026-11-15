@@ -102,12 +102,18 @@ enum class PhoneTool(
     UI_OBSERVE("PHONE_UI_OBSERVE", "phoneUi", false),
     UI_LAUNCH("PHONE_UI_LAUNCH", "phoneUi", true),
     UI_TAP("PHONE_UI_TAP", "phoneUi", true),
+    UI_TAP_AT("PHONE_UI_TAP_AT", "phoneUi", true),
     UI_TYPE("PHONE_UI_TYPE", "phoneUi", true),
     UI_SCROLL("PHONE_UI_SCROLL", "phoneUi", true),
     UI_SWIPE("PHONE_UI_SWIPE", "phoneUi", true),
     UI_KEY("PHONE_UI_KEY", "phoneUi", true),
     UI_BACK("PHONE_UI_BACK", "phoneUi", true),
     UI_WAIT("PHONE_UI_WAIT", "phoneUi", false),
+    UI_SCREENSHOT("PHONE_UI_SCREENSHOT", "phoneUi", false),
+    UI_OCR("PHONE_UI_OCR", "phoneUi", false),
+    CLIPBOARD_GET("PHONE_CLIPBOARD_GET", "phoneUi", false),
+    CLIPBOARD_SET("PHONE_CLIPBOARD_SET", "phoneUi", true),
+    NOTIF_LIST("PHONE_NOTIF_LIST", "phoneUi", false),
     ;
 
     companion object {
@@ -151,12 +157,18 @@ object PhoneToolCatalog {
         "PHONE_UI_OBSERVE" to "phoneUi",
         "PHONE_UI_LAUNCH" to "phoneUi",
         "PHONE_UI_TAP" to "phoneUi",
+        "PHONE_UI_TAP_AT" to "phoneUi",
         "PHONE_UI_TYPE" to "phoneUi",
         "PHONE_UI_SCROLL" to "phoneUi",
         "PHONE_UI_SWIPE" to "phoneUi",
         "PHONE_UI_KEY" to "phoneUi",
         "PHONE_UI_BACK" to "phoneUi",
         "PHONE_UI_WAIT" to "phoneUi",
+        "PHONE_UI_SCREENSHOT" to "phoneUi",
+        "PHONE_UI_OCR" to "phoneUi",
+        "PHONE_CLIPBOARD_GET" to "phoneUi",
+        "PHONE_CLIPBOARD_SET" to "phoneUi",
+        "PHONE_NOTIF_LIST" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

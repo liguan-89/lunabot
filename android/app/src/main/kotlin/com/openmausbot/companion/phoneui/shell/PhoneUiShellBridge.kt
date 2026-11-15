@@ -153,4 +153,8 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
 
     /** Move a root task to one of our displays or the main display. */
     fun moveTask(taskId: Int, displayId: Int): Boolean = aidl.moveTask(taskId, displayId)
+
+    fun readClipboard(): String? = aidl.readClipboard()
+
+    fun writeClipboard(text: String): Boolean = aidl.writeClipboard(text)
 }

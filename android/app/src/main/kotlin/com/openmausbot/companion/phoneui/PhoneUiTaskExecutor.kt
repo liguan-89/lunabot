@@ -1,13 +1,19 @@
 package com.openmausbot.companion.phoneui
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Bundle
+import android.util.Base64
 import android.view.accessibility.AccessibilityNodeInfo
+import androidx.core.app.NotificationManagerCompat
 import com.openmausbot.companion.core.PhoneTool
+import com.openmausbot.companion.phone.PhoneNoticeStore
 import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.openmausbot.companion.phoneui.shell.PhoneUiPolicy
 import com.openmausbot.companion.phoneui.shell.PhoneUiShell
 import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
+import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -31,8 +37,10 @@ import kotlinx.serialization.json.put
  * dispatching on `tool.wire`; unknown wires answer `unsupported`. Every call
  * fails closed unless the helper is attached, the accessibility service is
  * connected and the helper could create its own display — there is no
- * fallback to the phone's primary display for input, no shell/ADB/network
- * access and no screen capture anywhere in this slice.
+ * fallback to the phone's primary display for input and no shell/ADB/network
+ * access. Pixels leave this slice only through PHONE_UI_SCREENSHOT (a JPEG of
+ * the helper's own display) and PHONE_UI_OCR (recognized text, never the
+ * frame), and only when a bot asks for them.
  *
  * Every driving action follows the same shape: fingerprint the screen, run
  * the action, wait for the screen to actually change, then look at whether an
@@ -53,7 +61,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val pickerPackages: Set<String> by lazy { PhoneUiSystemPickers.resolve(packageManager) }
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
-    private enum class Action { OBSERVE, LAUNCH, TAP, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT }
+    private enum class Action { OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT, SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
     private class Step(val before: String) {
@@ -73,10 +81,16 @@ internal class PhoneUiTaskExecutor(context: Context) {
             when (action) {
                 Action.OBSERVE -> observe(shell, service, session)
                 Action.WAIT -> waitTool(shell, service, session, arguments)
+                Action.SCREENSHOT -> screenshot(shell, service, session)
+                Action.OCR -> ocr(session, arguments)
+                Action.CLIPBOARD_GET -> clipboardGet(shell)
+                Action.CLIPBOARD_SET -> clipboardSet(shell, arguments)
+                Action.NOTIF_LIST -> noticeList(arguments)
                 else -> write(shell, service, session) { step ->
                     when (action) {
                         Action.LAUNCH -> launch(shell, arguments, session, step)
                         Action.TAP -> tap(shell, service, session, arguments, step)
+                        Action.TAP_AT -> tapAt(shell, service, session, arguments, step)
                         Action.TYPE -> type(shell, service, session, arguments, step)
                         Action.SCROLL -> scroll(shell, service, session, arguments, step)
                         Action.SWIPE -> swipeTool(shell, service, session, arguments, step)
@@ -108,12 +122,18 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_UI_OBSERVE" -> Action.OBSERVE
         "PHONE_UI_LAUNCH" -> Action.LAUNCH
         "PHONE_UI_TAP" -> Action.TAP
+        "PHONE_UI_TAP_AT" -> Action.TAP_AT
         "PHONE_UI_TYPE" -> Action.TYPE
         "PHONE_UI_SCROLL" -> Action.SCROLL
         "PHONE_UI_SWIPE" -> Action.SWIPE
         "PHONE_UI_KEY" -> Action.KEY
         "PHONE_UI_BACK" -> Action.BACK
         "PHONE_UI_WAIT" -> Action.WAIT
+        "PHONE_UI_SCREENSHOT" -> Action.SCREENSHOT
+        "PHONE_UI_OCR" -> Action.OCR
+        "PHONE_CLIPBOARD_GET" -> Action.CLIPBOARD_GET
+        "PHONE_CLIPBOARD_SET" -> Action.CLIPBOARD_SET
+        "PHONE_NOTIF_LIST" -> Action.NOTIF_LIST
         else -> null
     }
 
@@ -138,6 +158,166 @@ internal class PhoneUiTaskExecutor(context: Context) {
             lastUsedAtMs = now
             return created
         }
+    }
+
+    // MARK: - Screen reading
+
+    /**
+     * A JPEG of the helper display's newest frame plus the accessibility
+     * snapshot of the same moment, so a bot can tie what it sees to refs.
+     * Read only: taking a picture changes nothing on the phone.
+     */
+    private suspend fun screenshot(shell: PhoneUiShell, service: PhoneUiAccessibilityService, session: PhoneUiDisplaySession): PhoneToolOutcome {
+        val frame = session.capture()
+            ?: return PhoneToolOutcome.Failure("受控显示器暂时没有画面，请稍后再试。", "no_frame")
+        val scaled = scaleDown(frame, MAX_IMAGE_DIMENSION)
+        try {
+            val bytes = ByteArrayOutputStream().also {
+                scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, it)
+            }.toByteArray()
+            if (bytes.size > MAX_IMAGE_BYTES) {
+                return PhoneToolOutcome.Failure("这一帧太大，暂时没有发送。", "image_too_large")
+            }
+            val snapshot = service.snapshot(session.displayId)
+            val top = runCatching { shell.topPackage(session.displayId) }.getOrNull()
+            return PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("image", Base64.encodeToString(bytes, Base64.NO_WRAP))
+                    put("mimeType", "image/jpeg")
+                    put("width", scaled.width)
+                    put("height", scaled.height)
+                    put("scale", scaled.width.toFloat() / session.width)
+                    top?.let { put("topPackage", it) }
+                    if (snapshot != null) {
+                        put("snapshot", snapshot.id)
+                        put("elements", JsonArray(snapshot.elements.map(::elementJson)))
+                    }
+                },
+            )
+        } finally {
+            if (scaled !== frame) scaled.recycle()
+            frame.recycle()
+        }
+    }
+
+    /**
+     * Text recognized on the newest frame, with each line's box in display
+     * pixels. For screens whose accessibility tree says nothing: image tabs,
+     * canvas-drawn UI, games.
+     */
+    private suspend fun ocr(session: PhoneUiDisplaySession, arguments: JsonObject): PhoneToolOutcome {
+        val maxLines = (arguments.int("maxLines") ?: 120).coerceIn(1, 200)
+        val frame = session.capture()
+            ?: return PhoneToolOutcome.Failure("受控显示器暂时没有画面，请稍后再试。", "no_frame")
+        return try {
+            val lines = PhoneUiOcr.read(frame, maxLines = maxLines)
+            PhoneToolOutcome.Success(
+                buildJsonObject {
+                    put("count", lines.size)
+                    put(
+                        "lines",
+                        JsonArray(
+                            lines.map { line ->
+                                buildJsonObject {
+                                    put("text", line.text)
+                                    if (line.bounds.size == 4) {
+                                        put("bounds", JsonArray(line.bounds.map { JsonPrimitive(it) }))
+                                    }
+                                }
+                            },
+                        ),
+                    )
+                },
+            )
+        } catch (error: Throwable) {
+            PhoneToolOutcome.Failure("文字识别失败：${error.message ?: "未知错误"}", "ocr_failed")
+        } finally {
+            frame.recycle()
+        }
+    }
+
+    private fun scaleDown(source: Bitmap, maxDimension: Int): Bitmap {
+        val longest = maxOf(source.width, source.height)
+        if (longest <= maxDimension) return source
+        val ratio = maxDimension.toFloat() / longest
+        return Bitmap.createScaledBitmap(
+            source,
+            (source.width * ratio).toInt().coerceAtLeast(1),
+            (source.height * ratio).toInt().coerceAtLeast(1),
+            true,
+        )
+    }
+
+    /** The clipboard's plain text; anything that is not text reports as no text rather than as a failure. */
+    private fun clipboardGet(shell: PhoneUiShell): PhoneToolOutcome {
+        val text = runCatching { shell.readClipboard() }.getOrNull()
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                if (text == null) {
+                    put("hasText", false)
+                } else {
+                    put("hasText", true)
+                    put("text", text)
+                }
+            },
+        )
+    }
+
+    private fun clipboardSet(shell: PhoneUiShell, arguments: JsonObject): PhoneToolOutcome {
+        val text = arguments.string("text")
+            ?: return PhoneToolOutcome.Failure("缺少参数 text。", CODE_UNSUPPORTED)
+        if (text.isEmpty()) return PhoneToolOutcome.Failure("不能写入空文本。", CODE_UNSUPPORTED)
+        if (text.length > PhoneUiPolicy.MAX_CLIPBOARD_CHARS) {
+            return PhoneToolOutcome.Failure("剪贴板文本最长 ${PhoneUiPolicy.MAX_CLIPBOARD_CHARS} 字符。", CODE_UNSUPPORTED)
+        }
+        if (!runCatching { shell.writeClipboard(text) }.getOrDefault(false)) {
+            return PhoneToolOutcome.Failure("写入剪贴板失败。", CODE_DENIED)
+        }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("written", true)
+                put("length", text.length)
+            },
+        )
+    }
+
+    /**
+     * The last notifications other apps posted, newest first. Refuses to
+     * answer while the person has not granted notification access, so a
+     * missing grant can never look like "nothing arrived".
+     */
+    private fun noticeList(arguments: JsonObject): PhoneToolOutcome {
+        val enabled = runCatching {
+            NotificationManagerCompat.getEnabledListenerPackages(appContext).contains(appContext.packageName)
+        }.getOrDefault(false)
+        if (!enabled) {
+            return PhoneToolOutcome.Failure(
+                "通知读取还没有授权。请在系统设置的通知使用权里允许 DEX BOT。",
+                CODE_DENIED,
+            )
+        }
+        val limit = (arguments.int("limit") ?: 10).coerceIn(1, 20)
+        val sinceMinutes = arguments.int("sinceMinutes")?.coerceIn(1, 1_440)
+        val since = sinceMinutes?.let { System.currentTimeMillis() - it * 60_000L } ?: 0L
+        val notices = PhoneNoticeStore.recent(arguments.string("package"), since, limit)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("count", notices.size)
+                put(
+                    "notifications",
+                    JsonArray(
+                        notices.map { notice ->
+                            buildJsonObject {
+                                put("package", notice.packageName)
+                                notice.title?.let { put("title", it) }
+                                notice.text?.let { put("text", it) }
+                                put("postedAt", notice.postedAt)
+                            }
+                        },
+                    ),
+                )
+            },
+        )
     }
 
     // MARK: - The shape every driving action shares
@@ -306,6 +486,31 @@ internal class PhoneUiTaskExecutor(context: Context) {
             delay(PhoneUiRules.LAUNCH_POLL_INTERVAL_MS)
         }
         return PhoneToolOutcome.Failure("应用没有在受控显示器上出现在前台。", "timeout")
+    }
+
+    private suspend fun tapAt(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        val x = arguments.int("x") ?: return PhoneToolOutcome.Failure("缺少参数 x。", CODE_UNSUPPORTED)
+        val y = arguments.int("y") ?: return PhoneToolOutcome.Failure("缺少参数 y。", CODE_UNSUPPORTED)
+        if (x !in 0 until session.width || y !in 0 until session.height) {
+            return PhoneToolOutcome.Failure("坐标超出受控屏幕（${session.width}x${session.height}）。", CODE_UNSUPPORTED)
+        }
+        if (!runCatching { shell.injectTap(session.displayId, x, y) }.getOrDefault(false)) {
+            return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
+        }
+        step.changed = awaitChange(service, session, step.before)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("tapped", true)
+                put("x", x)
+                put("y", y)
+            },
+        )
     }
 
     /**
@@ -732,6 +937,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
         const val GESTURE_TRAVEL = 0.3f
         const val GESTURE_POINTS = 8
         const val GESTURE_MS = 280L
+
+        /** Screenshots are scaled to this longest side and JPEG-compressed below [MAX_IMAGE_BYTES]. */
+        const val MAX_IMAGE_DIMENSION = 1024
+        const val JPEG_QUALITY = 75
+        const val MAX_IMAGE_BYTES = 1_500_000
 
         const val CODE_DENIED = "denied"
         const val CODE_UNSUPPORTED = "unsupported"

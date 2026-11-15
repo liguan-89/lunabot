@@ -56,12 +56,18 @@ const tools: PhoneTool[] = [
   tool("PHONE_UI_OBSERVE", "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe before a step; every driving action also returns the screen as it is afterwards, so read that instead of observing again. Never guess a ref.", {}),
   tool("PHONE_UI_LAUNCH", "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.", { app: TEXT(200, "The Android app's package name.") }, ["app"]),
   tool("PHONE_UI_TAP", "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.", { ref: REF }, ["ref"]),
+  tool("PHONE_UI_TAP_AT", "Tap a pixel point on the phone's screen, for screens no element describes (an image, a canvas, a game). Coordinates use the controlled display's pixels, the same system as element bounds and OCR line boxes.", { x: { type: "integer", minimum: 0, maximum: 10000, description: "Horizontal pixel position." }, y: { type: "integer", minimum: 0, maximum: 10000, description: "Vertical pixel position." } }, ["x", "y"]),
   tool("PHONE_UI_TYPE", "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted. Fields that refuse direct text get plain-ASCII key events instead; other text is refused rather than typed as something else.", { text: { type: "string", minLength: 1, maxLength: 2000, description: "What to type, submitted as it is." }, ref: REF }, ["text", "ref"]),
   tool("PHONE_UI_SCROLL", "Scroll the phone's current screen, or the element named by ref, one step up or down. Falls back to a real swipe when the list ignores the scroll action.", { direction: { type: "string", enum: ["up", "down"], description: "Where the content moves." }, ref: REF }, ["direction"]),
   tool("PHONE_UI_SWIPE", "Swipe one finger across the phone's whole screen, for screens that ignore a scroll action: carousels, sheets, short-video feeds. The finger travels in `direction`, so swiping up scrolls the content down.", { direction: { type: "string", enum: ["up", "down", "left", "right"], description: "Where the finger moves." } }, ["direction"]),
   tool("PHONE_UI_KEY", "Press one navigation key on the phone, such as enter to submit a search or del to clear a field.", { key: { type: "string", enum: ["back", "enter", "del", "tab", "up", "down", "left", "right"], description: "Which key." } }, ["key"]),
   tool("PHONE_UI_BACK", "Go back one screen on the phone.", {}),
   tool("PHONE_UI_WAIT", "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.", { mode: { type: "string", enum: ["change", "settle"], description: "change waits for any change; settle waits for the screen to stop." }, timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds." } }),
+  tool("PHONE_UI_SCREENSHOT", "Take a JPEG of the phone's screen, for anything the element list cannot describe. Also returns the elements of the same moment with their refs. Read only.", {}),
+  tool("PHONE_UI_OCR", "Recognize the text on the phone's screen and return it line by line with each line's box, for image or canvas screens the element list cannot describe. Read only.", { maxLines: { type: "integer", minimum: 1, maximum: 200, description: "Longest list of lines to keep." } }),
+  tool("PHONE_CLIPBOARD_GET", "Read the phone's clipboard as plain text. Read only.", {}),
+  tool("PHONE_CLIPBOARD_SET", "Replace the phone's clipboard with text, for pasting a long value into a field. Asks the person first.", { text: { type: "string", minLength: 1, maxLength: 4000, description: "The text to place on the clipboard." } }, ["text"]),
+  tool("PHONE_NOTIF_LIST", "List the last notifications other apps posted on the phone, newest first. Answers only while the person has granted notification access. Read only.", { package: TEXT(200, "Only this Android package's notifications."), limit: { type: "integer", minimum: 1, maximum: 20, description: "How many to return." }, sinceMinutes: { type: "integer", minimum: 1, maximum: 1440, description: "Only notifications from this many minutes ago." } }),
 ];
 
 /** Catalog in PHONE_TOOL_NAMES order. */
@@ -80,7 +86,10 @@ export function phoneToolCallProblem(name: unknown, args: unknown): string | nul
 }
 
 export interface PhoneToolResult {
-  content: Array<{ type: "text"; text: string }>;
+  content: Array<
+    | { type: "text"; text: string }
+    | { type: "image"; data: string; mimeType: string }
+  >;
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
 }
@@ -89,8 +98,23 @@ export function phoneErrorResult(message: string, extra: Record<string, unknown>
   return { content: [{ type: "text", text: message }], structuredContent: { error: message, ...extra }, isError: true };
 }
 
+/** The phone's `image` (base64) becomes an MCP image block; the rest travels as text, so a reader that only
+ * understands text still gets the metadata. The phone last, so no key in the phone's answer can relabel where it ran. */
 export function phoneOkResult(result: unknown, phone: { name: string; platform: PhonePlatform }): PhoneToolResult {
-  // The phone last, so no key in the phone's answer can relabel where it ran.
   const body = result && typeof result === "object" && !Array.isArray(result) ? { ...(result as object), phone } : { phone, result };
-  return { content: [{ type: "text", text: JSON.stringify(body) }], structuredContent: body as Record<string, unknown> };
+  const record = body as Record<string, unknown>;
+  const image = typeof record.image === "string" && typeof record.mimeType === "string" && record.image.length > 0
+    ? { data: record.image, mimeType: record.mimeType }
+    : null;
+  if (!image) return { content: [{ type: "text", text: JSON.stringify(record) }], structuredContent: record };
+  const rest = { ...record };
+  delete rest.image;
+  const structured = { ...rest, imageBytes: image.data.length };
+  return {
+    content: [
+      { type: "image", data: image.data, mimeType: image.mimeType },
+      { type: "text", text: JSON.stringify(structured) },
+    ],
+    structuredContent: structured,
+  };
 }

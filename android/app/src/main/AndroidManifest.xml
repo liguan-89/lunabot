@@ -339,6 +339,21 @@
         </service>
 
         <!--
+          The same notification access, kept in this process for the bot's
+          list tool: the last few titles and texts other apps posted. Nothing
+          is relayed and nothing is persisted; the tool refuses to answer
+          while the access is off.
+        -->
+        <service
+            android:name=".phone.NoticeRelay"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!--
           Share sheet hand-off for exported transcripts. Not exported, no
           granted URI permissions by default: each share grants read access to
           one file for one Intent, and only for the receiving app.

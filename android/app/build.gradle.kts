@@ -267,6 +267,11 @@ dependencies {
     // 按需下载到 filesDir，见 speech/ModelManager。
     implementation("com.github.k2-fsa.sherpa-onnx:sherpa-onnx:1.13.5")
 
+    // On-device text recognition for screens the accessibility tree cannot
+    // describe. The bundled Chinese/Latin model ships in the APK, so it works
+    // without Google Play Services; only recognized text leaves the phone.
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
+
     // Chrome Custom Tabs, for the cloud desktop's noVNC viewer — the Android
     // counterpart of the SFSafariViewController iOS uses. A hardened browser
     // process with its own visible origin, cookie jar and WebSocket support,
