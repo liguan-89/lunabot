@@ -146,10 +146,6 @@ export function attachedFileLine(attachment: BotAttachment, sentInTurn: string |
   return { role: "bot", kind: "text", text: "", attachments: [attachment], ...(sentInTurn ? { sentInTurn } : {}), ...(from ? { from } : {}) };
 }
 
-export function attachedFileLine(attachment: BotAttachment, sentInTurn: string | undefined, from?: Message["from"]): Omit<Message, "id" | "at"> {
-  return { role: "bot", kind: "text", text: "", attachments: [attachment], ...(sentInTurn ? { sentInTurn } : {}), ...(from ? { from } : {}) };
-}
-
 export type AttachForTurnOutcome<S> =
   | { status: "attached"; saved: S }
   | { status: "limit" }
