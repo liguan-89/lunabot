@@ -40,6 +40,25 @@ enum class VoiceAsrMode(val wireValue: String) {
 }
 
 /**
+ * How the phone-UI executor paces its actions. [FAST] is the old touch exactly
+ * — no extra waits, the whole text in one write; [STANDARD] and [HUMAN] add
+ * pauses and segmented typing so automation looks less mechanical.
+ */
+enum class PhonePace(val wireValue: String) {
+    FAST("fast"),
+    STANDARD("standard"),
+    HUMAN("human"),
+    ;
+
+    companion object {
+        // Fast, not OperatingPace.DEFAULT: an install that upgrades must keep
+        // the touch it had before this setting existed.
+        fun fromWire(value: String?): PhonePace =
+            entries.firstOrNull { it.wireValue == value } ?: FAST
+    }
+}
+
+/**
  * Phone-local controls for how a conversation is presented.
  *
  * These are intentionally separate from pairing and from the encrypted token
@@ -148,6 +167,23 @@ class ChatPreferences(
         if (_phoneUi.value == enabled && prefs.contains(PHONE_UI)) return
         prefs.edit(commit = true) { putBoolean(PHONE_UI, enabled) }
         _phoneUi.value = enabled
+    }
+
+    /**
+     * How the phone-UI executor paces its actions. Read by the job runner when
+     * it builds the executor and observed while it runs, so a change applies
+     * to the next task without a restart.
+     */
+    private val _phonePace = MutableStateFlow(
+        PhonePace.fromWire(prefs.getString(PHONE_PACE, PhonePace.FAST.wireValue)),
+    )
+    val phonePace: StateFlow<PhonePace> = _phonePace.asStateFlow()
+
+    @Synchronized
+    fun setPhonePace(pace: PhonePace) {
+        if (_phonePace.value == pace && prefs.contains(PHONE_PACE)) return
+        prefs.edit(commit = true) { putString(PHONE_PACE, pace.wireValue) }
+        _phonePace.value = pace
     }
 
     /**
@@ -277,6 +313,7 @@ class ChatPreferences(
         private const val PHONE_LOCATION = "companion.prefs.phone.location"
         private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
         private const val PHONE_UI = "companion.prefs.phone.ui"
+        private const val PHONE_PACE = "companion.prefs.phone.pace"
         private const val PHONE_FILES = "companion.prefs.phone.files"
         private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
         private const val PHONE_NOTICES = "companion.prefs.phone.notices"

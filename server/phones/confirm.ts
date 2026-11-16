@@ -29,8 +29,9 @@ import {
   type GuardVerdict,
 } from "../phone-guards.ts";
 
-/** The pair one gate belongs to: an approval never crosses threads or bots. */
-export interface ConfirmTurn { threadId: string; botId: string }
+/** The pair one gate belongs to: an approval never crosses threads or bots. `generation` names the turn, so a new turn
+ * in the same conversation starts with no grants, no refusals and no spent cards of the one before. */
+export interface ConfirmTurn { threadId: string; botId: string; generation?: string }
 
 /** The pair, and the turn it is: a loop guard starts over when the turn does, though the phone's screen stands. */
 export interface GuardTurn extends ConfirmTurn { generation: string }
@@ -242,7 +243,7 @@ export function controlFor(tool: string, args: Record<string, unknown>, observeR
 /** Every tool whose answer is a full snapshot: the reads that take one, and the driving actions that answer with the
  * screen they ended on. A query's answer carries only the elements it matched, so it is not one. */
 const SCREEN_ANSWERS: ReadonlySet<string> = new Set([
-  "PHONE_UI_OBSERVE", "PHONE_UI_SCREENSHOT", "PHONE_UI_RUN", "PHONE_UI_WAIT",
+  "PHONE_UI_OBSERVE", "PHONE_UI_SCREENSHOT", "PHONE_UI_RUN", "PHONE_UI_WAIT", "PHONE_UI_COLLECT",
   "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
   "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK",
 ]);
@@ -354,7 +355,7 @@ function evict<K, V>(map: Map<K, V>, max: number): void {
 /** The per-turn gates, the loop guard, and the last screen each phone showed. One lives for the server's lifetime;
  * every map evicts its oldest entry, so a long-lived server does not grow without bound. */
 export class PhoneConfirms {
-  private readonly turns = new Map<string, { gate: ConfirmGate; step: number; cards: Set<string> }>();
+  private readonly turns = new Map<string, { generation: string; gate: ConfirmGate; step: number; cards: Set<string> }>();
   private readonly screens = new Map<string, PhoneScreenRecord>();
   private readonly guards = new Map<string, { generation: string; state: GuardState }>();
 
@@ -390,6 +391,10 @@ export class PhoneConfirms {
    * The outgoing card the person just approved is this call's approval: it becomes a one-shot grant for the control the
    * call is about, or the sentence saying why it grants nothing. A call the word list does not name, and a call whose
    * target is not on the last screen, need no grant and are left to `check`.
+   *
+   * The hold answering `ok` with `approved: false` means no card was shown because the bot's own rule or Full access
+   * already lets it act unasked; that standing consent counts here too, since the person has said not to be asked. A
+   * declined card never reaches this method: the hold answers `ok: false` with the person's own sentence.
    */
   approveCard(turn: ConfirmTurn, phoneKey: string, tool: string, args: Record<string, unknown>): CardApproval {
     const input = controlOn(tool, args, this.screens.get(phoneKey) ?? null);
@@ -435,13 +440,12 @@ export class PhoneConfirms {
    * this exact step, which the gate has now used up; `refused` with the sentence to hand back to the bot.
    */
   check(turn: ConfirmTurn, phoneKey: string, tool: string, args: Record<string, unknown>): ConfirmCheck {
-    const key = confirmKey(turn);
     const screen = this.screens.get(phoneKey) ?? null;
     const input = controlOn(tool, args, screen);
     if (!input) return { result: "proceed" };
     const hit = classifyControl(input);
     // Nothing to classify and no grant to age out: an ordinary tap starts no state of its own.
-    if (!hit && !this.turns.has(key)) return { result: "proceed" };
+    if (!hit && !this.held(turn)) return { result: "proceed" };
     const state = this.state(turn);
     // Every control the gate looks at is a step, so a grant cannot outlive the next few taps.
     state.step += 1;
@@ -496,7 +500,8 @@ export class PhoneConfirms {
   /** A write that ran. Typing is part of an approved send, so it keeps the grant; any other write voids it. A turn with
    * no gate has nothing to void. */
   noteWrite(turn: ConfirmTurn, kind: WriteKind): void {
-    this.turns.get(confirmKey(turn))?.gate.noteWrite(kind);
+    const held = this.turns.get(confirmKey(turn));
+    if (held && held.generation === (turn.generation ?? "")) held.gate.noteWrite(kind);
   }
 
   /** Forget one turn: its grants, its refusals, its step count and its loop guard. A phone's last screen is not the
@@ -511,11 +516,20 @@ export class PhoneConfirms {
     this.guards.delete(confirmKey(turn));
   }
 
-  private state(turn: ConfirmTurn): { gate: ConfirmGate; step: number; cards: Set<string> } {
+  /** Whether this very turn already holds a gate: a spent grant or a remembered refusal has something to age out. */
+  private held(turn: ConfirmTurn): boolean {
+    const state = this.turns.get(confirmKey(turn));
+    return state !== undefined && state.generation === (turn.generation ?? "");
+  }
+
+  private state(turn: ConfirmTurn): { generation: string; gate: ConfirmGate; step: number; cards: Set<string> } {
     const key = confirmKey(turn);
+    const generation = turn.generation ?? "";
     let state = this.turns.get(key);
+    // A grant belongs to the turn that made it: the next turn in this conversation starts with none.
+    if (state && state.generation !== generation) state = undefined;
     if (state) this.turns.delete(key);
-    else state = { gate: new ConfirmGate(), step: 0, cards: new Set() };
+    else state = { generation, gate: new ConfirmGate(), step: 0, cards: new Set() };
     this.turns.set(key, state);
     evict(this.turns, MAX_CONFIRM_TURNS);
     return state;

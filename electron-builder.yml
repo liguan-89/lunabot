@@ -1,5 +1,5 @@
 appId: com.lunabot.app
-productName: Luna Bot
+productName: LunaBot
 artifactName: LUNABOT-${version}-${arch}.${ext}
 
 protocols:

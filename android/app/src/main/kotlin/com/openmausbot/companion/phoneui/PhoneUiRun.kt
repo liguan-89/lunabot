@@ -1,3 +1,28 @@
+/*
+ * Ported from Mika (https://github.com/wangzan101/Mika), file
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneRun.kt
+ * (PhoneRun, the phone_run tool).
+ * Copyright 2026 wangzan101. The original is licensed under the Apache License,
+ * Version 2.0 (third_party/mika/LICENSE in this repository).
+ *
+ * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * translated into English, and reduced to this app's plain accessibility-tree
+ * reader and tool surface. A step resolves its selector against the snapshot
+ * already in hand rather than calling phone_query, and a ref is found again
+ * through the identity read before the first snapshot (bounds plus view id,
+ * text or description). pressEnter sends an extra enter key action after the
+ * type action, `wait` waits for the screen to change rather than for text to
+ * appear or disappear, and `assert` checks the snapshot already read. Mika's
+ * `clear` operation, coordinate taps, `whenText` conditional skip, `cold`
+ * launch, scroll amount, swipe coordinates and duration, OCR and
+ * frame-capture checks, and interruptible text wait are not ported; stop
+ * codes come from the single actions' own outcomes instead of Mika's
+ * app_switched, display_capture_unavailable and screen_needs_review
+ * verdicts, the list is capped at 20 steps rather than Mika's 30, and the
+ * answer reports stopped, stoppedAt and the ending screen instead of Mika's
+ * completed/total counts.
+ */
 package com.openmausbot.companion.phoneui
 
 import com.openmausbot.companion.core.PhoneTool

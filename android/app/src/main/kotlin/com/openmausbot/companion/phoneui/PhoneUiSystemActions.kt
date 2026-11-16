@@ -1,3 +1,38 @@
+/*
+ * Ported from Mika (https://github.com/wangzan101/Mika), files
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/SystemActionTools.kt
+ * (SetAlarm, SetTimer),
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/AppTools.kt
+ * (ShareText, the phone_share_text tool) and
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/OpenLink.kt
+ * (OpenLink, the phone_open_link tool).
+ * Copyright 2026 wangzan101. The originals are licensed under the Apache
+ * License, Version 2.0 (third_party/mika/LICENSE in this repository).
+ *
+ * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * translated into English, and reduced to this app's tool surface. The four
+ * tools became one object of pure parsers and intent builders plus four
+ * device-touching entry points, instead of Mika's PhoneTool subclasses with
+ * their tool definitions, risk/entry metadata and evidence observations.
+ * Intents are started from this app's own process with startActivity and
+ * ActivityOptions.setLaunchDisplayId, without pinning a resolved component.
+ * Mika instead starts them through the shell helper: it resolves the handler
+ * ahead of time, pins the component, and calls startActivityAsUser (for a
+ * system action, with a PendingIntent sent as Mika as the fallback). Here a
+ * link or share start therefore gets its verdict from
+ * ActivityNotFoundException and SecurityException rather than from a
+ * resolution made in advance. An alarm and a timer start on the person's own
+ * screen, where Mika starts every system action on its virtual display, and
+ * neither is verified against the system's next alarm. phone_share_text here
+ * takes an optional package, and with none it queries the handlers itself
+ * and opens the system chooser when several match, where Mika requires a
+ * package and always shares into that app. phone_open_link here takes a url
+ * with an http/https scheme and an optional package, not Mika's
+ * settings-action/uri/package allowlist. The calendar tools in
+ * SystemActionTools.kt (AddCalendarEvent, BulkAddCalendarEvents, ShowAlarms)
+ * are not ported.
+ */
 package com.openmausbot.companion.phoneui
 
 import android.app.ActivityOptions

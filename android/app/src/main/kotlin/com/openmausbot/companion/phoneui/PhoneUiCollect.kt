@@ -1,3 +1,23 @@
+/*
+ * Ported from Mika (https://github.com/wangzan101/Mika), file
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneAutomationTools.kt
+ * (PhoneCollect, the phone_collect tool).
+ * Copyright 2026 wangzan101. The original is licensed under the Apache License,
+ * Version 2.0 (third_party/mika/LICENSE in this repository).
+ *
+ * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * translated into English, and reduced to this app's plain accessibility-tree
+ * reader and tool surface. The band keeps a line only when it lies wholly
+ * inside it, and pages merge through a line-level dedup in reading order
+ * instead of Mika's page-overlap append/prepend, so direction only picks the
+ * scroll. Mika's OCR text merging, protected/readable/imageReason screen
+ * checks, tree-with-children reading, `no_app_open` verdict and wrapped `text`
+ * answer are not ported; pages are capped at 20 rather than 30, the line bound
+ * is `maxLines` rather than Mika's `maxItems`, the stop reasons are this app's
+ * own words, and the scroll and settle steps are lambdas handed in by the
+ * executor rather than sub-actions of the tool.
+ */
 package com.openmausbot.companion.phoneui
 
 import com.openmausbot.companion.phone.PhoneToolOutcome

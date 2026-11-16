@@ -92,14 +92,22 @@ import com.openmausbot.companion.core.ActivityDetail
 import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
 import com.openmausbot.companion.phoneui.PhoneUiPairingInput
 import com.openmausbot.companion.phoneui.PhoneUiStatus
+import com.openmausbot.companion.phoneui.SelfCheckReport
+import com.openmausbot.companion.phoneui.phoneUiProbes
+import com.openmausbot.companion.phoneui.runSelfCheck
+import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
+import com.openmausbot.companion.storage.PhonePace
 import com.openmausbot.companion.storage.ThemeMode
 import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
@@ -146,6 +154,7 @@ fun SettingsScreen(
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
     val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
+    val phonePace by environment.chatPreferences.phonePace.collectAsState()
     val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
@@ -237,6 +246,9 @@ fun SettingsScreen(
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
+    var choosingPhonePace by remember { mutableStateOf(false) }
+    var phoneUiCheckReport by remember { mutableStateOf<SelfCheckReport?>(null) }
+    var phoneUiChecking by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
     var pairingPhoneUi by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
@@ -782,6 +794,48 @@ fun SettingsScreen(
                         PhoneUiStatus.Pairing -> Unit
                     }
                     SettingsDivider()
+                    SettingsRow(
+                        title = "操作节奏",
+                        value = phonePaceLabel(phonePace),
+                        chevron = true,
+                        onClick = { choosingPhonePace = true },
+                    )
+                    SettingsDivider()
+                    // The run has a 90 s budget, so the row stays pressable but
+                    // shows a spinner: a second tap would start a second run.
+                    SettingsRow(
+                        title = "自检",
+                        subtitle = "检查设备、权限、辅助进程和受控屏幕",
+                        enabled = !phoneUiChecking,
+                        trailing = {
+                            if (phoneUiChecking) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        },
+                        onClick = {
+                            phoneUiChecking = true
+                            phoneUiCheckReport = null
+                            scope.launch {
+                                // Binder calls and display creation block, so the
+                                // whole run stays off the main thread.
+                                val report = withContext(Dispatchers.IO) {
+                                    runSelfCheck(
+                                        phoneUiProbes(
+                                            phoneUiContext,
+                                            shell = { PhoneUiShellBridge.of(phoneUiContext).shell.value },
+                                            accessibility = { PhoneUiAccessibilityService.instance.value },
+                                        ),
+                                    )
+                                }
+                                phoneUiCheckReport = report
+                                phoneUiChecking = false
+                            }
+                        },
+                    )
+                    SettingsDivider()
                     // Files are a separate consent on top of the screen switch:
                     // the media grant plus, optionally, one picked folder.
                     SettingsSwitchRow(
@@ -1258,6 +1312,72 @@ fun SettingsScreen(
                                 }
                             },
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    if (choosingPhonePace) {
+        SettingsSheet(title = "操作节奏", onDismiss = { choosingPhonePace = false }) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection(
+                    footer = {
+                        SettingsFootnote("越慢的档位越不像机器操作，在被限流或识别自动化的应用上更稳；代价是任务耗时更长。")
+                    },
+                ) {
+                    PhonePace.entries.forEachIndexed { index, pace ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = phonePaceLabel(pace),
+                            subtitle = phonePaceCaption(pace),
+                            trailing = {
+                                if (pace == phonePace) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = minisAccent,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                            onClick = {
+                                environment.chatPreferences.setPhonePace(pace)
+                                choosingPhonePace = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    phoneUiCheckReport?.let { report ->
+        SettingsSheet(title = "自检结果", onDismiss = { phoneUiCheckReport = null }) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection {
+                    SelectionContainer {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = report.summary(),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = minisInk,
+                            )
+                            report.rows.forEach { row ->
+                                Text(
+                                    text = report.line(row),
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = secondaryTint,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1982,6 +2102,19 @@ private fun voiceAsrCaption(mode: VoiceAsrMode): String? = when (mode) {
     VoiceAsrMode.OFF -> null
     VoiceAsrMode.DEVICE -> "识别在手机上完成，需先下载模型"
     VoiceAsrMode.ONLINE -> "识别在电脑上完成"
+}
+
+private fun phonePaceLabel(pace: PhonePace): String = when (pace) {
+    PhonePace.FAST -> "快"
+    PhonePace.STANDARD -> "标准"
+    PhonePace.HUMAN -> "像人"
+}
+
+/** Each level says what it costs; the footnote under the sheet says why anyone would pick a slower one. */
+private fun phonePaceCaption(pace: PhonePace): String = when (pace) {
+    PhonePace.FAST -> "不额外等待，整段文字一次写入（当前行为）"
+    PhonePace.STANDARD -> "操作之间停顿，文字分段输入"
+    PhonePace.HUMAN -> "停顿和输入都更慢，所有应用一致"
 }
 
 /** The right-hand status of the one update row. */

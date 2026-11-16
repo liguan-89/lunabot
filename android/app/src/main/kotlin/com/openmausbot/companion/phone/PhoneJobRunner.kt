@@ -13,7 +13,9 @@ import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
 import com.openmausbot.companion.phoneui.PhoneUiTaskExecutor
 import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.phoneui.PhoneUiStatus
+import com.openmausbot.companion.phoneui.OperatingPace
 import com.openmausbot.companion.storage.ChatPreferences
+import com.openmausbot.companion.storage.PhonePace
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -60,6 +62,17 @@ internal class PhoneJobRunner(
     private val reminders = PhoneReminders(reminderStore, reminderAlarms)
     private val phoneUiExecutor = PhoneUiTaskExecutor(context)
     private val fileStore = PhoneFileStore(context)
+
+    init {
+        // The executor starts on FAST; the person's stored choice has to reach
+        // it before the first job. The preference is observed separately from
+        // the switch combine below: changing the pace must not tear down and
+        // re-register the running loop.
+        phoneUiExecutor.setPace(preferences.phonePace.value.operatingPace())
+        scope.launch {
+            preferences.phonePace.collect { phoneUiExecutor.setPace(it.operatingPace()) }
+        }
+    }
 
     /** File and notification reads need no helper; each has its own system grant. */
     private fun filesReadable(): Boolean = fileStore.photosGranted() || fileStore.treeUri() != null
@@ -265,6 +278,13 @@ internal class PhoneJobRunner(
         // Below the server's phone-job timeout so the result still posts in time.
         const val JOB_RUN_TIMEOUT_MILLIS = 40_000L
     }
+}
+
+/** The executor's own name for the same three levels. */
+private fun PhonePace.operatingPace(): OperatingPace = when (this) {
+    PhonePace.FAST -> OperatingPace.FAST
+    PhonePace.STANDARD -> OperatingPace.STANDARD
+    PhonePace.HUMAN -> OperatingPace.HUMAN
 }
 
 internal fun PhoneToolOutcome.toJson(): JsonObject = when (this) {

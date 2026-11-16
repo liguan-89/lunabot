@@ -1,6 +1,6 @@
 {
   "name": "dexbot",
-  "productName": "Luna Bot",
+  "productName": "LunaBot",
   "private": true,
   "version": "2.0.1",
   "description": "Luna Bot — a local-first chat app for running a team of AI agents.",
