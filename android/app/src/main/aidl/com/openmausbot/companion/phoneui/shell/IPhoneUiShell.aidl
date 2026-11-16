@@ -69,6 +69,13 @@ interface IPhoneUiShell {
     // caller, owns the allow-list: any other name is refused and nothing is
     // written, so this endpoint cannot become a general settings writer.
     boolean putSecureSetting(String name, String value) = 18;
+    // Grant [packageName] the one permission that lets it write the wireless
+    // debugging switch after a reboot: WRITE_SECURE_SETTINGS. The helper, not
+    // the caller, validates that the package belongs to the caller's uid; any
+    // other name is refused and nothing is granted. Only this one permission
+    // can be granted, so this is not a general permission granter. False when
+    // the platform refuses the grant or `pm` is unavailable.
+    boolean grantOwnWriteSecureSettings(String packageName) = 19;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

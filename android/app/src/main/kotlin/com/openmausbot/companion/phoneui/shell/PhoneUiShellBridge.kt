@@ -173,4 +173,15 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
      * without writing, so this is not a general settings writer.
      */
     fun putSecureSetting(name: String, value: String?): Boolean = aidl.putSecureSetting(name, value)
+
+    /**
+     * Ask the helper to grant [packageName] WRITE_SECURE_SETTINGS, once, so this
+     * app can keep `adb_wifi_enabled` on after a reboot. The caller must pass
+     * our own package: the helper resolves the calling uid's packages and
+     * refuses anything it does not own, and it can grant only this one
+     * permission. False means the ROM refused the grant or `pm` was
+     * unavailable; nothing was changed.
+     */
+    fun grantOwnWriteSecureSettings(packageName: String): Boolean =
+        aidl.grantOwnWriteSecureSettings(packageName)
 }

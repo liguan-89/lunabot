@@ -454,6 +454,27 @@ class PhoneUiShellService(
     override fun putSecureSetting(name: String, value: String?): Boolean =
         writeSecureSetting(context.contentResolver, name, value)
 
+    /**
+     * Grant our own package WRITE_SECURE_SETTINGS, once, so the app itself can
+     * keep the wireless-debugging switch on after a reboot without asking the
+     * helper again. This is the only permission the endpoint can grant, and
+     * only to a package the calling uid owns: [Binder.getCallingUid] is
+     * already gated by [onTransact], and the helper re-resolves that uid's
+     * packages instead of trusting the name. An unowned package, a malformed
+     * name, `pm` refusing or `pm` missing all come back as false.
+     *
+     * Safe to keep in a helper with no shell endpoint: the argv is built here
+     * from a fixed binary, a fixed verb and a fixed permission, so there is
+     * nothing a caller can add to it.
+     */
+    override fun grantOwnWriteSecureSettings(packageName: String): Boolean =
+        grantWriteSecureSettings(
+            packageName,
+            Binder.getCallingUid(),
+            { uid -> context.packageManager.getPackagesForUid(uid) },
+            { argv -> runPmGrant(argv) },
+        )
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
     override fun releaseAll() {
@@ -623,5 +644,114 @@ class PhoneUiShellService(
 
         /** Which Settings table a name lives in; spelled out per key, never guessed. */
         private enum class SecureSettingNamespace { GLOBAL, SECURE }
+
+        /** `pm grant` gets a shorter leash than the display fallbacks: it either answers quickly or not at all. */
+        internal const val PM_GRANT_TIMEOUT_S = 5L
+
+        /**
+         * The one permission [grantOwnWriteSecureSettings] may grant. Spelled
+         * out as a constant so no caller-supplied string can reach the argv.
+         */
+        internal const val GRANTED_PERMISSION = "android.permission.WRITE_SECURE_SETTINGS"
+
+        /**
+         * Whether [packageName] is a plain package name: ASCII letters, digits,
+         * `.` and `_`, non-empty and bounded. This runs before any ownership
+         * lookup and before any process, so a name that could be read as an
+         * option (`-r`), a path or a second command never gets that far.
+         */
+        internal fun packageNameAllowed(packageName: String): Boolean =
+            packageName.length in 1..200 && packageName.all {
+                it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '.' || it == '_'
+            }
+
+        /**
+         * The exact argv for the grant: a fixed binary, a fixed verb, the
+         * caller's (already validated and ownership-checked) package, and the
+         * one fixed permission. Exists as its own function so tests can pin the
+         * argv without spawning anything.
+         */
+        internal fun pmGrantCommand(packageName: String): Array<String> =
+            arrayOf("/system/bin/pm", "grant", packageName, GRANTED_PERMISSION)
+
+        /**
+         * Grant [packageName] WRITE_SECURE_SETTINGS if, and only if, the
+         * calling [callerUid] owns it.
+         *
+         * Order matters: the name shape is checked first (no ownership lookup,
+         * no process), then [packagesForUid] — never the caller's word — decides
+         * whether this uid may be granted at all, and only then is `pm` run.
+         * A refused or unowned name is logged as a fact without the name itself:
+         * the caller may have sent anything, and it is not worth echoing.
+         *
+         * [run] is injected so tests never execute `pm`; the real one is
+         * [runPmGrant]. Every failure — not owned, interrupted, timed out,
+         * non-zero exit, `pm` missing — is false, never an exception across the
+         * binder.
+         */
+        internal fun grantWriteSecureSettings(
+            packageName: String,
+            callerUid: Int,
+            packagesForUid: (Int) -> Array<String>?,
+            run: (Array<String>) -> Int,
+        ): Boolean {
+            if (!packageNameAllowed(packageName)) {
+                Log.w(TAG, "refused a package name that is not a plain package")
+                return false
+            }
+            val owned = try {
+                packagesForUid(callerUid)?.contains(packageName) == true
+            } catch (t: RuntimeException) {
+                // An unreadable package list is not ownership; fail closed.
+                Log.w(TAG, "cannot resolve the caller's packages", t)
+                false
+            }
+            if (!owned) {
+                Log.w(TAG, "refused a grant for a package the caller does not own")
+                return false
+            }
+            return try {
+                run(pmGrantCommand(packageName)) == 0
+            } catch (t: Throwable) {
+                // A runner that throws (interruption, missing pm, I/O) is a
+                // refusal, not something the caller should see as a crash.
+                Log.w(TAG, "pm grant failed", t)
+                false
+            }
+        }
+
+        /**
+         * The real `pm grant` runner. Bounded at [PM_GRANT_TIMEOUT_S]; on
+         * timeout the process is destroyed and the answer is -1, which
+         * [grantWriteSecureSettings] reads as false. Output is drained and
+         * dropped rather than read: it is `pm`'s diagnostic, it may quote the
+         * package (caller data), and nothing here needs it.
+         */
+        internal fun runPmGrant(argv: Array<String>): Int {
+            val process = try {
+                ProcessBuilder(*argv).redirectErrorStream(true).start()
+            } catch (t: Throwable) {
+                Log.w(TAG, "pm grant could not start", t)
+                return -1
+            }
+            val drain = Thread {
+                runCatching { process.inputStream.use { while (it.read() >= 0) Unit } }
+            }.apply { isDaemon = true; start() }
+            return try {
+                if (process.waitFor(PM_GRANT_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)) {
+                    drain.join(1_000L)
+                    process.exitValue()
+                } else {
+                    process.destroyForcibly()
+                    Log.w(TAG, "pm grant timed out")
+                    -1
+                }
+            } catch (t: InterruptedException) {
+                process.destroyForcibly()
+                Thread.currentThread().interrupt()
+                Log.w(TAG, "pm grant interrupted")
+                -1
+            }
+        }
     }
 }

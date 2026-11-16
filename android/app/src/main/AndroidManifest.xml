@@ -99,6 +99,14 @@
     <uses-permission
         android:name="android.permission.ACCESS_LOCAL_NETWORK"
         android:minSdkVersion="37" />
+    <!--
+      Declaring WRITE_SECURE_SETTINGS grants nothing: it is a signature
+      permission, so the platform ignores the declaration for an ordinary app.
+      It is listed because the shell helper's `pm grant` is what actually grants
+      it to this package, once, after the person opts in; that grant then lets
+      the app write the single `adb_wifi_enabled` switch itself after a reboot.
+    -->
+    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
 
     <!--
       Phone UI launch: the executor resolves an installed package's launcher
