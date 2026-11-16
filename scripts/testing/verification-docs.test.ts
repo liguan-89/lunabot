@@ -38,12 +38,13 @@ const featureRouteModules = ["data/routes.ts", "workspace-backup-http.ts", "clou
 const serverSource = [join(ROOT, "server", "index.ts"), ...routeModules, ...featureRouteModules]
   .map((file) => readFileSync(file, "utf8")).join("\n");
 const hooksSource = readFileSync(join(ROOT, "server", "webhook-ingress.ts"), "utf8");
-const hostedSource = readFileSync(join(ROOT, "enterprise", "server", "workspace-access.ts"), "utf8");
-// Only constants named in the public handler's accepted-path guard are routes.
-// Outbound post("/api/handoff/...") calls belong to the identity service, not us.
-const hostedConstants = new Map([...hostedSource.matchAll(/const ([A-Z_]+) = "(\/api\/[^"\n]+)";/g)].map(match => [match[1]!, match[2]!]));
-const hostedPublicRoutes = new Set((hostedSource.match(/!\[([^\]]+)\]\.includes\(path\)/)?.[1] ?? "")
-  .split(",").map(name => hostedConstants.get(name.trim())).filter((path): path is string => path !== undefined));
+// This AGPL tree ships without the upstream enterprise layer, so nothing
+// delegates a public route to it. Core still answers the hosted sign-in paths
+// itself (the "Workspace sign-in is unavailable" guard in server/index.ts), and
+// the recipes cite those endpoints, so the guard's prefix counts as known.
+const hostedPublicPrefixes = new Set(
+  [...serverSource.matchAll(/path\.startsWith\("(\/api\/auth\/hosted\/)"\)/g)].map((match) => match[1]!),
+);
 // server/index.ts matches routes two ways: `path === "/api/x"` and
 // `path.match(/^\/api\/x\/(a|b)$/)`. Collect the regex form too.
 const routePatterns = [...serverSource.matchAll(/\/(\^\\\/api\\\/(?:\[(?:[^\]\\]|\\.)*\]|[^/\\\n[]|\\.)*)\/[a-z]*/g)].map((match) => new RegExp(match[1]!));
@@ -78,7 +79,7 @@ describe("docs/verification recipes cite things that exist", () => {
     expect(refs.length).toBeGreaterThan(5);
     const registered = (route: string) => {
       const path = route.replace(/[.,;:]+$/, "");
-      if (hostedPublicRoutes.has(path)) return true;
+      if ([...hostedPublicPrefixes].some((prefix) => path.startsWith(prefix))) return true;
       const source = path.startsWith("/hooks/") ? hooksSource : serverSource;
       const segments = path.split("/").slice(1);
       const literal = segments.findIndex((segment) => PLACEHOLDER.test(segment));
@@ -91,10 +92,13 @@ describe("docs/verification recipes cite things that exist", () => {
     expect([...new Set(refs.filter((hit) => !registered(target(hit))))]).toEqual([]);
   });
 
-  it("distinguishes delegated public routes from external identity backchannels", () => {
-    expect([...hostedPublicRoutes]).toEqual(["/api/auth/hosted/start", "/api/auth/hosted/callback"]);
-    expect(hostedPublicRoutes.has("/api/handoff/consume")).toBe(false);
-    expect(hostedPublicRoutes.has("/api/handoff/check")).toBe(false);
+  it("distinguishes the hosted sign-in endpoints from external identity backchannels", () => {
+    // Without the enterprise layer, core answers these itself with the
+    // "sign-in unavailable" refusal; the identity service's own backchannels
+    // are not routes of this server.
+    expect([...hostedPublicPrefixes]).toEqual(["/api/auth/hosted/"]);
+    expect(serverSource).not.toContain('"/api/handoff/consume"');
+    expect(serverSource).not.toContain('"/api/handoff/check"');
   });
 
   it("are all reachable from README.md", () => {
