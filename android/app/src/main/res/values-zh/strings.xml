@@ -22,4 +22,7 @@
     <string name="settings_phone_self_check">自检</string>
     <string name="settings_phone_self_check_caption">检查设备、权限、辅助进程和受控屏幕</string>
     <string name="settings_phone_self_check_title">自检结果</string>
+    <string name="settings_phone_repair_wireless">重启后自动打开无线调试</string>
+    <string name="settings_phone_repair_wireless_caption">关闭：不授予任何权限，App 也改不了这项设置。</string>
+    <string name="settings_phone_repair_wireless_pending">开启：等助手连接后授权；在此之前尚未获得授权。</string>
 </resources>

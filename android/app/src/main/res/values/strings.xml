@@ -22,4 +22,7 @@
     <string name="settings_phone_self_check">Self check</string>
     <string name="settings_phone_self_check_caption">Checks the device, permissions, helper and controlled screen</string>
     <string name="settings_phone_self_check_title">Self check report</string>
+    <string name="settings_phone_repair_wireless">Re-enable wireless debugging after a reboot</string>
+    <string name="settings_phone_repair_wireless_caption">Off: nothing is granted and the app cannot touch this setting.</string>
+    <string name="settings_phone_repair_wireless_pending">On: the helper is asked for the grant once it connects; until then nothing has been granted.</string>
 </resources>

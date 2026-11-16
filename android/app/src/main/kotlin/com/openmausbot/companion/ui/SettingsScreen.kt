@@ -156,6 +156,7 @@ fun SettingsScreen(
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
     val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
     val phonePace by environment.chatPreferences.phonePace.collectAsState()
+    val phoneRepairWireless by environment.chatPreferences.phoneRepairWireless.collectAsState()
     val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
@@ -834,6 +835,26 @@ fun SettingsScreen(
                                 phoneUiCheckReport = report
                                 phoneUiChecking = false
                             }
+                        },
+                    )
+                    SettingsDivider()
+                    // Opt-in, and off by default: the grant it needs is
+                    // WRITE_SECURE_SETTINGS, which is not limited to the one
+                    // switch this feature writes. The screen cannot see whether
+                    // the grant landed, so the caption promises only that the
+                    // helper will be asked, not that it succeeded.
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_phone_repair_wireless),
+                        subtitle = stringResource(
+                            if (phoneRepairWireless) {
+                                R.string.settings_phone_repair_wireless_pending
+                            } else {
+                                R.string.settings_phone_repair_wireless_caption
+                            },
+                        ),
+                        checked = phoneRepairWireless,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneRepairWireless(enabled)
                         },
                     )
                     SettingsDivider()
