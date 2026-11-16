@@ -134,6 +134,23 @@ describe("the irreversible-control gate over a screen write", () => {
     expect(request).not.toHaveBeenCalled();
   });
 
+  it("runs the same delete in a second turn of the same thread, with a fresh card", async () => {
+    const h = harness();
+    await see(h, DELETE);
+    const first = h.handle(call("PHONE_UI_TAP", { ref: "e2" }));
+    await answerNext(h.jobs, { ok: true, result: { tapped: true } });
+    expect((await first as PhoneToolResult).isError).toBeUndefined();
+    // The next turn in the same conversation: the phone's screen stands, the spent card and its grant do not, so the
+    // same tap is approved again rather than refused as spent.
+    const nextTurn = { ...TURN, generation: "gen-2" };
+    const second = h.handle(call("PHONE_UI_TAP", { ref: "e2" }), nextTurn);
+    const job = await answerNext(h.jobs, { ok: true, result: { tapped: true } });
+    expect(job).toMatchObject({ tool: "PHONE_UI_TAP", arguments: { ref: "e2" } });
+    const result = await second as PhoneToolResult;
+    expect(result.isError).toBeUndefined();
+    expect(text(result)).not.toContain("already used in this task");
+  });
+
   it("refuses a run that carries a 付款 tap, naming that step", async () => {
     const h = harness();
     await see(h, PAY);
