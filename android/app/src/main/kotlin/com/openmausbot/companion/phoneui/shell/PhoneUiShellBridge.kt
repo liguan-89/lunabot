@@ -164,4 +164,13 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
 
     /** Finish [packageName] as `am force-stop` does; the helper refuses the system, the system UI and itself. */
     fun forceStop(packageName: String): Boolean = aidl.forceStop(packageName)
+
+    /**
+     * Write one of two allow-listed settings as shell: `adb_wifi_enabled`
+     * (global, the wireless debugging switch) or `enabled_accessibility_services`
+     * (secure, the colon separated service list). A null [value] deletes the
+     * setting. The helper owns the allow-list and refuses every other name
+     * without writing, so this is not a general settings writer.
+     */
+    fun putSecureSetting(name: String, value: String?): Boolean = aidl.putSecureSetting(name, value)
 }

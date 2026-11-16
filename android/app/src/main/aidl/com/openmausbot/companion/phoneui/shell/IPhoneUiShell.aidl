@@ -62,6 +62,13 @@ interface IPhoneUiShell {
     // bot chose to close the app it drove; the caller refuses our own package,
     // the system UI and the helper, and a name that is not a package.
     boolean forceStop(String packageName) = 17;
+    // Write one of two allow-listed settings as shell: "adb_wifi_enabled" or
+    // "enabled_accessibility_services". A null value deletes the setting, which
+    // is how the accessibility repair clears a list our service was the only
+    // entry in. Shell holds WRITE_SECURE_SETTINGS, but the helper, not the
+    // caller, owns the allow-list: any other name is refused and nothing is
+    // written, so this endpoint cannot become a general settings writer.
+    boolean putSecureSetting(String name, String value) = 18;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

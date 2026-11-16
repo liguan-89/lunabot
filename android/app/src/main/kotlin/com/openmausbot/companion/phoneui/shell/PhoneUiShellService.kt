@@ -20,6 +20,7 @@ import android.annotation.SuppressLint
 import android.app.ActivityOptions
 import android.content.ClipData
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,6 +32,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Process
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.Display
 import android.view.InputDevice
@@ -441,6 +443,17 @@ class PhoneUiShellService(
             packageName.all { it.isLetterOrDigit() || it == '.' || it == '_' } &&
             packageName !in PROTECTED_PACKAGES
 
+    /**
+     * Write one of [ALLOWED_SECURE_SETTINGS] as shell, or delete it when
+     * [value] is null. Shell holds WRITE_SECURE_SETTINGS, but the allow-list
+     * belongs to this helper, not to the caller: a name outside it is refused
+     * before the system is touched, so the endpoint cannot be turned into a
+     * general secure-settings writer. There is deliberately no `settings put`
+     * fallback, because that command would accept any key.
+     */
+    override fun putSecureSetting(name: String, value: String?): Boolean =
+        writeSecureSetting(context.contentResolver, name, value)
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
     override fun releaseAll() {
@@ -537,5 +550,78 @@ class PhoneUiShellService(
         private val PROTECTED_PACKAGES = setOf("android", "com.android.systemui", ShellContext.SHELL_PACKAGE)
         private const val VIRTUAL_KEYBOARD = -1 // KeyCharacterMap.VIRTUAL_KEYBOARD
         private const val USER_CURRENT = -2 // UserHandle.USER_CURRENT
+
+        /**
+         * The only settings [putSecureSetting] will write, each mapped to its
+         * own namespace. `adb_wifi_enabled` is a global setting (the wireless
+         * debugging switch the self-repair turns back on);
+         * `enabled_accessibility_services` is a secure setting (the colon
+         * separated service list the accessibility repair rewrites). The
+         * namespace is part of the entry, so a name can never fall through to
+         * the wrong table.
+         */
+        private val ALLOWED_SECURE_SETTINGS = mapOf(
+            "adb_wifi_enabled" to SecureSettingNamespace.GLOBAL,
+            "enabled_accessibility_services" to SecureSettingNamespace.SECURE,
+        )
+
+        /** A value longer than this is not a setting any repair needs. */
+        internal const val MAX_SECURE_SETTING_CHARS = 4_096
+
+        /**
+         * Whether [name] may be written at all: it has to be one of
+         * [ALLOWED_SECURE_SETTINGS]. Everything else is refused, so the
+         * endpoint stays a two-key capability rather than a settings writer.
+         */
+        internal fun secureSettingAllowed(name: String): Boolean = name in ALLOWED_SECURE_SETTINGS
+
+        /**
+         * Whether [value] may be stored. A null value is a delete and needs no
+         * shape. Otherwise the value must be bounded and consist of the
+         * characters a component list and a "1" use: ASCII letters, digits,
+         * `_`, `/`, `.`, `:` and `,`. Control characters are therefore
+         * refused, and so is anything that could not name a component.
+         */
+        internal fun secureSettingValueAllowed(value: String?): Boolean =
+            value == null || (value.length <= MAX_SECURE_SETTING_CHARS && value.all {
+                it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' ||
+                    it == '_' || it == '/' || it == '.' || it == ':' || it == ','
+            })
+
+        /**
+         * The write itself, as shell (uid 2000), which holds
+         * WRITE_SECURE_SETTINGS. The allow-list and the value shape are checked
+         * here, before the resolver is touched; a SecurityException is the
+         * system's refusal and comes back as false rather than as a throw
+         * across the binder.
+         */
+        internal fun writeSecureSetting(resolver: ContentResolver, name: String, value: String?): Boolean {
+            val namespace = ALLOWED_SECURE_SETTINGS[name]
+            if (namespace == null) {
+                // The name is caller data and is not echoed: it was not one of
+                // the two keys, so there is nothing useful to log but the fact.
+                Log.w(TAG, "refused a secure setting outside the allow-list")
+                return false
+            }
+            if (!secureSettingValueAllowed(value)) {
+                Log.w(TAG, "refused value for secure setting $name")
+                return false
+            }
+            return try {
+                when (namespace) {
+                    SecureSettingNamespace.GLOBAL -> Settings.Global.putString(resolver, name, value)
+                    SecureSettingNamespace.SECURE -> Settings.Secure.putString(resolver, name, value)
+                }
+            } catch (t: SecurityException) {
+                Log.w(TAG, "putString($name) refused", t)
+                false
+            } catch (t: RuntimeException) {
+                Log.w(TAG, "putString($name) failed", t)
+                false
+            }
+        }
+
+        /** Which Settings table a name lives in; spelled out per key, never guessed. */
+        private enum class SecureSettingNamespace { GLOBAL, SECURE }
     }
 }
