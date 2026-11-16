@@ -61,7 +61,7 @@ it("restart keeps the key and replaces the warm process, and so does turning the
     await setup.done();
     // Saving the key answered the card the setup turn asked with, so that turn goes on once more. It runs now, while nothing
     // else is sent: later it would take the thread or the warm process from a turn this test checks.
-    await expect.poll(() => Boolean(piTurnHolding(piDumpPath(fixture.info.dataDir), "DEX BOT secret update")), { timeout: 30_000 }).toBe(true);
+    await expect.poll(() => Boolean(piTurnHolding(piDumpPath(fixture.info.dataDir), "Luna Bot secret update")), { timeout: 30_000 }).toBe(true);
     await setup.done();
 
     const launched = await turn();

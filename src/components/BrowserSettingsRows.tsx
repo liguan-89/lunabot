@@ -87,7 +87,7 @@ export function ServerSitesRow() {
   );
 }
 
-/** browserEngine.engine: the bots' browsers run on DEX BOT's own Chrome driver instead of agent-browser. */
+/** browserEngine.engine: the bots' browsers run on Luna Bot's own Chrome driver instead of agent-browser. */
 export function NewBrowserSettings() {
   const { state } = useStore();
   const on = state.config?.browserEngine?.engine === "chrome";

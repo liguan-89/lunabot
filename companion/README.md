@@ -33,7 +33,7 @@ upstream hardened its loopback gate.
 | **Authorisation** | Every request needs that token. Computer access — the cloud desktop, and seeing or taking control of the Local VM — is a separate per-device capability, off by default. A rebinding page cannot obtain either. |
 | **The allowlist** | Default deny, per method and path (`src/routes.ts`). Bot PATCH accepts only reading state, pins, colour, mascot and avatar image or framing fields; the harness rejects other fields before applying any change. A new bot may carry only its name, profile, look and model; asking for anything else (approval level, computer, folder, Chief of Staff, peers, tools, department, preset) is refused and no bot is made. General room PATCH stays closed, and approval grants use narrow verbs. A new harness route stays closed to devices until it is explicitly listed. |
 | **Scrubbing** | `resumeCursors` — the harness's own provider session ids — never reach a device, whether or not the harness still sends them. |
-| **Discovery** | Bonjour, so a phone finds the computer by name instead of by typed address. |
+| **Discovery** | Bonjour, so a phone finds the computer by name instead of by typed address. It is advertised as `_lunabot._tcp` and, for a phone that predates the rename, also as `_dexbot._tcp`. |
 | **Secure credential relay** | Carries an HPKE envelope for one pending, allowlisted credential card. The sidecar never receives the desktop private key or plaintext. |
 
 ## Transport security
@@ -121,7 +121,7 @@ it is switched on, so the opt-in is never implicit.
 | `OMB_COMPANION_PORT` | `8810` | where devices connect |
 | `OMB_CONTROL_PORT` | `8811` | the pairing page, loopback only, behind a per-launch token |
 | `OMB_CONTROL_TOKEN` | random | that token (43 base64url characters), for a script that starts the sidecar; the desktop app ignores it |
-| `OMB_COMPANION_DIR` | `~/.dexbot-companion` | paired devices live here (the old `~/.openmausbot-companion` is migrated on start) |
+| `OMB_COMPANION_DIR` | `~/.lunabot-companion` | paired devices live here (an earlier `~/.dexbot-companion` or `~/.openmausbot-companion` is migrated on start) |
 | `OMB_COMPANION_NAME` | your name, from the harness | what the phone calls this computer |
 | `OMB_COMPANION_E2E` | off | `1` turns on the end-to-end encrypted connection when standing alone (the desktop app turns it on itself); the transport key is kept in `e2e-key.json` beside the devices |
 | `OMB_COMPANION_ROUTES` | `wifi` | the direct ways in, a comma list of `wifi` (this computer's LAN addresses and Bonjour) and `tailscale` (its tailnet address); empty for neither, when only the relay or an HTTPS address reaches it. A connection is answered only when both ends are private (loopback, RFC 1918, link-local, fd00::/8, or a tailnet peer on Tailscale's own interface) and it arrived on a way in that is on. The desktop app sets it from Settings → Remote access |
@@ -131,7 +131,7 @@ it is switched on, so the opt-in is never implicit.
 
 `OMB_COMPANION_NAME` overrides a name the sidecar otherwise asks the harness
 for: the computer name set in Settings → Remote access, else the profile from
-onboarding, as *"Ada's computer"*. It falls back to `OpenMausBot` when neither
+onboarding, as *"Ada's computer"*. It falls back to `Luna Bot` when neither
 is set. The sidecar asks again every 30 seconds; a changed name withdraws the
 old Bonjour record (a goodbye) before advertising the new one, so the phone
 does not see two computers.

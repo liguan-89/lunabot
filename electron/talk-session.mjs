@@ -4,15 +4,15 @@ import { TalkServerError } from "./talk-server.mjs";
 export const TALK_TIMING = Object.freeze({ replyHideMs: 12_000, noticeHideMs: 4_000, stillWorkingMs: 120_000, hoverRecheckMs: 500, maxListenMs: 60_000 });
 
 export const TALK_TEXT = Object.freeze({
-  busy: "Voice is in use in DEX BOT",
-  serverDown: "Open DEX BOT to talk",
-  starting: "DEX BOT is still starting. Try again in a moment.",
-  noMausbot: "Set up DEX BOT first, then try again.",
-  moved: "DEX BOT lives on My Cloud now — talk to it there",
+  busy: "Voice is in use in Luna Bot",
+  serverDown: "Open Luna Bot to talk",
+  starting: "Luna Bot is still starting. Try again in a moment.",
+  noMausbot: "Set up Luna Bot first, then try again.",
+  moved: "Luna Bot lives on My Cloud now — talk to it there",
   permission: "Talking needs Microphone + Speech Recognition access — System Settings → Privacy & Security.",
   dictationOff: "Turn on Dictation in System Settings → Keyboard, then try again.",
   unavailable: "Talking couldn't start. Try again.",
-  failed: "DEX BOT couldn't take that · Open chat",
+  failed: "Luna Bot couldn't take that · Open chat",
 });
 
 const SPEECH_PROBLEMS = new Map([

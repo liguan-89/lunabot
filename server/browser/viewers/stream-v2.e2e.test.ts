@@ -64,6 +64,7 @@ suite("the v2 stream on real Chrome", () => {
       upgrades,
       dataDir: real.dataDir,
       person: () => "local-owner",
+      language: () => undefined,
       viewers: {
         open: async () => {},
         action: async () => ({ ok: true }),

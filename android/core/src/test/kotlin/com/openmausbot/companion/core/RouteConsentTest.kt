@@ -182,6 +182,37 @@ class RouteConsentTest {
     }
 
     @Test
+    fun aBonjourNameLeadsEvenWhenTheNumericLanAddressComesFirst() {
+        val bonjour = requireNotNull(
+            CompanionEndpoint.create("http://mac-mini.local:8810", CompanionEndpointKind.BONJOUR, 300),
+        )
+        val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
+            .encodeToString(CompanionJson.encodeToString(listOf(local, bonjour, hosted)).toByteArray())
+        val invite = requireNotNull(
+            PairingInvite.parse(
+                URI("openmausbot://pair?address=192.168.1.42%3A8810&code=123456&endpoints=$encoded"),
+            ),
+        )
+        val connection = invite.connection
+
+        // The stable name is the route the person confirms, not the address
+        // that expires when either end changes networks.
+        assertEquals(bonjour, connection.activeEndpoint)
+        assertEquals(
+            setOf(CompanionEndpointKind.BONJOUR, CompanionEndpointKind.HOSTED),
+            connection.allowedRouteKinds,
+        )
+        assertEquals(setOf(bonjour.url), connection.allowedLocalRouteURLs)
+        // Hosted keeps its advertised priority above the local name; the
+        // numeric LAN route is not consented at all.
+        assertEquals(
+            setOf(CompanionEndpointKind.BONJOUR, CompanionEndpointKind.HOSTED),
+            connection.orderedEndpoints.map { it.kind }.toSet(),
+        )
+        assertFalse(connection.orderedEndpoints.any { it.url == local.url })
+    }
+
+    @Test
     fun savedConnectionWithoutPolicyRetainsLegacyProtectedFailover() {
         var connection = CompanionJson.decodeFromString<Connection>(
             """

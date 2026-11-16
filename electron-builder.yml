@@ -1,10 +1,10 @@
-appId: com.dexbot.app
-productName: DEX BOT
-artifactName: DEXBOT-${version}-${arch}.${ext}
+appId: com.lunabot.app
+productName: Luna Bot
+artifactName: LUNABOT-${version}-${arch}.${ext}
 
 protocols:
-  - name: DEX BOT package install
-    schemes: [dexbot]
+  - name: Luna Bot package install
+    schemes: [lunabot, dexbot]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
 # the NSIS .exe (Windows) from DEX Cloud, which this fork controls. A private
@@ -34,6 +34,7 @@ files:
   - "!electron/resources/speech-helper"
   - "!electron/resources/speech-helper.swift"
   - "!electron/resources/speech-helper-Info.plist"
+  - "!electron/resources/Luna Bot Speech.app/**"
   - "!electron/resources/DEX BOT Speech.app/**"
   - "!electron/resources/OpenMausBot Speech.app/**"
   # The Teach a skill recorder is gone, but a machine that once ran
@@ -52,9 +53,9 @@ asar: true
 extraResources:
   # Ship the app's own license terms in every desktop distribution.
   - from: LICENSE
-    to: licenses/DEXBOT-LICENSE.txt
+    to: licenses/LUNABOT-LICENSE.txt
   - from: NOTICE
-    to: licenses/DEXBOT-NOTICE.txt
+    to: licenses/LUNABOT-NOTICE.txt
   # cloudflared is distributed under Apache-2.0 as a separate executable.
   # OpenMausBot itself uses the same full license text; ship another named
   # copy so the third-party executable's terms remain unambiguous.
@@ -87,8 +88,6 @@ extraResources:
   # of the app that listens off this machine, and it stays off until asked
   - from: dist-companion
     to: companion
-  - from: skills
-    to: skills
   - from: dist-native/android-platform-tools
     to: android-platform-tools
 
@@ -110,8 +109,8 @@ mac:
   entitlementsInherit: build/entitlements.mac.plist
   # the dictation helper is a signed background app — Windows and Linux never see it
   extraResources:
-    - from: electron/resources/DEX BOT Speech.app
-      to: DEX BOT Speech.app
+    - from: electron/resources/Luna Bot Speech.app
+      to: Luna Bot Speech.app
     # CUA must live outside ASAR. prepare-cua stages the signed executable and
     # a self-contained JS/native SDK bundle selected for macOS arm64.
     # ${arch} resolves per built arch — each bundle carries its own natives
@@ -130,12 +129,14 @@ mac:
     # node_modules entry of any tree it copies (app-builder-lib util/filter).
     - from: dist-native/duckdb/darwin-${arch}/node_modules
       to: duckdb/node_modules
+    - from: laya-service
+      to: laya-service
   extendInfo:
-    NSMicrophoneUsageDescription: DEX BOT uses the microphone for voice dictation into the composer.
-    NSSpeechRecognitionUsageDescription: DEX BOT transcribes your voice on-device to type messages for you.
-    NSAccessibilityUsageDescription: DEX BOT uses Accessibility when you let a bot control this Mac.
-    NSScreenCaptureUsageDescription: DEX BOT uses Screen Recording so bots can see this Mac before acting.
-    NSDownloadsFolderUsageDescription: DEX BOT looks in Downloads for the file your bot saved when you move it here.
+    NSMicrophoneUsageDescription: Luna Bot uses the microphone for voice dictation into the composer.
+    NSSpeechRecognitionUsageDescription: Luna Bot transcribes your voice on-device to type messages for you.
+    NSAccessibilityUsageDescription: Luna Bot uses Accessibility when you let a bot control this Mac.
+    NSScreenCaptureUsageDescription: Luna Bot uses Screen Recording so bots can see this Mac before acting.
+    NSDownloadsFolderUsageDescription: Luna Bot looks in Downloads for the file your bot saved when you move it here.
   # Notarization runs manually after the build (notarytool + staple),
   # mirroring the BlueyLite ship_release.sh flow.
   notarize: false
@@ -145,7 +146,7 @@ dmg:
   # ${arch} is load-bearing: without it the x64 dmg silently overwrites
   # the arm64 one when both arches build (this section overrides both the
   # top-level and mac-level artifactName, so it must carry the arch itself)
-  artifactName: DEXBOT-${version}-${arch}.dmg
+  artifactName: LUNABOT-${version}-${arch}.dmg
   # x/y are icon centres in points. electron-builder 26.15.3 sizes the window
   # from build/background.png and ignores dmg.window whenever a background is set.
   iconSize: 112
@@ -192,11 +193,11 @@ win:
 nsis:
   oneClick: true
   perMachine: false
-  shortcutName: DEX BOT
+  shortcutName: Luna Bot
   # Versioned, like the .dmg. The README's /latest/download/ button needs a
-  # STABLE filename, so ship a second copy named DEXBOT-setup.exe on the
-  # release — the same trick as DEXBOT.dmg beside DEXBOT-${version}.dmg.
-  artifactName: DEXBOT-${version}-setup.${ext}
+  # STABLE filename, so ship a second copy named LUNABOT-setup.exe on the
+  # release — the same trick as LUNABOT.dmg beside LUNABOT-${version}.dmg.
+  artifactName: LUNABOT-${version}-setup.${ext}
 
 linux:
   target:
@@ -208,11 +209,11 @@ linux:
   # lone 1024px PNG is not indexed by GNOME's hicolor theme on Ubuntu 24.04.
   icon: build/icon.svg
   category: Utility
-  executableName: dexbot
+  executableName: lunabot
   synopsis: Your own team of AI bots, in a chat app
   description: A local-first chat app for running a team of AI agents.
-  maintainer: DEX BOT <noreply@cloud.dexai.vip>
-  vendor: DEX BOT
+  maintainer: Luna Bot <noreply@cloud.dexai.vip>
+  vendor: Luna Bot
   syncDesktopName: true
   # The reviewed x64 CLI runtime is staged before packaging and remains
   # outside ASAR so executable modes and adjacent sidecars are preserved.
@@ -229,7 +230,7 @@ linux:
       to: dexbot-browser.apparmor
   desktop:
     entry:
-      Name: DEX BOT
+      Name: Luna Bot
       Comment: Your own team of AI bots, in a chat app
       Keywords: AI;Agents;Chat;Productivity;
 

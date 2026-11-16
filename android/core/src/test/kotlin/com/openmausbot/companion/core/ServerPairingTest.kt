@@ -27,10 +27,17 @@ class ServerPairingTest {
     }
 
     @Test
-    fun companionLinksAreAcceptedUnderBothBrands() {
-        // The desktop writes dexbot:// now; links and QR codes made before the
-        // rebrand still have to pair. Anything else stays out.
-        for (scheme in listOf(PairingInvite.SCHEME, PairingInvite.LEGACY_SCHEME, "DEXBOT")) {
+    fun companionLinksAreAcceptedUnderEveryBrand() {
+        // The desktop writes lunabot:// now; links and QR codes made under the
+        // previous rebrand or before it still have to pair. Anything else stays
+        // out.
+        for (scheme in listOf(
+            PairingInvite.SCHEME,
+            PairingInvite.PREVIOUS_SCHEME,
+            PairingInvite.LEGACY_SCHEME,
+            "DEXBOT",
+            "LUNABOT",
+        )) {
             assertNotNull(
                 PairingInvite.parse("$scheme://pair?address=192.168.1.9:8810&code=123456"),
                 scheme,

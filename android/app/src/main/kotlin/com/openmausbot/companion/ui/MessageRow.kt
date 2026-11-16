@@ -139,7 +139,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 /** What the clipboard shows this came from. */
-private const val MESSAGE_CLIP_LABEL = "DEX BOT message"
+private const val MESSAGE_CLIP_LABEL = "Luna Bot message"
 
 /**
  * One row of the transcript — the port of `MessageRow` in `ios/App/ChatView.swift`.
@@ -1458,7 +1458,7 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                         tint = minisWarning,
                     )
                     Text(
-                        "此提案由旧版本创建，无法安全启用。请拒绝该提案并让机器人重新创建。",
+                        "此提案由旧版本创建，无法安全启用。请拒绝该提案并让智能体重新创建。",
                         fontSize = 12.sp,
                         color = minisWarning,
                         modifier = Modifier.weight(1f),
@@ -1634,7 +1634,7 @@ private fun ScreenShot(threadId: String, message: Message, openComputer: (() -> 
                 }
                 is ScreenShotState.Ready -> Image(
                     bitmap = current.image,
-                    contentDescription = "此机器人电脑的一帧画面",
+                    contentDescription = "此智能体电脑的一帧画面",
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -1860,7 +1860,7 @@ private fun SignInRequestCard(
                 color = minisSecondary,
             )
             Text(
-                "密码由你亲自输入到页面中，DEX BOT 始终看不到。",
+                "密码由你亲自输入到页面中，Luna Bot 始终看不到。",
                 fontSize = 12.sp,
                 color = secondaryTint,
             )
@@ -1967,7 +1967,7 @@ private fun AppSummaryCard(message: Message) {
         body = message.text,
     ) {
         Text(
-            if (data?.source == "mcp") "MCP 应用" else "机器人页面",
+            if (data?.source == "mcp") "MCP 应用" else "智能体页面",
             fontSize = 12.sp,
             color = secondaryTint,
         )
@@ -1999,7 +1999,7 @@ private fun callEndLabel(reason: String): String = when (reason) {
 
 private fun connectorStatusLabel(card: ConnectorCardData): String = when {
     card.dismissed == true -> "已跳过。"
-    card.status == "required" -> "机器人需要你连接这个应用。"
+    card.status == "required" -> "智能体需要你连接这个应用。"
     card.status == "authorizing" -> "正在浏览器中等待授权完成…"
     card.status == "connected" -> if (card.resumed == true) "已连接，任务已继续。" else "已连接。"
     card.status == "failed" -> "上次连接没有完成。"

@@ -762,12 +762,12 @@ const WHISPER_WORKER = String.raw`
 import json, sys
 import numpy as np
 from faster_whisper import WhisperModel
-model = WhisperModel("small.en", device="cpu", compute_type="int8")
+model = WhisperModel("small", device="cpu", compute_type="int8")
 FRAME, THRESH, END_SIL, MAX_FRAMES, PAD = 960, 300.0, 20, 500, 10
 pos, ring, utt, start, silent, buf = 0, [], [], None, 0, b""
 def flush(s, e, pcm):
     audio = np.frombuffer(pcm, dtype=np.int16).astype(np.float32) / 32768.0
-    segs, _ = model.transcribe(audio, language="en", beam_size=1, condition_on_previous_text=False, word_timestamps=True)
+    segs, _ = model.transcribe(audio, language=None, beam_size=1, condition_on_previous_text=False, word_timestamps=True)
     words = [{"w": w.word.strip(), "s": w.start, "e": w.end} for seg in segs for w in (seg.words or [])]
     print(json.dumps({"start_byte": s, "words": words}), flush=True)
 for chunk in iter(lambda: sys.stdin.buffer.read(FRAME * 4), b""):

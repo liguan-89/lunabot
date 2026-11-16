@@ -4,7 +4,6 @@ import type { AppSettingsSection } from "@/state/store";
 import { t } from "@/lib/i18n";
 import { appVersion } from "@/lib/app-links";
 import { SIMPLE_ONLY } from "@/lib/simple-only";
-import type { LocaleKey } from "@/locales";
 import { productName } from "../lib/brand";
 import { AnalyticsRow } from "./AnalyticsRow";
 import { UpdatesConsentRow } from "./UpdatesConsent";
@@ -17,6 +16,7 @@ import { EnginesSettings } from "./EnginesSettings";
 import { LocalComputerSection } from "./LocalComputerSection";
 import { PeopleSection } from "./PeopleSection";
 import { ActivitySection } from "./ActivitySection";
+import { AccessOverview } from "./bot-access/AccessOverview";
 import { BuiltInBrowserRow, ServerSitesRow } from "./BrowserSettingsRows";
 import { VaultSettings } from "./VaultSettings";
 import { PaymentCardsSettings } from "./PaymentCardsSettings";
@@ -28,8 +28,6 @@ import { Card, SettingRow, SettingsDisclosureRow, SettingsGroup, SettingsRows } 
 import { UsageSection } from "./UsageSection";
 import { PlanUsageSummary } from "./PlanUsage";
 import { SkinPicker } from "./SkinPicker";
-import { useSkinChoice } from "./ThemeRow";
-import { resolveSkin, SKINS } from "@/lib/skins";
 import { PlaceLookRows } from "./PlaceLookCard";
 import { ChromeRailRow } from "./ChromeRailToggle";
 import { WindowFrameRow } from "./WindowFrameRow";
@@ -38,7 +36,11 @@ import { AwayEmailsSetting } from "./AwayEmailsSetting";
 import { ImportSettings } from "./ImportSettings";
 import { NotificationRows } from "./NotificationSettingsRows";
 import { useServerUpdateItem } from "./SidebarProfileMenu";
-import { AdvancedModeRow, BrowserProfilesRow, ColorUserBubblesRow, FollowUpRow, LanguageRow, ReplayTourRow, SendKeyRow, ToolCallsRow, UpdatesRow } from "./AppSettingsRows";
+import { AdvancedModeRow, BrowserProfilesRow, ColorUserBubblesRow, ExperimentalFeaturesRow, FollowUpRow, LanguageRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
+import { ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
+import { WorkspaceBackupSettings } from "./WorkspaceBackupSettings";
+import { CompanyBackupSettings } from "./CompanyBackupSettings";
+import { SkillsSection } from "./SkillsSection";
 import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
 import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { ThreadConcurrencySettings } from "./ThreadConcurrencySettings";
@@ -49,31 +51,20 @@ import { ThemeRow } from "./ThemeRow";
 import { AdminOnly } from "./AdminOnly";
 import { DefaultBotSettings } from "./NewBotDialog";
 
-export type SimpleDisclosureId = "ai-more" | "ai-keys" | "computer-elsewhere" | "billing-limits";
+export type SimpleDisclosureId = "ai-more" | "ai-keys" | "ai-images" | "ai-decision" | "looks-more" | "computer-elsewhere" | "billing-limits";
 
 export type Disclose = (id: SimpleDisclosureId) => { id: SimpleDisclosureId; open: boolean; onToggle: () => void };
 
-export const SIMPLE_ADVANCED_ONLY: readonly LocaleKey[] = [
-  "settings.font.title", "settings.chatWidth.title", "settings.pinnedCircles.title", "settings.universalPins.title", "settings.runCard.title",
-];
-
-export const SIMPLE_MORE_LIMITS: readonly LocaleKey[] = [
-  "settings.roomTurns.title", "settings.mcpCalls.title", "settings.threads.title", "settings.recovery.title", "settings.threadCleanup.title",
-  "settings.keepWarm.title", "settings.savedSteps.title",
-];
-
 type Has = (id: AppSettingsSection) => boolean;
 
-export function SimpleGeneralPage({ has, peopleOpen, onLooks, onMore }: { has: Has; peopleOpen: boolean; onLooks: () => void; onMore?: () => void }) {
+export function SimpleGeneralPage({ has, disclose, toolCalls = true }: { has: Has; disclose: Disclose; toolCalls?: boolean }) {
   return (
     <>
-      {(has("general") || has("people")) && (
+      {has("general") && (
         <SettingsGroup label={t("settings.group.account")} block="general">
           <SettingsRows>
-            {has("general") && <ProfileSummaryRow />}
-            {has("general") && <AwayEmailsSetting row />}
-            {has("general") && <CloudPlanRow place="account" />}
-            {has("people") && <div data-settings-block="people" className="scroll-mt-4"><PeopleSection simple startOpen={peopleOpen} /></div>}
+            <ProfileSummaryRow />
+            <AwayEmailsSetting row />
           </SettingsRows>
         </SettingsGroup>
       )}
@@ -81,12 +72,24 @@ export function SimpleGeneralPage({ has, peopleOpen, onLooks, onMore }: { has: H
         <SettingsGroup label={t("settings.section.appearance")} block="appearance">
           <SettingsRows>
             <ThemeRow simple />
-            <LooksRow onLooks={onLooks} />
             <PlaceLookRows />
             <ChromeRailRow />
             <WindowFrameRow />
             <ColorUserBubblesRow simple />
           </SettingsRows>
+          <SettingsDisclosureRow title={t("settings.simple.looks.title")} block="looks" {...disclose("looks-more")}>
+            <SkinPicker />
+            <SettingsRows>
+              {toolCalls && <ToolCallsRow />}
+              <FontRow />
+              <ChatWidthRow />
+              <ShowThreadsRow />
+              <PinnedCirclesRow />
+              <UniversalPinsRow />
+              <SidebarToolsLayoutRow />
+              <RunCardRow />
+            </SettingsRows>
+          </SettingsDisclosureRow>
         </SettingsGroup>
       )}
       {has("appearance") && (
@@ -115,17 +118,6 @@ export function SimpleGeneralPage({ has, peopleOpen, onLooks, onMore }: { has: H
         </SettingsGroup>
       )}
       {has("import") && <SettingsGroup label={t("settings.section.import")} block="import"><AdminOnly><ImportSettings /></AdminOnly></SettingsGroup>}
-      {has("organization") && <SettingsGroup label={t("settings.section.organization")} block="organization"><OrganizationSettings /></SettingsGroup>}
-      {has("activity") && <SettingsGroup label={t("settings.section.activity")} block="activity"><ActivitySection /></SettingsGroup>}
-      {onMore && (
-        <div data-settings-block="more" className="scroll-mt-4">
-          <SettingsRows>
-            <SettingRow title={t("settings.simple.more.title")} subtitle={t("settings.simple.more.subtitle")}>
-              <button type="button" className="ui-button" data-settings-more="" onClick={onMore}>{t("settings.simple.more.open")}</button>
-            </SettingRow>
-          </SettingsRows>
-        </div>
-      )}
       {!SIMPLE_ONLY && <div data-settings-block="advanced-mode" className="scroll-mt-4">
         <SettingsRows><AdvancedModeRow simple /></SettingsRows>
       </div>}
@@ -133,60 +125,52 @@ export function SimpleGeneralPage({ has, peopleOpen, onLooks, onMore }: { has: H
   );
 }
 
-function LooksRow({ onLooks }: { onLooks: () => void }) {
-  const choice = useSkinChoice();
-  const current = SKINS.find((skin) => skin.id === resolveSkin(choice))?.name;
-  // A fixed theme is named under the label; Follow system says which it switches between.
-  const hint = choice === "system" ? t("settings.simple.themes.followHint") : current;
-  return (
-    <SettingRow title={t("settings.theme.title")} subtitle={hint}>
-      <button type="button" className="ui-button" onClick={onLooks}>{t("settings.simple.themes.browse")}</button>
-    </SettingRow>
-  );
-}
-
-export function SimpleLooksPage({ onBack, toolCalls = true }: { onBack: () => void; toolCalls?: boolean }) {
+/** Who is in the team, which bots they reach, the organization behind it and what they changed. A solo install has none of
+ * these, and the page is not offered. */
+export function SimpleTeamPage({ has, peopleOpen }: { has: Has; peopleOpen: boolean }) {
   return (
     <>
-      <div><button type="button" className="ui-button" onClick={onBack}>{t("settings.simple.looks.back")}</button></div>
-      <div data-settings-block="looks"><SkinPicker /></div>
-      {toolCalls && <SettingsRows><ToolCallsRow /></SettingsRows>}
+      {has("people") && (
+        <SettingsGroup label={t("settings.section.people")} block="people">
+          <SettingsRows><PeopleSection simple startOpen={peopleOpen} /></SettingsRows>
+        </SettingsGroup>
+      )}
+      {has("botAccess") && <SettingsGroup label={t("settings.section.botAccess")} block="botAccess"><AccessOverview /></SettingsGroup>}
+      {has("organization") && <SettingsGroup label={t("settings.section.organization")} block="organization"><OrganizationSettings /></SettingsGroup>}
+      {has("activity") && <SettingsGroup label={t("settings.section.activity")} block="activity"><ActivitySection /></SettingsGroup>}
     </>
   );
 }
 
-type MoreSection = { id: AppSettingsSection; labelKey: LocaleKey };
-
-export function SimpleMorePage({ sections, onOpen, onBack }: { sections: readonly MoreSection[]; onOpen: (id: AppSettingsSection) => void; onBack: () => void }) {
+/** Everything that changes how the bots behave when nobody is watching, plus the rare restores. It used to be a second
+ * level under General; it is a page of its own so a search result opens straight onto it. The limits are General's
+ * settings, so they appear only where General does. */
+export function SimpleAdvancedPage({ has, limits }: { has: Has; limits: boolean }) {
   return (
     <>
-      <div><button type="button" className="ui-button" onClick={onBack}>{t("settings.simple.looks.back")}</button></div>
-      {sections.length > 0 && (
-        <SettingsGroup block="more-sections">
-          <SettingsRows>
-            {sections.map(({ id, labelKey }) => (
-              <SettingRow key={id} title={t(labelKey)}>
-                <button type="button" className="ui-button" data-settings-more-section={id} onClick={() => onOpen(id)}>{t("settings.simple.more.open")}</button>
-              </SettingRow>
-            ))}
-          </SettingsRows>
-        </SettingsGroup>
-      )}
-      <SettingsGroup label={t("settings.simple.more.limits")} block="limits">
-        <div className="flex flex-col gap-3">
+      {limits && (
+        <SettingsGroup label={t("settings.simple.more.limits")} block="limits" stack>
           <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}><RoomTurnTimeoutSettings /></Card>
           <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}><McpCallTimeoutSettings /></Card>
           <ThreadConcurrencySettings />
           <AutomaticRecoverySettings />
           <ThreadCleanupSettings />
           <SettingsRows><SavedStepsRow /></SettingsRows>
-        </div>
-      </SettingsGroup>
+        </SettingsGroup>
+      )}
+      {has("backups") && <SettingsGroup block="backups" stack><AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly></SettingsGroup>}
+      {has("experimental") && <SettingsGroup block="experimental"><ExperimentalFeaturesRow /></SettingsGroup>}
     </>
   );
 }
 
-export function SimpleAiPage({ has, disclose, connections }: { has: Has; disclose: Disclose; connections: ReactNode }) {
+export function SimpleAiPage({ has, disclose, connections, decisionModel, imageGeneration }: {
+  has: Has;
+  disclose: Disclose;
+  connections: ReactNode;
+  decisionModel: ReactNode;
+  imageGeneration: ReactNode;
+}) {
   return (
     <>
       {has("engines") && (
@@ -204,6 +188,21 @@ export function SimpleAiPage({ has, disclose, connections }: { has: Has; disclos
           </SettingsDisclosureRow>
         </AdminOnly>
       )}
+      {has("imageGeneration") && (
+        <AdminOnly>
+          <SettingsDisclosureRow title={t("settings.section.imageGeneration")} block="imageGeneration" {...disclose("ai-images")}>
+            {imageGeneration}
+          </SettingsDisclosureRow>
+        </AdminOnly>
+      )}
+      {has("decisionModel") && (
+        <AdminOnly>
+          <SettingsDisclosureRow title={t("settings.section.decisionModel")} block="decisionModel" {...disclose("ai-decision")}>
+            {decisionModel}
+          </SettingsDisclosureRow>
+        </AdminOnly>
+      )}
+      {has("skills") && <SettingsGroup block="skills"><SkillsSection /></SettingsGroup>}
     </>
   );
 }
@@ -255,7 +254,7 @@ export function SimpleBillingPage({ has, disclose, cloudAccount }: { has: Has; d
       )}
       {has("cloudAccount") && (
         <SettingsGroup label={t("settings.simple.billing.plan")} block="cloudAccount" footnote={<CloudPlanFootnote />}>
-          <SettingsRows><CloudPlanRow place="plan" usage={usage} upgrade={upgrade} /></SettingsRows>
+          <SettingsRows><CloudPlanRow usage={usage} upgrade={upgrade} /></SettingsRows>
           {signedOut ? null : <div className="flex flex-col gap-4">{cloudAccount}</div>}
         </SettingsGroup>
       )}

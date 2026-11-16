@@ -1,4 +1,4 @@
-"""Draws the DMG background in the DEX BOT monochrome identity.
+"""Draws the DMG background in the Luna Bot monochrome identity.
 
 The install window is 720 x 440 points, with the app icon centred at
 (180, 206) and Applications at (540, 206). Every letter is outlined here:
@@ -81,7 +81,7 @@ svg = [
     '<rect width="720" height="440" fill="url(#dots)"/>',
 ]
 
-title, _ = outlined(DEMI, "Drag DEX BOT into Applications", 25, 360, 70, INK, tracking=-0.2, anchor="middle")
+title, _ = outlined(DEMI, "Drag Luna Bot into Applications", 25, 360, 70, INK, tracking=-0.2, anchor="middle")
 sub, _ = outlined(REGULAR, "The app installs in a moment. Your chats stay on this Mac.", 13.5, 360, 95, MUTED, anchor="middle")
 svg.append(f'<g fill="{INK}">{title}</g>')
 svg.append(sub)
@@ -102,7 +102,7 @@ svg.append(f'<path d="M 396 186 L 422 206 L 396 226" fill="none" stroke="{INK}" 
 MARK_D = 28
 word_cap = 14
 word_size = word_cap / (708 / 1000)
-word, word_w = outlined(HEAVY, "DEX BOT", word_size, 0, 0, INK, tracking=0.2)
+word, word_w = outlined(HEAVY, "Luna Bot", word_size, 0, 0, INK, tracking=0.2)
 lock_w = MARK_D + 10 + word_w
 left = 360 - lock_w / 2
 face_cy = 359

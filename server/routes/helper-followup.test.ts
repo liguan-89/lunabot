@@ -55,7 +55,7 @@ async function fixture(person?: string, teamAiOwnerName?: () => string) {
   return { store, maus, post };
 }
 
-describe("DEX BOT's follow-up", () => {
+describe("Luna Bot's follow-up", () => {
   it("is written once under the intro, as a bot message the model reads, with the server's own counts", async () => {
     const { store, maus, post } = await fixture();
     store.createBot({ name: "Scout" });
@@ -76,7 +76,7 @@ describe("DEX BOT's follow-up", () => {
     expect(store.messagesFor(maus.threadId)).toHaveLength(2);
   });
 
-  it("is DEX BOT's own person's only: never a bot's shell, nor another member on a Team Cloud", async () => {
+  it("is Luna Bot's own person's only: never a bot's shell, nor another member on a Team Cloud", async () => {
     const place = await fixture();
     expect((await place.post({ ai: "own" }, BOT_SHELL)).status).toBe(403);
     expect((await place.post({ ai: "own" }, session("someone@example.com"))).status).toBe(403);

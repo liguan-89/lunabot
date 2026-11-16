@@ -71,6 +71,8 @@ function fixture(kind: "direct" | "group", threadIds = ["first"]) {
     liveTurnByThread: new Map(), stoppedTurnText: (_threadId: string, _turnId: string | undefined, cause: string) => cause,
     turnStops: { stopping: (threadId: string, _turnId: string | undefined, cause: string) => causes.push({ threadId, cause, interrupted: interruptCalls.includes(threadId) }) },
     stoppedTurnOutcome: ({ reason }: { reason: string }) => reason,
+    threadLanguage: () => "en",
+    serverLine: (_language: string | undefined, key: string) => key,
     store: {
       get bots() { return [...bots.values()]; },
       tasks: (botId: string) => kind === "direct" ? [tasks.get(botId)] : [],

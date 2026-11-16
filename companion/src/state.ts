@@ -1,4 +1,4 @@
-// The sidecar's own state directory, never the harness's ~/.dexbot.
+// The sidecar's own state directory, never the harness's ~/.lunabot.
 import { randomUUID } from "node:crypto";
 import {
   chmodSync,
@@ -17,9 +17,10 @@ import { join } from "node:path";
 /** OMB_COMPANION_DIR isolates a test rig from a real paired fleet. */
 function defaultDataDir(): string {
   const home = homedir();
-  const current = join(home, ".dexbot-companion");
-  const legacy = join(home, ".openmausbot-companion");
-  if (!existsSync(current) && existsSync(legacy)) {
+  const current = join(home, ".lunabot-companion");
+  // A paired fleet kept under an earlier name is moved here once, newest first; a failed move leaves it where it is.
+  const legacy = [join(home, ".dexbot-companion"), join(home, ".openmausbot-companion")].find((dir) => existsSync(dir));
+  if (legacy && !existsSync(current)) {
     try {
       renameSync(legacy, current);
     } catch {

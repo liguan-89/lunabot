@@ -3,7 +3,7 @@
 import type { ToolCallContext, ToolCallResult } from "./agents-call.ts";
 import type { Json } from "./agents-client.ts";
 
-const HELPER_TOOL_ROUTES: Readonly<Record<string, string>> = { decide: "helpers/decide", extract: "helpers/extract" };
+const HELPER_TOOL_ROUTES: Readonly<Record<string, string>> = { decide: "helpers/decide", extract: "helpers/extract", select_tool: "helpers/select-tool" };
 export const HELPER_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(HELPER_TOOL_ROUTES));
 
 export async function callHelperTool(name: string, args: Json, context: ToolCallContext): Promise<ToolCallResult> {
@@ -27,6 +27,33 @@ export const HELPER_TOOL_DEFINITIONS = [
         },
       },
       required: ["state", "questions"],
+    },
+  },
+  {
+    name: "select_tool",
+    description: "Ask the decision model which of these tools to use for a task; it answers with one tool and a probability and cannot call it.",
+    inputSchema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        task: { type: "string", description: "What you are trying to do, in one or two sentences." },
+        tools: {
+          type: "array",
+          minItems: 2,
+          maxItems: 50,
+          description: "The tools to choose between.",
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              name: { type: "string", description: "The tool name as you would call it." },
+              description: { type: "string", description: "One line on what it does." },
+            },
+            required: ["name"],
+          },
+        },
+      },
+      required: ["task", "tools"],
     },
   },
   {

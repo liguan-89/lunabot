@@ -461,7 +461,7 @@ class SpeechDictation internal constructor(
     companion object {
         /** Android has no separate Speech Recognition TCC — only the mic. */
         const val MIC_DENIED_MESSAGE: String =
-            "语音输入需要麦克风权限，请在“设置 → DEX BOT”中开启。"
+            "语音输入需要麦克风权限，请在“设置 → Luna Bot”中开启。"
         const val NO_RECOGNIZER_MESSAGE: String =
             "当前语言暂不支持语音输入。"
         const val START_FAILED_MESSAGE: String = "无法启动麦克风。"

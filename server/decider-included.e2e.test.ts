@@ -12,21 +12,23 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const RELAY_PATH = "/relay/api/cloud/services/decider";
 // What the Admin's relay accepts, pinned here as literals: changing the app's
 // copy must fail this test, because the relay would refuse it.
 const ROOM_INSTRUCTIONS = "Which bot in this room should answer `new_message`? Choose __everyone__ only when the message needs several members to answer.";
 const ROOM_STATE_KEYS = ["room", "humans_in_room", "bots_in_room", "recent_messages", "new_message"];
 const KEY_CHECK = {
-  state: { purpose: "DEX BOT is checking that a decision-model key works." },
+  state: { purpose: "Luna Bot is checking that a decision-model key works." },
   questions: { answer: { type: "noul", instructions: "Is this a connection check?" } },
 };
 const EXTRACT_KEY_CHECK = {
   seam: "keyCheck",
   fields: { ok: { type: "boolean", description: "Is this a connection check?" } },
-  input: { text: "DEX BOT is checking that an extraction-model key works." },
+  input: { text: "Luna Bot is checking that an extraction-model key works." },
 };
+
+const JOBS = { roomRouting: true, inboxTriage: true, browserClicks: false, toolSelection: false, placement: false };
 
 /** The relay's own check of an extraction body: the key check is the only extraction this test makes. */
 function relayExtracts(body: unknown): boolean {
@@ -105,9 +107,9 @@ beforeAll(async () => {
   engineDump = join(home, "engine-dump.json");
   writeFileSync(join(data, "config.json"), JSON.stringify({
     instances: {
-      quick: {
-        driver: "claudeAgent", displayName: "Quick fixture", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_DUMP: engineDump },
+      pi: {
+        driver: "piAgent", displayName: "Quick fixture", config: { cli: FAKE_PI },
+        environment: { FAKE_PI_MODE: "happy", FAKE_PI_DUMP: engineDump },
       },
     },
     // Where an own key goes: never where the included token goes.
@@ -173,11 +175,11 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
 
   it("works with no key: Settings sees it included and on, and a new room starts on Auto", async () => {
     const config = await api("GET", "/api/config");
-    expect(config.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: true, jobs: { roomRouting: true } });
+    expect(config.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: true, jobs: JOBS });
     expect(config.text).not.toContain(INCLUDED);
     for (const name of ["Maya", "Theo"]) {
       bots[name] = (await api("POST", "/api/bots", {
-        name, modelSelection: { instanceId: "quick", model: "claude-sonnet-5" }, requireAvailableModel: true,
+        name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, requireAvailableModel: true,
       })).body.bot;
     }
     const created = await api("POST", "/api/groups", { name: "Launch", memberIds: [bots.Maya!.id, bots.Theo!.id] });
@@ -208,14 +210,14 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
   it("an own key wins and goes only to Jev; clearing it falls back to the included decisions", async () => {
     const saved = await api("PUT", "/api/config", { decider: { key: OWN } });
     expect(saved.status, saved.text).toBe(200);
-    expect(saved.body.decider).toEqual({ provider: "jev", configured: true, enabled: true, jobs: { roomRouting: true } });
+    expect(saved.body.decider).toEqual({ provider: "jev", configured: true, enabled: true, jobs: JOBS });
     pick = bots.Maya!.id;
     expect((await round(room.id, "Can someone redo the pricing page copy?")).from!.name).toBe("Maya");
     expect(routed().at(-1)).toMatchObject({ side: "jev", auth: `Bearer ${OWN}` });
 
     const cleared = await api("PUT", "/api/config", { decider: { key: "" } });
     expect(cleared.status, cleared.text).toBe(200);
-    expect(cleared.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: true, jobs: { roomRouting: true } });
+    expect(cleared.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: true, jobs: JOBS });
     pick = bots.Theo!.id;
     expect((await round(room.id, "The navbar flickers on scroll.")).from!.name).toBe("Theo");
     expect(routed().at(-1)).toMatchObject({ side: "relay", auth: `Bearer ${INCLUDED}` });
@@ -224,7 +226,7 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
   it("an explicit off wins: no call, the room's lead answers, new rooms keep a lead", async () => {
     const off = await api("PUT", "/api/config", { decider: { enabled: false } });
     expect(off.status, off.text).toBe(200);
-    expect(off.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: false, jobs: { roomRouting: true } });
+    expect(off.body.decider).toEqual({ provider: "jev", configured: true, included: true, enabled: false, jobs: JOBS });
     const asked = routed().length;
     pick = bots.Theo!.id;
     const reply = await round(room.id, "Who can look at the webhook retries?");
@@ -249,9 +251,9 @@ describe("Cloud Pro's included decision model", { timeout: 90_000 }, () => {
     expect(rows).not.toContain(INCLUDED);
     expect(log).not.toContain(INCLUDED);
     expect(existsSync(engineDump)).toBe(true);
-    const engine = JSON.parse(readFileSync(engineDump, "utf8")).env;
-    expect(engine).not.toHaveProperty("OMB_CLOUD_DECIDER_TOKEN");
-    expect(JSON.stringify(engine)).not.toContain(INCLUDED);
+    const launches = readFileSync(engineDump, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line));
+    expect(JSON.stringify(launches)).not.toContain(INCLUDED);
+    expect(JSON.stringify(launches)).not.toContain("OMB_CLOUD_DECIDER_TOKEN");
     // A tool started with a copy of the server's own environment, as it is:
     // the token is gone from it, not merely filtered on the way out.
     const dump = join(home, "cli-env.json");

@@ -22,7 +22,7 @@ export function createSystemTray({ Tray, Menu, nativeImage, iconPath, trayIconPa
     { type: "separator" },
     { label: t("native.tray.quit"), click: onQuit },
   ]));
-  tray.setToolTip("DEX BOT");
+  tray.setToolTip("Luna Bot");
   label();
   tray.on("click", show);
   tray.on("double-click", show);

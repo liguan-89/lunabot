@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Archive, Cloud, Gauge, CloudDownload, Coins, CreditCard, Download, FlaskConical, KeyRound, LockKeyhole, Monitor, Palette, ScrollText, Search, Settings, Sparkles, TabletSmartphone, Terminal, User, Users, X, Building2, Zap, BookOpen, ImagePlus } from "lucide-react";
+import { Search, User, X } from "lucide-react";
 import { useStore, type AppSettingsSection } from "@/state/store";
 import { skillsLibraryEnabled } from "@/lib/feature-flags";
-import { type LocaleKey } from "@/locales";
 import { t } from "@/lib/i18n";
 import { AdminOnly } from "./AdminOnly";
 import { KeysPage } from "./keys/KeysPage";
@@ -12,7 +11,7 @@ import { AnalyticsRow } from "./AnalyticsRow";
 import { UpdatesConsentRow } from "./UpdatesConsent";
 import { OpenAtLoginRow } from "./OpenAtLoginRow";
 import { DefaultBotSidebarRow } from "./DefaultBotControls";
-import { TalkShortcutRow, talkShortcutKeywords } from "./TalkShortcutRow";
+import { TalkShortcutRow } from "./TalkShortcutRow";
 import { AttachmentStorageSettings } from "./AttachmentStorageSettings";
 import { DiagnosticsRow } from "./DiagnosticsRow";
 import { DecisionModelSettings } from "./DecisionModelSettings";
@@ -31,6 +30,7 @@ import { CustomDomainSettings } from "./CustomDomainSettings";
 import { BuiltInBrowserRow, ServerSitesRow } from "./BrowserSettingsRows";
 import { VaultSettings } from "./VaultSettings";
 import { PaymentCardsSettings } from "./PaymentCardsSettings";
+import { ChannelsSettings } from "./ChannelsSettings";
 import { RemoteComputerSection } from "./RemoteComputerSection";
 import { ConnectedWorkspacesSettings } from "./ConnectedWorkspacesSettings";
 import { PlaceLookCard } from "./PlaceLookCard";
@@ -39,9 +39,9 @@ import { WindowFrameRow } from "./WindowFrameRow";
 import { OrganizationSettings } from "./OrganizationSettings";
 import { CloudAccountSettings } from "./CloudAccountSettings";
 import { MarketSubscriptionCard } from "./MarketSubscriptionCard";
-import { ProSettingsCard } from "./ProIntroduction";
 import { CloudUsageSettings } from "./CloudUsageMeter";
-import { Card, SettingsGroup, SIMPLE_BUTTONS } from "./SettingsPrimitives";
+import { ProSettingsCard } from "./ProIntroduction";
+import { Card, SettingsGroup as SettingsGroupBlock, SIMPLE_BUTTONS } from "./SettingsPrimitives";
 import { Layer, useIsTopLayer } from "./Layer";
 import { shortcutLabel } from "./ShortcutHint";
 import { UsageSection } from "./UsageSection";
@@ -68,122 +68,67 @@ import { scrollWithin } from "@/lib/scroll-within";
 import { glassPopupFrameStyle } from "@/lib/glass-popup";
 import { NotificationRows } from "./NotificationSettingsRows";
 import { useAdvancedMode } from "@/lib/interface-mode";
-import { SIMPLE_ONLY } from "@/lib/simple-only";
 import { Select } from "./Select";
 import { SavedStepsRow } from "./SavedStepsRow";
-import { BrowserProfilesRow, ColorUserBubblesRow, AdvancedModeRow, ExperimentalFeaturesRow, LanguageRow, NewBotEffortRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, FollowUpRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
-import { SIMPLE_ADVANCED_ONLY, SIMPLE_MORE_LIMITS, SimpleAiPage, SimpleBillingPage, SimpleComputerPage, SimpleGeneralPage, SimpleLooksPage, SimpleMorePage, SimpleUpdatesPage, type Disclose, type SimpleDisclosureId } from "./SettingsSimplePages";
+import { BrowserProfilesRow, ColorUserBubblesRow, AdvancedModeRow, ExperimentalFeaturesRow, LanguageRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, FollowUpRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
+import { SimpleAdvancedPage, SimpleAiPage, SimpleBillingPage, SimpleComputerPage, SimpleGeneralPage, SimpleTeamPage, SimpleUpdatesPage, type Disclose, type SimpleDisclosureId } from "./SettingsSimplePages";
+import type { SettingsRowEntry } from "./settings/rows";
 
-// labelKey, not a label: t() reads the active pack when called, so a label resolved at module scope would freeze the
-// boot language.
+// The information architecture lives in settings/registry.ts, so a new page or row is one file's edit. It is re-exported
+// here because every caller and test already reaches it through this module.
+import {
+  SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, pageOf, revealSettingsBlock, rowSearchResults,
+  sectionMatches, simplePageMatches, simpleSettingsPages, type SettingsGroup as SettingsRailGroup, type SimpleSettingsPage,
+} from "./settings/registry";
+export {
+  SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, pageOf, revealSettingsBlock, rowSearchResults,
+  sectionMatches, simplePageMatches, simpleSettingsPages, type SimpleSettingsPage,
+};
+export type { SettingsRailGroup as SettingsGroup };
 
-export type SettingsGroup = "you" | "ai" | "computers" | "account";
+/** What a search result scrolls to: the row it names, or the section's block when that row is not drawn here. */
+type SettingsReveal = { rows?: readonly string[]; block: string };
 
-export const SETTINGS_GROUPS: Array<{ id: SettingsGroup; labelKey: LocaleKey }> = [
-  { id: "you", labelKey: "settings.group.you" },
-  { id: "ai", labelKey: "settings.group.ai" },
-  { id: "computers", labelKey: "settings.group.computers" },
-  { id: "account", labelKey: "settings.group.account" },
-];
-
-export const SECTIONS: Array<{
-  id: AppSettingsSection;
-  group: SettingsGroup;
-  labelKey: LocaleKey;
-  icon: typeof User;
-  keywords: string[];
-}> = [
-  { id: "general", group: "you", labelKey: "settings.section.general", icon: User, keywords: ["profile", "pinned panels", "web panel", "dashboard", "pin a page", "name", "email", "about me", "about", "suggestions", "suggested", "memory", "analytics", "updates", "product updates", "newsletter", "email updates", "effort", "new bots", "reasoning", "threads", "parallel", "concurrency", "cleanup", "retention", "attachments", "clear attachments", "event log", "event-log", "log size", "automatic recovery", "backup model", "fallback", "routines", "conversation", "schedule", "usage", "limit", "plan", "upgrade", "cloud desktop hours", "storage", "saved steps", "repeat", "replay", "computer tasks", "without ai", "forget", ...talkShortcutKeywords()] },
-  { id: "appearance", group: "you", labelKey: "settings.section.appearance", icon: Palette, keywords: ["skin", "theme", "appearance", "font", "typeface", "chat width", "width", "wide", "full width", "bubble", "bubbles", "tools", "tool calls", "threads", "show threads", "hide threads", "sidebar", "display", "run", "this run", "run card", "commands", "notifications", "sound", "sounds", "mute", "silent", "chime", "pinned", "circles", "universal", "groups", "top", "send", "enter", "return", "shift+enter", "ctrl+enter", "cmd+enter", "⌘+enter", "new line", "keyboard", "ime", "japanese", "message color", "my messages", "toolbar", "tools layout", "footer", "routines", "triggers", "team map", "color", "colour", "cloud color", "server color", "tint", "sidebar color", "sidebar picture", "picture", "image", "banner", "background", "computers", "your computers", "rail", "strip", "frame", "window frame", "title bar"] },
-  { id: "companion", group: "you", labelKey: "settings.section.companion", icon: TabletSmartphone, keywords: ["companion", "device", "phone", "desktop", "client", "host", "pair", "pairing", "mobile", "https", "secure", "tailscale", "wifi", "remote", "advanced", "domain", "dns", "self-hosted", "server", "caddy"] },
-  { id: "engines", group: "ai", labelKey: "settings.section.engines", icon: Terminal, keywords: ["pi", "custom", "models", "model providers", "engines", "providers", "cli"] },
-  { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: KeyRound, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "box", "xai", "mistral", "cerebras", "meta", "muse", "vps", "router", "openrouter", "base url", "openai", "anthropic", "groq", "greenference", "modelgo", "opencode", "deepseek", "provider", "lm studio", "lmstudio", "llm studio", "llmstudio", "bionic"] },
-  { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: Zap, keywords: ["decision", "extraction", "jev", "typesafe", "cloudflare", "workers ai", "clef", "clairic", "email", "routing", "auto", "rooms", "who answers"] },
-  { id: "imageGeneration", group: "ai", labelKey: "settings.section.imageGeneration", icon: ImagePlus, keywords: ["image", "images", "picture", "generate", "avatar", "gpt image", "grok imagine", "gemini", "nano banana", "openrouter", "flux", "backup"] },
-  { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
-  { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building2, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
-  { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: Monitor, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
-  { id: "logins", group: "computers", labelKey: "settings.section.vault", icon: LockKeyhole, keywords: ["vault", "logins", "login", "passwords", "password", "sign in", "2fa", "one-time code", "totp", "fill_login", "1password", "password manager", "secrets", "secret", "token", ".env", "env"] },
-  { id: "cloudAccount", group: "account", labelKey: "settings.section.cloudAccount", icon: Cloud, keywords: ["cloud", "my cloud", "account", "personal", "sign in", "pro", "subscription", "billing", "sync", "send", "this computer", "bots", "logins", "1password"] },
-  { id: "marketSubscription", group: "account", labelKey: "settings.section.marketSubscription", icon: CreditCard, keywords: ["tk1688", "api", "subscription", "token", "quota", "billing", "renew", "key", "provider"] },
-  { id: "organization", group: "account", labelKey: "settings.section.organization", icon: Building2, keywords: ["company", "organization", "organisation", "sign in", "enroll", "managed", "models", "disconnect"] },
-  { id: "usage", group: "account", labelKey: "settings.section.usage", icon: Coins, keywords: ["tokens", "cost", "billing", "plan", "quota", "remaining", "weekly", "5-hour", "model", "used"] },
-  { id: "backups", group: "account", labelKey: "settings.section.backups", icon: Archive, keywords: ["export", "import", "restore", "full backup", "password", "recovery"] },
-  { id: "import", group: "account", labelKey: "settings.section.import", icon: Download, keywords: ["import", "grok", "grok bot", "move", "cursor", "claude code", "codex", "gemini", "skills", "mcp", "tools", "bring"] },
-  { id: "people", group: "account", labelKey: "settings.section.people", icon: Users, keywords: ["people", "users", "invite", "sign in", "members", "admins", "access"] },
-  { id: "botAccess", group: "account", labelKey: "settings.section.botAccess", icon: Users, keywords: ["access", "share", "sharing", "who can", "view", "chat", "edit", "permissions", "team", "members", "bots"] },
-  { id: "activity", group: "account", labelKey: "settings.section.activity", icon: ScrollText, keywords: ["activity", "audit", "log", "history", "who changed", "approvals", "decisions", "admin"] },
-  { id: "workspaces", group: "account", labelKey: "settings.section.workspaces", icon: Building2, keywords: ["clients", "tenants", "fleet", "workspaces", "installation", "installations"] },
-  { id: "experimental", group: "account", labelKey: "settings.section.experimental", icon: FlaskConical, keywords: ["early", "preview", "learn", "skill", "authoring"] },
-];
-
-export type SimpleSettingsPage = {
+/** One line of the search list. The rail and the narrow-window panel both draw these, so the two cannot drift apart. */
+type SettingsSearchResult = {
+  /** Becomes `data-settings-<kind>`, which the tests and the DOM read a result by. */
+  kind: "page" | "section" | "row" | "advanced" | "more" | "key";
   id: string;
-  labelKey: LocaleKey;
-  icon: typeof User;
-  sections: AppSettingsSection[];
-  keywords?: string[];
+  label: string;
+  hint?: string;
+  icon?: typeof User;
+  current?: boolean;
+  select: () => void;
 };
 
-export const SIMPLE_PAGES: SimpleSettingsPage[] = [
-  { id: "general", labelKey: "settings.section.general", icon: Settings, sections: ["general", "appearance", "people", "import", "organization", "activity"],
-    keywords: ["account", "theme", "looks", "open at login", "startup", "analytics", "advanced mode", "more settings", "limits", "timeout"] },
-  { id: "botAccess", labelKey: "settings.section.botAccess", icon: Users, sections: ["botAccess"] },
-  { id: "ai", labelKey: "settings.group.ai", icon: Sparkles, sections: ["engines", "connections"], keywords: ["new bots", "defaults", "effort"] },
-  { id: "computer", labelKey: "settings.simple.page.computer", icon: Monitor, sections: ["companion", "desktopWorkspaces", "computer", "logins"] },
-  { id: "billing", labelKey: "settings.simple.page.billing", icon: Gauge, sections: ["usage", "cloudAccount", "marketSubscription"], keywords: ["billing", "included", "allowance", "cloud hours", "voice", "tk1688", "api subscription"] },
-  { id: "updates", labelKey: "settings.simple.page.updates", icon: CloudDownload, sections: ["updates"],
-    keywords: ["update", "version", "release", "product updates", "newsletter", "email updates", "welcome", "tour", "diagnostics", "logs", "support"] },
-];
+const RESULT_ATTRIBUTE = { page: "page", section: "section", row: "row-result", advanced: "advanced-only", more: "more-result", key: "key-result" } as const;
 
-export const SIMPLE_HIDDEN_SECTIONS: readonly AppSettingsSection[] = ["backups", "experimental", "workspaces", "skills", "decisionModel", "imageGeneration"];
-
-
-export const SIMPLE_FOLDED: Partial<Record<AppSettingsSection, SimpleDisclosureId>> = {
-  connections: "ai-keys",
-  remote: "computer-elsewhere",
-  desktopWorkspaces: "computer-elsewhere",
-};
-
-export function simpleSettingsPages(available: ReadonlySet<AppSettingsSection>, open: AppSettingsSection): SimpleSettingsPage[] {
-  const pages = SIMPLE_PAGES
-    .map((page) => ({ ...page, sections: page.sections.filter((id) => available.has(id)) }))
-    .filter((page) => page.sections.length > 0);
-  const hidden = SIMPLE_HIDDEN_SECTIONS.includes(open) && available.has(open) ? SECTIONS.find((entry) => entry.id === open) : undefined;
-  if (hidden) pages.push({ id: hidden.id, labelKey: hidden.labelKey, icon: hidden.icon, sections: [hidden.id] });
-  return pages;
+/** The attribute value a row is found by, quoted for the selector: a title may hold a quote or a backslash. */
+function rowSelector(titles: readonly string[]): string {
+  return titles.map((title) => `[data-settings-row="${title.replace(/[\\"]/g, "\\$&")}"]`).join(", ");
 }
 
-export function revealSettingsBlock(
-  scroller: Parameters<typeof scrollWithin>[0] & { querySelector: (selector: string) => Parameters<typeof scrollWithin>[1] | null },
-  section: AppSettingsSection,
-  indexInPage: number,
-): void {
-  if (indexInPage <= 0) { scroller.scrollTop = 0; return; }
-  const block = scroller.querySelector(`[data-settings-block="${section}"]`);
-  if (block) scrollWithin(scroller, block);
+function SearchResultButton({ result, className }: { result: SettingsSearchResult; className: string }) {
+  const Icon = result.icon;
+  return (
+    <button
+      type="button"
+      {...{ [`data-settings-${RESULT_ATTRIBUTE[result.kind]}`]: result.id }}
+      onClick={result.select}
+      aria-current={result.current ? "page" : undefined}
+      className={className}
+    >
+      {Icon && <Icon size={15} aria-hidden="true" className="shrink-0" />}
+      <span className="truncate">{result.label}{result.hint && <span className="text-ink-secondary"> · {result.hint}</span>}</span>
+    </button>
+  );
 }
 
-function simplePageMatches(page: SimpleSettingsPage, query: string): boolean {
-  if (!query) return true;
-  if ([t(page.labelKey), ...page.keywords ?? []].some((part) => part.toLowerCase().includes(query))) return true;
-  return page.sections.some((id) => {
-    const entry = SECTIONS.find((candidate) => candidate.id === id);
-    return entry ? sectionMatches(entry, query) : false;
-  });
-}
-
-export function sectionMatches(section: (typeof SECTIONS)[number], query: string): boolean {
-  if (!query) return true;
-  if (section.id === "connections" && KEY_CATALOG.some((entry) => keyMatches(entry, query))) return true;
-  return [t(section.labelKey), ...section.keywords].some((part) => part.toLowerCase().includes(query));
-}
-
-export function keySearchResults(query: string): KeyEntry[] {
+function keySearchResults(query: string): KeyEntry[] {
   return query ? KEY_CATALOG.filter((entry) => keyMatches(entry, query)).slice(0, 8) : [];
 }
 
-export const openKeyResult = (entry: KeyEntry) => entry.uses ? openKeySettings(entry.uses, entry.id) : openKeySettings(entry.id);
+const openKeyResult = (entry: KeyEntry) => entry.uses ? openKeySettings(entry.uses, entry.id) : openKeySettings(entry.id);
 
 export function SettingsModal() {
   return <Layer modal><SettingsDialog /></Layer>;
@@ -226,7 +171,7 @@ function SettingsDialog() {
   const visibleSections = availableSections.filter((entry) => sectionMatches(entry, q));
 
   const simpleAvailable = new Set<AppSettingsSection>([...availableSections.map((entry) => entry.id), ...(remoteActive ? [] : ["updates" as const])]);
-  const simplePages = advanced ? [] : simpleSettingsPages(simpleAvailable, section);
+  const simplePages = advanced ? [] : simpleSettingsPages(simpleAvailable);
   const visiblePages = simplePages.filter((page) => simplePageMatches(page, q));
   const currentPage = simplePages.find((page) => page.sections.includes(section));
 
@@ -250,17 +195,25 @@ function SettingsDialog() {
     const open = q !== "" || (folds[id] ?? SIMPLE_FOLDED[requested] === id);
     return { id, open, onToggle: () => setFolds((current) => ({ ...current, [id]: !open })) };
   };
-  const [openSubPage, setOpenSubPage] = useState<{ view: "looks" | "more"; for: AppSettingsSection } | null>(null);
-  const subPage = openSubPage?.for === requested ? openSubPage.view : null;
-  const setSubPage = (view: "looks" | "more" | null, at: AppSettingsSection = requested) => setOpenSubPage(view && { view, for: at });
-  useEffect(() => { setOpenSubPage((current) => current?.for === requested ? current : null); }, [requested]);
-  const [reveal, setReveal] = useState<string | null>(null);
-  const advancedMatches = advanced || SIMPLE_ONLY || !q ? [] : SIMPLE_ADVANCED_ONLY.filter((key) => t(key).toLowerCase().includes(q));
-  const moreSections = availableSections.filter((entry) => SIMPLE_HIDDEN_SECTIONS.includes(entry.id));
+  const [reveal, setReveal] = useState<SettingsReveal | null>(null);
+  const rowResults = advanced ? [] : rowSearchResults(q, simpleAvailable);
+  const advancedRowResults = advanced ? rowSearchResults(q, new Set(availableSections.map((entry) => entry.id))) : [];
+  const looksMatches = rowResults.filter((entry) => entry.simpleLooks);
+  const moreMatches = rowResults.filter((entry) => entry.simpleMore);
+  const pageRowMatches = rowResults.filter((entry) => !entry.simpleLooks && !entry.simpleMore);
   const keyResults = remoteActive || !availableSections.some((entry) => entry.id === "connections") ? [] : keySearchResults(q);
+  /** Advanced keeps its rail; this is the same list for the narrow-window panel, where the rail is hidden. */
+  const advancedResults: SettingsSearchResult[] = [
+    ...visibleSections.map((entry) => ({ kind: "section" as const, id: entry.id, label: t(entry.labelKey), icon: entry.icon, current: section === entry.id,
+      select: () => { setQuery(""); openSection(entry.id); } })),
+    ...keyResults.map((entry) => ({ kind: "key" as const, id: entry.id, label: t(entry.labelKey), hint: t(keySection(entry).titleKey),
+      select: () => { setQuery(""); dispatch(openKeyResult(entry)); } })),
+    ...advancedRowResults.map((entry) => ({ kind: "row" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: t(SECTIONS.find((candidate) => candidate.id === entry.section)?.labelKey ?? "settings.title"),
+      select: () => { setQuery(""); openSection(entry.section); setReveal({ rows: entry.titleKeys.map((key) => t(key)), block: entry.section }); } })),
+  ];
   const keyResultButtons = (className: string) => keyResults.map((entry) => (
     <button key={entry.id} type="button" data-settings-key-result={entry.id} className={className}
-      onClick={() => { setQuery(""); setSubPage(null); dispatch(openKeyResult(entry)); }}>
+      onClick={() => { setQuery(""); dispatch(openKeyResult(entry)); }}>
       <span>{t(entry.labelKey)} <span className="text-ink-secondary">· {t(keySection(entry).titleKey)}</span></span>
     </button>
   ));
@@ -272,22 +225,28 @@ function SettingsDialog() {
   }, [advanced, revealBlock, section, sectionIndex]);
   useEffect(() => {
     if (!reveal) return;
-    const block = scrollRef.current?.querySelector(`[data-settings-block="${reveal}"]`);
-    if (scrollRef.current && block) scrollWithin(scrollRef.current, block);
+    const scroller = scrollRef.current;
+    const row = reveal.rows?.length ? scroller?.querySelector<HTMLElement>(rowSelector(reveal.rows)) : null;
+    const block = scroller?.querySelector<HTMLElement>(`[data-settings-block="${reveal.block}"]`);
+    const target = row ?? block;
+    if (scroller && target) scrollWithin(scroller, target);
     setReveal(null);
   }, [reveal]);
 
   useEffect(() => {
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const dialog = dialogRef.current;
-    const search = dialog?.querySelector<HTMLInputElement>("[data-settings-search]");
-    if (searchFirst.current && search?.checkVisibility()) search.focus();
+    // Two fields share this attribute: the rail's, and the header's where the rail is hidden. Only one is ever visible.
+    const visibleSearch = () => [...dialog?.querySelectorAll<HTMLInputElement>("[data-settings-search]") ?? []]
+      .find((input) => input.checkVisibility());
+    if (searchFirst.current && visibleSearch()) visibleSearch()!.focus();
     else dialog?.focus();
 
     const onKey = (event: KeyboardEvent) => {
       if (!isTop()) return;
+      const search = visibleSearch();
       if (!searchFirst.current && dialog && document.activeElement === dialog && event.key.length === 1 && !event.metaKey && !event.ctrlKey && !event.altKey
-        && search?.checkVisibility()) {
+        && search) {
         event.preventDefault();
         search.focus();
         setQuery((current) => current + event.key);
@@ -363,67 +322,82 @@ function SettingsDialog() {
         return (
           <>
             <AdvancedModeRow />
-            <DefaultBotSidebarRow />
-            <TalkShortcutRow />
 
-            <ProSettingsCard />
-            <CloudUsageSettings />
-            <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
-              <ProfileFields />
-              <AwayEmailsSetting />
-            </Card>
+            <SettingsGroupBlock label={t("settings.group.account")} stack>
+              <DefaultBotSidebarRow />
+              <TalkShortcutRow />
+              <ProSettingsCard />
+              <Card title={t("settings.profile.title")} subtitle={t("settings.profile.sharedSubtitle")}>
+                <ProfileFields />
+                <AwayEmailsSetting />
+              </Card>
+            </SettingsGroupBlock>
 
-            <LanguageRow />
-            <OpenAtLoginRow />
-            <NewBotEffortRow />
-            <SavedStepsRow />
-            <AnalyticsRow />
-            <UpdatesConsentRow />
-            <DefaultBotSettings />
+            <SettingsGroupBlock label={t("settings.group.chat")} stack>
+              <LanguageRow />
+              <DefaultBotSettings />
+            </SettingsGroupBlock>
 
-            <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
-              <RoomTurnTimeoutSettings />
-            </Card>
+            <SettingsGroupBlock label={t("settings.group.thisComputer")} stack>
+              <OpenAtLoginRow />
+              <AnalyticsRow />
+              <UpdatesConsentRow />
+              <AttachmentStorageSettings />
+              <PinnedPanelsSettings />
+              <UpdatesRow />
+              <DiagnosticsRow />
+              {!remoteActive && <ReplayTourRow />}
+            </SettingsGroupBlock>
 
-            <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
-              <McpCallTimeoutSettings />
-            </Card>
-            <ThreadConcurrencySettings />
-
-            <AutomaticRecoverySettings />
-            <ThreadCleanupSettings />
-            <AttachmentStorageSettings />
-            <PinnedPanelsSettings />
-
-            {!remoteActive && <ReplayTourRow />}
-            <UpdatesRow />
-            <DiagnosticsRow />
+            <SettingsGroupBlock label={t("settings.simple.more.limits")} stack>
+              <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
+                <RoomTurnTimeoutSettings />
+              </Card>
+              <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
+                <McpCallTimeoutSettings />
+              </Card>
+              <ThreadConcurrencySettings />
+              <AutomaticRecoverySettings />
+              <ThreadCleanupSettings />
+              <SavedStepsRow />
+            </SettingsGroupBlock>
           </>
         );
       case "appearance":
         return (
           <>
-            <ThemeRow />
-            <Card title={t("settings.skin.title")} subtitle={t("settings.skin.subtitle")}>
-              <SkinPicker />
-            </Card>
-            <PlaceLookCard />
-            {remoteActive && <AdvancedModeRow />}
-            {remoteActive && <LanguageRow />}
-            <FontRow />
-            <ChatWidthRow />
-            <ColorUserBubblesRow />
-            <SendKeyRow />
-            <FollowUpRow />
-            <SidebarToolsLayoutRow />
-            <ChromeRailRow />
-            <WindowFrameRow />
-            <ShowThreadsRow />
-            <PinnedCirclesRow />
-            <UniversalPinsRow />
-            <NotificationRows />
-            {!remoteActive && <ToolCallsRow />}
-            <RunCardRow />
+            <SettingsGroupBlock label={t("settings.section.appearance")} stack>
+              <ThemeRow />
+              <Card title={t("settings.skin.title")} subtitle={t("settings.skin.subtitle")}>
+                <SkinPicker />
+              </Card>
+              <PlaceLookCard />
+              {remoteActive && <AdvancedModeRow />}
+              {remoteActive && <LanguageRow />}
+              <ColorUserBubblesRow />
+              {!remoteActive && <ToolCallsRow />}
+              <RunCardRow />
+            </SettingsGroupBlock>
+
+            <SettingsGroupBlock label={t("settings.group.chat")} stack>
+              <FontRow />
+              <ChatWidthRow />
+              <SendKeyRow />
+              <FollowUpRow />
+            </SettingsGroupBlock>
+
+            <SettingsGroupBlock label={t("settings.group.sidebar")} stack>
+              <SidebarToolsLayoutRow />
+              <ChromeRailRow />
+              <WindowFrameRow />
+              <ShowThreadsRow />
+              <PinnedCirclesRow />
+              <UniversalPinsRow />
+            </SettingsGroupBlock>
+
+            <SettingsGroupBlock label={t("notifications.title")} stack>
+              <NotificationRows />
+            </SettingsGroupBlock>
           </>
         );
       case "experimental":
@@ -440,9 +414,13 @@ function SettingsDialog() {
       case "computer":
         return <><BuiltInBrowserRow /><ServerSitesRow /><BrowserProfilesRow /><AdminOnly><LocalComputerSection /></AdminOnly></>;
       case "logins":
-        return <><VaultSettings /><PaymentCardsSettings /></>;
+        // Channels belong with the saved logins: both are credentials a bot uses to speak somewhere. Simple has always
+        // shown them here; Advanced used to drop them, leaving Feishu, DingTalk and WeCom unconfigurable there.
+        return <><VaultSettings /><PaymentCardsSettings /><ChannelsSettings /></>;
       case "usage":
-        return <AdminOnly note="settings.adminOnly.usage"><UsageSection /></AdminOnly>;
+        // The Cloud plan's meters sit here, beside the per-provider plans and the trace table, rather than in General
+        // where they would be a second place to read the same numbers.
+        return <><CloudUsageSettings /><AdminOnly note="settings.adminOnly.usage"><UsageSection /></AdminOnly></>;
       case "skills":
         return skillsLibraryEnabled(state.config) ? <SkillsSection /> : null;
       case "people":
@@ -458,26 +436,19 @@ function SettingsDialog() {
     }
   };
 
-  const openMore = () => { openSection("general"); setSubPage("more", "general"); };
   const renderSimplePage = (page: SimpleSettingsPage) => {
     const has = (id: AppSettingsSection) => page.sections.includes(id);
     switch (page.id) {
-      case "general": return subPage === "looks"
-        ? <SimpleLooksPage toolCalls={!remoteActive} onBack={() => { setSubPage(null); setReveal("appearance"); }} />
-        : subPage === "more"
-          ? <SimpleMorePage sections={moreSections} onOpen={(id) => { setSubPage(null); openSection(id); }} onBack={() => { setSubPage(null); setReveal("more"); }} />
-          : <SimpleGeneralPage has={has} peopleOpen={section === "people"} onLooks={() => setSubPage("looks")} onMore={has("general") ? () => setSubPage("more") : undefined} />;
-      case "ai": return <SimpleAiPage has={has} disclose={disclose} connections={renderSection("connections")} />;
+      case "general": return <SimpleGeneralPage has={has} disclose={disclose} toolCalls={!remoteActive} />;
+      case "team": return <SimpleTeamPage has={has} peopleOpen={section === "people"} />;
+      case "ai": return <SimpleAiPage has={has} disclose={disclose} connections={renderSection("connections")}
+        imageGeneration={renderSection("imageGeneration")} decisionModel={renderSection("decisionModel")} />;
       case "computer": return <SimpleComputerPage has={has} remoteAccess={remoteAccess} servers={<ConnectedWorkspacesSettings />} disclose={disclose} />;
       case "billing": return <SimpleBillingPage has={has} disclose={disclose} cloudAccount={renderSection("cloudAccount")} />;
+      case "advanced": return <SimpleAdvancedPage has={has} limits={simpleAvailable.has("general")} />;
       case "updates": return <SimpleUpdatesPage remoteActive={remoteActive} />;
       default:
-        return <>
-          {SIMPLE_HIDDEN_SECTIONS.includes(page.sections[0]!) && simpleAvailable.has("general") && (
-            <div><button type="button" className="ui-button" onClick={openMore}>{t("settings.simple.looks.back")}</button></div>
-          )}
-          {page.sections.map((id) => <section key={id} data-settings-block={id} className="flex scroll-mt-4 flex-col gap-4">{renderSection(id)}</section>)}
-        </>;
+        return <>{page.sections.map((id) => <section key={id} data-settings-block={id} className="flex scroll-mt-4 flex-col gap-4">{renderSection(id)}</section>)}</>;
     }
   };
 
@@ -502,15 +473,47 @@ function SettingsDialog() {
     </div>
   );
 
+  /** The field a person types into. Narrow windows have no rail, so theirs sits in the header and its results take over
+   * the page below. */
+  const narrowSearch = (
+    <div className="w-full sm:hidden">
+      {searchField(
+        "flex h-9 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5 text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
+        "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none",
+      )}
+    </div>
+  );
+
   if (!advanced) {
-    const subOpen = currentPage?.id === "general" ? subPage : null;
     const resultClass = "flex min-h-8 shrink-0 cursor-pointer items-center rounded-lg px-[9px] py-1.5 text-left text-[13px] leading-[18px] text-ink transition-colors hover:bg-ink/[0.06] motion-reduce:transition-none";
-    const goTo = (id: AppSettingsSection) => { setSubPage(null); openSection(id); };
-    const moreMatches = !q ? [] : [
-      ...moreSections.filter((entry) => sectionMatches(entry, q)).map((entry) => ({ key: entry.id, labelKey: entry.labelKey, open: () => goTo(entry.id) })),
-      ...(simpleAvailable.has("general") ? SIMPLE_MORE_LIMITS : []).filter((key) => t(key).toLowerCase().includes(q))
-        .map((key) => ({ key, labelKey: key, open: () => { openMore(); setReveal("limits"); } })),
+    const goTo = (id: AppSettingsSection) => openSection(id);
+    /** Opens the page a row lives on and scrolls to the row, or to the page's block when Simple draws no such row. */
+    const openRow = (entry: SettingsRowEntry) => {
+      const page = pageOf(entry.simpleSection ?? entry.section, false, simplePages);
+      setQuery("");
+      goTo(page);
+      setReveal({ rows: entry.titleKeys.map((key) => t(key)), block: entry.simpleSection ?? entry.section });
+    };
+    const sectionLabel = (id: AppSettingsSection) => {
+      const entry = SECTIONS.find((candidate) => candidate.id === id);
+      return entry ? t(entry.labelKey) : "";
+    };
+    const results: SettingsSearchResult[] = [
+      ...visiblePages.map((page) => ({ kind: "page" as const, id: page.id, label: t(page.labelKey), icon: page.icon, current: page === currentPage, select: () => goTo(page.sections[0]!) })),
+      ...pageRowMatches.map((entry) => ({ kind: "row" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: sectionLabel(entry.simpleSection ?? entry.section), select: () => openRow(entry) })),
+      ...looksMatches.map((entry) => ({ kind: "advanced" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: t("settings.simple.looks.title"),
+        select: () => { setQuery(""); goTo("general"); setFolds((current) => ({ ...current, "looks-more": true })); setReveal({ rows: entry.titleKeys.map((key) => t(key)), block: "looks" }); } })),
+      ...moreMatches.map((entry) => ({ kind: "more" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: t("settings.simple.more.limits"),
+        select: () => { setQuery(""); goTo("backups"); setReveal({ rows: entry.titleKeys.map((key) => t(key)), block: "limits" }); } })),
+      ...keyResults.map((entry) => ({ kind: "key" as const, id: entry.id, label: t(entry.labelKey), hint: t(keySection(entry).titleKey),
+        select: () => { setQuery(""); dispatch(openKeyResult(entry)); } })),
     ];
+    const noMatch = results.length === 0;
+    /** Every result sits in one list, so the page entries keep the rail's 32px row and the rest get the result look. */
+    const railResultClass = (result: SettingsSearchResult) => result.kind === "page"
+      ? cn("flex h-8 shrink-0 cursor-pointer items-center gap-[9px] rounded-lg px-[9px] text-left text-[13px] text-ink transition-colors motion-reduce:transition-none",
+        result.current ? "bg-ink/[0.08]" : "hover:bg-ink/[0.06]")
+      : resultClass;
     return (
       <div
         className="glass-popup-frame"
@@ -535,72 +538,33 @@ function SettingsDialog() {
               "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
               "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none",
             )}
-            {visiblePages.length === 0 && advancedMatches.length === 0 && moreMatches.length === 0 && keyResults.length === 0 && (
+            {noMatch && (
               <div className="px-[9px] py-3 text-[13px] leading-[18px] text-ink-secondary">{t("settings.noMatch", { query: query.trim() })}</div>
             )}
-            {visiblePages.map((page) => {
-              const Icon = page.icon;
-              const current = page === currentPage;
-              return (
-                <button
-                  key={page.id}
-                  type="button"
-                  data-settings-page={page.id}
-                  onClick={() => goTo(page.sections[0]!)}
-                  aria-current={current ? "page" : undefined}
-                  className={cn(
-                    "flex h-8 shrink-0 cursor-pointer items-center gap-[9px] rounded-lg px-[9px] text-left text-[13px] text-ink transition-colors motion-reduce:transition-none",
-                    current ? "bg-ink/[0.08]" : "hover:bg-ink/[0.06]",
-                  )}
-                >
-                  <Icon size={15} aria-hidden="true" className="shrink-0" />
-                  <span className="truncate">{t(page.labelKey)}</span>
-                </button>
-              );
-            })}
-            {advancedMatches.map((key) => (
-              <button
-                key={key}
-                type="button"
-                data-settings-advanced-only={key}
-                onClick={() => { setQuery(""); goTo("general"); setReveal("advanced-mode"); }}
-                className={resultClass}
-              >
-                <span>{t(key)} <span className="text-ink-secondary">· {t("settings.simple.advanced")}</span></span>
-              </button>
-            ))}
-            {moreMatches.map((match) => (
-              <button
-                key={match.key}
-                type="button"
-                data-settings-more-result={match.key}
-                onClick={() => { setQuery(""); match.open(); }}
-                className={resultClass}
-              >
-                <span>{t(match.labelKey)} <span className="text-ink-secondary">· {t("settings.simple.more.title")}</span></span>
-              </button>
-            ))}
-            {keyResultButtons(resultClass)}
+            {results.map((result) => <SearchResultButton key={`${result.kind}:${result.id}`} result={result} className={railResultClass(result)} />)}
           </nav>
 
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <header className="flex shrink-0 items-center gap-3 py-3 pl-4 pr-14 sm:pb-1.5 sm:pl-12 sm:pt-8">
-              <Select className="min-w-0 sm:hidden"
-                aria-label={t("settings.title")}
-                value={currentPage?.id ?? ""}
-                onChange={(event) => {
-                  setQuery("");
-                  const page = simplePages.find((candidate) => candidate.id === event.target.value);
-                  if (page) goTo(page.sections[0]!);
-                }}
-              >
-                {simplePages.map((page) => (
-                  <option key={page.id} value={page.id}>{t(page.labelKey)}</option>
-                ))}
-              </Select>
-              <h2 className="hidden truncate text-[17px] font-medium leading-6 tracking-[-0.008em] text-ink sm:block">
-                {subOpen === "looks" ? t("settings.simple.page.looks") : subOpen === "more" ? t("settings.simple.more.title") : currentPage ? t(currentPage.labelKey) : null}
-              </h2>
+            <header className="flex shrink-0 flex-col gap-2 py-3 pl-4 pr-14 sm:flex-row sm:items-center sm:gap-3 sm:pb-1.5 sm:pl-12 sm:pt-8">
+              {narrowSearch}
+              <div className="flex min-w-0 items-center gap-3">
+                <Select className="min-w-0 sm:hidden"
+                  aria-label={t("settings.title")}
+                  value={currentPage?.id ?? ""}
+                  onChange={(event) => {
+                    setQuery("");
+                    const page = simplePages.find((candidate) => candidate.id === event.target.value);
+                    if (page) goTo(page.sections[0]!);
+                  }}
+                >
+                  {simplePages.map((page) => (
+                    <option key={page.id} value={page.id}>{t(page.labelKey)}</option>
+                  ))}
+                </Select>
+                <h2 className="hidden truncate text-[17px] font-medium leading-6 tracking-[-0.008em] text-ink sm:block">
+                  {currentPage ? t(currentPage.labelKey) : null}
+                </h2>
+              </div>
             </header>
             <button
               type="button"
@@ -612,11 +576,19 @@ function SettingsDialog() {
               <X size={16} aria-hidden="true" />
             </button>
 
+            {q && (
+              <div className="settings-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 pb-10 sm:hidden">
+                {results.length === 0
+                  ? <div className="py-3 text-[13px] leading-[18px] text-ink-secondary">{t("settings.noMatch", { query: query.trim() })}</div>
+                  : results.map((result) => <SearchResultButton key={`${result.kind}:${result.id}`} result={result} className={resultClass} />)}
+              </div>
+            )}
             <div
               ref={scrollRef}
               data-settings-scroll
               className={cn(
-                "settings-scroll flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-10 pt-4 sm:px-8 sm:pb-12 sm:pt-[22px]",
+                "settings-scroll min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-4 pb-10 pt-4 sm:flex sm:px-8 sm:pb-12 sm:pt-[22px]",
+                q ? "hidden sm:flex" : "flex",
                 SIMPLE_BUTTONS,
                 "[&_.uppercase]:normal-case [&_.uppercase]:tracking-normal",
               )}
@@ -657,7 +629,7 @@ function SettingsDialog() {
             "mb-2 mt-1 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
             "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-tertiary focus:outline-none",
           )}
-          {visibleSections.length === 0 && (
+          {visibleSections.length === 0 && advancedRowResults.length === 0 && (
             <div className="px-2.5 py-4 text-[13px] leading-relaxed text-ink-secondary">
               {t("settings.noMatch", { query: query.trim() })}
             </div>
@@ -689,43 +661,60 @@ function SettingsDialog() {
             );
           })}
           {keyResultButtons("cursor-pointer flex min-h-9 items-center rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors hover:bg-control/50 motion-reduce:transition-none")}
+          {advancedRowResults.map((entry) => (
+            <SearchResultButton
+              key={entry.titleKeys[0]}
+              result={advancedResults.find((result) => result.kind === "row" && result.id === entry.titleKeys[0])!}
+              className="cursor-pointer flex min-h-9 items-center rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors hover:bg-control/50 motion-reduce:transition-none"
+            />
+          ))}
         </nav>
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 items-center justify-between gap-3 border-b border-hairline/30 px-3 py-3 sm:pl-9">
-            <Select className="min-w-0 sm:hidden"
-              aria-label={t("settings.title")}
-              value={section}
-              onChange={(event) => {
-                setQuery("");
-                openSection(event.target.value as AppSettingsSection);
-              }}
-            >
-              {SETTINGS_GROUPS.map((group) => {
-                const entries = availableSections.filter((entry) => entry.group === group.id);
-                return entries.length === 0 ? null : (
-                  <optgroup key={group.id} label={t(group.labelKey)}>
-                    {entries.map(({ id, labelKey }) => (
-                      <option key={id} value={id}>{t(labelKey)}</option>
-                    ))}
-                  </optgroup>
-                );
-              })}
-            </Select>
-            <span className="hidden text-[15px] font-semibold text-ink sm:block">
-              {sectionLabelKey ? t(sectionLabelKey) : null}
-            </span>
+          <div className="flex shrink-0 flex-col gap-2 border-b border-hairline/30 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pl-9">
+            {narrowSearch}
+            <div className="flex min-w-0 items-center gap-3">
+              <Select className="min-w-0 sm:hidden"
+                aria-label={t("settings.title")}
+                value={section}
+                onChange={(event) => {
+                  setQuery("");
+                  openSection(event.target.value as AppSettingsSection);
+                }}
+              >
+                {SETTINGS_GROUPS.map((group) => {
+                  const entries = availableSections.filter((entry) => entry.group === group.id);
+                  return entries.length === 0 ? null : (
+                    <optgroup key={group.id} label={t(group.labelKey)}>
+                      {entries.map(({ id, labelKey }) => (
+                        <option key={id} value={id}>{t(labelKey)}</option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
+              </Select>
+              <span className="hidden text-[15px] font-semibold text-ink sm:block">
+                {sectionLabelKey ? t(sectionLabelKey) : null}
+              </span>
+            </div>
             <button
               onClick={close}
               aria-label={t("settings.close")}
               title={`${t("settings.close")} (${shortcutLabel("close-panel")})`}
-              className="ui-icon-button cursor-pointer shrink-0 max-md:size-9 max-md:rounded-full max-md:border max-md:border-hairline max-md:bg-card"
+              className="ui-icon-button absolute right-3 top-3 cursor-pointer shrink-0 sm:static max-md:size-9 max-md:rounded-full max-md:border max-md:border-hairline max-md:bg-card"
             >
               <X size={18} />
             </button>
           </div>
 
-          <div ref={scrollRef} className="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:px-5 sm:pb-5">
+          {q && (
+            <div className="settings-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3 sm:hidden">
+              {advancedResults.length === 0
+                ? <div className="py-3 text-[13px] leading-relaxed text-ink-secondary">{t("settings.noMatch", { query: query.trim() })}</div>
+                : advancedResults.map((result) => <SearchResultButton key={`${result.kind}:${result.id}`} result={result} className={cn("flex min-h-9 shrink-0 cursor-pointer items-center gap-[9px] rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors motion-reduce:transition-none", result.current ? "bg-ink/[0.08]" : "hover:bg-control/50")} />)}
+            </div>
+          )}
+          <div ref={scrollRef} className={cn("min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:flex sm:px-5 sm:pb-5", q ? "hidden sm:flex" : "flex")}>
             <LicenseExpiryBanner config={state.config} />
             {renderSection(section)}
           </div>

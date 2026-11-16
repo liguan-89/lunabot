@@ -4,27 +4,29 @@ import test from "node:test";
 import { externalWebUrl } from "./app-permissions.mjs";
 import { chatLinkFrom, chatLinkFromCommandLine } from "./chat-link.mjs";
 
-const THREAD_LINK = "dexbot://thread/2633ea27-cc9d-4690-97bf-aca853eca4c6?bot=1f72ec75-821b-44a5-a7a3-93ff64276c7d";
-const BOT_LINK = "dexbot://bot/1f72ec75-821b-44a5-a7a3-93ff64276c7d";
+const THREAD_LINK = "lunabot://thread/2633ea27-cc9d-4690-97bf-aca853eca4c6?bot=1f72ec75-821b-44a5-a7a3-93ff64276c7d";
+const BOT_LINK = "lunabot://bot/1f72ec75-821b-44a5-a7a3-93ff64276c7d";
 
 test("recognizes the links Copy link and a dashboard make", () => {
   assert.equal(chatLinkFrom(THREAD_LINK), THREAD_LINK);
   assert.equal(chatLinkFrom(BOT_LINK), BOT_LINK);
   assert.equal(chatLinkFrom(` ${BOT_LINK}\n`), BOT_LINK);
-  assert.equal(chatLinkFrom("DEXBOT://Bot/abc"), "DEXBOT://Bot/abc");
-  const task = `dexbot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`;
+  assert.equal(chatLinkFrom("LUNABOT://Bot/abc"), "LUNABOT://Bot/abc");
+  // A link copied before the rename still opens.
+  assert.equal(chatLinkFrom("dexbot://bot/abc"), "dexbot://bot/abc");
+  const task = `lunabot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`;
   assert.equal(chatLinkFrom(task), task);
 });
 
 test("leaves every other link to its own handler", () => {
   for (const other of [
-    "dexbot://cloud",
-    "dexbot://organization",
-    "dexbot://install?url=https://github.com/a/b/team.md",
-    "dexbot://threads/abc",
-    "dexbot://bots/abc",
-    "https://example.com/dexbot://bot/abc",
-    `dexbot://bot/${"x".repeat(1024)}`,
+    "lunabot://cloud",
+    "lunabot://organization",
+    "lunabot://install?url=https://github.com/a/b/team.md",
+    "lunabot://threads/abc",
+    "lunabot://bots/abc",
+    "https://example.com/lunabot://bot/abc",
+    `lunabot://bot/${"x".repeat(1024)}`,
     undefined,
     42,
   ]) assert.equal(chatLinkFrom(other), null);
@@ -43,5 +45,5 @@ test("a published page's link opens in the browser, never as a chat", () => {
 test("finds the link among a second launch's arguments", () => {
   assert.equal(chatLinkFromCommandLine(["/usr/bin/openmausbot", "--no-sandbox", THREAD_LINK]), THREAD_LINK);
   assert.equal(chatLinkFromCommandLine(["/usr/bin/openmausbot", "--no-sandbox", BOT_LINK]), BOT_LINK);
-  assert.equal(chatLinkFromCommandLine(["/usr/bin/openmausbot", "dexbot://cloud"]), null);
+  assert.equal(chatLinkFromCommandLine(["/usr/bin/openmausbot", "lunabot://cloud"]), null);
 });

@@ -12,7 +12,7 @@ vi.mock("react", async original => ({ ...await original<typeof import("react")>(
 }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ dispatch: f.dispatch }),
   CLOUD_LINK_SETTINGS: { type: "toggleAppSettings", open: true, section: "cloudAccount", cloudLink: true } }));
-import { ProSettingsCard, proOfferAvailable } from "./ProIntroduction";
+import { ProSettingsCard } from "./ProIntroduction";
 
 const PLANS = [{ tier: "starter", label: "Starter", amount: 1500, trialDays: 7 }, { tier: "pro", label: "Pro", amount: 4900, trialDays: 7 }];
 const TRIAL: CloudOffer = { plans: PLANS, recommended: "pro", creditUsd: 5, refundDays: 14 };
@@ -49,9 +49,9 @@ const press = (label: string, Component = ProSettingsCard) => {
 
 it("for someone who may buy: what Cloud does, the Admin's lowest price and money-back; Start free trial and Compare plans both open the sheet, never the website", async () => {
   const html = await card(signedOut);
-  for (const text of ["DEX BOT Cloud", "Keeps your bots and routines running 24/7, even when this computer is off.", "DEX BOT Cloud plans from $15/month + tax.",
-    "14-day money-back on every plan.", "DEX BOT on this computer stays free and open source.", "Compare plans", "Start free trial", "Sign in to your Cloud plan"]) expect(html).toContain(text);
-  for (const gone of ["OMB", "$89", "launch price", "New features first", "Get Pro", "DEX BOT Pro"]) expect(html).not.toContain(gone);
+  for (const text of ["Luna Bot Cloud", "Keeps your bots and routines running 24/7, even when this computer is off.", "Luna Bot Cloud plans from $15/month + tax.",
+    "14-day money-back on every plan.", "Luna Bot on this computer stays free and open source.", "Compare plans", "Start free trial", "Sign in to your Cloud plan"]) expect(html).toContain(text);
+  for (const gone of ["OMB", "$89", "launch price", "New features first", "Get Pro", "Luna Bot Pro"]) expect(html).not.toContain(gone);
   press("Start free trial");
   expect(f.dispatch).toHaveBeenCalledWith({ type: "openCloudAdd", source: "app_settings" });
   f.dispatch.mockClear();
@@ -75,20 +75,20 @@ it("without a trial it says Add a Cloud; signed in, no sign-in link; without the
 
 it("someone with a plan sees that plan and the way to it, never an offer, and Cloud is never asked", async () => {
   for (const [state, text] of [
-    [plan({ entitlement: paid("max") }), "Max active · verified by DEX BOT Cloud"],
+    [plan({ entitlement: paid("max") }), "Max active · verified by Luna Bot Cloud"],
     [plan({ entitlement: paid("pro", "inactive") }), "Pro · not active right now"],
     [plan({ purchase: { state: "confirming", tier: "personal" } }), "Personal · payment received"],
-    [{ status: "unavailable", lastPlan: { tier: "personal", active: true } }, "Personal · checking with DEX BOT Cloud…"],
+    [{ status: "unavailable", lastPlan: { tier: "personal", active: true } }, "Personal · checking with Luna Bot Cloud…"],
     [{ status: "reauth-required", message: "expired", lastPlan: { tier: "max", active: true } }, "Sign in again to use the Cloud on this computer. Your plan is not affected."],
   ] as const) {
     const html = await card(state as CloudAccountState);
-    expect(html).toContain(text); expect(html).toContain("DEX BOT Cloud settings");
+    expect(html).toContain(text); expect(html).toContain("Luna Bot Cloud settings");
     expect(html).not.toContain("Start free trial"); expect(html).not.toContain("$15");
   }
   expect(bridge.offer).not.toHaveBeenCalled();
   for (const state of [{ status: "unavailable" }, { status: "connecting" }, { status: "signed-out", message: "restoring" }] as CloudAccountState[]) expect(await card(state)).toBe("");
   await card(plan({ entitlement: paid("max") }));
-  press("DEX BOT Cloud settings");
+  press("Luna Bot Cloud settings");
   expect(f.dispatch).toHaveBeenCalledWith({ type: "toggleAppSettings", open: true, section: "cloudAccount" });
 });
 
@@ -101,8 +101,15 @@ it("never offers a plan to anyone who pays, may pay, or whose state is unknown; 
     { status: "unavailable", lastPlan: { tier: "max", active: true } }, { status: "unavailable" },
     { status: "reauth-required", message: "expired", lastPlan: { active: true } }, { status: "reauth-required" },
   ];
-  for (const state of nobodyToSell) expect(proOfferAvailable(state), JSON.stringify(state)).toBe(false);
-  expect(proOfferAvailable(signedOut)).toBe(true); expect(proOfferAvailable(plan())).toBe(true);
+  for (const state of nobodyToSell) {
+    const html = await card(state as CloudAccountState);
+    expect(html, JSON.stringify(state)).not.toMatch(/Start free trial|Add a Cloud|>Upgrade</);
+  }
+  // Both states may buy, and the trial offer is what the card shows them.
+  expect(await card(signedOut)).toContain("Start free trial");
+  expect(await card(plan())).toContain("Start free trial");
+  offer = { plans: PLANS.map(({ trialDays: _days, ...rest }) => rest), recommended: "pro" };
+  expect(await card(plan())).toContain("Add a Cloud");
   vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, cloudAccount: bridge } });
   expect(await card(signedOut)).toBe("");
   vi.stubGlobal("window", {});

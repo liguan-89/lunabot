@@ -13,9 +13,14 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -238,9 +243,17 @@ fun CompanionRoot(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(SystemBarBackdrop.color ?: MaterialTheme.colorScheme.background),
+                .background(SystemBarBackdrop.color ?: minisCanvas),
         ) {
-            Surface(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
+            Surface(
+                color = minisCanvas,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .windowInsetsPadding(
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                    )
+                    .imePadding(),
+            ) {
                 // A face that has not been touched in a while falls asleep. The
                 // clock only needs to know that a finger moved somewhere on the
                 // screen, so this observes the Initial pass and consumes

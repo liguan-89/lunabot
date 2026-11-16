@@ -86,20 +86,25 @@ object MinisTokens {
 
     // Liquid Gloss: a translucent fill, a rim that catches the light and a
     // short sheen. Alphas are the look — there is no backdrop blur here, so
-    // the glass reads through what sits behind it. Light glass is a cool
-    // white-grey, not pure white, or it disappears on a white page.
-    val GlassLight = Color(0xCCF4F5F9)
-    val GlassDark = Color(0xD91C1C1E)
-    val ControlLight = Color(0xE6F2F2F7)
+    // the glass reads through what sits behind it. In light mode the fill is
+    // near-opaque white and the rim a dark hairline: the previous translucent
+    // grey (0xCCF4F5F9) sat within 3/255 of the F4F4F5 canvas, and on it the
+    // search field, menus and chips all but vanished.
+    val GlassLight = Color(0xEBFFFFFF)
+    val GlassDark = Color(0xCC1E1E22)
+    val GlassBlurTintLight = Color(0xADFFFFFF)
+    val GlassBlurTintDark = Color(0x9E1C1C22)
+    val ControlLight = Color(0xFFFFFFFF)
     val ControlDark = Color(0xE62C2C2E)
     // The floating chat header sits on scrolling text, so it is a step more
     // opaque than the rest of the chrome.
     val GlassHeaderLight = Color(0xF2FBFBFD)
     val GlassHeaderDark = Color(0xF51C1C1E)
-    val SheenLight = Color(0x1AFFFFFF)
-    val SheenDark = Color(0x14FFFFFF)
-    val RimLight = Color(0x59FFFFFF)
-    val RimDark = Color(0x2EFFFFFF)
+    val SheenLight = Color(0x66FFFFFF)
+    val SheenDark = Color(0x24FFFFFF)
+    val RimLight = Color(0x22000000)
+    val RimHighlightLight = Color(0xCCFFFFFF)
+    val RimDark = Color(0x38FFFFFF)
 }
 
 @Composable
@@ -199,6 +204,9 @@ val minisGlassSheen: Color
 val minisGlassRim: Color
     @Composable get() = if (minisIsDark()) MinisTokens.RimDark else MinisTokens.RimLight
 
+val minisGlassBlurTint: Color
+    @Composable get() = if (minisIsDark()) MinisTokens.GlassBlurTintDark else MinisTokens.GlassBlurTintLight
+
 /** Page and row rhythm: one horizontal inset for full-width content, one for
  *  group headers that sit a step further in. */
 val MinisPagePadding = 16.dp
@@ -283,37 +291,51 @@ fun Modifier.minisGloss(
     sheen: Color,
     rim: Color = Color.Transparent,
     elevation: Dp = 0.dp,
+    fillBrush: Boolean = true,
 ): Modifier = this
-    // A translucent fill over its own elevation shadow reads as grey mud: the
-    // shadow sits *under* the glass and shows through it. Glass therefore
-    // floats on its rim; only opaque surfaces (the FAB) cast a shadow.
-    .then(if (elevation > 0.dp) Modifier.shadow(elevation, shape, clip = false) else Modifier)
-    .background(
-        Brush.verticalGradient(
-            listOf(
-                fill,
-                fill.copy(alpha = fill.alpha * 0.94f),
-            ),
-        ),
-        shape,
-    )
-    .border(
-        0.5.dp,
-        Brush.verticalGradient(
-            0f to rim,
-            0.45f to rim.copy(alpha = rim.alpha * 0.12f),
-            1f to rim.copy(alpha = rim.alpha * 0.5f),
-        ),
-        shape,
+    .then(
+        if (elevation > 0.dp) {
+            Modifier.shadow(
+                elevation = elevation,
+                shape = shape,
+                clip = false,
+                ambientColor = Color(0x14000000),
+                spotColor = Color(0x1E000000),
+            )
+        } else {
+            Modifier
+        },
     )
     .clip(shape)
+    .then(
+        if (fillBrush) {
+            Modifier.background(
+                Brush.verticalGradient(
+                    listOf(
+                        fill,
+                        fill.copy(alpha = (fill.alpha * 0.92f).coerceIn(0f, 1f)),
+                    ),
+                ),
+                shape,
+            )
+        } else {
+            Modifier
+        },
+    )
+    .border(
+        0.6.dp,
+        Brush.verticalGradient(
+            0f to rim,
+            0.48f to rim.copy(alpha = rim.alpha * 0.28f),
+            1f to rim.copy(alpha = rim.alpha * 0.62f),
+        ),
+        shape,
+    )
     .drawWithContent {
-        // A short, soft highlight, not a bright band: the eye reads the top
-        // edge as a lit curve, the rest of the surface stays calm.
         drawRect(
             Brush.verticalGradient(
                 0f to sheen,
-                0.45f to Color.Transparent,
+                0.42f to Color.Transparent,
                 startY = 0f,
                 endY = size.height,
             ),

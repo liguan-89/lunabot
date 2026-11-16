@@ -12,6 +12,7 @@ import com.openmausbot.companion.dictation.SpeechDictation
 import java.net.URI
 import com.openmausbot.companion.discovery.CompanionDiscovery
 import com.openmausbot.companion.permissions.CompanionPermissions
+import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.OnboardingPreferences
@@ -144,6 +145,8 @@ class CompanionEnvironment(
     val alwaysOnEnabled: StateFlow<Boolean>,
     /** Flips the always-on setting and starts/stops the service to match. */
     val onToggleAlwaysOn: () -> Unit,
+    /** Wireless-debugging phone UI: opt-in switch, pairing, helper lifecycle. */
+    val phoneUi: PhoneUiController,
     /** The public release channel: check, download, hand to the installer. */
     val updates: AppUpdater,
     /**

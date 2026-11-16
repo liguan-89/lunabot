@@ -144,7 +144,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
           return json(res, 200, { instances: await deps.describeInstances() });
         }
         const installed = await registry.installRuntime(instanceId);
-        if (!installed) return json(res, 404, { error: "Installing this engine from Settings is not available on this server. Use the install command on the machine running DEX BOT." });
+        if (!installed) return json(res, 404, { error: "Installing this engine from Settings is not available on this server. Use the install command on the machine running Luna Bot." });
         const usingAppCopy = installed !== true && await useAppCopy(instanceId, installed.useCli);
         return json(res, 200, { instances: await deps.describeInstances(), ...(usingAppCopy ? { usingAppCopy: true } : {}) });
       } catch (error) {

@@ -1,12 +1,17 @@
 package com.openmausbot.companion.ui
 
+import android.Manifest
 import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -16,7 +21,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
@@ -46,13 +53,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -71,6 +82,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +92,8 @@ import com.openmausbot.companion.core.ActivityDetail
 import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.phoneui.PhoneUiPairingInput
+import com.openmausbot.companion.phoneui.PhoneUiStatus
 import com.openmausbot.companion.storage.ThemeMode
 import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
@@ -87,6 +101,7 @@ import com.openmausbot.companion.update.UpdateState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.net.toUri
 import java.net.URI
@@ -130,9 +145,16 @@ fun SettingsScreen(
     val phoneLocation by environment.chatPreferences.phoneLocation.collectAsState()
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
+    val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
+    val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
+    val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
+    val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
+    val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
     val haptics = rememberHaptics()
+    // The system pages may have changed while the person was out of the app.
+    LaunchedEffect(Unit) { environment.phoneUi.refresh() }
 
     // The switch is the consent: Android asks only after the person turns it
     // on, and a refused dialog leaves the switch off rather than claiming an
@@ -171,6 +193,38 @@ fun SettingsScreen(
                 granted[android.Manifest.permission.SEND_SMS] == true,
         )
     }
+    val phoneUiNetworkPermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { environment.phoneUi.refresh() }
+
+    // Photos need the media grant on 13+, the storage grant before that; the
+    // switch only turns on when the dialog was accepted, like the others.
+    val filesContext = LocalContext.current
+    val filePermissions = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        val grantedNow = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            granted[android.Manifest.permission.READ_MEDIA_IMAGES] == true
+        } else {
+            granted[android.Manifest.permission.READ_EXTERNAL_STORAGE] == true
+        }
+        environment.chatPreferences.setPhoneFiles(grantedNow)
+    }
+    // One folder, deliberately picked: a persisted tree grant the system enforces
+    // on every file open.
+    val folderPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocumentTree(),
+    ) { uri ->
+        if (uri != null) {
+            runCatching {
+                filesContext.contentResolver.takePersistableUriPermission(
+                    uri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                )
+            }
+            environment.chatPreferences.setPhoneFilesTree(uri.toString())
+        }
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -184,55 +238,47 @@ fun SettingsScreen(
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
+    var pairingPhoneUi by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
     val account = environment.cloudAccount
     val accountUi by account.state.collectAsState()
     var signingIn by remember { mutableStateOf(false) }
     var cloudNotice by remember { mutableStateOf<String?>(null) }
 
-    Column(
+    val hazeState = rememberHazeState()
+    val scrollState = rememberScrollState()
+    val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
+    val topBandAlpha by animateFloatAsState(
+        targetValue = if (topScrolled) 1f else 0f,
+        animationSpec = tween(180),
+        label = "settings-top-haze",
+    )
+
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
-            // The sheet has no visible title, but the pane still needs one for
-            // TalkBack when it lands on the screen.
             .semantics { paneTitle = "设置" },
     ) {
-        // The sheet's own close control, with no title bar above the list.
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 10.dp, top = 10.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .background(minisCanvas)
+                .hazeSource(hazeState),
         ) {
-            TouchTarget(onClick = onBack, contentDescription = "关闭设置") {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .chromeCapsule(surface = true),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = null,
-                        tint = minisInk,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 66.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val bound = connection
             SettingsSection {
                 IdentityRow(
-                    title = bound?.name ?: "DEX BOT",
+                    title = bound?.name ?: "Luna Bot",
                     subtitle = SettingsPolicy.statusText(status),
                     statusColor = connectionColor(status),
                     // The row is the computer's identity; tapping it opens the
@@ -314,18 +360,24 @@ fun SettingsScreen(
                     otherComputers.forEachIndexed { index, computer ->
                         if (index > 0) SettingsDivider()
                         SettingsRow(
-                            title = "使用 ${computer.name}",
+                            title = computer.name,
+                            subtitle = SettingsPolicy.addressText(computer),
                             chevron = true,
+                            trailing = {
+                                TextButton(
+                                    onClick = { pendingComputerRemoval = computer },
+                                ) {
+                                    Text(
+                                        text = "移除",
+                                        fontSize = 13.sp,
+                                        color = minisDanger,
+                                    )
+                                }
+                            },
                             onClick = {
                                 haptics.play(TactileAction.SWITCH_COMPUTER)
                                 session.switchComputer(computer.id)
                             },
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            title = "移除 ${computer.name}",
-                            destructive = true,
-                            onClick = { pendingComputerRemoval = computer },
                         )
                     }
                 }
@@ -596,35 +648,31 @@ fun SettingsScreen(
                 },
             ) {
                 SettingsSwitchRow(
-                    title = "允许机器人读取日历",
+                    title = "允许智能体读取日历",
                     checked = phoneCalendar,
                     onCheckedChange = toggleCalendar,
                 )
                 SettingsDivider()
                 SettingsSwitchRow(
-                    title = "允许机器人读取联系人",
+                    title = "允许智能体读取联系人",
                     checked = phoneContacts,
                     onCheckedChange = toggleContacts,
                 )
                 SettingsDivider()
-                // Reminders are this app's own list, not an OS permission: the
-                // switch is the whole grant.
                 SettingsSwitchRow(
-                    title = "允许机器人创建提醒",
+                    title = "允许智能体创建提醒",
                     checked = phoneReminders,
                     onCheckedChange = { environment.chatPreferences.setPhoneReminders(it) },
                 )
                 SettingsDivider()
                 SettingsSwitchRow(
-                    title = "允许机器人获取位置",
+                    title = "允许智能体获取位置",
                     checked = phoneLocation,
                     onCheckedChange = toggleLocation,
                 )
                 SettingsDivider()
-                // The grants cover the relay (inbound texts push up, replies
-                // send themselves) and the compose-sheet drafts both live under.
                 SettingsSwitchRow(
-                    title = "允许机器人收发短信",
+                    title = "允许智能体收发短信",
                     checked = phoneMessages,
                     onCheckedChange = toggleMessages,
                 )
@@ -646,6 +694,171 @@ fun SettingsScreen(
                             Session.PhoneToolsStatus.Idle -> "未登记"
                         },
                     )
+                }
+            }
+
+            // 手机界面 (wireless debugging + shell helper): default off, the
+            // system pages open only from an explicit tap, and pairing needs
+            // the port and code the system pairing dialog shows — nothing is
+            // enabled or prompted on the person's behalf.
+            val phoneUiContext = LocalContext.current
+            SettingsSection(
+                label = "手机界面",
+                footer = {
+                    SettingsFootnote("屏幕文字会发送给该智能体的 AI 用于操作；密码字段会跳过。智能体要截图、识别画面文字、读取剪贴板、最近通知或你允许的文件时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
+                    if (phoneUiStatus == PhoneUiStatus.Failed) {
+                        SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
+                    }
+                    (phoneToolsStatus as? Session.PhoneToolsStatus.Failed)?.let { failure ->
+                        if (phoneUiStatus == PhoneUiStatus.Ready) SettingsFootnote(failure.message)
+                    }
+                },
+            ) {
+                SettingsSwitchRow(
+                    title = "允许智能体操作手机界面",
+                    checked = phoneUiEnabled,
+                    onCheckedChange = { enabled ->
+                        environment.chatPreferences.setPhoneUi(enabled)
+                        if (!enabled) environment.phoneUi.disable()
+                    },
+                )
+                if (phoneUiEnabled) {
+                    SettingsDivider()
+                    SettingsRow(title = "状态", value = phoneUiStatusLabel(phoneUiStatus))
+                    when (phoneUiStatus) {
+                        PhoneUiStatus.Disabled, PhoneUiStatus.UnsupportedAndroidVersion -> Unit
+                        PhoneUiStatus.NeedsDeveloperOptions -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "打开开发者选项",
+                                external = true,
+                                onClick = { openDeveloperOptions(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NeedsWirelessDebugging -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "打开无线调试",
+                                external = true,
+                                onClick = { openWirelessDebugging(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NeedsLocalNetworkPermission -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "允许附近设备和本地网络",
+                                onClick = {
+                                    phoneUiNetworkPermissions.launch(environment.phoneUi.localNetworkPermissions())
+                                },
+                            )
+                        }
+                        PhoneUiStatus.NeedsAccessibility -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "启用屏幕读取服务",
+                                external = true,
+                                onClick = { openAccessibilitySettings(phoneUiContext) },
+                            )
+                        }
+                        PhoneUiStatus.NotPaired, PhoneUiStatus.Failed -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "配对设备",
+                                chevron = true,
+                                onClick = { pairingPhoneUi = true },
+                            )
+                        }
+                        PhoneUiStatus.Paired, PhoneUiStatus.HelperConnecting, PhoneUiStatus.Ready -> {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "取消配对",
+                                destructive = true,
+                                onClick = {
+                                    pairingPhoneUi = false
+                                    environment.phoneUi.forget()
+                                },
+                            )
+                        }
+                        PhoneUiStatus.Pairing -> Unit
+                    }
+                    SettingsDivider()
+                    // Files are a separate consent on top of the screen switch:
+                    // the media grant plus, optionally, one picked folder.
+                    SettingsSwitchRow(
+                        title = "允许智能体读取相册与文件夹",
+                        checked = phoneFiles,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                environment.chatPreferences.setPhoneFiles(false)
+                            } else {
+                                val permission = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    android.Manifest.permission.READ_MEDIA_IMAGES
+                                } else {
+                                    android.Manifest.permission.READ_EXTERNAL_STORAGE
+                                }
+                                val already = ContextCompat.checkSelfPermission(filesContext, permission) ==
+                                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                                if (already) environment.chatPreferences.setPhoneFiles(true)
+                                else filePermissions.launch(arrayOf(permission))
+                            }
+                        },
+                    )
+                    if (phoneFiles) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "授权一个文件夹",
+                            value = phoneFilesTree?.let(::treeLabel) ?: "未授权",
+                            chevron = true,
+                            onClick = { folderPicker.launch(null) },
+                        )
+                        if (phoneFilesTree != null) {
+                            SettingsDivider()
+                            SettingsRow(
+                                title = "取消文件夹授权",
+                                destructive = true,
+                                onClick = {
+                                    phoneFilesTree?.let { stored ->
+                                        runCatching {
+                                            filesContext.contentResolver.releasePersistableUriPermission(
+                                                android.net.Uri.parse(stored),
+                                                Intent.FLAG_GRANT_READ_URI_PERMISSION,
+                                            )
+                                        }
+                                    }
+                                    environment.chatPreferences.setPhoneFilesTree(null)
+                                },
+                            )
+                        }
+                    }
+                    SettingsDivider()
+                    // The same system notification access the SMS relay uses,
+                    // but this switch is the bot reading every app's posts.
+                    SettingsSwitchRow(
+                        title = "允许智能体读取最近通知",
+                        checked = phoneNotices,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneNotices(enabled)
+                            if (enabled && !notificationListenerGranted(phoneToolsContext)) {
+                                runCatching {
+                                    phoneToolsContext.startActivity(
+                                        Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }
+                            }
+                        },
+                    )
+                    if (phoneUiStatus == PhoneUiStatus.Ready) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "电脑登记",
+                            value = when (phoneToolsStatus) {
+                                Session.PhoneToolsStatus.Registered -> "已登记"
+                                is Session.PhoneToolsStatus.Failed -> "登记失败"
+                                Session.PhoneToolsStatus.Idle -> "未登记"
+                            },
+                        )
+                    }
                 }
             }
 
@@ -782,6 +995,56 @@ fun SettingsScreen(
             }
             BrandBlock(version = brandVersion)
         }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(78.dp)
+                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(32.dp)
+                .progressiveHazeBand(hazeState, fromTop = false, alpha = 0.75f),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        ) {
+            TouchTarget(
+                onClick = onBack,
+                contentDescription = "关闭设置",
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .chromeCapsule(surface = true),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Text(
+                text = "设置",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisInk,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+    }
     }
 
     if (editingAddress) {
@@ -1008,6 +1271,14 @@ fun SettingsScreen(
         )
     }
 
+    if (pairingPhoneUi) {
+        PhoneUiPairingSheet(
+            phoneUi = environment.phoneUi,
+            status = phoneUiStatus,
+            onDismiss = { pairingPhoneUi = false },
+        )
+    }
+
     if (signingIn) {
         DexSignInSheet(
             account = environment.cloudAccount,
@@ -1023,6 +1294,164 @@ private fun cloudStatusText(status: String): String = when (status) {
     "offline" -> "离线"
     "stopped" -> "已睡眠"
     else -> status
+}
+
+private fun phoneUiStatusLabel(status: PhoneUiStatus): String = when (status) {
+    PhoneUiStatus.Disabled -> "已关闭"
+    PhoneUiStatus.UnsupportedAndroidVersion -> "此 Android 版本不支持隔离屏幕操作"
+    PhoneUiStatus.NeedsDeveloperOptions -> "需开启开发者选项"
+    PhoneUiStatus.NeedsWirelessDebugging -> "需开启无线调试"
+    PhoneUiStatus.NeedsLocalNetworkPermission -> "需允许附近设备和本地网络"
+    PhoneUiStatus.NeedsAccessibility -> "需启用屏幕读取服务"
+    PhoneUiStatus.NotPaired -> "未配对"
+    PhoneUiStatus.Pairing -> "正在配对"
+    PhoneUiStatus.Paired -> "已配对，等待连接"
+    PhoneUiStatus.HelperConnecting -> "正在连接辅助进程"
+    PhoneUiStatus.Ready -> "已就绪"
+    PhoneUiStatus.Failed -> "连接失败"
+}
+
+/** A granted folder's own name, without the provider plumbing in the URI. */
+private fun treeLabel(stored: String): String =
+    android.net.Uri.decode(stored)
+        .substringAfterLast("/tree/")
+        .substringAfterLast(':')
+        .ifEmpty { "已授权" }
+
+private fun openDeveloperOptions(context: Context) {
+    runCatching {
+        context.startActivity(
+            Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    }
+}
+
+private fun openAccessibilitySettings(context: Context) {
+    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }
+}
+
+/** The wireless-debugging page has no public Settings constant: use its component, with developer options as fallback. */
+private fun openWirelessDebugging(context: Context) {
+    val page = runCatching {
+        Intent()
+            .setClassName("com.android.settings", "com.android.settings.Settings\$WirelessDebuggingActivity")
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }.getOrNull()
+    if (page != null && runCatching { context.startActivity(page) }.isSuccess) return
+    openDeveloperOptions(context)
+}
+
+/**
+ * Enter the port and six-digit code the system pairing dialog shows. No deep
+ * link: the person walks to the system page themselves and comes back here.
+ */
+@Composable
+private fun PhoneUiPairingSheet(
+    phoneUi: com.openmausbot.companion.phoneui.PhoneUiController,
+    status: PhoneUiStatus,
+    onDismiss: () -> Unit,
+) {
+    val context = LocalContext.current
+    val autoPairing by phoneUi.autoPairing.collectAsState()
+    val notificationsBlocked = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+        PackageManager.PERMISSION_GRANTED
+    var port by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    // The controller moves past Pairing exactly once pairing succeeded; the
+    // sheet then closes itself like the sign-in sheet does.
+    LaunchedEffect(status) {
+        if (status != PhoneUiStatus.Pairing &&
+            status != PhoneUiStatus.Failed &&
+            status != PhoneUiStatus.NotPaired
+        ) {
+            onDismiss()
+        }
+    }
+    val ready = PhoneUiPairingInput.parse(port, code) != null && status != PhoneUiStatus.Pairing
+    SettingsSheet(
+        title = "配对无线调试",
+        onDismiss = onDismiss,
+        actionLabel = "配对",
+        actionEnabled = ready,
+        onAction = { phoneUi.pair(port, code) },
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                "在系统「开发者选项 → 无线调试」中开启无线调试，选择「使用配对码配对设备」，" +
+                    "把显示的端口和 6 位配对码填到下面。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = secondaryTint,
+            )
+            Text(
+                "小米等系统上，离开系统配对页就会关闭配对端口。打开系统页面后，开启屏幕读取服务时" +
+                    " App 会自动读取配对码并配对；也可以展开通知栏里的「配对无线调试」通知手动输入。",
+                fontSize = 12.sp,
+                lineHeight = 17.sp,
+                color = secondaryTint,
+            )
+            if (autoPairing) {
+                Text(
+                    "正在自动读取系统配对窗口里的配对码……保持「输入配对码配对设备」对话框打开即可。",
+                    fontSize = 12.sp,
+                    lineHeight = 17.sp,
+                    color = secondaryTint,
+                )
+            }
+            SettingsRow(
+                title = "打开系统无线调试页面",
+                external = true,
+                onClick = {
+                    // Both happen before leaving: on MIUI the pairing port closes
+                    // as soon as this app is foreground again, and auto-read
+                    // must already be watching when the dialog appears.
+                    phoneUi.showPairingNotification()
+                    phoneUi.beginAutoPairing()
+                    openWirelessDebugging(context)
+                },
+            )
+            if (notificationsBlocked) {
+                SettingsRow(
+                    title = "允许通知（通知栏配对需要）",
+                    external = true,
+                    onClick = {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                                .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                        )
+                    },
+                )
+            }
+            OutlinedTextField(
+                value = port,
+                onValueChange = { port = it.filter(Char::isDigit).take(5) },
+                singleLine = true,
+                label = { Text("配对端口") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = code,
+                onValueChange = { code = it.filter(Char::isDigit).take(6) },
+                singleLine = true,
+                label = { Text("6 位配对码") },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                visualTransformation = PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (status == PhoneUiStatus.Pairing) {
+                SettingsFootnote("正在配对…")
+            } else if (status == PhoneUiStatus.Failed) {
+                SettingsFootnote("配对失败：配对码每次打开配对窗口都会更换，请重新获取后再试。")
+            }
+        }
+    }
 }
 
 /**
@@ -1147,6 +1576,7 @@ private fun SettingsSheet(
         sheetState = sheetState,
         shape = MinisSheetShape,
         containerColor = minisCanvas,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -1157,6 +1587,7 @@ private fun SettingsSheet(
             )
         },
     ) {
+        GlassBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1526,7 +1957,7 @@ private fun BrandBlock(version: String) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         DexBotMark(56.dp)
-        Text("DEX BOT", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
+        Text("Luna Bot", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         Text(
             text = version,
             fontSize = 12.sp,
@@ -1564,7 +1995,7 @@ private fun updateStatusText(state: UpdateState): String = when (state) {
     is UpdateState.Failed -> "重试"
 }
 
-private const val ADDRESS_CLIP_LABEL = "DEX BOT 电脑地址"
+private const val ADDRESS_CLIP_LABEL = "Luna Bot 电脑地址"
 
 /** Long enough for "Copied" to be read, short enough not to linger (iOS `:363-367`). */
 private const val COPIED_LABEL_MILLIS = 2_000L
@@ -1576,9 +2007,9 @@ private const val COPIED_LABEL_MILLIS = 2_000L
  */
 internal fun troubleshootingText(status: Session.Status): String = when (status) {
     Session.Status.Live -> "此电脑已连接且响应正常。"
-    Session.Status.Connecting -> "DEX BOT 正在自动尝试已保存的连接。"
+    Session.Status.Connecting -> "Luna Bot 正在自动尝试已保存的连接。"
     Session.Status.Unauthorized -> "此手机已从电脑移除，请重新配对以恢复连接。"
-    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 DEX BOT 应用，然后重新打开它。"
+    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 Luna Bot 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
     is Session.Status.Offline ->
         // The identity subtitle is one line and ellipsized; a failure that

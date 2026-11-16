@@ -1,4 +1,4 @@
-# Verifying OpenMausBot
+# Verifying Luna Bot
 
 > Engine teardown: this build runs pi as its only agent, backed by the one
 > custom provider. The pi fixture lives in [pi-e2e.md](pi-e2e.md)
@@ -9,8 +9,8 @@
 > dev` / the desktop smoke checks cover the hand-driven paths. See
 > [pi-only-handoff.md](pi-only-handoff.md) for the handoff state.
 
-OpenMausBot has one development control surface: `pnpm control:omb`. It runs
-the published `openmausbot` verbs (docs/headless-cli.md), which call the MCP
+Luna Bot has one development control surface: `pnpm control:omb`. It runs
+the published `lunabot` verbs (docs/headless-cli.md), which call the MCP
 tools in `scripts/mcp-server.ts`, so verification uses the same URL
 validation, task pinning, bounded transcripts, wait states, and redaction as
 external MCP clients and scripts.
@@ -30,7 +30,7 @@ It gives the child a temporary data directory and home, chooses a free
 harness/webhook port pair, installs the repository's fake pi CLI
 (`server/testing/fake-pi-cli.ts`) as the child's only agent, prints the URL,
 PID, data directory, and persistent log path, then stays attached to that
-exact child. The parent shell and the user's OpenMausBot data are untouched.
+exact child. The parent shell and the user's Luna Bot data are untouched.
 Only `FAKE_PI_*` variables cross from the launcher's environment into that
 child, so a recipe can script the fake's mode, replies and tool calls without
 writing a wrapper CLI (the older `FAKE_CLAUDE_*` names still work: the
@@ -65,7 +65,7 @@ Use only mapped, tested commands:
 - [Per-bot tool selection and local-model checks](tool-selection.md)
 - [Bot setup, model scope, and file continuity](bot-continuity.md)
 - [Reviewed Chief team setup and scoped deletion](team-setup.md)
-- [MausBot, everyone's helper](mausbot.md)
+- [Luna Bot, everyone's helper](mausbot.md)
 - [Profile proposal and credential-card lifecycle](proposal-cards.md)
 - [Full Access without duplicate approvals](full-access.md)
 - [Gmail draft creation, send approval and revision](gmail-drafts.md)

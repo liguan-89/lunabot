@@ -1,6 +1,6 @@
-// ~/.openmausbot/config.json, with env vars overriding its credentials.
+// ~/.lunabot/config.json, with env vars overriding its credentials.
 import { readFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
-import { dataHome } from "./data-dir.ts";
+import { dataHome, resolveDataDir } from "./data-dir.ts";
 import { signInFromEnv } from "./sign-in-env.ts";
 export { signInFromEnv };
 import { join } from "node:path";
@@ -31,6 +31,7 @@ import { liveConfigSchema, liveConfigWithEnv, liveSettingEnv, type LiveConfig } 
 import { browserEngineConfigSchema, isValidCdpTarget, type BrowserEngineConfig } from "./browser/config.ts";
 import { roomContextSettings } from "./room-context-settings.ts";
 import { PI_CUSTOM_ENV, PI_CUSTOM_PROVIDER_NAME } from "./drivers/pi-custom-provider.ts";
+import { compatBaseUrlProblem, MAX_COMPAT_BASE_URL_LENGTH } from "../shared/compat-base-url.ts";
 import { localVmConfigSchema } from "./local-vm-settings.ts";
 export * from "./local-vm-settings.ts";
 
@@ -373,7 +374,7 @@ const appConfigSchema = z.object({
   openaiCompat: z
     .object({
       key: optionalText,
-      url: optionalText,
+      url: z.string().trim().max(MAX_COMPAT_BASE_URL_LENGTH).refine((value) => !compatBaseUrlProblem(value), { message: "enter a valid HTTP(S) base URL without credentials, query string or fragment" }).optional(),
       model: optionalText,
       provider: optionalText,
       protocol: z.enum(["openai", "responses", "anthropic"]).optional(),
@@ -437,7 +438,7 @@ const appConfigSchema = z.object({
   }).strict().optional(),
   loopGuard: loopGuardConfigSchema.optional(),
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
-  /** How much DEX BOT initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
+  /** How much Luna Bot initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
   proactivity: z.enum(["standard", "quiet"]).optional(),
   /** A Feishu self-built app channel over the platform's long connection: app credentials and the bot
    * that answers its chats. All three keys present = on; null each out to disable. config.json only, like `helper`. */
@@ -793,7 +794,7 @@ export function changedInstanceIds(before: Record<string, unknown>, after: Recor
     .filter((id) => !isDeepStrictEqual(before[id], after[id]));
 }
 
-export const DATA_DIR = process.env.OMB_DATA_DIR || join(dataHome(), ".dexbot");
+export const DATA_DIR = resolveDataDir(process.env, { home: dataHome() });
 /** Earlier names this workspace may have used. The closest predecessor wins. */
 const LEGACY_DATA_DIRS = [join(dataHome(), ".openmausbot"), join(dataHome(), ".opengrokbot")];
 export const EVENTS_DIR = join(DATA_DIR, "events");

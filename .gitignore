@@ -11,6 +11,8 @@ dist-server
 .DS_Store
 *.tsbuildinfo
 electron/resources/speech-helper
+electron/resources/Luna Bot Speech.app
+# stale helper from before the Luna Bot rename
 electron/resources/DEX BOT Speech.app
 # stale helper from before the DEX BOT rename
 electron/resources/OpenMausBot Speech.app

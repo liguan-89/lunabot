@@ -109,13 +109,13 @@ export interface ThreadRefAddress {
   botId?: string;
 }
 
-const THREAD_URL_PREFIX = "dexbot://thread/";
-const BOT_URL_PREFIX = "dexbot://bot/";
-const TASK_URL_PREFIX = "dexbot://task";
+const THREAD_URL_PREFIX = "lunabot://thread/";
+const BOT_URL_PREFIX = "lunabot://bot/";
+const TASK_URL_PREFIX = "lunabot://task";
 // Links written before the rebrand still have to open; only the new prefix is ever written.
-const LEGACY_THREAD_URL_PREFIX = "openmausbot://thread/";
-const LEGACY_BOT_URL_PREFIX = "openmausbot://bot/";
-const LEGACY_TASK_URL_PREFIX = "openmausbot://task";
+const LEGACY_THREAD_URL_PREFIXES = ["dexbot://thread/", "openmausbot://thread/"];
+const LEGACY_BOT_URL_PREFIXES = ["dexbot://bot/", "openmausbot://bot/"];
+const LEGACY_TASK_URL_PREFIXES = ["dexbot://task", "openmausbot://task"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const ID_LIMIT = 256;
 
@@ -132,7 +132,7 @@ export function threadRefUrl(ref: { botId: string; threadId: string }): string {
 export function parseThreadRefUrl(value: string): ThreadRefAddress | null {
   const raw = value.trim();
   const lower = raw.toLowerCase();
-  if (!lower.startsWith(THREAD_URL_PREFIX) && !lower.startsWith(LEGACY_THREAD_URL_PREFIX)) return null;
+  if (![THREAD_URL_PREFIX, ...LEGACY_THREAD_URL_PREFIXES].some((prefix) => lower.startsWith(prefix))) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -161,7 +161,7 @@ export function parseThreadRefUrl(value: string): ThreadRefAddress | null {
 export function parseBotRefUrl(value: string): { botId: string } | null {
   const raw = value.trim();
   const lower = raw.toLowerCase();
-  if (!lower.startsWith(BOT_URL_PREFIX) && !lower.startsWith(LEGACY_BOT_URL_PREFIX)) return null;
+  if (![BOT_URL_PREFIX, ...LEGACY_BOT_URL_PREFIXES].some((prefix) => lower.startsWith(prefix))) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -182,11 +182,11 @@ export function parseBotRefUrl(value: string): { botId: string } | null {
   return bot ? { botId: bot } : null;
 }
 
-/** `dexbot://task?bot=<bot-id>&text=<text>`: a task drafted for a bot, never sent by the link itself. */
+/** `lunabot://task?bot=<bot-id>&text=<text>`: a task drafted for a bot, never sent by the link itself. */
 export function parseTaskRefUrl(value: string): { botId?: string; text: string } | null {
   const raw = value.trim();
   const lower = raw.toLowerCase();
-  if (!lower.startsWith(TASK_URL_PREFIX) && !lower.startsWith(LEGACY_TASK_URL_PREFIX)) return null;
+  if (![TASK_URL_PREFIX, ...LEGACY_TASK_URL_PREFIXES].some((prefix) => lower.startsWith(prefix))) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -209,7 +209,8 @@ export function parseTaskRefUrl(value: string): { botId?: string; text: string }
 
 /** Even a link that fails strict parsing must never reach the shell as an external link. */
 export function looksLikeThreadRefUrl(value: string): boolean {
-  return value.trim().toLowerCase().startsWith(THREAD_URL_PREFIX);
+  const lower = value.trim().toLowerCase();
+  return [THREAD_URL_PREFIX, ...LEGACY_THREAD_URL_PREFIXES].some((prefix) => lower.startsWith(prefix));
 }
 
 export function isThreadUuid(value: string): boolean {
@@ -376,7 +377,7 @@ export function threadTokenFromPaste(
 ): { token: string; ref: ResolvedThreadRef } | null {
   const trimmed = pasted.trim();
   if (!trimmed) return null;
-  const wrapped = trimmed.match(/^\[((?:\\.|[^\\\]])*)\]\(((?:openmausbot|dexbot):\/\/thread\/[^()\s]*)\)$/);
+  const wrapped = trimmed.match(/^\[((?:\\.|[^\\\]])*)\]\(((?:openmausbot|dexbot|lunabot):\/\/thread\/[^()\s]*)\)$/);
   const address = wrapped
     ? parseThreadRefUrl(wrapped[2])
     : parseThreadRefUrl(trimmed) ?? (isThreadUuid(trimmed) ? { threadId: trimmed } : null);

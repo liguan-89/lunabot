@@ -1,6 +1,7 @@
 // The device kind's MCP entry: tools/list follows the phone's apps and the bot's grant, a call becomes a job that a
 // scripted phone leases and answers, a send goes to the phone with no card of OpenMausBot's own (the person taps Send
-// there), and only the owner's own turns reach a phone.
+// there), a screen write holds on the outgoing-action card unless the turn is Full, and only the owner's own turns
+// reach a phone.
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -33,14 +34,25 @@ afterEach(async () => {
   for (const dir of dirs.splice(0)) { await flushDecisionLog(dir); await removeTempDir(dir); }
 });
 
-const bot = (fields: Partial<BotRecord>) => ({ id: "chief", name: "DEX BOT", color: "teal", ...fields }) as BotRecord;
+const bot = (fields: Partial<BotRecord>) => ({ id: "chief", name: "Luna Bot", color: "teal", ...fields }) as BotRecord;
 const chief = bot({ chiefOfStaff: true });
 const registration = (name: string, capabilities: PhoneRegistration["capabilities"], platform: "ios" | "android" = "ios"): PhoneRegistration =>
   ({ installId: `install-${name.replace(/\W+/g, "-")}`, name, platform, appVersion: "1.6.0", timeZone: "Asia/Kolkata", capabilities });
 const call = (name: string, args: Record<string, unknown> = {}) => ({ method: "tools/call", params: { name, arguments: args } });
-const text = (result: PhoneToolsList | PhoneToolResult) => (result as PhoneToolResult).content[0]!.text;
+const text = (result: PhoneToolsList | PhoneToolResult) =>
+  (result as PhoneToolResult).content.map((item) => (item.type === "text" ? item.text : "")).join(" ");
 
-function harness(options: { bot?: () => BotRecord | null } = {}) {
+type HoldAnswer = { ok: true; approved: boolean } | { ok: false; text: string };
+type HoldInput = { tool: string; fullAccess: boolean };
+
+function harness(options: {
+  bot?: () => BotRecord | null;
+  holdOutbound?: (input: HoldInput) => Promise<HoldAnswer>;
+  approvalMode?: () => string;
+  saveAttachment?: (input: { name: string; mime: string; bytes: Buffer }) => Promise<
+    { ok: true; attachment: { kind: "image" | "file"; path: string; mime: string; name?: string } } | { ok: false; text: string }
+  >;
+} = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-phone-rpc-"));
   dirs.push(dir);
   const clock = { now: 1_800_000_000_000 };
@@ -48,6 +60,7 @@ function harness(options: { bot?: () => BotRecord | null } = {}) {
   const jobs = new PhoneJobs();
   const state = { owner: OWNER as string | null, inRoom: false };
   const messages: Array<{ threadId: string; message: Record<string, unknown> }> = [];
+  const holds: HoldInput[] = [];
   const host = createPhoneHost({
     registry, jobs, dataDir: dir,
     bot: (id) => (id === TURN.botId ? (options.bot?.() ?? chief) : undefined),
@@ -55,11 +68,17 @@ function harness(options: { bot?: () => BotRecord | null } = {}) {
     inRoom: () => state.inRoom,
     appendMessage: (threadId, message) => { messages.push({ threadId, message }); },
     active: () => true,
+    holdOutbound: async (input) => {
+      holds.push({ tool: input.tool, fullAccess: input.fullAccess });
+      return options.holdOutbound ? options.holdOutbound(input) : { ok: true, approved: false };
+    },
+    approvalMode: options.approvalMode ?? (() => "full"),
+    saveAttachment: options.saveAttachment,
   });
   let checks = 0;
   const handle = (body: unknown) => host.handle(body, TURN, () => { checks++; });
   const rows = async () => { await flushDecisionLog(dir); return readDecisions(dir, 200); };
-  return { dir, clock, registry, jobs, state, messages, host, handle, rows, checks: () => checks };
+  return { dir, clock, registry, jobs, state, messages, host, holds, handle, rows, checks: () => checks };
 }
 
 /** The phone's side of one job: take it from the long poll, lease it and answer. */
@@ -72,6 +91,56 @@ async function answerNext(jobs: PhoneJobs, key: string, answer: (job: PhoneJobDe
 }
 
 describe("phone MCP host", () => {
+  it("files and notifications ride their own capability, never the screen", async () => {
+    const files = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    files.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
+    expect(((await files.handle({ method: "tools/list" }) as PhoneToolsList).tools.map((tool) => tool.name)))
+      .toEqual(["PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
+    // A screen grant does not reach into files, and a file grant does not reach the screen.
+    const screenOnly = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneUi: "read" } }) });
+    screenOnly.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full", phoneUi: "full" }));
+    expect(((await screenOnly.handle({ method: "tools/list" }) as PhoneToolsList).tools.map((tool) => tool.name)))
+      .not.toContain("PHONE_FILE_LIST");
+    const phoneScreen = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    phoneScreen.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    expect(((await phoneScreen.handle({ method: "tools/list" }) as PhoneToolsList).tools)).toEqual([]);
+  });
+
+  it("a file the phone sends lands in the chat, never in the model's hands", async () => {
+    const h = harness({
+      bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }),
+      saveAttachment: async ({ name, mime }) => ({ ok: true, attachment: { kind: "file", path: "/tmp/saved", mime, name } }),
+    });
+    h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full" }));
+    const pending = h.handle(call("PHONE_FILE_SEND", { fileId: "tree:abc" }));
+    await answerNext(h.jobs, IPHONE, () => ({
+      ok: true,
+      result: { attachment: { name: "合同.pdf", mime: "application/pdf", data: Buffer.from("%PDF-1.4").toString("base64") } },
+    }));
+    const result = await pending as PhoneToolResult;
+    expect(result.isError).toBeUndefined();
+    // The base64 of %PDF-1.4 must not reach the model, only the note does.
+    expect(text(result)).not.toContain("JVBERi0");
+    expect(text(result)).toContain("合同.pdf");
+    expect(h.messages.at(-1)).toMatchObject({
+      threadId: TURN.threadId,
+      message: { role: "bot", kind: "text", attachments: [{ kind: "file", name: "合同.pdf" }] },
+    });
+  });
+
+  it("a server without an attachment store refuses instead of dropping the file", async () => {
+    const h = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneData: "read" } }) });
+    h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneData: "full" }));
+    const pending = h.handle(call("PHONE_FILE_SEND", { fileId: "tree:abc" }));
+    await answerNext(h.jobs, IPHONE, () => ({
+      ok: true,
+      result: { attachment: { name: "a.pdf", mime: "application/pdf", data: Buffer.from("%PDF").toString("base64") } },
+    }));
+    const result = await pending as PhoneToolResult;
+    expect(result).toMatchObject({ isError: true, structuredContent: { code: "unsupported" } });
+    expect(h.messages).toEqual([]);
+  });
+
   it("tools/list shows what the bot may run on the paired phone", async () => {
     const h = harness();
     h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { calendar: "full" }));
@@ -113,7 +182,7 @@ describe("phone MCP host", () => {
     expect(h.host.toolListing()?.phone.map((tool) => tool.name)).toEqual([...PHONE_TOOL_NAMES]);
     const rows = await h.rows();
     expect(rows.filter((row) => row.decision === "auto-approved").map((row) => row.tool)).toEqual(names);
-    expect(rows[0]).toMatchObject({ threadId: TURN.threadId, botId: "chief", botName: "DEX BOT", source: "connector-scope", rule: "scope:phone:calendar" });
+    expect(rows[0]).toMatchObject({ threadId: TURN.threadId, botId: "chief", botName: "Luna Bot", source: "connector-scope", rule: "scope:phone:calendar" });
   });
 
   it("a read runs on the phone and the result names the phone", async () => {
@@ -130,7 +199,7 @@ describe("phone MCP host", () => {
     expect(text(result)).toContain("Omkar's iPhone");
     expect(text(result)).toContain("events");
     expect(result.structuredContent).toEqual({ phone: { name: "Omkar's iPhone", platform: "ios" }, events: [] });
-    expect(request.mock.calls[0]![3]).toMatchObject({ timeoutMs: PHONE_JOB_TIMEOUT_MS, offlineText: "Omkar's iPhone is offline. Open the DEX BOT app on it." });
+    expect(request.mock.calls[0]![3]).toMatchObject({ timeoutMs: PHONE_JOB_TIMEOUT_MS, offlineText: "Omkar's iPhone is offline. Open the Luna Bot app on it." });
     expect(h.registry.get(IPHONE)!.lastUsedAt).toBe(h.clock.now);
     expect(h.messages).toEqual([]);
     expect(h.checks()).toBe(2);
@@ -164,7 +233,7 @@ describe("phone MCP host", () => {
     await again;
     expect(h.messages[1]!.message).toEqual({
       role: "bot", kind: "activity", tool: { name: "mcp__device__PHONE_DELETE_EVENT", ok: true, summary: "Delete event on Omkar's iPhone", summaryCode: "chat.notice.phone.write.PHONE_DELETE_EVENT", summaryParams: { phone: "Omkar's iPhone" } },
-      from: { botId: "chief", name: "DEX BOT", color: "teal" },
+      from: { botId: "chief", name: "Luna Bot", color: "teal" },
     });
     // A write the phone refused records no row and reaches the bot with the phone's reason.
     const failed = h.handle(call("PHONE_UPDATE_EVENT", { id: "evt-1", title: "Dentist (moved)" }));
@@ -180,8 +249,13 @@ describe("phone MCP host", () => {
     ]);
   });
 
-  it("a send goes straight to the phone: no card of DEX BOT's own, the person taps Send there", async () => {
-    expect(PHONE_TOOL_NAMES.filter((name) => isOutboundTool(name))).toEqual(["PHONE_RESPOND_TO_INVITE", "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP"]);
+  it("a send goes straight to the phone: no card of Luna Bot's own, the person taps Send there", async () => {
+    expect(PHONE_TOOL_NAMES.filter((name) => isOutboundTool(name))).toEqual([
+      "PHONE_RESPOND_TO_INVITE", "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
+      "PHONE_UI_COLLECT", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
+      "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE",
+      "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_OPEN_LINK", "PHONE_SHARE_TEXT", "PHONE_UI_AFTER_TASK",
+    ]);
     const h = harness();
     h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { calendar: "full", messages: "send" }));
     const request = vi.spyOn(h.jobs, "request");
@@ -215,16 +289,112 @@ describe("phone MCP host", () => {
     ]);
   });
 
+  it("a screen write waits on the outgoing-action card unless the turn is Full", async () => {
+    const driver = () => bot({ name: "Driver", phoneApps: { phoneUi: "write" } });
+    const holding = (answer: HoldAnswer) => harness({
+      bot: driver,
+      approvalMode: () => "ask",
+      holdOutbound: async () => answer,
+    });
+
+    const refused = holding({ ok: false, text: "The person said no." });
+    refused.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const request = vi.spyOn(refused.jobs, "request");
+    const denied = await refused.handle(call("PHONE_UI_LAUNCH", { app: "com.miui.calculator" })) as PhoneToolResult;
+    expect(denied).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
+    expect(text(denied)).toBe("The person said no.");
+    // The card is asked before any job exists, and under the MCP name the card can describe.
+    expect(refused.holds).toEqual([{ tool: "mcp__device__PHONE_UI_LAUNCH", fullAccess: false }]);
+    expect(request).not.toHaveBeenCalled();
+
+    const allowed = holding({ ok: true, approved: true });
+    allowed.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const launched = allowed.handle(call("PHONE_UI_LAUNCH", { app: "com.miui.calculator" }));
+    const job = await answerNext(allowed.jobs, IPHONE, () => ({ ok: true, result: { launched: true } }));
+    expect(job).toMatchObject({ tool: "PHONE_UI_LAUNCH", arguments: { app: "com.miui.calculator" } });
+    expect((await launched as PhoneToolResult).isError).toBeUndefined();
+    expect(allowed.holds).toEqual([{ tool: "mcp__device__PHONE_UI_LAUNCH", fullAccess: false }]);
+
+    // Full access sends without asking, as an outbound call always has.
+    const full = harness({ bot: driver });
+    full.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const direct = full.handle(call("PHONE_UI_LAUNCH", { app: "com.miui.calculator" }));
+    await answerNext(full.jobs, IPHONE, () => ({ ok: true, result: { launched: true } }));
+    expect((await direct as PhoneToolResult).isError).toBeUndefined();
+    expect(full.holds).toEqual([{ tool: "mcp__device__PHONE_UI_LAUNCH", fullAccess: true }]);
+
+    // Observing reads: it never asks, even in Ask mode.
+    const reading = harness({
+      bot: driver,
+      approvalMode: () => "ask",
+      holdOutbound: async () => { throw new Error("a read must not hold"); },
+    });
+    reading.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const observed = reading.handle(call("PHONE_UI_OBSERVE"));
+    await answerNext(reading.jobs, IPHONE, () => ({ ok: true, result: { displayId: 3, elements: [] } }));
+    expect((await observed as PhoneToolResult).isError).toBeUndefined();
+    expect(reading.holds).toEqual([]);
+
+    // No gate wired (a server that cannot ask): screen writes fail closed.
+    const bare = harness({ bot: driver });
+    bare.host = createPhoneHost({
+      registry: bare.registry, jobs: bare.jobs, dataDir: bare.dir,
+      bot: () => driver(), turnOwner: () => OWNER, inRoom: () => false,
+      appendMessage: () => {}, active: () => true,
+    });
+    bare.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const ungated = await bare.host.handle(call("PHONE_UI_LAUNCH", { app: "com.miui.calculator" }), TURN, () => {}) as PhoneToolResult;
+    expect(ungated).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
+    expect(text(ungated)).toContain("cannot ask for approval");
+  });
+
   it("a bot whose Messages grant is read only cannot send", async () => {
     const h = harness({ bot: () => bot({ name: "Scout", phoneApps: { messages: "read" } }) });
     h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { messages: "send" }));
     const request = vi.spyOn(h.jobs, "request");
     const result = await h.handle(call("PHONE_SEND_MESSAGE", { to: "Mom", text: "On my way" })) as PhoneToolResult;
     expect(result).toMatchObject({ isError: true, structuredContent: { code: "refused" } });
-    expect(text(result)).toBe("DEX BOT did not run this: Phone Messages is read-only for Scout, and Send message would write to it. Ask the user before trying again.");
+    expect(text(result)).toBe("Luna Bot did not run this: Phone Messages is read-only for Scout, and Send message would write to it. Ask the user before trying again.");
     expect(request).not.toHaveBeenCalled();
     expect(h.messages).toEqual([]);
     expect((await h.rows()).map((row) => [row.decision, row.rule])).toEqual([["auto-denied", "scope:phone:messages:write"]]);
+  });
+
+  it("the screen is opt-in: the default grant never touches it, an explicit one reads or drives it", async () => {
+    const h = harness();
+    h.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const request = vi.spyOn(h.jobs, "request");
+    // A bot with no phoneApps grant keeps its six legacy apps; the screen is not among them.
+    const refused = await h.handle(call("PHONE_UI_TAP", { ref: "e1" })) as PhoneToolResult;
+    expect(refused).toMatchObject({ isError: true, structuredContent: { code: "refused" } });
+    expect(text(refused)).toBe("Luna Bot did not run this: Luna Bot has not been given access to Phone UI. Ask the user to allow it under the bot's Access settings, and do not retry.");
+    expect(request).not.toHaveBeenCalled();
+    expect((await h.rows()).map((row) => [row.tool, row.decision, row.rule])).toEqual([["PHONE_UI_TAP", "auto-denied", "scope:phone:phoneUi:app"]]);
+    // An explicit write grant lists the screen tools and drives the phone on the short job timeout.
+    const driver = harness({ bot: () => bot({ name: "Scout", phoneApps: { phoneUi: "write" } }) });
+    driver.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const driverRequest = vi.spyOn(driver.jobs, "request");
+    const listed = await driver.handle({ method: "tools/list" }) as PhoneToolsList;
+    expect(listed.tools.map((tool) => tool.name)).toEqual(["PHONE_UI_OBSERVE", "PHONE_UI_COLLECT", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_UI_QUERY", "PHONE_LIST_APPS", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE", "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_OPEN_LINK", "PHONE_SHARE_TEXT", "PHONE_UI_AFTER_TASK"]);
+    const tap = driver.handle(call("PHONE_UI_TAP", { ref: "e1" }));
+    const job = await answerNext(driver.jobs, IPHONE, () => ({ ok: true, result: { screen: "Home" } }));
+    expect(job).toMatchObject({ tool: "PHONE_UI_TAP", arguments: { ref: "e1" } });
+    expect((await tap as PhoneToolResult).isError).toBeUndefined();
+    expect(driverRequest.mock.calls[0]![3]).toMatchObject({ timeoutMs: PHONE_JOB_TIMEOUT_MS });
+    expect(driver.messages).toEqual([{ threadId: TURN.threadId, message: {
+      role: "bot", kind: "activity", tool: { name: "mcp__device__PHONE_UI_TAP", ok: true, summary: "Tap screen on Omkar's iPhone", summaryCode: "chat.notice.phone.write.PHONE_UI_TAP", summaryParams: { phone: "Omkar's iPhone" } },
+    } }]);
+    // A read-only grant observes the screen and never drives it.
+    const watcher = harness({ bot: () => bot({ name: "Watcher", phoneApps: { phoneUi: "read" } }) });
+    watcher.registry.register(IPHONE, OWNER, registration("Omkar's iPhone", { phoneUi: "full" }));
+    const observe = watcher.handle(call("PHONE_UI_OBSERVE", {}));
+    const observeJob = await answerNext(watcher.jobs, IPHONE, () => ({ ok: true, result: { screen: "Home", refs: ["e1"] } }));
+    expect(observeJob).toMatchObject({ tool: "PHONE_UI_OBSERVE" });
+    expect((await observe as PhoneToolResult).structuredContent).toMatchObject({ phone: { name: "Omkar's iPhone" }, screen: "Home" });
+    expect(watcher.messages).toEqual([]);
+    const blocked = await watcher.handle(call("PHONE_UI_TYPE", { text: "hi", ref: "e1" })) as PhoneToolResult;
+    expect(blocked).toMatchObject({ isError: true, structuredContent: { code: "refused" } });
+    expect(text(blocked)).toBe("Luna Bot did not run this: Phone UI is read-only for Watcher, and Ui type would write to it. Ask the user before trying again.");
   });
 
   it("the default phone is the one used most recently, never the one that polled last", async () => {
@@ -264,7 +434,7 @@ describe("phone MCP host", () => {
     // Neither allows Messages: refused before any job.
     const message = await h.handle(call("PHONE_SEND_MESSAGE", { to: "Mom", text: "On my way" })) as PhoneToolResult;
     expect(message.isError).toBe(true);
-    expect(text(message)).toBe("DEX BOT can't use Messages on this phone: it is not allowed in the DEX BOT app on the phone.");
+    expect(text(message)).toBe("Luna Bot can't use Messages on this phone: it is not allowed in the Luna Bot app on the phone.");
     // A named phone without the app is refused too, though another phone allows it.
     const rsvp = await h.handle(call("PHONE_RESPOND_TO_INVITE", { id: "inv-1", response: "decline", phone: "work pixel" })) as PhoneToolResult;
     expect(rsvp).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
@@ -356,7 +526,7 @@ describe("phone MCP host", () => {
     await vi.advanceTimersByTimeAsync(15_000);
     const result = await pending as PhoneToolResult;
     expect(result).toMatchObject({ isError: true, structuredContent: { code: "offline" } });
-    expect(text(result)).toBe("Omkar's iPhone is offline. Open the DEX BOT app on it.");
+    expect(text(result)).toBe("Omkar's iPhone is offline. Open the Luna Bot app on it.");
     expect(h.jobs.busy(IPHONE)).toBe(false);
     expect(h.registry.get(IPHONE)!.lastUsedAt).toBeNull();
   });

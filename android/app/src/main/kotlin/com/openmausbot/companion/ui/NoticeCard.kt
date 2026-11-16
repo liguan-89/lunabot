@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -192,8 +193,7 @@ fun ActionNoticeHost(session: Session) {
             visible = message != null,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                // The root's safeDrawingPadding already keeps this above the
-                // gesture bar; these are the notice's own margins.
+                .navigationBarsPadding()
                 .padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
             enter = slideInVertically(tween(240)) { it / 2 } + fadeIn(tween(240)),
             exit = slideOutVertically(tween(160)) { it / 2 } + fadeOut(tween(160)),

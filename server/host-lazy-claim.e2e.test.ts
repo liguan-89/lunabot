@@ -151,8 +151,7 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
 
   itAutoHost("never offers a computer to a call through the Bot API, on Auto, on this computer or on a private desktop", async () => {
     await start();
-    // pi takes no confined guest turns, so the Bot API refuses the call outright on every place: the bot is never
-    // woken, so no turn — and no computer mount — can happen at all.
+    // pi takes confined guest turns: the Bot API accepts the call, and the turn mounts no computer at every place.
     for (const place of [undefined, "local", "vm"] as const) {
       const { bot } = await apiOk("POST", "/api/bots", { name: `API bot ${place ?? "auto"}` });
       if (place) await apiOk("PATCH", `/api/bots/${bot.id}`, { computer: place });
@@ -160,8 +159,12 @@ describe("lazy host claim and pin on use (issue #1650)", () => {
       const answered = await fetch(`${base.replace(/:(\d+)$/, (_, port) => `:${Number(port) + 1}`)}/hooks/api/bots/${bot.id}/messages`, {
         method: "POST", headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ message: `api-call-${place ?? "auto"}`, wait: 0 }),
       });
-      expect(answered.status).toBe(403);
-      expect(((await answered.json()) as { error: string }).error).toContain("can't take Bot API calls");
+      expect(answered.status).toBe(202);
+      const { thread } = await answered.json() as { thread: string };
+      writeFileSync(finishFile, "finish");
+      await idle(bot.id, thread);
+      expect(piTurnsForThread(dumpFile, thread).some((turn) => turn.launch?.mcpConfig?.mcpServers?.computer)).toBe(false);
+      rmSync(finishFile, { force: true });
     }
   }, hostTimeout(90_000));
 

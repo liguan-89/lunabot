@@ -10,6 +10,7 @@ import { validateBotCwd } from "./bot-cwd.ts";
 import { UNDO_STALE, type DirectApply } from "./direct-apply.ts";
 import { harnessCapabilityLines, type DriverCapabilities } from "./harness-capabilities.ts";
 import { redactSecretsInText } from "./redact.ts"; import { chiefLevel } from "./chief-level.ts"; import { defaultBotRefusal } from "./default-bot.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import type { BotRecord, OptionCardData } from "./store.ts";
 import type { TeamSetupFields, TeamSetupOperation, TeamSetupRequest, TeamSetupResult, TeamSetupUndo } from "../shared/team-setup.ts";
 
@@ -348,7 +349,12 @@ export class TeamSetupRequestService {
     const before = request.deletion ? undefined : this.undoBefore(request);
     let result = await this.apply(request, true, canCommit);
     const undo = before && result.state === "applied" && !result.error ? this.undoRecord(result, before) : undefined;
-    const title = result.state === "applied" ? (request.deletion ? `Deleted @${request.deletion.name}` : "Team setup applied") : "Team setup not applied";
+    const language = conversationLanguage(request.threadId);
+    const title = result.state === "applied"
+      ? request.deletion
+        ? serverLine(language, "server.teamSetup.deleted", { name: request.deletion.name })
+        : serverLine(language, "server.teamSetup.applied")
+      : serverLine(language, "server.teamSetup.notApplied");
     let messageId: string | undefined;
     try {
       messageId = this.options.store.appendMessage(request.threadId, { role: "bot", kind: "options", ...(from ? { from } : {}), card: {

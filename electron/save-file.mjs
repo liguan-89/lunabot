@@ -35,11 +35,11 @@ async function canonicalPath(target, fsp, message) {
   }
 }
 
-function assertInside(root, target) {
-  if (target !== root && !target.startsWith(root + path.sep)) {
-    throw new Error("Only files created by your bots can be saved");
-  }
-}
+// This computer's data folder: `~/.lunabot` now, `~/.dexbot` from before the rename. A bot's work can sit in
+// either while an install is mid-migration, so both count as "created by your bots".
+const BOT_DATA_DIR_NAMES = [".lunabot", ".dexbot"];
+
+const insideAny = (roots, target) => roots.some((root) => target === root || target.startsWith(root + path.sep));
 
 function assertRegularFile(stats) {
   if (!stats.isFile()) throw new Error("That path is not a file");
@@ -52,19 +52,20 @@ function isSameFile(left, right) {
 // Paths come from model-rendered markdown, so they are untrusted.
 async function resolveSource(rawPath, { home, fsp, platform }) {
   const target = normalizeSourcePath(rawPath);
-  const root = await canonicalPath(
-    path.join(home, ".dexbot"),
-    fsp,
-    "Only files created by your bots can be saved",
-  );
+  const roots = [];
+  for (const name of BOT_DATA_DIR_NAMES) {
+    try {
+      roots.push(await fsp.realpath(path.join(home, name)));
+    } catch {}
+  }
   const filePath = await canonicalPath(target, fsp, "That file no longer exists");
-  assertInside(root, filePath);
+  if (!insideAny(roots, filePath)) throw new Error("Only files created by your bots can be saved");
 
   const stats = await fsp.stat(filePath, { bigint: true });
   assertRegularFile(stats);
   if (platform === "win32") {
     const pathAfterStat = await canonicalPath(filePath, fsp, "That file no longer exists");
-    assertInside(root, pathAfterStat);
+    if (!insideAny(roots, pathAfterStat)) throw new Error("Only files created by your bots can be saved");
   }
   return { filePath, stats };
 }

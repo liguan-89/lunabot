@@ -110,6 +110,20 @@ describe("phone routes", () => {
     expect(await outcome).toEqual({ ok: true, result: { events: [] } });
   });
 
+  it("accepts a job answer carrying a file, and still caps the body", async () => {
+    const { call, jobs } = await setup({ auth: companion("d1") });
+    await call("PUT", "/api/phones/self", registration, fromPhone("d1"));
+    const outcome = jobs.request("companion:d1", "PHONE_FILE_SEND", { fileId: "photo:1" }, { active: () => true, timeoutMs: 10_000, offlineText: "offline", online: () => true });
+    const polled = await call("GET", "/api/phones/self/jobs", undefined, fromPhone("d1"));
+    const id = polled.body.job.id as string;
+    await call("POST", `/api/phones/self/jobs/${id}/lease`, {}, fromPhone("d1"));
+    // 1.2 MB of base64: over the old 1 MB ceiling, inside what one phone file needs.
+    const data = "A".repeat(1_200_000);
+    const answered = await call("POST", `/api/phones/self/jobs/${id}/result`, { ok: true, result: { attachment: { name: "a.png", mime: "image/png", data } } }, fromPhone("d1"));
+    expect(answered.status).toBe(200);
+    expect((await outcome).ok).toBe(true);
+  });
+
   it("refuses a result for an unknown job with 409", async () => {
     const { call } = await setup({ auth: companion("d1") });
     await call("PUT", "/api/phones/self", registration, fromPhone("d1"));

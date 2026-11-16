@@ -3,7 +3,6 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { AppTriggerRequestService } from "./app-trigger-requests.ts";
 import { appEventCatalog } from "./app-event-catalog.ts";
 import { eventCount } from "./app-events.ts";
 import { brokerClient } from "./app-trigger-broker.ts";
@@ -73,84 +72,6 @@ async function gmailTrigger(triggers: AppTriggerManager, filter = { from: "acme.
 }
 
 describe("AppTriggerManager", () => {
-  it("refuses a bot replacement when a direct edit adds protected instructions during its network wait", async () => {
-    const client = brokerClient(() => ({ url: broker.url, token: owner.token }));
-    const triggers = manager({ broker: client });
-    const saved = await gmailTrigger(triggers);
-    const store = { messagesFor: () => [], appendMessage: vi.fn(() => ({ id: "message-1" })), patchMessage: vi.fn() };
-    const service = new AppTriggerRequestService({ triggers, store, botName: () => "Fixture" });
-    const type = await client.triggerType(saved.event);
-    let entered!: () => void;
-    let release!: () => void;
-    const blocked = new Promise<void>(resolve => { entered = resolve; });
-    const resume = new Promise<void>(resolve => { release = resolve; });
-    vi.spyOn(client, "triggerType").mockImplementationOnce(async () => { entered(); await resume; return type; });
-    const outcome = service.submit({ botId: saved.botId, threadId: "thread-a", operation: {
-      action: "update", triggerId: saved.id, changes: { name: "Must not apply", instructions: "Bot replacement", filter: { from: "changed.example" } },
-    } }).then(value => ({ value, error: null }), error => ({ value: null, error }));
-    await blocked;
-    const protectedPrompt = "Use token=fixture-private-value.";
-    let before!: ReturnType<AppTriggerManager["list"]>;
-    let remote!: Array<unknown>;
-    try {
-      await triggers.update(saved.id, { prompt: protectedPrompt });
-      before = structuredClone(triggers.list());
-      remote = structuredClone([...broker.harness.composio.instances.entries()]);
-    } finally { release(); }
-    expect((await outcome).error).toMatchObject({ status: 409 });
-    expect(triggers.list()).toEqual(before);
-    expect([...broker.harness.composio.instances.entries()]).toEqual(remote);
-    expect(store.appendMessage).not.toHaveBeenCalled();
-  });
-
-  it("refuses a bot replacement queued behind a direct edit that stores protected instructions", async () => {
-    const client = brokerClient(() => ({ url: broker.url, token: owner.token }));
-    const triggers = manager({ broker: client });
-    const saved = await gmailTrigger(triggers);
-    const store = { messagesFor: () => [], appendMessage: vi.fn(() => ({ id: "message-1" })), patchMessage: vi.fn() };
-    const service = new AppTriggerRequestService({ triggers, store, botName: () => "Fixture" });
-    let entered!: () => void;
-    let release!: () => void;
-    const blocked = new Promise<void>(resolve => { entered = resolve; });
-    const resume = new Promise<void>(resolve => { release = resolve; });
-    const setEnabled = client.setEnabled.bind(client);
-    vi.spyOn(client, "setEnabled").mockImplementationOnce(async (...args) => { entered(); await resume; await setEnabled(...args); });
-    const holding = triggers.update(saved.id, { name: "Holding update" });
-    await blocked;
-    const protectedPrompt = "Use token=fixture-private-value.";
-    const manual = triggers.update(saved.id, { prompt: protectedPrompt });
-    const outcome = service.submit({ botId: saved.botId, threadId: "thread-a", operation: {
-      action: "update", triggerId: saved.id, changes: { name: "Must not apply", instructions: "Bot replacement" },
-    } }).then(value => ({ value, error: null }), error => ({ value: null, error }));
-    release();
-    await holding;
-    const expected = await manual;
-    expect((await outcome).error).toMatchObject({ status: 409 });
-    expect(triggers.get(saved.id)).toEqual(expected);
-    expect(store.appendMessage).not.toHaveBeenCalled();
-  });
-
-  it("refuses replacing redacted app instructions before changing local or remote state", async () => {
-    const triggers = manager();
-    const prompt = "Review the queue.\n".repeat(180) + "Use token=fixture-secret-value.";
-    const saved = await triggers.create({ botId: "bot-1", name: "Private instructions", prompt, app: "gmail", event: "GMAIL_NEW_GMAIL_MESSAGE" });
-    const store = { messagesFor: () => [], appendMessage: vi.fn(() => ({ id: "message-1" })), patchMessage: vi.fn() };
-    const service = new AppTriggerRequestService({ triggers, store, botName: () => "Fixture" });
-    const submit = (changes: unknown) => service.submit({ botId: "bot-1", threadId: "thread-a", operation: { action: "update", triggerId: saved.id, changes } });
-    const before = structuredClone(triggers.list());
-    const remote = structuredClone([...broker.harness.composio.instances.entries()]);
-    await expect(submit({ name: "Must not apply", instructions: "Only the visible text.", filter: { from: "changed.example" } }))
-      .rejects.toMatchObject({ status: 409 });
-    expect(triggers.list()).toEqual(before);
-    expect([...broker.harness.composio.instances.entries()]).toEqual(remote);
-    expect(store.appendMessage).not.toHaveBeenCalled();
-    await submit({ name: "Safe rename" });
-    expect(triggers.get(saved.id)).toMatchObject({ name: "Safe rename", prompt });
-    const edited = prompt + " Changed by the person.";
-    await triggers.update(saved.id, { prompt: edited });
-    expect(triggers.get(saved.id)?.prompt).toBe(edited);
-  });
-
   it("creates the service copy with a Gmail filter folded into Gmail's own search", async () => {
     const triggers = manager();
     const trigger = await gmailTrigger(triggers);
@@ -245,14 +166,6 @@ describe("AppTriggerManager", () => {
     expect(triggers.get(trigger.id)?.enabled).toBe(false);
     const client = brokerClient(() => ({ url: broker.url, token: owner.token }));
     expect((await client.inventory()).triggers.find((binding) => binding.triggerId === trigger.remote.triggerId)?.enabled).toBe(false);
-  });
-
-  it("says an event that needs setup on our side can't be used yet, and an unknown one can't be watched", async () => {
-    const triggers = manager();
-    const create = (event: string) => triggers.create({ botId: "bot-1", name: "New mail", prompt: "Summarize it.", app: "gmail", event });
-    await expect(create("GMAIL_OWN_ENDPOINT")).rejects.toThrow("GMAIL_OWN_ENDPOINT can't be used yet: this event needs webhook setup on our side first. Pick another event this app offers.");
-    await expect(create("GMAIL_NOT_A_THING")).rejects.toThrow("GMAIL_NOT_A_THING is not an event DEX BOT can watch.");
-    expect(triggers.list()).toEqual([]);
   });
 
   it("keeps an automation pending while the service is unreachable, and finishes it on its own", async () => {

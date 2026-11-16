@@ -4,7 +4,13 @@ export const BOOT_PROBE_INTERVAL_MS = 500;
 
 export const SERVER_BOOT_TIMEOUT_MS = 60_000;
 export const SERVER_LISTENING_GRACE_MS = 180_000;
-const LISTENING_LINE = "dexbot server on ";
+// The server names itself "lunabot" from this build and "dexbot"/"openmausbot" from one packaged before the rename;
+// every one of those is this app's server.
+const SERVER_APP_NAMES = ["lunabot", "dexbot", "openmausbot"];
+// The server says its name when it starts listening: "lunabot server on …" from this build, "dexbot server on …"
+// from one packaged before the rename. Both count; a boot that only ever heard the old line is still a boot.
+const LISTENING_LINES = ["lunabot server on ", "dexbot server on "];
+const LISTENING_TAIL = Math.max(...LISTENING_LINES.map((line) => line.length));
 
 export function listeningSignal() {
   let tail = "";
@@ -13,8 +19,8 @@ export function listeningSignal() {
     hear(chunk) {
       if (heard) return;
       const text = tail + chunk;
-      tail = text.slice(-LISTENING_LINE.length);
-      heard = text.includes(LISTENING_LINE);
+      tail = text.slice(-LISTENING_TAIL);
+      heard = LISTENING_LINES.some((line) => text.includes(line));
     },
     heard: () => heard,
   };
@@ -81,7 +87,7 @@ export async function pollServerIdentity({
     const identified =
       res.ok &&
       expectedPid !== undefined &&
-      (body?.app === "dexbot" || body?.app === "openmausbot") &&
+      SERVER_APP_NAMES.includes(body?.app) &&
       body.pid === expectedPid &&
       body.static;
     if (!identified) return { outcome: "foreign-owner" };

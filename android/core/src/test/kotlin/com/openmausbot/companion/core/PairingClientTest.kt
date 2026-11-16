@@ -54,7 +54,7 @@ class PairingClientTest {
         // access, not a Companion toggle (`ios/Sources/CompanionCore/Client.swift:317`).
         assertEquals(
             "无法通过任何可用路由连接到此电脑 " +
-                "(http://mac.tail1234.ts.net:8810)。请在 DEX BOT 中保持开启“手机访问”后再试。",
+                "(http://mac.tail1234.ts.net:8810)。请在 Luna Bot 中保持开启“手机访问”后再试。",
             error.message,
         )
         assertEquals(listOf("mac.tail1234.ts.net"), stub.requests.map { it.url.host })

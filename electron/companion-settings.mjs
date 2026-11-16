@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 
 /** `companion-settings.json` in the app's user data: each way into this computer and whether the person turned it on.
- * `wifi` is Same Wi-Fi (the device port on the LAN, and Bonjour), `relay` is Anywhere, through DEX BOT, `tailscale`
+ * `wifi` is Same Wi-Fi (the device port on the LAN, and Bonjour), `relay` is Anywhere, through Luna Bot, `tailscale`
  * the tailnet address, `https` the HTTPS address (the managed tunnel). `notices` lists routes kept on by the update
  * that the person has not seen yet. */
 export const COMPANION_SETTINGS_VERSION = 2;
@@ -84,10 +84,10 @@ export const phoneLinkShouldSleep = (state) =>
 
 export const companionDevicesFile = (env = process.env, home = os.homedir()) => {
   if (env.OMB_COMPANION_DIR) return path.join(env.OMB_COMPANION_DIR, "devices.json");
-  const current = path.join(home, ".dexbot-companion");
-  const legacy = path.join(home, ".openmausbot-companion");
-  // The sidecar migrates the folder on start; read the old one until it does.
-  return path.join(fs.existsSync(current) || !fs.existsSync(legacy) ? current : legacy, "devices.json");
+  const current = path.join(home, ".lunabot-companion");
+  // The sidecar migrates the folder on start; read an earlier one until it does, newest name first.
+  const legacy = [".dexbot-companion", ".openmausbot-companion"].map((name) => path.join(home, name)).find((dir) => fs.existsSync(dir));
+  return path.join(fs.existsSync(current) || !legacy ? current : legacy, "devices.json");
 };
 
 /** Paired devices in the companion's own store; null when the file exists but cannot be read. */

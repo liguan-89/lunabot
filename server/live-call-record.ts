@@ -1,6 +1,6 @@
 // Never holds anything said on a call beyond the requests the bot already received.
 // steer-queue.ts imports this at runtime, so it stays light: store and title machinery arrive as injected deps.
-import { liveCallRowText } from "../shared/live-call.ts";
+import { formatCallDuration } from "../shared/live-call.ts";
 import type { LiveCallRecord } from "../shared/wire.ts";
 import type { Message } from "./store.ts";
 
@@ -15,6 +15,8 @@ export function spokenLineFields(
 export interface LiveCallRecordDeps {
   chatExists(botId: string, threadId: string): boolean;
   appendMessage(threadId: string, message: Omit<Message, "id" | "at">): Message;
+  /** The row's plain line: what a client that does not know kind "call" shows. */
+  line(botName: string, duration: string): string;
 }
 
 export function recordLiveCall(
@@ -26,7 +28,7 @@ export function recordLiveCall(
   return deps.appendMessage(threadId, {
     role: "bot",
     kind: "call",
-    text: liveCallRowText(botName, record.seconds),
+    text: deps.line(botName, formatCallDuration(record.seconds)),
     call: record,
   });
 }

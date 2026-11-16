@@ -217,7 +217,7 @@ class ReminderReceiver : BroadcastReceiver() {
                     CHANNEL_ID,
                     "手机提醒",
                     NotificationManager.IMPORTANCE_DEFAULT,
-                ).apply { description = "机器人在这台手机上创建的提醒" },
+                ).apply { description = "智能体在这台手机上创建的提醒" },
             )
         }
         val open = PendingIntent.getActivity(

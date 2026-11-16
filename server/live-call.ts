@@ -12,8 +12,8 @@ export const LIVE_NEEDS_KEY = "Live calls use your own OpenAI key. Add it in Set
 export const LIVE_NEEDS_AZURE = "Live calls through Azure OpenAI need the resource endpoint, the GPT-Live deployment name and its key. Add them in Call settings.";
 export const LIVE_NEEDS_QWEN = "Live calls through Qwen need the realtime gateway's https address and its key. Add them in Call settings.";
 export const LIVE_NEEDS_VOLC = "Live calls through Doubao need the speech app's App ID and its Access Token as the Live key. Add them in Call settings.";
-export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls run over the app's WebSocket audio path; start the call from DEX BOT.";
-export const LIVE_VOLC_TRANSPORT = "Doubao realtime calls run over the app's WebSocket audio path; start the call from DEX BOT.";
+export const LIVE_QWEN_TRANSPORT = "Qwen realtime calls run over the app's WebSocket audio path; start the call from Luna Bot.";
+export const LIVE_VOLC_TRANSPORT = "Doubao realtime calls run over the app's WebSocket audio path; start the call from Luna Bot.";
 
 /** The client's data channel is untrusted: it may only hang up; every append goes over the sideband.
  * Exception: Azure OpenAI refuses `session.client`, so an Azure call goes without this list and its caller's channel keeps
@@ -419,7 +419,7 @@ export function liveInstructions(bot: LiveBot, { cloudHome = false }: { cloudHom
   const name = oneLine(bot.name) || "the agent";
   const title = oneLine(bot.title ?? "");
   const description = oneLine(bot.description ?? "").slice(0, 400);
-  const where = cloudHome ? `runs on ${CLOUD_HOME_PLACE}` : "runs in DEX BOT on the user's own computer";
+  const where = cloudHome ? `runs on ${CLOUD_HOME_PLACE}` : "runs in Luna Bot on the user's own computer";
   const changes = cloudHome ? "My Cloud" : "the computer";
   return [
     `You are ${name}${title ? `, ${title}` : ""}, an AI agent that ${where}.${description ? ` ${description}` : ""}`,

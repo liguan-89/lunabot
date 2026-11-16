@@ -3,9 +3,10 @@
 // Adapted from pingdotgg/t3code@00cdceb1 apps/server/src/preview/ServerBrowser.ts (runOperation, executeTabOperation,
 // navigate, status) and apps/server/src/mcp/PreviewAutomationBroker.ts, MIT License, Copyright (c) 2026 T3 Tools Inc.
 // (full text in third_party/t3-code/LICENSE); modified: one in-process host instead of a broker, tabs that belong to
-// the profile, the CDP driver instead of Playwright, and DEX BOT's page-change and page-health lines.
+// the profile, the CDP driver instead of Playwright, and Luna Bot's page-change and page-health lines.
 import { describePageChange, sanitizeUrl, type PageState } from "../browser-tool-shape.ts";
 import type { CdpBrowser } from "./cdp/browser.ts";
+import { snapshotCandidates } from "./cdp/candidates.ts";
 import type { Download } from "./cdp/downloads.ts";
 import { DriverError, isUnanswered } from "./cdp/errors.ts";
 import { callOnNode, valueInWorld } from "./cdp/evaluate.ts";
@@ -14,6 +15,7 @@ import { navigable } from "./cdp/page.ts";
 import type { Screenshot } from "./cdp/screencast.ts";
 import { resolveElement } from "./cdp/selectors.ts";
 import { MAX_VISIBLE_TEXT_LENGTH } from "./cdp/snapshot.ts";
+import type { ClickChoiceInput } from "./click-choice.ts";
 import { BROWSER_CONTROL_REFUSAL, type ProfileControl } from "./control.ts";
 import { BrowserControlInterrupted } from "./session-control.ts";
 import { errorResult, pageLabel, snapshotText, textResult, withParts, type ToolResult } from "./shape.ts";
@@ -60,6 +62,8 @@ export interface ToolContext {
   secretOnPage(tab: Tab): Promise<boolean>;
   saveScreenshot(data: Buffer, pageUrl: string): string;
   downloads(): Download[];
+  /** A decision model's pick among click candidates, when that job is on; absent leaves the click unchanged. */
+  chooseClick?: { enabled(): boolean; choose(input: ClickChoiceInput): Promise<{ ref: string; pTop: number } | null> };
 }
 
 /** A typed address with its scheme: a bare host means https, loopback http. */
@@ -296,9 +300,33 @@ export async function executeTool(context: ToolContext, call: ToolCall): Promise
     }
     case "agent_browser_click": {
       const tab = tabOf(context, call.input.tab);
-      const target = element(call.input);
       return act(context, tab, async () => {
-        const clicked = await tab.page.click(target, { button: call.input.button ?? "left", clickCount: call.input.clickCount ?? 1, timeoutMs: remaining(context), pointer: context.pointer(tab) });
+        const clickOptions = { button: call.input.button ?? "left", clickCount: call.input.clickCount ?? 1, timeoutMs: remaining(context), pointer: context.pointer(tab) } as const;
+        if (call.input.intent !== undefined) {
+          if (call.input.ref !== undefined || call.input.selector !== undefined || call.input.x !== undefined || call.input.y !== undefined) {
+            return errorResult("Pass intent alone, or a ref, selector or point; not both.");
+          }
+          if (!context.chooseClick?.enabled()) return errorResult("Intent clicks need the local decision model. Call agent_browser_snapshot and pass a ref.");
+          const snapshot = await tab.page.snapshot();
+          const candidates = snapshotCandidates(snapshot.tree);
+          if (!candidates.length) return errorResult("No visible element to choose from. Call agent_browser_snapshot.");
+          const picked = await context.chooseClick.choose({ intent: call.input.intent, candidates, url: snapshot.url, title: snapshot.title });
+          if (!picked) return errorResult(`The decision model did not pick an element for "${call.input.intent.slice(0, 120)}". Call agent_browser_snapshot and pass a ref.`);
+          const clicked = await tab.page.click({ ref: picked.ref }, clickOptions);
+          return textResult(`Clicked ${picked.ref} (picked by the decision model, ${Math.round(picked.pTop * 100)}%)${clicked.dialog ? "; it opened a dialog" : ""}.`);
+        }
+        if (call.input.selector !== undefined && context.chooseClick?.enabled()) {
+          const matches = await tab.page.clickCandidates(call.input.selector).catch(() => []);
+          if (matches.length > 1) {
+            const picked = await context.chooseClick.choose({ selector: call.input.selector, candidates: matches, url: tab.page.url(), title: tab.page.title() });
+            if (picked) {
+              const clicked = await tab.page.click({ ref: picked.ref }, clickOptions);
+              return textResult(`Clicked ${picked.ref} (picked by the decision model, ${Math.round(picked.pTop * 100)}%; ${JSON.stringify(call.input.selector)} matched ${matches.length})${clicked.dialog ? "; it opened a dialog" : ""}.`);
+            }
+          }
+        }
+        const target = element(call.input);
+        const clicked = await tab.page.click(target, clickOptions);
         return textResult(`Clicked ${"ref" in target ? target.ref : "selector" in target ? JSON.stringify(target.selector) : `${Math.round(clicked.x)},${Math.round(clicked.y)}`}${clicked.dialog ? "; it opened a dialog" : ""}.`);
       }, { observeChange: true });
     }

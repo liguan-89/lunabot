@@ -29,6 +29,15 @@ it("saving and replacing the workspace provider key drives key testing without l
       method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "openaiCompat" }),
     });
     expect(missing.status).toBe(400);
+    const configPath = join(fixture.info.dataDir, "config.json");
+    const configBeforeInvalidUrls = readFileSync(configPath, "utf8");
+    for (const url of ["htp://api.example.com/v1", "https://user:pass@api.example.com/v1", "https://api.example.com/v1?key=secret", `https://api.example.com/${"a".repeat(2048)}`]) {
+      const response = await fetch(`${fixture.info.url}/api/config`, {
+        method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ openaiCompat: { url } }),
+      });
+      expect(response.status).toBe(400);
+      expect(readFileSync(configPath, "utf8")).toBe(configBeforeInvalidUrls);
+    }
     for (const url of ["http://127.example.test/v1", "http://127.0.0.1.example.test/v1"]) {
       expect(await api("POST", "/api/keys/test", { provider: "openaiCompat", key: "fixture-key", url }))
         .toEqual({ ok: false, reason: "unexpected" });

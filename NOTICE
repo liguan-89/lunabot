@@ -1,3 +1,11 @@
+Luna Bot
+Copyright 2026 liguan-89 and Luna Bot contributors
+
+This project is licensed under the GNU Affero General Public License v3.0
+(see LICENSE). It includes code from OpenMausBot, Copyright 2026 Milind Soni
+and OpenMausBot contributors, whose portions remain under the Apache License,
+Version 2.0 (see LICENSE.apache and the notice below).
+
 OpenMausBot
 Copyright 2026 Milind Soni and OpenMausBot contributors
 
@@ -100,3 +108,52 @@ Teams' display-name rule. Copyright 2025-2026 Vexa.ai Inc. and the Vexa
 contributors, used under the Apache License, Version 2.0
 (third_party/vexa/LICENSE). The adapted parts were rewritten in our own code;
 no Vexa file is included unmodified.
+
+The Android app's local wireless-debugging ADB protocol
+(android/core/src/main/kotlin/com/dexbot/companion/core/phoneui/adb/ and its
+tests) is ported from Mika, https://github.com/wangzan101/Mika
+(core/src/main/kotlin/com/wangzan101/mika/core/adb/), Copyright 2026
+wangzan101, used under the Apache License, Version 2.0
+(third_party/mika/LICENSE). Each ported file carries the original copyright
+and a notice of the changes made.
+
+The Android app's phone-UI shell helper (android/app, package
+com.openmausbot.companion.phoneui.shell) ports the shell helper, virtual
+display driver and Binder handoff protocol of Mika,
+https://github.com/wangzan101/Mika, Copyright 2026 wangzan101, used under the
+Apache License, Version 2.0 (third_party/mika/LICENSE). The port is trimmed to
+the app_process helper, the virtual-display AIDL surface and the nonce-based
+handoff; Mika's clipboard, audio-muting, device-unlock, device-file and
+call-audio features are deliberately not ported. The helper's shell context
+construction originally derives from scrcpy (https://github.com/Genymobile/scrcpy),
+Copyright (C) 2018 Genymobile, Copyright (C) 2018-2024 Romain Vimont, also
+under the Apache License, Version 2.0.
+
+The Android app's automatic wireless-debugging pairing reader
+(PhoneUiPairingScreen, PhoneUiAccessibilityService.readPairingCode and
+PhoneUiController.beginAutoPairing) adapts the pairing-dialog text reader,
+bounded window walk and notification RemoteInput fallback of Mika's
+cap/phone/setup and core shell pairing modules,
+https://github.com/wangzan101/Mika, Copyright 2026 wangzan101, used under the
+Apache License, Version 2.0 (third_party/mika/LICENSE). Our ADB SPAKE2 client
+is the separately noted port; the automation loop was rewritten for this app's
+per-display accessibility reader and its own pairing controller, and is not a
+copy of Mika's coordinator.
+
+The Android app's screen text recognition (PhoneUiOcr) uses Google ML Kit's
+on-device text recognition library (com.google.mlkit:text-recognition-chinese),
+Copyright Google LLC, subject to the ML Kit Terms of Service; the bundled model
+runs on the device and only recognized text leaves it.
+
+The Android app's action stabilization, coordinate click retry, main-screen
+spill handling, system-picker detection, display keep-awake, key whitelist and
+typed-key fallback (PhoneUiStability, PhoneUiClickFallback, PhoneUiSpill,
+PhoneUiSystemPickers, PhoneUiDisplayAwake, PhoneUiKeys and
+PhoneUiShellService.typeText) adapt Mika's ChangeWait, FrameFreshness,
+ClickFallback, MainScreenSpill, SystemPickers, DisplayAwake and AsciiTextKeys,
+https://github.com/wangzan101/Mika, Copyright 2026 wangzan101, used under the
+Apache License, Version 2.0 (third_party/mika/LICENSE). They were rewritten
+for this app's plain accessibility-tree reader and its own tool surface:
+Mika's frame-brightness channel, task-stack listener, per-app audio ledger and
+task-moving heuristics are not ported, and a spilled task is pulled back with
+one bounded root-task move instead.

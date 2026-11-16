@@ -436,7 +436,7 @@ export function createProxyHandler(options: ProxyOptions) {
     // session; the owner enables this per device, off by default.
     if (isCloudDesktopAccess(method, path) && !device?.cloudDesktopAccess) {
       return sendJson(res, 403, {
-        error: "computer access is off for this device — enable it in DEX BOT → Settings → Remote access",
+        error: "computer access is off for this device — enable it in Luna Bot → Settings → Remote access",
       });
     }
 
@@ -525,7 +525,7 @@ export function createProxyHandler(options: ProxyOptions) {
           const fail = () => {
             if (finished) return;
             finished = true;
-            sendJson(res, 502, { error: "DEX BOT is not ready on this computer" });
+            sendJson(res, 502, { error: "Luna Bot is not ready on this computer" });
           };
           harness.on("data", (chunk: Buffer) => {
             size += chunk.length;
@@ -547,7 +547,7 @@ export function createProxyHandler(options: ProxyOptions) {
               return;
             }
             // SAFETY: identity is untrusted JSON; the assertion only permits
-            // reading one optional property compared to fixed literals. DEX BOT's
+            // reading one optional property compared to fixed literals. Luna Bot's
             // harness answers "dexbot"; upstream builds answer "openmausbot".
             const app = (identity as { app?: unknown } | null)?.app;
             if (
@@ -700,7 +700,7 @@ export function createProxyHandler(options: ProxyOptions) {
           // These two are rewritten or withdrawn whole, so neither can start before its end.
           if (browserRequest || viewers.rewritesJoin(path)) {
             harness.destroy();
-            sendJson(res, 502, { error: "the response from DEX BOT was too large" });
+            sendJson(res, 502, { error: "the response from Luna Bot was too large" });
             return;
           }
           streamScrubbedJson(harness, res, chunks);
@@ -791,8 +791,8 @@ export function createProxyHandler(options: ProxyOptions) {
         res,
         timedOut ? 504 : 502,
         timedOut
-          ? { error: "DEX BOT did not respond" }
-          : { error: "DEX BOT is not running on this computer" },
+          ? { error: "Luna Bot did not respond" }
+          : { error: "Luna Bot is not running on this computer" },
       );
     });
     req.pipe(upstream);

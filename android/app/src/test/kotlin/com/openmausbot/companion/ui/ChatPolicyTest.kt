@@ -662,3 +662,23 @@ class MessageActionsTest {
         assertNull(MessageActions.editableText(plain.copy(role = Message.Role.BOT)))
     }
 }
+
+class RosterPreviewFormatTest {
+    @Test
+    fun `markdown markers and newlines collapse into clean prose`() {
+        val raw = "**两台机器体检正常**，但有缺口。\n\n## 资源水位\n- `caddy-179` 正常 [查看详情](https://example.com)"
+        assertEquals(
+            "两台机器体检正常，但有缺口。 资源水位 caddy-179 正常 查看详情",
+            RosterPreviewFormat.display(raw),
+        )
+    }
+
+    @Test
+    fun `raw http json errors render as readable summaries`() {
+        val raw = """error: 402: {"message":"Insufficient Balance (request_id: 190a9df6-f39f)","type":"insufficient_balance_error"}"""
+        assertEquals(
+            "错误 402：账户余额不足",
+            RosterPreviewFormat.display(raw),
+        )
+    }
+}

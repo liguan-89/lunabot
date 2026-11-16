@@ -58,7 +58,7 @@ describe("engine set", () => {
 
     w.writes.length = 0;
     const again = await w.run(["engine", "set", "openai-compatible", "--key-env", "ENGINE_KEY", "--base-url", URL]);
-    expect(again.out).toBe("openai-compatible was already set up; nothing changed (pass --rotate to replace its key). Bots use it as openaiCompat/MODEL (openmausbot models).");
+    expect(again.out).toBe("openai-compatible was already set up; nothing changed (pass --rotate to replace its key). Bots use it as openaiCompat/MODEL (lunabot models).");
     expect(w.writes).toEqual([]);
     expect((await w.run(["engine", "set", "openai-compatible", "--key-env", "ENGINE_KEY", "--base-url", `${URL}/v2`, "--rotate", "--json"])).code).toBe(0);
     expect(w.writes).toEqual([{ path: "/api/config", body: { openaiCompat: { key: KEY, url: `${URL}/v2` } } }]);

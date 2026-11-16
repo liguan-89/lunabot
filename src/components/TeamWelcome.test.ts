@@ -26,7 +26,7 @@ const people = [
 ];
 const bot = (id: string, name: string, extra: Record<string, unknown> = {}) => ({ id, name, title: "", description: "", tasks: [], threadId: `${id}-main`, mainThreadId: `${id}-main`, avatarCrop: "mascot", ...extra });
 const bots = [
-  bot("mine", "DEX BOT", { defaultBot: { person: "sam@acme.test" } }),
+  bot("mine", "Luna Bot", { defaultBot: { person: "sam@acme.test" } }),
   bot("payroll", "Payroll", { description: "Runs payroll every month.\nAsk it anything about pay.", yourAccess: "view" }),
   bot("support", "Support", { title: "Answers customers" }),
   bot("old", "Old", { hidden: true }),
@@ -53,7 +53,7 @@ describe("a new member's first screen in a team", () => {
     expect(container.querySelector("[data-team-welcome-invited]")?.textContent).toBe("Ada Lovelace invited you to Acme.");
     expect([...container.querySelectorAll("[data-team-welcome-person] span.truncate")].map((row) => row.textContent)).toEqual(["Ada Lovelace", "ben@acme.test"]);
     expect(container.querySelector('[data-team-welcome-person="ada@acme.test"] img')?.getAttribute("src")).toBe("/api/team/people/p_a/picture?v=1");
-    // Their own DEX BOT isn't shared with them, and a hidden bot isn't shown; one line each.
+    // Their own Luna Bot isn't shared with them, and a hidden bot isn't shown; one line each.
     expect([...container.querySelectorAll("[data-team-welcome-bot]")].map((row) => row.textContent)).toEqual(["PayrollRuns payroll every month.", "SupportAnswers customers"]);
     expect(container.querySelectorAll("[data-team-private-chats]")).toHaveLength(1);
     expect(container.querySelector("[data-team-private-chats]")?.textContent).toBe("Your chats in Acme are private. Only you can see them: not other members, not Acme's admins.");
@@ -77,7 +77,7 @@ describe("a new member's first screen in a team", () => {
     render(null);
     expect(container.querySelector("[data-team-welcome-invited]")?.textContent).toBe("You’re in Acme now.");
     expect(container.querySelector("[data-team-welcome-person]")).toBeNull();
-    expect(container.textContent).toContain("No bots are shared with you in Acme yet. Your own DEX BOT is in the sidebar.");
+    expect(container.textContent).toContain("No bots are shared with you in Acme yet. Your own Luna Bot is in the sidebar.");
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Look around"]);
   });
 });
@@ -135,7 +135,7 @@ describe("its manners", () => {
     } finally { vi.useRealTimers(); }
   });
 
-  it("DEX BOT's own card doesn't interrupt a team's first run: not after the team's welcome in this launch, never over a run", () => {
+  it("Luna Bot's own card doesn't interrupt a team's first run: not after the team's welcome in this launch, never over a run", () => {
     expect(teamQuiet({ config: { team: ACME }, bots: [{ busy: true }] })).toBe(true);
     expect(teamQuiet({ config: { team: ACME }, bots: [{ busy: false }] })).toBe(false);
     markTeamWelcomeShown();

@@ -8,11 +8,10 @@ const INDEX = readFileSync(new URL("../../server/index.ts", import.meta.url), "u
 
 const EXACT: Record<string, number> = {
   // Internal harness routes have no server/routes module yet; moving them out is the follow-up that lowers this.
-  // This fork keeps two more inline here (the live-call relay and the WebAuthn bridge); move them out before raising it again.
   'path === "/': 86,
-  "path.match(": 24,
+  "path.match(": 23,
   "path.startsWith(": 6,
-  ".exec(path)": 1,
+  ".exec(path)": 0,
   ".test(path)": 0,
   ".includes(path)": 2,
 };

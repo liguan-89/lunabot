@@ -148,7 +148,7 @@ internal class PhoneMessages(private val context: Context) {
             // Android 10+ can refuse a background activity start. The person
             // opening the app is the honest remedy.
             PhoneToolOutcome.Failure(
-                "手机不允许在后台打开消息应用，请先在手机上打开 DEX BOT 再试。",
+                "手机不允许在后台打开消息应用，请先在手机上打开 Luna Bot 再试。",
                 "unsupported",
             )
         }

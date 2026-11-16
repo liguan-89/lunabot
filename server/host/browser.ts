@@ -13,6 +13,7 @@ import { BrowserRuntime, TransportError, attachesToChrome, browserRuntimeEnv, fo
 import { RelayTimeout, relay, relayCommand, relayInput } from "../browser-relay.ts";
 import { browserSteps } from "../browser-steps.ts";
 import { BrowserLive } from "../browser-live.ts";
+import type { ClickChoice } from "../browser/click-choice.ts";
 import { browserEgress, type EgressSetup } from "../browser/egress/registry.ts";
 import {
   agentBrowserIntegration,
@@ -82,6 +83,8 @@ export interface BrowserHostDeps {
   browserBox?(seccompFd: number, ro: readonly string[]): LauncherBox | null;
   /** watch_me's registry: a person's own browser input is recorded while a demo watch is open on that session. */
   demoWatch?: Pick<DemoWatch, "due" | "append" | "notifyHandedBack">;
+  /** A decision model's pick among click candidates, when the browserClicks job is on. */
+  chooseClick?: ClickChoice;
 }
 
 /** The lent computer's connection for a browser's pages, under the rule for everything it lends: only while the last
@@ -135,6 +138,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     egressNotice: (key) => browserEgress.takeNotice(key),
     idleMs,
     held: (session) => !turnResources.free(`browser:${session}`),
+    ...(deps.chooseClick ? { chooseClick: deps.chooseClick } : {}),
     log: (line) => console.warn(line),
   });
   const lendRefusal = deps.lendRefusal ?? ((): LendRefusal => "unproven");
@@ -473,7 +477,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     return Promise.resolve(true);
   }
   /**
-   * The agent-browser whose saved sessions a deletion erases: the one DEX BOT installed, or on a Cloud home the
+   * The agent-browser whose saved sessions a deletion erases: the one Luna Bot installed, or on a Cloud home the
    * image's own. Another one on PATH may be a wrapper whose failing close would hold the cleanup journal forever, so
    * it only closes the running browser.
    */
@@ -502,7 +506,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
         return true;
       }
       const ok = await clearBrowserSessionState(engine.binaryPath, name, { encryptionKey: browserEngineEncryptionKey() });
-      if (!ok) console.warn(`browser cleanup: could not clear saved state for session ${name}; restart DEX BOT to retry this profile's cleanup. Do not use state clear --all: it erases other profiles too.`);
+      if (!ok) console.warn(`browser cleanup: could not clear saved state for session ${name}; restart Luna Bot to retry this profile's cleanup. Do not use state clear --all: it erases other profiles too.`);
       return ok;
     };
     const results = await Promise.all([eraseChromeBrowser(request), ...session ? [erased(session)] : []]);

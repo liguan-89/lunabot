@@ -445,6 +445,48 @@ class DiscoveryRetryTest {
     }
 }
 
+class CompanionServiceTypeTest {
+    @Test
+    fun theActiveTypeIsLunabot() {
+        assertEquals("_lunabot._tcp.", NsdDiscovery.SERVICE_TYPE)
+    }
+
+    @Test
+    fun theActiveTypeAndEveryPreviousNameAreOurs() {
+        val active = NsdDiscovery.SERVICE_TYPE
+        // The trailing dot is optional on the wire, and some API levels append
+        // the domain (`_dexbot._tcp.local.`); every spelling has to match.
+        for (announced in listOf(
+            "_lunabot._tcp.",
+            "_lunabot._tcp",
+            "_lunabot._tcp.local.",
+            "_dexbot._tcp.",
+            "_dexbot._tcp",
+            "_dexbot._tcp.local.",
+            "_openmausbot._tcp.",
+            "_openmausbot._tcp",
+        )) {
+            assertTrue(isCompanionServiceType(announced, active), announced)
+        }
+    }
+
+    @Test
+    fun anythingElseStaysOut() {
+        val active = NsdDiscovery.SERVICE_TYPE
+        for (announced in listOf(
+            "_http._tcp",
+            "_adb-tls-connect._tcp",
+            "_lunabot._udp",
+            "_lunabotx._tcp",
+            "_dexbot._udp",
+            "",
+            null,
+        )) {
+            assertFalse(isCompanionServiceType(announced, active), announced ?: "null")
+        }
+    }
+}
+
 private class FakeMulticastLock(held: Boolean) : MulticastLockHandle {
     private var held = held
     var releaseCount = 0

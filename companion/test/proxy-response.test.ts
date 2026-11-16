@@ -100,7 +100,7 @@ describe("preparing a harness response for a device", () => {
       for (const path of ["computer/join", "computer/screenshot", "local-computer/screenshot", "local-computer/join"]) {
         const { status, text } = await device(`/api/bots/b1/${path}`, "POST");
         expect(status).toBe(403);
-        expect(text).toContain("enable it in DEX BOT");
+        expect(text).toContain("enable it in Luna Bot");
         expect(text).toContain("Settings → Remote access");
       }
     } finally {

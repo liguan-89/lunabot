@@ -3,7 +3,7 @@
 import type { ServerResponse } from "node:http";
 
 export const CLOUD_MOVE_PREFIX = "/api/cloud-move";
-export const COPY_REFUSAL = "Update DEX BOT to bring your bots here by itself.";
+export const COPY_REFUSAL = "Update Luna Bot to bring your bots here by itself.";
 
 export function createCloudMoveRoutes() {
   return (res: ServerResponse, path: string): boolean => {

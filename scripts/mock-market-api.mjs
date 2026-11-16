@@ -96,7 +96,7 @@ const server = createServer(async (request, response) => {
     const fields = ["state", "code_challenge", "redirect_uri", "scope"].map((name) => `<input type="hidden" name="${name}" value="${url.searchParams.get(name) ?? ""}">`).join("");
     return html(response, 200, `<!doctype html><meta charset="utf-8"><title>TK1688 mock sign-in</title>
       <body style="font:16px system-ui;max-width:32rem;margin:4rem auto">
-      <h1>TK1688 mock</h1><p>Sign in as ${USER.display_name}. This page exists only for local DEX BOT development.</p>
+      <h1>TK1688 mock</h1><p>Sign in as ${USER.display_name}. This page exists only for local Luna Bot development.</p>
       <form action="/oauth/approve" method="get">${fields}<button style="font:inherit;padding:.6rem 1rem">Authorize</button></form>
       </body>`);
   }
@@ -149,7 +149,7 @@ const server = createServer(async (request, response) => {
       order.subscription = subscriptionFor(order.plan_code);
     }
     return html(response, 200, `<!doctype html><meta charset="utf-8"><title>Paid</title><body style="font:16px system-ui;max-width:32rem;margin:4rem auto">
-      <h1>Payment complete</h1><p>The mock opened and settled this checkout. Return to DEX BOT; the card updates by itself.</p></body>`);
+      <h1>Payment complete</h1><p>The mock opened and settled this checkout. Return to Luna Bot; the card updates by itself.</p></body>`);
   }
 
   if (!url.pathname.startsWith("/v1/") && bearer(request) !== ACCESS) {

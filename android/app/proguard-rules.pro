@@ -53,3 +53,9 @@
 # sideloaded and a stack trace is the only diagnostic a user can send.
 -keepattributes SourceFile, LineNumberTable
 -renamesourcefileattribute SourceFile
+
+# The phone-UI shell helper is launched from a shell command that names its
+# entry-point class on the app_process command line, so R8 must not rename it.
+-keep class com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain {
+    public static void main(java.lang.String[]);
+}

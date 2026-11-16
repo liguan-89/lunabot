@@ -1,4 +1,4 @@
-// The engine instances a fresh install starts with. DEX BOT ships one agent:
+// The engine instances a fresh install starts with. Luna Bot ships one agent:
 // pi. Every model it can run comes from pi's own configuration plus the one
 // custom provider saved in config.json (openaiCompat).
 import type { InstanceConfigMap } from "./contracts.ts";

@@ -15,7 +15,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { isAbsolute } from "node:path";
 
 /** Installs the Linux libraries Chrome needs (as root, once). */
-export const LIBRARIES_COMMAND = "sudo openmausbot browser install --with-deps";
+export const LIBRARIES_COMMAND = "sudo lunabot browser install --with-deps";
 /** There is no command for the sandbox: an administrator allows one root-owned Chrome by hand. */
 export const SANDBOX_STEPS_URL = "https://cloud.dexai.vip/docs#self-hosting";
 
@@ -41,9 +41,9 @@ export function appArmorProfile(executable: string): string {
     throw new Error(`The browser's AppArmor exemption is only for a root-owned path under /opt, not ${executable}.`);
   }
   // Spaces are valid in AppArmor rules when the path is quoted, and the
-  // packaged Linux app lives under /opt/<productName> (DEX BOT).
+  // packaged Linux app lives under /opt/<productName> (Luna Bot).
   const quoted = `"${executable.replace(/[\\"]/g, "\\$&")}"`;
-  return `# Written for DEX BOT: lets its Chrome use its sandbox.
+  return `# Written for Luna Bot: lets its Chrome use its sandbox.
 abi <abi/4.0>,
 include <tunables/global>
 

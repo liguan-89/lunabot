@@ -208,7 +208,7 @@ posixOnly("VPS turn routing e2e (fake pi fleet + fake docker over SSH)", () => {
   beforeAll(async () => {
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-vps-routing-"));
-    mkdirSync(join(home, ".dexbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     const fakeBin = join(home, "fakebin");
     mkdirSync(fakeBin, { recursive: true });
     gateFile = join(home, "turn.gate");
@@ -237,7 +237,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
     writeFileSync(dockerLog, "");
 
     writeFileSync(
-      join(home, ".dexbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {
@@ -761,7 +761,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect(thread.filter((message) => String(message.tool?.name ?? "").startsWith("error:"))).toEqual([]);
       // What the teammate's turn was told: the VPS is unavailable, with the way to enable it.
       const told = promptRows().filter((text) => text.includes("Summarise the queue numbers from this morning.")).at(-1)!;
-      expect(told).toContain("This bot's VPS computer is unavailable this turn (The DEX BOT VPS container is stopped)");
+      expect(told).toContain("This bot's VPS computer is unavailable this turn (The Luna Bot VPS container is stopped)");
       expect(told).toContain("Open Computer and enable Start VPS automatically");
     } finally {
       writeFileSync(template, original);

@@ -38,6 +38,7 @@ import { movesThreadToTop, nextOpenThread } from "../shared/wire.ts";
 import { parseConnectorTools } from "./connector-tools.ts";
 import { sameModelSelection } from "../shared/thread-model.ts";
 import { initialGreetingMessage } from "./initial-greeting.ts"; import { createDefaultBot, defaultBotRefusal, type DefaultBotIntro } from "./default-bot.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 import { appsFromCreator } from "./inherited-apps.ts";
 import { ThreadCache, type ThreadState } from "./thread-cache.ts";
 import { titleFromMessage, UNTITLED_TASK } from "./thread-title.ts";
@@ -865,7 +866,7 @@ export class Store {
       detail: string;
       finishedAt: number;
     } | null,
-    fallbackDetail = "DEX BOT restarted before this goal finished.",
+    fallbackDetail = "Luna Bot restarted before this goal finished.",
     fallbackFinishedAt = Date.now(),
   ): number {
     const ownedThreadIds = new Set<string>(this.bots.flatMap((bot) => (bot.tasks ?? []).map((task) => task.threadId)));
@@ -881,13 +882,14 @@ export class Store {
         detail: fallbackDetail,
         finishedAt: fallbackFinishedAt,
       };
+      const language = conversationLanguage(hit.threadId);
       const state = resolution.status === "needs-input"
-        ? "needs your input"
+        ? serverLine(language, "server.goal.needsInput")
         : resolution.status === "limit-reached"
-          ? "reached its turn limit"
+          ? serverLine(language, "server.goal.turnLimit")
           : resolution.status;
       this.patchMessage(hit.threadId, hit.message.id, {
-        text: `Goal ${state}: ${resolution.detail}`,
+        text: serverLine(language, "server.goal.text", { state, detail: resolution.detail }),
         goalRun: {
           ...hit.message.goalRun,
           status: resolution.status,
@@ -2258,7 +2260,7 @@ export class Store {
 
   needsSeed() { return this.bots.length === 0; }
 
-  /** A new place's first bot is its DEX BOT and its Chief; a Team Cloud's (`defaultBot: false`) is the team's Chief only. */
+  /** A new place's first bot is its Luna Bot and its Chief; a Team Cloud's (`defaultBot: false`) is the team's Chief only. */
   seedIfEmpty({ defaultBot = true, intro }: { defaultBot?: boolean; intro?: DefaultBotIntro } = {}) {
     if (!this.needsSeed()) return;
     if (defaultBot) createDefaultBot(this, { chief: (id) => this.setChiefOfStaff(id), ...(intro ? { intro } : {}) }); else this.setChiefOfStaff(this.createBot().id);

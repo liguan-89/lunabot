@@ -39,6 +39,6 @@ class BaselineProfileGenerator {
     }
 
     private companion object {
-        const val PACKAGE = "com.dexbot.companion"
+        const val PACKAGE = "com.lunabot.companion"
     }
 }

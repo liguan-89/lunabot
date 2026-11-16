@@ -1,7 +1,7 @@
 {
   "id": "/",
-  "name": "DEX BOT",
-  "short_name": "DEX BOT",
+  "name": "Luna Bot",
+  "short_name": "Luna Bot",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

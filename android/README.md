@@ -1,11 +1,12 @@
-# DEX BOT Android companion
+# Luna Bot Android companion
 
-The Android companion app for DEX BOT: pair a phone with a computer or DEX
+The Android companion app for Luna Bot: pair a phone with a computer or DEX
 Cloud, then read and answer from the phone.
 
-- `applicationId` — `com.dexbot.companion`
+- `applicationId` — `com.lunabot.companion`
 - `minSdk` 26 (Android 8.0), `targetSdk` / `compileSdk` 37
-- Deep-link scheme — `dexbot` (the pre-rebrand `openmausbot` scheme is still accepted)
+- Deep-link scheme — `lunabot` (the earlier `dexbot` and the pre-rebrand
+  `openmausbot` scheme are still accepted)
 - Two modules: `:core` (protocol, ported from `ios/Sources/CompanionCore`) and
   `:app` (Compose UI, Android platform)
 
@@ -35,13 +36,13 @@ cd android
 ```
 
 Install `app/build/outputs/apk/preview/app-preview.apk`. Its launcher name is
-**DEX BOT Preview**, its application ID is `com.dexbot.companion.preview`,
+**Luna Bot Preview**, its application ID is `com.lunabot.companion.preview`,
 and its version ends in `-threads-preview`. Gradle signs it with the local debug
 key, so no release signing material is needed. It installs beside the released
 app with separate pairing, preferences and messages; it does not update that app.
 
 Open Preview and pair using its QR scanner or manual address form. Preview does
-not register the release's `dexbot://` pairing links or system share targets.
+not register the release's `lunabot://` pairing links or system share targets.
 Its file-sharing provider uses the preview application ID too.
 
 Pull-request CI runs the core and debug UI unit tests, builds both APK variants,

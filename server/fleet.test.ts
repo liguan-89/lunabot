@@ -130,8 +130,8 @@ describe("plans", () => {
     const withAgent = initPlan({ domain: "agentada.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", operator: "maus", layout });
     expect(withAgent.registry.operator).toBe("maus");
     const agent = withAgent.steps.find((step) => step.kind === "write" && step.path === "/etc/systemd/system/openmausbot-fleet.service");
-    expect(agent).toMatchObject({ content: expect.stringContaining("fleet agent --socket /run/openmausbot/fleet.sock --group maus") });
-    expect(agent).toMatchObject({ content: expect.stringContaining("RuntimeDirectory=openmausbot") });
+    expect(agent).toMatchObject({ content: expect.stringContaining("fleet agent --socket /run/lunabot/fleet.sock --group maus") });
+    expect(agent).toMatchObject({ content: expect.stringContaining("RuntimeDirectory=lunabot") });
     expect(argvOf(withAgent.steps)).toContain("systemctl enable --now openmausbot-fleet.service");
     expect(() => initPlan({ domain: "agentada.cc", node: "n", script: "s", operator: "Not A User", layout })).toThrow("Unix user");
   });

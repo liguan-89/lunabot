@@ -57,6 +57,7 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
       const refuseOutbound = (text: string): OutboundHoldAnswer => ({ ok: false, text });
       if (always === true || !sendsWithoutAsking(currentSender.outbound, fullAccess, opaque)) {
         const { app, calls, summary } = outboundCard(outboundCalls);
+        const language = conversationLanguage(threadId);
         const owner = connectorThread(currentSender.id, threadId);
         const held = outboundRequests.open({ botId: currentSender.id, threadId, tool: outboundTool, timeoutMs: holdMs });
         const card = store.appendMessage(threadId, {
@@ -64,9 +65,9 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
           kind: "options",
           ...(owner?.group ? { from: { botId: currentSender.id, name: currentSender.name, color: currentSender.color } } : {}),
           card: {
-            title: "Send on your behalf?",
+            title: serverLine(language, "server.outbound.title"),
             subtitle: summary,
-            options: ["Allow", "Deny"],
+            options: [serverLine(language, "server.outbound.allow"), serverLine(language, "server.outbound.deny")],
             requestId: held.requestId,
             tool: outboundTool,
             held: HELD_NOTE["approval.held.outbound"],
@@ -95,7 +96,7 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
                 tool: outboundTool, summary, decision: "auto-approved", source: "temporary-grant", rule: grant.text,
               });
               store.appendMessage(threadId, { role: "bot", kind: "activity", tool: {
-                name: serverLine(conversationLanguage(threadId), "server.grants.autoAllowed", { summary: summary.slice(0, 120) }), ok: true,
+                name: serverLine(conversationLanguage(threadId), "server.approval.grantAllowedSend", { summary: summary.slice(0, 120) }), ok: true,
               } });
             }
           } catch {
@@ -121,8 +122,8 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
           }
           return refuseOutbound(
             answer === "timeout"
-              ? "DEX BOT did not send this: nobody answered the approval in time. Ask the user before trying again."
-              : "DEX BOT did not send this: the user declined. Do not retry it; ask the user what they would like instead.",
+              ? "Luna Bot did not send this: nobody answered the approval in time. Ask the user before trying again."
+              : "Luna Bot did not send this: the user declined. Do not retry it; ask the user what they would like instead.",
           );
         }
         return { ok: true, approved: true };

@@ -6,5 +6,34 @@
              release links and system share destinations unambiguous. -->
         <activity android:name=".PairingLinkActivity" tools:node="remove" />
         <activity android:name=".ShareReceiveActivity" tools:node="remove" />
+        <!--
+          Preview-only device-test entry for the phone-UI pairing. The system's
+          pairing listener closes as soon as Settings pauses, so the code dialog
+          and the in-app form cannot both be foreground; a shell broadcast lets
+          the form pair while the dialog stays up. DUMP is shell/system-only,
+          and the receiver also refuses non-debuggable builds.
+        -->
+        <receiver
+            android:name=".DebugPairReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.openmausbot.companion.DEBUG_PAIR" />
+            </intent-filter>
+        </receiver>
+        <!--
+          Preview-only acceptance entry for the phone-UI executor. Runs the
+          same tool steps the job channel runs and leaves their outcomes in the
+          app's files dir, so a virtual-display launch and snapshot can be
+          checked on-device without a desktop server.
+        -->
+        <receiver
+            android:name=".DebugPhoneUiReceiver"
+            android:exported="true"
+            android:permission="android.permission.DUMP">
+            <intent-filter>
+                <action android:name="com.openmausbot.companion.DEBUG_PHONE_UI" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

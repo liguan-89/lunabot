@@ -2,7 +2,7 @@
 // the workspace credentials and every OMB_CLOUD_ setting before a spawn (server/config.ts stripWorkspaceCredentialEnv);
 // this is the second gate, applied at the box boundary, so a name a driver forgot never reaches a bot's shell.
 
-/** Names a bot's engine, its tools and the proxies DEX BOT starts inside the box may read. */
+/** Names a bot's engine, its tools and the proxies Luna Bot starts inside the box may read. */
 export const BOX_ENV_NAMES: ReadonlySet<string> = new Set([
   "PATH", "HOME", "USER", "LOGNAME", "SHELL", "HOSTNAME", "PWD",
   "LANG", "LANGUAGE", "TZ", "TERM", "COLORTERM", "TMPDIR", "NO_COLOR", "FORCE_COLOR", "CI", "DEBUG",
@@ -13,14 +13,14 @@ export const BOX_ENV_NAMES: ReadonlySet<string> = new Set([
   "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
 ]);
 
-/** DEX BOT's own variables a boxed process reads: what the harness sets for a bot's engine, its hooks and the MCP
+/** Luna Bot's own variables a boxed process reads: what the harness sets for a bot's engine, its hooks and the MCP
  * proxies it starts. Security: no other `OMB_` name passes, whatever the operator set on the server (an SMTP URL, a
  * token); env.test.ts lists every `OMB_` name the server knows, so a new one needs a decision. */
 export const BOX_ENV_OMB_NAMES: ReadonlySet<string> = new Set([
   "OMB_HARNESS_URL", "OMB_BOT_ID", "OMB_THREAD_ID", "OMB_APPROVAL_MODE", "OMB_COMMS_TOKEN", "OMB_TURN_DEPTH", "OMB_EXTERNAL_RUNTIME",
   "OMB_CHIEF_OF_STAFF", "OMB_MAUSBOT", "OMB_SKILL_AUTHORING_ENABLED", "OMB_MEMORY_ENABLED", "OMB_SHARED_COMPUTERS_ENABLED",
   "OMB_VOICE_NOTES", "OMB_X_RESEARCH", "OMB_RESEARCH", "OMB_TEAM_PEOPLE", "OMB_COMPUTER_SELECTION", "OMB_ROOM",
-  "OMB_IMAGE_GENERATION", "OMB_MEETINGS", "OMB_AGENTS_TOOL_BRIDGE", "OMB_TOOL_LIMIT", "OMB_TOOL_SCHEMA_PROFILE",
+  "OMB_IMAGE_GENERATION", "OMB_MEETINGS", "OMB_TOOL_SELECTION", "OMB_AGENTS_TOOL_BRIDGE", "OMB_TOOL_LIMIT", "OMB_TOOL_SCHEMA_PROFILE",
   "OMB_MCP_CONFIG", "OMB_MCP_RESTART", "OMB_MCP_RESULT_BUDGET",
   "OMB_HOOK_URL", "OMB_HOOK_TOKEN_FILE", "OMB_HOOK_TIMEOUT_MS", "OMB_PERMISSION_TOOL_SCOPE",
   "OMB_CONNECTOR_UPSTREAM_URL", "OMB_CONNECTOR_UPSTREAM_HEADERS", "OMB_CONNECTOR_TOKEN", "OMB_CONNECTOR_ALLOWED_TOOLS",
@@ -54,7 +54,7 @@ export const BOX_ENV_NEVER_PREFIXES: readonly string[] = ["OMB_CLOUD_"];
 
 /** `allow` is what one spawn vouches for: the keys the person saved for its engine, under whatever name that engine reads
  * (NANO_GPT_API_KEY, OPENCODE_API_KEY). Security: it lifts the allow-list and `deny` for that process only, and never for
- * a name of DEX BOT's own (`OMB_`) or one on the never-list. */
+ * a name of Luna Bot's own (`OMB_`) or one on the never-list. */
 export function boxEnvironmentAllows(name: string, deny: ReadonlySet<string> = new Set(), allow: ReadonlySet<string> = new Set()): boolean {
   if (BOX_ENV_NEVER.has(name) || BOX_ENV_NEVER_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
   if (allow.has(name) && !name.startsWith("OMB_")) return true;

@@ -21,6 +21,22 @@ describe("phone jobs", () => {
     expect(jobs.busy(KEY)).toBe(false);
   });
 
+  it("one file for the chat may ride a larger answer; every other tool keeps the 256 KB ceiling", async () => {
+    const jobs = new PhoneJobs();
+    // 600 KB of base64: well over the normal ceiling, far inside a phone file's limit.
+    const big = { ok: true as const, result: { attachment: { name: "a.png", mime: "image/png", data: "A".repeat(600_000) } } };
+    const send = jobs.request(KEY, "PHONE_FILE_SEND", {}, turn());
+    const job = await jobs.poll(KEY);
+    jobs.lease(KEY, job!.id);
+    jobs.complete(KEY, job!.id, big);
+    await expect(send).resolves.toMatchObject({ ok: true });
+    const read = jobs.request(KEY, "PHONE_FILE_READ", {}, turn());
+    const second = await jobs.poll(KEY);
+    jobs.lease(KEY, second!.id);
+    jobs.complete(KEY, second!.id, big);
+    await expect(read).resolves.toMatchObject({ ok: false, code: "too_large" });
+  });
+
   it("re-delivers a job that was polled but never leased after 10 s", async () => {
     vi.useFakeTimers();
     const jobs = new PhoneJobs();
@@ -228,6 +244,21 @@ describe("phone jobs", () => {
     expect(outcome).toEqual({ ok: false, code: "unsupported", error: "Background checks only read the phone." });
     expect(jobs.busy(KEY)).toBe(false);
     expect(jobs.polling(KEY)).toBe(false);
+  });
+
+  it("no routine or background job may drive the phone's screen, though observing reads", async () => {
+    const jobs = new PhoneJobs();
+    for (const tool of ["PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]) {
+      const outcome = await jobs.request(KEY, tool, {}, turn({ background: true }));
+      expect(outcome, tool).toEqual({ ok: false, code: "unsupported", error: "Background checks only read the phone." });
+    }
+    expect(jobs.busy(KEY)).toBe(false);
+    const observe = jobs.request(KEY, "PHONE_UI_OBSERVE", {}, turn({ background: true }));
+    const job = await jobs.poll(KEY);
+    expect(job).toMatchObject({ tool: "PHONE_UI_OBSERVE" });
+    jobs.lease(KEY, job!.id);
+    jobs.complete(KEY, job!.id, { ok: true, result: { screen: "Home", refs: ["e1"] } });
+    await expect(observe).resolves.toEqual({ ok: true, result: { screen: "Home", refs: ["e1"] } });
   });
 
   it("a newer phone's outcome is accepted: an unknown code reads as none and an unknown field is stripped", () => {

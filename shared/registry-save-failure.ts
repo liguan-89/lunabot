@@ -4,7 +4,7 @@ export type RegistryFile = "bots.json" | "groups.json";
 
 export function registrySaveFailure(action: string, file: RegistryFile, code: unknown): string {
   const reason = typeof code === "string" && HELD_OR_READ_ONLY.has(code)
-    ? `another program is holding DEX BOT's ${file}, or its folder is read-only`
-    : `DEX BOT couldn't write ${file}`;
+    ? `another program is holding Luna Bot's ${file}, or its folder is read-only`
+    : `Luna Bot couldn't write ${file}`;
   return `Couldn't save ${action}: ${reason}.`;
 }

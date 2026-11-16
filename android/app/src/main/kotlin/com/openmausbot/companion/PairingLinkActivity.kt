@@ -7,7 +7,10 @@ import com.openmausbot.companion.ui.PairingHandoff
 import com.openmausbot.companion.ui.PairingLink
 
 /**
- * The only door `openmausbot://pair?…&token=omb_pair_…` may come through.
+ * The only door `lunabot://pair?…&token=omb_pair_…` may come through. The
+ * earlier `dexbot://` and `openmausbot://` spellings are accepted by the same
+ * filter and parser, so a link or QR code made before this rename still lands
+ * here rather than nowhere.
  *
  * A pairing URL carries a one-time credential, and §6 forbids persisting one.
  * Keeping the deep link on [MainActivity] broke that by a path no `Saver` audit

@@ -16,7 +16,7 @@ import { botFileSource, PageBundleError, type BotFolders } from "../pages/bundle
 import { PASS } from "./table.ts";
 
 export interface HelperToolDeps {
-  decider: Pick<Decider, "ask">;
+  decider: Pick<Decider, "ask" | "choose">;
   extractor: Pick<Extractor, "extract">;
 }
 
@@ -32,7 +32,11 @@ export interface HelperToolContext {
 
 const DECIDE = "/api/internal/helpers/decide";
 const EXTRACT = "/api/internal/helpers/extract";
+const SELECT_TOOL = "/api/internal/helpers/select-tool";
 export const HELPER_TOOL_TIMEOUT_MS = 20_000;
+export const TOOL_SELECTION_TIMEOUT_MS = 10_000;
+export const TOOL_SELECTION_MIN_PROBABILITY = 0.6;
+const TOOL_CHOICES_MAX = 50;
 const IMAGE_TYPES: Record<string, ExtractImage["mime"]> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp" };
 const TEXT_FILE_BYTES = 1024 * 1024;
 
@@ -40,6 +44,8 @@ export const HELPER_MESSAGES = {
   decideOff: "Decisions aren't set up on this computer. Ask the person to add a free Cloudflare Workers AI key (or a Jev key) in Settings → Decision and extraction.",
   extractOff: "Extraction isn't set up on this computer. Ask the person to add a free Cloudflare Workers AI key in Settings → Decision and extraction.",
   decideShape: "Keep to 8 questions; ids and option keys use letters, digits, _ . or -; a choice has 2 to 20 options, a score 2 to 10 levels; instructions under 1,000 characters and the state under 24 KB.",
+  toolSelectionOff: "Tool selection isn't available on this computer. Ask the person to add a decision-model key and switch on Tool selection in Settings → Decision and extraction.",
+  toolSelectionShape: "Send a task and 2 to 50 tools, each with a name and an optional one-line description.",
 } as const;
 
 const FAILURE: Partial<Record<DeciderFailure, string>> = {
@@ -51,7 +57,7 @@ const FAILURE: Partial<Record<DeciderFailure, string>> = {
   misconfigured: "That request is outside what the helper model takes.",
   too_large: "That is too large for the helper model. Send less text or a smaller image; trying the same again will not work.",
 };
-const BY: Record<DeciderProvider, string> = { jev: "Jev", workersai: "Cloudflare Workers AI", openrouter: "OpenRouter" };
+const BY: Record<DeciderProvider, string> = { jev: "Jev", laya: "Local Laya", workersai: "Cloudflare Workers AI", openrouter: "OpenRouter" };
 
 const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const text = (value: unknown): string | null => (typeof value === "string" && value.trim() ? value : null);
@@ -76,6 +82,28 @@ export function botQuestions(raw: unknown): Record<string, DeciderQuestion> | st
     }
   }
   return out;
+}
+
+/** The tool-selection input: a task and 2–50 uniquely named tools, each with an optional one-line description. */
+export function toolChoices(raw: unknown): { task: string; tools: Array<{ name: string; description?: string }> } | string {
+  if (!isRecord(raw)) return "Send a JSON object.";
+  const task = text(raw.task);
+  if (!task) return "task must be a non-empty string.";
+  if (task.length > 2_000) return "task is longer than 2,000 characters.";
+  if (!Array.isArray(raw.tools) || raw.tools.length < 2 || raw.tools.length > TOOL_CHOICES_MAX) return `tools must list 2 to ${TOOL_CHOICES_MAX} tools.`;
+  const tools: Array<{ name: string; description?: string }> = [];
+  const seen = new Set<string>();
+  for (const entry of raw.tools) {
+    if (!isRecord(entry)) return "Each tool needs a name.";
+    const name = text(entry.name);
+    if (!name || name.length > 200) return "Each tool needs a name of 1 to 200 characters.";
+    if (seen.has(name)) return `The tool ${name} is listed twice.`;
+    seen.add(name);
+    const description = text(entry.description);
+    if (description && description.length > 500) return `The description for ${name} is longer than 500 characters.`;
+    tools.push({ name, ...(description ? { description } : {}) });
+  }
+  return { task, tools };
 }
 
 const round = (value: number): number => Math.round(value * 100) / 100;
@@ -113,7 +141,7 @@ async function readInput(body: Record<string, unknown>, folders: BotFolders): Pr
 
 export function createHelperToolRoutes(deps: HelperToolDeps) {
   return async (ctx: HelperToolContext): Promise<typeof PASS | void> => {
-    if (ctx.method !== "POST" || (ctx.path !== DECIDE && ctx.path !== EXTRACT)) return PASS;
+    if (ctx.method !== "POST" || (ctx.path !== DECIDE && ctx.path !== SELECT_TOOL && ctx.path !== EXTRACT)) return PASS;
     const body = await ctx.readBody();
     if (!isRecord(body)) return void ctx.json(ctx.res, 400, { error: "Send a JSON object." });
     if (ctx.path === DECIDE) {
@@ -129,6 +157,51 @@ export function createHelperToolRoutes(deps: HelperToolDeps) {
       const answers = Object.fromEntries(Object.entries(result.answers).map(([id, answer]) => [id, renderAnswer(questions[id]!, answer)]));
       return void ctx.json(ctx.res, 200, {
         text: `${JSON.stringify({ answers, by: BY[result.provider] })}\nProbabilities, not facts: act on a choice only when it is clearly ahead.`,
+      });
+    }
+    if (ctx.path === SELECT_TOOL) {
+      const choice = toolChoices(body);
+      if (typeof choice === "string") return void ctx.json(ctx.res, 400, { error: choice });
+      // Measured against the Local Laya model: the tool's own name as the key and the person's action in the
+      // instructions answered every fitting case right, where t1..tn keys and a bare task read as "none".
+      const byKey = new Map<string, { name: string; description?: string }>();
+      const options: Record<string, string> = {};
+      const used = new Set<string>(["none"]);
+      for (const tool of choice.tools) {
+        let key = tool.name;
+        for (let index = 2; used.has(key); index++) key = `${tool.name} (${index})`;
+        used.add(key);
+        options[key] = tool.description ? `${tool.name}: ${tool.description}` : tool.name;
+        byKey.set(key, tool);
+      }
+      options.none = "None of these tools fits; do it another way.";
+      const result = await deps.decider.choose("toolSelection", { task: choice.task }, {
+        instructions: `The person wants to: ${choice.task}\nWhich tool carries that out? Pick exactly one, or none.`,
+        options,
+      }, { timeoutMs: TOOL_SELECTION_TIMEOUT_MS });
+      if (!result.ok) {
+        const off = result.reason === "disabled" || result.reason === "no_key" || result.reason === "job_off";
+        return void ctx.json(ctx.res, off ? 409 : 502, { error: off ? HELPER_MESSAGES.toolSelectionOff : FAILURE[result.reason] ?? "The decision model's answer could not be read. Try again." });
+      }
+      const answer = result.answers;
+      const picked = byKey.get(answer.choice);
+      if (answer.choice === "none" || !picked) {
+        return void ctx.json(ctx.res, 200, {
+          text: `${JSON.stringify({ tool: null, p: round(answer.pTop), by: BY[result.provider] })}\nThe decision model says none of these tools fits; do it another way.`,
+        });
+      }
+      if (answer.pTop < TOOL_SELECTION_MIN_PROBABILITY) {
+        const candidates = Object.entries(answer.probabilities)
+          .filter(([key]) => key !== "none")
+          .sort(([, a], [, b]) => (b ?? 0) - (a ?? 0))
+          .slice(0, 3)
+          .map(([key, p]) => ({ tool: byKey.get(key)?.name ?? key, p: round(p ?? 0) }));
+        return void ctx.json(ctx.res, 200, {
+          text: `${JSON.stringify({ tool: null, p: round(answer.pTop), candidates, by: BY[result.provider] })}\nThe decision model is not sure; choose yourself.`,
+        });
+      }
+      return void ctx.json(ctx.res, 200, {
+        text: `${JSON.stringify({ tool: picked.name, p: round(answer.pTop), by: BY[result.provider] })}\nCall that tool only if it fits; the decision model cannot call it.`,
       });
     }
     const fields = body.fields as FieldSchema;

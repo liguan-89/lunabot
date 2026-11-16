@@ -22,7 +22,7 @@ test("OMB_CLOUD_STAGING=1, and only that, points the app at the fixed staging Ad
 test("the staging address is the one exact https origin; each mode opens only its own checkout page", () => {
   assert.equal(cloudOrigin(STAGING_CLOUD_ORIGIN), STAGING_CLOUD_ORIGIN);
   for (const value of ["http://omb-cloud-staging.fly.dev", `${STAGING_CLOUD_ORIGIN}/`, `${STAGING_CLOUD_ORIGIN}:8443`, "https://cloud.dexai.vip.evil.test", "https://evil.fly.dev"]) {
-    assert.throws(() => cloudOrigin(value), /Invalid DEX BOT Cloud address/, value);
+    assert.throws(() => cloudOrigin(value), /Invalid Luna Bot Cloud address/, value);
   }
   const stagingPage = "https://staging.cloud.dexai.vip/pro/buy?checkout=cks_1";
   const livePage = "https://cloud.dexai.vip/pro/buy?checkout=cks_1";

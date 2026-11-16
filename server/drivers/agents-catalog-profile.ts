@@ -20,7 +20,7 @@ export interface CatalogProfile {
   botId: string;
   /** A Team Cloud: message_person is mounted. */
   team?: boolean;
-  /** The person's DEX BOT with a Chief's powers: its notification tools are mounted. */
+  /** The person's Luna Bot with a Chief's powers: its notification tools are mounted. */
   mausbot?: boolean;
   /** A direct chat whose bot may pick where it works (Works on is not Off and no team computer is its own): select_computer
    * is mounted, and the harness refuses a pick on any turn but a person's own message. */
@@ -30,6 +30,8 @@ export interface CatalogProfile {
   imageGeneration?: boolean;
   /** A cloud computer can be had here (Boat): the meeting tools are mounted. */
   meetings?: boolean;
+  /** The tool-selection decision job is on: select_tool is mounted. */
+  toolSelection?: boolean;
 }
 
 /** Everything is off unless the harness says "1". */
@@ -50,5 +52,6 @@ export function catalogProfileFromEnv(env: NodeJS.ProcessEnv): CatalogProfile {
     room: env.OMB_ROOM === "1",
     imageGeneration: env.OMB_IMAGE_GENERATION === "1",
     meetings: env.OMB_MEETINGS === "1",
+    toolSelection: env.OMB_TOOL_SELECTION === "1",
   };
 }

@@ -17,9 +17,13 @@ export function AutomaticRecoverySettings() {
   const engine = engines.find((instance) => instance.instanceId === value.backup?.instanceId);
   const models = engine?.models.options.filter((model) => !model.orgBlocked && (engine.snapshot.authenticated !== false || model.custom)) ?? [];
   const ready = models.some((model) => model.id === value.backup?.model);
+  const saved = state.config?.automaticRecovery ?? { enabled: false };
+  const unchanged = value.enabled === saved.enabled
+    && value.backup?.instanceId === saved.backup?.instanceId
+    && value.backup?.model === saved.backup?.model;
   const change = (next: Recovery) => { setDraft(next); setError(""); };
   const save = async () => {
-    if (!draft || inFlight.current || (value.enabled && !ready)) return;
+    if (!draft || unchanged || inFlight.current || (value.enabled && !ready)) return;
     inFlight.current = true;
     setSaving(true);
     setError("");
@@ -71,7 +75,7 @@ export function AutomaticRecoverySettings() {
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-ink-secondary">{t("settings.recovery.charges")}</p>
       {value.enabled && !ready && <p className="mt-2 text-[12px] text-ink-secondary">{t("settings.recovery.required")}</p>}
-      <button type="button" disabled={!draft || saving || (value.enabled && !ready)} onClick={() => void save()}
+      <button type="button" disabled={!draft || unchanged || saving || (value.enabled && !ready)} onClick={() => void save()}
         className="mt-3 cursor-pointer rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-white disabled:opacity-50">{saving ? t("settings.threads.saving") : t("common.save")}</button>
       {saving && <span role="status" className="sr-only">{t("settings.threads.saving")}</span>}
       {error && <p role="alert" className="mt-2 text-[12px] text-danger">{error}</p>}

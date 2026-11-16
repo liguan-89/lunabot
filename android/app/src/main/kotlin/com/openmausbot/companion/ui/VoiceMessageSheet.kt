@@ -446,7 +446,7 @@ fun VoiceMessageSheet(
                 }
 
                 Text(
-                    text = "最长 60 秒 · 语音会作为音频文件发送给机器人",
+                    text = "最长 60 秒 · 语音会作为音频文件发送给智能体",
                     fontSize = 12.sp,
                     color = minisTertiary,
                 )

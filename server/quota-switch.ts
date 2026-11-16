@@ -15,6 +15,7 @@ import type { WorkOrigin } from "./peer-provenance.ts";
 import type { BotRecord, Message, Store, TaskRecord } from "./store.ts";
 import type { TurnStops } from "./turn-outcome.ts";
 import { signedOutStop, type LimitTakeover, type TakeoverScope } from "./host/limit-takeover.ts";
+import { conversationLanguage, serverLine } from "./server-lines.ts";
 
 export interface QuotaSwitchEngine {
   instanceId: string;
@@ -170,22 +171,25 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
     }
     deps.takeover?.moved(botId, threadId, before.modelSelection, checked.selection, resetsAt, scope);
     const name = engine.instanceId === current.instanceId ? `${nameOf(engine)} ${checked.selection.model}` : nameOf(engine);
-    const why = scope === "signed-out" ? `while ${nameOf(current)} is signed out` : "after hitting the usage limit";
+    const language = conversationLanguage(threadId);
+    const why = scope === "signed-out"
+      ? serverLine(language, "server.quota.whySignedOut", { engine: nameOf(current) })
+      : serverLine(language, "server.quota.whyLimit");
     const held = heldBy(botId, threadId, rootOf(threadId, request));
     const original = held ? undefined : resendable(store, threadId, request.messageId);
-    if (held === "card") notice(threadId, `switched to ${name}. Your request waits on a card above and continues on ${name} once you act on it.`, true, false, { key: "chat.notice.backupCardWaiting", params: { name } });
-    else if (held === "runtime") notice(threadId, `switched to ${name}. Your request is still under way here and continues on ${name}.`, true, false, { key: "chat.notice.backupRequestUnderWay", params: { name } });
-    else if (held === "busy") notice(threadId, `switched to ${name}. This conversation is working, so your message was not sent again.`, true, false, { key: "chat.notice.backupConversationBusy", params: { name } });
+    if (held === "card") notice(threadId, serverLine(language, "server.quota.switchedCardWaiting", { name }), true, false, { key: "chat.notice.backupCardWaiting", params: { name } });
+    else if (held === "runtime") notice(threadId, serverLine(language, "server.quota.switchedRuntime", { name }), true, false, { key: "chat.notice.backupRequestUnderWay", params: { name } });
+    else if (held === "busy") notice(threadId, serverLine(language, "server.quota.switchedBusy", { name }), true, false, { key: "chat.notice.backupConversationBusy", params: { name } });
     else if (held === "question") {
-      notice(threadId, `switched to ${name}. A teammate's question is waiting for your answer in this conversation, so your message was not sent again. Answer it, then send your message again.`, false, false, { key: "chat.notice.backupQuestionWaiting", params: { name } });
+      notice(threadId, serverLine(language, "server.quota.switchedQuestion", { name }), false, false, { key: "chat.notice.backupQuestionWaiting", params: { name } });
     } else if (!original) {
-      notice(threadId, `switched to ${name}, but your message could not be found to send again. Send it again.`, false, false, { key: "chat.notice.backupMessageMissing", params: { name } });
+      notice(threadId, serverLine(language, "server.quota.switchedMissing", { name }), false, false, { key: "chat.notice.backupMessageMissing", params: { name } });
     } else {
-      notice(threadId, `continuing on ${name} ${why}`, true, false, { key: scope === "signed-out" ? "chat.notice.backupContinuingSignedOut" : "chat.notice.backupContinuingLimit", params: { name, engine: nameOf(current) } });
+      notice(threadId, serverLine(language, "server.quota.continuing", { name, why }), true, false, { key: scope === "signed-out" ? "chat.notice.backupContinuingSignedOut" : "chat.notice.backupContinuingLimit", params: { name, engine: nameOf(current) } });
       try {
         await deps.resend(botId, threadId, original, original.replyToId ? store.messagesFor(threadId).find((message) => message.id === original.replyToId) : undefined, spokenLineFields(original.via, original.callId));
       } catch (error) {
-        if (store.taskByThread(botId, threadId)) notice(threadId, `could not continue on ${name}: ${(error instanceof Error ? error.message : String(error)).slice(0, 200)}`, false, false, { key: "chat.notice.backupCouldNotContinue", params: { name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) } });
+        if (store.taskByThread(botId, threadId)) notice(threadId, serverLine(language, "server.quota.couldNotContinue", { name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) }), false, false, { key: "chat.notice.backupCouldNotContinue", params: { name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) } });
       }
     }
     return true;
@@ -283,54 +287,55 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
       return false;
     };
     const closed = () => ({ answered: "unavailable", dismissed: true });
-    if (!enabled()) return refuse("continuing with another AI is switched off — nothing switched.", closed);
+    const language = conversationLanguage(threadId);
+    if (!enabled()) return refuse(serverLine(language, "server.quota.disabled"), closed);
     const engines = deps.registry.instances();
     const engine = engines.find((candidate) => candidate.instanceId === chosen.instanceId);
     if (!engine) {
       const rest = (offer()?.quotaSwitch!.engines ?? []).filter((other) => other.instanceId !== chosen.instanceId);
-      if (!rest.length) return refuse(`${chosen.name} is no longer configured, and the card offered no other AI — nothing switched.`, closed);
-      return refuse(`${chosen.name} is no longer configured — nothing switched.`,
+      if (!rest.length) return refuse(serverLine(language, "server.quota.goneNoOthers", { name: chosen.name }), closed);
+      return refuse(serverLine(language, "server.quota.gone", { name: chosen.name }),
         (card) => ({ options: [...rest.map((other) => other.name), NOT_NOW], quotaSwitch: { ...card.quotaSwitch!, engines: rest } }));
     }
     const before = store.projectBotForTask(botId, threadId);
     if (!before) return false;
     const current = engines.find((candidate) => candidate.instanceId === before.modelSelection.instanceId);
-    if (!current) return refuse("this conversation's own AI is no longer configured here, so no other AI can be checked against it — nothing switched. Choose a model for this conversation instead.", closed);
+    if (!current) return refuse(serverLine(language, "server.quota.noCurrent"), closed);
     const selection = await takeover(engine, before, current);
     // No await from here to the resend: the gate, the switch and the resend must see one state.
     const card = offer();
     const bot = store.projectBotForTask(botId, threadId);
     if (!card || !bot) return false;
-    if (selection === "timed-out") return refuse(`${chosen.name} did not answer in time — nothing switched. Try again in a moment.`);
-    if (!selection) return refuse(`${chosen.name} is no longer available — nothing switched.`);
+    if (selection === "timed-out") return refuse(serverLine(language, "server.quota.timedOut", { name: chosen.name }));
+    if (!selection) return refuse(serverLine(language, "server.quota.unavailable", { name: chosen.name }));
     const already = bot.modelSelection.instanceId === selection.instanceId;
     if (!already) {
       const checked = deps.gate(bot, selection);
-      if (!checked.ok) return refuse(`could not switch to ${chosen.name} — ${checked.error}`);
+      if (!checked.ok) return refuse(serverLine(language, "server.quota.gateRefused", { name: chosen.name, error: checked.error }));
       try {
         store.switchTaskModel(botId, threadId, checked.selection, false, false, deps.reset?.(bot.modelSelection, checked.selection));
       } catch {
-        return refuse(`could not switch to ${chosen.name} — the model switch could not be saved.`);
+        return refuse(serverLine(language, "server.quota.saveFailed", { name: chosen.name }));
       }
     }
     store.patchMessage(threadId, cardId, { card: { ...card, answered: "answer", answeredText: chosen.name } });
-    const now = `${already ? "already on" : "switched to"} ${chosen.name}`;
+    const now = serverLine(language, already ? "server.quota.nowAlready" : "server.quota.nowSwitched", { name: chosen.name });
     const held = heldBy(botId, threadId, card.quotaSwitch!.rootId);
     const original = held ? undefined : resendable(store, threadId, card.quotaSwitch!.messageId);
-    if (held === "card") notice(threadId, `${now}. Your request waits on a card above and continues on ${chosen.name} once you act on it.`, true);
-    else if (held === "runtime") notice(threadId, `${now}. Your request is still under way here and continues on ${chosen.name}.`, true);
-    else if (held === "busy") notice(threadId, `${now}. This conversation is working, so your message was not sent again.`, true);
+    if (held === "card") notice(threadId, `${now}${serverLine(language, "server.quota.cardWaiting", { name: chosen.name })}`, true);
+    else if (held === "runtime") notice(threadId, `${now}${serverLine(language, "server.quota.runtime", { name: chosen.name })}`, true);
+    else if (held === "busy") notice(threadId, `${now}${serverLine(language, "server.quota.busy")}`, true);
     else if (held === "question") {
-      notice(threadId, `${now}. A teammate's question is waiting for your answer in this conversation, so your message was not sent again — answer it, then send your message again.`, false);
+      notice(threadId, `${now}${serverLine(language, "server.quota.question")}`, false);
     } else if (!original) {
-      notice(threadId, `${now}, but the message that hit quota could not be found to resend — send it again.`, false);
+      notice(threadId, `${now}${serverLine(language, "server.quota.messageMissing")}`, false);
     } else {
-      notice(threadId, `continuing on ${chosen.name} after hitting quota`, true);
+      notice(threadId, serverLine(language, "server.quota.continuingLimit", { name: chosen.name }), true);
       try {
         await deps.resend(botId, threadId, original, original.replyToId ? store.messagesFor(threadId).find((message) => message.id === original.replyToId) : undefined, spokenLineFields(original.via, original.callId));
       } catch (error) {
         if (store.taskByThread(botId, threadId)) {
-          notice(threadId, `could not continue on ${chosen.name} — ${(error instanceof Error ? error.message : String(error)).slice(0, 200)}`, false);
+          notice(threadId, serverLine(language, "server.quota.couldNotContinueDash", { name: chosen.name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) }), false);
         }
       }
     }

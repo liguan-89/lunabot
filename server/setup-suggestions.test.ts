@@ -100,6 +100,10 @@ describe("what is sent", () => {
     expect(worthAsking({ ...nothing, languageCode: "es" }, null)).toBe(false);
     expect(hasSetupChoices("de")).toBe(false);
     expect(hasSetupChoices("zh-tw")).toBe(true);
+    expect(hasSetupChoices("zh")).toBe(true);
+    expect(setupChoices("zh-CN")).toEqual([
+      "调研和深挖各种主题", "帮我盯着一些事情", "邮件、日历和消息", "预订、购物和跑腿", "数据、表格和报告",
+    ]);
     expect(setupChoices("zh-hant")).toEqual([
       "研究與深入探討主題", "幫我留意各種事情", "電子郵件、行事曆和訊息", "預約、購物和跑腿", "資料、試算表和報告",
     ]);

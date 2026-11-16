@@ -24,6 +24,7 @@ import com.openmausbot.companion.discovery.DiscoveryState
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.speech.ModelManager
+import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.OnboardingPreferences
 import com.openmausbot.companion.ui.CameraPermissionController
@@ -136,12 +137,14 @@ class OnboardingScene(
         metadataFn = { throw APIError.Status(404) },
     )
 
+    val chatPreferences = ChatPreferences(context)
+
     val environment = CompanionEnvironment(
         session = session,
         permissions = permissions,
         discovery = discovery,
         onboarding = onboarding,
-        chatPreferences = ChatPreferences(context),
+        chatPreferences = chatPreferences,
         // Never started in tests: the environment only needs a live object, and
         // the store's Keystore-backed prefs are lazy.
         cloudAccount = CloudAccountController(
@@ -179,6 +182,7 @@ class OnboardingScene(
         alwaysOnEnabled = MutableStateFlow(false),
         onToggleAlwaysOn = {},
         updates = AppUpdater(context),
+        phoneUi = PhoneUiController(context, scope, chatPreferences, permissions),
         appScope = scope,
     )
 

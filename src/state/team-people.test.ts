@@ -12,7 +12,7 @@ const bots = [
 ];
 
 describe("schedulableBots", () => {
-  it("on a team lists only the bots the person can chat with, their own DEX BOT and no teammate's", () => {
+  it("on a team lists only the bots the person can chat with, their own Luna Bot and no teammate's", () => {
     expect(schedulableBots(bots, { me: OLIVE }).map((bot) => bot.id)).toEqual(["scout", "olives-mausbot"]);
   });
 

@@ -107,6 +107,33 @@ internal object ResolveRetry {
 }
 
 /**
+ * The service types a computer may still be announcing under.
+ *
+ * The browse asks for the active type only, but a computer that has not been
+ * updated since a rebrand still registers its old one, and the platform has
+ * been known to hand back a type from its own cache. Reading every name the
+ * product has ever published is what keeps an older desktop discoverable;
+ * nothing else is accepted.
+ */
+internal val LEGACY_SERVICE_TYPES = listOf("_dexbot._tcp", "_openmausbot._tcp")
+
+/**
+ * Whether an announced service is one of ours: the type the browse asked for,
+ * or any type a previous name published.
+ *
+ * The match tolerates the `.<domain>` tail the platform sometimes appends
+ * (`_dexbot._tcp.local.`), which is why it compares the type and its prefix
+ * rather than requiring equality. Nothing else is accepted: a UDP service that
+ * merely shares the name is not ours.
+ */
+internal fun isCompanionServiceType(announced: String?, activeType: String): Boolean {
+    fun normalize(value: String) = value.trim().trimEnd('.').lowercase()
+    fun matches(type: String, candidate: String) = type == candidate || type.startsWith("$candidate.")
+    val type = announced?.let(::normalize) ?: return false
+    return matches(type, normalize(activeType)) || LEGACY_SERVICE_TYPES.any { matches(type, it) }
+}
+
+/**
  * Multicast lock held only while an NSD browse is actually active.
  * [releaseIfHeld] is idempotent so terminal failure + [awaitClose] cannot
  * double-release.
@@ -223,7 +250,7 @@ internal fun browseDiscoveryFlow(
         }
 
         override fun onServiceFound(service: NsdServiceInfo) {
-            if (service.serviceType != serviceType && !service.serviceType.contains("openmausbot")) {
+            if (!isCompanionServiceType(service.serviceType, serviceType)) {
                 return
             }
             attemptResolve(service, attemptsSoFar = 1)
@@ -408,7 +435,7 @@ interface CompanionDiscovery {
 }
 
 /**
- * NsdManager wrapper for `_dexbot._tcp`, exposed as a Flow of [DiscoveryState].
+ * NsdManager wrapper for `_lunabot._tcp`, exposed as a Flow of [DiscoveryState].
  */
 class NsdDiscovery(
     context: Context,
@@ -499,6 +526,17 @@ class NsdDiscovery(
     }
 
     private fun hostAddress(info: NsdServiceInfo): String? {
+        // The advertised Bonjour name follows the computer between networks; a
+        // resolved address is a snapshot that expires on the next DHCP lease or
+        // network switch. Prefer the name when the platform exposes it, and fall
+        // back to the resolved address where it does not.
+        val advertised = if (Build.VERSION.SDK_INT >= 34) {
+            runCatching { info.hostname }.getOrNull()
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching { info.host?.hostName }.getOrNull()
+        }
+        bonjourHost(advertised)?.let { return Connection.urlHost(it) }
         if (Build.VERSION.SDK_INT >= 34) {
             val addresses = info.hostAddresses
             if (!addresses.isNullOrEmpty()) {
@@ -507,6 +545,22 @@ class NsdDiscovery(
         }
         @Suppress("DEPRECATION")
         return info.host?.let(::formatAddress)
+    }
+
+    /**
+     * The Bonjour name behind an NSD result. Android may hand back the SRV
+     * target with the `.local` suffix stripped, so a single DNS label becomes
+     * `<label>.local`; an IP literal, a dotted non-local name or anything that
+     * cannot be one of our labels is not a name.
+     */
+    private fun bonjourHost(raw: String?): String? {
+        val name = raw?.trim()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: return null
+        if (name.endsWith(".local", ignoreCase = true)) return name
+        if (name.length > 63 || name.any { it == ':' || it == ' ' } ||
+            name.all { it.isDigit() || it == '.' } || name.contains('.')
+        ) return null
+        return name.takeIf { candidate -> candidate.all { it.isLetterOrDigit() || it == '-' } }
+            ?.let { "$it.local" }
     }
 
     private fun formatAddress(address: InetAddress): String {
@@ -525,7 +579,7 @@ class NsdDiscovery(
     }
 
     companion object {
-        const val SERVICE_TYPE = "_dexbot._tcp."
+        const val SERVICE_TYPE = "_lunabot._tcp."
         const val MULTICAST_LOCK_TAG = "dexbot-nsd"
     }
 }

@@ -21,12 +21,12 @@ describe("where a routine runs", () => {
     expect(routineRunsOn({ roomGoal: false, computer: "vm", cloudHome: true }).label).toBe("The Cloud");
   });
 
-  it("on a desktop, a routine starts while DEX BOT is open there", () => {
+  it("on a desktop, a routine starts while Luna Bot is open there", () => {
     expect(routineRunsOn({ roomGoal: false, cloudHome: false })).toEqual({
-      label: "This computer", hint: "Starts while DEX BOT is open here.",
+      label: "This computer", hint: "Starts while Luna Bot is open here.",
     });
     expect(routineRunsOn({ roomGoal: false, runOn: "cloud", cloudHome: false })).toEqual({
-      label: "Cloud desktop", hint: "Runs the whole job on the bot's cloud desktop while DEX BOT is open.",
+      label: "Cloud desktop", hint: "Runs the whole job on the bot's cloud desktop while Luna Bot is open.",
     });
     expect(routineRunsOn({ roomGoal: false, computer: "vm", cloudHome: false }).label).toBe("The bot's private desktop");
     expect(routineRunsOn({ roomGoal: true, cloudHome: false }).label).toBe("This computer, with the whole group");

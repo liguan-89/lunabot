@@ -1,7 +1,7 @@
-export const APP_NAME = "DEX BOT";
+export const APP_NAME = "Luna Bot";
 /** The private source repository, kept for provenance; every link a person can click points at the Cloud instead, so a
  * signed-out visitor never lands on a 404. */
-export const APP_REPOSITORY = "https://github.com/liguan-89/dexbot";
+export const APP_REPOSITORY = "https://github.com/liguan-89/lunabot";
 export const CLOUD_ORIGIN = "https://cloud.dexai.vip";
 export const DOCS_URL = `${CLOUD_ORIGIN}/docs`;
 export const HELP_CENTER_URL = DOCS_URL;

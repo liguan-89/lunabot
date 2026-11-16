@@ -97,7 +97,7 @@ const cleanup = async (groupIds: Array<string | undefined>, botIds: string[]) =>
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-notification-routing-"));
-  const data = join(home, ".dexbot");
+  const data = join(home, ".lunabot");
   mkdirSync(data, { recursive: true });
   askerBotFile = join(home, "asker-bot.txt");
   askerCallsFile = join(home, "asker-calls.json");
@@ -363,7 +363,7 @@ describe("a reply that tags the person", () => {
 });
 
 describe("bot-to-bot coordination is recorded, not announced", () => {
-  const handoffs = () => readHandoffs(join(home, ".dexbot"));
+  const handoffs = () => readHandoffs(join(home, ".lunabot"));
   const consultation = async (requestId: string) => {
     await expect.poll(() => handoffs().some((node) => node.id === requestId), { timeout: 15_000 }).toBe(true);
     return handoffs().find((node) => node.id === requestId)!;

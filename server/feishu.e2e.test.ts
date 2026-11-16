@@ -128,8 +128,8 @@ posixOnly("a Feishu text message reaches the bot and the reply posts back", () =
 
       // The chat maps to a task so a later message in the same chat continues it. The seeded
       // .openmausbot dir is renamed to .dexbot at startup (legacy data-dir migration).
-      await waitFor(() => existsSync(join(home, ".dexbot", "feishu-chats.json")), "the chat mapping to persist");
-      const mapping = JSON.parse(readFileSync(join(home, ".dexbot", "feishu-chats.json"), "utf8")) as { chats: Record<string, string> };
+      await waitFor(() => existsSync(join(home, ".lunabot", "feishu-chats.json")), "the chat mapping to persist");
+      const mapping = JSON.parse(readFileSync(join(home, ".lunabot", "feishu-chats.json"), "utf8")) as { chats: Record<string, string> };
       expect(Object.keys(mapping.chats)).toEqual(["oc_1"]);
 
       // A replay of the same delivery is deduped by sendId, not turned into a second turn.

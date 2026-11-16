@@ -7,6 +7,7 @@ import android.os.Build
 import android.view.View
 import android.view.Window
 import android.view.WindowManager
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,10 +25,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
@@ -41,6 +45,11 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogWindowProvider
+import dev.chrisbanes.haze.HazeProgressive
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.hazeEffect
 
 /**
  * The one material the floating chrome is made of — where `ios/App/Glass.swift`
@@ -68,28 +77,176 @@ internal tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
-// Glass floats on its rim. An elevation shadow under a translucent fill shows
-// through it and turns the whole surface grey.
+internal val LocalHazeState = compositionLocalOf<HazeState?> { null }
+
 private val CHROME_ELEVATION: Dp = 0.dp
+
+private val hardwareBlurAvailable: Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        !Build.FINGERPRINT.equals("robolectric", ignoreCase = true)
+
+@Composable
+internal fun rememberGlassHazeStyle(blurRadius: Dp = 24.dp): HazeStyle {
+    val canvas = minisCanvas
+    val tint = minisGlassBlurTint
+    val fallback = minisGlass
+    return remember(canvas, tint, fallback, blurRadius) {
+        HazeStyle(
+            backgroundColor = canvas,
+            tints = listOf(HazeTint(tint)),
+            blurRadius = blurRadius,
+            noiseFactor = 0.025f,
+            fallbackTint = HazeTint(fallback),
+        )
+    }
+}
+
+@Composable
+internal fun Modifier.progressiveHazeBand(
+    hazeState: HazeState,
+    fromTop: Boolean,
+    alpha: Float = 1f,
+): Modifier {
+    if (alpha <= 0.001f) return this
+    val dark = minisIsDark()
+    val canvas = minisCanvas
+    val style = remember(canvas, dark) {
+        HazeStyle(
+            backgroundColor = canvas,
+            tints = listOf(HazeTint(canvas.copy(alpha = if (dark) 0.68f else 0.74f))),
+            blurRadius = 28.dp,
+            noiseFactor = 0.025f,
+            fallbackTint = HazeTint(canvas.copy(alpha = 0.88f)),
+        )
+    }
+    val maskStops = if (fromTop) {
+        arrayOf(
+            0f to Color.Black,
+            0.55f to Color.Black.copy(alpha = 0.92f),
+            0.82f to Color.Black.copy(alpha = 0.42f),
+            1f to Color.Transparent,
+        )
+    } else {
+        arrayOf(
+            0f to Color.Transparent,
+            0.18f to Color.Black.copy(alpha = 0.42f),
+            0.45f to Color.Black.copy(alpha = 0.92f),
+            1f to Color.Black,
+        )
+    }
+    val edgeScrim = if (fromTop) {
+        Brush.verticalGradient(
+            0f to canvas.copy(alpha = (if (dark) 0.76f else 0.80f) * alpha),
+            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
+            1f to Color.Transparent,
+        )
+    } else {
+        Brush.verticalGradient(
+            0f to Color.Transparent,
+            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
+            1f to canvas.copy(alpha = (if (dark) 0.78f else 0.82f) * alpha),
+        )
+    }
+    return this
+        .hazeEffect(hazeState, style) {
+            blurEnabled = hardwareBlurAvailable
+            this.alpha = alpha
+            mask = Brush.verticalGradient(colorStops = maskStops)
+            progressive = HazeProgressive.LinearGradient(
+                startIntensity = if (fromTop) 1f else 0f,
+                endIntensity = if (fromTop) 0f else 1f,
+                easing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f),
+                preferPerformance = true,
+            )
+        }
+        .background(edgeScrim)
+}
 
 /** A capsule of chrome — pills and round buttons. */
 @Composable
 internal fun Modifier.chromeCapsule(
     elevation: Dp = CHROME_ELEVATION,
-    /** White card instead of glass: Grok Bot's floating circles on its canvas. */
     surface: Boolean = false,
-): Modifier = if (surface) {
-    this
-        .background(minisCard, CircleShape)
-        .border(0.5.dp, minisSeparator, CircleShape)
-} else {
-    chrome(CircleShape, elevation)
+): Modifier {
+    val hazeState = LocalHazeState.current
+    val dark = minisIsDark()
+    val effectiveElevation = if (elevation > 0.dp) elevation else if (!dark && surface) 3.dp else 0.dp
+    return if (hazeState != null) {
+        val style = rememberGlassHazeStyle()
+        this
+            .then(
+                if (effectiveElevation > 0.dp) {
+                    Modifier.shadow(
+                        elevation = effectiveElevation,
+                        shape = CircleShape,
+                        clip = false,
+                        ambientColor = Color(0x14000000),
+                        spotColor = Color(0x1E000000),
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .clip(CircleShape)
+            .hazeEffect(hazeState, style) {
+                blurEnabled = hardwareBlurAvailable
+            }
+            .minisGloss(
+                shape = CircleShape,
+                fill = Color.Transparent,
+                sheen = minisGlassSheen,
+                rim = minisGlassRim,
+                fillBrush = false,
+            )
+    } else if (surface) {
+        this.minisGloss(
+            shape = CircleShape,
+            fill = minisGlass,
+            sheen = minisGlassSheen,
+            rim = minisGlassRim,
+            elevation = effectiveElevation,
+        )
+    } else {
+        chrome(CircleShape, effectiveElevation)
+    }
 }
 
 /** A rounded sheet of chrome. */
 @Composable
-internal fun Modifier.chromeSheet(cornerRadius: Dp = 28.dp, elevation: Dp = 0.dp): Modifier =
-    chrome(RoundedCornerShape(cornerRadius), elevation)
+internal fun Modifier.chromeSheet(cornerRadius: Dp = 24.dp, elevation: Dp = 0.dp): Modifier {
+    val shape = RoundedCornerShape(cornerRadius)
+    val hazeState = LocalHazeState.current
+    return if (hazeState != null) {
+        val style = rememberGlassHazeStyle(blurRadius = 28.dp)
+        this
+            .then(
+                if (elevation > 0.dp) {
+                    Modifier.shadow(
+                        elevation = elevation,
+                        shape = shape,
+                        clip = false,
+                        ambientColor = Color(0x18000000),
+                        spotColor = Color(0x26000000),
+                    )
+                } else {
+                    Modifier
+                },
+            )
+            .clip(shape)
+            .hazeEffect(hazeState, style) {
+                blurEnabled = hardwareBlurAvailable
+            }
+            .minisGloss(
+                shape = shape,
+                fill = Color.Transparent,
+                sheen = minisGlassSheen,
+                rim = minisGlassRim,
+                fillBrush = false,
+            )
+    } else {
+        chrome(shape, elevation)
+    }
+}
 
 @Composable
 internal fun Modifier.chrome(shape: Shape, elevation: Dp = CHROME_ELEVATION): Modifier = this

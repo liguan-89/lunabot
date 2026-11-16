@@ -23,7 +23,7 @@ export interface ConfigStatus {
   modelgo?: SavedKey;
   deepseek?: SavedKey;
   meta?: SavedKey;
-  /** X research comes with DexBot Cloud plans: `included` while this server holds the plan's relay credential;
+  /** X research comes with Luna Bot Cloud plans: `included` while this server holds the plan's relay credential;
    * `unavailable` when the Admin said no to this desktop's paid sign-in. */
   xResearch?: { included: boolean; unavailable?: boolean };
   /** The person's own treg key for research: configured or not, never the key. */
@@ -59,7 +59,7 @@ export interface ConfigStatus {
   newBots?: { effort?: EffortLevel };
   /** This Cloud is on the Starter plan, as the Admin last said; absent or false otherwise. */
   cloudStarter?: boolean;
-  /** The most bots this Cloud's plan makes, its DEX BOT aside. Sent only by servers that capped Starter's bots; absent otherwise. */
+  /** The most bots this Cloud's plan makes, its Luna Bot aside. Sent only by servers that capped Starter's bots; absent otherwise. */
   botLimit?: number;
   /** A task on this Cloud is waiting for memory right now. */
   waitingForRoom?: boolean;
@@ -101,7 +101,7 @@ export interface ConfigStatus {
    * saved. OpenRouter only: `keySource` says which key is in use (its own, or
    * the one under Settings → API keys); `sharedKey`: that one is on file. */
   decider?: {
-    provider: "jev" | "workersai" | "openrouter";
+    provider: "jev" | "laya" | "workersai" | "openrouter";
     /** The OpenRouter model in use; present only while OpenRouter is the provider. */
     model?: string;
     configured: boolean;
@@ -109,7 +109,7 @@ export interface ConfigStatus {
     sharedKey?: boolean;
     included?: boolean;
     enabled: boolean;
-    jobs: { roomRouting: boolean };
+    jobs: { roomRouting: boolean; inboxTriage?: boolean; browserClicks?: boolean; toolSelection?: boolean; placement?: boolean };
   };
   /** The decision and extraction models' keys: which of the person's own are on file, never a key. */
   helpers?: {
@@ -172,10 +172,10 @@ export interface ConfigStatus {
   /** The enrolled organisation's read-only desktop policy; null when this
    * desktop is not enrolled or its Admin sends no policy. */
   managedPolicy?: ManagedPolicySummary | null;
-  /** This server is an OMB Cloud home: it offers no "this computer" and no
+  /** This server is a Luna Bot Cloud home: it offers no "this computer" and no
    * Local VM (server/cloud-home.ts). Absent everywhere else. */
   cloudHome?: boolean;
-  /** A Team Cloud: the team this server is the home of, and the Plan page (DexBot Cloud) where its people and plan
+  /** A Team Cloud: the team this server is the home of, and the Plan page (Luna Bot Cloud) where its people and plan
    * are managed. Absent everywhere else. */
   team?: { id: string; name: string; cloudPage?: string };
 }
@@ -211,10 +211,10 @@ export interface BrowserEngineSummary {
   myChromeOn?: { name: string; device: "PC" | "Mac" | "computer"; online: boolean };
   /** On My Cloud with no computer lending Chrome: it can be lent from the desktop app. */
   myChromeLendable?: true;
-  /** browserEngine.engine: "chrome" when the bots' browsers run on DEX BOT's own Chrome driver. */
+  /** browserEngine.engine: "chrome" when the bots' browsers run on Luna Bot's own Chrome driver. */
   engine?: "agent-browser" | "chrome";
   /** Self-hosted servers only: whether bots' browsers may open this server's own sites and its local network
-   * (browserEngine.egress.localNetwork, off by default). Absent on the desktop and on DexBot Cloud. */
+   * (browserEngine.egress.localNetwork, off by default). Absent on the desktop and on Luna Bot Cloud. */
   serverSites?: boolean;
 }
 

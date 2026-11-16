@@ -167,7 +167,7 @@ class ProfileRulesTest {
             ProfileRules.generateFooter(ConfigStatus(imageGen = ConfigFlag(configured = true))),
         )
         assertEquals(
-            "如需生成头像，请先在电脑端的 DEX BOT 中配置共享图像生成服务。手机端不支持添加服务商密钥。",
+            "如需生成头像，请先在电脑端的 Luna Bot 中配置共享图像生成服务。手机端不支持添加服务商密钥。",
             ProfileRules.generateFooter(null),
         )
     }
@@ -313,7 +313,7 @@ class ProfileRulesTest {
             ProfileRules.voiceCopy(noVoices).unconfiguredNotice,
         )
         assertEquals(
-            "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 DEX BOT 中切换语音引擎以启用语音朗读。",
+            "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 Luna Bot 中切换语音引擎以启用语音朗读。",
             ProfileRules.voiceCopy(noVoices).footer,
         )
 
@@ -408,7 +408,7 @@ class ProfileRulesTest {
             ProfileRules.voiceCopy(unconfigured).unconfiguredNotice,
         )
         assertEquals(
-            "请在电脑端 DEX BOT 中添加共享 Fish Audio API 密钥。密钥绝不会发送到本手机。",
+            "请在电脑端 Luna Bot 中添加共享 Fish Audio API 密钥。密钥绝不会发送到本手机。",
             ProfileRules.voiceCopy(unconfigured).footer,
         )
 
@@ -427,7 +427,7 @@ class ProfileRulesTest {
             ProfileRules.voiceCopy(noServer).unconfiguredNotice,
         )
         assertEquals(
-            "请在电脑端 DEX BOT 中添加 Chatterbox 服务器地址以启用语音朗读。",
+            "请在电脑端 Luna Bot 中添加 Chatterbox 服务器地址以启用语音朗读。",
             ProfileRules.voiceCopy(noServer).footer,
         )
 

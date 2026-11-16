@@ -1,6 +1,7 @@
 import { APPROVAL_MODES, type ApprovalMode, supportsApprovalMode as driverKindSupportsApprovalMode } from "../shared/approval-mode.ts";
 import { availableTools, type CatalogProfile } from "./drivers/agents-catalog.ts";
 import type { ModelSelection } from "./contracts.ts";
+import { serverLine } from "./server-lines.ts";
 
 export interface DriverCapabilities {
   driverKind: string | undefined;
@@ -17,23 +18,21 @@ const ENVELOPE: CatalogProfile = {
   botId: "",
 };
 
-export function harnessCapabilityLines(from: DriverCapabilities | undefined, to: DriverCapabilities | undefined): string[] {
+export function harnessCapabilityLines(from: DriverCapabilities | undefined, to: DriverCapabilities | undefined, language?: string): string[] {
   if (!from || !to) return [];
   const lines: string[] = [];
   if (from.agentsMcp !== to.agentsMcp) {
     const names = availableTools(ENVELOPE).map((tool) => tool.name);
     const coordination = ["coordinate_bots", "assignment_status"].filter((name) => names.includes(name));
-    lines.push(
-      to.agentsMcp
-        ? "Gains peer coordination and the other team tools: " + names.length + " tools including " + coordination.join(", ") + "."
-        : "Loses peer coordination and every team tool: " + names.length + " tools including " + coordination.join(", ") + " go away.",
-    );
+    lines.push(to.agentsMcp
+      ? serverLine(language, "server.modelRequest.gainsTools", { count: names.length, tools: coordination.join(", ") })
+      : serverLine(language, "server.modelRequest.losesTools", { count: names.length, tools: coordination.join(", ") }));
   }
   if (from.driverKind !== to.driverKind) {
     const lost = APPROVAL_MODES.filter((mode) => driverKindSupportsApprovalMode(from.driverKind, mode) && !driverKindSupportsApprovalMode(to.driverKind, mode));
     const gained = APPROVAL_MODES.filter((mode) => !driverKindSupportsApprovalMode(from.driverKind, mode) && driverKindSupportsApprovalMode(to.driverKind, mode));
-    if (lost.length) lines.push("Loses approval levels: " + lost.join(", ") + ".");
-    if (gained.length) lines.push("Gains approval levels: " + gained.join(", ") + ".");
+    if (lost.length) lines.push(serverLine(language, "server.modelRequest.losesApproval", { levels: lost.join(", ") }));
+    if (gained.length) lines.push(serverLine(language, "server.modelRequest.gainsApproval", { levels: gained.join(", ") }));
   }
   return lines;
 }

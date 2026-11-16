@@ -285,14 +285,20 @@ test("a child that says it is listening gets the grace before it times out", asy
   assert.equal((await probe(true)).outcome, "ready");
 });
 
-test("the listening line is heard when stdout splits it across chunks", () => {
+test("the listening line is heard when stdout splits it across chunks, under either release's name", () => {
   const listening = listeningSignal();
-  listening.hear("boot… dexbot ser");
+  listening.hear("boot… lunabot ser");
   assert.equal(listening.heard(), false);
   listening.hear("ver on http://127.0.0.1:8799\n");
   assert.equal(listening.heard(), true);
   listening.hear("later output");
   assert.equal(listening.heard(), true);
+  // A server packaged before the rename still says dexbot; the desktop still counts it as listening.
+  const legacy = listeningSignal();
+  legacy.hear("boot… dexbot ser");
+  assert.equal(legacy.heard(), false);
+  legacy.hear("ver on http://127.0.0.1:8799\n");
+  assert.equal(legacy.heard(), true);
   const quiet = listeningSignal();
   quiet.hear("nothing to see");
   assert.equal(quiet.heard(), false);

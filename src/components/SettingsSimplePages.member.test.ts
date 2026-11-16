@@ -16,6 +16,9 @@ vi.mock("./ProIntroduction", () => ({ useCloudPlan: () => null, CloudPlanRow: ()
 vi.mock("./BrowserSettingsRows", () => ({ BuiltInBrowserRow: () => null, ServerSitesRow: () => null }));
 vi.mock("./AppSettingsRows", async (original) => ({ ...await original<object>(), BrowserProfilesRow: () => null }));
 vi.mock("./VaultSettings", () => ({ VaultSettings: () => null }));
+vi.mock("./PaymentCardsSettings", () => ({ PaymentCardsSettings: () => null }));
+vi.mock("./ChannelsSettings", () => ({ ChannelsSettings: () => null }));
+vi.mock("./SkillsSection", () => ({ SkillsSection: () => "SKILLS LIBRARY" }));
 
 const { SimpleAiPage, SimpleBillingPage, SimpleComputerPage } = await import("./SettingsSimplePages");
 
@@ -23,7 +26,7 @@ const has = () => true;
 const disclose: Disclose = (id) => ({ id, open: true, onToggle: () => {} });
 const remoteAccess = { client: null, domain: null, pairing: null, companion: null };
 const pages = () => [
-  renderToStaticMarkup(createElement(SimpleAiPage, { has, disclose, connections: "KEYS" })),
+  renderToStaticMarkup(createElement(SimpleAiPage, { has, disclose, connections: "KEYS", decisionModel: "DECISION", imageGeneration: "IMAGES" })),
   renderToStaticMarkup(createElement(SimpleComputerPage, { has, disclose, remoteAccess, servers: null })),
   renderToStaticMarkup(createElement(SimpleBillingPage, { has, disclose, cloudAccount: null })),
 ].join("\n");
@@ -32,7 +35,7 @@ beforeEach(() => { fixture.admin = false; });
 
 it("shows a session without the admin scope a plain sentence instead of the installation's AI, computers and usage", () => {
   const html = pages();
-  for (const hidden of ["AI ACCOUNTS", "NEW BOT DEFAULTS", "KEYS", "CLOUD DESKTOPS", "USAGE TABLE", "PLAN USAGE"]) expect(html).not.toContain(hidden);
+  for (const hidden of ["AI ACCOUNTS", "NEW BOT DEFAULTS", "KEYS", "DECISION", "IMAGES", "CLOUD DESKTOPS", "USAGE TABLE", "PLAN USAGE"]) expect(html).not.toContain(hidden);
   expect(html).toContain("Only an admin of this installation can change this.");
   expect(html).toContain("Only an admin of this installation can see usage.");
 });
@@ -40,5 +43,5 @@ it("shows a session without the admin scope a plain sentence instead of the inst
 it("keeps them for an admin", () => {
   fixture.admin = true;
   const html = pages();
-  for (const shown of ["AI ACCOUNTS", "NEW BOT DEFAULTS", "KEYS", "CLOUD DESKTOPS", "USAGE TABLE", "PLAN USAGE"]) expect(html).toContain(shown);
+  for (const shown of ["AI ACCOUNTS", "NEW BOT DEFAULTS", "KEYS", "DECISION", "IMAGES", "CLOUD DESKTOPS", "USAGE TABLE", "PLAN USAGE"]) expect(html).toContain(shown);
 });

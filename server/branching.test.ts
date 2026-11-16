@@ -63,9 +63,9 @@ posixOnly("conversation branching (fake pi)", () => {
   beforeAll(async () => {
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-branch-test-"));
-    mkdirSync(join(home, ".dexbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     writeFileSync(
-      join(home, ".dexbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {

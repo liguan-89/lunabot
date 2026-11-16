@@ -398,7 +398,7 @@ function verifyCloudflaredResources(resources, label, { directoryMode = 0o755 } 
 const appImage = exactlyOne(".AppImage");
 const deb = exactlyOne(".deb");
 const unpacked = path.join(releaseDir, "linux-unpacked");
-const executable = path.join(unpacked, "dexbot");
+const executable = path.join(unpacked, "lunabot");
 const resources = path.join(unpacked, "resources");
 
 requireExecutable(appImage);
@@ -424,7 +424,7 @@ const fields = execFileSync(
 for (const expected of [
   "Package: dexbot",
   "Architecture: amd64",
-  "Maintainer: DEX BOT",
+  "Maintainer: Luna Bot",
   "Section: utils",
   "Priority: optional",
 ]) {
@@ -434,7 +434,7 @@ for (const expected of [
 const extracted = mkdtempSync(path.join(tmpdir(), "omb-deb-verify-"));
 try {
   execFileSync("dpkg-deb", ["--extract", deb, extracted]);
-  const debAppRoot = path.join(extracted, "opt", "DEX BOT");
+  const debAppRoot = path.join(extracted, "opt", "Luna Bot");
   requireDirectoryMode(debAppRoot, 0o755);
   const debResources = path.join(debAppRoot, "resources");
   // Routes the in-app updater to the package-manager hand-off.
@@ -454,7 +454,7 @@ try {
     "usr",
     "share",
     "applications",
-    "com.dexbot.app.desktop",
+    "com.lunabot.app.desktop",
   );
   const scalableIcon = path.join(
     extracted,
@@ -464,16 +464,16 @@ try {
     "hicolor",
     "scalable",
     "apps",
-    "dexbot.svg",
+    "lunabot.svg",
   );
   requireFile(desktopFile);
   requireFile(scalableIcon);
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
-    "Name=DEX BOT",
-    'Exec="/opt/DEX BOT/dexbot" %U',
-    "Icon=dexbot",
-    "StartupWMClass=com.dexbot.app",
+    "Name=Luna Bot",
+    'Exec="/opt/Luna Bot/lunabot" %U',
+    "Icon=lunabot",
+    "StartupWMClass=com.lunabot.app",
     "Categories=Utility;",
   ]) {
     if (!desktop.includes(expected)) fail(`desktop entry is missing ${JSON.stringify(expected)}`);

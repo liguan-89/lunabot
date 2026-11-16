@@ -1,5 +1,5 @@
 // Structured access to the Mac's own apps (Reminders, Notes, Calendar) for bots: everything runs through
-// osascript -l JavaScript (JXA), so the OS's own Automation prompts govern access — DEX BOT asks for no
+// osascript -l JavaScript (JXA), so the OS's own Automation prompts govern access — Luna Bot asks for no
 // extra permission itself. Writes go through the turn's normal approval mode like every other agents tool.
 import { execFile } from "node:child_process";
 

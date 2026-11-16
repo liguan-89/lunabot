@@ -120,12 +120,12 @@ async function thinMacPlatformTools(resources, arch) {
 async function signBundleIdentity(context) {
   const app = path.join(
     context.appOutDir,
-    `${context.packager?.appInfo?.productFilename ?? "DEX BOT"}.app`,
+    `${context.packager?.appInfo?.productFilename ?? "Luna Bot"}.app`,
   );
   // Only a real bundle can be signed; electron-builder always writes Info.plist, so its absence means this is not
   // an app to sign (fixtures call the hook directly).
   if (!await lstat(path.join(app, "Contents", "Info.plist")).then(() => true, () => false)) return;
-  const identifier = context.packager?.appInfo?.id ?? "com.dexbot.app";
+  const identifier = context.packager?.appInfo?.id ?? "com.lunabot.app";
   const identity = process.env.DEXBOT_CODESIGN_IDENTITY?.trim() || "-";
   const report = spawnSync("codesign", ["-dv", "--verbose=2", app], { encoding: "utf8" });
   if (/Authority=Developer ID Application/.test(`${report.stdout ?? ""}${report.stderr ?? ""}`)) return;
@@ -159,7 +159,7 @@ async function signBundleIdentity(context) {
 export default async function afterPack(context) {
   const resources = context.packager?.getResourcesDir?.(context.appOutDir) ?? (
     context.electronPlatformName === "darwin"
-      ? path.join(context.appOutDir, "DEX BOT.app", "Contents", "Resources")
+      ? path.join(context.appOutDir, "Luna Bot.app", "Contents", "Resources")
       : path.join(context.appOutDir, "resources")
   );
   await validateCloudflared(resources, context.electronPlatformName, Boolean(context.packager));

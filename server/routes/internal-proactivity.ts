@@ -1,4 +1,4 @@
-// The proactivity tool's routes: how much DEX BOT initiates for the person — "standard" posts briefs and suggestions
+// The proactivity tool's routes: how much Luna Bot initiates for the person — "standard" posts briefs and suggestions
 // with notifications; "quiet" keeps working but never pings.
 import type { BotRecord, Store } from "../store.ts";
 import { PASS, type RouteHandler } from "./table.ts";

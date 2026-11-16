@@ -14,9 +14,9 @@ export interface BrandStatus {
   notice?: string;
 }
 
-export const DEFAULT_BRAND: Brand = { name: "DEX BOT" };
+export const DEFAULT_BRAND: Brand = { name: "Luna Bot" };
 /** The product's name wherever a person reads it. */
-export const PRODUCT_NAME = "DEX BOT";
+export const PRODUCT_NAME = "Luna Bot";
 
 let current: BrandStatus = { brand: DEFAULT_BRAND, source: "default", file: "" };
 
@@ -24,7 +24,7 @@ export function brand(): Brand {
   return current.brand;
 }
 
-/** The name a person reads: a white-label brand file's own name, else DEX BOT. `brand().name` stays the project's name. */
+/** The name a person reads: a white-label brand file's own name, else Luna Bot. `brand().name` stays the project's name. */
 export function productName(): string {
   return current.source === "file" ? current.brand.name : PRODUCT_NAME;
 }

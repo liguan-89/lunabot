@@ -1,8 +1,9 @@
 abi <abi/4.0>,
 include <tunables/global>
 
+# The profile keeps its pre-rename name so an install that already loaded it is replaced, never stranded.
 # Only the packaged, root-owned executable can create its browser sandbox.
 # Never widen this to a home directory or the portable AppImage mount path.
-profile dexbot-browser "/opt/DEX BOT/resources/browser-engine/chrome/chrome-headless-shell-linux64/chrome-headless-shell" flags=(unconfined) {
+profile dexbot-browser "/opt/Luna Bot/resources/browser-engine/chrome/chrome-headless-shell-linux64/chrome-headless-shell" flags=(unconfined) {
   userns,
 }

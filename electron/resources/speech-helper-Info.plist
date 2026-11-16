@@ -3,22 +3,22 @@
 <plist version="1.0">
   <dict>
     <key>CFBundleDisplayName</key>
-    <string>DEX BOT</string>
+    <string>Luna Bot</string>
     <key>CFBundleExecutable</key>
     <string>speech-helper</string>
     <key>CFBundleIdentifier</key>
-    <string>com.dexbot.app.speech-helper</string>
+    <string>com.lunabot.app.speech-helper</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>DEX BOT Speech</string>
+    <string>Luna Bot Speech</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>LSBackgroundOnly</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>
-    <string>DEX BOT listens while you dictate messages or talk to a bot.</string>
+    <string>Luna Bot listens while you dictate messages or talk to a bot.</string>
     <key>NSSpeechRecognitionUsageDescription</key>
-    <string>DEX BOT converts your speech into text during dictation and calls.</string>
+    <string>Luna Bot converts your speech into text during dictation and calls.</string>
   </dict>
 </plist>

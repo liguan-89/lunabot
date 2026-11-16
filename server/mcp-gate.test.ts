@@ -181,7 +181,7 @@ describe("mcp-gate", () => {
     const answer = await call("search_products");
     const text = answer.result.content[0].text;
     expect(text.length).toBeLessThan(full.length / 10);
-    expect(text.startsWith("⚠️ SHAPED by DEX BOT:")).toBe(true);
+    expect(text.startsWith("⚠️ SHAPED by Luna Bot:")).toBe(true);
 
     const spillDir = join(scratch, "spill");
     const [file] = readdirSync(spillDir);
@@ -220,7 +220,7 @@ describe("mcp-gate", () => {
 
     const unknown = (await call("search_products")).result;
     expect(unknown).not.toHaveProperty("structuredContent");
-    expect(unknown.content[0].text).toContain("SHAPED by DEX BOT");
+    expect(unknown.content[0].text).toContain("SHAPED by Luna Bot");
 
     await listTools([{ name: "search_products", outputSchema: { type: "object" } }]);
     await listTools([{ name: "other_tool" }], "second");
@@ -230,7 +230,7 @@ describe("mcp-gate", () => {
     await listTools([{ name: "search_products" }]);
     const refreshed = (await call("search_products")).result;
     expect(refreshed).not.toHaveProperty("structuredContent");
-    expect(refreshed.content[0].text).toContain("SHAPED by DEX BOT");
+    expect(refreshed.content[0].text).toContain("SHAPED by Luna Bot");
   });
 
   it("matches structuredContent to the text whatever its key order", async () => {
@@ -390,7 +390,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     expect(ran()).toEqual([]);
     expect((await callWith("describe_tool", { name: "read" }, 3)).result.content[0].text).toHaveLength(4_000);
     expect((await callWith("call_tool", { arguments: {} }, 4)).result.content[0].text).toHaveLength(4_000);
-    expect((await callWith("call_tool", { name: "read", arguments: {} }, 5)).result.content[0].text).toContain("TRUNCATED by DEX BOT");
+    expect((await callWith("call_tool", { name: "read", arguments: {} }, 5)).result.content[0].text).toContain("TRUNCATED by Luna Bot");
     expect(ran()).toEqual(["describe_tool", "call_tool", "call_tool"]);
   });
 
@@ -411,7 +411,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     const [small, page] = JSON.parse(await nextLine()).result.tools;
     expect(small).toEqual(catalog.tools[0]);
     expect(schemaBytes(page.inputSchema)).toBeLessThanOrEqual(12_000);
-    expect(page.description).toMatch(/^Create a page\.\n\n\(DEX BOT shortened this tool's parameters to fit Kimi's size limit/);
+    expect(page.description).toMatch(/^Create a page\.\n\n\(Luna Bot shortened this tool's parameters to fit Kimi's size limit/);
     gate!.kill();
     await once(gate!, "close");
 
@@ -448,7 +448,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     it("holds the whole result and answers a query locally with just the selection", async () => {
       start({ text: full }, {}, SCOPED_UPSTREAM);
       const shaped: string = (await call("read")).result.content[0].text;
-      expect(shaped.startsWith("⚠️ SHAPED by DEX BOT:")).toBe(true);
+      expect(shaped.startsWith("⚠️ SHAPED by Luna Bot:")).toBe(true);
       expect(shaped).toContain('query_result {"result":"r1","query":');
       expect(shaped).toContain("products: 300 items{id, name, price, blurb}");
       expect(shaped.length).toBeLessThan(8_200);

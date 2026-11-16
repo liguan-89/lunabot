@@ -8,6 +8,8 @@ const none: PhoneBot = { id: "n", name: "Nobody", phoneApps: {} };
 const reader: PhoneBot = { id: "r", name: "Reader", phoneApps: { calendar: "read" } };
 const onPhone = { calendar: "full", contacts: "limited" };
 const iphone = [{ name: "Omkar's iPhone", platform: "ios" as const, capabilities: onPhone }];
+const screen = { phoneUi: "full" };
+const pixel = [{ name: "Work Pixel", platform: "android" as const, capabilities: screen }];
 
 describe("phoneAccess", () => {
   it("every bot gets every app the phone allows by default; an explicit grant wins", () => {
@@ -25,6 +27,23 @@ describe("phoneAccess", () => {
     const verdict = phoneAccess(reader, onPhone, "PHONE_CREATE_EVENT");
     expect(verdict).toMatchObject({ ok: false, rows: [{ rule: "scope:phone:calendar:write" }] });
     expect(phoneAccess(reader, onPhone, "PHONE_LIST_EVENTS").ok).toBe(true);
+  });
+  it("phone UI is opt-in: a legacy bot's default grant covers the six apps and never the screen", () => {
+    expect(phoneAppsFor(scout).phoneUi).toBeUndefined();
+    expect(phoneAccess(chief, screen, "PHONE_UI_TAP")).toMatchObject({ ok: false, rows: [{ rule: "scope:phone:phoneUi:app" }] });
+    const refused = phoneAccess(chief, screen, "PHONE_UI_TAP");
+    expect(refused.ok ? "" : refused.text).toContain("has not been given access to Phone UI");
+    expect(phoneAccess(none, screen, "PHONE_UI_OBSERVE").ok).toBe(false);
+  });
+  it("an explicit phone UI grant reads the screen; only a write grant drives it", () => {
+    const observer: PhoneBot = { id: "o", name: "Observer", phoneApps: { phoneUi: "read" } };
+    expect(phoneAccess(observer, screen, "PHONE_UI_OBSERVE").ok).toBe(true);
+    expect(phoneAccess(observer, screen, "PHONE_UI_TAP")).toMatchObject({ ok: false, rows: [{ rule: "scope:phone:phoneUi:write" }] });
+    expect(phoneAccess({ ...chief, phoneApps: { phoneUi: "write" } }, screen, "PHONE_UI_BACK").ok).toBe(true);
+  });
+  it("the prompt lists Phone UI like any other granted app", () => {
+    expect(phoneSystemPrompt({ ...chief, phoneApps: { phoneUi: "read" } }, pixel)).toContain("Work Pixel is an Android phone; this bot may use: Phone UI (read only).");
+    expect(phoneSystemPrompt(chief, pixel)).toContain("this bot may use: nothing yet");
   });
   it("the prompt names the phone and its apps, the same for the Chief and any other bot", () => {
     expect(phoneSystemPrompt(chief, iphone)).toContain("Omkar's iPhone is an iPhone; this bot may use: Calendar, Contacts.");

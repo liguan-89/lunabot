@@ -21,7 +21,7 @@ try {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
-  if (status.startsWith("ii")) fail("refusing to replace a pre-existing DEX BOT installation");
+  if (status.startsWith("ii")) fail("refusing to replace a pre-existing Luna Bot installation");
 } catch (error) {
   if (String(error?.message ?? error).includes("refusing to replace")) throw error;
 }
@@ -30,6 +30,7 @@ const temporary = fs.mkdtempSync(path.join(path.resolve(runnerTemp), "omb-deb-up
 if (path.dirname(temporary) !== path.resolve(runnerTemp)) fail("temporary fixture escaped RUNNER_TEMP");
 const legacyRoot = path.join(temporary, "legacy-package");
 const controlRoot = path.join(legacyRoot, "DEBIAN");
+// The fixture is a genuine pre-rename install: package dexbot, under /opt/DEX BOT, at the modes it wrote.
 const legacyApp = path.join(legacyRoot, "opt", "DEX BOT");
 const legacyResources = path.join(legacyApp, "resources");
 const legacyDeb = path.join(temporary, "dexbot_0.1.7_amd64.deb");
@@ -45,8 +46,8 @@ try {
       "Package: dexbot",
       "Version: 0.1.7",
       "Architecture: amd64",
-      "Maintainer: DEX BOT CI <ci@dexbot.invalid>",
-      "Description: Legacy DEX BOT directory-mode upgrade fixture",
+      "Maintainer: Luna Bot CI <ci@dexbot.invalid>",
+      "Description: Pre-rename Luna Bot (DEX BOT) directory-mode upgrade fixture",
       "",
     ].join("\n"),
     { mode: 0o644 },
@@ -70,9 +71,9 @@ try {
     stdio: "inherit",
   });
   for (const directory of [
-    "/opt/DEX BOT",
-    "/opt/DEX BOT/resources",
-    "/opt/DEX BOT/resources/cua-linux-x64",
+    "/opt/Luna Bot",
+    "/opt/Luna Bot/resources",
+    "/opt/Luna Bot/resources/cua-linux-x64",
   ]) {
     const details = fs.lstatSync(directory);
     if (!details.isDirectory() || details.isSymbolicLink()) fail(`unsafe upgraded directory: ${directory}`);
@@ -81,14 +82,14 @@ try {
     }
   }
   for (const executable of ["cua-driver", "cua-cursor-theme"]) {
-    const file = path.join("/opt/DEX BOT/resources/cua-linux-x64", executable);
+    const file = path.join("/opt/Luna Bot/resources/cua-linux-x64", executable);
     const details = fs.lstatSync(file);
     if (!details.isFile() || details.isSymbolicLink()) fail(`unsafe upgraded executable: ${file}`);
     if (details.uid !== 0 || details.gid !== 0 || (details.mode & 0o777) !== 0o755) {
       fail(`upgraded executable is not root:root 0755: ${file}`);
     }
   }
-  const chromiumSandbox = "/opt/DEX BOT/chrome-sandbox";
+  const chromiumSandbox = "/opt/Luna Bot/chrome-sandbox";
   const sandboxDetails = fs.lstatSync(chromiumSandbox);
   if (!sandboxDetails.isFile() || sandboxDetails.isSymbolicLink()) {
     fail(`unsafe upgraded Chromium sandbox: ${chromiumSandbox}`);
@@ -104,7 +105,7 @@ try {
     encoding: "utf8",
   }).trim();
   console.log(
-    `[smoke-deb-upgrade] OK: 0.1.7 legacy modes repaired by ${installedVersion} without weakening the runtime path`,
+    `[smoke-deb-upgrade] OK: a pre-rename 0.1.7 install beside ${installedVersion}, whose own package paths are root:root and hardened`,
   );
 } finally {
   fs.rmSync(temporary, { recursive: true, force: true });

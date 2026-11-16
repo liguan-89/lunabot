@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 
 import de from "./de.json";
 import en from "./en.json";
+import zh from "./zh.json";
 
 const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 const SCANNED = ["server", "shared"];
@@ -332,165 +333,7 @@ const ALLOWED: ReadonlyArray<{ file: string; snippet: string; why: string }> = [
 ];
 
 /** Lines written before this guard, by area: a file and the line's words (" … " where a value goes). Only shrinks. */
-const PENDING: Readonly<Record<string, ReadonlyArray<readonly [file: string, snippet: string]>>> = {
-  "runs and routines": [
-    ["server/app-trigger-requests.ts", "When an email arrives in Gmail …"],
-    ["server/app-trigger-requests.ts", "When “ … ” happens in  …  …"],
-    ["server/app-trigger-requests.ts", "(it checks every 15 minutes)"],
-    ["server/app-trigger-requests.ts", "reviews the event"],
-    ["server/routine-requests.ts", "Each time  … 's usage limit resets"],
-    ["server/routine-requests.ts", "When  … 's usage limit resets"],
-    ["server/routine-requests.ts", "Every  …  minutes, cadence starting at confirmation; first run is the"],
-    ["server/routine-requests.ts", "Every  …  minutes, starting one interval after confirmation"],
-    ["server/routine-requests.ts", "Every  …  minutes, anchored at  …   …"],
-    ["server/routine-requests.ts", "each run starts a fresh session with the previous run's report"],
-    ["server/routine-requests.ts", "each run starts a fresh session"],
-    ["server/routine-requests.ts", "Will run at matching calendar times,  … ;  … ."],
-    ["server/routine-requests.ts", "Will run once; that run starts a fresh session."],
-    ["server/routine-requests.ts", "Will run a minute after each time that usage limit resets, in this con"],
-    ["server/routine-requests.ts", "Will run once, a minute after that usage limit resets, and continue in"],
-    ["server/routine-requests.ts", "Will run every  …  minutes when its day, time, and end restrictions al"],
-    ["server/routine-requests.ts", "about once a day"],
-    ["server/routine-requests.ts", "Will run  … ;  … ."],
-    ["server/routine-requests.ts", "every day"],
-    ["server/routine-requests.ts", "one day a week"],
-    ["server/routine-requests.ts", "Bot’s current model on its cloud desktop"],
-    ["server/routine-requests.ts", "Bot’s current model, where it usually works"],
-    ["server/routine-requests.ts", "None — this routine remains paused"],
-    ["server/routine-requests.ts", "Next allowed time after confirmation ( … )"],
-    ["server/routine-requests.ts", "One interval after confirmation"],
-    ["server/routine-requests.ts", "None — this routine will be paused"],
-    ["server/routine-requests.ts", "None — this routine will be deleted"],
-    ["server/routine-requests.ts", "When that limit resets (the time is not known yet)"],
-    ["server/routine-requests.ts", "For: @ …  — each run uses that bot's AI and permissions"],
-    ["server/routine-requests.ts", "Next run:  …"],
-    ["server/routine-requests.ts", "Runs on:  …"],
-    ["server/routine-requests.ts", "Run limit:  …"],
-    ["server/routine-requests.ts", "No limit"],
-    ["server/routine-requests.ts", "Carries the previous run's report into the next run"],
-    ["server/routine-requests.ts", "Each run starts fresh"],
-    ["server/routine-requests.ts", "While busy:  …"],
-    ["server/routine-requests.ts", "Queue one scheduled run; skip further occurrences until it starts"],
-    ["server/routine-requests.ts", "Skip overlapping scheduled occurrences"],
-    ["server/routine-requests.ts", "On startup:  …"],
-    ["server/routine-requests.ts", "Also runs once each time DEX BOT starts"],
-    ["server/routine-requests.ts", "Runs only on its schedule"],
-    ["server/webhook-requests.ts", "When another app sends something … ,  …   …"],
-    ["server/webhook-requests.ts", "does what it is asked"],
-    ["shared/plain-time-zone.ts", "every day"],
-  ],
-  "rooms and teammates": [
-    ["server/host/delegated-level.ts", "…  — handed on by  … ,  … a Chief of Staff on  …"],
-    ["server/store.ts", "needs your input"],
-    ["server/store.ts", "reached its turn limit"],
-  ],
-  "AI engines and limits": [
-    ["server/computer-engine-removal.ts", "The Computer choice in the model list was removed."],
-    ["server/computer-engine-removal.ts", "This conversation now uses  … ."],
-    ["server/computer-engine-removal.ts", "…  now uses  … ; this conversation keeps its own model."],
-    ["server/computer-engine-removal.ts", "…  now uses  … ."],
-    ["server/computer-engine-removal.ts", "…  can't use a desktop, so"],
-    ["server/computer-engine-removal.ts", "…  still works on its cloud desktop."],
-    ["server/computer-engine-removal.ts", "It still works on  … 's cloud desktop."],
-    ["server/computer-engine-removal.ts", "…  no longer works on its"],
-    ["server/computer-engine-removal.ts", "it no longer works on  … 's"],
-    ["server/computer-engine-removal.ts", "cloud desktop. To use it again, choose a model that can use a desktop."],
-    ["server/computer-engine-removal.ts", "…   …  can't reply on  …  while its Works on is Cloud desktop."],
-    ["server/computer-engine-removal.ts", "Choose a model that can use a desktop, or set Works on to Auto."],
-    ["server/computer-engine-removal.ts", "…   …  can't reply here while this conversation is pinned to its cloud"],
-    ["server/computer-engine-removal.ts", "Choose a model that can use a desktop, or clear this conversation's pl"],
-    ["server/computer-engine-removal.ts", "… 's permissions are now Ask, but this conversation's stay as they wer"],
-    ["server/computer-engine-removal.ts", "Its permissions are now Ask."],
-    ["server/index.ts", "notice: This thread's model ( … ) isn't available, so it now uses  … '"],
-    ["server/index.ts", "Company connection changed — choose whether to reconnect or use a pers"],
-    ["server/quota-switch.ts", "while  …  is signed out"],
-    ["server/quota-switch.ts", "after hitting the usage limit"],
-    ["server/quota-switch.ts", "switched to  … . Your request waits on a card above and continues on"],
-    ["server/quota-switch.ts", "switched to  … . Your request is still under way here and continues on"],
-    ["server/quota-switch.ts", "switched to  … . This conversation is working, so your message was not"],
-    ["server/quota-switch.ts", "switched to  … . A teammate's question is waiting for your answer in t"],
-    ["server/quota-switch.ts", "switched to  … , but your message could not be found to send again. Se"],
-    ["server/quota-switch.ts", "continuing on  …   …"],
-    ["server/quota-switch.ts", "could not continue on  … :  …"],
-    ["server/quota-switch.ts", "continuing with another AI is switched off — nothing switched."],
-    ["server/quota-switch.ts", "…  is no longer configured, and the card offered no other AI — nothing"],
-    ["server/quota-switch.ts", "…  is no longer configured — nothing switched."],
-    ["server/quota-switch.ts", "this conversation's own AI is no longer configured here, so no other A"],
-    ["server/quota-switch.ts", "…  did not answer in time — nothing switched. Try again in a moment."],
-    ["server/quota-switch.ts", "…  is no longer available — nothing switched."],
-    ["server/quota-switch.ts", "could not switch to  …  —  …"],
-    ["server/quota-switch.ts", "could not switch to  …  — the model switch could not be saved."],
-    ["server/quota-switch.ts", "already on"],
-    ["server/quota-switch.ts", "switched to"],
-    ["server/quota-switch.ts", "… . Your request waits on a card above and continues on  …  once you a"],
-    ["server/quota-switch.ts", "… . Your request is still under way here and continues on  … ."],
-    ["server/quota-switch.ts", "… . This conversation is working, so your message was not sent again."],
-    ["server/quota-switch.ts", "… . A teammate's question is waiting for your answer in this conversat"],
-    ["server/quota-switch.ts", "… , but the message that hit quota could not be found to resend — send"],
-    ["server/quota-switch.ts", "continuing on  …  after hitting quota"],
-    ["server/quota-switch.ts", "could not continue on  …  —  …"],
-  ],
-  "computers and the browser": [
-    ["server/browser/viewers/stream-v2.ts", "The browser could not restart. Wait for active work to finish and try"],
-    ["server/computer-wait.ts", "…  is running  …"],
-    ["server/computer-wait.ts", "…  is using it"],
-    ["server/computer-wait.ts", "—  …  in queue"],
-    ["server/computer-wait.ts", "; recent waits here have taken  …"],
-    ["server/computer-wait.ts", "Starts automatically when the turns ahead finish"],
-    ["server/computer-wait.ts", "Starts automatically when that finishes"],
-    ["server/computer-wait.ts", "Starts automatically when it is free"],
-    ["server/computer-wait.ts", "Waiting for its turn on this computer … .  …  … ."],
-    ["server/computer-wait.ts", "Waiting for its turn on this computer …  —  … .  …  … ."],
-    ["server/computer-wait.ts", "( …  held it)"],
-    ["server/computer-wait.ts", "Computer free — continuing after waiting  …  …"],
-    ["server/computer-wait.ts", "Stopped waiting for the computer after  …  … ."],
-    ["server/computer-wait.ts", "Computer still busy after  …  … . Parked — it continues automatically"],
-    ["server/index.ts", "Could not continue on  … :  …"],
-    ["server/surface.ts", "the cloud computer"],
-    ["server/surface.ts", "the Local VM"],
-    ["server/surface.ts", "this computer"],
-    ["server/surface.ts", "the built-in browser"],
-  ],
-  "questions, approvals and setup cards": [
-    ["server/default-bot.ts", "Hey! I'm  … . I'm new here."],
-    ["server/default-bot.ts", "Hi! I'm  … , your helper for everything here."],
-    ["server/host/ask-cards.ts", "Waiting on your  …  in @ …"],
-    ["server/host/ask-cards.ts", "Your bot has a question"],
-    ["server/host/ask-cards.ts", "…  needs your input:  …"],
-    ["server/index.ts", "Command allowed once, but its allowlist rule could not be saved. Try a"],
-    ["server/index.ts", "Couldn't deliver that answer — the request is no longer open, so the a"],
-    ["server/index.ts", "Approve for me:  … 's automatic reviewer is not available … , so this"],
-    ["server/index.ts", "Local computer approval"],
-    ["server/index.ts", "Approval needed"],
-    ["server/index.ts", "Your bot has a question"],
-    ["server/model-requests.ts", "'s default AI and model?"],
-    ["server/model-requests.ts", "Whose default model: @"],
-    ["server/outbound-hold.ts", "Send on your behalf?"],
-    ["server/profile-requests.ts", "Set up  … ?"],
-    ["server/profile-requests.ts", "Whose profile: @ …"],
-    ["server/read-and-draft.ts", "Refused (reads and drafts only):  …"],
-    ["server/skill-request-card.ts", "It keeps  …  reference file …  the bot reads when needed."],
-    ["server/skill-request-card.ts", "Enable skill \" … \"?"],
-    ["server/skill-request-card.ts", "Update skill \" … \"?"],
-    ["server/skill-request-card.ts", "… \n\nAdds one line to the prompt index; the body is read only when used"],
-    ["server/team-memory-requests.ts", "Remembered for the team"],
-    ["server/team-memory-requests.ts", "Remember this for the team?"],
-    ["server/team-setup-requests.ts", "Team setup applied"],
-    ["server/team-setup-requests.ts", "Team setup not applied"],
-  ],
-  "restarts, stops and context": [
-    ["server/index.ts", "context compaction started ( … )"],
-    ["server/index.ts", "context compacted — re-sent the last  …  digest …"],
-    ["server/index.ts", "generated image could not be attached —  …"],
-    ["server/index.ts", "invalid image"],
-    ["shared/first-reply-rescue.ts", "notice:  …  hasn't heard back from  …  yet."],
-  ],
-  "moves to the Cloud": [
-  ],
-  "calls": [
-    ["shared/live-call.ts", "Call with  …  ·  …"],
-  ],
-};
+const PENDING: Readonly<Record<string, ReadonlyArray<readonly [file: string, snippet: string]>>> = {};
 
 const listed = (finding: Finding, file: string, snippet: string) => finding.file === file && finding.text.includes(snippet);
 
@@ -590,5 +433,13 @@ describe("the guard", () => {
   it("finds English handed to a line from the packs", () => {
     expect(scan({ "server/c.ts": `store.appendMessage(id, { role: "bot", kind: "text", text: serverLine(language, "server.reports.notYet", { why: "the server is down", when }) });` }))
       .toEqual(["server/c.ts line: the server is down"]);
+  });
+});
+
+describe("a temporary permission's line", () => {
+  it("is written in Chinese for a Chinese conversation", () => {
+    expect(zh["server.grant.propose"]).toContain("允许我");
+    expect(zh["server.grant.granted"]).toContain("已授予");
+    expect(zh["server.grant.refused"]).toContain("已拒绝");
   });
 });

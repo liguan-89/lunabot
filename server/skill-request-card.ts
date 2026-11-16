@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 
 import { redactSecretsInText } from "./redact.ts";
+import { serverLine } from "./server-lines.ts";
 import { listSkills, readSkillFile, readSkillReferences } from "./skills.ts";
 import type { SkillRequestCardData } from "../shared/skill-request.ts";
 
@@ -12,15 +13,23 @@ export function skillCardCopy(staged: {
   gist: string;
   warnings: string[];
   files?: Array<{ path: string }>;
-}): { title: string; subtitle: string; tool: string } {
-  const warnings = staged.warnings.length ? `\n\nWarnings:\n- ${staged.warnings.join("\n- ")}` : "";
+}, language?: string): { title: string; subtitle: string; tool: string } {
+  const warnings = staged.warnings.length
+    ? serverLine(language, "server.skill.warnings", { warnings: staged.warnings.join("\n- ") })
+    : "";
   const references = (staged.files ?? []).filter((file) => file.path !== "SKILL.md").length;
-  const referenceNote = references ? ` It keeps ${references} reference file${references === 1 ? "" : "s"} the bot reads when needed.` : "";
+  const referenceNote = references
+    ? serverLine(language, references === 1 ? "server.skill.referenceOne" : "server.skill.referenceMany", { count: references })
+    : "";
   return {
     title: staged.action === "create"
-      ? `Enable skill "${staged.name}"?`
-      : `Update skill "${staged.name}"?`,
-    subtitle: `${staged.gist || staged.name}\n\nAdds one line to the prompt index; the body is read only when used.${referenceNote}${warnings}`,
+      ? serverLine(language, "server.skill.titleEnable", { name: staged.name })
+      : serverLine(language, "server.skill.titleUpdate", { name: staged.name }),
+    subtitle: serverLine(language, "server.skill.subtitle", {
+      gist: staged.gist || staged.name,
+      referenceNote,
+      warnings,
+    }),
     tool: "stage_skill",
   };
 }

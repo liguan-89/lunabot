@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createReplyTracker, createTalkServer, findDexBot, readFrames } from "./talk-server.mjs";
+import { createReplyTracker, createTalkServer, findBuiltInBot, readFrames } from "./talk-server.mjs";
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const turn = turnId => (turnId ? { turnId } : {});
@@ -43,14 +43,14 @@ function fakeServer({ bots, saved = null, sendStatus = 202, sendBody = { ok: tru
 const asking = (server, { signal = new AbortController().signal, onUpdate = () => {} } = {}) =>
   server.talk.ask({ chat: CHAT, text: "hi", sendId: "s1", signal, onUpdate });
 
-test("findDEX BOT picks this computer's DEX BOT, else the Chief of Staff", () => {
+test("findLuna Bot picks this computer's Luna Bot, else the Chief of Staff", () => {
   const mine = { id: "m", defaultBot: {} }, member = { id: "p", defaultBot: { person: "a@b.test" } }, chief = { id: "c", chiefOfStaff: true };
-  assert.equal(findDexBot([member, chief, mine]).id, "m");
-  assert.equal(findDexBot([member, chief]).id, "c");
-  assert.equal(findDexBot([{ id: "x" }, { ...chief, hidden: true }]), null);
+  assert.equal(findBuiltInBot([member, chief, mine]).id, "m");
+  assert.equal(findBuiltInBot([member, chief]).id, "c");
+  assert.equal(findBuiltInBot([{ id: "x" }, { ...chief, hidden: true }]), null);
 });
 
-test("prepare reuses the saved Quick asks chat while DEX BOT still has it", async () => {
+test("prepare reuses the saved Quick asks chat while Luna Bot still has it", async () => {
   const server = fakeServer({ bots: [{ id: "m", defaultBot: {}, tasks: [{ threadId: "t0" }, { threadId: "t1" }] }], saved: { botId: "m", threadId: "t1" } });
   assert.deepEqual(await server.talk.prepare(), { botId: "m", threadId: "t1" });
   assert.deepEqual(server.calls.map(([method]) => method), ["GET"]);
@@ -146,7 +146,7 @@ test("an ask steered into the running turn follows that turn to its end", () => 
   assert.deepEqual(track(completed("t1", true, "turn-1")), { kind: "done", ok: true, text: "Both done" });
 });
 
-test("a waiting card or an opened request means DEX BOT needs the person", () => {
+test("a waiting card or an opened request means Luna Bot needs the person", () => {
   const track = createReplyTracker({ threadId: "t1", sendId: "s1" });
   track(userMessage("t1", "s1"));
   assert.equal(track(card("t1", { answered: "Allow" })), null);

@@ -5,12 +5,14 @@ import { isCloudDeepLink } from "./cloud-entry.mjs";
 import { chatLinkFrom } from "./chat-link.mjs";
 
 const ACME = "0f8b6a3e-1c2d-4e5f-8a9b-0c1d2e3f4a5b", OTHER = "9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d";
-const LINK = `dexbot://team/${ACME}`;
+const LINK = `lunabot://team/${ACME}`;
 
 test("a team link names a team by its id and nothing else; anything more is no link", () => {
   assert.equal(teamIdFromLink(LINK), ACME);
-  for (const value of [null, undefined, 42, "", `${LINK}/`, `${LINK}?code=ABCDE`, `${LINK}#token=x`, "dexbot://team/", "dexbot://team/acme",
-    `dexbot://team/${ACME.toUpperCase()}`, `OPENMAUSBOT://team/${ACME}`, `dexbot://teams/${ACME}`, `https://evil.example/dexbot://team/${ACME}`, ` ${LINK}`]) {
+  // A join page that handed out the older scheme still opens the team.
+  assert.equal(teamIdFromLink(`dexbot://team/${ACME}`), ACME);
+  for (const value of [null, undefined, 42, "", `${LINK}/`, `${LINK}?code=ABCDE`, `${LINK}#token=x`, "lunabot://team/", "lunabot://team/acme",
+    `lunabot://team/${ACME.toUpperCase()}`, `OPENMAUSBOT://team/${ACME}`, `lunabot://teams/${ACME}`, `https://evil.example/lunabot://team/${ACME}`, ` ${LINK}`]) {
     assert.equal(teamIdFromLink(value), null, String(value));
   }
   // Older handlers leave it alone, and it is no Cloud or chat link.
@@ -19,9 +21,9 @@ test("a team link names a team by its id and nothing else; anything more is no l
 });
 
 test("a launch's team link is taken out of the command line, so a relaunch doesn't open it again", () => {
-  const argv = ["/Applications/DEX BOT", "--flag", LINK, "dexbot://cloud"];
+  const argv = ["/Applications/Luna Bot", "--flag", LINK, "lunabot://cloud"];
   assert.equal(takeTeamLink(argv), ACME);
-  assert.deepEqual(argv, ["/Applications/DEX BOT", "--flag", "dexbot://cloud"]);
+  assert.deepEqual(argv, ["/Applications/Luna Bot", "--flag", "lunabot://cloud"]);
   assert.equal(takeTeamLink(argv), null);
 });
 
@@ -161,8 +163,8 @@ test("main's wiring: a team URL or command line is taken, anything else is left 
   const links = installTeamJoin({ argv, account: () => client, addAccount: async () => {}, openTeam: async () => {}, t: (key, params) => `${key}${params ? JSON.stringify(params) : ""}`,
     confirm: async (message, detail, button) => { asked.push([message, detail, button]); return false; }, reveal: () => {}, store: { read: () => null, write: () => {} }, ownPlace: () => false, log: () => {} });
   assert.deepEqual(argv, ["/app"]);
-  assert.equal(links.fromUrl("dexbot://cloud"), false);
-  assert.equal(links.fromArgs(["/app", "dexbot://cloud"]), false);
+  assert.equal(links.fromUrl("lunabot://cloud"), false);
+  assert.equal(links.fromArgs(["/app", "lunabot://cloud"]), false);
   await links.ready();
   await settle();
   assert.deepEqual(asked, [["native.teamLink.otherTitle", 'native.teamLink.otherDetail{"email":"me@home.test"}', "native.teamLink.signIn"]]);

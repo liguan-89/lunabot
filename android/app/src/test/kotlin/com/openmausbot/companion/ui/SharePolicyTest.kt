@@ -129,11 +129,11 @@ class SharePolicyTest {
             SharePolicy.routeLabel(Connection(id = "lan", name = "Lan", host = "10.0.0.2", port = 8810)),
         )
         assertEquals(
-            "此手机的配对已过期。请打开 DEX BOT 并重新配对。",
+            "此手机的配对已过期。请打开 Luna Bot 并重新配对。",
             SharePolicy.friendlyMessage(APIError.Status(401, "revoked"), "Air"),
         )
         assertEquals(
-            "无法连接到 Air。请保持 DEX BOT 打开并开启远程访问，然后重试。",
+            "无法连接到 Air。请保持 Luna Bot 打开并开启远程访问，然后重试。",
             SharePolicy.friendlyMessage(APIError.Transport("timeout"), "Air"),
         )
         assertEquals(

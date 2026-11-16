@@ -410,7 +410,7 @@ describe("a Team Cloud's audiences", () => {
     const ownMain = { ...bot, threadId: "t-pub-2", mainThreadId: "t-pub-2" };
     expect((memberBot(ownMain, ada) as { tasks: Array<{ title: string }> }).tasks[1]!.title, "a private chat is never the shared one").toBe("New thread");
     const ownHelper = { ...bot, defaultBot: { person: "ada@x.test" } };
-    expect((memberBot(ownHelper, ada) as { tasks: Array<{ title: string }> }).tasks[0]!.title, "a member's own DEX BOT shares nothing").toBe("Rooms today: 12");
+    expect((memberBot(ownHelper, ada) as { tasks: Array<{ title: string }> }).tasks[0]!.title, "a member's own Luna Bot shares nothing").toBe("Rooms today: 12");
     const offTeam = new VisibleSet(open, openGroups, ADA);
     expect((memberBot(bot, offTeam) as { tasks: Array<{ title: string }> }).tasks[0]!.title, "off a team nothing changes").toBe("Rooms today: 12");
   });
@@ -489,7 +489,7 @@ describe("a Team Cloud's audiences", () => {
     expect(memberBot({ id: "pub", tasks: [{ threadId: "t-pub-2" }] }, new VisibleSet(bots, groups, BOB)).tasks).toEqual([{ threadId: "t-pub-2" }]);
   });
 
-  it("a person's own DEX BOT exists for them alone: no admin and no other member sees it, whatever its sharing says", () => {
+  it("a person's own Luna Bot exists for them alone: no admin and no other member sees it, whatever its sharing says", () => {
     // As an admin could once leave it: listed for everyone.
     const adas = { id: "adas-maus", threadId: "t-maus", defaultBot: { person: "ada@example.test" }, visibility: "everyone", access: { everyone: "chat", people: {} } };
     const withMaus = [...open, adas];

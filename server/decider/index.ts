@@ -4,9 +4,10 @@ import { userError, type UserError } from "../user-errors.ts";
 import type { AppConfig } from "../config.ts";
 import { deciderCredential } from "../included-services.ts";
 import {
-  helpersOn, includedAccount, jevAccount, openrouterAccount, sharedOpenRouterKey, workersAiAccount, type HelperAccount,
+  helpersOn, includedAccount, jevAccount, layaAccount, openrouterAccount, sharedOpenRouterKey, workersAiAccount, type HelperAccount,
 } from "./accounts.ts";
 import { jevBackend } from "./jev.ts";
+import { layaBackend, type LocalLayaService } from "./local-laya.ts";
 import { appendDeciderLog, stateHash } from "./log.ts";
 import { OPENROUTER_DEFAULT_API, OPENROUTER_DEFAULT_MODEL, openrouterBackend } from "./openrouter.ts";
 import { KEY_CHECK_QUESTION, KEY_CHECK_STATE, relayAccepts, relaySeam } from "./relay.ts";
@@ -25,12 +26,16 @@ export const KEY_CHECK_TIMEOUT_MS = 10_000;
 const MIN_TIMEOUT_MS = 50;
 const MAX_TIMEOUT_MS = 30_000;
 
-const BACKENDS: Record<DeciderProvider, DeciderBackend> = { jev: jevBackend, workersai: workersAiBackend, openrouter: openrouterBackend };
+const BACKENDS: Record<DeciderProvider, DeciderBackend> = { jev: jevBackend, laya: layaBackend, workersai: workersAiBackend, openrouter: openrouterBackend };
+let boundLocalLaya: LocalLayaService | null = null;
+export function bindLocalLaya(service: LocalLayaService | null): void { boundLocalLaya = service; }
+const localLayaFor = (service?: LocalLayaService | null) => service === undefined ? boundLocalLaya : service;
 
 type DeciderConfig = NonNullable<AppConfig["decider"]>;
 
 /** The provider a draft key with no provider named is tested at: the old provider choice, else Jev. */
 function draftProvider(cfg: AppConfig): DeciderProvider {
+  if (cfg.decider?.provider === "laya") return "laya";
   return cfg.decider?.provider === "openrouter" ? "openrouter" : "jev";
 }
 
@@ -45,31 +50,34 @@ export function deciderApi(cfg: AppConfig): OpenRouterApi {
 
 /** In order: the person's own Jev key, their own Workers AI key (Clef), Cloud's included relay (only for seams it
  * accepts), the OpenRouter LLM fallback, nothing. */
-export function deciderAccount(cfg: AppConfig, seam?: DeciderSeam): HelperAccount | null {
-  const jev = jevAccount(cfg);
-  const candidates = [jev, workersAiAccount(cfg), jev?.included ? null : includedAccount(), openrouterAccount(cfg)];
+export function deciderAccount(cfg: AppConfig, seam?: DeciderSeam, service?: LocalLayaService | null): HelperAccount | null {
+  const localLaya = localLayaFor(service);
+  if (cfg.decider?.provider === "laya") return layaAccount(cfg, localLaya);
+  const candidates = [jevAccount(cfg), workersAiAccount(cfg), includedAccount(), openrouterAccount(cfg)];
   return candidates.find((account): account is HelperAccount => Boolean(account) && !(account!.included && seam && !relaySeam(seam))) ?? null;
 }
 
-export function deciderConfigured(cfg: AppConfig): boolean {
-  return Boolean(deciderAccount(cfg));
+export function deciderConfigured(cfg: AppConfig, service?: LocalLayaService | null): boolean {
+  return Boolean(deciderAccount(cfg, undefined, service));
 }
 
 export function deciderIncludedHere(): boolean {
   return deciderCredential(undefined, undefined)?.included === true;
 }
 
-export function deciderEnabled(cfg: AppConfig): boolean {
-  return helpersOn(cfg, deciderAccount(cfg));
+export function deciderEnabled(cfg: AppConfig, service?: LocalLayaService | null): boolean {
+  return helpersOn(cfg, deciderAccount(cfg, undefined, service));
 }
 
-/** Absent means on. */
+/** The original jobs are on unless switched off; the newer opt-in jobs are off until switched on. */
+const DEFAULT_ON_JOBS: ReadonlySet<DeciderJob> = new Set(["roomRouting", "inboxTriage"]);
 export function deciderJobOn(cfg: AppConfig, job: DeciderJob): boolean {
-  return cfg.decider?.jobs?.[job] !== false;
+  const value = cfg.decider?.jobs?.[job];
+  return value === undefined ? DEFAULT_ON_JOBS.has(job) : value !== false;
 }
 
-export function deciderReady(cfg: AppConfig, job: DeciderJob): boolean {
-  return deciderEnabled(cfg) && deciderJobOn(cfg, job) && Boolean(deciderAccount(cfg, job));
+export function deciderReady(cfg: AppConfig, job: DeciderJob, service?: LocalLayaService | null): boolean {
+  return deciderEnabled(cfg, service) && deciderJobOn(cfg, job) && Boolean(deciderAccount(cfg, job, service));
 }
 
 /** Whether Settings → API keys holds an OpenRouter key the decision model may use. */
@@ -80,8 +88,8 @@ export function deciderSharedKeyUsable(cfg: AppConfig): boolean {
 /** Never a key, nor a base URL (operator settings with no UI). `provider` is the one in use, else the one chosen
  * (so Settings shows its key field); `keySource` and `sharedKey` are OpenRouter's, while it is in use. Which own
  * keys are on file is `describeHelpers`'s. */
-export function describeDecider(cfg: AppConfig) {
-  const account = deciderAccount(cfg);
+export function describeDecider(cfg: AppConfig, service?: LocalLayaService | null) {
+  const account = deciderAccount(cfg, undefined, service);
   const provider = account?.provider ?? draftProvider(cfg);
   return {
     provider,
@@ -90,8 +98,14 @@ export function describeDecider(cfg: AppConfig) {
     ...(account?.keySource ? { keySource: account.keySource } : {}),
     ...(provider === "openrouter" && deciderSharedKeyUsable(cfg) ? { sharedKey: true as const } : {}),
     ...(account?.included ? { included: true as const } : {}),
-    enabled: deciderEnabled(cfg),
-    jobs: { roomRouting: deciderJobOn(cfg, "roomRouting") },
+    enabled: deciderEnabled(cfg, service),
+    jobs: {
+      roomRouting: deciderJobOn(cfg, "roomRouting"),
+      inboxTriage: deciderJobOn(cfg, "inboxTriage"),
+      browserClicks: deciderJobOn(cfg, "browserClicks"),
+      toolSelection: deciderJobOn(cfg, "toolSelection"),
+      placement: deciderJobOn(cfg, "placement"),
+    },
   };
 }
 
@@ -101,6 +115,8 @@ export interface DeciderKeyFallback {
   included?: boolean;
   /** The OpenRouter key under Settings → API keys. */
   shared?: boolean;
+  /** The already-running local Laya service. */
+  local?: boolean;
 }
 
 const KEY_FIELDS = ["key", "workersAiToken", "openrouterKey"] as const;
@@ -118,7 +134,7 @@ export function deciderSavePatch(
   const clearing = KEY_FIELDS.some((field) => next[field] === "");
   const after = (field: (typeof KEY_FIELDS)[number] | "workersAiAccountId") => (typeof next[field] === "string" ? next[field] : current?.[field]?.trim()) || "";
   const ownAfter = Boolean(after("key") || after("openrouterKey") || (after("workersAiToken") && after("workersAiAccountId")));
-  const fallbackHere = fallback.included === true || fallback.shared === true;
+  const fallbackHere = fallback.included === true || fallback.shared === true || fallback.local === true;
   if (patch.openrouterModel !== undefined && patch.openrouterApi === undefined) next.openrouterApi = "chat";
   if (next.workersAiToken && !after("workersAiAccountId")) return { ok: false, ...userError("serverError.decider.accountRequired") };
   if (saving) {
@@ -135,12 +151,12 @@ export function deciderSavePatch(
   return { ok: true, patch: next };
 }
 
-export interface DeciderKeyCheck { key: string; provider: DeciderProvider; model?: string; api?: OpenRouterApi; accountId?: string }
+export interface DeciderKeyCheck { key: string; provider: Exclude<DeciderProvider, "laya">; model?: string; api?: OpenRouterApi; accountId?: string }
 
 /** What Settings says when a save's key check is refused: a fixed sentence, never the vendor's body. */
 export const DECIDER_KEY_ERROR = { jev: "serverError.decider.jevRejected", workersai: "serverError.decider.workersRejected", openrouter: "serverError.decider.routerRejected" } as const;
 
-export const DECIDER_KEY_REJECTED: Record<DeciderProvider, string> = {
+export const DECIDER_KEY_REJECTED: Partial<Record<DeciderProvider, string>> = {
   jev: "Jev rejected this key. Check it at typesafe.ai and paste it again.",
   workersai: "Cloudflare rejected this token. Check that it has Workers AI permission and belongs to this account ID.",
   openrouter: "OpenRouter rejected this key. Check it at openrouter.ai/keys and paste it again.",
@@ -151,6 +167,7 @@ export function deciderPatchKey(
   patch: Partial<DeciderConfig>,
   current: DeciderConfig | undefined,
 ): { provider: DeciderProvider; check: DeciderKeyCheck } | null {
+  if (patch.provider === "laya") return null;
   const jevKey = patch.key?.trim();
   const workersAiKey = patch.workersAiToken?.trim();
   const openrouterKey = patch.openrouterKey?.trim();
@@ -178,6 +195,7 @@ function checkAccount(cfg: AppConfig, input: { key?: string; provider?: DeciderP
   const draft = input.key?.trim();
   if (!draft && !input.provider) return deciderAccount(cfg, "keyCheck");
   const provider = input.provider ?? draftProvider(cfg);
+  if (provider === "laya") return null;
   if (provider === "workersai") return workersAiAccount(cfg, { token: draft, accountId: input.accountId });
   if (provider === "openrouter") return openrouterAccount(cfg, draft);
   return jevAccount(cfg, draft) ?? includedAccount();
@@ -188,6 +206,7 @@ export interface DeciderDeps {
   fetch?: typeof fetch;
   dataDir?: string;
   now?: () => number;
+  localLaya?: LocalLayaService | null;
 }
 
 export interface Decider {
@@ -219,14 +238,15 @@ const isJob = (seam: DeciderSeam): seam is DeciderJob => (DECIDER_JOBS as readon
 export function createDecider(deps: DeciderDeps): Decider {
   const fetchImpl = deps.fetch ?? fetch;
   const now = deps.now ?? (() => performance.now());
+  const localLaya = deps.localLaya !== undefined ? deps.localLaya : boundLocalLaya;
 
   function gate(cfg: AppConfig, seam: DeciderSeam): DeciderFailure | null {
     if (cfg.decider?.provider === "off") return "disabled";
     if (seam === "keyCheck") return null;
-    if (!deciderConfigured(cfg)) return cfg.decider?.enabled === true ? "no_key" : "disabled";
-    if (!deciderEnabled(cfg)) return "disabled";
+    if (!deciderConfigured(cfg, localLaya)) return cfg.decider?.enabled === true ? "no_key" : "disabled";
+    if (!deciderEnabled(cfg, localLaya)) return "disabled";
     if (isJob(seam) && !deciderJobOn(cfg, seam)) return "job_off";
-    if (!deciderAccount(cfg, seam)) return "no_key";
+    if (!deciderAccount(cfg, seam, localLaya)) return "no_key";
     return null;
   }
 
@@ -316,7 +336,7 @@ export function createDecider(deps: DeciderDeps): Decider {
       const cfg = deps.config();
       const refused = gate(cfg, seam);
       if (refused) return { ok: false, reason: refused };
-      const account = deciderAccount(cfg, seam)!;
+      const account = deciderAccount(cfg, seam, localLaya)!;
       // Through the included token, only the exact requests the relay takes.
       if (account.included && !relayAccepts(seam, state, questions)) return { ok: false, reason: "misconfigured" };
       return await call(seam, account, { ...openrouterRequest(cfg, account, { model: options.model }), state, questions }, options);

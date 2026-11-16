@@ -80,7 +80,7 @@ object ProfileRules {
         "头像生成将使用电脑上配置的共享图像生成服务，不会向本手机发送或存储任何 API 密钥。"
 
     private const val GENERATE_BLOCKED_FOOTER: String =
-        "如需生成头像，请先在电脑端的 DEX BOT 中配置共享图像生成服务。手机端不支持添加服务商密钥。"
+        "如需生成头像，请先在电脑端的 Luna Bot 中配置共享图像生成服务。手机端不支持添加服务商密钥。"
 
     // The ElevenLabs copy below is what iOS ships and is correct under that
     // engine, so it stays byte-identical. Each string that names the engine or
@@ -111,7 +111,7 @@ object ProfileRules {
      * and that control stays reachable in exactly this state.
      */
     private const val SYSTEM_VOICE_UNCONFIGURED_FOOTER: String =
-        "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 DEX BOT 中切换语音引擎以启用语音朗读。"
+        "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 Luna Bot 中切换语音引擎以启用语音朗读。"
 
     private const val VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的共享 ElevenLabs 密钥。"
@@ -119,7 +119,7 @@ object ProfileRules {
     private const val FISH_TTS_UNCONFIGURED: String = "Fish Audio 尚未配置"
 
     private const val FISH_VOICE_UNCONFIGURED_FOOTER: String =
-        "请在电脑端 DEX BOT 中添加共享 Fish Audio API 密钥。密钥绝不会发送到本手机。"
+        "请在电脑端 Luna Bot 中添加共享 Fish Audio API 密钥。密钥绝不会发送到本手机。"
 
     private const val FISH_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 Fish Audio。"
@@ -134,7 +134,7 @@ object ProfileRules {
     private const val CHATTERBOX_TTS_UNCONFIGURED: String = "Chatterbox 服务器未连接"
 
     private const val CHATTERBOX_VOICE_UNCONFIGURED_FOOTER: String =
-        "请在电脑端 DEX BOT 中添加 Chatterbox 服务器地址以启用语音朗读。"
+        "请在电脑端 Luna Bot 中添加 Chatterbox 服务器地址以启用语音朗读。"
 
     private const val CHATTERBOX_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用 Chatterbox 服务器。"
@@ -145,7 +145,7 @@ object ProfileRules {
     private const val XAI_TTS_UNCONFIGURED: String = "xAI 语音尚未配置"
 
     private const val XAI_VOICE_UNCONFIGURED_FOOTER: String =
-        "请在电脑端 DEX BOT 中添加共享 xAI 密钥。密钥绝不会发送到本手机。"
+        "请在电脑端 Luna Bot 中添加共享 xAI 密钥。密钥绝不会发送到本手机。"
 
     private const val XAI_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 xAI 语音。"
@@ -153,7 +153,7 @@ object ProfileRules {
     private const val GEMINI_TTS_UNCONFIGURED: String = "Gemini 语音尚未配置"
 
     private const val GEMINI_VOICE_UNCONFIGURED_FOOTER: String =
-        "请在电脑端 DEX BOT 中添加共享 Gemini 密钥。密钥绝不会发送到本手机。"
+        "请在电脑端 Luna Bot 中添加共享 Gemini 密钥。密钥绝不会发送到本手机。"
 
     private const val GEMINI_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 Gemini 语音。"
@@ -161,7 +161,7 @@ object ProfileRules {
     private const val OPENAI_TTS_UNCONFIGURED: String = "OpenAI 语音尚未配置"
 
     private const val OPENAI_VOICE_UNCONFIGURED_FOOTER: String =
-        "请在电脑端 DEX BOT 中添加共享 OpenAI 密钥。密钥绝不会发送到本手机。"
+        "请在电脑端 Luna Bot 中添加共享 OpenAI 密钥。密钥绝不会发送到本手机。"
 
     private const val OPENAI_VOICE_NO_DEFAULT_FOOTER: String =
         "尚未选择工作区默认音色。请在上方为此智能体单独选择音色；语音合成仍将使用电脑上的 OpenAI 语音。"

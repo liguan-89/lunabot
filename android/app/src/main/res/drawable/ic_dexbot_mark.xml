@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  The DEX BOT mark: the bot face as a single-colour vector. White on
+  The Luna Bot mark: the bot face as a single-colour vector. White on
   transparent, which is the notification small-icon contract (the system
   tints it), and tintable anywhere else it is used. The eyes are evenOdd
   holes, so they read on the status bar too.

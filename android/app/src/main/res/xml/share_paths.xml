@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!--
+      Files copied out of the granted folder for one share to another app: the
+      system provider needs a URI it can grant, and a SAF document URI cannot be
+      re-delegated. ShareCache empties this before each copy, so only the most
+      recent shares are reachable, and only by the app they were granted to.
+    -->
+    <cache-path
+        name="bot-share"
+        path="bot-share/" />
+</paths>

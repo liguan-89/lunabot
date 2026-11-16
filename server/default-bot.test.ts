@@ -23,16 +23,16 @@ const briefChief = (store: Store) => createBrief({ store, dataDir: DATA_DIR, hos
   address: () => undefined, failRun: () => {}, keep: () => {}, items: () => null }).chief();
 /** A new install from before MausBot was marked: its first bot was MausBot in silver, made its Chief. */
 function seededBefore(store: Store): BotRecord {
-  const seeded = store.createBot({ name: "DEX BOT", color: "silver" });
+  const seeded = store.createBot({ name: "Luna Bot", color: "silver" });
   store.setChiefOfStaff(seeded.id);
   return seeded;
 }
 
-describe("DEX BOT, every person's helper", () => {
+describe("Luna Bot, every person's helper", () => {
   beforeEach(() => rmSync(DATA_DIR, { recursive: true, force: true }));
   afterEach(() => readTeamRolesWith(() => null));
 
-  it("gives a fresh install one DEX BOT, its Chief, in chrome, introduced once", () => {
+  it("gives a fresh install one Luna Bot, its Chief, in chrome, introduced once", () => {
     const store = new Store(selection);
     store.seedIfEmpty();
     boot(store);
@@ -42,11 +42,11 @@ describe("DEX BOT, every person's helper", () => {
     boot(again);
     expect(again.bots).toHaveLength(1);
     const maus = placeMausBots(again)[0]!;
-    expect(maus).toMatchObject({ name: "DEX BOT", color: "chrome", chiefOfStaff: true, defaultBot: {} });
+    expect(maus).toMatchObject({ name: "Luna Bot", color: "chrome", chiefOfStaff: true, defaultBot: {} });
     expect(intros(again, maus)).toHaveLength(1);
   });
 
-  it("leaves a Team Cloud member's DEX BOT uncrowned: only its person's own requests reach a bot everyone sees, and it manages none", () => {
+  it("leaves a Team Cloud member's Luna Bot uncrowned: only its person's own requests reach a bot everyone sees, and it manages none", () => {
     const store = new Store(selection);
     store.seedIfEmpty({ defaultBot: false });
     const own = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "ada@acme.test", team: "Acme" })!;
@@ -56,14 +56,14 @@ describe("DEX BOT, every person's helper", () => {
     expect(canManage(own, fox)).toBe(false);
   });
 
-  it("gives an existing install without one a DEX BOT once on update, beside its Chief, which stays exactly as it was", () => {
+  it("gives an existing install without one a Luna Bot once on update, beside its Chief, which stays exactly as it was", () => {
     const store = new Store(selection);
     const chief = store.createBot({ name: "Pixel" });
     store.setChiefOfStaff(chief.id);
     store.createBot({ name: "Writer", title: "Writer", soul: "Write." });
     const before = structuredClone(store.bot(chief.id));
     const maus = boot(store)!;
-    expect(maus).toMatchObject({ name: "DEX BOT", color: "chrome", defaultBot: {} });
+    expect(maus).toMatchObject({ name: "Luna Bot", color: "chrome", defaultBot: {} });
     expect(maus.chiefOfStaff).toBeFalsy();
     expect(chiefLevel(maus)).toBe(true);
     expect(store.bot(chief.id)).toEqual(before);
@@ -75,7 +75,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(restarted.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([chief.id]);
   });
 
-  it("adopts a new install's renamed DEX BOT with its history instead of making another, and puts the intro on top of a new conversation", () => {
+  it("adopts a new install's renamed Luna Bot with its history instead of making another, and puts the intro on top of a new conversation", () => {
     const store = new Store(selection);
     const seeded = seededBefore(store);
     const first = seeded.threadId;
@@ -95,23 +95,23 @@ describe("DEX BOT, every person's helper", () => {
     expect(intros(new Store(selection), new Store(selection).bot(seeded.id)!)).toHaveLength(1);
   });
 
-  it("keeps the colour the person gave an adopted DEX BOT", () => {
+  it("keeps the colour the person gave an adopted Luna Bot", () => {
     const store = new Store(selection);
     const seeded = seededBefore(store);
     store.patchBot(seeded.id, { color: "blue" });
     expect(boot(store)).toMatchObject({ id: seeded.id, color: "blue" });
   });
 
-  it("makes DEX BOT the Chief of a place that has none, so the brief has someone to come from", () => {
+  it("makes Luna Bot the Chief of a place that has none, so the brief has someone to come from", () => {
     const store = new Store(selection);
     store.createBot({ name: "Pixel" });
     const maus = boot(store)!;
     expect(store.bot(maus.id)?.chiefOfStaff).toBe(true);
     expect(briefChief(store)?.id).toBe(maus.id);
-    expect(intros(store, maus)[0]?.text).toContain("Hey! I'm DEX BOT. I'm new here. I'm here to be your Chief of Staff. I can manage your other bots.");
+    expect(intros(store, maus)[0]?.text).toContain("Hey! I'm Luna Bot. I'm new here. I'm here to be your Chief of Staff. I can manage your other bots.");
   });
 
-  it("makes an adopted DEX BOT the Chief when its place has none left", () => {
+  it("makes an adopted Luna Bot the Chief when its place has none left", () => {
     const store = new Store(selection);
     const seeded = seededBefore(store);
     store.setChiefOfStaff(null);
@@ -121,7 +121,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(briefChief(store)?.id).toBe(seeded.id);
   });
 
-  it("leaves a place's own Chief as the Chief, and the brief comes from DEX BOT, which says so", () => {
+  it("leaves a place's own Chief as the Chief, and the brief comes from Luna Bot, which says so", () => {
     const store = new Store(selection);
     const chief = store.createBot({ name: "Clive" });
     store.setChiefOfStaff(chief.id);
@@ -133,7 +133,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(intros(store, maus)[0]?.text).not.toContain("Chief of Staff");
   });
 
-  it("keeps a DEX BOT Chief hidden from the sidebar working as the Chief", () => {
+  it("keeps a Luna Bot Chief hidden from the sidebar working as the Chief", () => {
     const store = new Store(selection);
     const maus = boot(store)!;
     store.patchBot(maus.id, { sidebarHidden: true });
@@ -143,7 +143,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(briefChief(restarted)?.id).toBe(maus.id);
   });
 
-  it("shows a hidden DEX BOT again after a profile rename or a department move", () => {
+  it("shows a hidden Luna Bot again after a profile rename or a department move", () => {
     const store = new Store(selection);
     const maus = boot(store)!;
     const hiddenAfter = (change: () => unknown) => {
@@ -159,7 +159,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(hiddenAfter(() => store.updateTeamMembers("Work", [maus.id], []))).toBe(false);
   });
 
-  it("shows a hidden DEX BOT again after its department is deleted or a reviewed setup renames it", () => {
+  it("shows a hidden Luna Bot again after its department is deleted or a reviewed setup renames it", () => {
     const store = new Store(selection);
     const maus = boot(store)!;
     store.setBotsSection([maus.id], "Work");
@@ -174,7 +174,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(store.bot(maus.id)).toMatchObject({ name: "Nova", sidebarHidden: false });
   });
 
-  it("knows a renamed DEX BOT by its mark: no second one on update, Chief tools kept", () => {
+  it("knows a renamed Luna Bot by its mark: no second one on update, Chief tools kept", () => {
     const store = new Store(selection);
     store.createBot({ name: "Writer" });
     const chief = store.createBot({ name: "Clive" });
@@ -188,7 +188,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(restarted.bots).toHaveLength(3);
   });
 
-  it("never takes a first bot that is not a new install's DEX BOT: it gets a DEX BOT beside it", () => {
+  it("never takes a first bot that is not a new install's Luna Bot: it gets a Luna Bot beside it", () => {
     const store = new Store(selection);
     const pixel = store.createBot({ name: "Pixel" });
     const maus = boot(store)!;
@@ -215,14 +215,14 @@ describe("DEX BOT, every person's helper", () => {
     expect(mdb.attentionRows(0).filter((row) => row.kind === "options")).toEqual([]);
   });
 
-  it("is hidden, never deleted or archived, and a hidden DEX BOT is never made again", () => {
+  it("is hidden, never deleted or archived, and a hidden Luna Bot is never made again", () => {
     const store = new Store(selection);
     const maus = boot(store)!;
     const other = store.createBot({ name: "Writer" });
-    expect(() => store.deleteBot(maus.id)).toThrow(/DEX BOT can't be deleted or archived/);
+    expect(() => store.deleteBot(maus.id)).toThrow(/Luna Bot can't be deleted or archived/);
     expect(store.bot(maus.id)).toBeTruthy();
-    expect(defaultBotPatchRefusal(maus, { hidden: true })).toMatch(/Show DEX BOT in the sidebar/);
-    expect(defaultBotPatchRefusal(other, { sidebarHidden: true })).toMatch(/Only DEX BOT/);
+    expect(defaultBotPatchRefusal(maus, { hidden: true })).toMatch(/Show Luna Bot in the sidebar/);
+    expect(defaultBotPatchRefusal(other, { sidebarHidden: true })).toMatch(/Only Luna Bot/);
     expect(defaultBotPatchRefusal(maus, { sidebarHidden: "yes" })).toBe("sidebarHidden must be true or false");
     expect(defaultBotPatchRefusal(maus, { sidebarHidden: true })).toBeNull();
     store.patchBot(maus.id, { sidebarHidden: true });
@@ -244,13 +244,13 @@ describe("DEX BOT, every person's helper", () => {
   it("keeps the oldest when two are marked", () => {
     const store = new Store(selection);
     const first = boot(store)!;
-    const second = store.createBot({ name: "DEX BOT 2" });
+    const second = store.createBot({ name: "Luna Bot 2" });
     store.patchBot(second.id, { defaultBot: {} });
     expect(boot(store)?.id).toBe(first.id);
     expect(placeMausBots(store).map((bot) => bot.id)).toEqual([first.id]);
   });
 
-  it("gives each Team Cloud member their own private DEX BOT, and the team no DEX BOT of its own", () => {
+  it("gives each Team Cloud member their own private Luna Bot, and the team no Luna Bot of its own", () => {
     const store = new Store(selection);
     store.seedIfEmpty({ defaultBot: false });
     expect(store.bots).toHaveLength(1);
@@ -259,7 +259,7 @@ describe("DEX BOT, every person's helper", () => {
     const ada = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "Ada@Example.com", team: "Acme" })!;
     const bea = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "bea@example.com", team: "Acme" })!;
     expect(ensureDefaultBot(store, { dataDir: DATA_DIR, person: "ada@example.com", team: "Acme" })?.id).toBe(ada.id);
-    expect(ada).toMatchObject({ name: "DEX BOT", defaultBot: { person: "ada@example.com" }, visibility: { people: ["ada@example.com"] } });
+    expect(ada).toMatchObject({ name: "Luna Bot", defaultBot: { person: "ada@example.com" }, visibility: { people: ["ada@example.com"] } });
     expect(bea).toMatchObject({ defaultBot: { person: "bea@example.com" }, visibility: { people: ["bea@example.com"] } });
     expect(ada.chiefOfStaff).toBeFalsy();
     expect(intros(store, ada)[0]?.text).toContain("On Acme, I'm here for you and look after your own bots.");
@@ -267,7 +267,7 @@ describe("DEX BOT, every person's helper", () => {
     expect(store.bots).toHaveLength(3);
   });
 
-  it("holds a Chief's tools, never more than its member: a User's DEX BOT holds none", () => {
+  it("holds a Chief's tools, never more than its member: a User's Luna Bot holds none", () => {
     const store = new Store(selection);
     const place = boot(store)!;
     const member = ensureDefaultBot(store, { dataDir: DATA_DIR, person: "user@example.com", team: "Acme" })!;
@@ -294,12 +294,12 @@ describe("DEX BOT, every person's helper", () => {
     }
     const fields = (bot: Record<string, unknown>) => Object.fromEntries(MOVE_BOT_FIELDS.map((name) => [name, bot[name] ?? null]));
 
-    it("leaves My Cloud exactly one DEX BOT when this computer's arrives: My Cloud's unused one is archived, whatever order the Chief comes in", async () => {
+    it("leaves My Cloud exactly one Luna Bot when this computer's arrives: My Cloud's unused one is archived, whatever order the Chief comes in", async () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       boot(cloud);
       const starter = placeMausBots(cloud)[0]!;
-      const arrivingMaus = cloud.createBot({ name: "DEX BOT" }, { id: "desk-maus-000001", seedMessages: false });
+      const arrivingMaus = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000001", seedMessages: false });
       expect(await arrive(cloud, arrivingMaus.id, fields({ defaultBot: {}, sidebarHidden: true, welcomed: true }))).toBe(200);
       expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
       expect(cloud.bot(arrivingMaus.id)).toMatchObject({ sidebarHidden: true, welcomed: true });
@@ -313,7 +313,7 @@ describe("DEX BOT, every person's helper", () => {
       expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([arrivingMaus.id]);
     });
 
-    it("still makes one DEX BOT on My Cloud when this computer's arrives renamed and with its own picture", async () => {
+    it("still makes one Luna Bot on My Cloud when this computer's arrives renamed and with its own picture", async () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       boot(cloud);
@@ -326,24 +326,24 @@ describe("DEX BOT, every person's helper", () => {
       expect(cloud.bot(starter.id)?.defaultBot).toBeUndefined();
     });
 
-    it("keeps a My Cloud DEX BOT someone already used as the DEX BOT, and the arriving one becomes an ordinary bot named for its computer (email 1a1c22b6)", async () => {
+    it("keeps a My Cloud Luna Bot someone already used as the Luna Bot, and the arriving one becomes an ordinary bot named for its computer (email 1a1c22b6)", async () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       const theirs = boot(cloud)!;
       cloud.appendMessage(theirs.threadId, { role: "user", kind: "text", text: "Hi" });
-      const arriving = cloud.createBot({ name: "DEX BOT" }, { id: "desk-maus-000002", seedMessages: false });
+      const arriving = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000002", seedMessages: false });
       expect(await arrive(cloud, arriving.id, fields({ defaultBot: {}, sidebarHidden: true }), "Amit's MacBook")).toBe(200);
       expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
-      expect(cloud.bot(theirs.id)).toMatchObject({ name: "DEX BOT", chiefOfStaff: true });
+      expect(cloud.bot(theirs.id)).toMatchObject({ name: "Luna Bot", chiefOfStaff: true });
       expect(cloud.bot(theirs.id)?.hidden).toBeFalsy();
       const moved = cloud.bot(arriving.id)!;
-      expect(moved).toMatchObject({ name: "DEX BOT (from Amit's MacBook)" });
+      expect(moved).toMatchObject({ name: "Luna Bot (from Amit's MacBook)" });
       expect([moved.defaultBot, moved.sidebarHidden, moved.hidden]).toEqual([undefined, undefined, undefined]);
       expect(defaultBotPatchRefusal(moved, { hidden: true })).toBeNull();
       expect(defaultBotPatchRefusal(cloud.bot(theirs.id), { hidden: true })).toContain("can't be deleted or archived");
       expect(boot(cloud)?.id).toBe(theirs.id);
       // A Mac MausBot that was the Chief there doesn't take the crown from the one kept here.
-      const chief = cloud.createBot({ name: "DEX BOT" }, { id: "desk-maus-000006", seedMessages: false });
+      const chief = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000006", seedMessages: false });
       expect(await arrive(cloud, chief.id, fields({ defaultBot: {}, chiefOfStaff: true }), "Amit's MacBook")).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([theirs.id]);
       // Nor on a later pass that sends only its Chief fields: the computer it comes from says it is the MausBot there.
@@ -353,7 +353,7 @@ describe("DEX BOT, every person's helper", () => {
       // Nor from a Chief here that is not the MausBot.
       const lee = cloud.createBot({ name: "Lee" }, { id: "cloud-lee-000008", seedMessages: false });
       cloud.setChiefOfStaff(lee.id);
-      const third = cloud.createBot({ name: "DEX BOT" }, { id: "desk-maus-000009", seedMessages: false });
+      const third = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000009", seedMessages: false });
       expect(await arrive(cloud, third.id, fields({ defaultBot: {}, chiefOfStaff: true, managedSections: ["General"] }), "Amit's MacBook")).toBe(200);
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([lee.id]);
       // A Chief that is not a MausBot takes the crown.
@@ -362,7 +362,7 @@ describe("DEX BOT, every person's helper", () => {
       expect(cloud.bots.filter((bot) => bot.chiefOfStaff).map((bot) => bot.id)).toEqual([ada.id]);
     });
 
-    it("keeps a used DEX BOT here and leaves a renamed arriving one its own name, or names an unknown computer plainly", async () => {
+    it("keeps a used Luna Bot here and leaves a renamed arriving one its own name, or names an unknown computer plainly", async () => {
       const cloud = new Store(selection);
       const theirs = boot(cloud)!;
       cloud.patchBot(theirs.id, { soul: "Answer in French." });
@@ -370,13 +370,13 @@ describe("DEX BOT, every person's helper", () => {
       expect(await arrive(cloud, jarvis.id, fields({ defaultBot: {} }), "Amit's MacBook")).toBe(200);
       expect(cloud.bot(jarvis.id)).toMatchObject({ name: "Jarvis" });
       expect(cloud.bot(jarvis.id)?.defaultBot).toBeUndefined();
-      const unnamed = cloud.createBot({ name: "DEX BOT" }, { id: "desk-maus-000005", seedMessages: false });
+      const unnamed = cloud.createBot({ name: "Luna Bot" }, { id: "desk-maus-000005", seedMessages: false });
       expect(await arrive(cloud, unnamed.id, fields({ defaultBot: {} }))).toBe(200);
-      expect(cloud.bot(unnamed.id)).toMatchObject({ name: "DEX BOT (from another computer)" });
+      expect(cloud.bot(unnamed.id)).toMatchObject({ name: "Luna Bot (from another computer)" });
       expect(placeMausBots(cloud).map((bot) => bot.id)).toEqual([theirs.id]);
     });
 
-    it("comes home to exactly the one DEX BOT My Cloud had, and makes none", () => {
+    it("comes home to exactly the one Luna Bot My Cloud had, and makes none", () => {
       const cloud = new Store(selection);
       cloud.seedIfEmpty();
       const mausOnCloud = boot(cloud)!;

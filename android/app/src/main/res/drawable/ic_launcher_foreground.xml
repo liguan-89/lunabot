@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  DEX BOT's launcher portrait, matching build/icon.svg (the desktop icon): the
+  Luna Bot's launcher portrait, matching build/icon.svg (the desktop icon): the
   white disc bleeds off the right and bottom of the black tile, with two tilted
   pill eyes. The art is scaled into the 72dp visible window with an 18dp
   parallax margin on each side, so the launcher's mask frames it exactly as the

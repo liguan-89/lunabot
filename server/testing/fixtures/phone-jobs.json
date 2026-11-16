@@ -872,6 +872,893 @@
           ],
           "additionalProperties": false
         }
+      },
+      {
+        "name": "PHONE_UI_OBSERVE",
+        "description": "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe before a step; every driving action also returns the screen as it is afterwards, so read that instead of observing again. Never guess a ref.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_COLLECT",
+        "description": "Read several screens in one call: the text of the current screen, then one scroll and the next, for a long list or a chat history. A line already returned is not repeated, and the read stops at the end of the list or when the app changes. It scrolls, so it asks the person first like any other screen write.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ],
+              "description": "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way."
+            },
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "Most screens to read; default 8."
+            },
+            "maxLines": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Most text lines to return; default 300."
+            },
+            "fromY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999,
+              "description": "Top of the band to read, 0 at the controlled display's top edge and 999 at its bottom, the same display element bounds use; default 50."
+            },
+            "toY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999,
+              "description": "Bottom of the band to read, 0 at the controlled display's top edge and 999 at its bottom; default 950."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_LAUNCH",
+        "description": "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android app's package name."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "app"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_TAP",
+        "description": "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_TAP_AT",
+        "description": "Tap a pixel point on the phone's screen, for screens no element describes (an image, a canvas, a game). Coordinates use the controlled display's pixels, the same system as element bounds and OCR line boxes.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "Horizontal pixel position."
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "description": "Vertical pixel position."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_TYPE",
+        "description": "Type text into the editable element named by ref from the latest PHONE_UI_OBSERVE result. Password fields are never accepted. Fields that refuse direct text get plain-ASCII key events instead; other text is refused rather than typed as something else.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000,
+              "description": "What to type, submitted as it is."
+            },
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text",
+            "ref"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_SCROLL",
+        "description": "Scroll the phone's current screen, or the element named by ref, one step up or down. Falls back to a real swipe when the list ignores the scroll action.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ],
+              "description": "Where the content moves."
+            },
+            "ref": {
+              "type": "string",
+              "maxLength": 64,
+              "description": "An element ref from PHONE_UI_OBSERVE results. Refs are opaque and go stale when the screen changes; observe again first."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_SWIPE",
+        "description": "Swipe one finger across the phone's whole screen, for screens that ignore a scroll action: carousels, sheets, short-video feeds. The finger travels in `direction`, so swiping up scrolls the content down.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down",
+                "left",
+                "right"
+              ],
+              "description": "Where the finger moves."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_KEY",
+        "description": "Press one navigation key on the phone, such as enter to submit a search or del to clear a field.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "key": {
+              "type": "string",
+              "enum": [
+                "back",
+                "enter",
+                "del",
+                "tab",
+                "up",
+                "down",
+                "left",
+                "right"
+              ],
+              "description": "Which key."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "key"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_BACK",
+        "description": "Go back one screen on the phone.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_RUN",
+        "description": "Run an ordered list of screen commands on the phone's screen in one call, for a form, a search or a fixed flow whose steps are already known. Each target is found again on the current screen before it acts, and the run stops at the first step that fails, returning the screen it ended on.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "description": "The steps, in the order to run them.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "launch",
+                      "tap",
+                      "type",
+                      "scroll",
+                      "swipe",
+                      "key",
+                      "back",
+                      "wait",
+                      "assert",
+                      "observe"
+                    ],
+                    "description": "What to do."
+                  },
+                  "app": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "The Android app's package name, for launch."
+                  },
+                  "ref": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "An element ref from an earlier observe, for a target known exactly; each step still finds it again on the current screen."
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "For tap, the visible text of the target; for type, what to type; for assert, the text that must be present."
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Full or partial Android view id of the target."
+                  },
+                  "role": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Full or partial accessibility class or role of the target."
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "up",
+                      "down",
+                      "left",
+                      "right"
+                    ],
+                    "description": "Where the finger moves, for scroll and swipe."
+                  },
+                  "key": {
+                    "type": "string",
+                    "enum": [
+                      "back",
+                      "enter",
+                      "del",
+                      "tab",
+                      "up",
+                      "down",
+                      "left",
+                      "right"
+                    ],
+                    "description": "Which key, for key."
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 300,
+                    "maximum": 6000,
+                    "description": "Longest wait in milliseconds, for wait."
+                  },
+                  "present": {
+                    "type": "boolean",
+                    "description": "For assert: true when the text must be present, false when it must be absent."
+                  },
+                  "pressEnter": {
+                    "type": "boolean",
+                    "description": "For type: press enter after typing."
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "commands"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_WAIT",
+        "description": "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "change",
+                "settle"
+              ],
+              "description": "change waits for any change; settle waits for the screen to stop."
+            },
+            "timeoutMs": {
+              "type": "integer",
+              "minimum": 300,
+              "maximum": 6000,
+              "description": "Longest wait in milliseconds."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_SCREENSHOT",
+        "description": "Take a JPEG of the phone's screen, for anything the element list cannot describe. Also returns the elements of the same moment with their refs. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_OCR",
+        "description": "Recognize the text on the phone's screen and return it line by line with each line's box, for image or canvas screens the element list cannot describe. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "maxLines": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Longest list of lines to keep."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_QUERY",
+        "description": "Find elements of the phone's current screen by text, view id or role, at least one of the three, when the full element list is too long; its refs work with PHONE_UI_TAP and PHONE_UI_TYPE. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Case-insensitive text or content description to find."
+            },
+            "resourceId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Full or partial Android view id to find."
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Full or partial accessibility class or role to find."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Most elements to return; default 30."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_LIST_APPS",
+        "description": "List the apps installed on the phone that have a launcher entry, so PHONE_UI_LAUNCH gets the real package name instead of a guess. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 120,
+              "description": "Part of an app name or package name to match."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Most apps to return; default 60."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_CLIPBOARD_GET",
+        "description": "Read the phone's clipboard as plain text. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_CLIPBOARD_SET",
+        "description": "Replace the phone's clipboard with text, for pasting a long value into a field. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The text to place on the clipboard."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_NOTIF_LIST",
+        "description": "List the last notifications other apps posted on the phone, newest first. Answers only while the person has granted notification access. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "package": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Only this Android package's notifications."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "How many to return."
+            },
+            "sinceMinutes": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1440,
+              "description": "Only notifications from this many minutes ago."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_FILE_LIST",
+        "description": "List files the person allowed this bot to see: gallery photos and files in the one folder they granted. Answers only while the file switch is on. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 120,
+              "description": "Part of a file name to match."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "any",
+                "image",
+                "document"
+              ],
+              "description": "Photos only, the granted folder only, or both."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 12,
+              "description": "How many to return."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_FILE_READ",
+        "description": "Read one file by fileId from PHONE_FILE_LIST: an image comes back as a picture, a text file as text, and a PDF as recognized text from its first pages. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "A fileId from PHONE_FILE_LIST."
+            },
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5,
+              "description": "PDF pages to read."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "fileId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_FILE_SEND",
+        "description": "Put one phone file into this conversation so the person can open it there; the file itself travels to the computer, not through the bot's own hands. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "A fileId from PHONE_FILE_LIST."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "fileId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_FILE_SHARE",
+        "description": "Hand one file to another app's share screen, opened on the phone's controlled display with the file already attached. Name the app that should receive it, or leave the package out to get the system chooser there. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "fileId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "A fileId from PHONE_FILE_LIST."
+            },
+            "package": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package that should receive the file."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "fileId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SET_ALARM",
+        "description": "Set an alarm with the phone's own Clock app, which records it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "hour": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 23,
+              "description": "Hour of the day, 24-hour clock."
+            },
+            "minute": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 59,
+              "description": "Minute of the hour."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "What the alarm is for, shown when it rings."
+            },
+            "days": {
+              "type": "array",
+              "maxItems": 7,
+              "description": "Repeat days; leave them out for a one-time alarm.",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "MON",
+                  "TUE",
+                  "WED",
+                  "THU",
+                  "FRI",
+                  "SAT",
+                  "SUN"
+                ]
+              }
+            },
+            "vibrate": {
+              "type": "boolean",
+              "description": "Vibrate when it rings."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "hour",
+            "minute"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SET_TIMER",
+        "description": "Start a countdown timer with the phone's own Clock app, which starts it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400,
+              "description": "How long the timer runs, in seconds."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "What the timer is for."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "seconds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_OPEN_LINK",
+        "description": "Open a web link on the phone's controlled display, in the browser or in the named app. Only http and https links are accepted. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "The link to open, http or https."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package that should open it; leave it out for the browser."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SHARE_TEXT",
+        "description": "Put text into another app's compose screen on the phone's controlled display, with the app named or the system chooser left to pick; the person still sends it. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5000,
+              "description": "The text to place in the other app."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package that should receive the text."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_AFTER_TASK",
+        "description": "Choose what happens to the app this task drove when the task ends: keep leaves it running in the background on its last page, close finishes it. The choice holds for the rest of the task. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "keep",
+                "close"
+              ],
+              "description": "keep leaves the app running in the background; close finishes it."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package to act on; leave it out for the app the task last drove."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "action"
+          ],
+          "additionalProperties": false
+        }
       }
     ]
   }

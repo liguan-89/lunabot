@@ -1,9 +1,9 @@
 {
-  "name": "@dexbot/cloud",
+  "name": "@lunabot/cloud",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "DEX Cloud: account, license, companion control plane and relay-token service for DEX BOT.",
+  "description": "Luna Bot Cloud: account, license, companion control plane and relay-token service for Luna Bot.",
   "engines": {
     "node": ">=24"
   },

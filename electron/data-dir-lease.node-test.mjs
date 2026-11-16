@@ -122,7 +122,7 @@ test("an invalid child capability fails closed without acquisition or secret log
     assert.equal(result.code, 0);
     assert.equal(result.stderr, "");
     assert.deepEqual(JSON.parse(result.stdout), {
-      error: "The DEX BOT desktop lease delegation is invalid; refusing to start to protect its state.",
+      error: "The Luna Bot desktop lease delegation is invalid; refusing to start to protect its state.",
       consumed: true,
     });
     assert.equal(result.stdout.includes(invalidCapability), false);
@@ -304,7 +304,7 @@ test("a foreign-host owner fails closed and identifies the preserved lease recor
 
 test("a foreign-host delegated child fails closed and identifies its preserved lease record", () => {
   const { dataDir } = temporaryDirectory();
-  const childLeasePath = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const childLeasePath = path.join(dataDir, ".lunabot-server-child", LEASE_NAME);
   const child = {
     version: 1,
     pid: process.pid,
@@ -325,6 +325,29 @@ test("a foreign-host delegated child fails closed and identifies its preserved l
   );
   assert.deepEqual(JSON.parse(readFileSync(childLeasePath, "utf8")), child);
   assert.throws(() => readFileSync(path.join(dataDir, LEASE_NAME), "utf8"), /ENOENT/);
+});
+
+test("a delegated child left under the pre-rename folder name is still found", () => {
+  const { dataDir } = temporaryDirectory();
+  const legacyChild = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const child = {
+    version: 1,
+    pid: process.pid,
+    host: hostname() === "other-host.example" ? "another-host.example" : "other-host.example",
+    token: randomUUID(),
+    createdAt: Date.now(),
+  };
+  mkdirSync(path.dirname(legacyChild), { recursive: true });
+  writeFileSync(legacyChild, `${JSON.stringify(child)}\n`, { mode: 0o600 });
+
+  assert.throws(() => acquireDataDirLease(dataDir), (error) => {
+    assert.match(error.message, /delegated server on another machine/i);
+    assert.ok(error.message.includes(JSON.stringify(legacyChild)));
+    return true;
+  });
+  assert.deepEqual(clearRecordsFromOtherMachines(dataDir).map((record) => record.path), [legacyChild]);
+  const lease = acquireDataDirLease(dataDir);
+  assert.equal(lease.release(), true);
 });
 
 test("a foreign-host reaper fails closed and identifies its preserved recovery record", async () => {
@@ -521,7 +544,7 @@ test("a delegated child from an earlier boot cannot block a new parent", (t) => 
   const { dataDir } = temporaryDirectory();
   const current = recordWrittenByThisProcess(dataDir);
   if (current.boot === null) return t.skip("no boot identity on this platform");
-  const childPath = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const childPath = path.join(dataDir, ".lunabot-server-child", LEASE_NAME);
   mkdirSync(path.dirname(childPath));
   writeFileSync(childPath, JSON.stringify({ ...current, boot: randomUUID() }));
 
@@ -550,7 +573,7 @@ test("a delegated child this computer left under its old hostname cannot block a
   const { dataDir } = temporaryDirectory();
   const current = recordWrittenByThisProcess(dataDir);
   if (current.boot === null) return t.skip("no boot identity on this platform");
-  const childPath = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const childPath = path.join(dataDir, ".lunabot-server-child", LEASE_NAME);
   mkdirSync(path.dirname(childPath));
   writeFileSync(childPath, JSON.stringify({ ...current, host: renamedHost(current), pid: await exitedPid(), token: randomUUID() }));
 
@@ -575,7 +598,7 @@ test("a lease under another name from another boot still fails closed, and says 
   assert.deepEqual(JSON.parse(readFileSync(leasePath, "utf8")), planted);
   rmSync(leasePath);
 
-  const childPath = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const childPath = path.join(dataDir, ".lunabot-server-child", LEASE_NAME);
   mkdirSync(path.dirname(childPath));
   writeFileSync(childPath, JSON.stringify({ ...current, ...foreign }));
   assert.throws(() => acquireDataDirLease(dataDir), (error) => {
@@ -716,7 +739,7 @@ test("on request, the lease, delegated child and recovery record another machine
   const current = recordWrittenByThisProcess(dataDir);
   const foreign = { ...otherMachine(current), pid: await exitedPid(), token: randomUUID() };
   const leasePath = plantOwner(dataDir, foreign);
-  const childPath = path.join(dataDir, ".dexbot-server-child", LEASE_NAME);
+  const childPath = path.join(dataDir, ".lunabot-server-child", LEASE_NAME);
   mkdirSync(path.dirname(childPath));
   writeFileSync(childPath, JSON.stringify({ ...current, ...foreign, token: randomUUID() }));
   const reaperPath = path.join(dataDir, `${LEASE_NAME}.reap-${foreign.token}`);

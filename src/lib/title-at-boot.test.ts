@@ -12,6 +12,6 @@ describe("the window's name at boot", () => {
     const fetch = main.indexOf("bootstrapBrand()");
     expect(title).toBeGreaterThan(-1);
     expect(fetch).toBeGreaterThan(title);
-    expect(PRODUCT_NAME).toBe("DEX BOT");
+    expect(PRODUCT_NAME).toBe("Luna Bot");
   });
 });

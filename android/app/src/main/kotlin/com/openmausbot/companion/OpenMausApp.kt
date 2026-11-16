@@ -18,6 +18,7 @@ import com.openmausbot.companion.lifecycle.installSessionLinger
 import com.openmausbot.companion.notifications.LocalNotificationPoster
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.phone.PhoneJobRunner
+import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.speech.ModelManager
 import com.openmausbot.companion.storage.AlwaysOnPreferences
@@ -85,11 +86,23 @@ class OpenMausApp : Application() {
     internal lateinit var phoneJobs: PhoneJobRunner
         private set
 
+    /** The wireless-debugging shell controller; process-wide because the helper bridge is. */
+    lateinit var phoneUi: PhoneUiController
+        private set
+
     /** The DEX account this phone signs in with; one account across the desktop and every Cloud. */
     lateinit var cloudAccount: CloudAccountController
         private set
 
-    /** The preference files moved from openmaus.* to dexbot.*; carry the old ones over once. */
+    /**
+     * The preference files each rename moved, carried forward once.
+     *
+     * The list is ordered oldest first and applied in sequence, so an install
+     * that still has `openmaus.*` files is renamed to `dexbot.*` and then to
+     * `lunabot.*` in the same launch; an install from the middle of the chain
+     * only takes the later step. Each step is a no-op when its target already
+     * exists, so a file is never clobbered by an older copy.
+     */
     private fun migrateLegacyPreferences() {
         val directory = File(applicationInfo.dataDir, "shared_prefs")
         val names = listOf(
@@ -97,6 +110,8 @@ class OpenMausApp : Application() {
             "openmaus.onboarding" to "dexbot.onboarding",
             "openmaus.chat-preferences" to "dexbot.chat-preferences",
             "openmaus.always_on" to "dexbot.always_on",
+            "dexbot.permissions" to "lunabot.permissions",
+            "dexbot.onboarding" to "lunabot.onboarding",
         )
         for ((legacy, current) in names) {
             val source = File(directory, "$legacy.xml")
@@ -172,6 +187,9 @@ class OpenMausApp : Application() {
         // The runner registers, long-polls, and answers one job at a time for
         // as long as that switch is on.
         chatPreferences = ChatPreferences(this)
+        // Built before the phone-tools runner: the runner observes this
+        // controller's status for its phoneUi capability registration.
+        phoneUi = PhoneUiController(this, appScope, chatPreferences, permissions)
         val versionName = runCatching {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()
@@ -191,6 +209,7 @@ class OpenMausApp : Application() {
             preferences = chatPreferences,
             appVersion = versionName,
             scope = appScope,
+            phoneUi = phoneUi,
         )
         phoneJobs.start()
         // Covers the case where the process was relaunched (not booted) while

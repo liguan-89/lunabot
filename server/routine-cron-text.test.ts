@@ -53,4 +53,13 @@ describe("cron words on a routine request", () => {
     expect(yearly).toContain("3月");
     expect(yearly).not.toContain("March");
   });
+
+  it("uses Simplified Chinese weekday names for zh", () => {
+    const schedule = { type: "cron" as const, expression: "0 9 * * 1", timeZone: "UTC" };
+    expect(routineCronText(schedule, "zh")).toContain("星期一");
+    expect(routineCronText(schedule, "zh-CN")).toContain("星期一");
+    const yearly = routineCronText({ type: "cron" as const, expression: "0 9 1 3 *", timeZone: "UTC" }, "zh");
+    expect(yearly).toMatch(/3月|三月/);
+    expect(yearly).not.toContain("March");
+  });
 });

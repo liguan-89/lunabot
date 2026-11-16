@@ -9,11 +9,12 @@ case "${1:-}" in
   *) exit 0 ;;
 esac
 
-if [ -n "${DEXBOT_POSTINSTALL_TEST_ROOT:-}" ]; then
-  TEST_ROOT="$(realpath -e -- "$DEXBOT_POSTINSTALL_TEST_ROOT")"
+TEST_ROOT_OVERRIDE=${LUNABOT_POSTINSTALL_TEST_ROOT:-${DEXBOT_POSTINSTALL_TEST_ROOT:-}}
+if [ -n "$TEST_ROOT_OVERRIDE" ]; then
+  TEST_ROOT="$(realpath -e -- "$TEST_ROOT_OVERRIDE")"
   case "$TEST_ROOT" in
     /tmp/*) ;;
-    *) echo "DEX BOT test install root must stay under /tmp" >&2; exit 1 ;;
+    *) echo "Luna Bot test install root must stay under /tmp" >&2; exit 1 ;;
   esac
   APPARMOR_DIR=$TEST_ROOT/test-system/apparmor.d
   APPARMOR_PARSER=$TEST_ROOT/test-system/apparmor_parser
@@ -28,20 +29,27 @@ else
   TEST_MODE=0
 fi
 
-# Preserve electron-builder's cleanup of the exact legacy launcher. Never
-# remove an unrelated file that now happens to use the same command name.
+# Preserve electron-builder's cleanup of the exact launcher, and of the one an
+# install from before the rename left behind. Never remove an unrelated file
+# that now happens to use the same command name.
 if [ "$TEST_MODE" -eq 0 ]; then
-  if command -v update-alternatives >/dev/null 2>&1; then
-    update-alternatives --remove dexbot "/opt/DEX BOT/dexbot"
-  elif [ -L /usr/bin/dexbot ] && [ "$(readlink /usr/bin/dexbot)" = "/opt/DEX BOT/dexbot" ]; then
-    rm -- /usr/bin/dexbot
-  fi
+  for launcher in lunabot dexbot; do
+    case "$launcher" in
+      lunabot) legacy_root=/opt/Luna\ Bot ;;
+      dexbot) legacy_root=/opt/DEX\ BOT ;;
+    esac
+    if command -v update-alternatives >/dev/null 2>&1; then
+      update-alternatives --remove "$launcher" "$legacy_root/$launcher"
+    elif [ -L "/usr/bin/$launcher" ] && [ "$(readlink "/usr/bin/$launcher")" = "$legacy_root/$launcher" ]; then
+      rm -- "/usr/bin/$launcher"
+    fi
+  done
 fi
 
 profile=$APPARMOR_DIR/dexbot-browser
 if [ ! -e "$profile" ] && [ ! -L "$profile" ]; then exit 0; fi
 if [ -L "$APPARMOR_DIR" ] || [ -L "$profile" ] || [ ! -f "$profile" ]; then
-  echo "DEX BOT AppArmor profile is unsafe; refusing to remove it: $profile" >&2
+  echo "Luna Bot AppArmor profile is unsafe; refusing to remove it: $profile" >&2
   exit 1
 fi
 if [ "$TEST_MODE" -eq 0 ] && [ -x /usr/bin/ischroot ] && /usr/bin/ischroot; then
@@ -55,11 +63,11 @@ elif [ -x "$APPARMOR_PARSER" ]; then
   # Keep the policy file if unloading genuinely fails so an administrator can
   # inspect/retry the exact rule instead of leaving an invisible kernel rule.
   if ! "$APPARMOR_PARSER" -R "$profile"; then
-    echo "DEX BOT could not unload its browser AppArmor profile: $profile" >&2
+    echo "Luna Bot could not unload its browser AppArmor profile: $profile" >&2
     exit 1
   fi
 elif [ -r "$APPARMOR_PROFILES" ]; then
-  echo "DEX BOT needs apparmor_parser to unload its browser profile: $profile" >&2
+  echo "Luna Bot needs apparmor_parser to unload its browser profile: $profile" >&2
   exit 1
 fi
 rm -- "$profile"

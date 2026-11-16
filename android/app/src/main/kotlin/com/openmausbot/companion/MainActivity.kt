@@ -107,7 +107,7 @@ class MainActivity : ComponentActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val night = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
             Configuration.UI_MODE_NIGHT_YES
-        val page = if (night) Color.BLACK else Color.WHITE
+        val page = if (night) 0xFF0B0B0C.toInt() else 0xFFF4F4F5.toInt()
         window.setBackgroundDrawable(page.toDrawable())
         @Suppress("DEPRECATION")
         window.statusBarColor = Color.TRANSPARENT
@@ -222,6 +222,7 @@ class MainActivity : ComponentActivity() {
             shareInbox = app.shareInbox,
             alwaysOnEnabled = app.alwaysOn.enabled,
             onToggleAlwaysOn = ::toggleAlwaysOn,
+            phoneUi = app.phoneUi,
             // App-scoped: leaving Settings during the download must not cancel it.
             updates = AppUpdater(this),
             appScope = app.appScope,
@@ -263,6 +264,7 @@ class MainActivity : ComponentActivity() {
         // Permissions can change while the app is in the background — a grant
         // made in Settings should take effect on return, not on next launch.
         app.permissions.refresh()
+        app.phoneUi.refresh()
         camera.refresh()
         mic.refresh()
         notifications.refresh()

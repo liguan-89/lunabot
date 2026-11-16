@@ -17,8 +17,8 @@ export interface ServiceSpec {
   cliPrefix?: string;
 }
 
-export const SYSTEMD_UNIT_NAME = "dexbot.service";
-export const LAUNCHD_LABEL = "com.dexbot.serve";
+export const SYSTEMD_UNIT_NAME = "lunabot.service";
+export const LAUNCHD_LABEL = "com.lunabot.serve";
 
 function quoteSystemd(value: string): string {
   // systemd's ExecStart splits on whitespace and understands double quotes.
@@ -35,9 +35,9 @@ export function serviceCommand(spec: Pick<ServiceSpec, "node" | "script" | "serv
 
 export function systemdUnit(spec: ServiceSpec): string {
   const lines = [
-    "# Written by `dexbot service install`. Re-run it to change the options.",
+    "# Written by `lunabot service install`. Re-run it to change the options.",
     "[Unit]",
-    `Description=DEX BOT${spec.label ? ` (${spec.label})` : ""}`,
+    `Description=Luna Bot${spec.label ? ` (${spec.label})` : ""}`,
     "After=network-online.target",
     "Wants=network-online.target",
     "",
@@ -110,7 +110,7 @@ export function launchdPlist(spec: ServiceSpec): string {
 export function unstableInstallWarning(script: string): string | null {
   const normalized = script.replace(/\\/g, "/");
   if (/\/_npx\//.test(normalized) || /\/\.npm\/_npx\//.test(normalized)) {
-    return `this command runs from an npx cache (${dirname(script)}), which npm may delete at any time. Install it permanently first (npm install -g openmausbot) and run \`openmausbot service install\` from that install.`;
+    return `this command runs from an npx cache (${dirname(script)}), which npm may delete at any time. Install it permanently first (npm install -g lunabot) and run \`lunabot service install\` from that install.`;
   }
   return null;
 }
@@ -137,8 +137,8 @@ export function servicePlan(platform: NodeJS.Platform, dataDir: string, home = h
   return null;
 }
 
-export const SENTINEL_LAUNCHD_LABEL = "com.dexbot.sentinel";
-export const SENTINEL_SYSTEMD_NAME = "dexbot-sentinel";
+export const SENTINEL_LAUNCHD_LABEL = "com.lunabot.sentinel";
+export const SENTINEL_SYSTEMD_NAME = "lunabot-sentinel";
 export const SENTINEL_INTERVAL_SECONDS = 120;
 
 export type SentinelServiceSpec = Pick<ServiceSpec, "node" | "script" | "dataDir" | "home"> & {
@@ -152,10 +152,10 @@ export function shippedSentinelCli(
   platform: NodeJS.Platform, home: string, exists: (path: string) => boolean, hasSentinel: (script: string) => boolean = () => true,
 ): { node: string; script: string } | null {
   const candidates = platform === "darwin"
-    ? ["/Applications/DEX BOT.app", join(home, "Applications", "DEX BOT.app")].map((app) => ({
-      node: join(app, "Contents", "MacOS", "DEX BOT"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
+    ? ["/Applications/Luna Bot.app", join(home, "Applications", "Luna Bot.app")].map((app) => ({
+      node: join(app, "Contents", "MacOS", "Luna Bot"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
     }))
-    : platform === "linux" ? [{ node: "/opt/DEX BOT/dexbot", script: "/opt/DEX BOT/resources/server/openmausbot.js" }] : [];
+    : platform === "linux" ? [{ node: "/opt/Luna Bot/lunabot", script: "/opt/Luna Bot/resources/server/openmausbot.js" }] : [];
   return candidates.find((cli) => exists(cli.node) && exists(cli.script) && hasSentinel(cli.script)) ?? null;
 }
 
@@ -220,9 +220,9 @@ function systemdQuoted(value: string, command = false): string {
 export function sentinelSystemdService(spec: SentinelServiceSpec): string {
   for (const [label, value] of [["home", spec.home], ["node", spec.node], ["script", spec.script], ["data dir", spec.dataDir], ["output", spec.out]] as const) assertUnitValue(label, value);
   return [
-    "# Written by `openmausbot service install --sentinel`. Started by its timer.",
+    "# Written by `lunabot service install --sentinel`. Started by its timer.",
     "[Unit]",
-    "Description=DEX BOT Sentinel health scan",
+    "Description=Luna Bot Sentinel health scan",
     "",
     "[Service]",
     "Type=oneshot",
@@ -237,9 +237,9 @@ export function sentinelSystemdService(spec: SentinelServiceSpec): string {
 
 export function sentinelSystemdTimer(): string {
   return [
-    "# Written by `openmausbot service install --sentinel`.",
+    "# Written by `lunabot service install --sentinel`.",
     "[Unit]",
-    "Description=Run the DEX BOT Sentinel health scan every two minutes",
+    "Description=Run the Luna Bot Sentinel health scan every two minutes",
     "",
     "[Timer]",
     `OnBootSec=${SENTINEL_INTERVAL_SECONDS}s`,
