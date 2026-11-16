@@ -116,6 +116,6 @@ Ways in (pick one; --lan can join any):
 
 ${HEADLESS_USAGE}
 
-Install once with \`npm install -g dexbot\`, then type \`dexbot\`.
-Or run without a global install: \`npx dexbot\`. Node 24+ is required.
+Install once with \`npm install -g lunabot\`, then type \`lunabot\`.
+Or run without a global install: \`npx lunabot\`. Node 24+ is required.
 `;
