@@ -45,7 +45,7 @@ describe("the server and the credential", () => {
 
   it("refuses control-omb's changes on a server it merely found", async () => {
     await expect(openClient({}, { env: {}, requireExplicitForMutations: true }, true))
-      .rejects.toMatchObject({ message: "mutating commands require an explicit DEX BOT instance", exitCode: 2 });
+      .rejects.toMatchObject({ message: "mutating commands require an explicit Luna Bot instance", exitCode: 2 });
   });
 });
 
@@ -55,13 +55,13 @@ describe("explain", () => {
     expect(await explain(status(401))).toMatchObject({ exitCode: 5, hint: expect.stringContaining("--token-file") });
     expect(await explain(status(403, "admin scope required"))).toMatchObject({ exitCode: 5, message: "not allowed: admin scope required" });
     expect(await explain(status(409, "stop this bot's turn first"))).toMatchObject({ exitCode: 1, message: "stop this bot's turn first" });
-    expect(await explain(status(409, 'DEX BOT API error (409): {"error":"stop this bot\'s turn first","code":"thread_busy"}')))
+    expect(await explain(status(409, 'Luna Bot API error (409): {"error":"stop this bot\'s turn first","code":"thread_busy"}')))
       .toMatchObject({ exitCode: 1, message: "stop this bot's turn first" });
-    expect(await explain(status(403, 'DEX BOT API error (403): {"error":"admin scope required"}'))).toMatchObject({ message: "not allowed: admin scope required" });
-    expect(await explain(status(502, "DEX BOT API error (502): <html>Bad gateway</html>"))).toMatchObject({ message: "DEX BOT API error (502): <html>Bad gateway</html>" });
-    expect(await explain(status(404, 'DEX BOT API error (404): {"error":"no such bot"}'))).toMatchObject({ exitCode: 2, message: "no such bot" });
-    expect(await explain(status(404, "DEX BOT API error (404): not found"))).toMatchObject({ exitCode: 1 });
-    expect(await explain(new TypeError("fetch failed"), "http://127.0.0.1:1")).toMatchObject({ exitCode: 5, message: "cannot reach DEX BOT at http://127.0.0.1:1" });
+    expect(await explain(status(403, 'Luna Bot API error (403): {"error":"admin scope required"}'))).toMatchObject({ message: "not allowed: admin scope required" });
+    expect(await explain(status(502, "Luna Bot API error (502): <html>Bad gateway</html>"))).toMatchObject({ message: "Luna Bot API error (502): <html>Bad gateway</html>" });
+    expect(await explain(status(404, 'Luna Bot API error (404): {"error":"no such bot"}'))).toMatchObject({ exitCode: 2, message: "no such bot" });
+    expect(await explain(status(404, "Luna Bot API error (404): not found"))).toMatchObject({ exitCode: 1 });
+    expect(await explain(new TypeError("fetch failed"), "http://127.0.0.1:1")).toMatchObject({ exitCode: 5, message: "cannot reach Luna Bot at http://127.0.0.1:1" });
     expect(await explain(Object.assign(new Error("The operation was aborted due to timeout"), { name: "TimeoutError" }))).toMatchObject({ exitCode: 5 });
     const kept = new HeadlessError("as it was", 4, "hint");
     expect(await explain(kept)).toBe(kept);

@@ -53,7 +53,7 @@ import kotlin.math.min
 object AttachmentImportRules {
     const val TOO_MANY: String = "单次最多发送 ${AttachmentPolicy.MAXIMUM_ITEMS} 个附件。"
 
-    fun unreadable(name: String): String = "DEX BOT 无法读取 $name。请先尝试将其导出到文件管理器。"
+    fun unreadable(name: String): String = "Luna Bot 无法读取 $name。请先尝试将其导出到文件管理器。"
 
     fun unsupported(name: String): String =
         "不支持将 $name 作为附件。请尝试图片、PDF、文本、Word、Excel 或 PowerPoint 文件。"

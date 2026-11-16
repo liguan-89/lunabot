@@ -170,7 +170,7 @@ export function coseToJwk(cose: Cbor): JsonWebKey {
 export function registerOptions(existing: WebAuthnCredential[], userName = "owner"): Record<string, unknown> {
   return {
     challenge: issueChallenge(),
-    rp: { name: "DEX BOT" },
+    rp: { name: "Luna Bot" },
     user: { id: b64url(crypto.createHash("sha256").update(userName).digest()), name: userName, displayName: userName },
     pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
     timeout: CHALLENGE_TTL_MS,

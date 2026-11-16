@@ -384,7 +384,7 @@ class PhoneUiShellService(
             val intent = Intent(Intent.ACTION_SEND).apply {
                 type = mime
                 putExtra(Intent.EXTRA_STREAM, uri)
-                clipData = ClipData.newRawUri("DEX BOT", uri)
+                clipData = ClipData.newRawUri("Luna Bot", uri)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 setPackage(packageName)
             }

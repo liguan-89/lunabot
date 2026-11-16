@@ -32,7 +32,7 @@ export function draftOf(bot: Bot): WelcomeDraft {
 }
 
 /** What either choice saves, as the bot's own edit screen would: what the person changed, and that they chose. Add puts
- * MausBot at the top of the sidebar; Not now turns "Show DEX BOT in the sidebar" off. */
+ * MausBot at the top of the sidebar; Not now turns "Show Luna Bot in the sidebar" off. */
 export function welcomePatch(bot: Bot, draft: WelcomeDraft, add: boolean): Partial<Bot> {
   const was = draftOf(bot);
   const now: WelcomeDraft = { ...draft, name: welcomeName(draft.name) };

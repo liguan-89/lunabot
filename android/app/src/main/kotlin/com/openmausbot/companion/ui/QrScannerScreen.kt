@@ -89,12 +89,12 @@ fun QrScannerScreen(onCancel: () -> Unit, validate: (String) -> String?) {
 
             access == CameraAccess.UNKNOWN -> EmptyState(
                 title = "正在请求相机权限…",
-                description = "请允许相机权限以扫描 DEX BOT 显示的配对二维码。",
+                description = "请允许相机权限以扫描 Luna Bot 显示的配对二维码。",
             )
 
             access == CameraAccess.DENIED -> EmptyState(
                 title = "需要相机权限",
-                description = "请允许相机权限以扫描 DEX BOT 显示的配对二维码，或返回手动输入地址和配对码。",
+                description = "请允许相机权限以扫描 Luna Bot 显示的配对二维码，或返回手动输入地址和配对码。",
             ) {
                 Button(onClick = environment.openAppSettings) { Text("打开设置") }
             }

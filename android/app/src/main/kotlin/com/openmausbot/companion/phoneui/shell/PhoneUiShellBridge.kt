@@ -1,6 +1,6 @@
 /*
  * The app-side wrapper around the shell helper's binder, designed against the
- * PhoneUiShellBridge API agreed for the OpenMausBot/DEX BOT integration.
+ * PhoneUiShellBridge API agreed for the OpenMausBot/Luna Bot integration.
  *
  * The handoff protocol underneath is ported from Mika
  * (https://github.com/wangzan101/Mika), files

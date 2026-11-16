@@ -25,15 +25,15 @@ const TABS = [
   ["/docs", "文档"],
   ["/download", "下载"],
   ["/feedback", "反馈"],
-  ["/cloud", "DEX Cloud"],
+  ["/cloud", "Luna Bot Cloud"],
 ];
 
 function layout(title, body, script = "", current = "") {
   const nav = TABS.map(([href, label]) => `<a href="${href}"${href === current ? ' aria-current="page"' : ""}>${label}</a>`).join("");
   return `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${escapeHtml(title)} · DEX BOT</title><style>${STYLE}</style></head>
-<body><nav>${nav}</nav><main>${body}</main><footer>DEX BOT · 自建 DEX Cloud · <a href="/docs#privacy">隐私说明</a></footer>${script ? `<script>${script}</script>` : ""}</body></html>`;
+<title>${escapeHtml(title)} · Luna Bot</title><style>${STYLE}</style></head>
+<body><nav>${nav}</nav><main>${body}</main><footer>Luna Bot · 自建 Luna Bot Cloud · <a href="/docs#privacy">隐私说明</a></footer>${script ? `<script>${script}</script>` : ""}</body></html>`;
 }
 
 const APPLY_SCRIPT = `
@@ -49,7 +49,7 @@ async function post(path, body) {
 
 export function approvalPage(userCode, _config) {
   const code = escapeHtml(userCode);
-  const body = `<h1>在 DEX BOT 中登录</h1>
+  const body = `<h1>在 Luna Bot 中登录</h1>
 <p class="lead">确认这台设备可以登录你的 DEX 账号。代码 <code>${code}</code>。</p>
 <div class="card">
   <label for="email">邮箱</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
@@ -60,7 +60,7 @@ export function approvalPage(userCode, _config) {
   </div>
   <div id="status" class="status"></div>
 </div>
-<p class="note">DEX BOT 不会看到你的邮箱密码；登录码只用于这一次登录。</p>`;
+<p class="note">Luna Bot 不会看到你的邮箱密码；登录码只用于这一次登录。</p>`;
   const script = `${APPLY_SCRIPT}
 const userCode = ${JSON.stringify(userCode)};
 let attempt = null;
@@ -75,11 +75,11 @@ $("approve").onclick = async () => {
   $("status").textContent = "正在验证…";
   try {
     await post("/api/cloud/desktop/approve/verify", { userCode, attempt, code: $("code").value });
-    $("status").textContent = "已批准。回到 DEX BOT，它会自动登录。"; $("status").className = "status ok";
+    $("status").textContent = "已批准。回到 Luna Bot，它会自动登录。"; $("status").className = "status ok";
     $("send").disabled = true; $("approve").disabled = true;
   } catch (error) { $("status").textContent = error.message; $("status").className = "status bad"; }
 };
-if (!userCode) { $("status").textContent = "缺少设备代码，请从 DEX BOT 重新打开登录页。"; }`;
+if (!userCode) { $("status").textContent = "缺少设备代码，请从 Luna Bot 重新打开登录页。"; }`;
   return layout("登录", body, script);
 }
 
@@ -90,11 +90,11 @@ export function plansPage(_config, plans) {
   <p class="note">${escapeHtml(plan.note)}</p>
   <button data-plan="${escapeHtml(plan.tier)}">选择 ${escapeHtml(plan.name)}</button>
 </div>`).join("");
-  const body = `<h1>DEX Cloud</h1>
+  const body = `<h1>Luna Bot Cloud</h1>
 <p class="lead">一个账号管理你的桌面端、手机端和云电脑。自建服务由 dexai.vip 运营。</p>
 ${cards}
 <div id="status" class="status"></div>
-<p class="note">已经有桌面端？在 DEX BOT → 设置 → DEX Cloud 里直接登录即可。<a href="/docs">先看文档</a>。</p>`;
+<p class="note">已经有桌面端？在 Luna Bot → 设置 → Luna Bot Cloud 里直接登录即可。<a href="/docs">先看文档</a>。</p>`;
   const script = `${APPLY_SCRIPT}
 for (const button of document.querySelectorAll("button[data-plan]")) {
   button.onclick = async () => {
@@ -105,7 +105,7 @@ for (const button of document.querySelectorAll("button[data-plan]")) {
     } catch (error) { $("status").textContent = error.message; }
   };
 }`;
-  return layout("DEX Cloud", body, script, "/cloud");
+  return layout("Luna Bot Cloud", body, script, "/cloud");
 }
 
 export function buyPage(checkoutId, plan, _config) {
@@ -134,7 +134,7 @@ $("activate").onclick = async () => {
   $("status").textContent = "正在验证…";
   try {
     await post("/api/cloud/checkout/verify", { checkoutId, attempt, code: $("code").value });
-    $("status").textContent = "已开通。回到 DEX BOT，它会自动刷新。"; $("status").className = "status ok";
+    $("status").textContent = "已开通。回到 Luna Bot，它会自动刷新。"; $("status").className = "status ok";
     $("send").disabled = true; $("activate").disabled = true;
   } catch (error) { $("status").textContent = error.message; $("status").className = "status bad"; }
 };`;
@@ -163,7 +163,7 @@ export function downloadPage(_config, desktopFiles = []) {
   const desktop = installers.length
     ? installers.map((file) => `<p><a href="/desktop/${encodeURIComponent(file.name)}" rel="noreferrer">${escapeHtml(desktopFileLabel(file.name))}</a> <span class="note">${escapeHtml(file.name)}${sizeLabel(file.size) ? ` · ${sizeLabel(file.size)}` : ""}</span></p>`).join("")
     : `<p class="note">这个服务器上还没有上传桌面端安装包。当前测试版本请从构建机获取。</p>`;
-  const body = `<h1>下载 DEX BOT</h1>
+  const body = `<h1>下载 Luna Bot</h1>
 <p class="lead">桌面端与手机端使用同一个账号。局域网、Tailscale 和配对码连接都保留。</p>
 <div class="card"><h3>Android</h3><p class="note">与官方应用可同时安装，包名 <code>com.dexbot.companion</code>。</p>
 <p><a href="/download/dexbot.apk">下载 APK</a></p></div>
@@ -179,12 +179,12 @@ function section(id, title, html) {
 }
 
 export function docsPage(_config) {
-  const body = `<h1>DEX BOT 文档</h1>
+  const body = `<h1>Luna Bot 文档</h1>
 <p class="lead">桌面端、手机端和云电脑共用一个 DEX 账号。这里说明怎么安装、登录、连接和排查问题。</p>
 
 ${section("start", "快速开始", `<div class="card"><ol>
 <li>在 <a href="/download">下载页</a> 安装桌面端；需要手机时再装 Android APK。</li>
-<li>打开 DEX BOT → <strong>设置 → DEX Cloud</strong>，用邮箱登录。</li>
+<li>打开 Luna Bot → <strong>设置 → Luna Bot Cloud</strong>，用邮箱登录。</li>
 <li>第一次登录会为你创建一台 <strong>My Cloud</strong> 云电脑；桌面端会在“服务器”列表里显示它。</li>
 <li>手机连电脑：桌面端打开 <strong>手机和设备</strong>，扫码即可。</li>
 </ol></div>`)}
@@ -200,7 +200,7 @@ ${section("connect", "连接方式", `<p>桌面端可以在不同网络条件下
 <dl>
 <dt>局域网</dt><dd>手机和电脑在同一个 Wi-Fi。桌面端“手机和设备”里会显示地址，手机直接输入或扫码。</dd>
 <dt>Tailscale</dt><dd>两端都加入同一个 Tailscale 网络，使用电脑的 MagicDNS 名称连接。不需要公网端口。</dd>
-<dt>DEX Cloud 云电脑</dt><dd>账号自动获得 <code>https://c-xxxx.cloud.dexai.vip</code> 地址，任何网络都能打开，不需要电脑一直开机。</dd>
+<dt>Luna Bot Cloud 云电脑</dt><dd>账号自动获得 <code>https://c-xxxx.cloud.dexai.vip</code> 地址，任何网络都能打开，不需要电脑一直开机。</dd>
 <dt>配对码 / 二维码</dt><dd>桌面端生成一次性配对码，手机扫码后自动填入地址和凭据。</dd>
 </dl>`)}
 
@@ -211,7 +211,7 @@ ${section("phone", "手机端", `<div class="card"><h3>安装</h3>
 <h3>更新</h3>
 <p>应用内提示有新版本时，会从这个服务器的 <code>/update.json</code> 读取版本、SHA-256 和 APK 地址。也可以手动重新下载 APK 覆盖安装。</p></div>`)}
 
-${section("cloud", "云电脑", `<p>云电脑是一台跑在 DEX Cloud 上的 DEX BOT，关掉自己的电脑也能继续用。</p>
+${section("cloud", "云电脑", `<p>云电脑是一台跑在 Luna Bot Cloud 上的 Luna Bot，关掉自己的电脑也能继续用。</p>
 <ul>
 <li>首次登录后自动创建 <strong>My Cloud</strong>；创建过程通常需要 1–3 分钟，状态会显示“正在创建”并给出进度。</li>
 <li>就绪后地址形如 <code>https://c-1234abcd.cloud.dexai.vip</code>，在桌面端“服务器”列表里直接打开。</li>
@@ -230,7 +230,7 @@ ${section("permissions", "权限与审批级别", `<p>每个机器人有自己�
 </dl>
 <p>在机器人资料页或设置里修改；修改立即生效，不需要重启会话。</p>`)}
 
-${section("self-hosting", "自建服务器与自定义域名", `<p>DEX BOT 的服务器可以跑在你自己控制的机器上：</p>
+${section("self-hosting", "自建服务器与自定义域名", `<p>Luna Bot 的服务器可以跑在你自己控制的机器上：</p>
 <ol>
 <li>准备一台能运行 Docker 的 Linux 服务器，以及一个指向它的域名。</li>
 <li>按 <code>dex-cloud/README.md</code> 用 compose 启动服务，配置 <code>DEXCLOUD_ORIGIN</code>、邮件和中继密钥。</li>
@@ -250,7 +250,7 @@ ${section("linux", "Linux 桌面", `<p>Linux 版以 AppImage 和 deb 分发。�
 ${section("analytics", "使用统计", `<p>桌面端有一项可选的使用统计，默认关闭，可在 <strong>设置 → 隐私</strong> 打开或关闭。</p>
 <ul>
 <li>只记录功能是否被使用（例如“打开了云电脑”），不记录对话内容、文件和密钥。</li>
-<li>统计发往 DEX Cloud；关闭后立即停止发送，不需要重启。</li>
+<li>统计发往 Luna Bot Cloud；关闭后立即停止发送，不需要重启。</li>
 <li>反馈里附带的诊断信息不算统计，只有你主动发送反馈时才会包含。</li>
 </ul>`)}
 
@@ -267,7 +267,7 @@ ${section("troubleshooting", "疑难解答", `<dl>
 
 ${section("privacy", "数据与隐私", `<ul>
 <li>账号只保存邮箱、设备名称、平台和版本，用于登录与设备列表。</li>
-<li>对话和文件默认留在你自己的电脑或云电脑里，不会上传到 DEX Cloud。</li>
+<li>对话和文件默认留在你自己的电脑或云电脑里，不会上传到 Luna Bot Cloud。</li>
 <li>只有你主动发送反馈时，才会把反馈正文、版本、平台和诊断信息发送到服务器；发送前应用会做密钥与 URL 参数脱敏。</li>
 <li>反馈可以附上联系邮箱，仅用于回复这一条反馈。</li>
 <li>退出登录后，本机保存的会话令牌失效；云电脑里的数据仍然保留。</li>
@@ -279,7 +279,7 @@ ${section("privacy", "数据与隐私", `<ul>
 
 export function feedbackPage(_config) {
   const body = `<h1>反馈</h1>
-<p class="lead">报告一个问题或提一个建议。反馈会直接进入 DEX BOT 的服务器，不需要 GitHub 账号。</p>
+<p class="lead">报告一个问题或提一个建议。反馈会直接进入 Luna Bot 的服务器，不需要 GitHub 账号。</p>
 <div class="card">
   <label for="kind">类型</label>
   <select id="kind">
@@ -336,13 +336,13 @@ $("send").onclick = async () => {
 export function provisionPage(cloud) {
   const status = cloud.status === "ready" ? "已经就绪" : cloud.status === "offline" ? "暂时离线" : "正在创建";
   const body = `<h1>${escapeHtml(cloud.name)}</h1>
-<p class="lead">DEX Cloud 正在为你准备这台云电脑。当前状态：<strong>${escapeHtml(status)}</strong>。</p>
+<p class="lead">Luna Bot Cloud 正在为你准备这台云电脑。当前状态：<strong>${escapeHtml(status)}</strong>。</p>
 <div class="card">
   <h3>接下来</h3>
-  <p class="note">回到 DEX BOT 的“服务器”列表，云电脑就绪后会自动出现。首次打开时用同一账号登录即可。</p>
+  <p class="note">回到 Luna Bot 的“服务器”列表，云电脑就绪后会自动出现。首次打开时用同一账号登录即可。</p>
   <p class="note">地址：<code>${escapeHtml(cloud.origin || cloud.hostname || "")}</code></p>
 </div>
-<p><a href="/cloud">返回 DEX Cloud</a></p>`;
+<p><a href="/cloud">返回 Luna Bot Cloud</a></p>`;
   return layout("创建云电脑", body, "", "/cloud");
 }
 

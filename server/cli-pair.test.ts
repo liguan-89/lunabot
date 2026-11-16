@@ -134,7 +134,7 @@ describe("dexbot pair", () => {
   it("says how to start a server when none runs", async () => {
     fetchMock.mockImplementation(async () => { throw new Error("offline"); });
     expect(await runPair(options)).toBe(1);
-    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No DEX BOT server is running here. Start it: dexbot serve"));
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("No Luna Bot server is running here. Start it: dexbot serve"));
   });
 });
 
@@ -157,7 +157,7 @@ describe("the phone-app link `dexbot pair --phone android` scans", () => {
     expect(await runPair({ ...options, phone: "android", publicUrl: explicitOrigin })).toBe(0);
     expect(printed()).not.toContain("dexbot://");
     expect(printed()).not.toContain(credential);
-    expect(printed()).toContain("scan this with the DEX BOT app");
+    expect(printed()).toContain("scan this with the Luna Bot app");
   });
 
   it("keeps a proxy path in the web link", async () => {

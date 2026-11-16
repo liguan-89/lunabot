@@ -1,4 +1,4 @@
-// A person's own DEX BOT hands work to the team's shared bots, on a Team Cloud with the synthetic Claude CLI. Mira (a
+// A person's own Luna Bot hands work to the team's shared bots, on a Team Cloud with the synthetic Claude CLI. Mira (a
 // User) asks her MausBot; the work runs in Sales' own private chat with her, at her level, and its result comes back whole
 // to her private chat. Ben (a User) and Ada (an Admin) see none of it: not by id, not in lists, counts, search,
 // notifications, streams, Sales' shared chat or its notes. A bot Mira cannot see is never named to her MausBot, a bot she
@@ -95,7 +95,7 @@ beforeAll(async () => {
   await share(archive, { everyone: "view", people: {} });
   await share(payroll, { everyone: "none", people: { [BEN.email]: "chat" } });
   mausbot = (await botsOf(mira)).find((bot) => bot.defaultBot?.person === MIRA.email)!;
-  expect(mausbot, "every member has their own DEX BOT").toBeDefined();
+  expect(mausbot, "every member has their own Luna Bot").toBeDefined();
   const chat = await team.as(mira, "POST", `/api/bots/${mausbot.id}/tasks`, { title: "Mine" });
   expect(chat.status, JSON.stringify(chat.body)).toBe(201);
   mine = chat.body.task.threadId as string;
@@ -232,7 +232,7 @@ it("never into a room, nor into Sales' shared chat", async () => {
   expect(JSON.stringify(await lines(ada, sales.threadId))).not.toContain("pull the numbers for Mira");
 }, hostTimeout(120_000));
 
-it("works from her DEX BOT's main chat too, which is hers alone", async () => {
+it("works from her Luna Bot's main chat too, which is hers alone", async () => {
   const main = (await botsOf(mira)).find((bot) => bot.id === mausbot.id)!.mainThreadId;
   expect(main).toBeTruthy();
   await say("FROM-MY-MAIN-CHAT", main);

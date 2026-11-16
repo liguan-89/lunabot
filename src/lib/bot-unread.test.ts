@@ -21,25 +21,25 @@ describe("browser unread indicator", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("prefixes the title with the count, replaces an older count, and drops it at zero", () => {
-    expect(titleWithUnread("DEX BOT", 3)).toBe("(3) DEX BOT");
-    expect(titleWithUnread("(3) DEX BOT", 5)).toBe("(5) DEX BOT");
+    expect(titleWithUnread("Luna Bot", 3)).toBe("(3) Luna Bot");
+    expect(titleWithUnread("(3) Luna Bot", 5)).toBe("(5) Luna Bot");
     expect(titleWithUnread("(5) Acme", 0)).toBe("Acme");
     expect(titleWithUnread("Acme", 0)).toBe("Acme");
   });
 
   it("sets the title and the app badge, and clears both", () => {
-    const doc = { title: "DEX BOT" };
+    const doc = { title: "Luna Bot" };
     const setAppBadge = vi.fn(async () => {});
     const clearAppBadge = vi.fn(async () => {});
     vi.stubGlobal("document", doc);
     vi.stubGlobal("navigator", { setAppBadge, clearAppBadge });
 
     showBrowserUnread(2);
-    expect(doc.title).toBe("(2) DEX BOT");
+    expect(doc.title).toBe("(2) Luna Bot");
     expect(setAppBadge).toHaveBeenCalledWith(2);
 
     showBrowserUnread(0);
-    expect(doc.title).toBe("DEX BOT");
+    expect(doc.title).toBe("Luna Bot");
     expect(clearAppBadge).toHaveBeenCalled();
   });
 
@@ -54,14 +54,14 @@ describe("browser unread indicator", () => {
   });
 
   it("still sets the title where the Badging API is missing or refuses", () => {
-    const doc = { title: "DEX BOT" };
+    const doc = { title: "Luna Bot" };
     vi.stubGlobal("document", doc);
     vi.stubGlobal("navigator", {});
     showBrowserUnread(1);
-    expect(doc.title).toBe("(1) DEX BOT");
+    expect(doc.title).toBe("(1) Luna Bot");
 
     vi.stubGlobal("navigator", { setAppBadge: () => Promise.reject(new Error("NotAllowedError")) });
     showBrowserUnread(4);
-    expect(doc.title).toBe("(4) DEX BOT");
+    expect(doc.title).toBe("(4) Luna Bot");
   });
 });

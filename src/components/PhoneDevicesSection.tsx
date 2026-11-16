@@ -315,7 +315,7 @@ export function OpenCodeRow({ c, state }: { c: PhoneSetupController; state: Comp
   );
 }
 
-/** "Reaches this computer on Same Wi-Fi and anywhere through DEX BOT." */
+/** "Reaches this computer on Same Wi-Fi and anywhere through Luna Bot." */
 export function reachLine(state: Pick<CompanionState, "routes">): string {
   const on = (route: CompanionRoute) => state.routes?.[route]?.on === true;
   const ways = [

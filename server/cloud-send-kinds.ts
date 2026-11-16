@@ -293,7 +293,7 @@ function applyBotFields(deps: MoveKindsDeps, id: string, raw: unknown, source: A
   if (Object.hasOwn(fields, "chiefOfStaff") && fields.chiefOfStaff !== true) patch.chiefOfStaff = fields.chiefOfStaff ?? undefined;
   if (fields.chiefOfStaff === true) delete patch.hidden;
   deps.store.patchBot(id, patch);
-  // A MausBot arriving where the person's own DEX BOT stays (takeArrivingDefaultBot) doesn't take the crown from this
+  // A MausBot arriving where the person's own Luna Bot stays (takeArrivingDefaultBot) doesn't take the crown from this
   // place's Chief, whichever bot that is, also when a later pass sends its Chief fields without its MausBot mark.
   const keepsCrown = (fields.defaultBot || source.defaultBot) && keptDefaultBot(deps.store, id)
     && deps.store.bots.some((other) => other.id !== id && other.chiefOfStaff);

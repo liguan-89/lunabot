@@ -100,7 +100,13 @@ enum class PhoneTool(
     // to a number that wrote in, unlike the compose-sheet tools above.
     REPLY_SMS("PHONE_REPLY_SMS", "messages", true),
     UI_OBSERVE("PHONE_UI_OBSERVE", "phoneUi", false),
+    // The read half of observe: the same snapshot, filtered down to the
+    // elements a bot asked about, so a long screen costs one answer.
+    UI_QUERY("PHONE_UI_QUERY", "phoneUi", false),
     UI_LAUNCH("PHONE_UI_LAUNCH", "phoneUi", true),
+    // The launcher list is what launch() accepts, answered without the helper:
+    // a phone that is not paired can still say which apps exist.
+    LIST_APPS("PHONE_LIST_APPS", "phoneUi", false),
     UI_TAP("PHONE_UI_TAP", "phoneUi", true),
     UI_TAP_AT("PHONE_UI_TAP_AT", "phoneUi", true),
     UI_TYPE("PHONE_UI_TYPE", "phoneUi", true),
@@ -108,6 +114,9 @@ enum class PhoneTool(
     UI_SWIPE("PHONE_UI_SWIPE", "phoneUi", true),
     UI_KEY("PHONE_UI_KEY", "phoneUi", true),
     UI_BACK("PHONE_UI_BACK", "phoneUi", true),
+    // Several screen steps in one job: each target is found again on the
+    // current screen, so one call replaces a chain of single actions.
+    UI_RUN("PHONE_UI_RUN", "phoneUi", true),
     UI_WAIT("PHONE_UI_WAIT", "phoneUi", false),
     UI_SCREENSHOT("PHONE_UI_SCREENSHOT", "phoneUi", false),
     UI_OCR("PHONE_UI_OCR", "phoneUi", false),
@@ -118,6 +127,14 @@ enum class PhoneTool(
     FILE_READ("PHONE_FILE_READ", "phoneData", false),
     FILE_SEND("PHONE_FILE_SEND", "phoneData", false),
     FILE_SHARE("PHONE_FILE_SHARE", "phoneUi", true),
+    // The Clock app's own intent sets the alarm or timer without its UI; no
+    // screen and no helper are involved, but both change the phone for everyone.
+    SET_ALARM("PHONE_SET_ALARM", "phoneUi", true),
+    SET_TIMER("PHONE_SET_TIMER", "phoneUi", true),
+    // Opening a link or handing text to another app's compose screen acts on the
+    // helper's display, so it fails closed without the helper like a screen write.
+    OPEN_LINK("PHONE_OPEN_LINK", "phoneUi", true),
+    SHARE_TEXT("PHONE_SHARE_TEXT", "phoneUi", true),
     ;
 
     companion object {
@@ -159,7 +176,9 @@ object PhoneToolCatalog {
         "PHONE_SEND_WHATSAPP" to "messages",
         "PHONE_REPLY_SMS" to "messages",
         "PHONE_UI_OBSERVE" to "phoneUi",
+        "PHONE_UI_QUERY" to "phoneUi",
         "PHONE_UI_LAUNCH" to "phoneUi",
+        "PHONE_LIST_APPS" to "phoneUi",
         "PHONE_UI_TAP" to "phoneUi",
         "PHONE_UI_TAP_AT" to "phoneUi",
         "PHONE_UI_TYPE" to "phoneUi",
@@ -167,6 +186,7 @@ object PhoneToolCatalog {
         "PHONE_UI_SWIPE" to "phoneUi",
         "PHONE_UI_KEY" to "phoneUi",
         "PHONE_UI_BACK" to "phoneUi",
+        "PHONE_UI_RUN" to "phoneUi",
         "PHONE_UI_WAIT" to "phoneUi",
         "PHONE_UI_SCREENSHOT" to "phoneUi",
         "PHONE_UI_OCR" to "phoneUi",
@@ -177,6 +197,10 @@ object PhoneToolCatalog {
         "PHONE_FILE_READ" to "phoneData",
         "PHONE_FILE_SEND" to "phoneData",
         "PHONE_FILE_SHARE" to "phoneUi",
+        "PHONE_SET_ALARM" to "phoneUi",
+        "PHONE_SET_TIMER" to "phoneUi",
+        "PHONE_OPEN_LINK" to "phoneUi",
+        "PHONE_SHARE_TEXT" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

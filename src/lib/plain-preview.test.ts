@@ -38,7 +38,7 @@ describe("plainPreviewText", () => {
   });
 
   it("keeps right-to-left text and its own punctuation", () => {
-    expect(plainPreviewText("قرأت تفاصيل **[Prudctual/DEX BOT](https://github.com/x)** مستودعك")).toBe("قرأت تفاصيل Prudctual/DEX BOT مستودعك");
+    expect(plainPreviewText("قرأت تفاصيل **[Prudctual/Luna Bot](https://github.com/x)** مستودعك")).toBe("قرأت تفاصيل Prudctual/Luna Bot مستودعك");
   });
 
   it("folds every line break and run of spaces into one line", () => {

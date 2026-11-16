@@ -15,13 +15,13 @@ export function validateBaseUrl(url: string): string {
     throw new Error(`Invalid OpenMausBot URL: '${url}'. Start it with http:// or https://, like ${EXAMPLE_ADDRESS}`);
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    throw new Error("DEX BOT URL must use http:// or https://");
+    throw new Error("Luna Bot URL must use http:// or https://");
   }
   if (parsed.username || parsed.password) {
-    throw new Error("DEX BOT URL must not contain credentials; use DEXBOT_TOKEN (or OPENMAUSBOT_TOKEN) instead");
+    throw new Error("Luna Bot URL must not contain credentials; use DEXBOT_TOKEN (or OPENMAUSBOT_TOKEN) instead");
   }
   if ((parsed.pathname !== "/" && parsed.pathname !== "") || parsed.search || parsed.hash) {
-    throw new Error("DEX BOT URL must be an origin without a path, query, or fragment");
+    throw new Error("Luna Bot URL must be an origin without a path, query, or fragment");
   }
   if (!allowedServerOrigin(parsed.origin)) {
     throw new Error(`${parsed.origin} is on the open internet and plain http isn't encrypted. Use the server's https:// address, or put HTTPS in front (cloudflared, Caddy or Tailscale).`);
@@ -77,9 +77,9 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
     if (response.status === 403 && !new Headers(headers).has("Authorization")) {
       throw new OpenMausBotApiError(403, /on this shared server/.test(text) // the server says which kind refused it
         ? "This is a shared server, so a program on it without a paired session token may only check its health. Set DEXBOT_TOKEN to a paired session (dexbot connect), as described in docs/mcp-server.md."
-        : "DEX BOT refused this request because the installed desktop app requires a paired session token. Set DEXBOT_TOKEN as described in docs/mcp-server.md.");
+        : "Luna Bot refused this request because the installed desktop app requires a paired session token. Set DEXBOT_TOKEN as described in docs/mcp-server.md.");
     }
-    throw new OpenMausBotApiError(response.status, `DEX BOT API error (${response.status}): ${text || response.statusText}`);
+    throw new OpenMausBotApiError(response.status, `Luna Bot API error (${response.status}): ${text || response.statusText}`);
   }
   try {
     return await response.json();
@@ -97,7 +97,7 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
         signal: AbortSignal.timeout(Math.min(requestTimeoutMs(), 2_000)),
       });
       if (health?.app !== "dexbot" && health?.app !== "openmausbot") {
-        failures.push(`${candidate} answered, but it was not DEX BOT`);
+        failures.push(`${candidate} answered, but it was not Luna Bot`);
         continue;
       }
       return candidate;
@@ -803,7 +803,7 @@ export async function handleToolCall(
   switch (name) {
     case "get_system_health": {
       const res = await fetcher("/api/health");
-      if (res?.app !== "dexbot" && res?.app !== "openmausbot") throw new Error("The configured endpoint is not a DEX BOT server");
+      if (res?.app !== "dexbot" && res?.app !== "openmausbot") throw new Error("The configured endpoint is not a Luna Bot server");
       return {
         status: "connected",
         endpoint: discoveredBaseUrl ?? OMB_BASE_URL,
@@ -874,7 +874,7 @@ export async function handleToolCall(
         }),
       });
       if (!isRecord(created?.bot) || typeof created.bot.id !== "string") {
-        throw new Error("DEX BOT did not return the created bot");
+        throw new Error("Luna Bot did not return the created bot");
       }
       return { success: true, bot: projectBot(created.bot) };
     }
@@ -892,7 +892,7 @@ export async function handleToolCall(
         body: JSON.stringify(patch),
       });
       if (!isRecord(result?.bot)) {
-        throw new Error("DEX BOT did not return the updated bot");
+        throw new Error("Luna Bot did not return the updated bot");
       }
       return { success: true, bot: projectBot(result.bot) };
     }
@@ -961,7 +961,7 @@ export async function handleToolCall(
         }),
       });
       if (!isRecord(created?.group) || typeof created.group.id !== "string") {
-        throw new Error("DEX BOT did not return the created channel");
+        throw new Error("Luna Bot did not return the created channel");
       }
       return { success: true, channel: projectChannel(created.group) };
     }
@@ -985,7 +985,7 @@ export async function handleToolCall(
         body: JSON.stringify(patch),
       });
       if (!isRecord(result?.group)) {
-        throw new Error("DEX BOT did not return the updated channel");
+        throw new Error("Luna Bot did not return the updated channel");
       }
       return { success: true, channel: projectChannel(result.group) };
     }
@@ -996,7 +996,7 @@ export async function handleToolCall(
       const route = taskRoute(args.target_type, targetId);
       const result = await fetcher(route, { method: "POST", body: JSON.stringify(title ? { title } : {}) });
       if (!isRecord(result?.task) || typeof result.task.threadId !== "string") {
-        throw new Error("DEX BOT did not return the created task");
+        throw new Error("Luna Bot did not return the created task");
       }
       const activeTaskId = result.bot?.threadId ?? result.group?.threadId ?? result.task?.threadId;
       return {
@@ -1034,7 +1034,7 @@ export async function handleToolCall(
         body: JSON.stringify({ title }),
       });
       if (!isRecord(result?.task)) {
-        throw new Error("DEX BOT did not return the renamed task");
+        throw new Error("Luna Bot did not return the renamed task");
       }
       return {
         success: true,
@@ -1107,7 +1107,7 @@ export async function handleToolCall(
           method: "PATCH",
           body: JSON.stringify({ modelSelection: selection, requireAvailableModel: true }),
         });
-        if (!isRecord(res?.task)) throw new Error("DEX BOT did not return the updated task");
+        if (!isRecord(res?.task)) throw new Error("Luna Bot did not return the updated task");
         return { success: true, botId, task: projectTask(res.task, bot.threadId) };
       }
       if (bot.busy) throw new Error("Interrupt the bot or let it finish before changing its model");
@@ -1281,7 +1281,7 @@ export async function processMcpMessage(
           name: "dexbot-mcp",
           version: "1.1.0",
         },
-        instructions: "Use bounded read tools before mutating the DEX BOT team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",
+        instructions: "Use bounded read tools before mutating the Luna Bot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",
       });
     }
 

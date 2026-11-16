@@ -85,7 +85,7 @@ internal class PhoneFileStore(private val context: Context) {
         val size = sizeOf(uri)
         if (size > maxBytes) throw FileProblem("$name 超过 ${maxBytes / (1_024 * 1_024)} MB，不能放进对话。", "too_large")
         val data = runCatching { resolver.openInputStream(uri)?.use { it.readBytes() } }.getOrNull()
-            ?: throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+            ?: throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         if (data.size > maxBytes) throw FileProblem("$name 超过 ${maxBytes / (1_024 * 1_024)} MB，不能放进对话。", "too_large")
         return Content.Bytes(name, mime, data)
     }
@@ -126,11 +126,11 @@ internal class PhoneFileStore(private val context: Context) {
             }
         }.getOrElse { error ->
             copy.delete()
-            if (error is FileProblem) throw error else throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+            if (error is FileProblem) throw error else throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         }
         if (written != true) {
             copy.delete()
-            throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+            throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         }
         return copy
     }
@@ -280,7 +280,7 @@ internal class PhoneFileStore(private val context: Context) {
                 true
             }
         }.getOrNull() ?: false
-        if (!opened) throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+        if (!opened) throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         if (bounds.outWidth <= 0 || bounds.outHeight <= 0) throw FileProblem("$name 不是可识别的图片。", "unsupported")
         var sample = 1
         while (maxOf(bounds.outWidth, bounds.outHeight) / sample > MAX_IMAGE_DIMENSION) sample *= 2
@@ -288,7 +288,7 @@ internal class PhoneFileStore(private val context: Context) {
             resolver.openInputStream(uri)?.use { stream ->
                 BitmapFactory.decodeStream(stream, null, BitmapFactory.Options().apply { inSampleSize = sample })
             }
-        }.getOrNull() ?: throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+        }.getOrNull() ?: throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         val scaled = scaleDown(decoded, MAX_IMAGE_DIMENSION)
         try {
             val bytes = ByteArrayOutputStream().also {
@@ -340,7 +340,7 @@ internal class PhoneFileStore(private val context: Context) {
                 } finally {
                     renderer.close()
                 }
-            } ?: throw FileProblem("DEX BOT 无法打开 $name。", "denied")
+            } ?: throw FileProblem("Luna Bot 无法打开 $name。", "denied")
         } catch (problem: FileProblem) {
             throw problem
         } catch (error: Throwable) {
@@ -351,7 +351,7 @@ internal class PhoneFileStore(private val context: Context) {
     private fun readText(uri: Uri, name: String, size: Long): Content {
         if (size > MAX_TEXT_BYTES) throw FileProblem("$name 超过 64 KB，没有整份读取。", "too_large")
         val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
-            ?: throw FileProblem("DEX BOT 无法读取 $name。", "denied")
+            ?: throw FileProblem("Luna Bot 无法读取 $name。", "denied")
         if (bytes.any { it == 0.toByte() }) throw FileProblem("$name 不是文本文件。", "unsupported")
         val text = bytes.toString(Charsets.UTF_8)
         return Content.Text(

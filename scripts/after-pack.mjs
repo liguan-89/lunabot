@@ -120,7 +120,7 @@ async function thinMacPlatformTools(resources, arch) {
 async function signBundleIdentity(context) {
   const app = path.join(
     context.appOutDir,
-    `${context.packager?.appInfo?.productFilename ?? "DEX BOT"}.app`,
+    `${context.packager?.appInfo?.productFilename ?? "Luna Bot"}.app`,
   );
   // Only a real bundle can be signed; electron-builder always writes Info.plist, so its absence means this is not
   // an app to sign (fixtures call the hook directly).

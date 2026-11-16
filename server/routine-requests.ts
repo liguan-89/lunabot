@@ -888,7 +888,7 @@ function revalidateOperation(operation: RoutineRequestOperation, manager: Routin
     : operation.action === "update" && operation.changes.runOnStartup === true;
   const startSchedule = schedule ?? current?.schedule;
   if (startsWithApp && startSchedule && runsOnce(startSchedule)) {
-    throw new RoutineRequestError("Only a repeating routine can also run when DEX BOT starts. A one-time routine just runs at its time.");
+    throw new RoutineRequestError("Only a repeating routine can also run when Luna Bot starts. A one-time routine just runs at its time.");
   }
   if (schedule?.type === "once" && schedule.at <= now) {
     throw new RoutineRequestError("That one-time schedule is now in the past. Ask the bot to propose a new time.", 409, { terminal: true });
@@ -1039,7 +1039,7 @@ export class RoutineRequestService {
     };
     if (args.from) messageInput.from = args.from;
     const owner = operation.forBot?.botId ?? botId;
-    // A submitted change always applies: DEX BOT shows no confirmation card of its own. The grant only names why.
+    // A submitted change always applies: Luna Bot shows no confirmation card of its own. The grant only names why.
     const grant = submitted ? this.autoApply?.(botId, threadId, owner) ?? null : null;
     const automatic = submitted;
     // Check and append stay adjacent and synchronous, so no other proposal can interleave.

@@ -1,6 +1,6 @@
-# DEX Cloud
+# Luna Bot Cloud
 
-The self-hosted account, licence and companion service for DEX BOT. One Node
+The self-hosted account, licence and companion service for Luna Bot. One Node
 process answers both APIs the clients use:
 
 - **Cloud Admin** (`/api/cloud/...`): desktop sign-in, licence entitlement,
@@ -94,7 +94,7 @@ cloud.dexai.vip {
 }
 ```
 
-The two `/v1` paths belong to the phone relay. Everything else is DEX Cloud.
+The two `/v1` paths belong to the phone relay. Everything else is Luna Bot Cloud.
 
 ## Environment
 

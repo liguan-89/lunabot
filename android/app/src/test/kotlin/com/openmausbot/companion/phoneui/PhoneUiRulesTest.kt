@@ -82,6 +82,21 @@ class PhoneUiRulesTest {
     }
 
     @Test
+    fun `result counts default when absent and stay inside the tool's band`() {
+        assertEquals(
+            PhoneUiRules.DEFAULT_QUERY_LIMIT,
+            PhoneUiRules.clampedLimit(null, PhoneUiRules.DEFAULT_QUERY_LIMIT, PhoneUiRules.MAX_QUERY_LIMIT),
+        )
+        assertEquals(5, PhoneUiRules.clampedLimit(5, PhoneUiRules.DEFAULT_QUERY_LIMIT, PhoneUiRules.MAX_QUERY_LIMIT))
+        assertEquals(
+            PhoneUiRules.MAX_QUERY_LIMIT,
+            PhoneUiRules.clampedLimit(10_000, PhoneUiRules.DEFAULT_QUERY_LIMIT, PhoneUiRules.MAX_QUERY_LIMIT),
+        )
+        assertEquals(1, PhoneUiRules.clampedLimit(0, PhoneUiRules.DEFAULT_QUERY_LIMIT, PhoneUiRules.MAX_QUERY_LIMIT))
+        assertEquals(1, PhoneUiRules.clampedLimit(-3, PhoneUiRules.DEFAULT_APP_LIMIT, PhoneUiRules.MAX_APP_LIMIT))
+    }
+
+    @Test
     fun `the snapshot budget stops before it overruns`() {
         assertTrue(PhoneUiRules.budgetHasRoom(0, PhoneUiRules.MAX_TOTAL_TEXT_CHARS))
         assertFalse(PhoneUiRules.budgetHasRoom(1, PhoneUiRules.MAX_TOTAL_TEXT_CHARS))

@@ -19,9 +19,9 @@ test("a team link names a team by its id and nothing else; anything more is no l
 });
 
 test("a launch's team link is taken out of the command line, so a relaunch doesn't open it again", () => {
-  const argv = ["/Applications/DEX BOT", "--flag", LINK, "dexbot://cloud"];
+  const argv = ["/Applications/Luna Bot", "--flag", LINK, "dexbot://cloud"];
   assert.equal(takeTeamLink(argv), ACME);
-  assert.deepEqual(argv, ["/Applications/DEX BOT", "--flag", "dexbot://cloud"]);
+  assert.deepEqual(argv, ["/Applications/Luna Bot", "--flag", "dexbot://cloud"]);
   assert.equal(takeTeamLink(argv), null);
 });
 

@@ -240,7 +240,7 @@ object SharePolicy {
             return localizedShareTransport(api.detail)
         }
         if (api != null && isAmbiguousTransport(api)) {
-            return computerName?.let(::offline) ?: "无法连接到你的电脑。请保持 DEX BOT 打开并开启远程访问，然后重试。"
+            return computerName?.let(::offline) ?: "无法连接到你的电脑。请保持 Luna Bot 打开并开启远程访问，然后重试。"
         }
         // Mirror ShareViewModel: raw exception text never reaches the sheet.
         return generic()
@@ -261,7 +261,7 @@ object SharePolicy {
             val name = detail
                 .removePrefix("Couldn't reach ")
                 .removeSuffix(". Keep OpenMausBot open and Phone access on, then try again.")
-            "无法连接到 $name。请保持 DEX BOT 打开并开启远程访问，然后重试。"
+            "无法连接到 $name。请保持 Luna Bot 打开并开启远程访问，然后重试。"
         }
         else -> detail
     }
@@ -277,7 +277,7 @@ object SharePolicy {
                 ) ||
             (
                 detail.startsWith("无法连接到 ") &&
-                    detail.endsWith("。请保持 DEX BOT 打开并开启远程访问，然后重试。")
+                    detail.endsWith("。请保持 Luna Bot 打开并开启远程访问，然后重试。")
                 )
 
     private fun isAmbiguousTransport(error: APIError): Boolean = when (error) {
@@ -287,16 +287,16 @@ object SharePolicy {
     }
 
     fun notPaired(): String =
-        "更新后请先打开一次 DEX BOT 应用。如果此手机仍未连接，请先配对后再分享。"
+        "更新后请先打开一次 Luna Bot 应用。如果此手机仍未连接，请先配对后再分享。"
 
     fun noDestinations(): String =
         "还没有可发送到的智能体或频道。请先在电脑上创建一个。"
 
     fun imageSupportUnavailable(): String =
-        "请先更新此电脑上的 DEX BOT，然后再分享图片。"
+        "请先更新此电脑上的 Luna Bot，然后再分享图片。"
 
     fun offline(name: String): String =
-        "无法连接到 $name。请保持 DEX BOT 打开并开启远程访问，然后重试。"
+        "无法连接到 $name。请保持 Luna Bot 打开并开启远程访问，然后重试。"
 
     fun nothingSupported(): String =
         "没有可发送的文本、链接、图片或受支持的文档。"
@@ -311,14 +311,14 @@ object SharePolicy {
         "$name 不是受支持的文档格式。请尝试 PDF、纯文本、Word、Excel 或 PowerPoint。"
 
     fun unreadable(name: String): String =
-        "DEX BOT 无法读取 $name。请先尝试将其导出到“文件”应用。"
+        "Luna Bot 无法读取 $name。请先尝试将其导出到“文件”应用。"
 
     fun sendTimedOut(): String = "发送耗时过长，请检查网络连接后重试。"
 
-    fun generic(): String = "DEX BOT 无法发送此内容，请重试。"
+    fun generic(): String = "Luna Bot 无法发送此内容，请重试。"
 
     fun pairingExpired(): String =
-        "此手机的配对已过期。请打开 DEX BOT 并重新配对。"
+        "此手机的配对已过期。请打开 Luna Bot 并重新配对。"
 
     fun ignoredCaption(count: Int): String =
         "已忽略 $count 个不支持的项目。"

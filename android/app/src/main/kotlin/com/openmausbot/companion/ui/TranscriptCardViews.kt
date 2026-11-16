@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
  */
 
 /** What the clipboard shows a copied card came from. */
-private const val CARD_CLIP_LABEL = "DEX BOT 卡片"
+private const val CARD_CLIP_LABEL = "Luna Bot 卡片"
 
 /** Added and removed, in the app's own palette rather than Tailwind's. */
 private val DiffAdded = Color(MausPalette.argb("green"))

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!--
-      The launcher tile base is the DEX BOT blue gradient in
+      The launcher tile base is the Luna Bot blue gradient in
       `ic_launcher_background.xml`; the white bubble face in
       `ic_launcher_foreground.xml` sits on it. No flat fallback colour is
       needed because the adaptive layers carry the whole tile.

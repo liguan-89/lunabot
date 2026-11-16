@@ -22,6 +22,27 @@ object PhoneUiRules {
     /** A bot-typed string is refused above this rather than silently cut. */
     const val MAX_TYPE_TEXT = 4_000
 
+    /** Query filters are refused above these rather than cut, so a match cannot silently change. */
+    const val MAX_QUERY_TEXT = 200
+    const val MAX_QUERY_RESOURCE_ID = 200
+    const val MAX_QUERY_ROLE = 100
+
+    /** PHONE_UI_QUERY answers at most this many of the snapshot's elements. */
+    const val MAX_QUERY_LIMIT = 100
+    const val DEFAULT_QUERY_LIMIT = 30
+
+    /** PHONE_UI_RUN: at most this many commands in one call, and this much text in one command. */
+    const val MAX_RUN_COMMANDS = 20
+    const val MAX_RUN_TEXT = 2_000
+
+    /** PHONE_UI_RUN's wait step when it names no timeout. */
+    const val DEFAULT_RUN_WAIT_MS = 3_000L
+
+    /** PHONE_LIST_APPS: a query is a launcher search; the answer stops at [MAX_APP_LIMIT]. */
+    const val MAX_APP_QUERY = 120
+    const val MAX_APP_LIMIT = 200
+    const val DEFAULT_APP_LIMIT = 60
+
     const val DEFAULT_WIDTH = 720
     const val DEFAULT_HEIGHT = 1280
     const val DEFAULT_DPI = 160
@@ -60,6 +81,12 @@ object PhoneUiRules {
         val parsed = value?.trim()?.toIntOrNull() ?: return default
         return parsed.coerceIn(min, max)
     }
+
+    /**
+     * A bot-supplied result count, defaulted when absent and clamped into
+     * 1..[max]; the tools report whether the answer was cut at this count.
+     */
+    fun clampedLimit(value: Int?, default: Int, max: Int): Int = (value ?: default).coerceIn(1, max)
 
     /**
      * Text that may leave the phone: control characters other than newline

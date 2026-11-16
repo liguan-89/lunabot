@@ -17,9 +17,9 @@ describe("the first hour's words", () => {
         expect(line.trim(), language).not.toBe("");
         if (english) expect([english.connect, english.connected, english.briefOn, english.phoneTitle, english.phoneBody, english.phoneButton, english.firstLookReady, english.firstBriefReady], language).not.toContain(line);
       }
-      expect(w.greeting("Sam", "DEX BOT"), language).toContain("Sam");
-      expect(w.greeting(undefined, "DEX BOT"), language).toContain("DEX BOT");
-      expect(w.greeting(undefined, "DEX BOT"), language).not.toContain("undefined");
+      expect(w.greeting("Sam", "Luna Bot"), language).toContain("Sam");
+      expect(w.greeting(undefined, "Luna Bot"), language).toContain("Luna Bot");
+      expect(w.greeting(undefined, "Luna Bot"), language).not.toContain("undefined");
       expect(w.briefOn, language).toMatch(/8/);
       const done = w.list([w.sorted(40), w.drafted(6), w.prepped(4)]);
       for (const n of ["40", "6", "4"]) expect(done, language).toContain(n);

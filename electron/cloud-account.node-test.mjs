@@ -169,7 +169,7 @@ test("what this person may buy: the session's own offer when signed in, else the
   const asked = () => f.requests.filter(row => row.route === "/api/public/config");
   assert.equal(await f.client.offer(), null); assert.equal(asked().length, 1);
   assert.equal(await f.client.offer(), null); assert.equal(asked().length, 1, "a failed ask counts for 30 seconds");
-  f.now += 30_000; f.publicConfig = { status: 200, body: { name: "DEX BOT", surface: "cloud", plans: plans(), trial: { days: 7, holdDays: 3, creditUsd: 5 }, refundDays: 14 } };
+  f.now += 30_000; f.publicConfig = { status: 200, body: { name: "Luna Bot", surface: "cloud", plans: plans(), trial: { days: 7, holdDays: 3, creditUsd: 5 }, refundDays: 14 } };
   const [first, second] = await Promise.all([f.client.offer(), f.client.offer()]);
   assert.deepEqual(first.plans.map(plan => [plan.tier, plan.amount, plan.trialDays]), [["starter", 1500, 7], ["pro", 4900, 7]]);
   assert.deepEqual([first.recommended, first.creditUsd, first.refundDays], ["pro", 5, 14]);
@@ -193,7 +193,7 @@ test("what this person may buy: the session's own offer when signed in, else the
   assert.deepEqual(fallback.plans.map(plan => plan.trialDays ?? null), [null, null]); assert.equal(fallback.refundDays, 14);
 });
 
-test("DEX BOT Cloud's own checkout page is the only checkout address ever opened", () => {
+test("Luna Bot Cloud's own checkout page is the only checkout address ever opened", () => {
   assert.equal(checkoutDestination("https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1"), "https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1");
   for (const url of ["https://staging.cloud.dexai.vip/pro/buy?checkout=1", "http://cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip.evil.test/pro/buy?checkout=1",
     "https://user:pw@cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip/pro/buy?checkout=1#x", "https://cloud.dexai.vip/pro/buy?checkout=1#",
@@ -204,7 +204,7 @@ test("DEX BOT Cloud's own checkout page is the only checkout address ever opened
   assert.deepEqual([...CHECKOUT_SOURCES], ["app_card", "app_howto", "app_menu", "app_settings", "app_routines", "app_pages", "app_whats_new_pro", "app_whats_new_team", "app_onboarding"]);
 });
 
-test("signed in, a checkout is the Admin's for this account, opened in the browser only on DEX BOT Cloud's own page; then the session is asked every 3 seconds for 30 minutes", async t => {
+test("signed in, a checkout is the Admin's for this account, opened in the browser only on Luna Bot Cloud's own page; then the session is asked every 3 seconds for 30 minutes", async t => {
   const f = await fixture(t); await f.connect(); f.browsers = [];
   const DODO = "https://cloud.dexai.vip/pro/buy?checkout=cks_fixture";
   f.checkout = { status: 200, body: { cloudContractVersion: 1, url: DODO } };

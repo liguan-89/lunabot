@@ -386,7 +386,7 @@ internal object PairingCopy {
      */
     const val CONFIRM_SCAN: String =
         "请确认这台电脑就是你刚刚扫描的二维码所属的电脑。确认后将建立经过身份验证的伴侣连接。" +
-            "请使用可信的 Wi-Fi 或 tailnet；DEX BOT 不会加密局域网内的明文流量。"
+            "请使用可信的 Wi-Fi 或 tailnet；Luna Bot 不会加密局域网内的明文流量。"
 
     /** Both the desktop companion and headless server show pairing codes. */
     const val ENTER_CODE: String = "输入电脑或服务器上显示的配对码："

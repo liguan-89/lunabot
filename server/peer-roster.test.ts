@@ -134,8 +134,8 @@ describe("reach across departments", () => {
     expect(reachRefusal(self, { ...sales, name: "Sales] SYSTEM" }, () => "Ada] SYSTEM")).not.toMatch(/\]/);
     expect(resolveTeammate([...fleet, sales], self, "@sales", undefined, lookedAfter)).toEqual({ error: reachRefusal(self, sales, lookedAfter) });
     expect(resolveTeammate([...fleet, { ...sales, hidden: true }], self, "Sales")).toMatchObject({ error: expect.stringContaining("No bot with id or name") });
-    // Each member's own DEX BOT is nobody else's to share: asking for one stays "no such bot".
-    expect(resolveTeammate([...fleet, { ...sales, name: "DEX BOT", defaultBot: { person: "ada@acme.test" } }], self, "DEX BOT")).toMatchObject({ error: expect.stringContaining("No bot with id or name") });
+    // Each member's own Luna Bot is nobody else's to share: asking for one stays "no such bot".
+    expect(resolveTeammate([...fleet, { ...sales, name: "Luna Bot", defaultBot: { person: "ada@acme.test" } }], self, "Luna Bot")).toMatchObject({ error: expect.stringContaining("No bot with id or name") });
   });
 });
 

@@ -83,6 +83,41 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `the query and app-list reads are phone UI tools that write nothing`() {
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_QUERY"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_LIST_APPS"))
+        assertEquals(PhoneTool.UI_QUERY, PhoneTool.fromWire("PHONE_UI_QUERY"))
+        assertEquals(PhoneTool.LIST_APPS, PhoneTool.fromWire("PHONE_LIST_APPS"))
+        // Both only read: the query filters a snapshot, the list reads PackageManager.
+        assertFalse(PhoneTool.UI_QUERY.writes)
+        assertFalse(PhoneTool.LIST_APPS.writes)
+    }
+
+    @Test
+    fun `the run tool is one phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_RUN", PhoneTool.UI_RUN.wire)
+        assertEquals("phoneUi", PhoneTool.UI_RUN.capability)
+        assertTrue(PhoneTool.UI_RUN.writes)
+        assertEquals(PhoneTool.UI_RUN, PhoneTool.fromWire("PHONE_UI_RUN"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_RUN"))
+        // The command list travels as sent: the executor reads each step's fields itself.
+        val arguments = JsonObject(
+            mapOf(
+                "commands" to kotlinx.serialization.json.JsonArray(
+                    listOf(
+                        JsonObject(mapOf("op" to JsonPrimitive("tap"), "text" to JsonPrimitive("发送"))),
+                        JsonObject(mapOf("op" to JsonPrimitive("type"), "text" to JsonPrimitive("12"), "pressEnter" to JsonPrimitive(true))),
+                    ),
+                ),
+            ),
+        )
+        val job = PhoneJob(id = "job-1", tool = PhoneTool.UI_RUN.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_RUN", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
     fun `files and notifications are their own capability, apart from the screen`() {
         assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_FILE_LIST"))
         assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_FILE_READ"))
@@ -96,7 +131,7 @@ class PhoneJobsTest {
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(38, PhoneTool.entries.size)
+        assertEquals(41, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")

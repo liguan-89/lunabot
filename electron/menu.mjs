@@ -123,17 +123,17 @@ export function buildApplicationMenu({ environments, activeId, onSwitch, onAddFr
   const atLogin = openAtLogin ? [{ id: "open-at-login", label: t("native.menu.openAtLogin"), type: "checkbox", checked: openAtLogin.checked, click: () => openAtLogin.onToggle(!openAtLogin.checked) }] : [];
   const roles = roleMenus(t, isMac);
   const appMenu = {
-    label: "DEX BOT",
+    label: "Luna Bot",
     submenu: [
-      role(t, "about", "native.role.about", { app: "DEX BOT" }),
+      role(t, "about", "native.role.about", { app: "Luna Bot" }),
       { label: t("native.menu.preferences"), accelerator: "CmdOrCtrl+,", click: () => onOpenSettings() },
       ...atLogin,
       { type: "separator" },
-      role(t, "hide", "native.role.hide", { app: "DEX BOT" }),
+      role(t, "hide", "native.role.hide", { app: "Luna Bot" }),
       role(t, "hideOthers", "native.role.hideOthers"),
       role(t, "unhide", "native.role.unhide"),
       { type: "separator" },
-      role(t, "quit", "native.role.quitApp", { app: "DEX BOT" }),
+      role(t, "quit", "native.role.quitApp", { app: "Luna Bot" }),
     ],
   };
   const template = [

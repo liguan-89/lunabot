@@ -47,13 +47,13 @@ export const TREG_TOP_UP_URL = "https://treg.to";
 
 /** Every sentence a bot or the Settings page can be shown about X research. */
 export const X_MESSAGES = {
-  noKey: "Research isn't set up on this server. Add a treg key in Settings → API keys, or use a paid DEX BOT Cloud plan.",
+  noKey: "Research isn't set up on this server. Add a treg key in Settings → API keys, or use a paid Luna Bot Cloud plan.",
   botOff: "Research is off for this bot. Turn it on in this bot's settings under Access.",
-  badKey: "Sign in to DEX BOT Cloud again in Settings to use X research.",
+  badKey: "Sign in to Luna Bot Cloud again in Settings to use X research.",
   ownBadKey: "treg rejected your key. Check it in Settings → API keys.",
   /** A Cloud home's relay token is the Admin's to replace; the person has no sign-in to redo there. */
-  homeBadKey: "X research isn't connected on this Cloud right now. It comes with your plan, so there is nothing to sign in to: try again later, and tell DEX BOT support if it keeps happening.",
-  noPlan: "X research comes with DEX BOT Cloud plans, and this account's plan isn't active.",
+  homeBadKey: "X research isn't connected on this Cloud right now. It comes with your plan, so there is nothing to sign in to: try again later, and tell Luna Bot support if it keeps happening.",
+  noPlan: "X research comes with Luna Bot Cloud plans, and this account's plan isn't active.",
   rateLimited: "X research is busy right now. Try again in a moment.",
   badRequest: "That X research request was refused. Check the query, handle or post link.",
   unavailable: "X research is temporarily unavailable. Try again shortly.",

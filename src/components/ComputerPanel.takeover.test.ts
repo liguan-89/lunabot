@@ -360,7 +360,7 @@ describe("taking control of a Local VM", () => {
     await settle();
     expect(releases()).toHaveLength(1);
     expect(liveDesktop()).toBeNull();
-    expect(document.body.textContent).toContain("DEX BOT couldn't open the live desktop. Try again.");
+    expect(document.body.textContent).toContain("Luna Bot couldn't open the live desktop. Try again.");
   });
 });
 

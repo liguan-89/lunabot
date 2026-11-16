@@ -210,7 +210,7 @@ export function AppNotices({ quiet = false, viewer = null, now = Date.now }: { q
     : firstChatQuiet(state) ? (grokNow === true && (launch === null || launch === GROK_MOVE_NOTICE) ? GROK_MOVE_NOTICE : null)
     : cards || whatsNewHere || consentHere || simpleDue || boatHere || modelgoHere || twoFact !== false || grokNow !== false ? nextNotice({
     [GROK_MOVE_NOTICE]: grokNow,
-    // As the What's new popup: never in the launch whose welcome just finished, nor over DEX BOT's first-launch card.
+    // As the What's new popup: never in the launch whose welcome just finished, nor over Luna Bot's first-launch card.
     [SIMPLE_MODE_NOTICE]: !simpleDue || afterWelcome === true ? false : afterWelcome === null || mausBotFirst || simpleBlocked ? null : true,
     [WHATS_NEW_NOTICE]: whatsNewDue === false || whatsNewState === "none" || moving || afterWelcome === true ? false
       : whatsNewDue === null || whatsNewState === "loading" || !viewer || afterWelcome === null || mausBotFirst || moving === null || whatsNewBlocked ? null : true,

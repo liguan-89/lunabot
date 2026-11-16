@@ -1,4 +1,4 @@
-# OpenMausBot 协议手册（Android 覆盖图）
+# Luna Bot 协议手册（Android 覆盖图）
 
 > 依据：`server/index.ts`、`shared/wire.ts`、`shared/notification.ts`、`companion/src/routes.ts`、
 > `android/core/` 与 `ios/Sources/CompanionCore/`。行号会随上游变动，以函数名和路径为准。
@@ -30,7 +30,7 @@
 | `POST /api/pair` | companion 配对（credential/code + deviceName） | ▣ `Client.pair` |
 | `POST /api/auth/pair` | 服务器配对码 | ▣ `Client.pairWithServer` |
 | `GET /api/health` | 存活探测（未认证只回 app 名） | ▣ 配对探测 |
-| `GET /.well-known/openmausbot/environment` | 服务器身份 | ▣ 每次请求前核对 |
+| `GET /.well-known/lunabot/environment` | 服务器身份 | ▣ 每次请求前核对 |
 | `GET /api/events` | SSE 全量事件 | ▣ `Session.runStream` |
 | `GET /api/auth/session`、`POST /api/auth/logout` | 当前会话 / 注销 | ✗（登出只删本地 token） |
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { appliesNow, directApply } from "./direct-apply.ts";
 
 describe("appliesNow", () => {
-  it("applies at Full access and at every other level, with no card of DEX BOT's own", () => {
+  it("applies at Full access and at every other level, with no card of Luna Bot's own", () => {
     expect(appliesNow({ fullAccess: true, ownerMustConfirm: false })).toBe("full-access");
     expect(appliesNow({ fullAccess: false, ownerMustConfirm: false })).toBe("level");
   });

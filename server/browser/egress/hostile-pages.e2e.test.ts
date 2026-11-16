@@ -1,4 +1,4 @@
-// S6: a hostile page in a bot's real Chrome tries every way it has to reach DEX BOT, this machine's other services,
+// S6: a hostile page in a bot's real Chrome tries every way it has to reach Luna Bot, this machine's other services,
 // the local network and the cloud metadata service. Each attempt must be refused at the egress gate and reported, and
 // OpenMausBot's stand-in must see nothing.
 import type { ChildProcess } from "node:child_process";
@@ -137,7 +137,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
     }
   };
 
-  it("cannot reach DEX BOT on the desktop, in any spelling of this machine or through any request", async () => {
+  it("cannot reach Luna Bot on the desktop, in any spelling of this machine or through any request", async () => {
     const own = [
       [`http://127.0.0.1:${ombPort}/`, "127.0.0.1", "omb"],
       [`http://localhost.:${ombPort}/`, "localhost.", "omb"],
@@ -165,7 +165,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
         setTimeout(() => resolve(found), 5000);
       })`);
     });
-    expect(hits, "DEX BOT's stand-in saw nothing").toEqual([]);
+    expect(hits, "Luna Bot's stand-in saw nothing").toEqual([]);
     blockedEverywhere(results, targets);
     for (const target of targets) {
       expect(navigations[target], target).toMatch(/ERR_(SOCKS|PROXY|TUNNEL|ADDRESS|UNSAFE|BLOCKED|NAME)/);
@@ -179,7 +179,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
     expect(candidates.filter((candidate) => / typ (host|srflx|prflx) /.test(candidate)), "WebRTC gathers no candidates").toEqual([]);
   }, hostTimeout(240_000));
 
-  it("cannot reach the local network or cloud metadata on DEX BOT Cloud, while the bot's own dev server loads", async () => {
+  it("cannot reach the local network or cloud metadata on Luna Bot Cloud, while the bot's own dev server loads", async () => {
     const targets = [`http://127.0.0.1:${ombPort}/`, "http://[fdaa::3]:4280/", "http://10.0.0.1/", "http://169.254.169.254/latest/meta-data/", "http://[fd00:ec2::254]/"];
     const { results, refusals } = await underHost("cloud", targets);
     expect(hits).toEqual([]);
@@ -192,7 +192,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
     expect(reasons("fd00:ec2::254")).toEqual(new Set(["metadata"]));
   }, hostTimeout(240_000));
 
-  it("never opens Reddit on DEX BOT Cloud, by navigation, redirect, link, frame or request, and tells the bot why", async () => {
+  it("never opens Reddit on Luna Bot Cloud, by navigation, redirect, link, frame or request, and tells the bot why", async () => {
     const targets = ["https://www.reddit.com/", "https://old.reddit.com/r/test/", "https://i.redd.it/", "https://www.redditstatic.com/", "https://reddit.app.link/"];
     // Only this machine's names resolve, so nothing here can reach Reddit, even if the block broke.
     const looked: string[] = [];
@@ -250,7 +250,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
       egress: {
         interfaces: () => ({ en0: [{ address: "192.168.7.20", cidr: "192.168.7.20/24", family: "IPv4", internal: false, netmask: "255.255.255.0", mac: "00:00:00:00:00:00" }] }) as never,
         resolve: async (host: string) => (names[host] ?? []).map((address) => ({ address, family: address.includes(":") ? 6 : 4 })),
-        // The computer's own connect, recorded: had the check let anything through, DEX BOT's stand-in would see it.
+        // The computer's own connect, recorded: had the check let anything through, Luna Bot's stand-in would see it.
         connect: (options: { host: string; port: number }) => { connects.push(`${options.host}:${options.port}`); return tcpConnect(ombPort, "127.0.0.1"); },
       },
     });
@@ -276,7 +276,7 @@ describe.skipIf(!chrome)("S6: a hostile page in a bot's browser", () => {
       blockedEverywhere(results, targets);
       for (const target of targets) expect(navigations[target], target).toMatch(/ERR_/);
       expect(connects, "the computer connected nowhere").toEqual([]);
-      expect(hits, "DEX BOT's stand-in saw nothing").toEqual([]);
+      expect(hits, "Luna Bot's stand-in saw nothing").toEqual([]);
       const reasons = (host: string) => new Set(refusals.filter((refusal) => refusal.host === host).map((refusal) => `${refusal.port} ${refusal.reason}`));
       for (const host of ["lan.test", "nat64.test", "own.test"]) expect(reasons(host), host).toEqual(new Set(["80 home-network"]));
       expect(reasons("mac-loopback.test")).toEqual(new Set(["80 home-network", "443 home-network"]));

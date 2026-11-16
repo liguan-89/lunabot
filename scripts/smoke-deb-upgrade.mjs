@@ -21,7 +21,7 @@ try {
     encoding: "utf8",
     stdio: ["ignore", "pipe", "ignore"],
   }).trim();
-  if (status.startsWith("ii")) fail("refusing to replace a pre-existing DEX BOT installation");
+  if (status.startsWith("ii")) fail("refusing to replace a pre-existing Luna Bot installation");
 } catch (error) {
   if (String(error?.message ?? error).includes("refusing to replace")) throw error;
 }
@@ -30,7 +30,7 @@ const temporary = fs.mkdtempSync(path.join(path.resolve(runnerTemp), "omb-deb-up
 if (path.dirname(temporary) !== path.resolve(runnerTemp)) fail("temporary fixture escaped RUNNER_TEMP");
 const legacyRoot = path.join(temporary, "legacy-package");
 const controlRoot = path.join(legacyRoot, "DEBIAN");
-const legacyApp = path.join(legacyRoot, "opt", "DEX BOT");
+const legacyApp = path.join(legacyRoot, "opt", "Luna Bot");
 const legacyResources = path.join(legacyApp, "resources");
 const legacyDeb = path.join(temporary, "dexbot_0.1.7_amd64.deb");
 
@@ -45,8 +45,8 @@ try {
       "Package: dexbot",
       "Version: 0.1.7",
       "Architecture: amd64",
-      "Maintainer: DEX BOT CI <ci@dexbot.invalid>",
-      "Description: Legacy DEX BOT directory-mode upgrade fixture",
+      "Maintainer: Luna Bot CI <ci@dexbot.invalid>",
+      "Description: Legacy Luna Bot directory-mode upgrade fixture",
       "",
     ].join("\n"),
     { mode: 0o644 },

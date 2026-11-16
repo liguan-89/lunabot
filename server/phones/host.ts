@@ -1,8 +1,8 @@
 import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // The phone integration's per-turn pieces: the mount, the prompt part and the internal MCP handler (owner check, per-bot
 // verdict, decision rows, the phone job, write activity). A send waits on the person's Send tap on the phone; a screen
-// write waits on DEX BOT's outgoing-action card, because it reaches every app on the phone.
-import { PHONE_MCP_SERVER, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
+// write waits on Luna Bot's outgoing-action card, because it reaches every app on the phone.
+import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
@@ -10,6 +10,7 @@ import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { BotRecord } from "../store.ts";
 import type { PromptPart } from "../system-prompt.ts";
 import { capName, phoneAccess, phoneAppsFor, phoneSystemPrompt, phoneWithheldPrompt, type PhoneAccess, type PhoneBot, type PhonePlace } from "./access.ts";
+import { PhoneConfirms, recordsScreen } from "./confirm.ts";
 import { PHONE_NO_PHONE_TEXT, PHONE_PLACE_PROMPT } from "./instructions.ts";
 import { PHONE_JOB_TIMEOUT_MS, PHONE_SEND_TIMEOUT_MS, type PhoneJobOutcome, type PhoneJobs } from "./jobs.ts";
 import type { PhoneRecord, PhoneRegistry } from "./registry.ts";
@@ -36,11 +37,15 @@ export interface PhoneHostDeps {
    * this host cannot ask, so it must not control a screen.
    */
   holdOutbound?(input: PhoneOutboundHoldInput): Promise<PhoneOutboundHoldAnswer>;
-  /**
-   * The turn's effective approval mode, read at call time. Absent is `ask`,
-   * so every screen write waits on the person.
-   */
+  /** The turn's effective approval mode, read at call time. Absent is `ask`,
+   * so every screen write waits on the person. */
   approvalMode?(botId: string, threadId: string): string;
+  /**
+   * The second gate over screen writes: the per-turn approvals of irreversible
+   * controls. Absent is a fresh one for this host's lifetime; a test injects
+   * one to grant an approval without a live person.
+   */
+  confirm?: PhoneConfirms;
   /**
    * Saves a file the phone sent for the chat and returns the attachment row to
    * append. Absent fails closed: this host cannot put files in the chat.
@@ -96,6 +101,8 @@ const denied = (name: string, text: string, rule: string, code: ChatNoticeKey): 
 
 export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
   const { registry, jobs } = deps;
+  /** The per-turn approvals of irreversible screen controls, and the last screen each phone showed. */
+  const confirms = deps.confirm ?? new PhoneConfirms();
   /** The owner's phones that allow at least one app, in default order. */
   const phonesOf = (owner: string) => registry.forOwner(owner)
     .filter((phone) => Object.values(phone.registration.capabilities).some(Boolean))
@@ -185,13 +192,22 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             // The person may have taken the turn back while the card waited.
             if (!active()) return { ok: false, code: "denied", error: GONE_TEXT };
           }
+          // A second, narrower gate: the card above approves the tool call, this one approves the control. A tap the
+          // word list names as irreversible runs only on an approval of that exact step, and only once.
+          const turn = { threadId: capability.threadId, botId: capability.botId };
+          const check = isPhoneUiWrite(name) ? confirms.check(turn, phone.key, name, args) : { result: "proceed" as const };
+          if (check.result === "refused") return { ok: false, code: "denied", error: check.reason };
           const outcome = await jobs.request(phone.key, name, args, {
             // A UI control keeps the short job timeout: it already waited on
             // the person's approval above, not on a Send tap on the phone.
             active, timeoutMs: phoneToolSends(name) ? PHONE_SEND_TIMEOUT_MS : PHONE_JOB_TIMEOUT_MS,
-            offlineText: `${phone.name} is offline. Open the DEX BOT app on it.`, online: () => registry.online(phone.key),
+            offlineText: `${phone.name} is offline. Open the Luna Bot app on it.`, online: () => registry.online(phone.key),
           });
           if (outcome.ok) registry.used(phone.key);
+          if (outcome.ok && recordsScreen(name)) confirms.noteScreen(phone.key, outcome.result);
+          // A control the gate let through used up its approval; any other write voids one still waiting, since the
+          // step the person approved is no longer the step the bot is on. Typing is part of an approved send.
+          if (outcome.ok && isPhoneWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other");
           return outcome;
         },
         onWrite: (record) => {

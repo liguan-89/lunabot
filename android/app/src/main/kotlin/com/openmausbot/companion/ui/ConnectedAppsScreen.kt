@@ -467,9 +467,9 @@ private fun CredentialStoreWarning(hasLastKnownInventory: Boolean) {
         Text("无法重新检查账号状态", fontWeight = FontWeight.SemiBold, color = minisWarning)
         Text(
             if (hasLastKnownInventory) {
-                "当前显示上次连接的状态。您的电脑刚才无法打开凭据存储，因此无法重新核查这些账号。没有任何连接被断开——在电脑上重启 DEX BOT 通常即可恢复。"
+                "当前显示上次连接的状态。您的电脑刚才无法打开凭据存储，因此无法重新核查这些账号。没有任何连接被断开——在电脑上重启 Luna Bot 通常即可恢复。"
             } else {
-                "您的电脑无法打开凭据存储，因此无法确认哪些账号已连接。没有任何连接被断开——在电脑上重启 DEX BOT 通常即可恢复。"
+                "您的电脑无法打开凭据存储，因此无法确认哪些账号已连接。没有任何连接被断开——在电脑上重启 Luna Bot 通常即可恢复。"
             },
             color = minisSecondary,
             fontSize = 13.sp,

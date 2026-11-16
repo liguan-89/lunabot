@@ -41,9 +41,9 @@ export function appArmorProfile(executable: string): string {
     throw new Error(`The browser's AppArmor exemption is only for a root-owned path under /opt, not ${executable}.`);
   }
   // Spaces are valid in AppArmor rules when the path is quoted, and the
-  // packaged Linux app lives under /opt/<productName> (DEX BOT).
+  // packaged Linux app lives under /opt/<productName> (Luna Bot).
   const quoted = `"${executable.replace(/[\\"]/g, "\\$&")}"`;
-  return `# Written for DEX BOT: lets its Chrome use its sandbox.
+  return `# Written for Luna Bot: lets its Chrome use its sandbox.
 abi <abi/4.0>,
 include <tunables/global>
 

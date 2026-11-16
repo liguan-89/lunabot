@@ -1104,6 +1104,118 @@
         }
       },
       {
+        "name": "PHONE_UI_RUN",
+        "description": "Run an ordered list of screen commands on the phone's screen in one call, for a form, a search or a fixed flow whose steps are already known. Each target is found again on the current screen before it acts, and the run stops at the first step that fails, returning the screen it ended on.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "commands": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 20,
+              "description": "The steps, in the order to run them.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "enum": [
+                      "launch",
+                      "tap",
+                      "type",
+                      "scroll",
+                      "swipe",
+                      "key",
+                      "back",
+                      "wait",
+                      "assert",
+                      "observe"
+                    ],
+                    "description": "What to do."
+                  },
+                  "app": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "The Android app's package name, for launch."
+                  },
+                  "ref": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "An element ref from an earlier observe, for a target known exactly; each step still finds it again on the current screen."
+                  },
+                  "text": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "description": "For tap, the visible text of the target; for type, what to type; for assert, the text that must be present."
+                  },
+                  "resourceId": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": "Full or partial Android view id of the target."
+                  },
+                  "role": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "Full or partial accessibility class or role of the target."
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "up",
+                      "down",
+                      "left",
+                      "right"
+                    ],
+                    "description": "Where the finger moves, for scroll and swipe."
+                  },
+                  "key": {
+                    "type": "string",
+                    "enum": [
+                      "back",
+                      "enter",
+                      "del",
+                      "tab",
+                      "up",
+                      "down",
+                      "left",
+                      "right"
+                    ],
+                    "description": "Which key, for key."
+                  },
+                  "timeoutMs": {
+                    "type": "integer",
+                    "minimum": 300,
+                    "maximum": 6000,
+                    "description": "Longest wait in milliseconds, for wait."
+                  },
+                  "present": {
+                    "type": "boolean",
+                    "description": "For assert: true when the text must be present, false when it must be absent."
+                  },
+                  "pressEnter": {
+                    "type": "boolean",
+                    "description": "For type: press enter after typing."
+                  }
+                },
+                "required": [
+                  "op"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "commands"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
         "name": "PHONE_UI_WAIT",
         "description": "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.",
         "inputSchema": {
@@ -1160,6 +1272,70 @@
               "minimum": 1,
               "maximum": 200,
               "description": "Longest list of lines to keep."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_QUERY",
+        "description": "Find elements of the phone's current screen by text, view id or role, at least one of the three, when the full element list is too long; its refs work with PHONE_UI_TAP and PHONE_UI_TYPE. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Case-insensitive text or content description to find."
+            },
+            "resourceId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Full or partial Android view id to find."
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Full or partial accessibility class or role to find."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Most elements to return; default 30."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_LIST_APPS",
+        "description": "List the apps installed on the phone that have a launcher entry, so PHONE_UI_LAUNCH gets the real package name instead of a guess. Read only.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "maxLength": 120,
+              "description": "Part of an app name or package name to match."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Most apps to return; default 60."
             },
             "phone": {
               "type": "string",
@@ -1356,6 +1532,149 @@
           },
           "required": [
             "fileId"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SET_ALARM",
+        "description": "Set an alarm with the phone's own Clock app, which records it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "hour": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 23,
+              "description": "Hour of the day, 24-hour clock."
+            },
+            "minute": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 59,
+              "description": "Minute of the hour."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "What the alarm is for, shown when it rings."
+            },
+            "days": {
+              "type": "array",
+              "maxItems": 7,
+              "description": "Repeat days; leave them out for a one-time alarm.",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "MON",
+                  "TUE",
+                  "WED",
+                  "THU",
+                  "FRI",
+                  "SAT",
+                  "SUN"
+                ]
+              }
+            },
+            "vibrate": {
+              "type": "boolean",
+              "description": "Vibrate when it rings."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "hour",
+            "minute"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SET_TIMER",
+        "description": "Start a countdown timer with the phone's own Clock app, which starts it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "seconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 86400,
+              "description": "How long the timer runs, in seconds."
+            },
+            "label": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "What the timer is for."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "seconds"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_OPEN_LINK",
+        "description": "Open a web link on the phone's controlled display, in the browser or in the named app. Only http and https links are accepted. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "maxLength": 2000,
+              "description": "The link to open, http or https."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package that should open it; leave it out for the browser."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_SHARE_TEXT",
+        "description": "Put text into another app's compose screen on the phone's controlled display, with the app named or the system chooser left to pick; the person still sends it. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 5000,
+              "description": "The text to place in the other app."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package that should receive the text."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "text"
           ],
           "additionalProperties": false
         }

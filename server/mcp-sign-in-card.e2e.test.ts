@@ -62,7 +62,7 @@ it("a bot adds an OAuth server and asks the person to sign in; they sign in on t
   await endTurn();
   const shown = await card();
   expect(shown.connector).toMatchObject({ slug: "postiz", label: "Postiz", status: "required" });
-  expect(shown.text).toBe("Postiz's MCP server needs a sign-in. Open this conversation in DEX BOT to sign in.");
+  expect(shown.text).toBe("Postiz's MCP server needs a sign-in. Open this conversation in Luna Bot to sign in.");
 
   const window = await api("POST", "/api/auth/pairing", { scopes: ["client"] });
   const paired = await (await fetch(`${url}/api/auth/pair`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ code: window.code }) })).json() as { token: string };
@@ -76,7 +76,7 @@ it("a bot adds an OAuth server and asks the person to sign in; they sign in on t
   const { url: link } = await api("POST", `${cardPath}/authorize`, { threadId: iris.threadId });
   expect((await api("GET", `${cardPath}/status?threadId=${iris.threadId}`))).toEqual({ connected: false, pending: true, status: "authorizing" });
   const page = await fetch(link);
-  expect(await page.text()).toBe("Signed in. You can close this tab and return to DEX BOT.");
+  expect(await page.text()).toBe("Signed in. You can close this tab and return to Luna Bot.");
 
   let resumed: PiTurn | undefined;
   await expect.poll(() => Boolean(resumed = turn("the person signed in to postiz")), { timeout: 20_000 }).toBe(true);

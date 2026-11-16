@@ -355,7 +355,7 @@ export function createMarketClient({
       const code = url.searchParams.get("code");
       if (!isText(code, 512)) return fail(400, "TK1688 sent no authorization code.");
       response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", connection: "close" });
-      response.end("<!doctype html><title>DEX BOT</title><p>Signed in to TK1688. You can close this window.</p>");
+      response.end("<!doctype html><title>Luna Bot</title><p>Signed in to TK1688. You can close this window.</p>");
       settle(null, code);
     });
     server.once("error", (error) => settle(error));

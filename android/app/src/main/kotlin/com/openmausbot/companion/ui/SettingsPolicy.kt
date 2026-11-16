@@ -15,11 +15,11 @@ import kotlinx.coroutines.flow.asStateFlow
  */
 object SettingsPolicy {
     const val NOTIFICATIONS_FOOTER =
-        "在 DEX BOT 保持连接期间（包括后台短暂暂停后重放的消息帧），审批请求和已完成的工作都会显示通知。" +
+        "在 Luna Bot 保持连接期间（包括后台短暂暂停后重放的消息帧），审批请求和已完成的工作都会显示通知。" +
             "应用完全关闭后的推送通知需要单独的推送中继版本支持（目前尚未推出）。"
 
     const val UNPAIR_FOOTER =
-        "仅从本手机移除配对。若要彻底禁止此手机访问电脑，请在电脑端 DEX BOT → 设置 → 手机和设备 中移除该设备。"
+        "仅从本手机移除配对。若要彻底禁止此手机访问电脑，请在电脑端 Luna Bot → 设置 → 手机和设备 中移除该设备。"
 
     const val UNPAIR_CONFIRM_TITLE = "取消配对此手机？"
 

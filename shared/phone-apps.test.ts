@@ -7,7 +7,7 @@ describe("phone tool vocabulary", () => {
     for (const name of PHONE_TOOL_NAMES) expect(PHONE_CAPABILITIES).toContain(phoneToolCapability(name));
     expect(phoneToolCapability("PHONE_SEND_WHATSAPP")).toBe("messages");
     expect(phoneToolCapability("PHONE_FIND_PLACES_NEARBY")).toBe("location");
-    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]) {
+    for (const name of ["PHONE_UI_OBSERVE", "PHONE_UI_QUERY", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_LIST_APPS", "PHONE_CLIPBOARD_GET", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE"]) {
       expect(phoneToolCapability(name)).toBe("phoneUi");
     }
     // Files and notifications stand apart from the screen: their reads need no helper.
@@ -16,7 +16,7 @@ describe("phone tool vocabulary", () => {
     }
   });
   it("splits reads from writes by verb; observing, waiting, screenshots, OCR and clipboard reads are reads", () => {
-    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
+    expect(PHONE_TOOL_NAMES.filter((n) => !isPhoneWrite(n))).toEqual(["PHONE_LIST_EVENTS", "PHONE_GET_EVENT", "PHONE_FIND_FREE_TIME", "PHONE_LIST_REMINDERS", "PHONE_SEARCH_CONTACTS", "PHONE_GET_CONTACT", "PHONE_GET_LOCATION", "PHONE_FIND_PLACES_NEARBY", "PHONE_LIST_HOME", "PHONE_UI_OBSERVE", "PHONE_UI_WAIT", "PHONE_UI_SCREENSHOT", "PHONE_UI_OCR", "PHONE_UI_QUERY", "PHONE_LIST_APPS", "PHONE_CLIPBOARD_GET", "PHONE_NOTIF_LIST", "PHONE_FILE_LIST", "PHONE_FILE_READ", "PHONE_FILE_SEND"]);
   });
   it("is classed by the existing outbound rules with no special case", () => {
     expect(isOutboundTool("PHONE_SEND_MESSAGE")).toBe(true);
@@ -46,6 +46,11 @@ describe("phone tool vocabulary", () => {
     expect(isOutboundTool("PHONE_CLIPBOARD_GET")).toBe(false);
     expect(isReadOnlyTool("PHONE_CLIPBOARD_GET")).toBe(true);
     expect(isPhoneWrite("PHONE_CLIPBOARD_GET")).toBe(false);
+    expect(isOutboundTool("PHONE_UI_QUERY")).toBe(false);
+    expect(isReadOnlyTool("PHONE_UI_QUERY")).toBe(true);
+    expect(isReadOnlyTool("mcp__device__PHONE_UI_QUERY")).toBe(true);
+    expect(isOutboundTool("PHONE_LIST_APPS")).toBe(false);
+    expect(isReadOnlyTool("PHONE_LIST_APPS")).toBe(true);
     expect(phoneToolSends("PHONE_UI_TAP")).toBe(false);
   });
   it("normalizes grants", () => {

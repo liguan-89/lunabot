@@ -43,12 +43,12 @@ import kotlinx.serialization.json.put
  * actions fail closed unless the helper is attached, the accessibility service
  * is connected and the helper could create its own display — there is no
  * fallback to the phone's primary display for input and no shell/ADB/network
- * access. File and notification reads, and clipboard reads through the helper,
- * answer without a display, so a sleeping helper cannot turn a read into a
- * permission error. Pixels leave this slice only through PHONE_UI_SCREENSHOT
- * and PHONE_FILE_READ (a picture of the helper's display or of a file the
- * person allowed) and PHONE_UI_OCR (recognized text, never the frame), and
- * only when a bot asks for them.
+ * access. File, notification and installed-app reads, and clipboard reads
+ * through the helper, answer without a display, so a sleeping helper cannot
+ * turn a read into a permission error. Pixels leave this slice only through
+ * PHONE_UI_SCREENSHOT and PHONE_FILE_READ (a picture of the helper's display
+ * or of a file the person allowed) and PHONE_UI_OCR (recognized text, never
+ * the frame), and only when a bot asks for them.
  *
  * Every driving action follows the same shape: fingerprint the screen, run
  * the action, wait for the screen to actually change, then look at whether an
@@ -71,8 +71,9 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
     private enum class Action {
-        OBSERVE, LAUNCH, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, WAIT,
+        OBSERVE, QUERY, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
         SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SEND, FILE_SHARE,
+        SET_ALARM, SET_TIMER, OPEN_LINK, SHARE_TEXT,
     }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
@@ -91,6 +92,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 Action.FILE_READ -> return@withContext fileRead(arguments)
                 Action.FILE_SEND -> return@withContext fileSend(arguments)
                 Action.NOTIF_LIST -> return@withContext noticeList(arguments)
+                Action.LIST_APPS -> return@withContext listApps(arguments)
+                // An alarm and a timer are standard intents the Clock app answers
+                // itself; neither the helper nor the screen is involved.
+                Action.SET_ALARM -> return@withContext PhoneUiSystemActions.setAlarm(appContext, null, arguments)
+                Action.SET_TIMER -> return@withContext PhoneUiSystemActions.setTimer(appContext, null, arguments)
                 else -> Unit
             }
             val shell = bridge.shell.value
@@ -100,6 +106,17 @@ internal class PhoneUiTaskExecutor(context: Context) {
             when (action) {
                 Action.CLIPBOARD_GET -> return@withContext clipboardGet(shell)
                 Action.CLIPBOARD_SET -> return@withContext clipboardSet(shell, arguments)
+                // A link and shared text act on the display, so they need the
+                // session, but not the accessibility service: they are plain intents.
+                Action.OPEN_LINK, Action.SHARE_TEXT -> {
+                    val opened = acquireSession(shell, arguments)
+                        ?: return@withContext PhoneToolOutcome.Failure("无法创建受控的虚拟显示器。", CODE_DENIED)
+                    return@withContext if (action == Action.OPEN_LINK) {
+                        PhoneUiSystemActions.openLink(appContext, opened.displayId, arguments)
+                    } else {
+                        PhoneUiSystemActions.shareText(appContext, opened.displayId, arguments)
+                    }
+                }
                 else -> Unit
             }
             val service = PhoneUiAccessibilityService.instance.value
@@ -108,9 +125,17 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 ?: return@withContext PhoneToolOutcome.Failure("无法创建受控的虚拟显示器。", CODE_DENIED)
             when (action) {
                 Action.OBSERVE -> observe(shell, service, session)
+                Action.QUERY -> query(service, session, arguments)
                 Action.WAIT -> waitTool(shell, service, session, arguments)
                 Action.SCREENSHOT -> screenshot(shell, service, session)
                 Action.OCR -> ocr(session, arguments)
+                Action.RUN -> PhoneUiRun(
+                    snapshot = { service.snapshot(session.displayId) },
+                    identify = { ref -> identityOf(service, session, ref) },
+                    perform = { tool, args -> runStep(shell, service, session, tool, args) },
+                    topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
+                    elementJson = ::elementJson,
+                ).execute(arguments)
                 else -> write(shell, service, session) { step ->
                     when (action) {
                         Action.LAUNCH -> launch(shell, arguments, session, step)
@@ -146,7 +171,9 @@ internal class PhoneUiTaskExecutor(context: Context) {
 
     private fun actionOf(wire: String): Action? = when (wire) {
         "PHONE_UI_OBSERVE" -> Action.OBSERVE
+        "PHONE_UI_QUERY" -> Action.QUERY
         "PHONE_UI_LAUNCH" -> Action.LAUNCH
+        "PHONE_LIST_APPS" -> Action.LIST_APPS
         "PHONE_UI_TAP" -> Action.TAP
         "PHONE_UI_TAP_AT" -> Action.TAP_AT
         "PHONE_UI_TYPE" -> Action.TYPE
@@ -154,6 +181,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_UI_SWIPE" -> Action.SWIPE
         "PHONE_UI_KEY" -> Action.KEY
         "PHONE_UI_BACK" -> Action.BACK
+        "PHONE_UI_RUN" -> Action.RUN
         "PHONE_UI_WAIT" -> Action.WAIT
         "PHONE_UI_SCREENSHOT" -> Action.SCREENSHOT
         "PHONE_UI_OCR" -> Action.OCR
@@ -164,6 +192,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_FILE_READ" -> Action.FILE_READ
         "PHONE_FILE_SEND" -> Action.FILE_SEND
         "PHONE_FILE_SHARE" -> Action.FILE_SHARE
+        "PHONE_SET_ALARM" -> Action.SET_ALARM
+        "PHONE_SET_TIMER" -> Action.SET_TIMER
+        "PHONE_OPEN_LINK" -> Action.OPEN_LINK
+        "PHONE_SHARE_TEXT" -> Action.SHARE_TEXT
         else -> null
     }
 
@@ -325,7 +357,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         }.getOrDefault(false)
         if (!enabled) {
             return PhoneToolOutcome.Failure(
-                "通知读取还没有授权。请在系统设置的通知使用权里允许 DEX BOT。",
+                "通知读取还没有授权。请在系统设置的通知使用权里允许 Luna Bot。",
                 CODE_DENIED,
             )
         }
@@ -349,6 +381,55 @@ internal class PhoneUiTaskExecutor(context: Context) {
                         },
                     ),
                 )
+            },
+        )
+    }
+
+    /**
+     * The apps PHONE_UI_LAUNCH would accept, with the labels a person sees.
+     * The same launch-intent test launch() applies is the filter here, so this
+     * list can never offer an app the next call refuses; nothing about the
+     * screen, the helper or a session is needed to answer it.
+     */
+    private fun listApps(arguments: JsonObject): PhoneToolOutcome {
+        val query = arguments.string("query")
+        if ((query?.length ?: 0) > PhoneUiRules.MAX_APP_QUERY) {
+            return PhoneToolOutcome.Failure("查询条件过长。", CODE_UNSUPPORTED)
+        }
+        val limit = PhoneUiRules.clampedLimit(
+            arguments.int("limit"),
+            PhoneUiRules.DEFAULT_APP_LIMIT,
+            PhoneUiRules.MAX_APP_LIMIT,
+        )
+        val apps = runCatching {
+            packageManager.getInstalledApplications(0)
+                .filter { packageManager.getLaunchIntentForPackage(it.packageName) != null }
+                .map { packageManager.getApplicationLabel(it).toString() to it.packageName }
+        }.getOrElse { return PhoneToolOutcome.Failure("读取应用列表失败。", CODE_DENIED) }
+        val matched = apps
+            .filter { (label, pkg) ->
+                query == null ||
+                    label.contains(query, ignoreCase = true) ||
+                    pkg.contains(query, ignoreCase = true)
+            }
+            // Case-insensitive so an app named "alarm" sorts by the label a
+            // person reads, not by the case it happens to use.
+            .sortedWith(compareBy<Pair<String, String>>({ it.first.lowercase() }, { it.second }))
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put(
+                    "apps",
+                    JsonArray(
+                        matched.take(limit).map { (label, pkg) ->
+                            buildJsonObject {
+                                put("package", pkg)
+                                put("label", label)
+                            }
+                        },
+                    ),
+                )
+                put("count", matched.size)
+                put("truncated", matched.size > limit)
             },
         )
     }
@@ -462,6 +543,57 @@ internal class PhoneUiTaskExecutor(context: Context) {
         return withScreen(outcome, shell, service, session, step.changed)
     }
 
+    /**
+     * One PHONE_UI_RUN step, through the path its own tool takes: the write
+     * wrapper fingerprints, acts, waits and checks for a spill, so the step's
+     * answer carries `changed` exactly as a single call would.
+     */
+    private suspend fun runStep(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        tool: PhoneTool,
+        arguments: JsonObject,
+    ): PhoneToolOutcome {
+        val action = actionOf(tool.wire)
+            ?: return PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
+        return when (action) {
+            Action.WAIT -> waitTool(shell, service, session, arguments)
+            Action.LAUNCH -> write(shell, service, session) { step -> launch(shell, arguments, session, step) }
+            Action.TAP -> write(shell, service, session) { step -> tap(shell, service, session, arguments, step) }
+            Action.TYPE -> write(shell, service, session) { step -> type(shell, service, session, arguments, step) }
+            Action.SCROLL -> write(shell, service, session) { step -> scroll(shell, service, session, arguments, step) }
+            Action.SWIPE -> write(shell, service, session) { step -> swipeTool(shell, service, session, arguments, step) }
+            Action.KEY -> write(shell, service, session) { step -> key(shell, service, session, arguments, step) }
+            Action.BACK -> write(shell, service, session) { step ->
+                key(shell, service, session, buildJsonObject { put("key", "back") }, step)
+            }
+            else -> PhoneToolOutcome.Failure("这个工具不属于手机 UI。", CODE_UNSUPPORTED)
+        }
+    }
+
+    /**
+     * What the element behind [ref] looks like now, for PHONE_UI_RUN to find
+     * again after its next snapshot issues new refs. Read before that snapshot,
+     * since taking one invalidates the ref. Null when the ref no longer
+     * resolves; password fields report no text, as the snapshot does.
+     */
+    private fun identityOf(
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        ref: String,
+    ): PhoneUiRun.Identity? {
+        val node = service.resolveNode(ref, session.displayId) ?: return null
+        val bounds = nodeBoundsOf(node) ?: return null
+        val password = runCatching { node.isPassword }.getOrDefault(false)
+        return PhoneUiRun.Identity(
+            text = if (password) null else runCatching { PhoneUiRules.clampText(node.text?.toString()) }.getOrNull(),
+            description = if (password) null else runCatching { PhoneUiRules.clampText(node.contentDescription?.toString()) }.getOrNull(),
+            viewId = runCatching { node.viewIdResourceName?.takeIf { it.isNotEmpty() } }.getOrNull(),
+            bounds = listOf(bounds.left, bounds.top, bounds.right, bounds.bottom),
+        )
+    }
+
     private suspend fun awaitChange(
         service: PhoneUiAccessibilityService,
         session: PhoneUiDisplaySession,
@@ -557,6 +689,72 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 put("elements", JsonArray(snapshot.elements.map(::elementJson)))
             },
         )
+    }
+
+    /**
+     * The same snapshot PHONE_UI_OBSERVE reads, narrowed to the elements whose
+     * text, view id or class matches what the bot asked. `count` is the total
+     * before `limit`, so "nothing there" and "more than shown" stay distinct.
+     */
+    private fun query(
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+    ): PhoneToolOutcome {
+        val text = arguments.string("text")
+        val resourceId = arguments.string("resourceId")
+        val role = arguments.string("role")
+        if (text == null && resourceId == null && role == null) {
+            return PhoneToolOutcome.Failure("至少要给 text、resourceId 或 role 中的一个。", CODE_UNSUPPORTED)
+        }
+        if ((text?.length ?: 0) > PhoneUiRules.MAX_QUERY_TEXT ||
+            (resourceId?.length ?: 0) > PhoneUiRules.MAX_QUERY_RESOURCE_ID ||
+            (role?.length ?: 0) > PhoneUiRules.MAX_QUERY_ROLE
+        ) {
+            return PhoneToolOutcome.Failure("查询条件过长。", CODE_UNSUPPORTED)
+        }
+        val limit = PhoneUiRules.clampedLimit(
+            arguments.int("limit"),
+            PhoneUiRules.DEFAULT_QUERY_LIMIT,
+            PhoneUiRules.MAX_QUERY_LIMIT,
+        )
+        val snapshot = service.snapshot(session.displayId)
+            ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
+        val matched = snapshot.elements.filter { matches(it, text, resourceId, role) }
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("snapshot", snapshot.id)
+                put(
+                    // Only the selectors that actually narrowed the answer:
+                    // `limit` is a bound, reported through count/truncated.
+                    "query",
+                    buildJsonObject {
+                        text?.let { put("text", it) }
+                        resourceId?.let { put("resourceId", it) }
+                        role?.let { put("role", it) }
+                    },
+                )
+                put("count", matched.size)
+                put("truncated", matched.size > limit)
+                put("elements", JsonArray(matched.take(limit).map(::elementJson)))
+            },
+        )
+    }
+
+    /**
+     * Every filter that arrived has to hold: text against the element's own
+     * text or description, resourceId against its view id, role against its
+     * class name. Comparison is a case-insensitive substring, the way a person
+     * would recognize a label.
+     */
+    private fun matches(element: PhoneUiElement, text: String?, resourceId: String?, role: String?): Boolean {
+        if (text != null) {
+            val labels = listOfNotNull(element.text, element.description)
+            if (labels.none { it.contains(text, ignoreCase = true) }) return false
+        }
+        if (resourceId != null && element.viewId?.contains(resourceId, ignoreCase = true) != true) return false
+        if (role != null && element.className?.contains(role, ignoreCase = true) != true) return false
+        return true
     }
 
     private suspend fun launch(

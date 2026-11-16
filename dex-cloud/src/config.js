@@ -52,7 +52,7 @@ export function loadConfig(env = process.env) {
     sessionDays: int(env.DEXCLOUD_SESSION_DAYS, 30, { min: 1, max: 365 }),
     otpTtlSeconds: int(env.DEXCLOUD_OTP_TTL_SECONDS, 600, { min: 60, max: 3600 }),
     otpResendSeconds: int(env.DEXCLOUD_OTP_RESEND_SECONDS, 30, { min: 5, max: 600 }),
-    emailFrom: trim(env.DEXCLOUD_EMAIL_FROM) || "DEX BOT <noreply@cloud.dexai.vip>",
+    emailFrom: trim(env.DEXCLOUD_EMAIL_FROM) || "Luna Bot <noreply@cloud.dexai.vip>",
     smtp: smtp(env.DEXCLOUD_SMTP_URL),
     resendKey: trim(env.DEXCLOUD_RESEND_API_KEY),
     relayNodes: list(env.DEXCLOUD_RELAY_NODES).length ? list(env.DEXCLOUD_RELAY_NODES) : ["relay1.dexai.vip"],

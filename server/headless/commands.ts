@@ -37,9 +37,9 @@ async function doctorOnce(ctx: VerbContext): Promise<VerbOutcome> {
   const problems: string[] = [];
   const warnings: string[] = [];
   const isOmb = health.app === "dexbot" || health.app === "openmausbot";
-  if (!isOmb) problems.push(`${client.baseUrl} answered, but it is not DEX BOT`);
+  if (!isOmb) problems.push(`${client.baseUrl} answered, but it is not Luna Bot`);
   const tooOld = Boolean(server) && server!.capabilities?.jobs !== true;
-  if (tooOld) problems.push(`DEX BOT ${server!.version ?? "(unknown version)"} is too old for the headless commands: it cannot report a conversation's job`);
+  if (tooOld) problems.push(`Luna Bot ${server!.version ?? "(unknown version)"} is too old for the headless commands: it cannot report a conversation's job`);
   if (isOmb && !availableCount) problems.push("no engine is available: set one up with `dexbot engine set KIND --key-env VAR`");
   if (session?.kind === "session" && typeof session.expiresAt === "number" && session.expiresAt - Date.now() < 14 * DAY) {
     warnings.push(`this session expires in ${Math.max(0, Math.floor((session.expiresAt - Date.now()) / DAY))} days: get a new one with dexbot connect`);
@@ -60,7 +60,7 @@ async function doctorOnce(ctx: VerbContext): Promise<VerbOutcome> {
     },
     exitCode: ok ? EXIT.done : isOmb && !tooOld ? EXIT.failed : EXIT.unreachable,
     human: [
-      `${server ? `DEX BOT ${server.version} ("${server.label}")` : "DEX BOT"} at ${client.baseUrl}: ${ok ? "ready" : "not ready"}`,
+      `${server ? `Luna Bot ${server.version} ("${server.label}")` : "Luna Bot"} at ${client.baseUrl}: ${ok ? "ready" : "not ready"}`,
       `You are: ${who}`,
       `Engines available: ${availableEngines.length ? availableEngines.join(", ") : availableCount ? `${availableCount} (which ones needs a session)` : "none"}`,
       ...(browser ? [`Bots' browser: ${browser.kind === "engine" ? `installed${browser.version ? ` (${browser.version})` : ""}` : "not available"}`] : []),

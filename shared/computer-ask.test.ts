@@ -16,10 +16,10 @@ describe("a bot's ask to turn on what it needs from the person's computer", () =
     expect(line("not-running", "PC")).toBe("Screen control isn't running on your PC.");
     expect(line("blocked", "PC")).toBe("Screen control is blocked on your PC: Windows Security may have stopped it.");
     expect(line("blocked", "Mac")).toBe("Screen control is blocked on your Mac.");
-    expect(line("permissions", "Mac")).toBe("macOS hasn't allowed DEX BOT to see and use the screen yet.");
-    expect(line("closed", "PC")).toBe("DEX BOT isn't open on your PC. Open it there and Scout carries on.");
-    expect(line("never", "computer")).toBe("DEX BOT isn't on your computer yet. Install it, sign in to DEX BOT Cloud there, and Scout carries on.");
-    expect(line("update", "PC")).toBe("DEX BOT on your PC needs an update first. Update it, and Scout carries on.");
+    expect(line("permissions", "Mac")).toBe("macOS hasn't allowed Luna Bot to see and use the screen yet.");
+    expect(line("closed", "PC")).toBe("Luna Bot isn't open on your PC. Open it there and Scout carries on.");
+    expect(line("never", "computer")).toBe("Luna Bot isn't on your computer yet. Install it, sign in to Luna Bot Cloud there, and Scout carries on.");
+    expect(line("update", "PC")).toBe("Luna Bot on your PC needs an update first. Update it, and Scout carries on.");
   });
 
   it("offers Turn on only where the app on that computer can do it, and the app itself where it's the fix", () => {

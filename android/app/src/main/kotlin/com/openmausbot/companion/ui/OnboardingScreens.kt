@@ -60,9 +60,9 @@ object OnboardingCopy {
 
     const val UNPAIRED_HOME_TITLE = "随时准备连接"
     const val UNPAIRED_HOME_BODY =
-        "将此手机与 DEX BOT 配对，即可查看对话并回复您的机器人。"
+        "将此手机与 Luna Bot 配对，即可查看对话并回复您的机器人。"
     const val UNPAIRED_HOME_HINT =
-        "请在电脑上打开 DEX BOT → 设置 → 手机和设备。"
+        "请在电脑上打开 Luna Bot → 设置 → 手机和设备。"
     const val UNPAIRED_HOME_CONNECT = "连接电脑"
 
     const val NOTIFICATIONS_TITLE = "随时掌握最新动态"
@@ -147,8 +147,8 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
             Text(
                 // The app's own name, the same one the launcher and every
                 // other surface use. The computer is still OpenMausBot; this
-                // header names the phone client, so it is DEX BOT.
-                text = "DEX BOT",
+                // header names the phone client, so it is Luna Bot.
+                text = "Luna Bot",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),

@@ -761,7 +761,7 @@ createServer(socket => socket.end()).listen(port, '127.0.0.1');
       expect(thread.filter((message) => String(message.tool?.name ?? "").startsWith("error:"))).toEqual([]);
       // What the teammate's turn was told: the VPS is unavailable, with the way to enable it.
       const told = promptRows().filter((text) => text.includes("Summarise the queue numbers from this morning.")).at(-1)!;
-      expect(told).toContain("This bot's VPS computer is unavailable this turn (The DEX BOT VPS container is stopped)");
+      expect(told).toContain("This bot's VPS computer is unavailable this turn (The Luna Bot VPS container is stopped)");
       expect(told).toContain("Open Computer and enable Start VPS automatically");
     } finally {
       writeFileSync(template, original);

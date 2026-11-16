@@ -139,7 +139,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.min
 
 /** What the clipboard shows this came from. */
-private const val MESSAGE_CLIP_LABEL = "DEX BOT message"
+private const val MESSAGE_CLIP_LABEL = "Luna Bot message"
 
 /**
  * One row of the transcript — the port of `MessageRow` in `ios/App/ChatView.swift`.
@@ -1860,7 +1860,7 @@ private fun SignInRequestCard(
                 color = minisSecondary,
             )
             Text(
-                "密码由你亲自输入到页面中，DEX BOT 始终看不到。",
+                "密码由你亲自输入到页面中，Luna Bot 始终看不到。",
                 fontSize = 12.sp,
                 color = secondaryTint,
             )

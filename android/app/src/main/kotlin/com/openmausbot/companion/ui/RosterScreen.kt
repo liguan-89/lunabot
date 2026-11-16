@@ -1497,7 +1497,7 @@ fun StatusBanner() {
             tone = NoticeTone.ERROR,
         )
         Session.Status.OutdatedApp -> ConnectionNotice(
-            message = "电脑已改用加密连接，请更新手机上的 DEX BOT 应用后再连接。",
+            message = "电脑已改用加密连接，请更新手机上的 Luna Bot 应用后再连接。",
             title = "需要更新应用",
             tone = NoticeTone.ERROR,
         )

@@ -438,7 +438,7 @@ const appConfigSchema = z.object({
   }).strict().optional(),
   loopGuard: loopGuardConfigSchema.optional(),
   safetyFloor: z.object({ enabled: z.boolean().optional() }).strict().optional(), // off by default: safetyFloorEnabled in server/safety-floor-gate.ts
-  /** How much DEX BOT initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
+  /** How much Luna Bot initiates: quiet keeps working but posts no brief notifications or suggestion cards. */
   proactivity: z.enum(["standard", "quiet"]).optional(),
   /** A Feishu self-built app channel over the platform's long connection: app credentials and the bot
    * that answers its chats. All three keys present = on; null each out to disable. config.json only, like `helper`. */

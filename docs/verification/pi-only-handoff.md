@@ -82,7 +82,7 @@ Grok/Copilot 等驱动已删除。
    可能已剥掉 error 监听，带 error 的 destroy 偶发炸掉进程，约 50% 复现于并行跑）。
    回归用例在 `companion/test/e2e/sidecar.test.ts`（"resets an upload whose
    harness goes quiet"），`phone-relay.e2e` 也已修复（含两处 rebrand 遗留：health
-   `openmausbot`→`dexbot`、节点 `*.openmausbot.com`→`*.dexai.vip`，2/2 恢复）。
+   `lunabot`→`dexbot`、节点 `*.lunabot.com`→`*.dexai.vip`，2/2 恢复）。
    server 侧同日修复：`enforceDeadlines` 到期不再裸 destroy（那只会发 RST，手机端
    等不到 "end"），改为先答 `HTTP/1.1 408` 再优雅 FIN——`duplexPair` 半关闭把 EOF
    传到 mux 的 finish 帧，手机栈拿到可报告的超时与 EOF；流未完成的另一半由再次
@@ -149,7 +149,7 @@ Grok/Copilot 等驱动已删除。
 - Mimosa PreToolUse 会拦截通过 Bash 直接写源码/配置；改文件请用 Write/Edit。
 - commit hook 可能报 `scanner_no_output`；这只表示没有完整扫描结论，不代表安全。
 - 不要对用户正在运行的 app/data 做验证；所有 e2e 都应在隔离 fixture 里跑。
-- 工作区里的 Android 改动已单独提交（`8175faabc`，DEX BOT 品牌与设置页重构），
+- 工作区里的 Android 改动已单独提交（`8175faabc`，Luna Bot 品牌与设置页重构），
   与本改造无关。
 - 本阶段提交（新→旧）：
   `c8e7eb791`、`9172ed512`、`fec063c12`、`8875fc118`、`b9da64152`、

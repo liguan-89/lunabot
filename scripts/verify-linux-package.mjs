@@ -424,7 +424,7 @@ const fields = execFileSync(
 for (const expected of [
   "Package: dexbot",
   "Architecture: amd64",
-  "Maintainer: DEX BOT",
+  "Maintainer: Luna Bot",
   "Section: utils",
   "Priority: optional",
 ]) {
@@ -434,7 +434,7 @@ for (const expected of [
 const extracted = mkdtempSync(path.join(tmpdir(), "omb-deb-verify-"));
 try {
   execFileSync("dpkg-deb", ["--extract", deb, extracted]);
-  const debAppRoot = path.join(extracted, "opt", "DEX BOT");
+  const debAppRoot = path.join(extracted, "opt", "Luna Bot");
   requireDirectoryMode(debAppRoot, 0o755);
   const debResources = path.join(debAppRoot, "resources");
   // Routes the in-app updater to the package-manager hand-off.
@@ -470,7 +470,7 @@ try {
   requireFile(scalableIcon);
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
-    "Name=DEX BOT",
+    "Name=Luna Bot",
     'Exec="/opt/DEX BOT/dexbot" %U',
     "Icon=dexbot",
     "StartupWMClass=com.dexbot.app",

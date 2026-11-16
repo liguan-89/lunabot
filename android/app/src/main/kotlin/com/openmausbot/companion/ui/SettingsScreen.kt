@@ -279,7 +279,7 @@ fun SettingsScreen(
             val bound = connection
             SettingsSection {
                 IdentityRow(
-                    title = bound?.name ?: "DEX BOT",
+                    title = bound?.name ?: "Luna Bot",
                     subtitle = SettingsPolicy.statusText(status),
                     statusColor = connectionColor(status),
                     // The row is the computer's identity; tapping it opens the
@@ -1906,7 +1906,7 @@ private fun BrandBlock(version: String) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         DexBotMark(56.dp)
-        Text("DEX BOT", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
+        Text("Luna Bot", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         Text(
             text = version,
             fontSize = 12.sp,
@@ -1944,7 +1944,7 @@ private fun updateStatusText(state: UpdateState): String = when (state) {
     is UpdateState.Failed -> "重试"
 }
 
-private const val ADDRESS_CLIP_LABEL = "DEX BOT 电脑地址"
+private const val ADDRESS_CLIP_LABEL = "Luna Bot 电脑地址"
 
 /** Long enough for "Copied" to be read, short enough not to linger (iOS `:363-367`). */
 private const val COPIED_LABEL_MILLIS = 2_000L
@@ -1956,9 +1956,9 @@ private const val COPIED_LABEL_MILLIS = 2_000L
  */
 internal fun troubleshootingText(status: Session.Status): String = when (status) {
     Session.Status.Live -> "此电脑已连接且响应正常。"
-    Session.Status.Connecting -> "DEX BOT 正在自动尝试已保存的连接。"
+    Session.Status.Connecting -> "Luna Bot 正在自动尝试已保存的连接。"
     Session.Status.Unauthorized -> "此手机已从电脑移除，请重新配对以恢复连接。"
-    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 DEX BOT 应用，然后重新打开它。"
+    Session.Status.OutdatedApp -> "电脑已改用加密连接。请更新手机上的 Luna Bot 应用，然后重新打开它。"
     Session.Status.Unpaired -> "此手机尚未与电脑配对。"
     is Session.Status.Offline ->
         // The identity subtitle is one line and ellipsized; a failure that

@@ -20,7 +20,7 @@ export interface CatalogProfile {
   botId: string;
   /** A Team Cloud: message_person is mounted. */
   team?: boolean;
-  /** The person's DEX BOT with a Chief's powers: its notification tools are mounted. */
+  /** The person's Luna Bot with a Chief's powers: its notification tools are mounted. */
   mausbot?: boolean;
   /** A direct chat whose bot may pick where it works (Works on is not Off and no team computer is its own): select_computer
    * is mounted, and the harness refuses a pick on any turn but a person's own message. */

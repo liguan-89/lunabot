@@ -191,7 +191,7 @@ export function createPhones(deps: PhonesDeps) {
     replySms: async (key: string, to: string, text: string) => {
       const outcome = await jobs.request(key, PHONE_REPLY_SMS, { to, text }, {
         active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
-        offlineText: "This phone is offline. Open the DEX BOT app on it.", online: () => registry.online(key),
+        offlineText: "This phone is offline. Open the Luna Bot app on it.", online: () => registry.online(key),
       });
       if (outcome.ok) registry.used(key);
       return outcome;

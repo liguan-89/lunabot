@@ -6,10 +6,10 @@ import { t } from "@/lib/i18n";
 import { StoreProvider, type Bot } from "@/state/store";
 import { draftOf, MausBotWelcomeCard, mausBotWelcomeDue, welcomeName, welcomePatch } from "./MausBotWelcome";
 
-const maus = { id: "maus", threadId: "t1", name: "DEX BOT", title: "", description: "", notifications: true, color: "chrome", mascotBody: null,
+const maus = { id: "maus", threadId: "t1", name: "Luna Bot", title: "", description: "", notifications: true, color: "chrome", mascotBody: null,
   avatarUrl: null, unread: false, modelSelection: { instanceId: "claude", model: "sonnet" }, createdAt: 1, defaultBot: {} } as unknown as Bot;
 
-describe("DEX BOT's first-launch welcome", () => {
+describe("Luna Bot's first-launch welcome", () => {
   it("shows once, after onboarding and its tour, and never again after either choice", () => {
     const due = (bot: Pick<Bot, "welcomed" | "hidden"> | undefined, more: Partial<Parameters<typeof mausBotWelcomeDue>[0]> = {}) =>
       mausBotWelcomeDue({ bot, onboardingDue: false, welcomeOpen: false, tourOpen: false, ...more });
@@ -22,7 +22,7 @@ describe("DEX BOT's first-launch welcome", () => {
     expect(due({ hidden: true })).toBe(false);
   });
 
-  it("Add saves the person's changes, pins DEX BOT and keeps it in the sidebar", () => {
+  it("Add saves the person's changes, pins Luna Bot and keeps it in the sidebar", () => {
     expect(welcomePatch(maus, { ...draftOf(maus), name: " Jarvis ", color: "blue", mascotBody: "blob" }, true))
       .toEqual({ name: "Jarvis", color: "blue", mascotBody: "blob", welcomed: true, sidebarHidden: false, pinned: true });
   });
@@ -31,14 +31,14 @@ describe("DEX BOT's first-launch welcome", () => {
     expect(welcomePatch(maus, draftOf(maus), true)).toEqual({ welcomed: true, sidebarHidden: false, pinned: true });
   });
 
-  it("Not now turns Show DEX BOT in the sidebar off, keeping what was changed, and nothing unchanged is sent", () => {
+  it("Not now turns Show Luna Bot in the sidebar off, keeping what was changed, and nothing unchanged is sent", () => {
     expect(welcomePatch(maus, draftOf(maus), false)).toEqual({ welcomed: true, sidebarHidden: true });
     expect(welcomePatch(maus, { ...draftOf(maus), mascotBody: "star" }, false)).toEqual({ mascotBody: "star", welcomed: true, sidebarHidden: true });
   });
 
-  it("saves an empty name as DEX BOT and caps a long one at the bot-name limit", () => {
+  it("saves an empty name as Luna Bot and caps a long one at the bot-name limit", () => {
     const jarvis = { ...maus, name: "Jarvis" };
-    expect(welcomePatch(jarvis, { ...draftOf(jarvis), name: "   " }, true).name).toBe("DEX BOT");
+    expect(welcomePatch(jarvis, { ...draftOf(jarvis), name: "   " }, true).name).toBe("Luna Bot");
     expect(welcomeName("x".repeat(300))).toHaveLength(100);
     expect(welcomeName("  Ada ")).toBe("Ada");
   });
@@ -53,13 +53,13 @@ describe("DEX BOT's first-launch welcome", () => {
       .toEqual({ avatarUrl: null, avatarCrop: "mascot", welcomed: true, sidebarHidden: false, pinned: true });
   });
 
-  it("opens on DEX BOT's picture alone: the customise panel stays closed until the picture is clicked", () => {
+  it("opens on Luna Bot's picture alone: the customise panel stays closed until the picture is clicked", () => {
     const html = renderToStaticMarkup(createElement(StoreProvider, null, createElement(MausBotWelcomeCard, { bot: maus, onClose: () => {} })));
-    expect(html).toContain(`aria-label="${t("mausbotWelcome.customize", { name: "DEX BOT" })}"`);
+    expect(html).toContain(`aria-label="${t("mausbotWelcome.customize", { name: "Luna Bot" })}"`);
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain('data-mausbot-welcome-panel="closed"');
     expect(html).toMatch(/data-mausbot-welcome-panel="closed"[^>]*|inert=""[^>]*data-mausbot-welcome-panel="closed"/);
-    expect(html).toContain(t("mausbotWelcome.title", { name: "DEX BOT" }));
-    expect(html).toContain(t("mausbotWelcome.add", { name: "DEX BOT" }));
+    expect(html).toContain(t("mausbotWelcome.title", { name: "Luna Bot" }));
+    expect(html).toContain(t("mausbotWelcome.add", { name: "Luna Bot" }));
   });
 });

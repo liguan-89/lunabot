@@ -95,6 +95,6 @@ internal class ShellClipboard(private val context: Context) {
     }
 
     private companion object {
-        const val CLIP_LABEL = "DEX BOT"
+        const val CLIP_LABEL = "Luna Bot"
     }
 }

@@ -15,7 +15,7 @@ describe("the outside-text sanitiser", () => {
     expect(safe).not.toContain("[Records from");
     expect(safe).not.toContain("[/UNTRUSTED");
     expect(safe).not.toContain("[Scheduled routine");
-    expect(safe).not.toContain("[DEX BOT");
+    expect(safe).not.toContain("[Luna Bot");
     expect(safe.split("\n")).toHaveLength(5);
   });
 

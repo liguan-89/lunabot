@@ -33,7 +33,7 @@ export function createLocalLayaRoutes(deps: {
   return async ({ req, res, path, method, json: reply, auth, readBody }) => {
     if (path !== "/api/decider/laya" && path !== "/api/decider/laya/start" && path !== "/api/decider/laya/stop") return PASS;
     if (!deps.desktopManaged || auth.kind !== "loopback" || auth.trust === "service" || !deps.local?.supported) {
-      return reply(res, 404, { error: "Local Laya is available only in DEX BOT for macOS on Apple Silicon." });
+      return reply(res, 404, { error: "Local Laya is available only in Luna Bot for macOS on Apple Silicon." });
     }
     if (path === "/api/decider/laya" && method === "GET") {
       res.setHeader("cache-control", "no-store");

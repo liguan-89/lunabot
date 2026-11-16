@@ -1,6 +1,6 @@
 # Terminal setup
 
-Install [Node.js](https://nodejs.org/) 24 or newer, then choose either way to run DEX BOT:
+Install [Node.js](https://nodejs.org/) 24 or newer, then choose either way to run Luna Bot:
 
 ```sh
 # Install once, then use the short command:
@@ -14,7 +14,7 @@ Or, without a global install:
 npx lunabot
 ```
 
-Use the same command next time. The first launch guides you through setup; later launches reuse your saved AI connection and phone-access choice. `lunabot start` is the same as the bare command. If that workspace is already running, DEX BOT opens it instead of starting a second server.
+Use the same command next time. The first launch guides you through setup; later launches reuse your saved AI connection and phone-access choice. `lunabot start` is the same as the bare command. If that workspace is already running, Luna Bot opens it instead of starting a second server.
 
 ## First launch
 
@@ -37,14 +37,14 @@ A phone cannot connect to this computer's `localhost` address. The harness also 
 
 Choose one connection method:
 
-- **Managed HTTPS address:** setup asks explicit permission for a public endpoint through Cloudflare and a possible connector download. Device pairing protects chat and settings; the pairing page and basic server identity remain publicly reachable. Sign in to an **DEX BOT account** using an emailed code, or reuse this machine's saved account. This account is separate from ChatGPT, Claude, or an API-provider account. The connection stays active while DEX BOT runs.
+- **Managed HTTPS address:** setup asks explicit permission for a public endpoint through Cloudflare and a possible connector download. Device pairing protects chat and settings; the pairing page and basic server identity remain publicly reachable. Sign in to an **Luna Bot account** using an emailed code, or reuse this machine's saved account. This account is separate from ChatGPT, Claude, or an API-provider account. The connection stays active while Luna Bot runs.
 - **Existing Tailscale:** both computer and phone must already be signed in to the same tailnet, with HTTPS certificates enabled. Setup asks before enabling HTTPS serving to that tailnet; it does not install or sign in to Tailscale for you.
 - **Existing HTTPS address (advanced):** supply the origin of a reverse proxy you already configured, such as `https://maus.example.com`. Do not paste a password, path, query, or pairing code. Entering an address does not create the proxy or open a LAN listener.
 
 After the connection is ready:
 
-- **iPhone/iPad:** scan the QR with Camera to open Safari. If you already have the DEX BOT iOS app, use its pairing scanner or paste the full link there.
-- **Android:** the QR is an app link, so scan it inside the DEX BOT app. To use a browser instead, open the web address printed above it and type the code.
+- **iPhone/iPad:** scan the QR with Camera to open Safari. If you already have the Luna Bot iOS app, use its pairing scanner or paste the full link there.
+- **Android:** the QR is an app link, so scan it inside the Luna Bot app. To use a browser instead, open the web address printed above it and type the code.
 
 Choose **Connect** on the phone. Scanning alone is not a successful pairing. The code is private, single-use, and works for 10 minutes. Guided phone pairing grants client access for chat and approvals, not settings or pairing administration.
 
@@ -64,7 +64,7 @@ The examples below assume a global install; prefix them with `npx` otherwise.
 | `lunabot pair` | Create another phone invitation while the configured workspace and HTTPS connection are running. |
 | `lunabot devices` | List paired devices; `lunabot devices revoke ID` signs one out. |
 | `lunabot serve` | Start without onboarding prompts or automatic browser opening; specify remote-access flags explicitly for a service. |
-| `lunabot login` | Sign in to an DEX BOT account for `--tunnel`; this does not sign in to an AI provider or start the tunnel. |
+| `lunabot login` | Sign in to an Luna Bot account for `--tunnel`; this does not sign in to an AI provider or start the tunnel. |
 
 `start` accepts the same server options as `serve`, including `--port`, `--data-dir`, `--tailscale`, `--tunnel`, and `--public-url`. Keep using your custom data directory and port when starting or pairing:
 

@@ -336,7 +336,7 @@ export function createLocalLaya(options: {
   }
 
   async function start(signal?: AbortSignal) {
-    if (!supported) throw new Error("Local Laya requires DEX BOT on macOS with Apple Silicon.");
+    if (!supported) throw new Error("Local Laya requires Luna Bot on macOS with Apple Silicon.");
     if (state.running && processChild) return status();
     if (operation) return operation;
     const controller = new AbortController();

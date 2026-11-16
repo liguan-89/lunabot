@@ -54,6 +54,13 @@ const tools: PhoneTool[] = [
   tool("PHONE_SEND_MESSAGE", "Prepare a text message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
   tool("PHONE_SEND_WHATSAPP", "Prepare a WhatsApp message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
   tool("PHONE_UI_OBSERVE", "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe before a step; every driving action also returns the screen as it is afterwards, so read that instead of observing again. Never guess a ref.", {}),
+  tool("PHONE_UI_QUERY", "Find elements of the phone's current screen by text, view id or role, at least one of the three, when the full element list is too long; its refs work with PHONE_UI_TAP and PHONE_UI_TYPE. Read only.", {
+    text: TEXT(200, "Case-insensitive text or content description to find."),
+    resourceId: TEXT(200, "Full or partial Android view id to find."),
+    role: TEXT(100, "Full or partial accessibility class or role to find."),
+    limit: { type: "integer", minimum: 1, maximum: 100, description: "Most elements to return; default 30." },
+  }),
+  tool("PHONE_LIST_APPS", "List the apps installed on the phone that have a launcher entry, so PHONE_UI_LAUNCH gets the real package name instead of a guess. Read only.", { query: TEXT(120, "Part of an app name or package name to match."), limit: { type: "integer", minimum: 1, maximum: 200, description: "Most apps to return; default 60." } }),
   tool("PHONE_UI_LAUNCH", "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.", { app: TEXT(200, "The Android app's package name.") }, ["app"]),
   tool("PHONE_UI_TAP", "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.", { ref: REF }, ["ref"]),
   tool("PHONE_UI_TAP_AT", "Tap a pixel point on the phone's screen, for screens no element describes (an image, a canvas, a game). Coordinates use the controlled display's pixels, the same system as element bounds and OCR line boxes.", { x: { type: "integer", minimum: 0, maximum: 10000, description: "Horizontal pixel position." }, y: { type: "integer", minimum: 0, maximum: 10000, description: "Vertical pixel position." } }, ["x", "y"]),
@@ -62,6 +69,29 @@ const tools: PhoneTool[] = [
   tool("PHONE_UI_SWIPE", "Swipe one finger across the phone's whole screen, for screens that ignore a scroll action: carousels, sheets, short-video feeds. The finger travels in `direction`, so swiping up scrolls the content down.", { direction: { type: "string", enum: ["up", "down", "left", "right"], description: "Where the finger moves." } }, ["direction"]),
   tool("PHONE_UI_KEY", "Press one navigation key on the phone, such as enter to submit a search or del to clear a field.", { key: { type: "string", enum: ["back", "enter", "del", "tab", "up", "down", "left", "right"], description: "Which key." } }, ["key"]),
   tool("PHONE_UI_BACK", "Go back one screen on the phone.", {}),
+  tool("PHONE_UI_RUN", "Run an ordered list of screen commands on the phone's screen in one call, for a form, a search or a fixed flow whose steps are already known. Each target is found again on the current screen before it acts, and the run stops at the first step that fails, returning the screen it ended on.", {
+    commands: {
+      type: "array", minItems: 1, maxItems: 20, description: "The steps, in the order to run them.",
+      items: {
+        type: "object",
+        properties: {
+          op: { type: "string", enum: ["launch", "tap", "type", "scroll", "swipe", "key", "back", "wait", "assert", "observe"], description: "What to do." },
+          app: TEXT(200, "The Android app's package name, for launch."),
+          ref: TEXT(64, "An element ref from an earlier observe, for a target known exactly; each step still finds it again on the current screen."),
+          text: TEXT(2000, "For tap, the visible text of the target; for type, what to type; for assert, the text that must be present."),
+          resourceId: TEXT(200, "Full or partial Android view id of the target."),
+          role: TEXT(100, "Full or partial accessibility class or role of the target."),
+          direction: { type: "string", enum: ["up", "down", "left", "right"], description: "Where the finger moves, for scroll and swipe." },
+          key: { type: "string", enum: ["back", "enter", "del", "tab", "up", "down", "left", "right"], description: "Which key, for key." },
+          timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds, for wait." },
+          present: { type: "boolean", description: "For assert: true when the text must be present, false when it must be absent." },
+          pressEnter: { type: "boolean", description: "For type: press enter after typing." },
+        },
+        required: ["op"],
+        additionalProperties: false,
+      },
+    },
+  }, ["commands"]),
   tool("PHONE_UI_WAIT", "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.", { mode: { type: "string", enum: ["change", "settle"], description: "change waits for any change; settle waits for the screen to stop." }, timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds." } }),
   tool("PHONE_UI_SCREENSHOT", "Take a JPEG of the phone's screen, for anything the element list cannot describe. Also returns the elements of the same moment with their refs. Read only.", {}),
   tool("PHONE_UI_OCR", "Recognize the text on the phone's screen and return it line by line with each line's box, for image or canvas screens the element list cannot describe. Read only.", { maxLines: { type: "integer", minimum: 1, maximum: 200, description: "Longest list of lines to keep." } }),
@@ -72,6 +102,25 @@ const tools: PhoneTool[] = [
   tool("PHONE_FILE_READ", "Read one file by fileId from PHONE_FILE_LIST: an image comes back as a picture, a text file as text, and a PDF as recognized text from its first pages. Read only.", { fileId: TEXT(200, "A fileId from PHONE_FILE_LIST."), pages: { type: "integer", minimum: 1, maximum: 5, description: "PDF pages to read." } }, ["fileId"]),
   tool("PHONE_FILE_SEND", "Put one phone file into this conversation so the person can open it there; the file itself travels to the computer, not through the bot's own hands. Read only.", { fileId: TEXT(200, "A fileId from PHONE_FILE_LIST.") }, ["fileId"]),
   tool("PHONE_FILE_SHARE", "Hand one file to another app's share screen, opened on the phone's controlled display with the file already attached. Name the app that should receive it, or leave the package out to get the system chooser there. Asks the person first.", { fileId: TEXT(200, "A fileId from PHONE_FILE_LIST."), package: TEXT(200, "The Android package that should receive the file.") }, ["fileId"]),
+  tool("PHONE_SET_ALARM", "Set an alarm with the phone's own Clock app, which records it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.", {
+    hour: { type: "integer", minimum: 0, maximum: 23, description: "Hour of the day, 24-hour clock." },
+    minute: { type: "integer", minimum: 0, maximum: 59, description: "Minute of the hour." },
+    label: TEXT(200, "What the alarm is for, shown when it rings."),
+    days: { type: "array", maxItems: 7, description: "Repeat days; leave them out for a one-time alarm.", items: { type: "string", enum: ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] } },
+    vibrate: { type: "boolean", description: "Vibrate when it rings." },
+  }, ["hour", "minute"]),
+  tool("PHONE_SET_TIMER", "Start a countdown timer with the phone's own Clock app, which starts it without showing its editor. Prefer this over driving the Clock app's screens. Asks the person first.", {
+    seconds: { type: "integer", minimum: 1, maximum: 86400, description: "How long the timer runs, in seconds." },
+    label: TEXT(200, "What the timer is for."),
+  }, ["seconds"]),
+  tool("PHONE_OPEN_LINK", "Open a web link on the phone's controlled display, in the browser or in the named app. Only http and https links are accepted. Asks the person first.", {
+    url: TEXT(2000, "The link to open, http or https."),
+    app: TEXT(200, "The Android package that should open it; leave it out for the browser."),
+  }, ["url"]),
+  tool("PHONE_SHARE_TEXT", "Put text into another app's compose screen on the phone's controlled display, with the app named or the system chooser left to pick; the person still sends it. Asks the person first.", {
+    text: { type: "string", minLength: 1, maxLength: 5000, description: "The text to place in the other app." },
+    app: TEXT(200, "The Android package that should receive the text."),
+  }, ["text"]),
 ];
 
 /** Catalog in PHONE_TOOL_NAMES order. */
@@ -79,12 +128,18 @@ export const PHONE_TOOLS: ReadonlyArray<PhoneTool> = PHONE_TOOL_NAMES.map((name)
 
 let validators: Map<string, ValidateFunction> | undefined;
 
+/** PHONE_UI_QUERY needs one of these; none is required on its own, so the schema cannot say it. */
+const QUERY_SELECTORS = ["text", "resourceId", "role"] as const;
+
 export function phoneToolCallProblem(name: unknown, args: unknown): string | null {
   validators ??= new Map(PHONE_TOOLS.map((entry) => [entry.name, compileToolSchema(entry.inputSchema as Record<string, unknown>, { allErrors: true })]));
   const validate = typeof name === "string" ? validators.get(name) : undefined;
   if (!validate) return `Unknown phone tool. Use one of ${PHONE_TOOL_NAMES.join(", ")}.`;
   if (!args || typeof args !== "object" || Array.isArray(args) || !validate(args)) {
     return `Tool arguments do not match the advertised input schema: ${schemaProblems(validate.errors).join("; ") || "use its required fields and types"}.`;
+  }
+  if (name === "PHONE_UI_QUERY" && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
+    return "PHONE_UI_QUERY needs at least one of text, resourceId, or role.";
   }
   return null;
 }

@@ -22,7 +22,7 @@ const RESEARCH_INSTEAD = "Tell the person research isn't available here and offe
 export const RESEARCH_MESSAGES = {
   unavailable: "Research is temporarily unavailable. Try again shortly.",
   notOffered: `DexBot Cloud doesn't offer research yet. ${RESEARCH_INSTEAD}`,
-  off: `Research isn't on for this DEX BOT Cloud plan right now, so research_search and research_call can't be used. ${RESEARCH_INSTEAD}`,
+  off: `Research isn't on for this Luna Bot Cloud plan right now, so research_search and research_call can't be used. ${RESEARCH_INSTEAD}`,
 } as const;
 
 export interface ResearchCallInput {
