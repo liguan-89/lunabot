@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const trim = (value) => String(value ?? "").trim();
 
@@ -63,6 +64,8 @@ export function loadConfig(env = process.env) {
     apkPath: trim(env.DEXCLOUD_APK_PATH) || "/data/downloads/dexbot.apk",
     updatePath: trim(env.DEXCLOUD_UPDATE_PATH) || "/data/downloads/update.json",
     landingPath: trim(env.DEXCLOUD_LANDING_PATH) || "/data/downloads/landing.html",
+    /** The share/OG card, bundled beside this module and served at /og.png. */
+    ogPath: trim(env.DEXCLOUD_OG_PATH) || fileURLToPath(new URL("./assets/og.png", import.meta.url)),
     /** Desktop installers and electron-updater feeds (`latest-mac.yml`, …), served under `/desktop/`. */
     desktopDir: trim(env.DEXCLOUD_DESKTOP_DIR) || "/data/downloads/desktop",
     dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",

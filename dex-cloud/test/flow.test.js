@@ -298,3 +298,20 @@ test("an admin reads reports and marks one fixed, which the sender then sees", a
     app.store.close();
   }
 });
+
+test("the bundled OG card is served at /og.png", async () => {
+  const app = await start(config());
+  try {
+    const response = await fetch(`${app.base}/og.png`);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "image/png");
+    const body = new Uint8Array(await response.arrayBuffer());
+    assert.ok(body.length > 1000);
+    assert.deepEqual([...body.slice(1, 4)], [0x50, 0x4e, 0x47]);
+    const missing = await fetch(`${app.base}/og.png`, { method: "HEAD" });
+    assert.equal(missing.status, 200);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});

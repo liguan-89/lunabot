@@ -12,6 +12,7 @@ import { newUuid } from "./crypto.js";
 
 const STATIC = {
   ".apk": "application/vnd.android.package-archive",
+  ".png": "image/png",
   ".json": "application/json; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".yml": "text/yaml; charset=utf-8",
@@ -202,6 +203,9 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
       if (path === "/update.json") {
         if (existsSync(config.updatePath) && staticResponse(res, config.updatePath)) return;
         return json(res, 200, JSON.parse(updateManifest(config)));
+      }
+      if (path === "/og.png") {
+        if (staticResponse(res, config.ogPath, { immutable: true })) return;
       }
       if (path === "/landing" && existsSync(config.landingPath)) {
         if (staticResponse(res, config.landingPath)) return;
