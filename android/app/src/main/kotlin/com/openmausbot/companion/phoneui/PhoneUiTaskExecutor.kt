@@ -92,7 +92,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
     private enum class Action {
-        OBSERVE, COLLECT, QUERY, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
+        OBSERVE, COLLECT, QUERY, FIND, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
         SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SEND, FILE_SHARE,
         SET_ALARM, SET_TIMER, OPEN_LINK, SHARE_TEXT, AFTER_TASK,
     }
@@ -161,6 +161,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
                     topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
                     elementJson = ::elementJson,
                 ).execute(arguments)
+                // Find is answered here rather than through write(): its refs come from
+                // the snapshot the loop stopped on, and write() would take one more,
+                // which rotates the registry and kills exactly those refs.
+                Action.FIND -> find(shell, service, session, arguments)
                 else -> write(shell, service, session) { step ->
                     when (action) {
                         Action.COLLECT -> collect(shell, service, session, arguments, step)
@@ -262,6 +266,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_UI_OBSERVE" -> Action.OBSERVE
         "PHONE_UI_COLLECT" -> Action.COLLECT
         "PHONE_UI_QUERY" -> Action.QUERY
+        "PHONE_UI_FIND" -> Action.FIND
         "PHONE_UI_LAUNCH" -> Action.LAUNCH
         "PHONE_LIST_APPS" -> Action.LIST_APPS
         "PHONE_UI_TAP" -> Action.TAP
@@ -788,6 +793,62 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 put("elements", JsonArray(snapshot.elements.map(::elementJson)))
             },
         )
+    }
+
+    /**
+     * PHONE_UI_FIND: scroll one step at a time until the target appears or the
+     * content stops changing, and answer with the matches and their refs.
+     *
+     * It is a screen write (it scrolls), so it opens the display and follows
+     * the same pacing and spill rules as [write], but it does not go through
+     * [write] itself: that wrapper takes one more snapshot at the end, which
+     * would rotate the ref registry and invalidate the very refs the loop just
+     * returned. The loop's own last snapshot is the newest one, so the refs it
+     * issues are the ones PHONE_UI_TAP will resolve.
+     */
+    private suspend fun find(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+    ): PhoneToolOutcome {
+        // The dwell the last action still owes, exactly as write() pays it.
+        actionPace.waitBefore(screenChars).takeIf { it > 0 }?.let { delay(it) }
+        val topBefore = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
+        val startedAt = System.currentTimeMillis()
+        val answer = PhoneUiFind(
+            snapshot = { service.snapshot(session.displayId) },
+            topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
+            // The same matcher PHONE_UI_QUERY uses, so the two tools cannot disagree.
+            query = { target, elements -> elements.filter { matches(it, target.text, target.resourceId, target.role) } },
+            scroll = { direction ->
+                val one = Step(service.reading(session.displayId).fingerprint)
+                val ref = service.snapshot(session.displayId)?.elements?.firstOrNull { it.scrollable }?.ref
+                if (ref != null) {
+                    scroll(shell, service, session, buildJsonObject { put("direction", direction); put("ref", ref) }, one) is PhoneToolOutcome.Success
+                } else {
+                    // The same stroke PHONE_UI_SCROLL falls back to with no scrollable element.
+                    gesture(shell, session, if (direction == "down") "up" else "down", null)
+                        .also { if (it) one.changed = awaitChange(service, session, one.before) }
+                }
+            },
+            now = { System.currentTimeMillis() },
+            fingerprint = { elements -> PhoneUiFind.fingerprint(elements) },
+            elementJson = ::elementJson,
+        ).execute(arguments)
+        if (answer !is PhoneToolOutcome.Success) return answer
+        val scrolled = (answer.result["scrolls"] as? JsonPrimitive)?.intOrNull ?: 0
+        // The app the task drove last, for an after-task choice that names none.
+        (answer.result["topPackage"] as? JsonPrimitive)?.contentOrNull?.let { lastPackage = it }
+        // A scroll that moved the screen starts the next action's dwell, as any write does.
+        if (scrolled > 0) actionPace.noteAction(lastPackage, newScreen = true)
+        // Scrolling stays inside our display; this only catches an app that opened
+        // a picker on the person's own screen along the way. A spill answer carries a
+        // fresh screen through withScreen, whose refs are the ones then valid.
+        spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
+            return withScreen(spill, shell, service, session, null)
+        }
+        return answer
     }
 
     /** PHONE_UI_COLLECT: several screens read by one call, through the scroll and settle the other actions use. */

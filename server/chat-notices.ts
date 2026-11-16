@@ -84,6 +84,7 @@ export const CHAT_NOTICE = {
   "chat.notice.phone.write.PHONE_UI_TYPE": "Type on {phone}",
   "chat.notice.phone.write.PHONE_UI_SCROLL": "Scroll on {phone}",
   "chat.notice.phone.write.PHONE_UI_COLLECT": "Read several screens on {phone}",
+  "chat.notice.phone.write.PHONE_UI_FIND": "Scroll to find on {phone}",
   "chat.notice.phone.write.PHONE_UI_BACK": "Go back on {phone}",
   "chat.notice.phone.write.PHONE_SET_ALARM": "Set an alarm on {phone}",
   "chat.notice.phone.write.PHONE_SET_TIMER": "Set a timer on {phone}",

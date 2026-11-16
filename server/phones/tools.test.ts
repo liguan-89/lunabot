@@ -21,6 +21,17 @@ describe("phone tools", () => {
     expect(phoneToolCallProblem("PHONE_UI_QUERY", { limit: 0 })).toMatch(/limit/);
     expect(phoneToolCallProblem("PHONE_UI_QUERY", { limit: 101 })).toMatch(/limit/);
     expect(phoneToolCallProblem("PHONE_UI_QUERY", { text: "Settings", extra: 1 })).toMatch(/extra/);
+    // Find takes the query's selectors plus where and how far to scroll; it needs the same one target selector.
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "down" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { resourceId: "com.android.settings:id/search", direction: "up" })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { role: "android.widget.Button", direction: "down", maxScrolls: 5, limit: 10 })).toBeNull();
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { direction: "down" })).toMatch(/text.*resourceId.*role/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings" })).toMatch(/direction/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "sideways" })).toMatch(/direction/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "down", maxScrolls: 0 })).toMatch(/maxScrolls/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "down", maxScrolls: 201 })).toMatch(/maxScrolls/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "down", limit: 0 })).toMatch(/limit/);
+    expect(phoneToolCallProblem("PHONE_UI_FIND", { text: "Settings", direction: "down", extra: 1 })).toMatch(/extra/);
     expect(phoneToolCallProblem("PHONE_LIST_APPS", {})).toBeNull();
     expect(phoneToolCallProblem("PHONE_LIST_APPS", { query: "settings", limit: 20 })).toBeNull();
     expect(phoneToolCallProblem("PHONE_LIST_APPS", { limit: 0 })).toMatch(/limit/);

@@ -10,7 +10,7 @@ TypeScript server with an Electron desktop app and a Kotlin Android companion:
 the server runs turns, and the phone is a paired device the server sends jobs
 to. We compared the two and ported the parts of Mika that fit that split.
 
-This batch added nine phone tools, a second approval gate for irreversible
+This batch added ten phone tools, a second approval gate for irreversible
 screen controls, a loop guard, and the pure modules behind them: the
 irreversible detector and grant (`shared/irreversible.ts`), the loop guard
 (`server/phone-guards.ts`), notification learning (`server/phone-notices.ts`),
@@ -86,9 +86,9 @@ two-option question.
 
 ## Phone execution
 
-`PHONE_TOOL_NAMES` in `shared/phone-apps.ts` now holds 51 tools. The stale
+`PHONE_TOOL_NAMES` in `shared/phone-apps.ts` now holds 52 tools. The stale
 build in `dist-server/shared/phone-apps.js` (gitignored output, older than this
-change) lists 42; the difference is exactly the nine below. The input schemas
+change) lists 42; the difference is the ten below. The input schemas
 are in `server/phones/tools.ts`, the write sentences in
 `server/phones/summary.ts` and `server/chat-notices.ts`, and the prompt text in
 `server/phones/instructions.ts` (`PHONE_INSTRUCTIONS` and `PHONE_PROMPT` both
@@ -99,6 +99,7 @@ name the new tools).
 | `PHONE_UI_COLLECT` | phoneUi | write | Reads several screens in one call, scrolling between them, and stops at the end of the list. |
 | `PHONE_UI_RUN` | phoneUi | write | Runs up to 20 screen commands in one call and stops at the first failure. |
 | `PHONE_UI_QUERY` | phoneUi | read | Narrows the current snapshot by text, view id or role, so a long screen costs one answer. |
+| `PHONE_UI_FIND` | phoneUi | write | Scrolls until a target appears or the content stops changing, and returns its refs (Mika's `phone_find`). |
 | `PHONE_LIST_APPS` | phoneUi | read | Lists launcher apps with their real package names for `PHONE_UI_LAUNCH`. |
 | `PHONE_SET_ALARM` | phoneUi | write | Sets an alarm through the Clock app's own intent, with `EXTRA_SKIP_UI` so no editor opens. |
 | `PHONE_SET_TIMER` | phoneUi | write | Starts a countdown timer the same way. |
@@ -106,14 +107,14 @@ name the new tools).
 | `PHONE_SHARE_TEXT` | phoneUi | write | Puts text into another app's compose screen, which the person still sends. |
 | `PHONE_UI_AFTER_TASK` | phoneUi | write | Chooses whether the app a task drove is kept or finished when the task ends. |
 
-The Android build serves 46 of the 51: `android/core/src/main/kotlin/com/openmausbot/companion/core/PhoneJobs.kt`
+The Android build serves 47 of the 52: `android/core/src/main/kotlin/com/openmausbot/companion/core/PhoneJobs.kt`
 has no `PhoneTool` entry for `PHONE_RESPOND_TO_INVITE`,
 `PHONE_FIND_PLACES_NEARBY`, `PHONE_LIST_HOME`, `PHONE_SET_ACCESSORY` or
 `PHONE_RUN_SCENE`, so those five answer `unsupported` from
 `PhoneToolCatalog.capabilityOf`. None of the five is a phone-UI tool, so every
-one of the nine new tools is served. That file also carries `PHONE_REPLY_SMS`,
+one of the ten new tools is served. That file also carries `PHONE_REPLY_SMS`,
 which is the SMS relay's own reply job and is not in the server's tool list.
-All nine are registered in the executor's `actionOf` map in
+All ten are registered in the executor's `actionOf` map in
 `android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiTaskExecutor.kt`.
 
 ### `PHONE_UI_RUN`
@@ -140,10 +141,11 @@ a later screen the server has not seen.
 One gap to know about: `server/chat-notices.ts` has no
 `chat.notice.phone.write.PHONE_UI_RUN` key, so the activity row for a run falls
 back to `phoneWriteSummary`'s generic sentence built from `describeAction`,
-"Ui run on <phone>". The other six new write tools (`PHONE_UI_COLLECT`,
-`PHONE_SET_ALARM`, `PHONE_SET_TIMER`, `PHONE_OPEN_LINK`, `PHONE_SHARE_TEXT`,
-`PHONE_UI_AFTER_TASK`) have their own sentence; `PHONE_UI_QUERY` and
-`PHONE_LIST_APPS` are reads and post no activity row.
+"Ui run on <phone>". The other seven new write tools (`PHONE_UI_COLLECT`,
+`PHONE_UI_FIND`, `PHONE_SET_ALARM`, `PHONE_SET_TIMER`, `PHONE_OPEN_LINK`,
+`PHONE_SHARE_TEXT`, `PHONE_UI_AFTER_TASK`) have their own sentence, in
+`server/chat-notices.ts` and in both `src/locales/en.json` and `zh.json`;
+`PHONE_UI_QUERY` and `PHONE_LIST_APPS` are reads and post no activity row.
 
 ### `PHONE_UI_COLLECT`
 
@@ -171,6 +173,56 @@ case-insensitive substrings. Every filter given must hold. The answer reports
 `count` before `limit` and `truncated`, so "nothing there" and "more than
 shown" stay distinct. Its refs work with `PHONE_UI_TAP` and `PHONE_UI_TYPE`. It
 is read-only and does not ask.
+
+### `PHONE_UI_FIND`
+
+`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiFind.kt`
+is Mika's `phone_find` (`PhoneFind` in
+`core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneAdvancedTools.kt`)
+ported to this tool surface: it scrolls the current screen until an element
+matching `text`, `resourceId` or `role` (at least one) is found, and returns
+the matches with refs, so the bot can tap them with `PHONE_UI_TAP` or type into
+them with `PHONE_UI_TYPE`.
+
+The loop reads the screen, asks the same matcher `PHONE_UI_QUERY` uses, and
+scrolls one step in `direction` when the target is not there, up to
+`maxScrolls` (1–200, default 30). It stops as `found`; as `scroll_limit` when
+the scroll budget or the call's 30 s time budget runs out; as
+`content_unchanged` when two readings in a row carry the same visible element
+tuples; as `app_switched` when another app comes in front; as `read_failed`
+when no snapshot could be taken; as `screen_needs_review` when the snapshot is
+empty or its package cannot be read; and as `scroll_failed` when a scroll step
+did not happen. The answer carries `ok`/`found`, `stoppedBecause`, `scrolls`,
+`total`, `truncated`, the `query` it ran, the elements with refs, and the
+snapshot and package it stopped on.
+
+Three divergences from Mika, all deliberate and recorded in the file's header:
+
+- **One step per iteration.** Mika calls `phone_scroll` with `amount: 3`;
+  `PHONE_UI_SCROLL` here takes one step, so each iteration scrolls one step
+  and `maxScrolls` is the whole budget rather than a count of sub-actions.
+- **No protected/readable screen flag.** Our snapshot has no protection flag,
+  so the two verdicts Mika reads from it are approximated: a null snapshot is
+  `read_failed` (nothing was read), and an empty tree or an unreadable package
+  is `screen_needs_review` (the read worked but there is nothing we may act
+  on). The loop never scrolls a screen it cannot see.
+- **Two identical readings, not three.** Our scroll already waits for the
+  screen to change, so one equal comparison after a scroll is a real answer
+  where Mika's fire-and-forget scroll needs a third reading to be sure.
+
+The fingerprint hashes the visible element tuples — class, text, description,
+view id and bounds in reading order — and ignores refs and snapshot ids, so a
+re-read of the same content compares equal and a list that moved without
+changing reads as unchanged. Bounds are included because a row that moved is a
+different screen.
+
+It scrolls, so it is a screen write: it holds on the outgoing-action card like
+`PHONE_UI_SCROLL` and `PHONE_UI_COLLECT`, is in `PHONE_UI_WRITES` in
+`shared/outbound.ts`, and is not in `KNOWN_READ_SLUGS`. On the phone it does
+not go through the executor's `write()` wrapper, because that wrapper takes one
+more snapshot at the end, which would rotate the ref registry and invalidate
+the refs the loop just returned; it pays the same dwell, opens the same display
+session, and runs the same spill check.
 
 ### `PHONE_LIST_APPS`
 
@@ -475,7 +527,6 @@ the helper's return instead of blocked until a manual retry.
 | Screen port and snapshot plumbing | `core/.../uistate/ScreenPort.kt`, `ScreenSession.kt`, `AppAccessScreenPort.kt` | Not built: `PhoneUiDisplaySession`, `PhoneUiAccessibilityService.snapshot` and `PhoneUiTaskExecutor` already provide the display, the tree and the refs, with different types. |
 | Compose UI | `app/src/main/java/com/wangzan101/mika/ui/` | Deliberately out of scope: our phone-UI screens are ours; porting Mika's would be a rewrite, not a port. |
 | `phone_sms_login` | `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneSmsLogin.kt`, `app/src/main/java/com/wangzan101/mika/cap/phone/sms/` | Needs a surface we do not have: an authorized local SMS service and stored account profiles. Our notice filter drops authentication codes rather than reading them. |
-| `phone_find` | `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneAdvancedTools.kt` (`PhoneFind`) | Not built: scroll-until-found with per-screen checking. `PHONE_UI_COLLECT` reads forward and `PHONE_UI_QUERY` filters one screen; neither searches for a target across screens. |
 | `phone_wait` | `PhoneAdvancedTools.kt` (`PhoneWait`) | Partly built: `PHONE_UI_WAIT` has `change` and `settle` only. Text-appear, text-disappear and activity conditions need the event stream below. |
 | `phone_event` | `PhoneAdvancedTools.kt` (`PhoneEventTool`) | Needs a surface we do not have: an accessibility event listener scoped to one call. Our service takes snapshots on demand and exposes no event stream. |
 | `phone_extract` | `PhoneAdvancedTools.kt` (`PhoneExtract`) | Not built: list rows grouped by scrollable parent, form fields with labels and parent context. Our element list is flat. |
@@ -496,7 +547,7 @@ the helper's return instead of blocked until a manual retry.
 
 ## Verification
 
-The TypeScript phone subset — 16 files, 313 tests, all passing:
+The TypeScript phone subset — 18 files, 331 tests, all passing:
 
 ```sh
 node_modules/.bin/vitest run \
@@ -508,26 +559,27 @@ node_modules/.bin/vitest run \
   server/phones/tools.test.ts \
   shared/irreversible.test.ts shared/route-replay.test.ts \
   server/phone-guards.test.ts server/phone-notices.test.ts \
-  server/intent-gate.test.ts
+  server/intent-gate.test.ts shared/phone-apps.test.ts \
+  server/chat-notices.test.ts
 ```
 
 Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
 `host` 15, `jobs` 18, `owner` 12, `registry` 13, `rpc` 16, `sends` 2, `tools` 6,
 `irreversible` 26, `route-replay` 45, `phone-guards` 16, `phone-notices` 54,
-`intent-gate` 23.
+`intent-gate` 23, `phone-apps` 6, `chat-notices` 12.
 
-The Android unit tests — 25 classes, 278 tests, all passing:
+The Android unit tests — 26 classes, 294 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
   --tests "com.openmausbot.companion.phoneui.*" --offline
 ```
 
-That covers the 20 classes in
+That covers the 21 classes in
 `android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 5 in
 its `shell/` subdirectory. The counts that matter for this batch:
-`PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiPacingTest` 22,
-`PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
+`PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 16,
+`PhoneUiPacingTest` 22, `PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
 `PhoneUiAccessibilityRepairTest` 16, `PhoneUiRepairLoopTest` 11,
 `PhoneUiProbesTest` 35, `PhoneUiProbesProbeTest` 16,
 `PhoneUiProbesPackagesTest` 4, `PhoneUiSystemActionsTest` 8,
@@ -540,7 +592,7 @@ cd android && ./gradlew :core:test \
   --tests "com.openmausbot.companion.core.PhoneJobsTest" --offline
 ```
 
-The locale check — 16 languages, 10541 English strings:
+The locale check — 16 languages, 10542 English strings:
 
 ```sh
 pnpm i18n:check
@@ -579,5 +631,7 @@ mismatch, not the tool list: `server/phones/rpc.test.ts` asserts
 | `phone_collect` page merge | Appends pages scrolling down and prepends them scrolling up, so `direction` also decides reading order | Merges pages through a line-level dedup in reading order, so `direction` only picks the scroll | Our band keeps only lines wholly inside it, so a scroll never yields a partial line that needs re-ordering; one dedup rule covers both directions and a repeated line cannot appear twice. |
 | `phone_collect` / `phone_scroll` direction words | Content direction on both, and `phone_swipe` names the finger | Content direction on `PHONE_UI_COLLECT` and `PHONE_UI_SCROLL`, finger direction on `PHONE_UI_SWIPE` | Same split Mika documents, stated in each schema so a bot cannot carry one tool's meaning to the other. |
 | `PHONE_UI_AFTER_TASK` | Closes whatever is playing when the task ends unless told to keep it | Keeping is unconditional; only `close` is a choice | This app has no audio-session surface, so there is nothing to detect and no reason to default to closing. |
+| `phone_find` | `PhoneFind` scrolls by `amount: 3` per call and needs three identical readings to call a screen unchanged | `PHONE_UI_FIND` scrolls one step per iteration, and two identical readings stop the loop | `PHONE_UI_SCROLL` takes one step, so `maxScrolls` is the budget in steps; our scroll already waits for the screen to change, so one equal comparison is a real answer rather than a scroll that may not have landed. |
+| `phone_find` on an unreadable screen | Reads a protected flag and a readable-window verdict from the snapshot | A null snapshot is `read_failed`; an empty tree or an unreadable package is `screen_needs_review` | Our snapshot carries no protection flag. An empty tree is the shape an unreadable screen takes here, and the loop never scrolls a screen it cannot see. |
 | Route replay and editable text | Stores an element's text and hint | Never names an editable text by its text | Our observe reports a field's `text` as what was typed into it and carries no separate hint flag, so storing it would persist the person's words into the next run. Role, resource id, bounds and ordinal identify the field instead. |
 | Wireless-debugging grant | Mika's manifest declares `WRITE_SECURE_SETTINGS`, and its shell grants it whenever it can; auto-on then runs unconditionally | Off by default: a Settings switch asks for the grant, and the helper grants only that one permission, to the caller's own package | `WRITE_SECURE_SETTINGS` is not scoped to `adb_wifi_enabled`: an app holding it can write any secure or global setting. We already keep settings writes narrow (two allow-listed keys), so handing the app the broad permission has to be a decision the person makes, not a side effect of enabling phone control. |

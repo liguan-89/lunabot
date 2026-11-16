@@ -91,6 +91,12 @@ class PhoneJobsTest {
         // Both only read: the query filters a snapshot, the list reads PackageManager.
         assertFalse(PhoneTool.UI_QUERY.writes)
         assertFalse(PhoneTool.LIST_APPS.writes)
+        // Find searches the same way but scrolls to do it, so it is a write on the wire.
+        assertEquals("PHONE_UI_FIND", PhoneTool.UI_FIND.wire)
+        assertEquals("phoneUi", PhoneTool.UI_FIND.capability)
+        assertTrue(PhoneTool.UI_FIND.writes)
+        assertEquals(PhoneTool.UI_FIND, PhoneTool.fromWire("PHONE_UI_FIND"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_FIND"))
     }
 
     @Test
@@ -201,7 +207,7 @@ class PhoneJobsTest {
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(47, PhoneTool.entries.size)
+        assertEquals(48, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")

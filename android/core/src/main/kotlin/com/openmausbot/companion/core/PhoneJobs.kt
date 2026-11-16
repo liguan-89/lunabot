@@ -106,6 +106,9 @@ enum class PhoneTool(
     // The read half of observe: the same snapshot, filtered down to the
     // elements a bot asked about, so a long screen costs one answer.
     UI_QUERY("PHONE_UI_QUERY", "phoneUi", false),
+    // Scrolls the screen looking for a target, so it is a write like scroll,
+    // even though it acts on nothing it finds.
+    UI_FIND("PHONE_UI_FIND", "phoneUi", true),
     UI_LAUNCH("PHONE_UI_LAUNCH", "phoneUi", true),
     // The launcher list is what launch() accepts, answered without the helper:
     // a phone that is not paired can still say which apps exist.
@@ -184,6 +187,7 @@ object PhoneToolCatalog {
         "PHONE_UI_OBSERVE" to "phoneUi",
         "PHONE_UI_COLLECT" to "phoneUi",
         "PHONE_UI_QUERY" to "phoneUi",
+        "PHONE_UI_FIND" to "phoneUi",
         "PHONE_UI_LAUNCH" to "phoneUi",
         "PHONE_LIST_APPS" to "phoneUi",
         "PHONE_UI_TAP" to "phoneUi",

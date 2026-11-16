@@ -67,6 +67,14 @@ const tools: PhoneTool[] = [
     role: TEXT(100, "Full or partial accessibility class or role to find."),
     limit: { type: "integer", minimum: 1, maximum: 100, description: "Most elements to return; default 30." },
   }),
+  tool("PHONE_UI_FIND", "Scroll the phone's current screen until an element matching text, view id or role, at least one of the three, is found or the content stops changing. Scrolls one step at a time in `direction`, up to `maxScrolls`; it stops at the app's edge or when two screens in a row are identical. The refs it returns work with PHONE_UI_TAP and PHONE_UI_TYPE. It scrolls, so it asks the person first like any other screen write.", {
+    text: TEXT(200, "Case-insensitive text or content description to find."),
+    resourceId: TEXT(200, "Full or partial Android view id to find."),
+    role: TEXT(100, "Full or partial accessibility class or role to find."),
+    direction: { type: "string", enum: ["up", "down"], description: "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way." },
+    maxScrolls: { type: "integer", minimum: 1, maximum: 200, description: "Most scrolls to take before returning; default 30." },
+    limit: { type: "integer", minimum: 1, maximum: 100, description: "Most elements to return; default 30." },
+  }, ["direction"]),
   tool("PHONE_LIST_APPS", "List the apps installed on the phone that have a launcher entry, so PHONE_UI_LAUNCH gets the real package name instead of a guess. Read only.", { query: TEXT(120, "Part of an app name or package name to match."), limit: { type: "integer", minimum: 1, maximum: 200, description: "Most apps to return; default 60." } }),
   tool("PHONE_UI_LAUNCH", "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.", { app: TEXT(200, "The Android app's package name.") }, ["app"]),
   tool("PHONE_UI_TAP", "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.", { ref: REF }, ["ref"]),
@@ -139,8 +147,10 @@ export const PHONE_TOOLS: ReadonlyArray<PhoneTool> = PHONE_TOOL_NAMES.map((name)
 
 let validators: Map<string, ValidateFunction> | undefined;
 
-/** PHONE_UI_QUERY needs one of these; none is required on its own, so the schema cannot say it. */
+/** PHONE_UI_QUERY and PHONE_UI_FIND each need one of these; none is required on its own, so the schema cannot say it. */
 const QUERY_SELECTORS = ["text", "resourceId", "role"] as const;
+/** Both tools search a screen the same way, so both refuse a call that names no target. */
+const SELECTOR_TOOLS: ReadonlySet<string> = new Set(["PHONE_UI_QUERY", "PHONE_UI_FIND"]);
 
 export function phoneToolCallProblem(name: unknown, args: unknown): string | null {
   validators ??= new Map(PHONE_TOOLS.map((entry) => [entry.name, compileToolSchema(entry.inputSchema as Record<string, unknown>, { allErrors: true })]));
@@ -149,8 +159,8 @@ export function phoneToolCallProblem(name: unknown, args: unknown): string | nul
   if (!args || typeof args !== "object" || Array.isArray(args) || !validate(args)) {
     return `Tool arguments do not match the advertised input schema: ${schemaProblems(validate.errors).join("; ") || "use its required fields and types"}.`;
   }
-  if (name === "PHONE_UI_QUERY" && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
-    return "PHONE_UI_QUERY needs at least one of text, resourceId, or role.";
+  if (typeof name === "string" && SELECTOR_TOOLS.has(name) && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
+    return `${name} needs at least one of text, resourceId, or role.`;
   }
   // An inverted band would read nothing at all; the schema cannot say one field must stay under another.
   if (name === "PHONE_UI_COLLECT") {
