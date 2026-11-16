@@ -15,7 +15,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -169,10 +168,10 @@ fun VoiceSettingsScreen(onBack: () -> Unit) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("ELEVENLABS", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = secondaryTint)
                     MinisDivider()
-                    OutlinedTextField(
+                    MinisSheetField(
                         value = key,
                         onValueChange = { key = it },
-                        label = { Text("ElevenLabs API 密钥") },
+                        placeholder = "ElevenLabs API 密钥",
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),

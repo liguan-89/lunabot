@@ -224,9 +224,9 @@ class AndroidThreadNavigationTest {
         mount {
             TaskSheet(Chat.BotChat(fixture), onDismiss = { dismissed++ }, onSelectTask = { selected = it })
         }
-        compose.onNodeWithContentDescription("新建会话").performClick()
+        compose.onNodeWithContentDescription("新建话题").performClick()
         waitForError()
-        compose.onNodeWithText("${fixture.name} 的会话").assertIsDisplayed()
+        compose.onNodeWithText("${fixture.name} 的话题").assertIsDisplayed()
         compose.onNodeWithText(unavailable).assertIsDisplayed()
         assertEquals(0, dismissed)
         assertNull(selected)
@@ -236,11 +236,12 @@ class AndroidThreadNavigationTest {
     @Test
     fun `a failed rename preserves the edited title in the dialog`() {
         mount { TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {}) }
+        compose.onNodeWithContentDescription("更多操作 Second thread").performClick()
         compose.onNodeWithContentDescription("重命名 Second thread").performClick()
         compose.onNode(hasSetTextAction()).performTextReplacement("Keep these release notes")
         compose.onNodeWithText("保存").performClick()
         waitForError()
-        compose.onNodeWithText("重命名会话").assertIsDisplayed()
+        compose.onNodeWithText("重命名话题").assertIsDisplayed()
         compose.onNode(hasSetTextAction()).assertTextContains("Keep these release notes")
         val request = requests.single { it.method == "PATCH" }
         assertEquals("/api/bots/${fixture.id}/tasks/second", request.path)
@@ -262,7 +263,7 @@ class AndroidThreadNavigationTest {
         }.body.readUtf8()
         assertTrue(Regex("""\{"archivedAt":\d+(\.\d+)?}""").matches(body), body)
         waitForError()
-        compose.onNodeWithText("${fixture.name} 的会话").assertIsDisplayed()
+        compose.onNodeWithText("${fixture.name} 的话题").assertIsDisplayed()
     }
 
     @Test
@@ -284,11 +285,13 @@ class AndroidThreadNavigationTest {
             )
         }
 
+        compose.onNodeWithContentDescription("更多操作 First thread").performClick()
         compose.onNodeWithContentDescription("删除 First thread").performClick()
         compose.onNodeWithText("删除“First thread”？").assertIsDisplayed()
         assertTrue(requests.none { it.method == "DELETE" })
         compose.onNodeWithText("取消").performClick()
         assertTrue(requests.none { it.method == "DELETE" })
+        compose.onNodeWithContentDescription("更多操作 First thread").performClick()
         compose.onNodeWithContentDescription("删除 First thread").performClick()
         compose.onNodeWithText("删除", substring = false).performClick()
         waitForError()
@@ -313,6 +316,7 @@ class AndroidThreadNavigationTest {
         mount {
             TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {}, nowMillis = { clock })
         }
+        compose.onNodeWithContentDescription("更多操作 First thread").performClick()
         compose.onNodeWithContentDescription("延后提醒 First thread").performClick()
         compose.onNodeWithText(SnoozeRules.UNTIL_SIX_PM).assertIsDisplayed()
         // This is deliberately not Compose state: time passes without a
@@ -339,6 +343,7 @@ class AndroidThreadNavigationTest {
             TaskSheet(Chat.BotChat(fixture), onDismiss = {}, onSelectTask = {})
         }
 
+        compose.onNodeWithContentDescription("更多操作 First thread").performClick()
         compose.onNodeWithContentDescription("延后提醒 First thread").performClick()
         compose.onNodeWithText(SnoozeRules.UNTIL_NEW_ACTIVITY).assertIsDisplayed()
 
@@ -348,7 +353,7 @@ class AndroidThreadNavigationTest {
         compose.waitUntil(5_000) { frames.subscriptionCount.value > 0 }
         compose.runOnIdle { frames.tryEmit(StreamFrame(Frame.Bot(working), seq = 2)) }
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("请先停止此会话，然后再设置延后提醒。").fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("请先停止此话题，然后再设置延后提醒。").fetchSemanticsNodes().isNotEmpty()
         }
         assertTrue(compose.onAllNodesWithText(SnoozeRules.UNTIL_NEW_ACTIVITY).fetchSemanticsNodes().isEmpty())
         assertTrue(compose.onAllNodesWithText(SnoozeRules.UNTIL_SIX_PM).fetchSemanticsNodes().isEmpty())

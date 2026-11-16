@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -197,15 +198,16 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
+                .padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             TouchTarget(onClick = onBack, contentDescription = "返回") {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .background(Color.White.copy(alpha = 0.18f), CircleShape),
+                        .size(40.dp)
+                        .background(Color.White.copy(alpha = 0.18f), CircleShape)
+                        .border(0.5.dp, Color.White.copy(alpha = 0.28f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(

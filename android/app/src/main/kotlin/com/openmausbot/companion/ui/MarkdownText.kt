@@ -1,7 +1,9 @@
 package com.openmausbot.companion.ui
 
+import android.content.ClipData
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -22,6 +25,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -31,6 +39,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.LinkInteractionListener
@@ -47,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.openmausbot.companion.core.Markdown
 import com.openmausbot.companion.core.MarkdownBlock
+import kotlinx.coroutines.launch
 
 /**
  * Bot replies, rendered — the port of `ios/App/MarkdownText.swift`.
@@ -172,7 +184,10 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
             }
         }
 
-        is MarkdownBlock.Code ->
+        is MarkdownBlock.Code -> {
+            val clipboard = LocalClipboard.current
+            val scope = rememberCoroutineScope()
+            var copied by remember(block.text) { mutableStateOf(false) }
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -180,13 +195,36 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                block.language?.takeIf { it.isNotEmpty() }?.let {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
-                        text = it,
+                        text = block.language?.takeIf { it.isNotEmpty() } ?: "",
                         fontSize = 11.sp,
                         fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Medium,
                         color = muted,
+                        modifier = Modifier.weight(1f),
+                    )
+                    // The clipboard preview is the confirmation; the label only
+                    // reports it so a second tap is never mistaken for a first.
+                    Text(
+                        text = if (copied) "已复制" else "复制",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (copied) MaterialTheme.colorScheme.primary else muted,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable(role = Role.Button) {
+                                scope.launch {
+                                    clipboard.setClipEntry(
+                                        ClipEntry(ClipData.newPlainText("code", block.text)),
+                                    )
+                                    copied = true
+                                }
+                            }
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
                     )
                 }
                 // Horizontal scroll rather than wrapping: wrapped code is harder
@@ -204,6 +242,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                     modifier = Modifier.horizontalScroll(rememberScrollState()),
                 )
             }
+        }
 
         MarkdownBlock.Rule -> HorizontalDivider(Modifier.padding(vertical = 2.dp))
     }
