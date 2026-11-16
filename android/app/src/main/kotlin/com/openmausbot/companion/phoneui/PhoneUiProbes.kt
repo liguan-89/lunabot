@@ -59,15 +59,16 @@ internal fun phoneUiProbes(
 // MARK: - DEVICE
 
 /**
- * [judgeDevice] plus the one fact the shared judge cannot know: whether this
- * app's helper process is attached. It is appended to the detail so the DEVICE
- * row answers the whole question, but it never changes the verdict — an
- * unattached helper is HELPER's row to fail, not the phone's.
+ * [judgeDevice] plus the facts the shared judge does not print: the model (with
+ * its manufacturer) and this app's version, so the row answers the whole
+ * question. The helper's state is appended too, but it never changes the
+ * verdict — an unattached helper is HELPER's row to fail, not the phone's.
  */
 internal fun judgeDeviceWithHelper(facts: PhoneUiDeviceFacts, helperAttached: Boolean): ProbeOutcome {
     val outcome = judgeDevice(facts)
+    val app = facts.appVersion.ifBlank { "unknown" }
     val helper = if (helperAttached) "helper attached" else "helper not attached"
-    return outcome.copy(detail = "${outcome.detail}; $helper")
+    return outcome.copy(detail = "${outcome.detail}; ${facts.modelName}, app $app, $helper")
 }
 
 /**
@@ -214,12 +215,11 @@ internal fun judgeHelper(attached: Boolean, roundTripMs: Long?): ProbeOutcome = 
 /**
  * Create and release one display, the same way [PhoneUiTaskExecutor] opens its
  * session: [PhoneUiDisplaySession.open] with the default size and density. The
- * display is released in a finally block, so a check never leaves one behind
+ * display is released as soon as it exists, so a check never leaves one behind
  * for the next task to trip over.
  */
-private fun openAndReleaseDisplay(shell: () -> PhoneUiShell?): ProbeOutcome {
-    val helper = shell()
-        ?: return ProbeOutcome.fail("the helper is not attached, so no display could be created")
+private fun openAndReleaseDisplay(helper: PhoneUiShell?): ProbeOutcome {
+    helper ?: return ProbeOutcome.fail("the helper is not attached, so no display could be created")
     val opened = runCatching {
         PhoneUiDisplaySession.open(
             helper,

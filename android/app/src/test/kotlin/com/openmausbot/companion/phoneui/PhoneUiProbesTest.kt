@@ -34,14 +34,22 @@ class PhoneUiProbesTest {
     // MARK: - DEVICE
 
     @Test
-    fun `the device row keeps the judge's verdict and adds the helper state`() {
+    fun `the device row keeps the judge's verdict and adds the model, version and helper state`() {
         val attached = judgeDeviceWithHelper(facts(), helperAttached = true)
         assertEquals(ProbeStatus.Pass, attached.status)
-        assertTrue(attached.detail.endsWith("; helper attached"), attached.detail)
+        assertTrue(attached.detail.contains("Google Pixel 8"), attached.detail)
+        assertTrue(attached.detail.contains("app 2.1.0"), attached.detail)
+        assertTrue(attached.detail.endsWith("helper attached"), attached.detail)
 
         val detached = judgeDeviceWithHelper(facts(), helperAttached = false)
         assertEquals(ProbeStatus.Pass, detached.status, "a detached helper is HELPER's row, not the phone's")
-        assertTrue(detached.detail.endsWith("; helper not attached"), detached.detail)
+        assertTrue(detached.detail.endsWith("helper not attached"), detached.detail)
+    }
+
+    @Test
+    fun `the model name does not repeat the manufacturer`() {
+        assertEquals("Pixel 8", facts().copy(manufacturer = "Pixel", model = "Pixel 8").modelName)
+        assertEquals("Google Pixel 8", facts().modelName)
     }
 
     @Test
