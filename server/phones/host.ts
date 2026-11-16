@@ -107,8 +107,8 @@ const denied = (name: string, text: string, rule: string, code: ChatNoticeKey): 
   ({ ok: false, text, rows: [{ tool: name, ...noticeSummary(code), decision: "auto-denied", rule }] });
 
 /** A nudge rides in the answer the model reads, under the same `note` key the phone's own answers carry, so the phone
- * never has to know the field. A note the phone wrote itself is kept in front of it. A failed call has no screen answer
- * to read the nudge against, so it keeps its own sentence. */
+ * never has to know the field. A note the phone wrote itself is kept in front of it. A failed call keeps its own
+ * sentence: its nudge would claim the screen did not move, which is not what a failure says. */
 function withNudge(outcome: PhoneJobOutcome, nudge: string): PhoneJobOutcome {
   if (!outcome.ok) return outcome;
   const result = outcome.result;
@@ -160,7 +160,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
         try {
           assertActive();
         } catch (error) {
-          confirms.reset(turn);
+          confirms.resetGuard(turn);
           throw error;
         }
       };
@@ -197,8 +197,6 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
         },
         run: async (phone, name, args): Promise<PhoneJobOutcome> => {
           const owner = deps.turnOwner(capability);
-          // A deleted bot is refused as before, before the loop guard has anything to say about the call.
-          if (isPhoneUiWrite(name) && !deps.bot(capability.botId)) return { ok: false, code: "denied", error: GONE_TEXT };
           // A bot looping on a phone is caught before the card asks the person anything: the same action on a screen that
           // did not move earns a nudge in the answer, and then a refusal, so a stuck task ends instead of running on.
           const advice = isPhoneUiWrite(name) ? confirms.advise(turn, phone.key, name, args) : { result: "proceed" as const };
@@ -251,7 +249,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           if (outcome.ok && isPhoneUiWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other");
           // A turn that ended while the job waited, or a phone dropped while it did, has no run left to guard: the next
           // turn starts clean. A turn that outlives this call keeps its guard, and a new generation starts fresh anyway.
-          if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.reset(turn);
+          if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.resetGuard(turn);
           return advice.result === "warn" ? withNudge(outcome, advice.nudge) : outcome;
         },
         onWrite: (record) => {

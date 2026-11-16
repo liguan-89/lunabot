@@ -459,8 +459,8 @@ export class PhoneConfirms {
    *
    * The call is judged as if it will do what the last one did, since its answer is not in yet: the screen it is about to
    * act on is the one recorded last, and whether the last action moved the screen stands for whether this one will. A
-   * warning's state is dropped, because the answer's own verdict on the screen is what `noteGuard` records; a stop's is
-   * kept, since no answer will come.
+   * warning's state is dropped, because `noteGuard` records the same action against the answer that came back, which is
+   * the same judgement the answer itself carries; a stop's is kept, since no answer will come to record it.
    */
   advise(turn: GuardTurn, phoneKey: string, tool: string, args: Record<string, unknown>): GuardAdvice {
     const state = this.guardState(turn);
@@ -503,6 +503,11 @@ export class PhoneConfirms {
    * turn's to drop. */
   reset(turn: ConfirmTurn): void {
     this.turns.delete(confirmKey(turn));
+    this.resetGuard(turn);
+  }
+
+  /** Forget one turn's loop guard alone, for a turn that ended or a phone that was dropped. */
+  resetGuard(turn: ConfirmTurn): void {
     this.guards.delete(confirmKey(turn));
   }
 

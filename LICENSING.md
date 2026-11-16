@@ -1,49 +1,38 @@
 # Licensing
 
-OpenMausBot is open source under the [Apache License 2.0](LICENSE), with one
-carve-out and a few notes.
+Luna Bot is free software under the [GNU Affero General Public License
+v3.0](LICENSE). Anyone may run, study, modify and redistribute it; if you
+distribute it or run a modified version as a network service, you must offer
+your source under the same license.
 
-## The carve-out: `enterprise/`
+## Where the code comes from
 
-Everything under `enterprise/` is source-available under the
-[OpenMausBot Enterprise License](enterprise/LICENSE), not Apache 2.0. You may
-read, build, and evaluate it, and run it freely in development and test.
-Running its features in production needs a license key issued for your
-organisation. Hosting it for third parties or white-labelling the product needs
-a partner agreement.
+- New code and this fork's modifications: AGPL-3.0-only, copyright liguan-89
+  and Luna Bot contributors.
+- Code inherited from [OpenMausBot](https://github.com/milind-soni/OpenMausBot)
+  remains Apache 2.0: see [LICENSE.apache](LICENSE.apache) and [NOTICE](NOTICE)
+  for the upstream copyright, relicensing note and third-party notices. The
+  Apache license text is kept in `LICENSE.apache` for those portions.
+- Bundled third-party software keeps its own licenses; the SBOM and source
+  locations are in [NOTICE](NOTICE) and [`third_party/`](third_party/).
 
-Delete the folder and what remains is the open-source edition: the server
-reports `{"edition":"oss"}` and ordinary standalone operation is unchanged.
-A workspace explicitly configured for hosted sign-in refuses remote access
-without that optional adapter; removing the enterprise layer must not bypass
-its configured sign-in authority. The `open-source edition builds without
-enterprise/` CI job proves the OSS build, boot response and absent adapter
-factory; it does not exercise every hosted HTTP route. The isolated hosted
-workspace tests verify those sign-in and revocation paths separately. The list
-of entitlement ids the server understands is in [`enterprise/FEATURES`](enterprise/FEATURES).
+## The upstream enterprise layer
 
-The routing rule for new work: could any open-source user want it? Then it goes
-in core, as a public pull request. Organisation-, admin- or tier-flavoured?
-Then it lives in `enterprise/` behind an entitlement. Customer-specific brand,
-skills, packages or connectors belong in that customer's own repository as
-data and configuration, never as a fork.
+Upstream OpenMausBot ships a source-available `enterprise/` directory behind a
+license key. This fork does not include it: the server builds and boots without
+it and reports `{"edition":"oss"}`, and hosted sign-in is provided by this
+fork's own [Luna Bot Cloud](https://cloud.dexai.vip) deployment instead. The
+"open-source edition builds without enterprise/" CI job keeps proving that.
 
 ## Contributions
 
-- Outside `enterprise/`: contribute under Apache 2.0. No DCO sign-off or CLA is
-  required. Submit only code you wrote or have the right to contribute.
-- Inside `enterprise/`: sign the [Contributor License Agreement](CLA.md) once, by
-  commenting on your pull request. It lets the project keep that folder under
-  its own license while still accepting your work.
-- The open-core boundary, the cloud seam and this file are covered by
+- Contribute under AGPL-3.0. No DCO sign-off or CLA is required. Submit only
+  code you wrote or have the right to contribute.
+- The open-core boundary and this file are covered by
   [`CODEOWNERS`](.github/CODEOWNERS): a maintainer reviews changes there.
 
-## Third-party components and trademarks
+## Trademarks
 
-Bundled third-party software keeps its own licenses; notices, license texts,
-source locations and the SBOM are listed in [NOTICE](NOTICE) and
-[`third_party/`](third_party/). The OpenMausBot and MausBot names and the
-mascot are trademarks of Supamaus Software Private Limited; the Apache License
-does not grant trademark rights (section 6),
-so a product built on OpenMausBot needs its own name unless a partner agreement
-says otherwise.
+The OpenMausBot and MausBot names and the mascot are trademarks of Supamaus
+Software Private Limited; neither the Apache License nor the AGPL grants
+trademark rights (section 6 / section 7). Luna Bot is this fork's own name.
