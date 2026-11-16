@@ -433,15 +433,37 @@ service on the phone, so `settingWith` only appends our component and
 with per-probe timeouts, a 90 s budget, dependency skips, and a report whose
 verdict is `Pass`, `Fail` or `Incomplete`.
 
-All three are logic only. No settings screen calls them, no service runs them,
-and `PhoneUiController` does not reference them. `runSelfCheck` has no caller
-outside `PhoneUiSelfCheckTest`, and there are no `Probe` implementations in the
-app at all: every caller must supply its own. `PhoneUiSelfRepair` and
-`PhoneUiAccessibilityRepair` are referenced only by their own tests. The last
-three probes (`browser`, `sandbox`, `app copies`) have no counterpart in this
-app — no in-app browser on the controlled display, no on-device sandbox, no
-profile enumeration — so a caller with no probe for them gets a skipped row and
-an `Incomplete` verdict rather than a pass.
+All twelve probes are real. `PhoneUiProbes.kt` holds the seams a probe runs
+through (`ProbeShell` over `PhoneUiShell`, a display it opens and releases
+itself, the launcher listing, a bounded wait) and one judge per row;
+`phoneUiProbes(...)` assembles the map from the helper bridge, the
+accessibility service and `PhoneUiDisplaySession`. A probe that cannot reach a
+verdict — no browser installed, the helper gone mid-run, an empty snapshot —
+fails or comes back incomplete with a sentence, never a pass. The runner has a
+caller: the 自检 row in Settings runs it on a background thread and shows the
+report in a sheet, with a spinner that refuses a second tap during the 90 s
+budget.
+
+Both repairs are wired as well. `PhoneUiController` owns one
+`PhoneUiRepairLoop` (kept across recomputes, so its backoff and write budget
+survive a status change) and starts or cancels it from the `phoneUi`
+preference: the person's capability switch is the authorization for every
+effect here, and `disable()`/`forget()` cancel it. The loop performs at most one
+action per pass with a 2 s floor: the wireless half first, the accessibility
+half only when that one did nothing.
+
+The accessibility half repairs `enabled && !connected` by rewriting the list
+through the helper's allow-listed `putSecureSetting`, and never writes when the
+person turned the service off. The wireless half is the one place the app may
+hold a system-write permission, and it is opt-in: a Settings switch, off by
+default, whose on state is persisted as `companion.prefs.phone.repair.wireless`.
+While a helper is attached the loop asks it for exactly one grant
+(`WRITE_SECURE_SETTINGS`, for the caller's own package, via a fixed `pm grant`
+argv), and from then on the app writes `adb_wifi_enabled` itself. With the
+switch off, or with no grant and no helper, the loop folds no event at all —
+`PhoneUiRepairLoop.wirelessWriter` keeps an absent writer from being recorded as
+`Refused` and spending the write budget, so a reboot leaves the phone ready for
+the helper's return instead of blocked until a manual retry.
 
 ## What is still missing
 
@@ -494,20 +516,22 @@ Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
 `irreversible` 26, `route-replay` 45, `phone-guards` 16, `phone-notices` 54,
 `intent-gate` 23.
 
-The Android unit tests — 19 classes, 195 tests, all passing:
+The Android unit tests — 25 classes, 278 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
   --tests "com.openmausbot.companion.phoneui.*" --offline
 ```
 
-That covers the 16 classes in
-`android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 3 in
+That covers the 20 classes in
+`android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 5 in
 its `shell/` subdirectory. The counts that matter for this batch:
 `PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiPacingTest` 22,
 `PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
-`PhoneUiAccessibilityRepairTest` 16, `PhoneUiSystemActionsTest` 8,
-`PhoneUiAfterTaskTest` 9.
+`PhoneUiAccessibilityRepairTest` 16, `PhoneUiRepairLoopTest` 11,
+`PhoneUiProbesTest` 35, `PhoneUiProbesProbeTest` 16,
+`PhoneUiProbesPackagesTest` 4, `PhoneUiSystemActionsTest` 8,
+`PhoneUiAfterTaskTest` 9, `PhoneUiSecureSettingTest` 9, `PhoneUiGrantTest` 8.
 
 The job catalogue — 16 tests:
 
@@ -555,4 +579,5 @@ mismatch, not the tool list: `server/phones/rpc.test.ts` asserts
 | `phone_collect` page merge | Appends pages scrolling down and prepends them scrolling up, so `direction` also decides reading order | Merges pages through a line-level dedup in reading order, so `direction` only picks the scroll | Our band keeps only lines wholly inside it, so a scroll never yields a partial line that needs re-ordering; one dedup rule covers both directions and a repeated line cannot appear twice. |
 | `phone_collect` / `phone_scroll` direction words | Content direction on both, and `phone_swipe` names the finger | Content direction on `PHONE_UI_COLLECT` and `PHONE_UI_SCROLL`, finger direction on `PHONE_UI_SWIPE` | Same split Mika documents, stated in each schema so a bot cannot carry one tool's meaning to the other. |
 | `PHONE_UI_AFTER_TASK` | Closes whatever is playing when the task ends unless told to keep it | Keeping is unconditional; only `close` is a choice | This app has no audio-session surface, so there is nothing to detect and no reason to default to closing. |
-| Route replay and editable text | Stores an element's text and hint | Never names an editable element by its text | Our observe reports a field's `text` as what was typed into it and carries no separate hint flag, so storing it would persist the person's words into the next run. Role, resource id, bounds and ordinal identify the field instead. |
+| Route replay and editable text | Stores an element's text and hint | Never names an editable text by its text | Our observe reports a field's `text` as what was typed into it and carries no separate hint flag, so storing it would persist the person's words into the next run. Role, resource id, bounds and ordinal identify the field instead. |
+| Wireless-debugging grant | Mika's manifest declares `WRITE_SECURE_SETTINGS`, and its shell grants it whenever it can; auto-on then runs unconditionally | Off by default: a Settings switch asks for the grant, and the helper grants only that one permission, to the caller's own package | `WRITE_SECURE_SETTINGS` is not scoped to `adb_wifi_enabled`: an app holding it can write any secure or global setting. We already keep settings writes narrow (two allow-listed keys), so handing the app the broad permission has to be a decision the person makes, not a side effect of enabling phone control. |
