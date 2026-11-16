@@ -73,9 +73,9 @@ it("the update note shows only for a server behind this app, with the command th
   await click(buttonIn(notes[0]!, "Hide this note"));
   expect(host.querySelector("[data-server-behind]")).toBeNull();
   expect(updateCommand("docker", "0.1.147")).toBe("git pull && ./update.sh");
-  expect(updateCommand("npx", "0.1.147")).toBe("npx dexbot@0.1.147 serve");
-  expect(updateCommand(null, "0.1.147")).toBe("npx dexbot@0.1.147 serve");
-  expect(updateCommand("global", "0.1.147")).toBe("npm install -g dexbot@0.1.147");
+  expect(updateCommand("npx", "0.1.147")).toBe("npx lunabot@0.1.147 serve");
+  expect(updateCommand(null, "0.1.147")).toBe("npx lunabot@0.1.147 serve");
+  expect(updateCommand("global", "0.1.147")).toBe("npm install -g lunabot@0.1.147");
 });
 
 it("Pair again opens the Connect sheet with the address locked and the code field ready; Remove only asks main", async () => {

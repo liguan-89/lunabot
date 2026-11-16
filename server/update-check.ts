@@ -28,7 +28,7 @@ export function updateCommand(install: InstallKind, target?: { version: string; 
   switch (install) {
     case "docker": return { command: target && !target.stable ? `git pull && ./update.sh --version ${target.version}` : "git pull && ./update.sh", restart: false };
     case "podman": return { command: "git pull && cd deploy/podman && PODMAN_COMPOSE_PROVIDER=podman-compose podman compose --env-file .env -f compose.yaml up -d --build", restart: false };
-    case "npm": return { command: `npm install -g dexbot@${target?.version ?? "latest"}`, restart: true };
+    case "npm": return { command: `npm install -g lunabot@${target?.version ?? "latest"}`, restart: true };
     case "git": return { command: "git pull && pnpm install", restart: true };
     default: return undefined;
   }

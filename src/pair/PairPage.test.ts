@@ -98,7 +98,7 @@ it("asks for the code first, with email sign-in as a link below, and says how to
   expect(html).toContain(en["pair.notEncrypted"].replace("'", "&#x27;"));
   expect(html).toContain(en["pair.fromLink"]);
   expect(html).toContain("dexbot://pair?address=http%3A%2F%2F203.0.113.9%3A8799&amp;code=ABCD-EFGH-JK23");
-  expect(html).toContain("npx dexbot pair");
+  expect(html).toContain("npx lunabot pair");
   expect(html.indexOf("<form")).toBeLessThan(html.indexOf(en["pair.code"]));
 });
 

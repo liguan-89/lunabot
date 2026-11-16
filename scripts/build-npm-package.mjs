@@ -1,6 +1,6 @@
-// Assemble the `dexbot` npm package: the self-contained server bundle,
+// Assemble the `lunabot` npm package: the self-contained server bundle,
 // the built UI, the bundled skills and the CLI, with a package.json of its
-// own. `npx dexbot serve` then needs Node 24+ and nothing else.
+// own. `npx lunabot serve` then needs Node 24+ and nothing else.
 //
 //   pnpm build:server && pnpm exec vite build && node scripts/build-npm-package.mjs
 //   cd release/npm && npm pack        # or npm publish --access public
@@ -12,7 +12,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release", "npm");
 const app = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-// The server bundle's entry is still openmausbot.js (server/openmausbot.ts); the package it ships as is dexbot.
+// The server bundle's entry is still openmausbot.js (server/openmausbot.ts); the package it ships as is lunabot.
 for (const required of ["dist-server/index.js", "dist-server/openmausbot.js", "dist/index.html"]) {
   if (!existsSync(join(root, required))) {
     console.error(`missing ${required}: run \`pnpm build:server && pnpm exec vite build\` first`);
@@ -44,12 +44,12 @@ writeFileSync(
   join(out, "package.json"),
   JSON.stringify(
     {
-      name: "dexbot",
+      name: "lunabot",
       version: app.version,
       description: "Run the DEX BOT server anywhere and pair your devices to it",
       license: "Apache-2.0",
       type: "module",
-      bin: { dexbot: "cli.js", openmausbot: "cli.js" },
+      bin: { lunabot: "cli.js", dexbot: "cli.js", openmausbot: "cli.js" },
       // Never bundled, so npm installs them beside the server: DuckDB and
       // resvg are native addons that npm picks per platform from their
       // optional packages, and the 1Password SDK reads its WebAssembly core
@@ -63,7 +63,7 @@ writeFileSync(
       engines: { node: ">=24" },
       repository: { type: "git", url: "https://github.com/liguan-89/dexbot.git" },
       homepage: "https://cloud.dexai.vip",
-      keywords: ["dexbot", "agents", "self-hosted", "server"],
+      keywords: ["lunabot", "dexbot", "agents", "self-hosted", "server"],
     },
     null,
     2,
@@ -72,17 +72,17 @@ writeFileSync(
 
 writeFileSync(
   join(out, "README.md"),
-  `# dexbot
+  `# lunabot
 
 Your own team of AI bots, with guided terminal setup. Requires Node 24+.
 
 \`\`\`sh
-npm install -g dexbot
-dexbot
+npm install -g lunabot
+lunabot
 \`\`\`
 
-Or run \`npx dexbot\` without a global install. Use the same command next
-time; \`dexbot start\` is an alias for the bare command.
+Or run \`npx lunabot\` without a global install. Use the same command next
+time; \`lunabot start\` is an alias for the bare command.
 
 First launch: use arrow keys and Enter (numbered choices in plain terminals) to choose
 ChatGPT/Codex, Claude Code, or an API service; sign in or paste a hidden API
@@ -115,13 +115,13 @@ browser opening uses only the local address; it is skipped for SSH and
 headless sessions, and can be disabled with \`--no-open\`.
 
 \`\`\`sh
-dexbot setup          # reconfigure AI and optional phone access; not a reset
-dexbot --no-open      # do not open a browser
-dexbot --local        # ignore saved remote access for this launch
-dexbot --no-pair      # suppress phone prompts and invitations
-dexbot pair           # another phone while the HTTPS server is running
-dexbot sessions       # list devices; sessions revoke ID signs one out
-dexbot serve          # no onboarding prompts; explicit remote flags for services
+lunabot setup          # reconfigure AI and optional phone access; not a reset
+lunabot --no-open      # do not open a browser
+lunabot --local        # ignore saved remote access for this launch
+lunabot --no-pair      # suppress phone prompts and invitations
+lunabot pair           # another phone while the HTTPS server is running
+lunabot sessions       # list devices; sessions revoke ID signs one out
+lunabot serve          # no onboarding prompts; explicit remote flags for services
 \`\`\`
 
 Stop an existing server before reconfiguring or changing access mode.
@@ -142,7 +142,7 @@ with owner-only permissions (0600 on Unix). Keep these files private.
 Ctrl-C before saving AI setup leaves its pending OMB changes unapplied.
 During the later phone step, it keeps the AI setup already saved and exits
 without starting a server. Completed installs and sign-ins remain; run
-\`dexbot setup\` to continue without deleting your data.
+\`lunabot setup\` to continue without deleting your data.
 
 For a service, use \`serve --tunnel\` after \`login\` for managed HTTPS,
 \`serve --tailscale\` for your tailnet, or your own reverse proxy. The
@@ -154,9 +154,9 @@ set a team up from a file, give a bot one job and wait until it and every
 teammate it asked are done, and export what they made.
 
 \`\`\`sh
-dexbot team apply team.yaml
-dexbot run "Room Lead" "Rehearse the launch of https://example.com" --export ./out
-dexbot help run       # every verb: doctor, run, wait, send, export, events, team, engine, connect, mcp
+lunabot team apply team.yaml
+lunabot run "Room Lead" "Rehearse the launch of https://example.com" --export ./out
+lunabot help run       # every verb: doctor, run, wait, send, export, events, team, engine, connect, mcp
 \`\`\`
 
 [Setup guide](https://github.com/liguan-89/dexbot/blob/main/docs/cli-onboarding.md)
@@ -164,4 +164,4 @@ dexbot help run       # every verb: doctor, run, wait, send, export, events, tea
 · [Hosting guide](https://github.com/liguan-89/dexbot/blob/main/docs/self-hosting.md)
 `,
 );
-console.log(`npm package assembled at ${out} (dexbot@${app.version})`);
+console.log(`npm package assembled at ${out} (lunabot@${app.version})`);

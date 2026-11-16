@@ -12,5 +12,8 @@ describe("cliPrefix", () => {
     expect(cliCommand("pair", {}, "C:\\Users\\me\\AppData\\Local\\npm-cache\\_npx\\9\\node_modules\\openmausbot\\x.js")).toBe("npx openmausbot pair");
     expect(cliPrefix({}, "/usr/lib/node_modules/dexbot/dist-server/openmausbot.js")).toBe("dexbot");
     expect(cliCommand("pair", {}, "C:\\Users\\me\\AppData\\Local\\npm-cache\\_npx\\9\\node_modules\\dexbot\\x.js")).toBe("npx dexbot pair");
+    expect(cliPrefix({}, "/usr/lib/node_modules/lunabot/dist-server/openmausbot.js")).toBe("lunabot");
+    expect(cliCommand("pair", {}, "C:\\Users\\me\\AppData\\Local\\npm-cache\\_npx\\9\\node_modules\\lunabot\\x.js")).toBe("npx lunabot pair");
+    expect(cliPrefix({}, "/home/me/.npm-global/bin/lunabot")).toBe("lunabot");
   });
 });
