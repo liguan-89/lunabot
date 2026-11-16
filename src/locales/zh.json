@@ -9509,6 +9509,7 @@
   "chat.notice.phone.write.PHONE_UI_COLLECT": "在 {phone} 上连续读屏",
   "chat.notice.phone.write.PHONE_UI_FIND": "在 {phone} 上滚动查找",
   "chat.notice.phone.write.PHONE_UI_BACK": "在 {phone} 上返回上一屏",
+  "chat.notice.phone.write.PHONE_UI_RUN": "在 {phone} 上执行多个步骤",
   "chat.notice.phone.write.PHONE_SET_ALARM": "在 {phone} 上设置闹钟",
   "chat.notice.phone.write.PHONE_SET_TIMER": "在 {phone} 上设置计时器",
   "chat.notice.phone.write.PHONE_OPEN_LINK": "在 {phone} 上打开链接",

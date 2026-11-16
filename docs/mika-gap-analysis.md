@@ -138,14 +138,13 @@ refuses the whole call (see "Irreversible actions"). A step whose target is not
 on that screen cannot be judged and is passed over, because the run finds it on
 a later screen the server has not seen.
 
-One gap to know about: `server/chat-notices.ts` has no
-`chat.notice.phone.write.PHONE_UI_RUN` key, so the activity row for a run falls
-back to `phoneWriteSummary`'s generic sentence built from `describeAction`,
-"Ui run on <phone>". The other seven new write tools (`PHONE_UI_COLLECT`,
-`PHONE_UI_FIND`, `PHONE_SET_ALARM`, `PHONE_SET_TIMER`, `PHONE_OPEN_LINK`,
-`PHONE_SHARE_TEXT`, `PHONE_UI_AFTER_TASK`) have their own sentence, in
-`server/chat-notices.ts` and in both `src/locales/en.json` and `zh.json`;
-`PHONE_UI_QUERY` and `PHONE_LIST_APPS` are reads and post no activity row.
+`server/chat-notices.ts` has a `chat.notice.phone.write.PHONE_UI_RUN` key, so
+the activity row for a run reads "Run several steps on <phone>". All eight new
+write tools (`PHONE_UI_RUN`, `PHONE_UI_COLLECT`, `PHONE_UI_FIND`,
+`PHONE_SET_ALARM`, `PHONE_SET_TIMER`, `PHONE_OPEN_LINK`, `PHONE_SHARE_TEXT`,
+`PHONE_UI_AFTER_TASK`) have their own sentence, in `server/chat-notices.ts` and
+in both `src/locales/en.json` and `zh.json`; `PHONE_UI_QUERY` and
+`PHONE_LIST_APPS` are reads and post no activity row.
 
 ### `PHONE_UI_COLLECT`
 
@@ -527,7 +526,7 @@ the helper's return instead of blocked until a manual retry.
 | Screen port and snapshot plumbing | `core/.../uistate/ScreenPort.kt`, `ScreenSession.kt`, `AppAccessScreenPort.kt` | Not built: `PhoneUiDisplaySession`, `PhoneUiAccessibilityService.snapshot` and `PhoneUiTaskExecutor` already provide the display, the tree and the refs, with different types. |
 | Compose UI | `app/src/main/java/com/wangzan101/mika/ui/` | Deliberately out of scope: our phone-UI screens are ours; porting Mika's would be a rewrite, not a port. |
 | `phone_sms_login` | `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneSmsLogin.kt`, `app/src/main/java/com/wangzan101/mika/cap/phone/sms/` | Needs a surface we do not have: an authorized local SMS service and stored account profiles. Our notice filter drops authentication codes rather than reading them. |
-| `phone_wait` | `PhoneAdvancedTools.kt` (`PhoneWait`) | Partly built: `PHONE_UI_WAIT` has `change` and `settle` only. Text-appear, text-disappear and activity conditions need the event stream below. |
+| `phone_wait` | `PhoneAdvancedTools.kt` (`PhoneWait`) | Mostly built: `PHONE_UI_WAIT` has `change`, `settle`, `appear` and `disappear`. The text conditions poll snapshots at the change/settle cadence (150 ms) up to the call's `timeoutMs`, because this slice has no accessibility event stream to wake on. `activity` is not ported: a snapshot carries no activity class name, so a condition on one could not be observed rather than being faked. |
 | `phone_event` | `PhoneAdvancedTools.kt` (`PhoneEventTool`) | Needs a surface we do not have: an accessibility event listener scoped to one call. Our service takes snapshots on demand and exposes no event stream. |
 | `phone_extract` | `PhoneAdvancedTools.kt` (`PhoneExtract`) | Not built: list rows grouped by scrollable parent, form fields with labels and parent context. Our element list is flat. |
 | `phone_dialog` | `PhoneAdvancedTools.kt` (`PhoneDialog`) | Not built: top-dialog inspection and click-through. Our snapshot has no window or dialog layering. |
@@ -633,5 +632,6 @@ mismatch, not the tool list: `server/phones/rpc.test.ts` asserts
 | `PHONE_UI_AFTER_TASK` | Closes whatever is playing when the task ends unless told to keep it | Keeping is unconditional; only `close` is a choice | This app has no audio-session surface, so there is nothing to detect and no reason to default to closing. |
 | `phone_find` | `PhoneFind` scrolls by `amount: 3` per call and needs three identical readings to call a screen unchanged | `PHONE_UI_FIND` scrolls one step per iteration, and two identical readings stop the loop | `PHONE_UI_SCROLL` takes one step, so `maxScrolls` is the budget in steps; our scroll already waits for the screen to change, so one equal comparison is a real answer rather than a scroll that may not have landed. |
 | `phone_find` on an unreadable screen | Reads a protected flag and a readable-window verdict from the snapshot | A null snapshot is `read_failed`; an empty tree or an unreadable package is `screen_needs_review` | Our snapshot carries no protection flag. An empty tree is the shape an unreadable screen takes here, and the loop never scrolls a screen it cannot see. |
+| `phone_wait` conditions | `appear`, `disappear`, `activity` and `stable`, each woken by the accessibility event stream and re-checked on the screen | `appear` and `disappear` poll snapshots every 150 ms up to `timeoutMs`; `activity` is not offered | Our service takes snapshots on demand and exposes no event stream, so the conditions are ported without the plumbing that woke Mika. `activity` needs an activity class name the snapshot does not carry, so it could only be faked. |
 | Route replay and editable text | Stores an element's text and hint | Never names an editable text by its text | Our observe reports a field's `text` as what was typed into it and carries no separate hint flag, so storing it would persist the person's words into the next run. Role, resource id, bounds and ordinal identify the field instead. |
 | Wireless-debugging grant | Mika's manifest declares `WRITE_SECURE_SETTINGS`, and its shell grants it whenever it can; auto-on then runs unconditionally | Off by default: a Settings switch asks for the grant, and the helper grants only that one permission, to the caller's own package | `WRITE_SECURE_SETTINGS` is not scoped to `adb_wifi_enabled`: an app holding it can write any secure or global setting. We already keep settings writes narrow (two allow-listed keys), so handing the app the broad permission has to be a decision the person makes, not a side effect of enabling phone control. |
