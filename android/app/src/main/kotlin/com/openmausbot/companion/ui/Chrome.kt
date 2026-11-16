@@ -81,6 +81,10 @@ internal val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
 private val CHROME_ELEVATION: Dp = 0.dp
 
+private val hardwareBlurAvailable: Boolean =
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        !Build.FINGERPRINT.equals("robolectric", ignoreCase = true)
+
 @Composable
 internal fun rememberGlassHazeStyle(blurRadius: Dp = 24.dp): HazeStyle {
     val canvas = minisCanvas
@@ -109,48 +113,50 @@ internal fun Modifier.progressiveHazeBand(
     val style = remember(canvas, dark) {
         HazeStyle(
             backgroundColor = canvas,
-            tints = listOf(HazeTint(canvas.copy(alpha = if (dark) 0.70f else 0.76f))),
-            blurRadius = 26.dp,
-            noiseFactor = 0.02f,
+            tints = listOf(HazeTint(canvas.copy(alpha = if (dark) 0.68f else 0.74f))),
+            blurRadius = 28.dp,
+            noiseFactor = 0.025f,
             fallbackTint = HazeTint(canvas.copy(alpha = 0.88f)),
         )
     }
     val maskStops = if (fromTop) {
         arrayOf(
             0f to Color.Black,
-            0.58f to Color.Black.copy(alpha = 0.85f),
-            0.84f to Color.Black.copy(alpha = 0.32f),
+            0.55f to Color.Black.copy(alpha = 0.92f),
+            0.82f to Color.Black.copy(alpha = 0.42f),
             1f to Color.Transparent,
         )
     } else {
         arrayOf(
             0f to Color.Transparent,
-            0.16f to Color.Black.copy(alpha = 0.32f),
-            0.42f to Color.Black.copy(alpha = 0.85f),
+            0.18f to Color.Black.copy(alpha = 0.42f),
+            0.45f to Color.Black.copy(alpha = 0.92f),
             1f to Color.Black,
         )
     }
     val edgeScrim = if (fromTop) {
         Brush.verticalGradient(
-            0f to canvas.copy(alpha = (if (dark) 0.82f else 0.86f) * alpha),
-            0.52f to canvas.copy(alpha = (if (dark) 0.44f else 0.50f) * alpha),
+            0f to canvas.copy(alpha = (if (dark) 0.76f else 0.80f) * alpha),
+            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
             1f to Color.Transparent,
         )
     } else {
         Brush.verticalGradient(
             0f to Color.Transparent,
-            0.48f to canvas.copy(alpha = (if (dark) 0.44f else 0.50f) * alpha),
-            1f to canvas.copy(alpha = (if (dark) 0.84f else 0.88f) * alpha),
+            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
+            1f to canvas.copy(alpha = (if (dark) 0.78f else 0.82f) * alpha),
         )
     }
     return this
         .hazeEffect(hazeState, style) {
+            blurEnabled = hardwareBlurAvailable
             this.alpha = alpha
             mask = Brush.verticalGradient(colorStops = maskStops)
             progressive = HazeProgressive.LinearGradient(
                 startIntensity = if (fromTop) 1f else 0f,
                 endIntensity = if (fromTop) 0f else 1f,
-                easing = CubicBezierEasing(0.35f, 0f, 0.65f, 1f),
+                easing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f),
+                preferPerformance = true,
             )
         }
         .background(edgeScrim)
@@ -182,7 +188,9 @@ internal fun Modifier.chromeCapsule(
                 },
             )
             .clip(CircleShape)
-            .hazeEffect(hazeState, style)
+            .hazeEffect(hazeState, style) {
+                blurEnabled = hardwareBlurAvailable
+            }
             .minisGloss(
                 shape = CircleShape,
                 fill = Color.Transparent,
@@ -225,7 +233,9 @@ internal fun Modifier.chromeSheet(cornerRadius: Dp = 24.dp, elevation: Dp = 0.dp
                 },
             )
             .clip(shape)
-            .hazeEffect(hazeState, style)
+            .hazeEffect(hazeState, style) {
+                blurEnabled = hardwareBlurAvailable
+            }
             .minisGloss(
                 shape = shape,
                 fill = Color.Transparent,

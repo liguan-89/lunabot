@@ -92,8 +92,8 @@ object MinisTokens {
     // search field, menus and chips all but vanished.
     val GlassLight = Color(0xEBFFFFFF)
     val GlassDark = Color(0xCC1E1E22)
-    val GlassBlurTintLight = Color(0xB8FFFFFF)
-    val GlassBlurTintDark = Color(0xA818181C)
+    val GlassBlurTintLight = Color(0xADFFFFFF)
+    val GlassBlurTintDark = Color(0x9E1C1C22)
     val ControlLight = Color(0xFFFFFFFF)
     val ControlDark = Color(0xE62C2C2E)
     // The floating chat header sits on scrolling text, so it is a step more

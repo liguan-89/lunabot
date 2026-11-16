@@ -565,7 +565,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .height(bottomClearance + 26.dp)
+                .height(bottomClearance + if (bar.searchOpen) 42.dp else 28.dp)
                 .progressiveHazeBand(hazeState, fromTop = false),
         )
 
