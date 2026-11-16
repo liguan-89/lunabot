@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -70,6 +71,27 @@ enum class NoticeTone { INFO, WARNING, ERROR }
  * action that fixes the problem (e.g. 重试), and [onDismiss] to hang an ✕
  * off the trailing edge.
  */
+internal object NoticeMessageFormat {
+    private val NO_ROUTE = Regex("""(?i)\bno route:\s*(?:[A-Z]+\s+)?\S+""")
+    private val BARE_URL = Regex("""https?://\S+""")
+    private val NETWORK_FAILURE = Regex(
+        """(?i)(?:\.e2e\.invalid\b|unable to resolve host|unknownhostexception|failed to connect|connection refused|connectexception|sockettimeoutexception|timed out|\btimeout\b|network is unreachable|software caused connection abort)""",
+    )
+
+    fun humanize(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return ""
+        if (NO_ROUTE.containsMatchIn(trimmed)) {
+            return "当前连接的电脑暂不支持此功能，请检查连接或更新电脑端应用。"
+        }
+        if (NETWORK_FAILURE.containsMatchIn(trimmed)) {
+            return "无法连接到电脑，请确认电脑在线并保持远程访问开启。"
+        }
+        val stripped = BARE_URL.replace(trimmed, "").replace(Regex("""\s{2,}"""), " ").trim(' ', ':', '：', '-', '—')
+        return stripped.ifEmpty { trimmed }
+    }
+}
+
 @Composable
 fun InlineNotice(
     message: String,
@@ -79,19 +101,26 @@ fun InlineNotice(
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
+    floating: Boolean = false,
 ) {
     val tint = tone.tint()
+    val dark = minisIsDark()
+    val basePlate = if (dark) Color(0xF21C1C20) else Color(0xF7FFFFFF)
+    val fill = if (floating) tone.floatingWash(dark).compositeOver(basePlate) else tone.wash()
+    val rim = if (floating) tint.copy(alpha = if (dark) 0.34f else 0.24f) else minisSeparator
+    val cleanMessage = remember(message) { NoticeMessageFormat.humanize(message) }
     Row(
         modifier = modifier
             .minisGloss(
                 shape = MinisCardShape,
-                fill = tone.wash(),
+                fill = fill,
                 sheen = minisGlassSheen,
-                rim = minisSeparator,
+                rim = rim,
+                elevation = if (floating) 12.dp else 0.dp,
             )
             // The ✕ keeps its 48 dp target inside [ChromeButton]; this padding
             // only positions the visuals inside the glass.
-            .padding(start = 14.dp, end = 6.dp, top = 8.dp, bottom = 8.dp)
+            .padding(start = 14.dp, end = 6.dp, top = 10.dp, bottom = 10.dp)
             .semantics(mergeDescendants = true) { },
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -115,7 +144,7 @@ fun InlineNotice(
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(1.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             if (title != null) {
                 Text(
@@ -125,7 +154,7 @@ fun InlineNotice(
                     color = minisInk,
                 )
             }
-            Text(text = message, fontSize = 13.sp, color = minisInk)
+            Text(text = cleanMessage, fontSize = 13.sp, lineHeight = 18.sp, color = minisInk)
         }
 
         if (actionLabel != null) {
@@ -204,6 +233,7 @@ fun ActionNoticeHost(session: Session) {
                 tone = NoticeTone.ERROR,
                 modifier = Modifier.widthIn(max = 560.dp),
                 onDismiss = { session.actionError = null },
+                floating = true,
             )
         }
     }
@@ -219,6 +249,13 @@ private fun NoticeTone.tint(): Color = when (this) {
     NoticeTone.INFO -> minisAccent
     NoticeTone.WARNING -> minisWarning
     NoticeTone.ERROR -> minisDanger
+}
+
+@Composable
+private fun NoticeTone.floatingWash(dark: Boolean): Color = when (this) {
+    NoticeTone.INFO -> minisAccent.copy(alpha = if (dark) 0.22f else 0.09f)
+    NoticeTone.WARNING -> minisWarning.copy(alpha = if (dark) 0.22f else 0.10f)
+    NoticeTone.ERROR -> minisDanger.copy(alpha = if (dark) 0.22f else 0.09f)
 }
 
 /**

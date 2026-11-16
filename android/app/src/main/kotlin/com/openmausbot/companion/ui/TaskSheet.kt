@@ -1,5 +1,7 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,10 +9,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
@@ -18,14 +23,17 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.BasicAlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -34,16 +42,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.DialogProperties
 import com.openmausbot.companion.core.Bot
 import com.openmausbot.companion.core.BotTask
 import com.openmausbot.companion.core.Chat
@@ -102,7 +111,7 @@ fun TaskSheet(
     var error by remember { mutableStateOf<String?>(null) }
 
     fun failed() {
-        error = session.actionError ?: "无法更新此会话，请重试。"
+        error = NoticeMessageFormat.humanize(session.actionError ?: "无法更新此话题，请重试。")
         session.actionError = null
     }
 
@@ -154,176 +163,220 @@ fun TaskSheet(
     // A timed snooze can end while the sheet is open; the rows and the Stop
     // snoozing offer must notice without waiting for the next snapshot.
     val now = rememberSnoozeNow(groups.flatMap { it.tasks })
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true,
+        confirmValueChange = { value -> value != SheetValue.Hidden || !saving },
+    )
 
-    BasicAlertDialog(
+    ModalBottomSheet(
         onDismissRequest = { if (!saving) onDismiss() },
-        properties = DialogProperties(usePlatformDefaultWidth = true),
+        sheetState = sheetState,
+        containerColor = minisCanvas,
+        shape = MinisSheetShape,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-            // Tonal elevation tints a translucent surface, which would undo the
-            // glass it is meant to sit on.
-            tonalElevation = 0.dp,
+        GlassBackdrop()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            GlassBackdrop()
-            Column(modifier = Modifier.padding(vertical = 16.dp)) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                ChatAvatar(
+                    chat = current,
+                    size = 32.dp,
+                    state = MausState.IDLE,
+                    animated = false,
+                    fallback = AvatarFallback.PRESET,
+                )
+                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "${current.name} 的会话",
+                        text = "${current.name} 的话题",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.weight(1f),
+                        color = minisInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
+                    val roleSubtitle = (current as? Chat.BotChat)?.bot?.title.orEmpty()
+                    if (roleSubtitle.isNotEmpty()) {
+                        Text(
+                            text = roleSubtitle,
+                            fontSize = 12.sp,
+                            color = minisSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+                val canCreate = TaskRules.canCreate(current)
+                Row(
+                    modifier = Modifier
+                        .heightIn(min = 38.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (canCreate) minisCard else minisCard.copy(alpha = 0.5f),
+                            CircleShape,
+                        )
+                        .border(0.5.dp, minisSeparator, CircleShape)
+                        .clickable(enabled = !saving && canCreate, role = Role.Button) {
+                            saving = true
+                            error = null
+                            scope.launch {
+                                val created = createTask(session, current, null)
+                                saving = false
+                                if (created == null) failed() else {
+                                    onSelectTask(created.target)
+                                    onDismiss()
+                                }
+                            }
+                        }
+                        .semantics { contentDescription = "新建话题" }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
                     Icon(
                         imageVector = Icons.Filled.Add,
-                        contentDescription = "新建会话",
-                        tint = if (TaskRules.canCreate(current)) {
-                            MaterialTheme.colorScheme.onSurface
-                        } else {
-                            secondaryTint.copy(alpha = 0.4f)
-                        },
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clickable(enabled = !saving && TaskRules.canCreate(current)) {
+                        contentDescription = null,
+                        tint = if (canCreate) minisInk else minisTertiary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Text(
+                        text = "新建",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (canCreate) minisInk else minisTertiary,
+                    )
+                }
+            }
+
+            error?.let {
+                InlineNotice(
+                    message = it,
+                    tone = NoticeTone.ERROR,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                )
+            }
+
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 460.dp)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                groups.forEach { group ->
+                    group.project?.let { project ->
+                        item(key = "header:${group.id}") {
+                            Text(
+                                text = "${project.emoji ?: "📁"} ${project.name}",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = minisSecondary,
+                                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                            )
+                        }
+                    }
+                    itemsIndexed(group.tasks, key = { _, it -> it.threadId }) { index, task ->
+                        val shape = when {
+                            group.tasks.size == 1 -> MinisCardShape
+                            index == 0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+                            index == group.tasks.lastIndex -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                            else -> RoundedCornerShape(4.dp)
+                        }
+                        TaskRow(
+                            task = task,
+                            chat = current,
+                            enabled = !saving,
+                            now = now,
+                            queued = task.threadId in state.queuedThreadIds,
+                            shape = shape,
+                            onSwitch = {
                                 saving = true
                                 error = null
                                 scope.launch {
-                                    val created = createTask(session, current, null)
+                                    val selected = switchTask(session, task, current)
                                     saving = false
-                                    if (created == null) failed() else {
-                                        onSelectTask(created.target)
+                                    if (selected == null) failed() else {
+                                        onSelectTask(selected.target)
                                         onDismiss()
                                     }
                                 }
-                            }
-                            .padding(12.dp),
-                    )
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    ChatAvatar(chat = current, size = 48.dp, state = MausState.IDLE, animated = false)
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(current.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                        Text(TaskRules.subtitle(current), fontSize = 14.sp, color = secondaryTint)
+                            },
+                            onRename = {
+                                title = task.title
+                                error = null
+                                renaming = task
+                            },
+                            onSnooze = if (current is Chat.BotChat) {
+                                { error = null; pendingSnooze = task.threadId }
+                            } else {
+                                null
+                            },
+                            onDelete = { error = null; pendingDelete = task },
+                            onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
+                            onPin = pinHandler,
+                        )
                     }
                 }
-                Text(
-                    text = TaskRules.CONTEXT_FOOTER,
-                    fontSize = 13.sp,
-                    color = secondaryTint,
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp),
-                )
-                error?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
-                }
-
-                LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
-                    groups.forEach { group ->
-                        group.project?.let { project ->
-                            item(key = group.id) {
-                                Text(
-                                    "${project.emoji ?: "📁"} ${project.name}", color = secondaryTint,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                                )
-                            }
+                if (archived.isNotEmpty()) {
+                    item(key = "archived") {
+                        Text(
+                            text = "已归档",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = minisSecondary,
+                            modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+                        )
+                    }
+                    itemsIndexed(archived, key = { _, it -> "archived:${it.threadId}" }) { index, task ->
+                        val shape = when {
+                            archived.size == 1 -> MinisCardShape
+                            index == 0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+                            index == archived.lastIndex -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
+                            else -> RoundedCornerShape(4.dp)
                         }
-                        items(group.tasks, key = { it.threadId }) { task ->
-                            TaskRow(
-                                task = task,
-                                chat = current,
-                                enabled = !saving,
-                                now = now,
-                                queued = task.threadId in state.queuedThreadIds,
-                                onSwitch = {
-                                    saving = true
-                                    error = null
-                                    scope.launch {
-                                        val selected = switchTask(session, task, current)
-                                        saving = false
-                                        if (selected == null) failed() else {
-                                            onSelectTask(selected.target)
-                                            onDismiss()
-                                        }
+                        TaskRow(
+                            task = task,
+                            chat = current,
+                            enabled = !saving,
+                            now = now,
+                            queued = task.threadId in state.queuedThreadIds,
+                            shape = shape,
+                            onSwitch = {
+                                saving = true
+                                error = null
+                                scope.launch {
+                                    val selected = switchTask(session, task, current)
+                                    saving = false
+                                    if (selected == null) failed() else {
+                                        onSelectTask(selected.target)
+                                        onDismiss()
                                     }
-                                },
-                                onRename = {
-                                    title = task.title
-                                    error = null
-                                    renaming = task
-                                },
-                                onSnooze = if (current is Chat.BotChat) {
-                                    { error = null; pendingSnooze = task.threadId }
-                                } else {
-                                    null
-                                },
-                                onDelete = { error = null; pendingDelete = task },
-                                onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
-                                onPin = pinHandler,
-                            )
-                        }
+                                }
+                            },
+                            onRename = {
+                                title = task.title
+                                error = null
+                                renaming = task
+                            },
+                            onSnooze = null,
+                            onDelete = { error = null; pendingDelete = task },
+                            onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
+                            onPin = pinHandler,
+                        )
                     }
-                    if (archived.isNotEmpty()) {
-                        item(key = "archived") {
-                            Text(
-                                "已归档",
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                color = secondaryTint,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
-                            )
-                        }
-                        items(archived, key = { it.threadId }) { task ->
-                            TaskRow(
-                                task = task,
-                                chat = current,
-                                enabled = !saving,
-                                now = now,
-                                queued = task.threadId in state.queuedThreadIds,
-                                onSwitch = {
-                                    saving = true
-                                    error = null
-                                    scope.launch {
-                                        val selected = switchTask(session, task, current)
-                                        saving = false
-                                        if (selected == null) failed() else {
-                                            onSelectTask(selected.target)
-                                            onDismiss()
-                                        }
-                                    }
-                                },
-                                onRename = {
-                                    title = task.title
-                                    error = null
-                                    renaming = task
-                                },
-                                onSnooze = null,
-                                onDelete = { error = null; pendingDelete = task },
-                                onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
-                                onPin = pinHandler,
-                            )
-                        }
-                    }
-                }
-
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onDismiss, enabled = !saving) { Text("完成") }
                 }
             }
         }
@@ -331,7 +384,7 @@ fun TaskSheet(
 
     renaming?.let { task ->
         TaskTitleDialog(
-            heading = "重命名会话",
+            heading = "重命名话题",
             label = "标题",
             title = title,
             onTitleChange = { title = it },
@@ -395,7 +448,7 @@ fun TaskSheet(
                         Text(it, color = MaterialTheme.colorScheme.error)
                     }
                     if (working) {
-                        Text("请先停止此会话，然后再设置延后提醒。", color = secondaryTint)
+                        Text("请先停止此话题，然后再设置延后提醒。", color = secondaryTint)
                     } else {
                         SnoozeRules.presets.forEach { preset ->
                             TextButton(
@@ -465,6 +518,7 @@ private fun TaskRow(
     enabled: Boolean,
     now: Long,
     queued: Boolean,
+    shape: androidx.compose.ui.graphics.Shape = MinisCardShape,
     onSwitch: () -> Unit,
     onRename: () -> Unit,
     onSnooze: (() -> Unit)?,
@@ -476,33 +530,50 @@ private fun TaskRow(
     val canSwitch = enabled && TaskRules.canSwitch(task, chat)
     val canDelete = enabled && TaskRules.canDelete(task, chat)
     val canArchive = enabled && TaskRules.canArchive(task, chat)
+    val canSnooze = onSnooze != null && enabled && !TaskRules.isWorking(task)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(shape)
+            .background(minisCard, shape)
             .clickable(enabled = canSwitch, onClick = onSwitch)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(start = 16.dp, end = 6.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         BotThreadRow(task, selected = current, modifier = Modifier.weight(1f), now = now, queued = queued)
 
-        // Pin and archive used to be two text links whose touch height was the
-        // text itself — about seventeen dp — and whose width was taken from the
-        // title. They are secondary actions on a row that already carries
-        // rename, snooze and delete, so they live behind one 48 dp menu.
         var actionsOpen by remember { mutableStateOf(false) }
         Box {
-            Icon(
-                imageVector = Icons.Filled.MoreVert,
+            TouchTarget(
+                onClick = { actionsOpen = true },
+                size = 40.dp,
                 contentDescription = "更多操作 ${TaskRules.title(task)}",
-                tint = secondaryTint,
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable { actionsOpen = true }
-                    .padding(14.dp),
-            )
-            DropdownMenu(expanded = actionsOpen, onDismissRequest = { actionsOpen = false }) {
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.MoreVert,
+                    contentDescription = null,
+                    tint = secondaryTint,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            DropdownMenu(
+                expanded = actionsOpen,
+                onDismissRequest = { actionsOpen = false },
+                shape = RoundedCornerShape(16.dp),
+                containerColor = minisCard,
+            ) {
+                DropdownMenuItem(
+                    text = { Text("重命名") },
+                    leadingIcon = { Icon(Icons.Filled.Edit, null, modifier = Modifier.size(18.dp)) },
+                    enabled = enabled && TaskRules.canRename(chat),
+                    modifier = Modifier.semantics { contentDescription = "重命名 ${TaskRules.title(task)}" },
+                    onClick = {
+                        actionsOpen = false
+                        onRename()
+                    },
+                )
                 val pinLabel = if (task.pinned == true) "取消置顶" else "置顶"
                 DropdownMenuItem(
                     text = { Text(pinLabel) },
@@ -512,6 +583,18 @@ private fun TaskRow(
                         onPin(task)
                     },
                 )
+                if (onSnooze != null) {
+                    DropdownMenuItem(
+                        text = { Text("延后提醒") },
+                        leadingIcon = { Icon(Icons.Filled.Notifications, null, modifier = Modifier.size(18.dp)) },
+                        enabled = canSnooze,
+                        modifier = Modifier.semantics { contentDescription = "延后提醒 ${TaskRules.title(task)}" },
+                        onClick = {
+                            actionsOpen = false
+                            onSnooze()
+                        },
+                    )
+                }
                 if (onArchive != null) {
                     DropdownMenuItem(
                         text = { Text(if (task.isArchived) "取消归档" else "归档") },
@@ -522,41 +605,31 @@ private fun TaskRow(
                         },
                     )
                 }
+                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = "删除",
+                            color = if (canDelete) MaterialTheme.colorScheme.error else secondaryTint.copy(alpha = 0.4f),
+                        )
+                    },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Filled.Delete,
+                            null,
+                            tint = if (canDelete) MaterialTheme.colorScheme.error else secondaryTint.copy(alpha = 0.4f),
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    enabled = canDelete,
+                    modifier = Modifier.semantics { contentDescription = "删除 ${TaskRules.title(task)}" },
+                    onClick = {
+                        actionsOpen = false
+                        onDelete()
+                    },
+                )
             }
         }
-
-        Icon(
-            imageVector = Icons.Filled.Edit,
-            contentDescription = "重命名 ${TaskRules.title(task)}",
-            tint = secondaryTint,
-            modifier = Modifier
-                .size(48.dp)
-                .clickable(enabled = enabled && TaskRules.canRename(chat), onClick = onRename)
-                .padding(14.dp),
-        )
-
-        if (onSnooze != null) {
-            Icon(
-                imageVector = Icons.Filled.Notifications,
-                contentDescription = "延后提醒 ${TaskRules.title(task)}",
-                tint = if (enabled && !TaskRules.isWorking(task)) secondaryTint
-                else secondaryTint.copy(alpha = 0.4f),
-                modifier = Modifier
-                    .size(48.dp)
-                    .clickable(enabled = enabled && !TaskRules.isWorking(task), onClick = onSnooze)
-                    .padding(14.dp),
-            )
-        }
-
-        Icon(
-            imageVector = Icons.Filled.Delete,
-            contentDescription = "删除 ${TaskRules.title(task)}",
-            tint = if (canDelete) MaterialTheme.colorScheme.error else secondaryTint.copy(alpha = 0.4f),
-            modifier = Modifier
-                .size(48.dp)
-                .clickable(enabled = canDelete, onClick = onDelete)
-                .padding(14.dp),
-        )
     }
 }
 
@@ -613,16 +686,17 @@ private fun TaskTitleDialog(
 ) {
     AlertDialog(
         onDismissRequest = onCancel,
-        title = { Text(heading) },
+        shape = MinisSheetShape,
+        containerColor = minisCanvas,
+        title = { Text(heading, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = minisInk) },
         text = {
-            Column {
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                OutlinedTextField(
-                value = title,
-                onValueChange = onTitleChange,
-                label = { Text(label) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                error?.let { Text(it, fontSize = 13.sp, color = MaterialTheme.colorScheme.error) }
+                MinisSheetField(
+                    value = title,
+                    onValueChange = onTitleChange,
+                    placeholder = label,
+                    singleLine = true,
                 )
             }
         },

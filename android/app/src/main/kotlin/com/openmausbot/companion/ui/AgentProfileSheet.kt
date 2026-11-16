@@ -3,6 +3,7 @@ package com.openmausbot.companion.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -68,7 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -102,13 +103,13 @@ import com.openmausbot.companion.core.BotProfilePatch
 import com.openmausbot.companion.core.ConfigStatus
 import com.openmausbot.companion.core.Instance
 import com.openmausbot.companion.core.ModelSelection
+import com.openmausbot.companion.core.Session
 import com.openmausbot.companion.core.Voice
 import com.openmausbot.companion.core.VoiceProvider
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * The paired-safe subset of bot settings — the port of
@@ -238,7 +239,10 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 // fleet.
                 val target = created ?: liveBot() ?: session.createBot()
                 if (target == null) {
-                    saveError = session.actionError ?: "无法创建智能体，请检查连接后重试。"
+                    saveError = NoticeMessageFormat.humanize(
+                        session.actionError ?: "无法创建智能体，请检查连接后重试。",
+                    )
+                    session.actionError = null
                     return@launch
                 }
                 created = target
@@ -266,7 +270,10 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 if (updated == null) {
                     // Closing here made a failed save look like a saved one.
                     if (saveError == null) {
-                        saveError = session.actionError ?: "保存失败，请检查连接后重试。"
+                        saveError = NoticeMessageFormat.humanize(
+                            session.actionError ?: "保存失败，请检查连接后重试。",
+                        )
+                        session.actionError = null
                     }
                     return@launch
                 }
@@ -291,21 +298,32 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
 
     // The pill reads unsaved changes off the same comparison the save uses.
     val profileDirty = form != baseline
+    val connectionStatus by session.status.collectAsState()
 
     LaunchedEffect(Unit) {
-        val loaded = coroutineScope {
-            val status = async { session.configStatus() }
-            val options = async { session.voiceOptions() }
-            val catalog = async { session.modelInstances() }
-            Triple(status.await(), options.await(), catalog.await())
+        val priorError = session.actionError
+        if (connectionStatus is Session.Status.Offline ||
+            connectionStatus == Session.Status.Unpaired ||
+            connectionStatus == Session.Status.Unauthorized
+        ) {
+            modelsLoaded = true
+            return@LaunchedEffect
         }
-        config = loaded.first
-        voices = loaded.second
-        instances = loaded.third
-        modelsLoaded = true
-        // A stored "speak replies" that nothing can speak is turned off before
-        // the toggle is ever drawn.
-        form = ProfileRules.applyLoadedConfig(form, loaded.first)
+        launch {
+            val loadedStatus = withTimeoutOrNull(4_500L) { session.configStatus() }
+            config = loadedStatus
+            form = ProfileRules.applyLoadedConfig(form, loadedStatus)
+            if (priorError == null && session.actionError != null) session.actionError = null
+        }
+        launch {
+            voices = withTimeoutOrNull(4_500L) { session.voiceOptions() }.orEmpty()
+            if (priorError == null && session.actionError != null) session.actionError = null
+        }
+        launch {
+            instances = withTimeoutOrNull(4_500L) { session.modelInstances() }.orEmpty()
+            modelsLoaded = true
+            if (priorError == null && session.actionError != null) session.actionError = null
+        }
     }
 
     // One preview at a time, and none that outlives this page.
@@ -397,59 +415,215 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                         .verticalScroll(scrollState)
                         .navigationBarsPadding()
                         .padding(horizontal = MinisPagePadding)
-                        .padding(top = 66.dp, bottom = 32.dp),
+                        .padding(top = 72.dp, bottom = 36.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     saveError?.let { message ->
-                        Text(
-                            text = message,
-                            fontSize = 13.sp,
-                            color = MinisTokens.Danger,
+                        InlineNotice(
+                            message = message,
+                            tone = NoticeTone.ERROR,
+                            modifier = Modifier.fillMaxWidth(),
+                            onDismiss = { saveError = null },
                         )
                     }
 
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Box {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen },
+                        ) {
                             val waiting = pendingPreset
                             if (waiting != null) {
                                 PresetBotAvatar(
                                     color = waiting.key,
-                                    size = 112.dp,
+                                    size = 108.dp,
                                     contentDescription = "${current.name} 头像",
                                 )
                             } else {
                                 BotAvatar(
                                     bot = current,
-                                    size = 112.dp,
+                                    size = 108.dp,
                                     state = MausState.HAPPY,
                                     fallback = AvatarFallback.PRESET,
                                     contentDescription = "${current.name} 头像",
                                 )
                             }
                             TouchTarget(
-                                onClick = { if (!busy) pickImage.launch(AvatarImagePicker.request()) },
+                                onClick = { if (!busy) libraryOpen = !libraryOpen },
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .offset(x = 6.dp, y = 6.dp),
+                                    .offset(x = 4.dp, y = 4.dp),
                                 contentDescription = "更换头像",
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(34.dp)
-                                        .chromeCapsule(surface = true),
+                                        .size(36.dp)
+                                        .background(minisCanvas, CircleShape)
+                                        .padding(2.dp)
+                                        .shadow(4.dp, CircleShape, clip = false)
+                                        .background(minisCard, CircleShape)
+                                        .border(0.5.dp, minisSeparator, CircleShape),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
                                         imageVector = Icons.Filled.Edit,
                                         contentDescription = null,
                                         tint = minisInk,
-                                        modifier = Modifier.size(16.dp),
+                                        modifier = Modifier.size(15.dp),
                                     )
                                 }
                             }
+                        }
+                        Text(
+                            text = if (libraryOpen) "收起头像选项" else "点击更换头像",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = minisAccent,
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen }
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                        )
+                    }
+
+                    AnimatedVisibility(visible = libraryOpen) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            ProfileCard {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                                        .background(minisGrouped, RoundedCornerShape(12.dp))
+                                        .padding(3.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                                ) {
+                                    AvatarCrop.entries.forEach { option ->
+                                        val active = form.crop == option
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .heightIn(min = 38.dp)
+                                                .clip(RoundedCornerShape(9.dp))
+                                                .then(
+                                                    if (active) {
+                                                        Modifier
+                                                            .background(minisCard, RoundedCornerShape(9.dp))
+                                                            .border(0.5.dp, minisSeparator, RoundedCornerShape(9.dp))
+                                                    } else {
+                                                        Modifier
+                                                    },
+                                                )
+                                                .clickable(role = Role.RadioButton) { form = form.copy(crop = option) },
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Text(
+                                                text = ProfileRules.cropLabel(option),
+                                                fontSize = 13.sp,
+                                                fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                                color = if (active) minisInk else minisSecondary,
+                                            )
+                                        }
+                                    }
+                                }
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    PresetAvatars.all.forEach { preset ->
+                                        TouchTarget(
+                                            onClick = {
+                                                if (!busy) {
+                                                    scope.launch {
+                                                        busy = true
+                                                        try {
+                                                            val bytes = presetPngBytes(context, preset)
+                                                            val target = created ?: opened
+                                                            if (target == null) {
+                                                                pendingUpload = bytes to "image/png"
+                                                                pendingPreset = preset
+                                                                form = form.copy(crop = AvatarCrop.CIRCLE)
+                                                                baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
+                                                                return@launch
+                                                            }
+                                                            val updated = session.uploadAvatar(
+                                                                data = bytes,
+                                                                mime = "image/png",
+                                                                forBot = target,
+                                                                crop = AvatarCrop.CIRCLE,
+                                                            )
+                                                            if (updated != null) {
+                                                                pendingPreset = null
+                                                                form = form.copy(crop = AvatarCrop.CIRCLE)
+                                                                baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
+                                                            }
+                                                        } finally {
+                                                            busy = false
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            contentDescription = "使用${preset.label}头像",
+                                            size = 48.dp,
+                                            enabled = !busy,
+                                        ) {
+                                            PresetBotAvatar(
+                                                color = preset.key,
+                                                size = 44.dp,
+                                                contentDescription = null,
+                                            )
+                                        }
+                                    }
+                                }
+                                ProfileCardDivider()
+                                ProfileActionRow(
+                                    text = "从相册上传图片",
+                                    icon = Icons.Filled.AddCircle,
+                                    enabled = !busy,
+                                    onClick = { pickImage.launch(AvatarImagePicker.request()) },
+                                )
+                                if (current.avatarUrl != null) {
+                                    ProfileCardDivider()
+                                    ProfileActionRow(
+                                        text = "恢复默认头像",
+                                        icon = Icons.Filled.Delete,
+                                        enabled = !busy,
+                                        destructive = true,
+                                        onClick = {
+                                            scope.launch {
+                                                busy = true
+                                                try {
+                                                    val target = (created ?: opened) ?: return@launch
+                                                    val updated = session.updateProfile(
+                                                        BotProfilePatch(
+                                                            avatarUrl = BotProfilePatch.AvatarURL.Clear,
+                                                            avatarCrop = AvatarCrop.MASCOT,
+                                                        ),
+                                                        target,
+                                                    )
+                                                    if (updated != null) {
+                                                        val crop = updated.avatarCrop ?: AvatarCrop.MASCOT
+                                                        form = form.copy(crop = crop)
+                                                        baseline = baseline.copy(crop = crop)
+                                                    }
+                                                } finally {
+                                                    busy = false
+                                                }
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                            ProfileFooter(
+                                if (creating) "头像会在保存时上传到电脑。" else ProfileRules.AVATAR_FOOTER,
+                            )
                         }
                     }
 
@@ -470,189 +644,12 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     }
                     if (nameHint) {
                         Text(
-                            text = "先给智能体起个名字，再点完成。",
+                            text = "先给智能体起个名字，再点创建。",
                             fontSize = 13.sp,
                             color = MinisTokens.Danger,
                             modifier = Modifier.padding(start = 4.dp, top = 2.dp),
                         )
                     }
-
-                    ProfileSectionLabel("外观")
-                    ProfileCard {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 56.dp)
-                                .clickable(role = Role.Button) { libraryOpen = !libraryOpen }
-                                .padding(horizontal = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = "头像",
-                                fontSize = 17.sp,
-                                color = minisInk,
-                                modifier = Modifier.weight(1f),
-                            )
-                            BotAvatar(
-                                bot = current,
-                                size = 28.dp,
-                                fallback = AvatarFallback.PRESET,
-                            )
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                contentDescription = null,
-                                tint = minisTertiary,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(20.dp)
-                                    .rotate(if (libraryOpen) 90f else 0f),
-                            )
-                        }
-                        if (libraryOpen) {
-                            ProfileCardDivider()
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                                    .background(minisGrouped, RoundedCornerShape(12.dp))
-                                    .padding(3.dp),
-                                horizontalArrangement = Arrangement.spacedBy(3.dp),
-                            ) {
-                                AvatarCrop.entries.forEach { option ->
-                                    val active = form.crop == option
-                                    Box(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .heightIn(min = 38.dp)
-                                            .clip(RoundedCornerShape(9.dp))
-                                            .then(
-                                                if (active) {
-                                                    Modifier
-                                                        .background(minisCard, RoundedCornerShape(9.dp))
-                                                        .border(0.5.dp, minisSeparator, RoundedCornerShape(9.dp))
-                                                } else {
-                                                    Modifier
-                                                },
-                                            )
-                                            .clickable(role = Role.RadioButton) { form = form.copy(crop = option) },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Text(
-                                            text = ProfileRules.cropLabel(option),
-                                            fontSize = 13.sp,
-                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                                            color = if (active) minisInk else minisSecondary,
-                                        )
-                                    }
-                                }
-                            }
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 16.dp)
-                                    .horizontalScroll(rememberScrollState()),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            ) {
-                                PresetAvatars.all.forEach { preset ->
-                                    TouchTarget(
-                                        onClick = {
-                                            if (!busy) {
-                                                scope.launch {
-                                                    busy = true
-                                                    try {
-                                                        val bytes = presetPngBytes(context, preset)
-                                                        val target = created ?: opened
-                                                        if (target == null) {
-                                                            // Not saved yet: keep the
-                                                            // face and upload it when
-                                                            // the bot is created.
-                                                            pendingUpload = bytes to "image/png"
-                                                            pendingPreset = preset
-                                                            form = form.copy(crop = AvatarCrop.CIRCLE)
-                                                            baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
-                                                            return@launch
-                                                        }
-                                                        val updated = session.uploadAvatar(
-                                                            data = bytes,
-                                                            mime = "image/png",
-                                                            forBot = target,
-                                                            crop = AvatarCrop.CIRCLE,
-                                                        )
-                                                        if (updated != null) {
-                                                            pendingPreset = null
-                                                            form = form.copy(crop = AvatarCrop.CIRCLE)
-                                                            baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
-                                                        }
-                                                    } finally {
-                                                        busy = false
-                                                    }
-                                                }
-                                            }
-                                        },
-                                        contentDescription = "使用${preset.label}头像",
-                                        size = 48.dp,
-                                        enabled = !busy,
-                                    ) {
-                                        // Drawn, not the PNG: this is the one
-                                        // screen where a person picks a face,
-                                        // so it should be the same object they
-                                        // will see everywhere else.
-                                        PresetBotAvatar(
-                                            color = preset.key,
-                                            size = 44.dp,
-                                            contentDescription = null,
-                                        )
-                                    }
-                                }
-                            }
-                            ProfileActionRow(
-                                text = "上传图片",
-                                icon = Icons.Filled.AddCircle,
-                                enabled = !busy,
-                                onClick = { pickImage.launch(AvatarImagePicker.request()) },
-                            )
-                            if (current.avatarUrl != null) {
-                                ProfileCardDivider()
-                                ProfileActionRow(
-                                    text = "使用吉祥物",
-                                    icon = Icons.Filled.Delete,
-                                    enabled = !busy,
-                                    destructive = true,
-                                    onClick = {
-                                        scope.launch {
-                                            busy = true
-                                            try {
-                                                val target = (created ?: opened) ?: return@launch
-                                                val updated = session.updateProfile(
-                                                    BotProfilePatch(
-                                                        avatarUrl = BotProfilePatch.AvatarURL.Clear,
-                                                        avatarCrop = AvatarCrop.MASCOT,
-                                                    ),
-                                                    target,
-                                                )
-                                                if (updated != null) {
-                                                    val crop = updated.avatarCrop ?: AvatarCrop.MASCOT
-                                                    form = form.copy(crop = crop)
-                                                    baseline = baseline.copy(crop = crop)
-                                                }
-                                            } finally {
-                                                busy = false
-                                            }
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                    }
-                    ProfileFooter(
-                        if (creating) {
-                            // The face can be chosen before the bot exists; it is
-                            // held here and uploaded when Save creates it.
-                            "头像会在保存时上传到电脑。"
-                        } else {
-                            ProfileRules.AVATAR_FOOTER
-                        },
-                    )
 
                     VoiceSection(
                         config = config,
@@ -765,8 +762,39 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp))
                             }
                         } else if (instanceChoices.isEmpty()) {
+                            if (savedModel.model.isNotBlank()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(min = 54.dp)
+                                        .padding(horizontal = 16.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = "当前模型",
+                                        fontSize = 16.sp,
+                                        color = minisInk,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    Text(
+                                        text = savedModel.model,
+                                        fontSize = 15.sp,
+                                        color = minisSecondary,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                ProfileCardDivider()
+                            }
                             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                                IconNote(text = ModelRules.NONE_AVAILABLE, icon = Icons.Filled.Warning)
+                                IconNote(
+                                    text = if (connectionStatus == Session.Status.Live) {
+                                        ModelRules.NONE_AVAILABLE
+                                    } else {
+                                        "连接电脑后可切换模型与服务商"
+                                    },
+                                    icon = Icons.Filled.Info,
+                                )
                             }
                         } else {
                             val providerRows = buildList {
@@ -967,19 +995,11 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     if (opened != null) {
                         ProfileCard {
                             ProfileActionRow(
-                                text = "此智能体的职责",
+                                text = "此智能体的职责与配置",
                                 icon = Icons.Filled.Info,
                                 onClick = { onOpenOverview(opened.id) },
                             )
                         }
-                    }
-
-                    ProfileCard {
-                        ProfileActionRow(
-                            text = if (creating) "创建智能体" else "保存资料修改",
-                            enabled = ProfileRules.canSave(form, busy),
-                            onClick = { saveProfile() },
-                        )
                     }
                 }
             }
@@ -988,7 +1008,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(78.dp)
+                    .height(94.dp)
                     .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
             )
             Box(
@@ -1024,11 +1044,21 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     color = minisInk,
                     modifier = Modifier.align(Alignment.Center),
                 )
+                val canCommit = if (creating) {
+                    ProfileRules.canSave(form, busy)
+                } else {
+                    profileDirty && ProfileRules.canSave(form, busy)
+                }
+                val commitLabel = when {
+                    creating -> "创建"
+                    profileDirty -> "保存"
+                    else -> "完成"
+                }
                 Box(
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .then(
-                            if (profileDirty) {
+                            if (canCommit) {
                                 Modifier
                                     .clip(CircleShape)
                                     .background(minisInk, CircleShape)
@@ -1037,7 +1067,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             },
                         )
                         .clickable(role = Role.Button) {
-                            if (profileDirty && ProfileRules.canSave(form, busy)) {
+                            if (canCommit) {
                                 saveProfile(close = true)
                             } else if (creating) {
                                 nameHint = true
@@ -1048,10 +1078,10 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
                     Text(
-                        text = "完成",
+                        text = commitLabel,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (profileDirty) minisPage else minisSecondary,
+                        color = if (canCommit) minisPage else minisSecondary,
                     )
                 }
             }
