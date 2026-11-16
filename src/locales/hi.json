@@ -605,7 +605,7 @@
   "settings.analytics.title": "उपयोग विश्लेषण",
   "settings.analytics.aria": "उपयोग विश्लेषण भेजें",
   "newLook.title": "{app} अब और सरल दिखता है",
-  "newLook.body": "आपकी ज़रूरत की हर चीज़ अब भी यहीं है; कम इस्तेमाल होने वाली सेटिंग्स सेटिंग्स → और सेटिंग्स में हैं।",
+  "newLook.body": "आपकी ज़रूरत की हर चीज़ अब भी यहीं है; कम इस्तेमाल होने वाली सेटिंग्स के अपने पेज हैं।",
   "advancedBack.title": "एडवांस्ड मोड वापस आ गया है",
   "advancedBack.body": "यह डिवाइस फिर से एडवांस्ड मोड में है। इसे कभी भी सेटिंग्स → सामान्य में बंद करें।",
   "settings.updates.startingDownload": "डाउनलोड शुरू हो रहा है…",
@@ -2231,6 +2231,12 @@
   "call.capability.turnsOnThisComputer": "बारी-बारी से बात करने वाली कॉल इस Mac के बॉट के साथ काम करती हैं",
   "call.capability.turnsOnThisComputerReason": "ये आपके Mac की अपनी आवाज़ पहचान से सुनती हैं, जिसे सिर्फ़ इस Mac के बॉट इस्तेमाल कर सकते हैं।",
   "settings.group.computers": "डिवाइस",
+  "settings.group.team": "टीम",
+  "settings.group.chat": "चैट",
+  "settings.group.sidebar": "साइडबार",
+  "settings.group.thisComputer": "यह कंप्यूटर",
+  "settings.simple.page.limitsBackups": "सीमाएँ और बैकअप",
+  "settings.simple.looks.title": "और रूप",
   "botAccess.tools.nativeUnsupported": "यह AI नेटिव टूल सीमित नहीं कर सकता। Allow में native:* रखें और कोई नेटिव टूल बाहर न करें, या कोई समर्थित AI चुनें। यह चयन प्रॉम्प्ट भेजने से पहले रुक जाएगा।",
   "botAccess.tools.unsupported": "यह AI टूल चयन का समर्थन नहीं करता। यह चयन प्रॉम्प्ट भेजने से पहले रुक जाएगा। कोई समर्थित AI चुनें।",
   "botAccess.tools.examples": "उदाहरण और AI समर्थन",
@@ -3159,8 +3165,5 @@
   "botPanel.tidyMemory": "मेमोरी व्यवस्थित करें",
   "memory.journal.instructions": "निर्देश",
   "memory.journal.actor.teamSetup": "टीम सेटअप",
-  "settings.simple.more.title": "और सेटिंग्स",
-  "settings.simple.more.subtitle": "बैकअप, सीमाएँ और वे सेटिंग्स जिन्हें आप कभी-कभार ही बदलते हैं।",
-  "settings.simple.more.limits": "सीमाएँ",
-  "settings.simple.more.open": "खोलें"
+  "settings.simple.more.limits": "सीमाएँ"
 }

@@ -12,7 +12,7 @@ vi.mock("react", async original => ({ ...await original<typeof import("react")>(
 }));
 vi.mock("@/state/store", () => ({ useStore: () => ({ dispatch: f.dispatch }),
   CLOUD_LINK_SETTINGS: { type: "toggleAppSettings", open: true, section: "cloudAccount", cloudLink: true } }));
-import { ProSettingsCard, proOfferAvailable } from "./ProIntroduction";
+import { ProSettingsCard } from "./ProIntroduction";
 
 const PLANS = [{ tier: "starter", label: "Starter", amount: 1500, trialDays: 7 }, { tier: "pro", label: "Pro", amount: 4900, trialDays: 7 }];
 const TRIAL: CloudOffer = { plans: PLANS, recommended: "pro", creditUsd: 5, refundDays: 14 };
@@ -101,8 +101,15 @@ it("never offers a plan to anyone who pays, may pay, or whose state is unknown; 
     { status: "unavailable", lastPlan: { tier: "max", active: true } }, { status: "unavailable" },
     { status: "reauth-required", message: "expired", lastPlan: { active: true } }, { status: "reauth-required" },
   ];
-  for (const state of nobodyToSell) expect(proOfferAvailable(state), JSON.stringify(state)).toBe(false);
-  expect(proOfferAvailable(signedOut)).toBe(true); expect(proOfferAvailable(plan())).toBe(true);
+  for (const state of nobodyToSell) {
+    const html = await card(state as CloudAccountState);
+    expect(html, JSON.stringify(state)).not.toMatch(/Start free trial|Add a Cloud|>Upgrade</);
+  }
+  // Both states may buy, and the trial offer is what the card shows them.
+  expect(await card(signedOut)).toContain("Start free trial");
+  expect(await card(plan())).toContain("Start free trial");
+  offer = { plans: PLANS.map(({ trialDays: _days, ...rest }) => rest), recommended: "pro" };
+  expect(await card(plan())).toContain("Add a Cloud");
   vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, cloudAccount: bridge } });
   expect(await card(signedOut)).toBe("");
   vi.stubGlobal("window", {});

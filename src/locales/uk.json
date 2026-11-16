@@ -703,7 +703,7 @@
   "settings.analytics.title": "Аналітика використання",
   "settings.analytics.aria": "Надсилати аналітику використання",
   "newLook.title": "{app} тепер виглядає простіше",
-  "newLook.body": "Усе потрібне досі тут; рідше використовувані налаштування — у розділі Налаштування → Інші налаштування.",
+  "newLook.body": "Усе потрібне досі тут; рідше використовувані налаштування мають власні сторінки.",
   "advancedBack.title": "Розширений режим повернувся",
   "advancedBack.body": "На цьому пристрої знову ввімкнено розширений режим. Вимкнути його можна будь-коли в розділі Налаштування → Загальні.",
   "settings.updates.startingDownload": "Починаємо завантаження…",
@@ -2696,6 +2696,12 @@
   "call.capability.turnsOnThisComputer": "Дзвінки, де ви говорите по черзі, працюють із ботами на цьому Mac",
   "call.capability.turnsOnThisComputerReason": "Вони слухають за допомогою власного розпізнавання мовлення вашого Mac, яким можуть користуватися лише боти на цьому Mac.",
   "settings.group.computers": "Пристрої",
+  "settings.group.team": "Команда",
+  "settings.group.chat": "Чат",
+  "settings.group.sidebar": "Бічна панель",
+  "settings.group.thisComputer": "Цей компʼютер",
+  "settings.simple.page.limitsBackups": "Обмеження та резервні копії",
+  "settings.simple.looks.title": "Більше вигляду",
   "botAccess.tools.nativeUnsupported": "Цей ШІ не може обмежувати вбудовані інструменти. Залиште native:* у «Дозволити» без вбудованих винятків або оберіть підтримуваний ШІ. Цей вибір зупиниться перед надсиланням запиту.",
   "botAccess.tools.unsupported": "Цей ШІ не підтримує вибір інструментів. Цей вибір зупиниться перед надсиланням запиту. Оберіть підтримуваний ШІ.",
   "botAccess.tools.examples": "Приклади та підтримка ШІ",
@@ -3592,8 +3598,5 @@
   "botPanel.tidyMemory": "Упорядкувати пам'ять",
   "memory.journal.instructions": "інструкції",
   "memory.journal.actor.teamSetup": "Налаштування команди",
-  "settings.simple.more.title": "Інші налаштування",
-  "settings.simple.more.subtitle": "Резервні копії, обмеження та налаштування, які ви змінюєте рідко.",
-  "settings.simple.more.limits": "Обмеження",
-  "settings.simple.more.open": "Відкрити"
+  "settings.simple.more.limits": "Обмеження"
 }

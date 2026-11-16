@@ -172,7 +172,7 @@ off. It keeps the notes in shape without the bot having to decide to:
   moving. At most 20 lines move in one pass; each file's change
   is a journal row (*filed into topics*) that can be undone.
 - **About me.** A lasting fact about the person, taken from their own words,
-  is added to **Settings → General → About me**, which every bot reads, as a
+  is added to **Settings → General → Your name and About me**, which every bot reads, as a
   dated line `- 2026-09-25 · learned by Scout · …`. **Added by your bots**
   under About me lists each one with **Remove**; a removed fact is never
   added again. On a shared installation, another person's messages never add

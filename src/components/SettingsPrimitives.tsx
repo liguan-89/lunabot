@@ -41,6 +41,8 @@ export function Switch({
   );
 }
 
+/** A row carries its own visible title as `data-settings-row`: a search result scrolls to it by comparing that string,
+ * so a row never needs an id kept in step with a registry. */
 export function Card({
   title,
   subtitle,
@@ -51,7 +53,7 @@ export function Card({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[12px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu">
+    <div data-settings-row={title} className="rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[12px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu">
       {title && <div className="text-[16px] font-semibold text-ink in-data-[settings-look=simple]:text-[14px] in-data-[settings-look=simple]:leading-5 in-data-[settings-look=simple]:font-medium">{title}</div>}
       {subtitle && <div className={cn(title && "mt-0.5", "text-[13px] leading-relaxed text-ink-secondary in-data-[settings-look=simple]:leading-[18px]")}>{subtitle}</div>}
       {children && <div className={title || subtitle ? "mt-4" : undefined}>{children}</div>}
@@ -74,7 +76,7 @@ export function SettingRow({
 }) {
   const titleId = useId();
   return (
-    <div role="group" aria-labelledby={titleId} className={cn("px-4 in-data-[settings-look=simple]:py-2.5", className)}>
+    <div role="group" aria-labelledby={titleId} data-settings-row={title} className={cn("px-4 in-data-[settings-look=simple]:py-2.5", className)}>
       <div className="grid min-w-0 grid-cols-1 items-center gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-6 in-data-[settings-look=simple]:flex in-data-[settings-look=simple]:min-h-6 in-data-[settings-look=simple]:flex-wrap in-data-[settings-look=simple]:gap-x-5 in-data-[settings-look=simple]:gap-y-2">
         <div className="min-w-0 in-data-[settings-look=simple]:flex in-data-[settings-look=simple]:min-w-[min(100%,15rem)] in-data-[settings-look=simple]:flex-1 in-data-[settings-look=simple]:flex-col in-data-[settings-look=simple]:gap-0.5">
           <div id={titleId} className="text-[14px] font-medium text-ink in-data-[settings-look=simple]:font-normal in-data-[settings-look=simple]:leading-5">{title}</div>
@@ -87,11 +89,14 @@ export function SettingRow({
   );
 }
 
-export function SettingsGroup({ label, block, actions, footnote, children }: {
+/** A titled block of settings. Simple stacks `SettingsRows` (rows in one card); Advanced stacks whole cards, which need
+ * more room between them and which may all render nothing — `stack` keeps the heading from standing over an empty gap. */
+export function SettingsGroup({ label, block, actions, footnote, stack = false, children }: {
   label?: string;
   block?: string;
   actions?: ReactNode;
   footnote?: ReactNode;
+  stack?: boolean;
   children: ReactNode;
 }) {
   const labelId = useId();
@@ -99,7 +104,10 @@ export function SettingsGroup({ label, block, actions, footnote, children }: {
     <section
       data-settings-block={block}
       aria-labelledby={label ? labelId : undefined}
-      className="flex scroll-mt-4 flex-col gap-2 has-[>[data-settings-rows]:empty]:hidden"
+      className={cn(
+        "flex scroll-mt-4 flex-col gap-2 has-[>[data-settings-rows]:empty]:hidden has-[>[data-settings-stack]:empty]:hidden",
+        stack && "gap-3",
+      )}
     >
       {(label || actions) && (
         <div className="flex min-h-4 items-center justify-between gap-3 pl-4 pr-1">
@@ -107,7 +115,7 @@ export function SettingsGroup({ label, block, actions, footnote, children }: {
           {actions}
         </div>
       )}
-      {children}
+      {stack ? <div data-settings-stack="" className="flex flex-col gap-4 empty:hidden">{children}</div> : children}
       {footnote && <p className="-mt-0.5 pl-4 text-[12px] leading-4 text-ink-tertiary empty:hidden">{footnote}</p>}
     </section>
   );

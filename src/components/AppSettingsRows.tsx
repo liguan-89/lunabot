@@ -125,19 +125,6 @@ function NewBotEffortSelect({ effort, className }: { effort: ReturnType<typeof u
   );
 }
 
-export function NewBotEffortRow() {
-  const effort = useNewBotEffort();
-  return (
-    <SettingRow
-      title={t("settings.newBotEffort.title")}
-      subtitle={t("settings.newBotEffort.subtitle")}
-      message={effort.error ? <p role="alert" className="text-danger">{effort.error}</p> : null}
-    >
-      <NewBotEffortSelect effort={effort} className="w-full max-w-[240px]" />
-    </SettingRow>
-  );
-}
-
 export function NewBotDefaultsRow({ onEdit, onShare }: { onEdit: () => void; onShare: () => void }) {
   const effort = useNewBotEffort();
   return (

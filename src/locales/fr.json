@@ -605,7 +605,7 @@
   "settings.analytics.title": "Statistiques d'usage",
   "settings.analytics.aria": "Envoyer les statistiques d'usage",
   "newLook.title": "{app} a désormais une apparence plus simple",
-  "newLook.body": "Tout ce dont vous avez besoin est toujours là ; les paramètres moins courants se trouvent dans Paramètres → Plus de paramètres.",
+  "newLook.body": "Tout ce dont vous avez besoin est toujours là ; les paramètres moins courants ont leurs propres pages.",
   "advancedBack.title": "Le mode avancé est de retour",
   "advancedBack.body": "Cet appareil est de nouveau en mode avancé. Vous pouvez le désactiver à tout moment dans Paramètres → Général.",
   "settings.updates.startingDownload": "Démarrage du téléchargement…",
@@ -2231,6 +2231,12 @@
   "call.capability.turnsOnThisComputer": "Les appels où vous parlez à tour de rôle fonctionnent avec les bots de ce Mac",
   "call.capability.turnsOnThisComputerReason": "Ils écoutent avec la reconnaissance vocale de votre Mac, que seuls les bots de ce Mac peuvent utiliser.",
   "settings.group.computers": "Appareils",
+  "settings.group.team": "Équipe",
+  "settings.group.chat": "Discussion",
+  "settings.group.sidebar": "Barre latérale",
+  "settings.group.thisComputer": "Cet ordinateur",
+  "settings.simple.page.limitsBackups": "Limites et sauvegardes",
+  "settings.simple.looks.title": "Plus d’apparences",
   "botAccess.tools.nativeUnsupported": "Cette IA ne peut pas limiter les outils natifs. Gardez native:* dans « Autoriser » sans exclusion native, ou choisissez une IA compatible. Cette sélection s’arrêtera avant l’envoi d’un prompt.",
   "botAccess.tools.unsupported": "Cette IA ne prend pas en charge la sélection d’outils. Cette sélection s’arrêtera avant l’envoi d’un prompt. Choisissez une IA compatible.",
   "botAccess.tools.examples": "Exemples et compatibilité des IA",
@@ -3307,8 +3313,5 @@
   "botPanel.tidyMemory": "Ranger la mémoire",
   "memory.journal.instructions": "les instructions",
   "memory.journal.actor.teamSetup": "La configuration de l'équipe",
-  "settings.simple.more.title": "Plus de paramètres",
-  "settings.simple.more.subtitle": "Sauvegardes, limites et paramètres que vous modifiez rarement.",
-  "settings.simple.more.limits": "Limites",
-  "settings.simple.more.open": "Ouvrir"
+  "settings.simple.more.limits": "Limites"
 }

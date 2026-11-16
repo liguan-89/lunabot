@@ -2253,11 +2253,11 @@ page alike (`ogb.cloudPlan`), so the meter reads the same on both (`src/componen
 
 - **The sidebar card**, above the person's name (not in the icon rail), only while an allowance is at 80% or more: the
   one or two fullest, used of included with a bar (amber from 80%, red at 100%), when they start over, **Upgrade to
-  <next plan>**, and **See all usage** (Settings → General). **Hide for now** keeps it hidden on this computer for this
+  <next plan>**, and **See all usage** (Settings → Usage, or Usage & billing in Simple). **Hide for now** keeps it hidden on this computer for this
   month at this level: it comes back when one reaches 100%, and next month. Never shown in a browser, without a paid plan,
   or on a Team Cloud unless the plan whose usage it is is that team's (only the person who pays for a team sees its usage;
   its members never do).
-- **Settings → General → MausBot Cloud usage**, while there is a paid plan: every allowance with its meter, when they
+- **Settings → Usage → MausBot Cloud usage**, while there is a paid plan: every allowance with its meter, when they
   start over, and Upgrade to the next plan (the others as links), "You're on the top plan" on Max, or "To change your
   team's plan, write to us" on a team's plan.
 - **Upgrade, one tap and a confirm.** Upgrade asks main for a preview (`ogb.cloudPlan.upgradePreview(plan, source)`,
