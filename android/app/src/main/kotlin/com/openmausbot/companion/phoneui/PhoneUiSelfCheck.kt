@@ -21,7 +21,10 @@
  * the version PhoneUiController already refuses to run below, where Mika's
  * phone control starts at 12.
  *
- * Nothing here is wired into a screen or into PhoneUiController yet.
+ * This file is still only the runner and the judges: the probes arrive as a
+ * map, and PhoneUiProbes.kt is where the Android reads live. The screen that
+ * runs it is the 自检 row in Settings, which calls [runSelfCheck] with
+ * [phoneUiProbes] on a background thread.
  */
 package com.openmausbot.companion.phoneui
 
@@ -52,9 +55,8 @@ internal object PhoneUiSelfCheckLimits {
  * [needs] names the checks that must pass first: a check whose dependency did
  * not pass is skipped and its row says which one it was missing.
  *
- * The list and its order are Mika's, renamed onto this app's components. The
- * last three are kept for parity even though this app has no in-app browser, no
- * on-device sandbox and no profile enumeration yet; a caller with no probe for
+ * The list and its order are Mika's, renamed onto this app's components. Each
+ * check has a probe in PhoneUiProbes.kt; a caller that supplies no probe for
  * one reports it as skipped, which leaves the verdict [SelfCheckReport.Verdict.Incomplete]
  * rather than claiming a pass.
  */
@@ -87,42 +89,43 @@ internal enum class PhoneUiCheck(val key: String, val timeoutMs: Long) {
 
     /**
      * Launching an app lands on the helper's display and not on the person's
-     * screen; the check also opens system settings read-only to confirm where
-     * it opened.
+     * screen. The check drives the system settings app, which every Android
+     * phone has, and releases the display afterwards.
      */
     APP_LAUNCH("app launch", 20_000),
 
     /**
-     * The accessibility tree of the helper's display is readable and holds the
-     * controls the check expects, and a screenshot is neither black nor empty.
+     * The accessibility tree of the helper's display is readable: at least one
+     * node carries text or a resource id after an app was launched there.
      */
     SCREEN_READING("screen reading", 10_000),
 
     /**
-     * Tap, type Latin and Chinese text, scroll and go back on the helper's
-     * display, each checked by reading the screen back.
+     * One safe synthetic event — a back key — is accepted by the helper on its
+     * own display. Nothing about the app's reaction is asserted.
      */
     ACTIONS("actions", 20_000),
 
     /**
-     * While the screen keeps changing for ten-odd seconds, frames keep arriving
-     * and the tree stays readable.
+     * After the display probes have run, the helper is still attached and can
+     * create and release a second display: the run did not wedge the phone.
      */
     STAYS_ALIVE("stays alive", 25_000),
 
     /** The task at the top of the person's own screen did not change. */
     MAIN_SCREEN("main screen", 5_000),
 
-    /** A local page opens in an in-app browser, its text is read and a button tap is confirmed. */
+    /** The default browser launches on the helper's display and comes to the front there. */
     BROWSER("browser", 15_000),
 
     /**
-     * `echo ok` and one line of Python run in the sandbox (arm64 only; a runtime
-     * that was never prepared counts as partly usable, and is not installed here).
+     * A task an app created on the helper's display stays there and can be
+     * moved between the helper's own displays, while the person's top task is
+     * unchanged: the sandbox really is isolated.
      */
     SANDBOX("sandbox", 20_000),
 
-    /** How many other users (work profile, clones) hold a copy of the app; counted only. */
+    /** How many launchable apps this app can see; counted only, and a pass needs at least one. */
     APP_COPIES("app copies", 10_000),
     ;
 
