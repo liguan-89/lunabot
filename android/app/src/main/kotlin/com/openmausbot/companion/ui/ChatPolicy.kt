@@ -333,7 +333,7 @@ object RosterPreviewFormat {
         }
     }
 
-    private fun humanizeErrorMessage(rawMessage: String): String {
+    internal fun humanizeErrorMessage(rawMessage: String): String {
         val stripped = rawMessage.replace(requestIdSuffixRegex, "").trim()
         return when {
             stripped.equals("Insufficient Balance", ignoreCase = true) -> "账户余额不足"

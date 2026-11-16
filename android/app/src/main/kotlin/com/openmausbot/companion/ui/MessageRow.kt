@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -759,11 +760,7 @@ private fun TextBubble(
                             }
                         }
                         if (attached.text.isNotEmpty()) {
-                            Text(
-                                text = attached.text,
-                                fontSize = 17.sp,
-                                color = BubbleColor.userBubbleText,
-                            )
+                            UserMessageText(attached.text)
                         }
                     }
                 } else {
@@ -789,6 +786,54 @@ private fun TextBubble(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Your bubble stays plain text — except the blockquote "引用回复" puts at the
+ * head of a draft, which reads as one clipped reference, not as literal
+ * ">" runes in front of your words.
+ */
+@Composable
+private fun UserMessageText(text: String) {
+    val color = BubbleColor.userBubbleText
+    if (!text.startsWith(">")) {
+        Text(text = text, fontSize = 17.sp, color = color)
+        return
+    }
+    val lines = text.lines()
+    val quote = lines.takeWhile { it.startsWith(">") }
+        .joinToString("\n") { it.removePrefix(">").trimStart() }
+        .trim()
+    val body = lines.dropWhile { it.startsWith(">") }
+        .dropWhile { it.isBlank() }
+        .joinToString("\n")
+    if (quote.isEmpty()) {
+        Text(text = text, fontSize = 17.sp, color = color)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(color.copy(alpha = 0.35f), RoundedCornerShape(1.5.dp)),
+            )
+            Text(
+                text = quote,
+                fontSize = 14.sp,
+                color = color.copy(alpha = 0.72f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (body.isNotEmpty()) {
+            Text(text = body, fontSize = 17.sp, color = color)
         }
     }
 }
@@ -1147,13 +1192,16 @@ private fun VoiceNoteAttachmentView(
                 }
             },
         )
-        Text(
-            // The length, not a clock pair: while a note plays the bar already
-            // says where it is, and "0:00 / 0:01" was the widest thing here.
-            text = durationMs?.let(::voiceNoteClock) ?: "--:--",
-            fontSize = 12.sp,
-            color = foreground.copy(alpha = 0.75f),
-        )
+        // The length, not a clock pair: while a note plays the bar already
+        // says where it is, and "0:00 / 0:01" was the widest thing here. A note
+        // the wire never timed keeps its bar and drops the dead "--:--".
+        durationMs?.let {
+            Text(
+                text = voiceNoteClock(it),
+                fontSize = 12.sp,
+                color = foreground.copy(alpha = 0.75f),
+            )
+        }
     }
 }
 
@@ -1298,8 +1346,18 @@ internal fun readableActivityName(name: String): String {
         ?.groupValues?.getOrNull(1)
     if (detail != null) {
         val prefix = body.substringBefore("{").trim().trimEnd(':', '：').trim()
-        val clean = cleanActivityText(detail)
-        return if (prefix.isEmpty()) clean else "$prefix: $clean"
+        val clean = RosterPreviewFormat.humanizeErrorMessage(cleanActivityText(detail))
+        return when {
+            prefix.isEmpty() -> clean
+            prefix.matches(Regex("\\d{3}")) -> "错误 $prefix：$clean"
+            else -> "$prefix: $clean"
+        }
+    }
+    val coded = Regex("^(\\d{3})\\s*[:：]\\s*([\\s\\S]+)$").matchEntire(body)
+    if (coded != null) {
+        return "错误 ${coded.groupValues[1]}：${
+            RosterPreviewFormat.humanizeErrorMessage(cleanActivityText(coded.groupValues[2]))
+        }"
     }
     return cleanActivityText(body)
 }

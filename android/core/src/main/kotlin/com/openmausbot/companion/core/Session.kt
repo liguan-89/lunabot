@@ -1371,8 +1371,8 @@ class Session(
 
     // MARK: - Actions
 
-    suspend fun send(text: String, to: Chat) {
-        perform {
+    suspend fun send(text: String, to: Chat): Boolean {
+        return perform {
             val receipt = when (to) {
                 is Chat.BotChat -> it.sendToBot(to.bot.id, text, to.threadId)
                 is Chat.RoomChat -> it.sendToRoom(to.room.id, text, to.threadId)
@@ -2855,11 +2855,12 @@ class Session(
         }
     }
 
-    private suspend fun perform(quietly: Boolean = false, body: suspend (CompanionClient) -> Unit) {
-        val activeClient = client ?: return
+    private suspend fun perform(quietly: Boolean = false, body: suspend (CompanionClient) -> Unit): Boolean {
+        val activeClient = client ?: return false
         val connectionId = _connection.value?.id
         try {
             body(activeClient)
+            return true
         } catch (error: APIError) {
             if (error.isUnauthorized) {
                 gate.withLock {
@@ -2874,6 +2875,7 @@ class Session(
         } catch (error: Throwable) {
             if (!quietly) _actionError.value = error.message
         }
+        return false
     }
 
     companion object {
