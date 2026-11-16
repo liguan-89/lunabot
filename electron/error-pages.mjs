@@ -27,7 +27,7 @@ export function buildErrorPage({ allPortsOccupied, logDir }, text = nativeText.e
   return (
     "data:text/html;charset=utf-8," +
     encodeURIComponent(
-      `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><div style="font-size:40px">🐭</div><h2 style="font-weight:600;margin:12px 0 6px">${escapeText(text.t("native.dialog.serverFailed.title"))}</h2><p style="color:#fcfcfc99;line-height:1.5">${escapeHtml(reason)} ${escapeText(before)}<a target="_blank" rel="noopener" href="${serverLogHref}" style="color:#fcfcfc">${escapeHtml(serverLogPath)}</a>${escapeText(after)}</p></div></body>`,
+      `<body style="margin:0;display:flex;align-items:center;justify-content:center;height:100vh;background:#121212;color:#fcfcfc;font:15px -apple-system,system-ui"><div style="text-align:center;max-width:360px"><svg width="40" height="40" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="23" fill="#F7F3ED"/><rect x="14.5" y="16.5" width="8" height="15" rx="4" fill="#1C1C1E" transform="rotate(-17 18.5 24)"/><rect x="27.5" y="16.5" width="8" height="15" rx="4" fill="#1C1C1E" transform="rotate(-17 31.5 24)"/></svg><h2 style="font-weight:600;margin:12px 0 6px">${escapeText(text.t("native.dialog.serverFailed.title"))}</h2><p style="color:#fcfcfc99;line-height:1.5">${escapeHtml(reason)} ${escapeText(before)}<a target="_blank" rel="noopener" href="${serverLogHref}" style="color:#fcfcfc">${escapeHtml(serverLogPath)}</a>${escapeText(after)}</p></div></body>`,
     )
   );
 }
