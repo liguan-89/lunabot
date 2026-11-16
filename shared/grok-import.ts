@@ -508,7 +508,7 @@ export function grokMovePlan(bot: GrokBot, options: { timeZone?: string; takenSe
       category: "Imported",
       author: { name: "Grok Bot" },
       license: "See source",
-      outcomes: [clip(`${name} runs in DEX BOT with your own engine and apps.`, 240)],
+      outcomes: [clip(`${name} runs in Luna Bot with your own engine and apps.`, 240)],
       setupMinutes: 5,
       requirements: { apps: [], capabilities: [] },
       team: { name: clip(name, 60) },

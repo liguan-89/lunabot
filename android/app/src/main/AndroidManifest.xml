@@ -46,6 +46,14 @@
     <uses-permission android:name="android.permission.READ_CONTACTS" />
     <uses-permission android:name="android.permission.WRITE_CONTACTS" />
     <!--
+      File reads as a bot tool, behind their own Settings switch: gallery
+      photos through the media grant, and one folder the person picks with the
+      system folder picker (a persisted tree grant). READ_EXTERNAL_STORAGE is
+      the pre-Android-13 spelling of the photo grant.
+    -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
+    <!--
       Location as a bot tool, also behind its own Settings switch. Coarse
       registers as `limited` and precise as `full`; neither is asked at startup.
     -->
@@ -71,7 +79,8 @@
         android:required="false" />
     <!--
       Android 13+ NSD / Wi-Fi peer discovery. neverForLocation: we only browse
-      for _dexbot._tcp, never derive physical location from the scan.
+      for _lunabot._tcp (and the older _dexbot._tcp / _openmausbot._tcp), never
+      derive physical location from the scan.
       Without this (and the multicast permission), NsdManager returns an empty
       list silently — the same footgun as missing NSLocalNetworkUsageDescription
       on iOS (briefing §19).
@@ -90,6 +99,19 @@
     <uses-permission
         android:name="android.permission.ACCESS_LOCAL_NETWORK"
         android:minSdkVersion="37" />
+
+    <!--
+      Phone UI launch: the executor resolves an installed package's launcher
+      intent before asking the shell helper to start it. Without this filter
+      package visibility hides every app Luna Bot does not name, and every
+      launch would answer "not installed" on API 30+.
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
 
     <!--
       Package visibility (API 30+): without this, SpeechRecognizer cannot see
@@ -166,6 +188,13 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <!-- The scheme the desktop writes now. -->
+                <data
+                    android:host="pair"
+                    android:scheme="lunabot" />
+                <!-- The previous rebrand's scheme: links and QR codes made
+                     before this rename must still open the trampoline, and the
+                     parser accepts every scheme ever written. -->
                 <data
                     android:host="pair"
                     android:scheme="dexbot" />
@@ -326,6 +355,21 @@
         </service>
 
         <!--
+          The same notification access, kept in this process for the bot's
+          list tool: the last few titles and texts other apps posted. Nothing
+          is relayed and nothing is persisted; the tool refuses to answer
+          while the access is off.
+        -->
+        <service
+            android:name=".phone.NoticeRelay"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <!--
           Share sheet hand-off for exported transcripts. Not exported, no
           granted URI permissions by default: each share grants read access to
           one file for one Intent, and only for the receiving app.
@@ -339,5 +383,68 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/file_paths" />
         </provider>
+
+        <!--
+          The copy a granted-folder file is shared through: SAF document URIs
+          cannot be re-delegated, so the bytes are copied here and this provider
+          grants the one receiving app read access to that copy.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.share"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/share_paths" />
+        </provider>
+
+        <!--
+          Where the shell-identity phone-UI helper (app_process, uid 2000)
+          hands its virtual-display binder over. Exported because shell must
+          reach it, but gated behind INTERACT_ACROSS_USERS_FULL — shell has it,
+          ordinary apps do not — and everything behind that gate (shell uid,
+          self-reported uid/pid, installed APK path, one-time nonce, binder
+          process identity) is re-checked in code, see
+          PhoneUiHandoffHub.offer. multiprocess=false: one hub per process,
+          and the helper only ever talks to the app's own process.
+        -->
+        <provider
+            android:name=".phoneui.shell.PhoneUiHandoffProvider"
+            android:authorities="${applicationId}.phoneui.helper"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+
+        <!--
+          The phone-UI reader service: reads the window tree of the shell
+          helper's virtual displays only. Exported because the system Settings
+          process binds it across uid boundaries; BIND_ACCESSIBILITY_SERVICE is
+          a signature permission held by the system, so ordinary apps cannot
+          bind. Its capability ceiling lives in
+          @xml/phoneui_accessibility_service — window state events,
+          generic feedback, window retrieval with view ids; no gestures, no
+          screenshots, no key filtering.
+        -->
+        <service
+            android:name=".phoneui.PhoneUiAccessibilityService"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/phoneui_accessibility_service" />
+        </service>
+
+        <!--
+          Filled by the pairing notification's shade reply. Unexported: the
+          notification's explicit PendingIntent is the only way in, and the code
+          it carries is checked before use.
+        -->
+        <receiver
+            android:name=".phoneui.PhoneUiPairingReplyReceiver"
+            android:exported="false" />
     </application>
 </manifest>

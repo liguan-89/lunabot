@@ -110,7 +110,7 @@ describe("Your MCP servers inside the Apps pop-up", () => {
   });
 
   it.each(HOSTED_MCP_APPS)("recognizes an existing $label URL under any name and exposes access and disconnect", (app) => {
-    fixture.servers = [{ name: "business", type: "http", url: app.url, headerKeys: [], enabled: true, auth: "signed-in" }];
+    fixture.servers = [{ name: "business", type: "transport" in app ? app.transport : "http", url: app.url, headerKeys: [], enabled: true, auth: "signed-in" }];
     const html = render(true);
     expect(html).toContain(`data-hosted-server="${app.id}"`);
     expect(html).toContain(`Disconnect ${app.label}`);
@@ -126,7 +126,7 @@ describe("Your MCP servers inside the Apps pop-up", () => {
 
   it("hides every hosted app's server and Postiz from the All list, and shows them again under MCP", () => {
     fixture.servers = [
-      ...HOSTED_MCP_APPS.map((app) => ({ name: app.id, type: "http", url: app.url, headerKeys: [], enabled: true, auth: "signed-in" })),
+      ...HOSTED_MCP_APPS.map((app) => ({ name: app.id, type: "transport" in app ? app.transport : "http", url: app.url, headerKeys: [], enabled: true, auth: "signed-in" })),
       { name: "docs", type: "http", url: "https://mcp.example.com/mcp", headerKeys: [], enabled: false },
     ];
     const listed = render(true);

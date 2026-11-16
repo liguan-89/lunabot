@@ -26,8 +26,8 @@ object ModelRules {
 
     // Private for the reason ProfileRules gives: each is one arm of a
     // state-dependent choice, reached only through [note].
-    private const val BUSY_NOTE: String = "请先停止此机器人，再切换其模型。"
-    private const val UNAVAILABLE_NOTE: String = "请选择一个可用的提供商以切换此机器人的模型。"
+    private const val BUSY_NOTE: String = "请先停止此智能体，再切换其模型。"
+    private const val UNAVAILABLE_NOTE: String = "请选择一个可用的提供商以切换此智能体的模型。"
 
     /**
      * The providers the picker offers: the available ones, with the bot's

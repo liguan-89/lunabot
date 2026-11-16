@@ -1,11 +1,14 @@
 import environments from "./environments.cjs";
 import { withoutDesktopCompanionAccess } from "./desktop-companion-client.mjs";
 
-export const ORGANIZATION_DEEP_LINK = "dexbot://organization";
+/** The action this build writes. */
+export const ORGANIZATION_DEEP_LINK = "lunabot://organization";
+/** The same action under the scheme earlier builds wrote: a link already handed out still opens Settings here. */
+export const LEGACY_ORGANIZATION_DEEP_LINKS = ["dexbot://organization"];
 const RESTART_FIELD = "desktopOrganizationSettingsPending";
 
 // This is an action, not a router: never accept a destination or credential.
-export const isOrganizationDeepLink = value => value === ORGANIZATION_DEEP_LINK;
+export const isOrganizationDeepLink = value => value === ORGANIZATION_DEEP_LINK || LEGACY_ORGANIZATION_DEEP_LINKS.includes(value);
 export function takeOrganizationDeepLink(argv) {
   let found = false;
   // Relaunch reuses process.argv: consume only this one-shot action, leaving flags and other links untouched.

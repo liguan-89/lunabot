@@ -37,7 +37,7 @@ describe("t", () => {
   });
 
   it("fills {app} with the product's name, a white-label brand's own name, or the name a caller passes", () => {
-    expect(t("routines.runsOn.localHint")).toBe("Starts while DEX BOT is open here.");
+    expect(t("routines.runsOn.localHint")).toBe("Starts while Luna Bot is open here.");
     expect(t("routines.runsOn.localHint", { app: "Acme" })).toBe("Starts while Acme is open here.");
     applyBrand({ brand: { name: "Acme Bots" }, source: "file", file: "/brand.json" });
     try {
@@ -139,7 +139,7 @@ describe("t", () => {
 describe("activePackComplete", () => {
   it("is true only for a pack other than English that has every English key", () => {
     expect(activePackComplete()).toBe(false);
-    setLocale("pt-br");
+    expect(setLocale("zh")).toBe("zh");
     expect(activePackComplete()).toBe(true);
     locales["zz"] = { "approval.held.native": "x" };
     try {

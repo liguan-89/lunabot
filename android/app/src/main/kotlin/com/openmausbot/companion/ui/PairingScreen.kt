@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -214,7 +215,7 @@ fun PairingScreen(onCancel: () -> Unit) {
             onCancel = { showingScanner = false },
             validate = { payload ->
                 if (PairingInvite.parse(payload) == null) {
-                    "这不是有效的 DEX BOT 配对二维码。"
+                    "这不是有效的 Luna Bot 配对二维码。"
                 } else {
                     // Session decides whether this invite may be accepted at all
                     // (already paired, credential already burned) and publishes
@@ -297,7 +298,9 @@ fun PairingScreen(onCancel: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(minisCanvas)
             .verticalScroll(rememberScrollState())
+            .navigationBarsPadding()
             .padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
@@ -473,7 +476,7 @@ internal fun pairingFailureDisposition(
 @Composable
 private fun SetupSection(onScan: () -> Unit) {
     SectionCard(title = "在您的电脑上") {
-        Text("1.  打开 DEX BOT → 设置 → 手机和设备", fontSize = 15.sp)
+        Text("1.  打开 Luna Bot → 设置 → 手机和设备", fontSize = 15.sp)
         Text("2.  选择「配对设备」", fontSize = 15.sp)
         Button(
             onClick = onScan,

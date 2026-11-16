@@ -1,7 +1,7 @@
 # Bot memory
 
 By default, bots keep notes between tasks. The notes are plain markdown files in a
-folder on the computer running OpenMausBot — nothing is stored anywhere else,
+folder on the computer running Luna Bot — nothing is stored anywhere else,
 and you can open, edit, or delete any of it in any editor. **Bot Settings →
 Memory** shows the same files with a gauge of how much of them actually loads,
 an editor that never overwrites something the bot wrote while you were typing,
@@ -17,7 +17,7 @@ instructions to forbid that when memory must stay in another source of truth.
 ## Where it lives
 
 ```
-~/.openmausbot/workspaces/<botId>/
+~/.lunabot/workspaces/<botId>/
 ├── MEMORY.md            the notes that load into every conversation
 └── memory/
     ├── <topic>.md       longer notes the bot reads on demand
@@ -30,7 +30,7 @@ The folder is the bot's private workspace: the directory its file tools work in
 when it has no project folder set. It is created the first time the bot runs a
 turn. **Open in Obsidian** and **Show in Finder** (Explorer, or your file
 manager) in the Memory panel open this folder; because it is on the server's
-disk, those buttons only work from the computer running OpenMausBot — a
+disk, those buttons only work from the computer running Luna Bot — a
 paired phone or a remote browser is shown the path instead.
 
 Files are written with owner-only permissions (`0600`), atomically (a crash
@@ -172,7 +172,7 @@ off. It keeps the notes in shape without the bot having to decide to:
   moving. At most 20 lines move in one pass; each file's change
   is a journal row (*filed into topics*) that can be undone.
 - **About me.** A lasting fact about the person, taken from their own words,
-  is added to **Settings → General → About me**, which every bot reads, as a
+  is added to **Settings → General → Your name and About me**, which every bot reads, as a
   dated line `- 2026-09-25 · learned by Scout · …`. **Added by your bots**
   under About me lists each one with **Remove**; a removed fact is never
   added again. On a shared installation, another person's messages never add
@@ -377,7 +377,7 @@ agreed shows up in each member's next 1:1 brief.
 
 Every change to a memory file that the app can see is recorded — yours from
 the panel, the bot's during a task, an import, an undo — in
-`~/.openmausbot/memory-journal/<botId>.ndjson`. It lives *outside* the
+`~/.lunabot/memory-journal/<botId>.ndjson`. It lives *outside* the
 workspace on purpose: the bot's file tools point at the workspace, and a
 record the bot could edit would not be a record.
 

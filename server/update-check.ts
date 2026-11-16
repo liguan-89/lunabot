@@ -2,9 +2,9 @@
 import { existsSync } from "node:fs";
 import { join, sep } from "node:path";
 
-export const LATEST_RELEASE_URL = "https://api.github.com/repos/liguan-89/dexbot/releases/latest";
+export const LATEST_RELEASE_URL = "https://api.github.com/repos/liguan-89/lunabot/releases/latest";
 /** Written by .github/workflows/promote-stable.yml: the released version our own Clouds have run for 48 hours. */
-export const STABLE_CHANNEL_URL = "https://raw.githubusercontent.com/liguan-89/dexbot/channels/stable.json";
+export const STABLE_CHANNEL_URL = "https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json";
 const CACHE_MS = 60 * 60_000;
 /** How long the last answer stands in when the channel cannot be read: an outage of GitHub is no reason to say nothing. */
 const STALE_MS = 24 * 60 * 60_000;
@@ -28,7 +28,7 @@ export function updateCommand(install: InstallKind, target?: { version: string; 
   switch (install) {
     case "docker": return { command: target && !target.stable ? `git pull && ./update.sh --version ${target.version}` : "git pull && ./update.sh", restart: false };
     case "podman": return { command: "git pull && cd deploy/podman && PODMAN_COMPOSE_PROVIDER=podman-compose podman compose --env-file .env -f compose.yaml up -d --build", restart: false };
-    case "npm": return { command: `npm install -g openmausbot@${target?.version ?? "latest"}`, restart: true };
+    case "npm": return { command: `npm install -g lunabot@${target?.version ?? "latest"}`, restart: true };
     case "git": return { command: "git pull && pnpm install", restart: true };
     default: return undefined;
   }

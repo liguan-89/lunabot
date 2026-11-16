@@ -98,8 +98,8 @@ test("a new language redraws main's menu, both trays, the window title and the b
 
   text.set("pt-br");
   context.applyNativeLanguage();
-  assert.deepEqual(calls, [["menu", "Servidor"], ["title", "DEX BOT — Hospedado: Office (office.example.test)"], ["badge", "Nenhuma conversa não lida"]]);
-  assert.deepEqual(said(trays[0]), ["Abrir o DEX BOT", "Sair do DEX BOT"]);
+  assert.deepEqual(calls, [["menu", "Servidor"], ["title", "Luna Bot — Hospedado: Office (office.example.test)"], ["badge", "Nenhuma conversa não lida"]]);
+  assert.deepEqual(said(trays[0]), ["Abrir o Luna Bot", "Sair do Luna Bot"]);
   assert.deepEqual(said(trays[1]), ["My Cloud com acesso a este PC", "Pausar", "Permitir que os Clouds executem comandos neste PC", "Ver atividade"]);
-  assert.equal(trays[1].tip, "DEX BOT: My Cloud com acesso a este PC");
+  assert.equal(trays[1].tip, "Luna Bot: My Cloud com acesso a este PC");
 });

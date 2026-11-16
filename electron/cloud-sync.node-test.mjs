@@ -21,7 +21,7 @@ function setup(t, { origin = "https://omb-u-aaaaaaaaaaaa.fly.dev" } = {}) {
   const clock = { now: AT + 60_000 };
   const service = createCloudFilesService({
     settingsFile: join(dir, "user", "settings.json"), stateFile: join(dir, "user", "state.db"),
-    documentsDir: join(home, "Documents"), localDataDir: join(home, ".dexbot"), homeDir: home,
+    documentsDir: join(home, "Documents"), localDataDir: join(home, ".lunabot"), homeDir: home,
     platform: process.platform, hostname: "Ash-PC", cloudOrigin: () => current.origin, fetch: async () => { throw new Error("no network in tests"); },
     trashItem: async (file) => rmSync(file), markDownloaded: async () => {},
     createClient: () => holder.cloud.client, watch: () => () => {}, freeBytes: () => 100 * 1024 ** 3, now: () => clock.now,
@@ -30,11 +30,11 @@ function setup(t, { origin = "https://omb-u-aaaaaaaaaaaa.fly.dev" } = {}) {
   return { dir, home, project, cloud, holder, current, clock, service };
 }
 
-test("checks a folder before sharing: too broad, private, DEX BOT's own, or already shared are refused", async (t) => {
+test("checks a folder before sharing: too broad, private, Luna Bot's own, or already shared are refused", async (t) => {
   const s = setup(t);
   mkdirSync(join(s.home, ".ssh"), { recursive: true });
-  mkdirSync(join(s.home, ".dexbot", "files"), { recursive: true });
-  mkdirSync(join(s.home, "Documents", "DEX BOT"), { recursive: true });
+  mkdirSync(join(s.home, ".lunabot", "files"), { recursive: true });
+  mkdirSync(join(s.home, "Documents", "Luna Bot"), { recursive: true });
   assert.equal((await s.service.check(s.home)).refusal, "too-broad");
   assert.equal((await s.service.check(join(s.home, ".ssh"))).refusal, "private");
   for (const cli of [".claude", ".codex", ".gemini", ".grok"]) {
@@ -42,7 +42,7 @@ test("checks a folder before sharing: too broad, private, DEX BOT's own, or alre
     assert.equal((await s.service.check(join(s.home, cli))).refusal, "private");
     assert.equal((await s.service.check(join(s.home, cli, "skills"))).refusal, "private");
   }
-  assert.equal((await s.service.check(join(s.home, ".dexbot", "files"))).refusal, "app-data");
+  assert.equal((await s.service.check(join(s.home, ".lunabot", "files"))).refusal, "app-data");
   assert.equal((await s.service.check(join(s.home, "Documents"))).refusal, "app-data");
   assert.equal((await s.service.check(join(s.home, "nope"))).refusal, "not-a-folder");
   assert.deepEqual(await s.service.check(s.project), { name: "Clients", pcPath: s.project, files: 1, bytes: 9, partial: false, refusal: null });
@@ -139,7 +139,7 @@ test("My Cloud's copy gone: the folder is shared again, and another My Cloud get
   assert.equal(s.holder.cloud.get(again.id, "brief.md"), "the brief");
 });
 
-test("bots' work from now on comes to Documents/DEX BOT/<bot>/<conversation>; older conversations and a switch turned off stay put", async (t) => {
+test("bots' work from now on comes to Documents/Luna Bot/<bot>/<conversation>; older conversations and a switch turned off stay put", async (t) => {
   const s = setup(t);
   s.cloud.setBots({ bots: [{ id: "owl", name: "Owl", tasks: [{ threadId: "t1", title: "Q3: plan?" }, { threadId: "t0", title: "Old" }] }], groups: [] });
   const recent = s.cloud.addFolder({ id: "bot-owl-t1", kind: "bot", botId: "owl", threadId: "t1", cloudPath: "/data/.dexbot/task-workspaces/owl/t1", newestMs: AT + 120_000 });
@@ -147,7 +147,7 @@ test("bots' work from now on comes to Documents/DEX BOT/<bot>/<conversation>; ol
   s.cloud.put(recent.id, "plan.md", "the plan");
   s.cloud.put(old.id, "old.md", "old work");
   await s.service.pass();
-  const owl = join(s.home, "Documents", "DEX BOT", "Owl");
+  const owl = join(s.home, "Documents", "Luna Bot", "Owl");
   assert.deepEqual(readdirSync(owl), ["Q3- plan-"]);
   assert.equal(readFileSync(join(owl, "Q3- plan-", "plan.md"), "utf8"), "the plan");
   assert.equal(s.service.state().outputs.folders, 1);
@@ -155,4 +155,48 @@ test("bots' work from now on comes to Documents/DEX BOT/<bot>/<conversation>; ol
   s.cloud.put(recent.id, "more.md", "later");
   await s.service.pass();
   assert.equal(existsSync(join(owl, "Q3- plan-", "more.md")), false);
+});
+
+test("a Documents/DEX BOT folder from before the rename moves to Documents/Luna Bot once, keeping every file", async (t) => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-rename-")));
+  const home = join(dir, "home");
+  const documents = join(home, "Documents");
+  mkdirSync(join(documents, "DEX BOT", "Owl", "Q3- plan-"), { recursive: true });
+  writeFileSync(join(documents, "DEX BOT", "Owl", "Q3- plan-", "plan.md"), "the plan");
+  const service = createCloudFilesService({
+    settingsFile: join(dir, "user", "settings.json"), stateFile: join(dir, "user", "state.db"),
+    documentsDir: documents, localDataDir: join(home, ".lunabot"), homeDir: home,
+    platform: process.platform, hostname: "Ash-PC", cloudOrigin: () => "https://omb-u-aaaaaaaaaaaa.fly.dev",
+    fetch: async () => { throw new Error("no network in tests"); },
+    trashItem: async (file) => rmSync(file), markDownloaded: async () => {},
+    createClient: () => fakeCloud().client, watch: () => () => {}, freeBytes: () => 100 * 1024 ** 3, now: () => AT,
+  });
+  t.after(() => { service.close(); rmSync(dir, { recursive: true, force: true }); });
+
+  assert.equal(existsSync(join(documents, "DEX BOT")), false);
+  assert.equal(readFileSync(join(documents, "Luna Bot", "Owl", "Q3- plan-", "plan.md"), "utf8"), "the plan");
+  assert.equal(service.state().outputs.dir, join(documents, "Luna Bot"));
+});
+
+test("a new Documents/Luna Bot folder is never merged with an old Documents/DEX BOT one", async (t) => {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-rename-")));
+  const home = join(dir, "home");
+  const documents = join(home, "Documents");
+  mkdirSync(join(documents, "Luna Bot"), { recursive: true });
+  writeFileSync(join(documents, "Luna Bot", "new.md"), "new");
+  mkdirSync(join(documents, "DEX BOT"), { recursive: true });
+  writeFileSync(join(documents, "DEX BOT", "old.md"), "old");
+  const service = createCloudFilesService({
+    settingsFile: join(dir, "user", "settings.json"), stateFile: join(dir, "user", "state.db"),
+    documentsDir: documents, localDataDir: join(home, ".lunabot"), homeDir: home,
+    platform: process.platform, hostname: "Ash-PC", cloudOrigin: () => "https://omb-u-aaaaaaaaaaaa.fly.dev",
+    fetch: async () => { throw new Error("no network in tests"); },
+    trashItem: async (file) => rmSync(file), markDownloaded: async () => {},
+    createClient: () => fakeCloud().client, watch: () => () => {}, freeBytes: () => 100 * 1024 ** 3, now: () => AT,
+  });
+  t.after(() => { service.close(); rmSync(dir, { recursive: true, force: true }); });
+
+  assert.equal(readFileSync(join(documents, "Luna Bot", "new.md"), "utf8"), "new");
+  assert.equal(existsSync(join(documents, "Luna Bot", "old.md")), false, "the new folder is not touched");
+  assert.equal(readFileSync(join(documents, "DEX BOT", "old.md"), "utf8"), "old", "the old folder is left where it is");
 });

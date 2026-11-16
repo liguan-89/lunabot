@@ -3,10 +3,10 @@ import { macCuaPermissionMessage, missingMacCuaPermissions } from "./mac-cua-per
 
 describe("macOS CUA permission recovery", () => {
   it("names only the grants the host reported missing", () => {
-    expect(missingMacCuaPermissions("embedded host failed: Screen Recording required; restart DEX BOT")).toEqual(["screen"]);
+    expect(missingMacCuaPermissions("embedded host failed: Screen Recording required; restart Luna Bot")).toEqual(["screen"]);
     expect(missingMacCuaPermissions("Accessibility and Screen Recording required")).toEqual(["screen", "accessibility"]);
-    expect(macCuaPermissionMessage(["accessibility"])).toContain("Accessibility is required for DEX BOT");
-    expect(macCuaPermissionMessage(["screen"])).toContain("relaunch DEX BOT");
+    expect(macCuaPermissionMessage(["accessibility"])).toContain("Accessibility is required for Luna Bot");
+    expect(macCuaPermissionMessage(["screen"])).toContain("relaunch Luna Bot");
   });
 
   it("does not diagnose missing or malformed status as a grant failure", () => {

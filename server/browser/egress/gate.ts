@@ -38,7 +38,7 @@ export interface EgressGate {
   close(): Promise<void>;
 }
 
-/** A Chrome DEX BOT starts never touches the person's credential store: on macOS Chrome otherwise opens the login
+/** A Chrome Luna Bot starts never touches the person's credential store: on macOS Chrome otherwise opens the login
  * keychain (a dialog when it cannot find one), and on Linux it asks the desktop keyring. */
 export function credentialStoreFlags(platform: NodeJS.Platform = process.platform): string[] {
   return platform === "darwin" ? ["--use-mock-keychain"] : platform === "linux" ? ["--password-store=basic"] : [];
@@ -72,6 +72,8 @@ export async function resolveTarget(host: string): Promise<ResolvedAddress[]> {
   const literal = isIP(host);
   if (literal) return [{ address: host, family: literal }];
   if (namesThisMachine(host)) return LOOPBACK_NAMES;
+  // A resolver (or a DNS proxy in front of it) may answer even nonsense; a host name is labels of letters, digits, `-` and `_`.
+  if (host.length > 253 || !/^[A-Za-z0-9._-]+\.?$/.test(host)) return [];
   return lookup(host, { all: true, verbatim: true }).catch(() => []);
 }
 

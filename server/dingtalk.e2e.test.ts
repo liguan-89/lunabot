@@ -129,8 +129,8 @@ posixOnly("a DingTalk text message reaches the bot and the reply posts back", ()
       expect(sentToWebhook[0]!.token).toBe("d-token");
       expect(sentToWebhook[0]!.body).toMatchObject({ msgtype: "text", text: { content: expect.stringContaining("Hello from pi") } });
 
-      await waitFor(() => existsSync(join(home, ".dexbot", "dingtalk-chats.json")), "the chat mapping to persist");
-      const mapping = JSON.parse(readFileSync(join(home, ".dexbot", "dingtalk-chats.json"), "utf8")) as { chats: Record<string, string> };
+      await waitFor(() => existsSync(join(home, ".lunabot", "dingtalk-chats.json")), "the chat mapping to persist");
+      const mapping = JSON.parse(readFileSync(join(home, ".lunabot", "dingtalk-chats.json"), "utf8")) as { chats: Record<string, string> };
       expect(Object.keys(mapping.chats)).toEqual(["cid1"]);
 
       // A replay of the same delivery is deduped by sendId, not turned into a second turn.

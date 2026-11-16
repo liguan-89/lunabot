@@ -68,7 +68,7 @@ export function departmentOwner(bots: ReadonlyArray<{ createdBy?: string; report
   return first && owners.every((owner) => owner?.email === first.email) ? first : null;
 }
 
-/** A teammate's DEX BOT named for its person ("DEX BOT · Ada"); any other bot, and the viewer's own MausBot, by its name. */
+/** A teammate's Luna Bot named for its person ("Luna Bot · Ada"); any other bot, and the viewer's own MausBot, by its name. */
 export function teamBotName(bot: { name: string; defaultBot?: { person?: string } }, team: Pick<TeamPeople, "people" | "me"> | null): string {
   const person = bot.defaultBot?.person?.trim().toLowerCase();
   if (!person || !team || team.me?.email.toLowerCase() === person) return bot.name;

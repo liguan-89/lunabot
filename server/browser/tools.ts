@@ -1,8 +1,8 @@
-// The bots' browser tools: DEX BOT's agent_browser_* names over T3 Code's preview tool semantics.
+// The bots' browser tools: Luna Bot's agent_browser_* names over T3 Code's preview tool semantics.
 //
 // Adapted from pingdotgg/t3code@00cdceb1 apps/server/src/mcp/toolkits/preview/tools.ts and
 // packages/contracts/src/previewAutomation.ts, MIT License, Copyright (c) 2026 T3 Tools Inc. (full text in
-// third_party/t3-code/LICENSE); modified: zod schemas under DEX BOT's tool names, refs instead of Playwright
+// third_party/t3-code/LICENSE); modified: zod schemas under Luna Bot's tool names, refs instead of Playwright
 // locators, and the names agent-browser advertised accepted as aliases.
 import { z } from "zod";
 
@@ -50,6 +50,7 @@ export const TOOL_INPUTS = {
   }),
   agent_browser_click: z.object({
     ref: ref.optional(), selector: selector.optional(), x: x.optional(), y: y.optional(),
+    intent: z.string().min(1).max(2_000).optional().describe("What to click, in words, when you do not have a ref. The local decision model picks among visible elements when that job is on; built-in Chrome only."),
     button: z.enum(["left", "right", "middle"]).optional().describe("Defaults to left; right opens the page's context menu."),
     clickCount: z.number().int().min(1).max(3).optional().describe("2 for a double-click, 3 for a triple-click. Defaults to 1."),
     tab: actTab.optional(),
@@ -137,7 +138,7 @@ const DESCRIPTIONS: Record<ToolName, string> = {
   agent_browser_snapshot: "The page's accessibility tree with element refs, across frames and shadow roots, plus what the page reported. Take one before acting when you have no current refs; refs expire when the page navigates or a person takes control. Capped near 20 KB; it lists what it left out.",
   agent_browser_read: "The page's visible text, or one element's, for reading long content or a single value such as a price. Pass offset to read on.",
   agent_browser_screenshot: "A PNG of the visible page, the whole page, or one element; its answer says how the picture's pixels map to the page's CSS pixels, which change when a person resizes the panel watching the browser. Use it when the tree is not enough to see the page.",
-  agent_browser_click: "Click one element by ref (preferred) or selector, or a point. Waits until the element is visible, still and not covered. Returns early when the click opens a dialog.",
+  agent_browser_click: "Click one element by ref (preferred), selector, point, or intent. With intent, the local decision model picks among visible elements when that job is on (built-in Chrome only). Waits until the element is visible, still and not covered. Returns early when the click opens a dialog.",
   agent_browser_fill: "Clear a text field and put text in it, as a paste would. Set submit to press Enter afterwards.",
   agent_browser_type: "Type text key by key into a field (by ref or selector) or wherever the focus is, for fields that react to each key.",
   agent_browser_press: "Press a key or a key chord at the focus, such as Enter, Escape or Control+a.",

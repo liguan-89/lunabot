@@ -31,9 +31,9 @@ fixture performs a root deployment or proves actual
 root-to-tenant transitions; qualification still requires a disposable Linux
 server with the real service identities and protections.
 
-On a real server, after `openmausbot fleet init --domain <domain> --operator
+On a real server, after `lunabot fleet init --domain <domain> --operator
 <user>` as root: `systemctl status openmausbot-fleet`, then `ls -l
-/run/openmausbot/fleet.sock` must show `root:<user>` and mode 660. Sign in to
+/run/lunabot/fleet.sock` must show `root:<user>` and mode 660. Sign in to
 the operator workspace and open Settings → Installations. Create one, add a
 member, suspend and resume it, and confirm `/var/log/openmausbot/fleet.jsonl`
 grew a line per action. A workspace other than the operator's must get 502

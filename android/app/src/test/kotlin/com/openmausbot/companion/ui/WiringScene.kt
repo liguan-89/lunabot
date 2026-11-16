@@ -21,6 +21,7 @@ import com.openmausbot.companion.discovery.DiscoveryState
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.sharing.ShareInbox
 import com.openmausbot.companion.speech.ModelManager
+import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.OnboardingPreferences
 import com.openmausbot.companion.update.AppUpdater
@@ -84,6 +85,8 @@ internal class WiringScene(
         io = EmptyCoroutineContext,
     )
 
+    private val permissions = CompanionPermissions(sdkInt = 34, granted = { true })
+
     val session = Session(
         scope = scope,
         connectionStore = FakeConnectionStore(connection),
@@ -97,7 +100,7 @@ internal class WiringScene(
 
     val environment = CompanionEnvironment(
         session = session,
-        permissions = CompanionPermissions(sdkInt = 34, granted = { true }),
+        permissions = permissions,
         discovery = SilentDiscovery,
         onboarding = onboarding,
         chatPreferences = ChatPreferences(context),
@@ -139,6 +142,7 @@ internal class WiringScene(
         alwaysOnEnabled = MutableStateFlow(false),
         onToggleAlwaysOn = {},
         updates = AppUpdater(context),
+        phoneUi = PhoneUiController(context, scope, ChatPreferences(context), permissions),
         appScope = scope,
     )
 

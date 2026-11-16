@@ -276,7 +276,7 @@ async function verifyHostedEndpoint(
   const text = await response.text();
   if (Buffer.byteLength(text) > 4096) return false;
   try {
-    return ["dexbot", "openmausbot"].includes(JSON.parse(text)?.app);
+    return ["lunabot", "dexbot", "openmausbot"].includes(JSON.parse(text)?.app);
   } catch {
     return false;
   }

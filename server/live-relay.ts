@@ -125,7 +125,7 @@ const CALL_GREETINGS: Array<(name: string) => string> = [
   (name) => `${name}报到，说吧，今天要处理什么？`,
   (name) => `喂，${name}在线，直接说。`,
 ];
-const callGreeting = (botName?: string) => CALL_GREETINGS[Math.floor(Math.random() * CALL_GREETINGS.length)]!(botName ?? "DEX BOT");
+const callGreeting = (botName?: string) => CALL_GREETINGS[Math.floor(Math.random() * CALL_GREETINGS.length)]!(botName ?? "Luna Bot");
 
 /** Injected utterances preempt whatever is speaking — including each other. `output_audio.done` marks
  * synthesis end, not playback end: the phone finishes only once all received PCM has played (48 B/ms at

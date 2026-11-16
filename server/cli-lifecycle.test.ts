@@ -272,9 +272,9 @@ describe("CLI startup lifecycle", () => {
     const code = "ABCD-EFGH-JKLM";
     const expiresAt = Date.now() + 300_000;
     const pairingUrl = `${origin}/pair#code=${code}`;
-    // A real server mints both encodings of one window; Android can only scan the openmausbot:// one.
+    // A real server mints both encodings of one window; Android can only scan the app-scheme one.
     const credential = `omb_pair_${"a".repeat(43)}`;
-    const inviteUrl = `dexbot://pair?address=${encodeURIComponent(origin)}&token=${credential}&name=fixture`;
+    const inviteUrl = `lunabot://pair?address=${encodeURIComponent(origin)}&token=${credential}&name=fixture`;
     let healthRequests = 0;
     const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
       const address = String(url);
@@ -309,7 +309,7 @@ describe("CLI startup lifecycle", () => {
     expect(output).toContain(`Link           ${pairingUrl}`);
     expect(output).toMatch(/[▀▄█]/);
     expect(output).toContain(`Or open ${origin}/pair on your phone and enter the code.`);
-    expect(output).toContain("On Android, open the DEX BOT app and scan the QR with its pairing scanner.");
+    expect(output).toContain("On Android, open the Luna Bot app and scan the QR with its pairing scanner.");
     expect(output).toContain(qrToString(inviteUrl));
     expect(output).not.toContain(qrToString(pairingUrl));
     expect(output).toContain("client access: chat and approvals, not settings or pairing administration");

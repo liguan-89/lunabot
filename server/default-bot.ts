@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { writeFileAtomic } from "./atomic.ts";
 import { DEFAULT_BOT_COLOR, DEFAULT_BOT_NAME, defaultBotPerson } from "../shared/default-bot.ts";
 import { takeImportName } from "../shared/import-name.ts";
+import { serverLine } from "./server-lines.ts";
 import type { BotRecord, Message, Store } from "./store.ts";
 
 export type DefaultBotStore = Pick<Store, "bots" | "bot" | "createBot" | "patchBot" | "appendMessage" | "messagesFor" | "createTask" | "setChiefOfStaff">;
@@ -16,6 +17,12 @@ const LEDGER = "default-bot.json";
 const STARTER_COLOR = "silver";
 
 export const HELPER_ASKS = ["What are my bots up to?", "Set up a bot for my inbox", "Make me a morning routine", "How do I connect my email?"];
+const HELPER_ASK_KEYS = [
+  "server.defaultBot.askBots", "server.defaultBot.askInbox", "server.defaultBot.askRoutine", "server.defaultBot.askEmail",
+] as const;
+export function helperAsks(language?: string): string[] {
+  return HELPER_ASK_KEYS.map((key) => serverLine(language, key));
+}
 
 export function defaultBotRefusal(name: string): string {
   return `${name} can't be deleted or archived. To take it off the sidebar, choose Hide in its menu, or turn off "Show ${name} in the sidebar" in Settings → General.`;
@@ -24,7 +31,7 @@ export function defaultBotRefusal(name: string): string {
 /** Why a PATCH may not change this bot so, or null. */
 export function defaultBotPatchRefusal(bot: BotRecord | null, body: Record<string, unknown>): string | null {
   for (const key of ["sidebarHidden", "welcomed"]) if (body[key] !== undefined && typeof body[key] !== "boolean") return `${key} must be true or false`;
-  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only DEX BOT is hidden this way; archive or delete other bots.";
+  if ((body.sidebarHidden !== undefined || body.welcomed !== undefined) && !bot?.defaultBot) return "Only Luna Bot is hidden this way; archive or delete other bots.";
   return body.hidden === true && bot?.defaultBot ? defaultBotRefusal(bot.name) : null;
 }
 
@@ -34,18 +41,20 @@ export function ownsDefaultBot(bot: BotRecord | null | undefined, email: string 
 
 /** The English intro: who MausBot is, what it does here, and that it is looking around (its follow-up comes after, from
  * helper-followup.ts). Clients that know `helperIntro` say it in the viewer's own language. */
-export function helperIntroMessage(bot: Pick<BotRecord, "name" | "chiefOfStaff">, team?: string | null): Omit<Message, "id" | "at"> {
-  const title = bot.chiefOfStaff ? `Hey! I'm ${bot.name}. I'm new here.` : `Hi! I'm ${bot.name}, your helper for everything here.`;
+export function helperIntroMessage(bot: Pick<BotRecord, "name" | "chiefOfStaff">, team?: string | null, language?: string): Omit<Message, "id" | "at"> {
+  const title = bot.chiefOfStaff
+    ? serverLine(language, "server.defaultBot.newChief", { name: bot.name })
+    : serverLine(language, "server.defaultBot.helper", { name: bot.name });
   const subtitle = [
     bot.chiefOfStaff
-      ? "I'm here to be your Chief of Staff. I can manage your other bots. Task me with anything. I'll make sure it gets to the right bot."
+      ? serverLine(language, "server.defaultBot.chiefBody")
       : team
-        ? "Ask me how to do anything here. I can set up bots, apps and routines with you."
-        : "Ask me how to do anything here. I can set up bots, apps and routines with you, and keep an eye on your day.",
-    team ? `On ${team}, I'm here for you and look after your own bots.` : "",
-    "I'm taking a look around to see if there's anything I can pick up for you. I'll follow up in a moment.",
+        ? serverLine(language, "server.defaultBot.helperTeam")
+        : serverLine(language, "server.defaultBot.helperSolo"),
+    team ? serverLine(language, "server.defaultBot.teamNote", { team }) : "",
+    serverLine(language, "server.defaultBot.looking"),
   ].filter(Boolean).join(" ");
-  return { role: "bot", kind: "options", text: `${title} ${subtitle}`, helperIntro: true, card: { title, subtitle, options: [...HELPER_ASKS], fixedOptions: true } };
+  return { role: "bot", kind: "options", text: `${title} ${subtitle}`, helperIntro: true, card: { title, subtitle, options: helperAsks(language), fixedOptions: true } };
 }
 
 function ledger(dataDir: string): Record<string, string> {
@@ -73,7 +82,7 @@ export function forgetDefaultBot(dataDir: string, person: string): void {
   writeFileAtomic(join(dataDir, LEDGER), JSON.stringify({ v: 1, places }), { mode: 0o600 });
 }
 
-/** A new install's own DEX BOT from before it was marked: the place's oldest bot, still live, outside any department,
+/** A new install's own Luna Bot from before it was marked: the place's oldest bot, still live, outside any department,
  * not installed from a package, and still named MausBot or still in the colour a new install gave it. */
 export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined {
   const oldest = bots.reduce<BotRecord | undefined>((first, bot) => !first || bot.createdAt < first.createdAt ? bot : first, undefined);
@@ -83,17 +92,17 @@ export function seededMausBot(bots: readonly BotRecord[]): BotRecord | undefined
 
 /** Puts the intro where its person sees it next: in its open conversation while nobody has written there, else at the
  * top of a new one, so no earlier message moves. */
-function introduce(store: DefaultBotStore, bot: BotRecord, team?: string | null): void {
+function introduce(store: DefaultBotStore, bot: BotRecord, team?: string | null, language?: string): void {
   const untouched = !store.messagesFor(bot.threadId).some((message) => message.role === "user");
-  const threadId = untouched ? bot.threadId : store.createTask(bot.id, `What ${bot.name} can do`)?.threadId;
-  if (threadId) store.appendMessage(threadId, helperIntroMessage(bot, team));
+  const threadId = untouched ? bot.threadId : store.createTask(bot.id, serverLine(language, "server.defaultBot.taskTitle", { name: bot.name }))?.threadId;
+  if (threadId) store.appendMessage(threadId, helperIntroMessage(bot, team, language));
 }
 
 /** The first message a new MausBot says instead of its intro. */
 export type DefaultBotIntro = (bot: BotRecord) => Omit<Message, "id" | "at">;
 
 /** A new MausBot, with its intro as its first message. On a Team Cloud it is its member's alone. */
-export function createDefaultBot(store: DefaultBotStore, options: { person?: string; team?: string | null; chief?: (id: string) => void; intro?: DefaultBotIntro; opened?: (bot: BotRecord) => void } = {}): BotRecord {
+export function createDefaultBot(store: DefaultBotStore, options: { person?: string; team?: string | null; language?: string; chief?: (id: string) => void; intro?: DefaultBotIntro; opened?: (bot: BotRecord) => void } = {}): BotRecord {
   const person = options.person?.trim().toLowerCase() ?? "";
   const taken = new Set(person ? [] : store.bots.map((bot) => bot.name.trim().toLowerCase()));
   const created = store.createBot({
@@ -103,7 +112,7 @@ export function createDefaultBot(store: DefaultBotStore, options: { person?: str
   }, { seedMessages: false, beforeShown: (made) => options.opened?.({ ...made, defaultBot: person ? { person } : {} }) });
   options.chief?.(created.id);
   const bot = store.patchBot(created.id, { defaultBot: person ? { person } : {} }) ?? created;
-  store.appendMessage(bot.threadId, options.intro?.(bot) ?? helperIntroMessage(bot, options.team));
+  store.appendMessage(bot.threadId, options.intro?.(bot) ?? helperIntroMessage(bot, options.team, options.language));
   return bot;
 }
 
@@ -112,7 +121,7 @@ export function createDefaultBot(store: DefaultBotStore, options: { person?: str
  * place with no Chief of Staff at all gets MausBot as its Chief, so someone keeps an eye on the day; one that has a
  * Chief keeps it. */
 /** `opened`: a new one, before anyone is told of it, so its person's main chat is theirs from its first frame. */
-export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: string; person?: string; team?: string | null; opened?: (bot: BotRecord) => void }): BotRecord | null {
+export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: string; person?: string; team?: string | null; language?: string; opened?: (bot: BotRecord) => void }): BotRecord | null {
   const person = options.person?.trim().toLowerCase() ?? "";
   const marked = store.bots.filter((bot) => bot.defaultBot && defaultBotPerson(bot) === person)
     .sort((a, b) => a.createdAt - b.createdAt);
@@ -128,9 +137,9 @@ export function ensureDefaultBot(store: DefaultBotStore, options: { dataDir: str
   if (adoptable) {
     bot = store.patchBot(adoptable.id, { defaultBot: {}, ...(adoptable.color === STARTER_COLOR ? { color: DEFAULT_BOT_COLOR } : {}) }) ?? adoptable;
     chief?.(bot.id);
-    introduce(store, bot, options.team);
+    introduce(store, bot, options.team, options.language);
   } else {
-    bot = createDefaultBot(store, { person, team: options.team, chief, opened: options.opened });
+    bot = createDefaultBot(store, { person, team: options.team, language: options.language, chief, opened: options.opened });
   }
   remember(options.dataDir, person, bot.id);
   return bot;

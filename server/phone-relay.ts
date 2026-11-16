@@ -1,4 +1,4 @@
-// `serve --relay`: phones reach this server through DEX BOT Relay, end-to-end encrypted as they reach the desktop app.
+// `serve --relay`: phones reach this server through Luna Bot Relay, end-to-end encrypted as they reach the desktop app.
 // The server dials out to the relay, the phone dials the relay, and the relay splices sealed bytes it cannot open. Every
 // encrypted stream lands in the server's own request handler as a remote request, so a phone signs in with its own session.
 import { AsyncLocalStorage } from "node:async_hooks";
@@ -9,6 +9,7 @@ import { join } from "node:path";
 import type { Duplex } from "node:stream";
 
 import { phonePairingLink, type CompanionEndpoint } from "../shared/pairing-link.ts";
+import { cliCommand } from "./cli-invocation.ts";
 import { relayBaseUrlOverride } from "../companion/src/e2e/config.ts";
 import { b64u, fromB64u } from "../companion/src/e2e/credentials.ts";
 import type { E2EDescriptor } from "../companion/src/e2e/descriptor.ts";
@@ -152,7 +153,7 @@ export function tunnelHolder(env: NodeJS.ProcessEnv, dataDir: string): string | 
   const account = openTunnelCredentials(dataDir);
   if (account.status === "unavailable") return `${account.file} could not be read, so this machine may hold a tunnel address`;
   const document = account.read();
-  if (describeTunnelAccount(document).address || document[MANAGED_COMPANION_ENDPOINT_FIELD]) return "this machine holds a tunnel address from `openmausbot login`";
+  if (describeTunnelAccount(document).address || document[MANAGED_COMPANION_ENDPOINT_FIELD]) return `this machine holds a tunnel address from \`${cliCommand("login")}\``;
   return null;
 }
 
@@ -179,7 +180,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   const { sessions, dataDir } = options;
   const holder = tunnelHolder(options.env, dataDir);
   if (holder) {
-    log(`phone relay: off: ${holder}. Use the relay on a machine signed in with \`openmausbot login --relay\`, which holds no tunnel address.`);
+    log(`phone relay: off: ${holder}. Use the relay on a machine signed in with \`${cliCommand("login --relay")}\`, which holds no tunnel address.`);
     return offForTunnel(holder);
   }
   let key: KeyPair;
@@ -329,7 +330,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
     if (peer.kind === "pairing") {
       if (!PAIRING_SESSION_ROUTES.has(`${method} ${path}`)) return reply(res, 401, { error: "pair this phone first" });
       if (method === "POST" && devices.records().length >= MAX_RELAY_PHONES) {
-        return reply(res, 409, { error: `This server has ${MAX_RELAY_PHONES} phones on DEX BOT Relay. Remove one (openmausbot devices revoke ID), then pair again.` });
+        return reply(res, 409, { error: `This server has ${MAX_RELAY_PHONES} phones on Luna Bot Relay. Remove one (${cliCommand("devices revoke ID")}), then pair again.` });
       }
     } else {
       const bearer = bearerToken(req.headers.authorization);

@@ -7,6 +7,7 @@ import { Switch } from "../SettingsPrimitives";
 import { Select } from "../Select";
 import { KEY_FIELD } from "./KeyRow";
 import { cleanKey, looksLikeKey } from "./key-save";
+import { compatBaseUrlProblem } from "../../../shared/compat-base-url";
 
 /** Security: write-only; the server returns names, never keys, and hands the keys to OpenCode alone. */
 export function OpenCodeProviderKeys() {
@@ -229,6 +230,11 @@ export function OpenAiCompatUrl() {
   };
   const persist = (next: { url: string; protocol: "openai" | "responses" | "anthropic"; models: string[] }) => {
     if (savingRef.current) return;
+    const urlProblem = compatBaseUrlProblem(next.url);
+    if (urlProblem) {
+      setError(t(`keys.openaiCompat.urlError.${urlProblem}`));
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setError(null);
@@ -255,7 +261,7 @@ export function OpenAiCompatUrl() {
         <input
           type="url"
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onChange={(e) => { setUrl(e.target.value); setError(null); }}
           onBlur={save}
           onKeyDown={(e) => e.key === "Enter" && save()}
           placeholder="https://api.example.com/v1"

@@ -262,7 +262,7 @@ describe("PATCH /api/bots/:id phoneApps", () => {
 
   it("rejects an unknown capability or grant", async () => {
     const { store, bot, patch } = fixture();
-    const error = "phoneApps must be { <calendar|reminders|contacts|location|home|messages>: read | write } or null";
+    const error = "phoneApps must be { <calendar|reminders|contacts|location|home|messages|phoneUi>: read | write } or null";
 
     const unknownApp = await patch(bot.id, { phoneApps: { camera: "read" } });
     const unknownGrant = await patch(bot.id, { phoneApps: { calendar: "admin" } });

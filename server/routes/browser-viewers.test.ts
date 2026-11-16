@@ -95,6 +95,7 @@ async function serve({ attach, current = () => true, download, audience = () => 
     upgrades,
     dataDir: fixture.dataDir,
     person: (auth) => (auth.kind === "session" ? `person-of-${auth.session.id}` : "local-owner"),
+    language: () => undefined,
     viewers: {
       open: async (options) => {
         fixture.resumes.push(options.resume);

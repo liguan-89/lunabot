@@ -98,11 +98,11 @@ describe("additive portable team backups", () => {
 
   it("backs up and restores a silver bot in silver", () => {
     const { store, routines } = fixture();
-    const maus = store.createBot({ name: "DEX BOT", color: "silver" }, { seedMessages: false });
-    const backup = createTeamBackup(store, routines.listRoutines(), "With DEX BOT");
+    const maus = store.createBot({ name: "Luna Bot", color: "silver" }, { seedMessages: false });
+    const backup = createTeamBackup(store, routines.listRoutines(), "With Luna Bot");
     expect(backup.bots.find((bot) => bot.key === maus.id)?.color).toBe("silver");
     const restored = importTeamBackup(store, routines, JSON.parse(JSON.stringify(backup)), selection());
-    expect(restored.bots.find((bot) => bot.name === "DEX BOT 2")?.color).toBe("silver");
+    expect(restored.bots.find((bot) => bot.name === "Luna Bot 2")?.color).toBe("silver");
   });
 
   it("carries a bot's never-use-the-helper switch through backup and import, so its restored notes and chats stay off the helper", () => {

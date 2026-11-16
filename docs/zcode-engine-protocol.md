@@ -28,7 +28,7 @@ same invocation, so no separate download is expected.
 `session/create` (and `session/resume`) take `mcpServers`: stdio entries are
 `{name, command, args, env:[{name,value}], isolation?, alwaysLoad?}`, remote
 ones `{type:"http"|"sse", name, url, headers:[{name,value}]}`. They are scoped
-to that session, so the driver mounts DEX BOT's proxies when it creates it and
+to that session, so the driver mounts Luna Bot's proxies when it creates it and
 recreates the session when the mount set changes.
 
 `session/send` takes prompt attachments in the composer's shape, not the
@@ -239,6 +239,6 @@ Answer with an **action**, not a permission decision:
 ## What is still open
 
 1. Only single-question cards have been exercised live. A multi-question
-   card relies on OpenMausBot's `Q: … / A: …` block format to map answers back
+   card relies on Luna Bot's `Q: … / A: …` block format to map answers back
    to question text; that mapping is covered by the fake CLI but not by a real
    multi-question ask.

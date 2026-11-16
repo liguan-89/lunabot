@@ -50,8 +50,8 @@ it("what a click or sign-out that didn't go through says, in plain words", () =>
   expect(switchNote({ outcome: "signed-out" })).toBeNull();
 });
 
-it("the DEX BOT Cloud row says Sign in while nobody is signed in here; any other page keeps its name", () => {
+it("the Luna Bot Cloud row says Sign in while nobody is signed in here; any other page keeps its name", () => {
   expect(cloudRowLabel({ active: null })).toBe("Sign in");
-  expect(cloudRowLabel({ active: { id: "b", email: "b@example.test" } })).toBe("DEX BOT Cloud");
-  expect(cloudRowLabel(null)).toBe("DEX BOT Cloud");
+  expect(cloudRowLabel({ active: { id: "b", email: "b@example.test" } })).toBe("Luna Bot Cloud");
+  expect(cloudRowLabel(null)).toBe("Luna Bot Cloud");
 });

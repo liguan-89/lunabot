@@ -72,7 +72,10 @@ const HARNESS_PORT = num(process.env.OMB_PORT, 8799);
 const WEBHOOK_PORT = num(process.env.OMB_WEBHOOK_PORT, HARNESS_PORT + 1);
 const COMPANION_PORT = num(process.env.OMB_COMPANION_PORT, 8810);
 const CONTROL_PORT = num(process.env.OMB_CONTROL_PORT, 8811);
-const SERVICE_TYPE = "_dexbot._tcp";
+/** Phones browse `_lunabot._tcp`. `_dexbot._tcp` is still published so a phone
+ * that predates the rename can find this computer too; both names point at the
+ * same port and host and are served by one responder socket. */
+const SERVICE_TYPES = ["_lunabot._tcp", "_dexbot._tcp"] as const;
 let hostedUrl = hostedCompanionUrl(process.env.OMB_COMPANION_HOSTED_URL);
 directRoutesFromEnv(process.env);
 const PRIVATE_ORIGIN = companionOriginSocket(process.env.OMB_COMPANION_INTERNAL_ORIGIN);
@@ -97,7 +100,7 @@ const conflict = (name: string, port: number): string | null => {
 const fixedName = process.env.OMB_COMPANION_NAME?.trim() || "";
 let cachedName = fixedName;
 
-const machineName = (): string => cachedName || "DEX BOT";
+const machineName = (): string => cachedName || "Luna Bot";
 
 /** True when the name changed. */
 async function refreshMachineName(): Promise<boolean> {
@@ -130,7 +133,7 @@ const relayBaseUrl = relayBaseUrlOverride(process.env.OMB_COMPANION_RELAY_URL);
 const watcher = createAddressWatcher({
   addresses: advertisableAddresses,
   name: machineName,
-  advertise: () => mdns.advertise(service()),
+  advertise: () => mdns.advertise(SERVICE_TYPES.map((type) => service(type))),
   withdraw: () => mdns.stop(),
   log: (line) => console.log(`bonjour: ${line}`),
   // On a Mac a failed join is not papered over by the default-route
@@ -138,9 +141,11 @@ const watcher = createAddressWatcher({
   failureRetries: process.platform === "darwin" ? 3 : 0,
 });
 
-const service = (): ServiceInfo => ({
-  name: dnsLabel(machineName()),
-  type: SERVICE_TYPE,
+const advertisedName = (): string => dnsLabel(machineName());
+
+const service = (type: string): ServiceInfo => ({
+  name: advertisedName(),
+  type,
   port: COMPANION_PORT,
   host: defaultHostName(),
   addresses: advertisableAddresses(),
@@ -241,7 +246,7 @@ const control = createControlServer({
   setHostedUrl: (next) => {
     hostedUrl = next;
   },
-  discovery: () => ({ advertising: mdns.advertising, name: service().name }),
+  discovery: () => ({ advertising: mdns.advertising, name: advertisedName() }),
   connectedDeviceIds: connectedDevices.ids,
   disconnectDevice: (deviceId) => {
     connectedDevices.disconnect(deviceId);

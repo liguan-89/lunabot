@@ -1,0 +1,37 @@
+import { describe, expect, it } from "vitest";
+import { setLocale } from "@/lib/i18n";
+import { SECTIONS, SETTINGS_GROUPS, simpleSettingsPages, SIMPLE_PAGES } from "./registry";
+
+const all = new Set(SECTIONS.map((entry) => entry.id));
+
+describe("the settings map", () => {
+  it("files every section under exactly one page", () => {
+    const placed = SIMPLE_PAGES.flatMap((page) => page.sections);
+    expect(new Set(placed).size).toBe(placed.length);
+    expect(SECTIONS.map((entry) => entry.id).filter((id) => !placed.includes(id))).toEqual([]);
+  });
+
+  it("puts every section in a rail group", () => {
+    const groups = new Set(SETTINGS_GROUPS.map((group) => group.id));
+    expect(SECTIONS.filter((entry) => !groups.has(entry.group))).toEqual([]);
+  });
+
+  it("drops a page whose sections are all unavailable, rather than drawing it empty", () => {
+    // Updates is Simple's own page, not a rail section: the dialog adds it to the available set itself.
+    const withUpdates = new Set([...all, "updates" as const]);
+    expect(simpleSettingsPages(withUpdates).map((page) => page.id)).toEqual(SIMPLE_PAGES.map((page) => page.id));
+    expect(simpleSettingsPages(all).map((page) => page.id)).not.toContain("updates");
+    expect(simpleSettingsPages(new Set())).toEqual([]);
+    const generalOnly = simpleSettingsPages(new Set(["general"]));
+    expect(generalOnly.map((page) => page.id)).toEqual(["general"]);
+    expect(generalOnly[0]!.sections).toEqual(["general"]);
+  });
+
+  it("keeps a page's label in every language", () => {
+    for (const locale of ["zh", "ja", "de"] as const) {
+      setLocale(locale);
+      for (const page of SIMPLE_PAGES) expect(page.labelKey, locale).toBeTruthy();
+    }
+    setLocale("en");
+  });
+});

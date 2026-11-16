@@ -1,7 +1,7 @@
 import { cronPreset, type CronPreset } from "../shared/cron-label.ts";
 import { plainTimeZone } from "../shared/plain-time-zone.ts";
 import type { RoutineCronSchedule } from "../shared/routine-schedule.ts";
-import { byLanguage } from "./language.ts";
+import { byLanguage, intlLocale } from "./language.ts";
 import { serverLine, type ServerLineKey } from "./server-lines.ts";
 
 type Nth = Extract<CronPreset, { kind: "monthlyNth" }>["nth"];
@@ -15,7 +15,7 @@ const NTH_WEEKEND: Record<Nth, ServerLineKey> = {
 };
 
 function presetText(preset: CronPreset, language: string | undefined): string {
-  const locale = byLanguage({ en: "en-US", de: "de-DE", "pt-br": "pt-BR", "zh-tw": "zh-TW" }, language);
+  const locale = byLanguage({ en: "en-US", de: "de-DE", "pt-br": "pt-BR", zh: "zh-CN", "zh-tw": "zh-TW" }, language);
   const time = locale === "en-US" ? preset.time.replace(/^0(?=\d:)/, "") : preset.time;
   const weekdayName = (day: number) => new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(Date.UTC(2023, 0, 1 + day));
   const monthName = (month: number) => new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(Date.UTC(2023, month, 1));
@@ -33,12 +33,12 @@ function presetText(preset: CronPreset, language: string | undefined): string {
 export function routineCronText(schedule: RoutineCronSchedule, language?: string): string {
   const preset = cronPreset(schedule.expression);
   const text = preset ? presetText(preset, language) : serverLine(language, "server.routines.cron.raw", { expression: schedule.expression });
-  return `${text} ${plainTimeZone(schedule.timeZone)}`;
+  return `${text} ${plainTimeZone(schedule.timeZone, /^en(?:-|$)/i.test(language ?? "en") ? "en" : intlLocale(language))}`;
 }
 
-export function formatInstant(at: number, timeZone: string): string {
+export function formatInstant(at: number, timeZone: string, language?: string): string {
   try {
-    return new Intl.DateTimeFormat("en-US", {
+    return new Intl.DateTimeFormat(/^en(?:-|$)/i.test(language ?? "en") ? "en-US" : intlLocale(language), {
       timeZone,
       dateStyle: "medium",
       timeStyle: "short",

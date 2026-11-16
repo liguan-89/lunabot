@@ -4,7 +4,7 @@ import type { CaptureResult, PostHog } from "posthog-js";
 import { appVersion } from "@/lib/app-links";
 import { readAdvancedMode } from "@/lib/interface-mode";
 
-// DEX BOT ships no product-analytics key: nothing leaves the machine until an
+// Luna Bot ships no product-analytics key: nothing leaves the machine until an
 // operator builds a fork with its own write-only key here. The runtime override
 // exists only so the test suite can exercise the loading path; the shipped app
 // never sets it.

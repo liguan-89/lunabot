@@ -31,6 +31,7 @@ describe("recordLiveCall", () => {
         appended.push(full);
         return full;
       }),
+      line: (botName: string, duration: string) => `Call with ${botName} · ${duration}`,
     } satisfies LiveCallRecordDeps;
     return { deps, appended };
   }

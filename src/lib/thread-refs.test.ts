@@ -120,18 +120,20 @@ describe("remarkThreadRefs", () => {
 
 describe("task links", () => {
   it("parses bot and text, keeps legacy spelling, and rejects near-misses", () => {
+    expect(parseTaskRefUrl(`lunabot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`)).toEqual({ botId: "scout", text: "订明天的票" });
+    expect(parseTaskRefUrl(`lunabot://task?text=${encodeURIComponent("hi there")}`)).toEqual({ text: "hi there" });
+    // The spelling written before the rename, and the one before that, still open.
     expect(parseTaskRefUrl(`dexbot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`)).toEqual({ botId: "scout", text: "订明天的票" });
-    expect(parseTaskRefUrl(`dexbot://task?text=${encodeURIComponent("hi there")}`)).toEqual({ text: "hi there" });
     expect(parseTaskRefUrl(`openmausbot://task?bot=scout&text=${encodeURIComponent("hi")}`)).toEqual({ botId: "scout", text: "hi" });
     for (const miss of [
-      "dexbot://task",
-      "dexbot://task?text=",
-      "dexbot://task?bot=scout",
-      "dexbot://task?bot=&text=hi",
-      "dexbot://task/extra?text=hi",
-      "dexbot://task?text=hi&x=1",
-      "dexbot://taskforce?text=hi",
-      "dexbot://task#frag?text=hi",
+      "lunabot://task",
+      "lunabot://task?text=",
+      "lunabot://task?bot=scout",
+      "lunabot://task?bot=&text=hi",
+      "lunabot://task/extra?text=hi",
+      "lunabot://task?text=hi&x=1",
+      "lunabot://taskforce?text=hi",
+      "lunabot://task#frag?text=hi",
       "https://task?text=hi",
     ]) {
       expect(parseTaskRefUrl(miss)).toBeNull();
@@ -145,8 +147,9 @@ describe("canonical thread links", () => {
 
   it("copies and parses one spelling, and rejects near-misses", () => {
     const link = threadRefUrl({ botId: "scout", threadId: uuid });
-    expect(link).toBe(`dexbot://thread/${uuid}?bot=scout`);
+    expect(link).toBe(`lunabot://thread/${uuid}?bot=scout`);
     expect(parseThreadRefUrl(link)).toEqual({ threadId: uuid, botId: "scout" });
+    expect(parseThreadRefUrl(`dexbot://thread/${uuid}`)).toEqual({ threadId: uuid });
     expect(parseThreadRefUrl(`openmausbot://thread/${uuid}`)).toEqual({ threadId: uuid });
     for (const miss of [
       `openmausbot://thread/${uuid}/extra?bot=scout`,
@@ -175,7 +178,7 @@ describe("canonical thread links", () => {
     const sent = `Already [Release notes](${link}) and [Gone](openmausbot://thread/dead?bot=ada)`;
     expect(serializeThreadRefs(sent + " plus #Nothing", threads)).toBe(sent + " plus #Nothing");
     const bracketed = [scout("b", "QA [PR] 245")];
-    expect(serializeThreadRefs("see #QA [PR] 245", bracketed)).toBe("see [QA \\[PR\\] 245](dexbot://thread/b?bot=scout)");
+    expect(serializeThreadRefs("see #QA [PR] 245", bracketed)).toBe("see [QA \\[PR\\] 245](lunabot://thread/b?bot=scout)");
   });
 
   it("displays canonical links as title chips and dead links as raw text", () => {

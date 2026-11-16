@@ -9,7 +9,7 @@ import { SIMPLE_MODE_PROMPT_KEY } from "@/lib/simple-mode-prompt";
 
 const analytics = vi.hoisted(() => ({ track: vi.fn() }));
 vi.mock("@/lib/analytics", () => analytics);
-vi.mock("@/lib/brand", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/brand")>(), productName: () => "DEX BOT" }));
+vi.mock("@/lib/brand", async (importOriginal) => ({ ...await importOriginal<typeof import("@/lib/brand")>(), productName: () => "Luna Bot" }));
 const { NewLookNotice } = await import("./NewLookNotice");
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -49,8 +49,8 @@ describe("the new look notice", () => {
     await show();
     expect(dialog()?.getAttribute("role")).toBe("dialog");
     expect(dialog()?.getAttribute("aria-modal")).toBe("true");
-    expect(host.querySelector("h2")?.textContent).toBe("DEX BOT has a simpler look");
-    expect(host.textContent).toContain("Everything you need is still here; rarer settings are under Settings → More settings.");
+    expect(host.querySelector("h2")?.textContent).toBe("Luna Bot has a simpler look");
+    expect(host.textContent).toContain("Everything you need is still here; rarer settings have pages of their own.");
     expect(host.querySelector('[role="switch"]')).toBeNull();
     expect(host.textContent).not.toContain("Advanced");
     expect(document.activeElement).toBe(host.querySelector("h2"));

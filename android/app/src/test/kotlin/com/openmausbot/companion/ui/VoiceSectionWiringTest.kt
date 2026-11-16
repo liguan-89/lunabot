@@ -62,10 +62,10 @@ class VoiceSectionWiringTest {
         "音色设置仅对此智能体生效。“工作区默认”将使用电脑上所选的共享音色。"
     private val systemNotice = "电脑内置语音不可用"
     private val systemFooter =
-        "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 DEX BOT 中切换语音引擎以启用语音朗读。"
+        "电脑内置语音无需密钥，但当前电脑未报告任何可用语音。请在电脑端 Luna Bot 中切换语音引擎以启用语音朗读。"
     private val chatterboxNotice = "Chatterbox 服务器未连接"
     private val chatterboxFooter =
-        "请在电脑端 DEX BOT 中添加 Chatterbox 服务器地址以启用语音朗读。"
+        "请在电脑端 Luna Bot 中添加 Chatterbox 服务器地址以启用语音朗读。"
 
     /**
      * The engine picker rides above the branch, so its row leads every

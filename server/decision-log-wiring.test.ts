@@ -101,9 +101,9 @@ posixOnly("authorization decisions are logged", () => {
   beforeAll(async () => {
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-decisions-e2e-"));
-    mkdirSync(join(home, ".dexbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     writeFileSync(
-      join(home, ".dexbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {

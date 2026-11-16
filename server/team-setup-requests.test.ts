@@ -589,10 +589,10 @@ describe("team setup below Full access", () => {
   });
 });
 
-describe("DEX BOT's Chief-level team setup", () => {
+describe("Luna Bot's Chief-level team setup", () => {
   const plan = (operations: unknown[]) => ({ reason: "Requested specialist setup", operations, newTeams: [] });
 
-  it("lets the person's DEX BOT add a specialist like a Chief, without making it the Chief", () => {
+  it("lets the person's Luna Bot add a specialist like a Chief, without making it the Chief", () => {
     const h = harness();
     const maus = h.bot("Maus", { defaultBot: {} });
     const request = h.service.propose({ botId: maus.id, threadId: maus.threadId, plan: plan([specialist("Scout", "Work")]) });
@@ -601,7 +601,7 @@ describe("DEX BOT's Chief-level team setup", () => {
     expect(h.chief.chiefOfStaff).toBe(true);
   });
 
-  it("never lets DEX BOT change who the Chief is", () => {
+  it("never lets Luna Bot change who the Chief is", () => {
     const h = harness();
     const maus = h.bot("Maus", { defaultBot: {} });
     for (const target of [maus.id, h.peer.id, h.chief.id]) {
@@ -610,14 +610,14 @@ describe("DEX BOT's Chief-level team setup", () => {
     }
   });
 
-  it("refuses a Team Cloud User's DEX BOT, which holds no more than its member", () => {
+  it("refuses a Team Cloud User's Luna Bot, which holds no more than its member", () => {
     const h = harness();
     const maus = h.bot("Maus", { defaultBot: { person: "user@example.com" } });
     expect(() => h.service.propose({ botId: maus.id, threadId: maus.threadId, plan: plan([specialist("Scout", "Work")]) }))
       .toThrow(/Only an active Chief of Staff can propose team setup/);
   });
 
-  it("never lets a Chief delete DEX BOT", () => {
+  it("never lets a Chief delete Luna Bot", () => {
     const h = harness();
     const maus = h.bot("Maus", { defaultBot: {} });
     expect(() => h.service.proposeDeletion({ botId: h.chief.id, threadId: h.chief.threadId, targetBotId: maus.id, reason: "remove" }))

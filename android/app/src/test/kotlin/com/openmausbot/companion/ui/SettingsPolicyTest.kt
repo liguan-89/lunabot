@@ -39,7 +39,7 @@ class SettingsPolicyTest {
             "电脑暂不可达",
             SettingsPolicy.statusText(
                 Session.Status.Offline(
-                    "已连接电脑，但端口 8810 上的手机访问未响应——请打开 DEX BOT → 设置 → 手机。应用会自动持续重试。",
+                    "已连接电脑，但端口 8810 上的手机访问未响应——请打开 Luna Bot → 设置 → 手机。应用会自动持续重试。",
                 ),
             ),
         )
@@ -68,7 +68,7 @@ class SettingsPolicyTest {
     fun `the footers name the desktop section that exists`() {
         assertEquals(
             "仅从本手机移除配对。若要彻底禁止此手机访问电脑，" +
-                "请在电脑端 DEX BOT → 设置 → 手机和设备 中移除该设备。",
+                "请在电脑端 Luna Bot → 设置 → 手机和设备 中移除该设备。",
             SettingsPolicy.UNPAIR_FOOTER,
         )
         assertEquals(

@@ -84,7 +84,7 @@ describe("createTeamMemberLeft", () => {
     expect(result).toMatchObject({ routines: 1, routinesHandedOver: 2 });
   });
 
-  it("deletes the departing member's own DEX BOT with its chats, and counts them", async () => {
+  it("deletes the departing member's own Luna Bot with its chats, and counts them", async () => {
     const fx = fixture();
     fx.messages.set("mausbot-main", [{ role: "user", text: "LC-L2-MAIN-9081" }]);
     const result = await createTeamMemberLeft(fx.deps)(BOB);
@@ -93,7 +93,7 @@ describe("createTeamMemberLeft", () => {
     expect(result).toMatchObject({ chats: 3, bots: 1 });
   });
 
-  it("stops the departing member's DEX BOT at work (a routine, a room turn) before deleting it", async () => {
+  it("stops the departing member's Luna Bot at work (a routine, a room turn) before deleting it", async () => {
     const fx = fixture();
     fx.working.add("bobs-mausbot");
     const result = await createTeamMemberLeft(fx.deps)(BOB);
@@ -101,7 +101,7 @@ describe("createTeamMemberLeft", () => {
     expect(result).toMatchObject({ bots: 1, botsKept: 0 });
   });
 
-  it("reports a DEX BOT it could not delete", async () => {
+  it("reports a Luna Bot it could not delete", async () => {
     const fx = fixture();
     const result = await createTeamMemberLeft({ ...fx.deps, deleteBot: async () => false })(BOB);
     expect(result).toMatchObject({ bots: 0, botsKept: 1 });

@@ -10,7 +10,10 @@ internal object PairingLink {
     /** The scheme the desktop writes now. */
     const val SCHEME = com.openmausbot.companion.core.PairingInvite.SCHEME
 
-    /** Links and QR codes made before the rebrand still have to pair. */
+    /** Links and QR codes made by the previous rebrand still have to pair. */
+    const val PREVIOUS_SCHEME = com.openmausbot.companion.core.PairingInvite.PREVIOUS_SCHEME
+
+    /** Links and QR codes made before any rebrand still have to pair. */
     const val LEGACY_SCHEME = com.openmausbot.companion.core.PairingInvite.LEGACY_SCHEME
 
     const val HOST = "pair"

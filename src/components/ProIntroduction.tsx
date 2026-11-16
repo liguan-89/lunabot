@@ -9,10 +9,6 @@ import { SettingRow } from "./SettingsPrimitives";
 import { UpgradeButton, type UpgradeUi } from "./CloudUsageMeter";
 import type { CloudUsage } from "../../electron/cloud-home.mjs";
 
-export function proOfferAvailable(account: CloudAccountState | null): boolean {
-  return buyOfferAllowed(cloudPlanView(account));
-}
-
 export function useCloudPlan(): { view: CloudPlanView; account: CloudAccountState | null } | null {
   const bridge = window.ogb?.remoteClient?.active ? undefined : window.ogb?.cloudAccount;
   const [account, setAccount] = useState<CloudAccountState | null>(null);
@@ -68,7 +64,9 @@ export function ProSettingsCard() {
   </section>;
 }
 
-export function CloudPlanRow({ place, usage = null, upgrade }: { place: "account" | "plan"; usage?: CloudUsage | null; upgrade?: UpgradeUi }) {
+/** The plan on Usage & billing, above the Cloud account card. It is the only place a plan is read now: General used to
+ * carry a second copy, and two readings of the same number invite the question of which one is current. */
+export function CloudPlanRow({ usage = null, upgrade }: { usage?: CloudUsage | null; upgrade?: UpgradeUi }) {
   const { dispatch } = useStore();
   const plan = useCloudPlan();
   const offering = plan !== null && buyOfferAllowed(plan.view);
@@ -78,9 +76,9 @@ export function CloudPlanRow({ place, usage = null, upgrade }: { place: "account
     const trial = offerTrialDays(offer) !== null;
     const cheapest = offer && offer.plans.length ? Math.min(...offer.plans.map((entry) => entry.amount)) : null;
     return (
-      <SettingRow title={t("pro.name")} subtitle={place === "plan" && cheapest !== null ? t("pro.fromPrice", { price: usd(cheapest / 100) }) : t("pro.settingsSummary")}>
+      <SettingRow title={t("pro.name")} subtitle={cheapest !== null ? t("pro.fromPrice", { price: usd(cheapest / 100) }) : t("pro.settingsSummary")}>
         <div className="flex items-center gap-3">
-          {place === "plan" && plan.view.kind === "signed-out" && (
+          {plan.view.kind === "signed-out" && (
             <button type="button" className="cursor-pointer text-[13px] text-ink-secondary hover:text-ink"
               onClick={() => dispatch({ type: "openCloudAdd", source: "app_settings", signIn: true })}>{t("cloudAccount.signIn")}</button>
           )}
@@ -94,10 +92,7 @@ export function CloudPlanRow({ place, usage = null, upgrade }: { place: "account
   if (!line) return null;
   return (
     <SettingRow title={t("pro.name")} subtitle={line}>
-      {place === "account" ? (
-        <button type="button" data-cloud-plan={plan.view.kind} className="ui-button"
-          onClick={() => dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" })}>{t("settings.simple.account.manage")}</button>
-      ) : usage && upgrade ? <UpgradeButton usage={usage} upgrade={upgrade} /> : null}
+      {usage && upgrade ? <UpgradeButton usage={usage} upgrade={upgrade} /> : null}
     </SettingRow>
   );
 }

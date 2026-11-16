@@ -29,9 +29,9 @@ vi.mock("@/lib/analytics", () => ({ emailGateDone: () => false, track: vi.fn() }
 vi.mock("@/lib/updater", () => ({ useUpdaterState: () => f.updater }));
 vi.mock("./cloud-buy/NightCard", () => ({ NightCard: ({ children }: { children: unknown }) => children }));
 vi.mock("./whats-new/TeamPicture", () => ({ TeamPicture: () => null }));
-// Who DEX BOT belongs to: unknown (as before the session answers) unless a test says otherwise.
+// Who Luna Bot belongs to: unknown (as before the session answers) unless a test says otherwise.
 vi.mock("@/lib/default-bot", async original => ({ ...await original<typeof import("@/lib/default-bot")>(), useViewerEmail: () => f.viewerEmail }));
-vi.mock("@/lib/brand", () => ({ brandStatus: () => ({ brand: { name: "DEX BOT" }, source: f.brand, file: "" }), productName: () => "DEX BOT" }));
+vi.mock("@/lib/brand", () => ({ brandStatus: () => ({ brand: { name: "Luna Bot" }, source: f.brand, file: "" }), productName: () => "Luna Bot" }));
 vi.mock("./Avatar", async original => ({ ...await original<typeof import("./Avatar")>(), MausAvatar: () => null }));
 vi.mock("./lazy-screens", async original => ({ ...await original<typeof import("./lazy-screens")>(), GrokMoveDialog: () => "THE MOVE DIALOG" }));
 vi.mock("@/components/EngineLibrary", () => ({ engineReady: (instance: { snapshot: { state: string; authenticated?: boolean } }) =>
@@ -55,7 +55,7 @@ const plans = [
 const TRIAL_OFFER: CloudOffer = { plans, recommended: "pro", creditUsd: 5, refundDays: 14 };
 const PLAIN_OFFER: CloudOffer = { plans: plans.map(({ trialDays: _days, ...plan }) => plan), recommended: "pro", refundDays: 14 };
 const INTRO = "Keep your bots working when this computer is off";
-const STAR = "Enjoying DEX BOT?";
+const STAR = "Enjoying Luna Bot?";
 const signedOut: CloudAccountState = { status: "signed-out" };
 const free: CloudAccountState = { status: "connected", account: { id: "a", email: "person@example.test" }, entitlement: { plan: "free", status: "inactive", expiresAt: null, version: 1 } };
 const paid = (extra: Partial<CloudAccountState> = {}): CloudAccountState => ({ ...free, entitlement: { plan: "pro", tier: "pro", status: "active", expiresAt: NOW + 30 * DAY, version: 2 }, ...extra });
@@ -171,7 +171,7 @@ describe("the card after the update", () => {
   it("offers the free trial to someone signed out who has used the app before, in the Admin's numbers, with Start free trial and Show me how", async () => {
     returning();
     const html = await launch();
-    const words = [INTRO, "Free for 7 days", "DEX BOT Cloud runs your bots for you in the cloud, always on.", "Routines run on time, day and night",
+    const words = [INTRO, "Free for 7 days", "Luna Bot Cloud runs your bots for you in the cloud, always on.", "Routines run on time, day and night",
       "Reach your bots from your phone, even with this computer off", "$5 of Claude credit to start", "Then from $15/month + tax. Cancel any time.",
       "14-day money-back on every plan.", "Start free trial", "Show me how", "Sign in to your Cloud plan", "Not now"];
     for (const text of words) expect(html).toContain(text);
@@ -435,7 +435,7 @@ describe("the Product Hunt launch card", () => {
 
 describe("Boat's credit offer", () => {
   const TITLE = "$50 of Boat credit for you";
-  const BODY = "Boat runs the cloud computers behind DEX BOT. Buy Boat's $100 plan or bigger, then tell Boat that DEX BOT sent you, and they'll add $50 in credits to your Boat account.";
+  const BODY = "Boat runs the cloud computers behind Luna Bot. Buy Boat's $100 plan or bigger, then tell Boat that Luna Bot sent you, and they'll add $50 in credits to your Boat account.";
   const YOURSELF = "You claim it yourself: it isn't automatic.";
   const CLAIM = "I bought it: claim my $50";
   const html = (text: string) => text.replace(/'/g, "&#x27;");
@@ -461,7 +461,7 @@ describe("Boat's credit offer", () => {
     expect(boatEvents()).toEqual([{ action: "shown", place: "card" }]);
   });
 
-  it("never on a first launch: not before the bots load, on a new install's first chat, in the launch its welcome or DEX BOT's card took", async () => {
+  it("never on a first launch: not before the bots load, on a new install's first chat, in the launch its welcome or Luna Bot's card took", async () => {
     fresh(); storage.delete(STAR_NOTICE);
     f.state.bots = [];
     expect(await launch(), "nothing said yet").not.toContain(html(TITLE));
@@ -472,7 +472,7 @@ describe("Boat's credit offer", () => {
     f.state.hydrated = true; markWelcomeFinished();
     expect(await launch(), "the launch its welcome finished in").not.toContain(html(TITLE));
     session.clear(); markLaunchDialog("mausbot");
-    expect(await launch(), "the launch DEX BOT's first card took").not.toContain(html(TITLE));
+    expect(await launch(), "the launch Luna Bot's first card took").not.toContain(html(TITLE));
     session.clear();
     expect(await launch()).toContain(html(TITLE));
   });
@@ -514,8 +514,8 @@ describe("Boat's credit offer", () => {
     expect(window.ogb?.openExternal).toHaveBeenCalledWith(boatClaimMailto());
     const draft = new URL(vi.mocked(window.ogb!.openExternal!).mock.calls[0]![0]);
     expect(`${draft.protocol}${draft.pathname}`).toBe("mailto:support@ascii.dev");
-    expect(draft.searchParams.get("subject")).toBe("DEX BOT introduced me: $50 Boat credit");
-    expect(draft.searchParams.get("body")!.replace(/\r\n/g, "\n")).toBe("Hi Boat team,\n\nDEX BOT introduced me to Boat. I'm on the $___ plan.\nMy Boat account email: ___\n\nThanks!");
+    expect(draft.searchParams.get("subject")).toBe("Luna Bot introduced me: $50 Boat credit");
+    expect(draft.searchParams.get("body")!.replace(/\r\n/g, "\n")).toBe("Hi Boat team,\n\nLuna Bot introduced me to Boat. I'm on the $___ plan.\nMy Boat account email: ___\n\nThanks!");
     expect(vi.mocked(api).mock.calls.map(([path]) => path), "only the dismissal is saved").toEqual(["/api/config"]);
     expect(boatEvents()).toContainEqual({ action: "claim", place: "card" });
     await endedForGood();
@@ -591,7 +591,7 @@ describe("Boat's credit offer", () => {
 });
 
 describe("What's new after the update", () => {
-  const PRO = "Meet the new DEX BOT Cloud", TEAM = "Shared bots for your whole team";
+  const PRO = "Meet the new Luna Bot Cloud", TEAM = "Shared bots for your whole team";
   const ID = WHATS_NEW_NOTICE;
   const BOAT = "$50 of Boat credit for you";
   let modal: boolean;
@@ -728,7 +728,7 @@ describe("What's new after the update", () => {
     expect(steps().map(props => props.action)).toEqual(["seen", "not_now"]);
   });
 
-  it("a new install sees it once onboarding is done and a bot has answered, in a later launch than the welcome's, after DEX BOT's card", async () => {
+  it("a new install sees it once onboarding is done and a bot has answered, in a later launch than the welcome's, after Luna Bot's card", async () => {
     f.state.config.onboarding = { ...EMPTY_ONBOARDING };
     expect(on(await launch()), "onboarding not done").toBeNull();
     f.state.config.onboarding = { ...EMPTY_ONBOARDING, completedAt: "2026-10-16", version: 1, hintsSeen: [] };
@@ -741,11 +741,11 @@ describe("What's new after the update", () => {
     f.state.bots = structuredClone(FIRST_REPLY); markWelcomeFinished();
     expect(on(await launch()), "the launch the welcome finished in").toBeNull();
     session.clear(); markLaunchDialog("mausbot");
-    expect(on(await launch()), "the launch DEX BOT's first card took").toBeNull();
+    expect(on(await launch()), "the launch Luna Bot's first card took").toBeNull();
     expect(on(await relaunch())).toBe("pro");
   });
 
-  it("claims the launch for the popups, so DEX BOT's card waits for a later one", async () => {
+  it("claims the launch for the popups, so Luna Bot's card waits for a later one", async () => {
     await launch();
     expect(launchDialogShown()).toBe("notices");
   });
@@ -831,7 +831,7 @@ describe("What's new after the update", () => {
 });
 
 describe("the product-updates question after the update", () => {
-  const QUESTION = "Get DEX BOT updates?", POPUP = "Meet the new DEX BOT Cloud";
+  const QUESTION = "Get Luna Bot updates?", POPUP = "Meet the new Luna Bot Cloud";
   const RECEIPT = "R".repeat(43);
   let saved: unknown;
   let accountAnswer: { status: string; textVersion: string } | null;
@@ -890,7 +890,7 @@ describe("the product-updates question after the update", () => {
     expect(render(), "right after the popup closes, as #3379 orders it").toContain(QUESTION);
   });
 
-  it("waits while DEX BOT's first-launch card is due, then follows it in the same launch once it closes", async () => {
+  it("waits while Luna Bot's first-launch card is due, then follows it in the same launch once it closes", async () => {
     f.viewerEmail = null;
     f.state.bots = [{ ...structuredClone(FIRST_REPLY[0]), id: "maus", defaultBot: {} }];
     expect(await launch(), "the card is due: the question waits for it").not.toContain(QUESTION);
@@ -958,7 +958,7 @@ describe("no Use my Mac popup", () => {
 });
 
 describe("the Move from Grok Bot popup", () => {
-  const TITLE = "Move from Grok Bot", WHATS_NEW = "Meet the new DEX BOT Cloud", DIALOG = "THE MOVE DIALOG";
+  const TITLE = "Move from Grok Bot", WHATS_NEW = "Meet the new Luna Bot Cloud", DIALOG = "THE MOVE DIALOG";
   let modal: boolean;
   const events = () => vi.mocked(track).mock.calls.filter(([name]) => name === "grok_move_popup").map(([, props]) => (props as { action: string }).action);
   const reads = () => vi.mocked(api).mock.calls.map(([path]) => path).filter(path => path === "/api/setup-import/grok");
@@ -988,7 +988,7 @@ describe("the Move from Grok Bot popup", () => {
     for (const part of ['role="dialog"', 'aria-modal="true"', "data-grok-move-popup"]) expect(html).toContain(part);
     expect(events()).toEqual(["shown"]);
     expect(launchNotice()).toBe(GROK_MOVE_NOTICE);
-    expect(launchDialogShown(), "DEX BOT's card waits for a later launch").toBe("notices");
+    expect(launchDialogShown(), "Luna Bot's card waits for a later launch").toBe("notices");
     expect(await settle()).toContain(TITLE);
     expect(events(), "shown is counted once").toHaveLength(1);
     expect(reads(), "showing it looks at neither Downloads nor the Grok Bot app").toEqual([]);
@@ -1096,7 +1096,7 @@ describe("the Move from Grok Bot popup", () => {
 });
 
 describe("the Simple mode popup after the update", () => {
-  const TITLE = "Try the new Simple mode", ON = "You&#x27;re on Simple mode", POPUP = "Meet the new DEX BOT Cloud";
+  const TITLE = "Try the new Simple mode", ON = "You&#x27;re on Simple mode", POPUP = "Meet the new Luna Bot Cloud";
   let modal: boolean;
   const prompts = () => vi.mocked(track).mock.calls.filter(([event]) => event === "simple_mode_prompt").map(([, props]) => props);
 
@@ -1349,7 +1349,7 @@ describe("bots in two places", () => {
 });
 
 describe("ModelGo's sponsor card", () => {
-  const TITLE = "ModelGo is now in DEX BOT", LINE = "One API key, every model.";
+  const TITLE = "ModelGo is now in Luna Bot", LINE = "One API key, every model.";
   const URL_EXACT = "https://modelgo.ai/?utm_source=openmausbot&utm_medium=sponsorship&utm_content=app&campaign_id=openmausbot&ad_group_id=app";
   const due = () => { storage.delete(MODELGO_OFFER_NOTICE); };
   const events = () => vi.mocked(track).mock.calls.filter(([name]) => name === "modelgo_offer").map(([, props]) => props);
@@ -1459,11 +1459,11 @@ describe("ModelGo's sponsor card", () => {
   it("after an update, What's new takes the launch and the card follows it in that same launch once it closes, then never again", async () => {
     returning(); desk.saved = null; storage.delete(WHATS_NEW_NOTICE);
     const first = await launch();
-    expect(first).toContain("Meet the new DEX BOT Cloud"); expect(first, "never two at once").not.toContain(TITLE);
+    expect(first).toContain("Meet the new Luna Bot Cloud"); expect(first, "never two at once").not.toContain(TITLE);
     expect(events()).toEqual([]);
     press("Not now"); await flush();
     const after = await settle();
-    expect(after, "right after What's new closes").toContain(TITLE); expect(after).not.toContain("Meet the new DEX BOT Cloud");
+    expect(after, "right after What's new closes").toContain(TITLE); expect(after).not.toContain("Meet the new Luna Bot Cloud");
     expect(events()).toEqual([{ action: "shown", place: "popup" }]);
     expect(launchNotice(), "What's new keeps the launch").toBe(WHATS_NEW_NOTICE);
     expect(await launch(), "a reload in the same launch").toContain(TITLE);
@@ -1480,7 +1480,7 @@ describe("ModelGo's sponsor card", () => {
       consent: createUpdatesConsent({ prefs, account: () => client as never, available: async () => true, now: () => now }) });
     await launch(); press("Not now"); await flush();
     const question = await settle();
-    expect(question).toContain("Get DEX BOT updates?"); expect(question).not.toContain(TITLE);
+    expect(question).toContain("Get Luna Bot updates?"); expect(question).not.toContain(TITLE);
     press("No thanks"); await flush();
     expect(await settle(), "then the card, in the same launch").toContain(TITLE);
   });
@@ -1505,7 +1505,7 @@ describe("ModelGo's sponsor card", () => {
 
   it("a card left up keeps the corner: the card waits for it to close", async () => {
     returning(); storage.delete(STAR_NOTICE); storage.set(CLOUD_INTRO, "1"); storage.set(MODELGO_OFFER_NOTICE, "1");
-    expect(await launch()).toContain("Enjoying DEX BOT?");
+    expect(await launch()).toContain("Enjoying Luna Bot?");
     due();
     expect(await settle(), "the star took the launch and is still up").not.toContain(TITLE);
     press("Not now"); await flush();

@@ -158,7 +158,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
   beforeAll(async () => {
     home = mkdtempSync(join(tmpdir(), "omb-bot-visibility-"));
     // The workspace's current data folder (a saved `.openmausbot` is renamed to this at boot).
-    const data = join(home, ".dexbot");
+    const data = join(home, ".lunabot");
     promptLog = join(home, "pi-prompts.jsonl");
     mkdirSync(data, { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({
@@ -353,7 +353,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
   });
 
   it("withdraws real scan results when an audience changes before the response", async () => {
-    const hold = join(home, ".dexbot", "hold-search-result");
+    const hold = join(home, ".lunabot", "hold-search-result");
     let pending: Promise<{ status: number; body: any }> | undefined;
     try {
       expect((await api("GET", "/api/search?q=Zebra", undefined, ADA)).body.hits).toEqual(expect.arrayContaining([
@@ -525,7 +525,7 @@ posixOnly("per-bot visibility on a shared workspace", () => {
     expect(found.hits.map((hit) => hit.threadId)).not.toContain(ids.roomMixedThread);
 
     const logLines = () => {
-      const dir = join(home, ".dexbot", "workspaces", ids.pub, "memory", "log");
+      const dir = join(home, ".lunabot", "workspaces", ids.pub, "memory", "log");
       let text = "";
       try {
         for (const file of readdirSync(dir)) text += readFileSync(join(dir, file), "utf8");

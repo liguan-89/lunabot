@@ -584,7 +584,7 @@ export interface WireMessage extends ServerTextLine, HelperIntroField, SetupCard
   /** A room reply whose speaker the decision model picked (an Auto room),
    * with how sure it was. Absent on every other message; clients that do
    * not know it ignore it. */
-  routedBy?: { provider: "jev" | "workersai" | "openrouter"; probability: number };
+  routedBy?: { provider: "jev" | "laya" | "workersai" | "openrouter"; probability: number };
   /** On a conversational bot's user line: the picker label of the quick model its reply ran on. */
   quickModel?: string;
   /** On a "Sent to" hand-off row: the done_when the sender set, redacted, so the chip can show what counts as finished. */
@@ -753,7 +753,7 @@ export interface SecretRequestCardData {
   };
   placeholder: string;
   helpUrl: string;
-  /** A custom secret's use: "ref", DEX BOT's own tools only; "file", the bot's commands; "email", the Email connector, never a bot. */ delivery?: SecretDelivery | "email";
+  /** A custom secret's use: "ref", Luna Bot's own tools only; "file", the bot's commands; "email", the Email connector, never a bot. */ delivery?: SecretDelivery | "email";
   /** An email card: the mailbox it is for, when known; off a phone the person can change it on the card. */ address?: string;
   /** An email card: the incoming server that took the password, once it did, while sending is still being checked. */
   emailReading?: string;

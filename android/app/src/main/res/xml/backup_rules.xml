@@ -14,6 +14,11 @@
   a fresh install they would skip the welcome and the notification explanation
   for someone who has seen neither.
 
+  Both files have been renamed twice (`openmaus.*` → `dexbot.*` → `lunabot.*`).
+  Every name is excluded, not just the current one: an install that has not yet
+  run the rename chain still has the older file on disk, and the exclusion has
+  to hold for it too.
+
   The roster cache is not carried either: it holds no secret, but it is
   device-local convenience the next live hydrate replaces wholesale, so
   restoring a stale fleet onto another device would show a roster the computer
@@ -26,6 +31,12 @@
     <exclude
         domain="sharedpref"
         path="__androidx_security_crypto_encrypted_prefs__.xml" />
+    <exclude
+        domain="sharedpref"
+        path="lunabot.permissions.xml" />
+    <exclude
+        domain="sharedpref"
+        path="lunabot.onboarding.xml" />
     <exclude
         domain="sharedpref"
         path="dexbot.permissions.xml" />

@@ -149,7 +149,7 @@ export function companionOriginHealth(
         response.on("end", () => {
           if (response.statusCode !== 200) return finish(false);
           try {
-            finish(["dexbot", "openmausbot"].includes(JSON.parse(Buffer.concat(chunks).toString("utf8"))?.app));
+            finish(["lunabot", "dexbot", "openmausbot"].includes(JSON.parse(Buffer.concat(chunks).toString("utf8"))?.app));
           } catch {
             finish(false);
           }

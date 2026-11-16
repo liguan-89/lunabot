@@ -5,7 +5,7 @@
 // Adapted from pingdotgg/t3code@00cdceb1 apps/server/src/preview/ServerBrowserStream.ts, MIT License, Copyright (c)
 // 2026 T3 Tools Inc. (full text in third_party/t3-code/LICENSE); modified: written on ws without Effect, the viewer is
 // the browser service's (it follows the tab in front of the bot's one browser), the socket opens before the browser
-// has started, and DEX BOT's own messages are added.
+// has started, and Luna Bot's own messages are added.
 import type { IncomingMessage } from "node:http";
 import type { Socket } from "node:net";
 
@@ -16,6 +16,7 @@ import type { BrowserService, BrowserTarget } from "../service.ts";
 import { FRAME_CAP_LIMITS, type Viewer, type ViewerOptions, type ViewerOutput } from "./core.ts";
 import { requestedSize } from "./viewport.ts";
 import { displayUrl } from "./live-v1.ts";
+import { serverLine } from "../../server-lines.ts";
 
 /** Close codes the stream client acts on. */
 export const STREAM_CLOSE = {
@@ -54,6 +55,8 @@ export interface StreamRequest {
   owner: string;
   /** The person watching, whose hold this view shares on any device; the owner when unset. */
   person?: string;
+  /** The language the watcher's app shows, for this panel's own notices. */
+  language?: string;
   /** False for a passive view (picture in picture): it never takes control. */
   canOperate: boolean;
   params: URLSearchParams;
@@ -206,7 +209,7 @@ class StreamSession {
     try {
       await service.restart(this.request.target.session, this.viewer.options.person);
     } catch {
-      this.notice("The browser could not restart. Wait for active work to finish and try again.");
+      this.notice(serverLine(this.request.language, "server.browser.restartFailed"));
     } finally {
       this.#restarting = false;
     }

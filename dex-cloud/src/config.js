@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const trim = (value) => String(value ?? "").trim();
 
@@ -51,7 +52,7 @@ export function loadConfig(env = process.env) {
     sessionDays: int(env.DEXCLOUD_SESSION_DAYS, 30, { min: 1, max: 365 }),
     otpTtlSeconds: int(env.DEXCLOUD_OTP_TTL_SECONDS, 600, { min: 60, max: 3600 }),
     otpResendSeconds: int(env.DEXCLOUD_OTP_RESEND_SECONDS, 30, { min: 5, max: 600 }),
-    emailFrom: trim(env.DEXCLOUD_EMAIL_FROM) || "DEX BOT <noreply@cloud.dexai.vip>",
+    emailFrom: trim(env.DEXCLOUD_EMAIL_FROM) || "Luna Bot <noreply@cloud.dexai.vip>",
     smtp: smtp(env.DEXCLOUD_SMTP_URL),
     resendKey: trim(env.DEXCLOUD_RESEND_API_KEY),
     relayNodes: list(env.DEXCLOUD_RELAY_NODES).length ? list(env.DEXCLOUD_RELAY_NODES) : ["relay1.dexai.vip"],
@@ -63,10 +64,12 @@ export function loadConfig(env = process.env) {
     apkPath: trim(env.DEXCLOUD_APK_PATH) || "/data/downloads/dexbot.apk",
     updatePath: trim(env.DEXCLOUD_UPDATE_PATH) || "/data/downloads/update.json",
     landingPath: trim(env.DEXCLOUD_LANDING_PATH) || "/data/downloads/landing.html",
+    /** The share/OG card, bundled beside this module and served at /og.png. */
+    ogPath: trim(env.DEXCLOUD_OG_PATH) || fileURLToPath(new URL("./assets/og.png", import.meta.url)),
     /** Desktop installers and electron-updater feeds (`latest-mac.yml`, …), served under `/desktop/`. */
     desktopDir: trim(env.DEXCLOUD_DESKTOP_DIR) || "/data/downloads/desktop",
     dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",
-    cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "dexbot-cloud-home:local",
+    cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "lunabot-cloud-home:local",
     cloudNetwork: trim(env.DEXCLOUD_CLOUD_NETWORK) || "dexcloud",
     cloudHostSuffix: trim(env.DEXCLOUD_CLOUD_HOST_SUFFIX) || "cloud.dexai.vip",
     cloudMemoryMb: int(env.DEXCLOUD_CLOUD_MEMORY_MB, 1536, { min: 512, max: 8192 }),

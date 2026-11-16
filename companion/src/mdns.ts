@@ -241,7 +241,7 @@ export function encodeResponse(
 export interface ServiceInfo {
   /** what a picker on the phone shows */
   name: string;
-  /** e.g. "_dexbot._tcp" */
+  /** e.g. "_lunabot._tcp"; one machine may publish several, for older phones */
   type: string;
   port: number;
   /** the name our A records claim, e.g. "openmausbot-1a2b3c4d.local" */
@@ -285,39 +285,55 @@ export function serviceRecords(service: ServiceInfo) {
   };
 }
 
-export function announcement(service: ServiceInfo): ResourceRecord[] {
-  const { ptr, srv, txt, addresses } = serviceRecords(service);
-  return [ptr, srv, txt, ...addresses];
+/** One machine may publish the same instance under several service types, so a
+ * phone that only knows an older name still finds it. */
+export type ServiceList = ServiceInfo | ServiceInfo[];
+
+const serviceList = (service: ServiceList): ServiceInfo[] =>
+  Array.isArray(service) ? service : [service];
+
+export function announcement(service: ServiceList): ResourceRecord[] {
+  return dedupe(
+    serviceList(service).flatMap((one) => {
+      const { ptr, srv, txt, addresses } = serviceRecords(one);
+      return [ptr, srv, txt, ...addresses];
+    }),
+  );
 }
 
 /** A PTR question is answered with SRV, TXT and A in the additional section
- * (RFC 6763 §12), so browsing resolves in one round trip. */
+ * (RFC 6763 §12), so browsing resolves in one round trip. Every advertised
+ * type is consulted: a browse for the old name is answered as readily as one
+ * for the new. */
 export function answersFor(
   message: DnsMessage,
-  service: ServiceInfo,
+  service: ServiceList,
 ): { answers: ResourceRecord[]; additionals: ResourceRecord[] } {
   if (message.response) return { answers: [], additionals: [] };
-  const { serviceName, instance, ptr, srv, txt, addresses } = serviceRecords(service);
   const answers: ResourceRecord[] = [];
   const additionals: ResourceRecord[] = [];
 
-  for (const question of message.questions) {
-    const name = question.name.toLowerCase();
-    const asks = (type: number) => question.type === type || question.type === TYPE.ANY;
+  for (const one of serviceList(service)) {
+    const { serviceName, instance, ptr, srv, txt, addresses } = serviceRecords(one);
 
-    if (name === SERVICE_ENUMERATION && asks(TYPE.PTR)) {
-      answers.push({ name: SERVICE_ENUMERATION, type: TYPE.PTR, data: serviceName });
-    } else if (name === serviceName.toLowerCase() && asks(TYPE.PTR)) {
-      answers.push(ptr);
-      additionals.push(srv, txt, ...addresses);
-    } else if (name === instance.toLowerCase()) {
-      if (asks(TYPE.SRV)) {
-        answers.push(srv);
-        additionals.push(...addresses);
+    for (const question of message.questions) {
+      const name = question.name.toLowerCase();
+      const asks = (type: number) => question.type === type || question.type === TYPE.ANY;
+
+      if (name === SERVICE_ENUMERATION && asks(TYPE.PTR)) {
+        answers.push({ name: SERVICE_ENUMERATION, type: TYPE.PTR, data: serviceName });
+      } else if (name === serviceName.toLowerCase() && asks(TYPE.PTR)) {
+        answers.push(ptr);
+        additionals.push(srv, txt, ...addresses);
+      } else if (name === instance.toLowerCase()) {
+        if (asks(TYPE.SRV)) {
+          answers.push(srv);
+          additionals.push(...addresses);
+        }
+        if (asks(TYPE.TXT)) answers.push(txt);
+      } else if (name === one.host.toLowerCase() && asks(TYPE.A)) {
+        answers.push(...addresses);
       }
-      if (asks(TYPE.TXT)) answers.push(txt);
-    } else if (name === service.host.toLowerCase() && asks(TYPE.A)) {
-      answers.push(...addresses);
     }
   }
 
@@ -327,7 +343,7 @@ export function answersFor(
 
 
 /** No dots, no control characters, at most 63 bytes of UTF-8. */
-export function dnsLabel(text: string, fallback = "DEX BOT"): string {
+export function dnsLabel(text: string, fallback = "Luna Bot"): string {
   let label = text
     // oxlint-disable-next-line no-control-regex -- control characters are not valid in a DNS label
     .replace(/[\u0000-\u001f\u007f]/g, "")
@@ -397,7 +413,9 @@ export interface ResponderOptions {
 
 export class MdnsResponder {
   private socket: ResponderSocket | null = null;
-  private service: ServiceInfo | null = null;
+  /** Every service this machine publishes; they share one socket and one host
+   * record, so a legacy type costs a PTR/SRV/TXT set, not a second responder. */
+  private services: ServiceInfo[] | null = null;
   private timers: ReturnType<typeof setTimeout>[] = [];
   private sendQueue: Promise<void> = Promise.resolve();
   /** Bumped by every stop(), so a bind still in flight knows it was cancelled. */
@@ -427,13 +445,15 @@ export class MdnsResponder {
   }
 
   /** Resolves false when mDNS could not start, which is never fatal: pairing
-   * by typed address still works. */
-  async advertise(service: ServiceInfo): Promise<boolean> {
+   * by typed address still works. One call advertises every type given. */
+  async advertise(service: ServiceList): Promise<boolean> {
     // stop() counts itself before its goodbye wait, so a shutdown during that wait is still seen below.
     const stopping = this.stop();
     const stops = this.stops;
     await stopping;
-    if (!service.addresses.length) return false;
+    const services = serviceList(service);
+    const addresses = services[0]?.addresses ?? [];
+    if (!addresses.length) return false;
 
     const socket = this.socketFactory();
     // An unhandled socket 'error' event is an uncaught exception.
@@ -468,7 +488,7 @@ export class MdnsResponder {
       }
       // Join per interface: the default route is not necessarily the phone's network.
       let joined = false;
-      for (const address of service.addresses) {
+      for (const address of addresses) {
         try {
           socket.addMembership(MDNS_ADDRESS, address);
           joined = true;
@@ -493,7 +513,7 @@ export class MdnsResponder {
     }
 
     this.socket = socket;
-    this.service = service;
+    this.services = services;
     // RFC 6762 §8.3: announce more than once, spaced out.
     for (const delay of [0, 1000, 3000]) {
       const timer = setTimeout(() => this.announce(), delay);
@@ -509,11 +529,11 @@ export class MdnsResponder {
     this.stops += 1;
     for (const timer of this.timers.splice(0)) clearTimeout(timer);
     const socket = this.socket;
-    const service = this.service;
+    const services = this.services;
     this.socket = null;
-    this.service = null;
+    this.services = null;
     if (!socket) return;
-    if (service) {
+    if (services && services.length) {
       // `close` does not flush a queued send, so wait for the goodbye to
       // leave; bounded so shutdown cannot hang on a network that is gone.
       await new Promise<void>((resolve) => {
@@ -526,7 +546,7 @@ export class MdnsResponder {
         const timer = setTimeout(finish, GOODBYE_FLUSH_MS);
         timer.unref?.();
         try {
-          this.send(socket, encodeResponse(announcement(service), [], { ttl: 0 }), service.addresses, () => {
+          this.send(socket, encodeResponse(announcement(services), [], { ttl: 0 }), services[0].addresses, () => {
             clearTimeout(timer);
             finish();
           });
@@ -546,21 +566,21 @@ export class MdnsResponder {
   }
 
   private announce() {
-    if (!this.socket || !this.service) return;
+    if (!this.socket || !this.services) return;
     try {
-      this.send(this.socket, encodeResponse(announcement(this.service)), this.service.addresses);
+      this.send(this.socket, encodeResponse(announcement(this.services)), this.services[0].addresses);
     } catch {
     }
   }
 
   private handle(buf: Buffer, from: string, fromPort: number) {
-    if (!this.socket || !this.service) return;
+    if (!this.socket || !this.services) return;
     // RFC 6762 §5.5 and §11: answer the local link only, or this socket is a
     // reflector for spoofed source addresses.
     if (!isOnLink(from)) return;
     const message = decodeMessage(buf);
     if (!message || message.response || !message.questions.length) return;
-    const { answers, additionals } = answersFor(message, this.service);
+    const { answers, additionals } = answersFor(message, this.services);
     if (!answers.length) return;
 
     // RFC 6762 §6.7: a query from a port other than 5353 is a legacy
@@ -575,7 +595,7 @@ export class MdnsResponder {
     try {
       // The kernel routes unicast replies; only group sends are pinned.
       if (unicast) this.socket.send(packet, fromPort, from);
-      else this.send(this.socket, packet, this.service.addresses);
+      else this.send(this.socket, packet, this.services[0].addresses);
     } catch {
     }
   }

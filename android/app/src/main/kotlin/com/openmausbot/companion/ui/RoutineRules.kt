@@ -85,7 +85,7 @@ object RoutineRules {
             "并保留完整的运行日志。如果上一次运行仍在进行中，" +
             "下一次触发将被跳过而不是排队。"
     const val UNKNOWN_SCHEDULE_NOTE: String =
-        "此例程使用了新版 DEX BOT 添加的计划类型。请在保存前选择“单次运行”、" +
+        "此例程使用了新版 Luna Bot 添加的计划类型。请在保存前选择“单次运行”、" +
             "“指定星期”或“每隔 X 分钟”。"
 
     const val CHECKING_CLOUD: String = "正在检查云端虚拟机可用性…"
@@ -95,7 +95,7 @@ object RoutineRules {
         "使用此智能体在已配对电脑上所选的模型和电脑设置。"
     const val CLOUD_READY_FOOTER: String =
         "在智能体的 Box 虚拟机内运行该智能体及其工具。虚拟机会在每次运行时自动唤醒；" +
-            "请保持 DEX BOT 运行以便调度器启动任务。"
+            "请保持 Luna Bot 运行以便调度器启动任务。"
     const val CLOUD_BLOCKED_FOOTER: String =
         "此现有的云端虚拟机选项已被保留，但在已配对电脑配置好 Box API 密钥" +
             " 并有可用的 Box 智能体之前无法运行。"

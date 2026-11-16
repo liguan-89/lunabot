@@ -1,6 +1,6 @@
 # Decision model
 
-OpenMausBot can use a fast decision model to pick things for your bots. It
+Luna Bot can use a fast decision model to pick things for your bots. It
 answers in a few hundred milliseconds for a fraction of a cent. It never does
 the work: the chosen bot still runs its own turn on its own engine. Three
 providers are supported: Cloudflare's Clef on
@@ -11,7 +11,8 @@ on [OpenRouter](https://openrouter.ai).
 Everything is in **Settings → Decision and extraction** (Advanced mode): the
 Cloudflare Workers AI card, the Jev/OpenRouter picker under **Another key**,
 for OpenRouter the model, one master switch, each key with **Save** and
-**Test**, and a switch for room routing (**Who answers in rooms**). Each
+**Test**, and switches for room routing (**Who answers in rooms**), browser
+clicks, tool selection and where work runs. Each
 provider keeps its own key, but picking a provider does not choose whose key
 decides: the fixed order below does. To use Workers AI or OpenRouter while a
 Jev key is saved, clear the Jev key (an `OMB_JEV_API_KEY` in the environment
@@ -107,8 +108,47 @@ New rooms start on Auto while the decider and its room job are on. Existing
 rooms keep their mode. With the decision model off, an Auto room shows a
 one-line hint and answers like lead mode.
 
-Browser clicks, tool selection and where work runs are listed as "Coming
-soon" and have no switch yet.
+### Browser clicks, tool selection and where work runs
+
+These three jobs are off until switched on in **Settings → Decision and
+extraction**. They use the person's own Jev, Workers AI, Laya or OpenRouter
+key; the included Cloud relay does not accept their seams yet.
+
+**Browser clicks.** With the job on and the bots' browser on the built-in
+Chrome engine, `agent_browser_click` may pass `intent` instead of a ref: the
+decision model picks one visible, enabled element from a fresh snapshot. A
+selector that matches several elements is resolved the same way. The question
+offers each element by its own accessible name (a repeated name is told apart
+as "Save (2)"), because the Local Laya model answered a ref-keyed question by
+position — `e1` for every intent — and a name-keyed one every case right. The
+model sees the person's request, the bot's words and the page's address and
+title; it never sees the page's text beyond those names. If it is unsure, says
+none, times out or fails, the click is not made: the tool asks for a ref, or
+the existing "ambiguous selector" error stands. The legacy agent-browser engine
+keeps its old behaviour.
+
+**Tool selection.** With the job on, the bot's agents tools include
+`select_tool`. The bot passes a task and 2–50 tools with names and optional
+one-line descriptions; the decision model returns one tool name with a
+probability, or says none fits. The question keys each option by the tool's own
+name and puts the person's action in the instructions: measured on the Local
+Laya model, `t1`-style keys with a bare task answered "none" for four fitting
+cases out of six, while this form answered six of seven right. The bot still
+calls the tool itself. An unsure answer returns the closest candidates instead
+of a choice. The tool is not listed while the job is off.
+
+**Where work runs.** On Auto only, and only after a pin, Works on, Off, a
+routine's cloud placement, a team computer and a handoff are ruled out. A
+narrow set of words in the request proposes one place — the person's own files,
+apps or screen for this computer; untrusted or risky work for the Local VM;
+work that must outlive the person's computer for the cloud — and the decision
+model is asked one yes/no to confirm it. A miss, a veto, an unsure answer or
+any failure leaves today's Auto choice exactly as it was. Measured on the Local
+Laya model over fifteen requests, this confirmed twelve and never moved work to
+a wrong place; asking the model to choose among the places directly picked a
+wrong one in six of ten cases. It is bounded to 1.5 seconds, and the chosen
+surface is then subject to the same mount and refusal checks as any other
+place.
 
 ## It fails open
 
@@ -129,7 +169,7 @@ account is out of credits for a 402.
 ## What is logged
 
 Each call that reaches the model adds one row to
-`~/.openmausbot/decider-log/YYYY-MM.ndjson` (mode 0600). This is separate
+`~/.lunabot/decider-log/YYYY-MM.ndjson` (mode 0600). This is separate
 from the approvals log in `decisions/`.
 
 ```json
@@ -215,7 +255,7 @@ Cloudflare, or the server `workersAiBaseUrl` points to, which also receives the
 token. With OpenRouter that is OpenRouter and the host it routes the model to,
 under OpenRouter's privacy settings and your account's data policy, or the
 server `openrouterBaseUrl` points to, which also receives the key;
-OpenMausBot does not set a data-collection preference.
+Luna Bot does not set a data-collection preference.
 
 Inbox triage first has each new email read, when a reading provider is set:
 the first of your own Workers AI key (Clairic and Clef-flash each get the
@@ -260,7 +300,7 @@ mentioned**.
   "workersAiToken": "",
   "workersAiAccountId": "",
   "workersAiBaseUrl": "https://api.cloudflare.com/client/v4",
-  "jobs": { "roomRouting": true, "inboxTriage": true }
+  "jobs": { "roomRouting": true, "inboxTriage": true, "browserClicks": false, "toolSelection": false, "placement": false }
 }
 ```
 

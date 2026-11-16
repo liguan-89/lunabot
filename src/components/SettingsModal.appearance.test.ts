@@ -450,7 +450,7 @@ describe("Settings → Appearance", () => {
   it("offers personal Cloud separately and only through the local desktop bridge", () => {
     fixture.section = "cloudAccount";
     vi.stubGlobal("window", { ogb: { cloudAccount: {} } });
-    expect(render()).toContain('<option value="cloudAccount" selected="">DEX BOT Cloud</option>');
+    expect(render()).toContain('<option value="cloudAccount" selected="">Luna Bot Cloud</option>');
     expect(render()).toContain("Free local use");
     fixture.section = "appearance";
     vi.stubGlobal("window", {}); expect(render()).not.toContain('<option value="cloudAccount"');

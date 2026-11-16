@@ -18,22 +18,22 @@ export function authConfigUseLine(toolkit: string, choice: AuthConfigChoice): st
 }
 
 const MANAGED_NOTE = (toolkit: string) =>
-  `DEX BOT note: ${toolkit} has no Composio-managed sign-in, so it needs the person's own OAuth app, which `
-  + "DEX BOT's built-in connected apps cannot use. Tell the person: add their own Composio project key in "
-  + `Settings → API keys (the project that has their ${toolkit} auth config); DEX BOT then picks that auth config up `
+  `Luna Bot note: ${toolkit} has no Composio-managed sign-in, so it needs the person's own OAuth app, which `
+  + "Luna Bot's built-in connected apps cannot use. Tell the person: add their own Composio project key in "
+  + `Settings → API keys (the project that has their ${toolkit} auth config); Luna Bot then picks that auth config up `
   + `on its own, and they connect ${toolkit} again. Do not retry this call.`;
 
 function selfHostedNote(toolkit: string, ready: ToolkitSession | Error): string {
-  if (ready instanceof Error) return `DEX BOT note: ${ready.message} Tell the person this. Do not retry this call.`;
+  if (ready instanceof Error) return `Luna Bot note: ${ready.message} Tell the person this. Do not retry this call.`;
   if (ready.choice) {
-    return `DEX BOT note: ${toolkit} has no Composio-managed sign-in. ${authConfigUseLine(toolkit, ready.choice)} `
+    return `Luna Bot note: ${toolkit} has no Composio-managed sign-in. ${authConfigUseLine(toolkit, ready.choice)} `
       + `Call COMPOSIO_MANAGE_CONNECTIONS with toolkits ["${toolkit}"] to show the person a card that connects it, then `
       + "end the turn. Do not retry this call before that.";
   }
-  const unread = ready.readError ? ` DEX BOT could not read their auth configs just now (Composio said: ${ready.readError}).` : "";
-  return `DEX BOT note: ${toolkit} has no Composio-managed sign-in, so it needs an auth config with the person's own `
+  const unread = ready.readError ? ` Luna Bot could not read their auth configs just now (Composio said: ${ready.readError}).` : "";
+  return `Luna Bot note: ${toolkit} has no Composio-managed sign-in, so it needs an auth config with the person's own `
     + `OAuth app in their Composio project, and there is no enabled one for ${toolkit}.${unread} Tell them to create one `
-    + "(Auth Configs → Create in their Composio project, with their app's client ID and secret); DEX BOT then uses "
+    + "(Auth Configs → Create in their Composio project, with their app's client ID and secret); Luna Bot then uses "
     + `it on its own, and they connect ${toolkit} again. Do not retry this call.`;
 }
 

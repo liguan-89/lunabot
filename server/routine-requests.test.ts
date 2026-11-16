@@ -9,6 +9,7 @@ import {
   RoutineRequestService,
   consequenceLine,
   routineRequestFingerprint,
+  scheduleText,
   type RoutineProposalInput,
   type RoutineRequestMessage,
   type RoutineRequestOptionCard,
@@ -435,7 +436,7 @@ describe("RoutineRequestService", () => {
     expect(plain.detail).not.toContain("On startup:");
 
     const proposed = await service.propose({ botId: "bot-a", threadId: "thread-a", proposal: createProposal({ runOnStartup: true }) });
-    expect(proposed.detail).toContain("On startup: Also runs once each time DEX BOT starts");
+    expect(proposed.detail).toContain("On startup: Also runs once each time Luna Bot starts");
     expect(store.messagesFor("thread-a")[0]!.card!.routineRequest?.operation).toMatchObject({ action: "create", routine: { runOnStartup: true } });
     expect(service.resolve({ botId: "bot-a", threadId: "thread-a", requestId: proposed.requestId, behavior: "allow" }).state).toBe("applied");
     const routine = routines.listRoutines().find((candidate) => candidate.name === "Morning brief")!;
@@ -1907,6 +1908,14 @@ describe("consequenceLine", () => {
       "Will run 2 days a week; each run starts a fresh session.",
     );
     expect(consequenceLine({ type: "once", at: 0 })).toBe("Will run once; that run starts a fresh session.");
+  });
+
+  it("says the schedule and its consequence in the conversation's language", () => {
+    expect(scheduleText({ type: "daily", time: "09:00", weekdays: [1, 3] }, "Asia/Shanghai", undefined, "zh"))
+      .toContain("星期一和星期三");
+    expect(consequenceLine({ type: "daily", time: "09:00", weekdays: [1, 3] }, false, "zh"))
+      .toBe("运行频率：每周 2 天；每次运行都会开启新会话。");
+    expect(consequenceLine({ type: "once", at: 0 }, false, "zh")).toBe("只运行一次；该次运行会开启新的会话。");
   });
 });
 

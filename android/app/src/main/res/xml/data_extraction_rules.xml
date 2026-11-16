@@ -11,6 +11,10 @@
   excluded for the same reason: they say which first-run steps this install has
   already shown.
 
+  Both files have been renamed twice (`openmaus.*` → `dexbot.*` → `lunabot.*`),
+  so every name is excluded in both blocks: an install that has not yet run the
+  rename chain still has the older file on disk.
+
   The roster cache is excluded too: device-local convenience the next live
   hydrate replaces wholesale, and a restored copy would show the new device a
   fleet saved by the old one as if the computer had just answered.
@@ -23,6 +27,12 @@
         <exclude
             domain="sharedpref"
             path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude
+            domain="sharedpref"
+            path="lunabot.permissions.xml" />
+        <exclude
+            domain="sharedpref"
+            path="lunabot.onboarding.xml" />
         <exclude
             domain="sharedpref"
             path="dexbot.permissions.xml" />
@@ -46,6 +56,12 @@
         <exclude
             domain="sharedpref"
             path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude
+            domain="sharedpref"
+            path="lunabot.permissions.xml" />
+        <exclude
+            domain="sharedpref"
+            path="lunabot.onboarding.xml" />
         <exclude
             domain="sharedpref"
             path="dexbot.permissions.xml" />

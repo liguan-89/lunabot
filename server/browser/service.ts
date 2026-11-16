@@ -4,7 +4,7 @@
 // The tab lifecycle, popups, downloads and the per-server limits follow pingdotgg/t3code@00cdceb1
 // apps/server/src/preview/ServerBrowser.ts (dropTab, adoptPopup, saveDownload, closeIdleAgentTabs), MIT License,
 // Copyright (c) 2026 T3 Tools Inc. (full text in third_party/t3-code/LICENSE); modified: a Chrome per profile behind the
-// CDP driver instead of Playwright contexts, and DEX BOT's idle close, caps and person/bot control rules.
+// CDP driver instead of Playwright contexts, and Luna Bot's idle close, caps and person/bot control rules.
 import { randomUUID } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -22,6 +22,7 @@ import { isUnanswered } from "./cdp/errors.ts";
 import type { CdpPage } from "./cdp/page.ts";
 import { browserRoot, profileDir, profileHash, profileKind, removeProfile, workspaceId } from "./chrome/profile.ts";
 import { BROWSER_CONTROL_REFUSAL, ProfileControl, type TakeResult } from "./control.ts";
+import type { ClickChoice, ClickChoiceInput } from "./click-choice.ts";
 import { executeTool, personUrl, toolFailure, type ToolContext } from "./dispatch.ts";
 import { installedExtensions } from "./extensions.ts";
 import { HealthShown, pageHealthLine } from "./health.ts";
@@ -63,6 +64,8 @@ export interface BrowserServiceOptions {
   capacityWaitMs?: number;
   /** How long a person's hold lasts without a hand-back; the standard limits when unset. */
   holdLimits?: HoldLimits;
+  /** A decision model's pick among click candidates, when the browserClicks job is on. */
+  chooseClick?: ClickChoice;
   log?: (line: string) => void;
 }
 
@@ -513,6 +516,7 @@ export class BrowserService {
       secretOnPage: (tab) => this.#holds.refuses(profile.session, async () => tab.page.url(), tab.page.targetId),
       saveScreenshot: (data, pageUrl) => this.#saveScreenshot(profile, data, pageUrl),
       downloads: () => run.browser.downloads?.list() ?? [],
+      ...(this.#options.chooseClick ? { chooseClick: { enabled: () => this.#options.chooseClick!.enabled(), choose: (input: ClickChoiceInput) => this.#options.chooseClick!.choose(profile.session, input) } } : {}),
     };
   }
 

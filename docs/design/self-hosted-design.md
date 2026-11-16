@@ -1,4 +1,4 @@
-# Self-hosted MausBot — design
+# Self-hosted Luna Bot — design
 
 Version 1, 2026-11-10. Each section says what it decides; [Status against the code](#status-against-the-code) says
 what exists today. Anything not listed there as built is planned.
@@ -98,12 +98,12 @@ The Coolify hosted-workspace path (never proven on a real install). `fleet` stay
 
 ## The customer-run mode
 
-Decided: the server installer brings MausBot; the connector attaches to that install and the Admin never starts it.
+Decided: the server installer brings Luna Bot; the connector attaches to that install and the Admin never starts it.
 
 - **Chosen on the server.** `connector/install.sh` picks `customer-run` when `/opt/openmausbot/compose.yaml` exists
   and starts the connector with `MAUSBOT_MODE=customer-run`; the enrolment writes the mode into the connector's state.
   The stricter of the two always wins, and nothing the Admin sends changes it. A connector started in `operated` mode
-  refuses to enrol where the owner's MausBot already runs.
+  refuses to enrol where the owner's Luna Bot already runs.
 - **Enforced on the server, three times over for jobs.** A job outside the list is refused as it arrives
   (`checkCustomerRunJob`), again at the desk every job passes through (`jobDesk`), and the home the connector attached
   to has no code path for it (`AdoptedHome`). Each refusal is a line in the audit log.
@@ -123,7 +123,7 @@ Decided: the server installer brings MausBot; the connector attaches to that ins
 - **The report is rebuilt, not filtered.** `reducedHeartbeat` and `reducedReply` copy named fields; every string is an
   enumerated code or matches a pattern (a version, an image reference, a machine's own name for itself). A failed job
   sends its code and a fixed sentence; the reason stays in the audit log.
-- **Adoption.** `AdoptedHome` finds the Compose project `openmausbot` (service `omb`, Caddy in front, `/data` bound
+- **Adoption.** `AdoptedHome` finds the Compose project `lunabot` (service `omb`, Caddy in front, `/data` bound
   to a folder). `start`, `stop` and `restart` start and stop those containers. `backup` and `restore` copy that folder
   to and from Docker volumes on the same server with helpers run from the home's own image.
 - **Update: the server's own updater.** The connector never recreates the owner's containers and never writes the

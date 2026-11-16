@@ -115,7 +115,7 @@ describe("routine comms e2e on the job runtime (fake pi fleet)", () => {
           name: candidate.name, busy: candidate.busy,
           tail: (candidate.messages ?? []).slice(-6).map((m: any) => ({ role: m.role, kind: m.kind, text: m.text?.slice(0, 300), tool: m.tool?.name, from: m.from?.name })),
         }));
-        const rows = readHandoffs(join(home, ".dexbot")).map(({ id, parentId, botId, status, outcome, mode, result }) => ({ id, parentId, botId, status, outcome, mode, result: result.slice(0, 200) }));
+        const rows = readHandoffs(join(home, ".lunabot")).map(({ id, parentId, botId, status, outcome, mode, result }) => ({ id, parentId, botId, status, outcome, mode, result: result.slice(0, 200) }));
         let evidence = "";
         try { evidence = readFileSync(`${planPath}.evidence.jsonl`, "utf8").trim().split("\n").map((line, index) => `EV${index}: ${JSON.stringify(JSON.parse(line)).slice(0, 400)}`).join("\n---\n"); } catch {}
         throw new Error(`${what}.\nbots: ${JSON.stringify(tails)}\nrows: ${JSON.stringify(rows)}\nevidence: ${evidence}\nstderr: ${stderr.slice(-2000)}`);
@@ -133,7 +133,7 @@ describe("routine comms e2e on the job runtime (fake pi fleet)", () => {
   };
   const bot = async (botId: string): Promise<any> => (await api("GET", "/api/bots")).body.bots.find((candidate: any) => candidate.id === botId);
   const threadMessages = async (threadId: string): Promise<any[]> => (await api("GET", `/api/threads/${threadId}/messages?limit=200`)).body.messages ?? [];
-  const rows = () => readHandoffs(join(home, ".dexbot"));
+  const rows = () => readHandoffs(join(home, ".lunabot"));
   const assignments = (helperId: string, askerId: string) => rows().filter((node) => node.botId === helperId && node.parentId
     && rows().find((parent) => parent.id === node.parentId)?.botId === askerId);
   const readPlan = (): Record<string, any> => {
@@ -211,9 +211,9 @@ describe("routine comms e2e on the job runtime (fake pi fleet)", () => {
     gateFile = join(home, "helper-gate");
     holdFile = join(home, "helper-hold");
     writeFileSync(planPath, "{}");
-    mkdirSync(join(home, ".dexbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     writeFileSync(
-      join(home, ".dexbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         threads: { maxConcurrentPerBot: 3 },
         instances: {

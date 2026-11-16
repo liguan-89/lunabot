@@ -1,7 +1,9 @@
 // An action, not a router: it never carries an address, code or credential.
-export const CLOUD_DEEP_LINK = "dexbot://cloud";
+export const CLOUD_DEEP_LINK = "lunabot://cloud";
+/** The same action under the schemes earlier builds wrote. */
+export const LEGACY_CLOUD_DEEP_LINKS = ["dexbot://cloud"];
 
-export const isCloudDeepLink = value => value === CLOUD_DEEP_LINK;
+export const isCloudDeepLink = value => value === CLOUD_DEEP_LINK || LEGACY_CLOUD_DEEP_LINKS.includes(value);
 export function takeCloudDeepLink(argv) {
   let found = false;
   // Relaunch reuses process.argv: consume only this one-shot action, leaving flags and other links untouched.

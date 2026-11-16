@@ -47,10 +47,10 @@ function workspaceSummary(state) {
 function workspaceWindowTitle(state, companion, homeOrigin = null, t = englishText.t) {
   if (companion) return t("native.title.connected", { server: companion.serverName, host: new URL(companion.endpoint).host });
   const active = activeEnvironment(state);
-  if (listedPlace(active)) return `DEX BOT — ${active.name}`;
+  if (listedPlace(active)) return `Luna Bot — ${active.name}`;
   if (active && active.kind !== "local" && active.origin !== homeOrigin) return t("native.title.hosted", { name: active.name, host: new URL(active.origin).host });
-  if (active && homeOrigin && active.origin === homeOrigin && otherPlaces(state, homeOrigin) > 0) return `DEX BOT — ${active.name}`;
-  return "DEX BOT";
+  if (active && homeOrigin && active.origin === homeOrigin && otherPlaces(state, homeOrigin) > 0) return `Luna Bot — ${active.name}`;
+  return "Luna Bot";
 }
 
 /** Switching is a main-process action; a cloud page must not navigate itself onto the local bridge. */

@@ -3,7 +3,7 @@
 // runs here; clients say it in their own words (src/components/BugReportNote.tsx), so it follows the app's language.
 
 export interface BugReportStatus {
-  /** The MausBot team's id for the report (the "Sent to the DEX BOT team (report …)" line names it). */
+  /** The MausBot team's id for the report (the "Sent to the Luna Bot team (report …)" line names it). */
   id: string;
   /** `received`: we have it and are looking; `fixed`: the team fixed it. */
   status: "received" | "fixed";

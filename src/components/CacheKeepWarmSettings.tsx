@@ -17,7 +17,7 @@ export function CacheKeepWarmSettings() {
   const current = state.config?.cacheKeepWarm;
   if (!current) return null;
   const save = async (next: KeepWarm) => {
-    if (inFlight.current) return;
+    if (inFlight.current || (next.enabled === current.enabled && next.windowMinutes === current.windowMinutes)) return;
     inFlight.current = true;
     setSaving(true);
     setError("");

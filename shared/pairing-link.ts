@@ -1,6 +1,7 @@
-// The one `dexbot://pair` link builder, read by the Android and iOS
+// The one `lunabot://pair` link builder, read by the Android and iOS
 // scanners (`PairingInvite.parse`). Every value is written with
-// encodeURIComponent, so a space is `%20`.
+// encodeURIComponent, so a space is `%20`. The earlier `dexbot://` and
+// `openmausbot://` spellings stay accepted by those scanners.
 
 export type CompanionEndpointKind = "hosted" | "tailnet" | "lan" | "bonjour";
 
@@ -194,5 +195,5 @@ export function phonePairingLink({
   const descriptor = encodePairingE2E(e2e);
   if (descriptor) fields.push(["e2e", descriptor]);
 
-  return `dexbot://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
+  return `lunabot://pair?${fields.map(([key, value]) => `${key}=${encodeURIComponent(value)}`).join("&")}`;
 }

@@ -11,13 +11,13 @@ import com.openmausbot.companion.core.Bot
  * what it is doing, not to do it yourself on a screen the size of a playing card.
  */
 object ComputerPolicy {
-    const val IDLE_EXPLANATION = "仅在机器人工作时截取其电脑画面。"
+    const val IDLE_EXPLANATION = "仅在智能体工作时截取其电脑画面。"
     /** A still from the transcript, shown while no live frame exists. */
     const val STALE_LABEL = "上次画面"
-    const val STALE_NOTE = "这是最近一次截屏；机器人实际操作电脑时才会更新。"
+    const val STALE_NOTE = "这是最近一次截屏；智能体实际操作电脑时才会更新。"
     /** Why there is no live frame at all — the question the blank screen raises. */
-    const val BUSY_HINT = "本轮机器人可能没有使用图形电脑，所以没有实时画面。"
-    const val IDLE_HINT = "若一直没有画面，请在电脑端检查此机器人的「电脑」访问是否开启，或让它实际使用电脑。"
+    const val BUSY_HINT = "本轮智能体可能没有使用图形电脑，所以没有实时画面。"
+    const val IDLE_HINT = "若一直没有画面，请在电脑端检查此智能体的「电脑」访问是否开启，或让它实际使用电脑。"
     const val CONFIRM_TITLE = "打开实时云端桌面？"
     const val CONFIRM_MESSAGE =
         "这将赋予此手机对云端电脑的完全控制权，包括其中已登录的任何账号。"

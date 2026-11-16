@@ -77,7 +77,7 @@ import kotlinx.coroutines.launch
  */
 
 /** What the clipboard shows a copied card came from. */
-private const val CARD_CLIP_LABEL = "DEX BOT 卡片"
+private const val CARD_CLIP_LABEL = "Luna Bot 卡片"
 
 /** Added and removed, in the app's own palette rather than Tailwind's. */
 private val DiffAdded = Color(MausPalette.argb("green"))
@@ -348,14 +348,13 @@ internal fun DataGrid(
         content = {
             headers.forEach { header ->
                 Text(
-                    // Uppercased by the invariant rules, like every other
-                    // section label in this app: a reader in `tr-TR` must still
-                    // read the column name, not a dotted capital.
                     text = header.uppercase(Locale.ROOT),
-                    fontSize = 12.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisSecondary,
+                    style = androidx.compose.material3.LocalTextStyle.current.copy(
+                        fontFeatureSettings = "tnum",
+                    ),
                     softWrap = false,
                 )
             }
@@ -365,13 +364,12 @@ internal fun DataGrid(
             rows.forEach { row ->
                 headers.indices.forEach { column ->
                     Text(
-                        // A short row is padded, not dropped: iOS reads
-                        // `colIdx < row.count ? row[colIdx] : ""` for the same
-                        // reason, and a missing cell that took no space would
-                        // slide the rest of the row under the wrong heading.
                         text = row.getOrElse(column) { "" },
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
+                        fontSize = 13.sp,
+                        color = minisInk,
+                        style = androidx.compose.material3.LocalTextStyle.current.copy(
+                            fontFeatureSettings = "tnum",
+                        ),
                         softWrap = false,
                     )
                 }
@@ -386,7 +384,7 @@ private val TABLE_MIN_COLUMN_WIDTH = 64.dp
 
 /** The gutter between two columns, and the leading between two rows. */
 private val TABLE_COLUMN_GAP = 18.dp
-private val TABLE_ROW_GAP = 4.dp
+private val TABLE_ROW_GAP = 7.dp
 
 /**
  * Column widths from the content, row positions from the columns.

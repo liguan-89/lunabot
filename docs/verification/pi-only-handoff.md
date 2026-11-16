@@ -149,7 +149,7 @@ Grok/Copilot 等驱动已删除。
 - Mimosa PreToolUse 会拦截通过 Bash 直接写源码/配置；改文件请用 Write/Edit。
 - commit hook 可能报 `scanner_no_output`；这只表示没有完整扫描结论，不代表安全。
 - 不要对用户正在运行的 app/data 做验证；所有 e2e 都应在隔离 fixture 里跑。
-- 工作区里的 Android 改动已单独提交（`8175faabc`，DEX BOT 品牌与设置页重构），
+- 工作区里的 Android 改动已单独提交（`8175faabc`，Luna Bot 品牌与设置页重构），
   与本改造无关。
 - 本阶段提交（新→旧）：
   `c8e7eb791`、`9172ed512`、`fec063c12`、`8875fc118`、`b9da64152`、

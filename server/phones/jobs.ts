@@ -19,6 +19,9 @@ export const PHONE_SEND_TIMEOUT_MS = 120_000;
 export const PHONE_POLL_MS = 20_000;
 export const PHONE_DELIVERY_MS = 10_000;
 export const PHONE_RESULT_MAX_BYTES = 262_144;
+/** One file for the chat travels in the answer as base64; the phone caps the file at 8 MB, so this covers it. Every
+ * other answer keeps the 256 KB ceiling that keeps a wide read from filling the turn. */
+export const PHONE_FILE_RESULT_MAX_BYTES = 12_000_000;
 /** How long a job waits to be delivered to a phone not seen lately before it fails as offline. */
 export const PHONE_RECONNECT_WAIT_MS = 15_000;
 const RESTARTING = "This server is restarting. Phone jobs resume by themselves once it is back.";
@@ -145,8 +148,15 @@ export class PhoneJobs {
       this.finish(key, phone, job, { ok: false, code: "turn_ended", error: "The requesting turn ended" });
       throw failure("This job expired; it will not be replayed.");
     }
-    if (outcome.ok && Buffer.byteLength(JSON.stringify(outcome.result) ?? "") > PHONE_RESULT_MAX_BYTES) {
-      return this.finish(key, phone, job, { ok: false, code: "too_large", error: "The phone's answer was over 256 KB; ask for a narrower range." });
+    const resultLimit = job.tool === "PHONE_FILE_SEND" ? PHONE_FILE_RESULT_MAX_BYTES : PHONE_RESULT_MAX_BYTES;
+    if (outcome.ok && Buffer.byteLength(JSON.stringify(outcome.result) ?? "") > resultLimit) {
+      return this.finish(key, phone, job, {
+        ok: false,
+        code: "too_large",
+        error: job.tool === "PHONE_FILE_SEND"
+          ? "The phone's file was too large for one answer; pick a smaller file."
+          : "The phone's answer was over 256 KB; ask for a narrower range.",
+      });
     }
     this.finish(key, phone, job, outcome);
   }

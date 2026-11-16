@@ -1,8 +1,8 @@
-# DEX BOT · Minis 风格 Android 客户端
+# Luna Bot · Minis 风格 Android 客户端
 
-> **DEX BOT** 是独立分支：安装包名改为 `com.dexbot.companion`，可以和原版同时安装、对照使用；桌面端应用 ID 为 `com.dexbot.app`。
+> **Luna Bot** 是独立分支：安装包名改为 `com.lunabot.companion`，可以和原版同时安装、对照使用；桌面端应用 ID 为 `com.lunabot.app`。
 >
-> 基于 [OpenMausBot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/OpenMausBot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面，并接入自建 **DEX Cloud**（`https://cloud.dexai.vip`）。
+> 基于 [OpenMausBot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/OpenMausBot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面，并接入自建 **Luna Bot Cloud**（`https://cloud.dexai.vip`）。
 >
 > 保留上游 Apache-2.0 许可与署名。手机连的是电脑上的 companion；局域网直连、Tailscale 和自建配对服务都保留。
 
@@ -49,9 +49,9 @@
 
 ## 真实验证
 
-已在 Android 15 模拟器（Pixel 9 Pro Fold）上安装，并通过扫码链接配对到本机运行的 **OpenMausBot 0.1.150**：
+已在 Android 15 模拟器（Pixel 9 Pro Fold）上安装，并通过扫码链接配对到本机运行的 **Luna Bot 0.1.150**：
 
-- 配对成功，列表读到真实的 MausBot / Wren 两个 bot 和真实会话。
+- 配对成功，列表读到真实的 Luna Bot / Wren 两个 bot 和真实会话。
 - 聊天页实时收到 Bot 的流式回复，工具步骤折叠、用户气泡、Markdown 均正常。
 - 设置页读到真实连接状态和通知权限。
 - 截图见 `docs/`：
@@ -78,7 +78,7 @@ export JAVA_HOME=/path/to/jdk-17
 装机后发现三处真机问题，已经修掉：
 
 1. **输入框被挤爆**：在 360dp 宽的手机上，原来"外置 + 按钮 + 内置换行斜杠按钮"占掉了太多宽度，
-   `向 MausBot 提问` 被挤成两行。现在把 `+` 收进输入胶囊（Minis 的做法），去掉多余的斜杠按钮
+   `向 Luna Bot 提问` 被挤成两行。现在把 `+` 收进输入胶囊（Minis 的做法），去掉多余的斜杠按钮
    （输入 `/` 仍会自动打开命令面板），占位文字单行显示。
 2. **Bot 没有"表情"**：聊天页头部现在直接使用桌面版的 SupaMaus，并跟随
    `MausState` 变化——思考、工作、未读、完成时表情不同；`思考中… N 步` 卡片和

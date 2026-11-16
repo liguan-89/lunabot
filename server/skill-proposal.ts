@@ -82,7 +82,7 @@ export function deciderDraftEngine(cfg: AppConfig, options: { model?: string } =
       try {
         const response = await fetch(endpoint, {
           method: "POST",
-          headers: { authorization: `Bearer ${account.token}`, "content-type": "application/json", "x-openrouter-title": "DEX BOT" },
+          headers: { authorization: `Bearer ${account.token}`, "content-type": "application/json", "x-openrouter-title": "Luna Bot" },
           body: JSON.stringify({ model, messages: [{ role: "user", content: prompt }] }),
           signal: controller.signal,
           redirect: "error",

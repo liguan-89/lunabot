@@ -12,8 +12,8 @@ const bootstrapSource = fileURLToPath(new URL("../scripts/desktop-server-entry.m
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 test("the packaged server forks the bootstrap with a compile cache under userData", () => {
-  const resourcesPath = path.join("/Applications", "DEX BOT.app", "Contents", "Resources");
-  const userData = path.join("/Users", "someone", "Library", "Application Support", "DEX BOT");
+  const resourcesPath = path.join("/Applications", "Luna Bot.app", "Contents", "Resources");
+  const userData = path.join("/Users", "someone", "Library", "Application Support", "Luna Bot");
   assert.deepEqual(serverChildLaunch({ resourcesPath, userData, env: {}, exists: () => true }), {
     entry: path.join(resourcesPath, "server", "desktop-entry.mjs"),
     compileCacheDir: path.join(userData, "server-compile-cache"),
@@ -21,8 +21,8 @@ test("the packaged server forks the bootstrap with a compile cache under userDat
 });
 
 test("a server tree without the bootstrap forks index.js with no cache, as before", () => {
-  const resourcesPath = path.join("/opt", "DEX BOT", "resources");
-  assert.deepEqual(serverChildLaunch({ resourcesPath, userData: "/home/someone/.config/DEX BOT", env: {}, exists: () => false }), {
+  const resourcesPath = path.join("/opt", "Luna Bot", "resources");
+  assert.deepEqual(serverChildLaunch({ resourcesPath, userData: "/home/someone/.config/Luna Bot", env: {}, exists: () => false }), {
     entry: path.join(resourcesPath, "server", "index.js"),
     compileCacheDir: null,
   });
@@ -32,15 +32,15 @@ test("no cache where the app's path changes every launch: AppImage and App Trans
   // Node keys cache entries by full path, so these would never hit and would add an entry every launch.
   const appImage = serverChildLaunch({
     resourcesPath: "/tmp/.mount_OpenMaXk3f9a/resources",
-    userData: "/home/someone/.config/DEX BOT",
-    env: { APPIMAGE: "/home/someone/DEX BOT.AppImage" },
+    userData: "/home/someone/.config/Luna Bot",
+    env: { APPIMAGE: "/home/someone/Luna Bot.AppImage" },
     exists: () => true,
   });
   assert.equal(appImage.entry, path.join("/tmp/.mount_OpenMaXk3f9a/resources", "server", "desktop-entry.mjs"));
   assert.equal(appImage.compileCacheDir, null);
   const translocated = serverChildLaunch({
-    resourcesPath: "/private/var/folders/xy/T/AppTranslocation/2F1C/d/DEX BOT.app/Contents/Resources",
-    userData: "/Users/someone/Library/Application Support/DEX BOT",
+    resourcesPath: "/private/var/folders/xy/T/AppTranslocation/2F1C/d/Luna Bot.app/Contents/Resources",
+    userData: "/Users/someone/Library/Application Support/Luna Bot",
     env: {},
     exists: () => true,
   });

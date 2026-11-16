@@ -69,7 +69,7 @@ describe("registerPresence", () => {
   it("creates a credential on the server's options and posts the attestation back", async () => {
     apiMock.mockResolvedValueOnce({ options: {
       challenge: "Y2hhbGxlbmdl",
-      rp: { name: "DEX BOT" },
+      rp: { name: "Luna Bot" },
       user: { id: "dXNlcg", name: "owner", displayName: "owner" },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       excludeCredentials: [{ type: "public-key", id: "b2xk" }],

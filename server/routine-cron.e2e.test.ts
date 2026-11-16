@@ -60,7 +60,7 @@ it("takes cron through the real routine tools, applying the bot's own routine at
     const current = async () => (await api("GET", "/api/routines")).routines.find((routine: any) => routine.id === routineId);
     expect(await current()).toMatchObject({ schedule, enabled: true, runOn: "maus", overlap: "queue", runOnStartup: true });
     expect(create.subtitle).toContain("Queue one scheduled run");
-    expect(create.subtitle).toContain("On startup: Also runs once each time DEX BOT starts");
+    expect(create.subtitle).toContain("On startup: Also runs once each time Luna Bot starts");
     expect((await current()).nextRunAt).toBe(nextCronRuns(schedule, create.routineRequest.createdAt, 1)[0]);
 
     const cardCount = (await messages()).filter(message => message.card?.routineRequest).length;

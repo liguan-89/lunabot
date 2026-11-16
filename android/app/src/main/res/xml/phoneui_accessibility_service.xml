@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The phone-UI reader service's whole capability set, declared so a person
+  flipping the accessibility switch can see exactly what it asks for. Only
+  window state change events (nothing per-notification, nothing per-content
+  update), generic feedback, window retrieval with view ids reported, and no
+  gesture dispatch, screenshot or key-event filtering of any kind. The service
+  class may narrow or merge at runtime but never widen past this file.
+-->
+<accessibility-service
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeWindowStateChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows|flagReportViewIds"
+    android:canRetrieveWindowContent="true" />

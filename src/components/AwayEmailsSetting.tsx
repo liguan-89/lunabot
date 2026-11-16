@@ -25,7 +25,7 @@ export function AwayEmailsSetting({ row = false }: { row?: boolean }) {
   };
   if (!team || on === null) return null;
   return (
-    <div className={row ? "flex flex-col gap-1 px-4 py-[13px]" : "flex flex-col gap-1"}>
+    <div data-settings-row={t("settings.profile.awayEmails")} className={row ? "flex flex-col gap-1 px-4 py-[13px]" : "flex flex-col gap-1"}>
       <div className="flex items-center justify-between gap-3">
         <span id={label} className="text-[14px] text-ink">{t("settings.profile.awayEmails")}</span>
         <Switch aria-labelledby={label} checked={on} onClick={() => change(!on)} />

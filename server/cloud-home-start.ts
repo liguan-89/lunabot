@@ -14,6 +14,7 @@ import {
 import { procHidepid } from "./bot-box/hidepid.ts";
 import { boxMemory, heapSizeArgs } from "./box-memory.ts";
 import { clearRecordsFromOtherMachines } from "./data-dir-lease.ts";
+import { resolveDataDir } from "./data-dir.ts";
 import { OOM_SCORE, protectSupervisor, spawnWithOomScore } from "./oom-score.ts";
 import { restartPolicy } from "./restart.ts";
 
@@ -186,9 +187,9 @@ export function tunnelCommand(bin: string, token: string): { command: string; ar
   };
 }
 
-/** The server's data directory on the volume. */
+/** The server's data directory on the volume. The image runs on Linux, so the volume's home is a POSIX path. */
 export function cloudHomeDataDir(env: NodeJS.ProcessEnv, home: string): string {
-  return env.OMB_DATA_DIR || posix.join(home, ".dexbot");
+  return resolveDataDir(env, { home, join: posix.join });
 }
 
 /** flock(1)'s exit status when another process holds the lock (its --conflict-exit-code). */
@@ -217,7 +218,7 @@ export function holdVolume(home: string, lock: VolumeLock = flockVolume): void {
     return;
   }
   closeSync(fd);
-  if (result.status === VOLUME_HELD) throw new Error("Another DEX BOT home is already running on this volume. No data was changed.");
+  if (result.status === VOLUME_HELD) throw new Error("Another Luna Bot home is already running on this volume. No data was changed.");
   const why = result.error?.message ?? (String(result.stderr ?? "").trim().split("\n")[0] || `exit ${result.status}`);
   throw new Error(`This home could not lock its volume (${why}), so it will not start: another home might be using it. No data was changed.`);
 }
@@ -397,7 +398,7 @@ export function startCloudHome(processEnv: NodeJS.ProcessEnv = process.env) {
   const home = processEnv.HOME || "/data";
   const env = root ? { ...processEnv, ...readCloudSecretsFile(home) } : processEnv;
   const config = cloudHomeConfiguration(env);
-  if (!config) throw new Error("This image runs a My Cloud machine for DEX BOT Cloud; set its boot contract (docs/cloud-pro.md).");
+  if (!config) throw new Error("This image runs a My Cloud machine for Luna Bot Cloud; set its boot contract (docs/cloud-pro.md).");
   // Logged here once: the server child never sees what they are about.
   for (const warning of config.warnings) console.warn(`cloud home: ${warning}`);
   const { server, edge, edgeFiles, tunnelToken, secrets, dropped } = cloudHomeChildEnvironments(config, env, home);

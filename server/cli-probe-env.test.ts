@@ -55,7 +55,7 @@ function expectNoCredentials(file: string) {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cli-probe-env-"));
-  const dataDir = join(home, ".dexbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   // Answers like any CLI's `--version`; `probe` records the environment it ran with.
   writeFileSync(join(home, "stub-cli.mjs"), `import { writeFileSync } from "node:fs";

@@ -23,6 +23,9 @@ export function isLongPollPath(path: string): boolean {
   return path.startsWith("/api/shared-computers/") || path === "/api/phones/self/jobs";
 }
 
+/** A job answer can carry one file for the chat as base64 (the phone caps the file at 8 MB); other answers are small. */
+export const PHONE_RESULT_MAX_BYTES = 12_000_000;
+
 export interface PhoneRouteDeps {
   registry: PhoneRegistry;
   jobs: PhoneJobs;
@@ -93,7 +96,7 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
         const [, id, action] = act;
         if (action === "lease") return json(res, 200, { active: jobs.lease(key, id!) });
         if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) return json(res, 415, { error: "JSON required" });
-        const outcome = phoneJobOutcome.safeParse(await readBody(req, 1_000_000));
+        const outcome = phoneJobOutcome.safeParse(await readBody(req, PHONE_RESULT_MAX_BYTES));
         if (!outcome.success) return json(res, 400, { error: "Send { ok: true, result } or { ok: false, error, code? }." });
         jobs.complete(key, id!, outcome.data);
         return json(res, 200, { ok: true });

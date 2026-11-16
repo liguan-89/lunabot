@@ -70,7 +70,7 @@ beforeEach(() => {
       { name: "Scout", servers: ["tracker", "flaky"] },
       { name: "Clerk", servers: ["tracker"], connectorScopes: { apps: { slack: "read" } } },
       { name: "Old", servers: ["tracker"], hidden: true },
-      { name: "DEX BOT", servers: ["tracker"], defaultBot: { person: "ada@acme.test" } },
+      { name: "Luna Bot", servers: ["tracker"], defaultBot: { person: "ada@acme.test" } },
     ],
     botServers: (bot) => bot.servers,
     roster: () => ROSTER,

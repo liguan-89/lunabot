@@ -171,7 +171,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
         const started = await this.start(cloud);
         if (started.status !== "ready") throw Object.assign(new Error("not_running"), { code: "not_running" });
       }
-      const body = Buffer.from(JSON.stringify({ label: "DEX BOT Cloud", ttlSeconds: 300 }), "utf8");
+      const body = Buffer.from(JSON.stringify({ label: "Luna Bot Cloud", ttlSeconds: 300 }), "utf8");
       const timestamp = String(Math.floor(Date.now() / 1000));
       const nonce = randomBytesB64u(24);
       const bodyHash = createHash("sha256").update(body).digest("base64url");

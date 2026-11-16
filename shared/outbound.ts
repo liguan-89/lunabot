@@ -56,7 +56,41 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
   "GOOGLECALENDAR_EVENTS_GET",
   "GOOGLECALENDAR_FIND_EVENT",
   "GOOGLECALENDAR_LIST_CALENDARS",
+  // The phone's screen observation reads, though its verb hides behind the UI token.
+  "PHONE_UI_OBSERVE",
+  // Waiting changes nothing on the phone; it only lets the screen settle.
+  "PHONE_UI_WAIT",
+  // A screenshot and its text recognition only read the screen.
+  "PHONE_UI_SCREENSHOT",
+  "PHONE_UI_OCR",
+  // Querying the screen's elements reads the same tree observation does, though neither of its tokens is a read verb.
+  "PHONE_UI_QUERY",
+  // Listing the apps with a launcher entry only reads the phone's own list.
+  "PHONE_LIST_APPS",
+  // Reading the clipboard only reads; writing it is a phone-wide side effect and asks first.
+  "PHONE_CLIPBOARD_GET",
+  // Listing recent notifications only reads what the person already let this app see.
+  "PHONE_NOTIF_LIST",
+  // Listing and reading the phone's allowed files only reads; putting one in the chat does too.
+  "PHONE_FILE_LIST",
+  "PHONE_FILE_READ",
+  "PHONE_FILE_SEND",
 ]);
+
+/** Driving the phone's screen reaches every app on it, so each control but observing and waiting sends something
+ * somewhere and asks the person first, like any outbound call. The Clock app's own alarm and timer intents, a link
+ * opened on the controlled display and text handed to another app's compose screen are phone-wide side effects too;
+ * so is choosing whether the app a task drove stays open or is finished when the task ends. */
+const PHONE_UI_WRITES: ReadonlySet<string> = new Set([
+  "PHONE_UI_COLLECT", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
+  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE",
+  "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_OPEN_LINK", "PHONE_SHARE_TEXT", "PHONE_UI_AFTER_TASK",
+]);
+
+/** One of the phone-screen controls (never PHONE_UI_OBSERVE); accepts the MCP-shaped `mcp__device__…` name too. */
+export function isPhoneUiWrite(name: string): boolean {
+  return PHONE_UI_WRITES.has(name.replace(/^mcp__(?:composio|own_apps|device)__/, ""));
+}
 
 /** The action part of a tool name, as upper-case word tokens. Composio's
  * TOOLKIT_ACTION drops its toolkit; an MCP server's mcp__server__action
@@ -81,7 +115,7 @@ function actionTokens(name: string): string[] {
  * narrower than "not outbound": updates, deletes and other writes do not
  * become reads merely because they send nothing to another person. */
 export function isReadOnlyTool(name: string): boolean {
-  if (KNOWN_READ_SLUGS.has(name.replace(/^mcp__(?:composio|own_apps)__/, ""))) return true;
+  if (KNOWN_READ_SLUGS.has(name.replace(/^mcp__(?:composio|own_apps|device)__/, ""))) return true;
   const tokens = actionTokens(name);
   return tokens.length > 0 && READ_VERBS.has(tokens[0]);
 }
@@ -95,6 +129,7 @@ export function isOutboundTool(name: string): boolean {
   // nothing here can read which; it is treated as a send.
   if (name === "COMPOSIO_PROXY_EXECUTE" || RAW_API_ACTION.test(name)) return true;
   if (AGENTS_X_READS.test(name)) return false;
+  if (isPhoneUiWrite(name)) return true;
   const tokens = actionTokens(name);
   if (tokens.length === 0) return false;
   if (isReadOnlyTool(name)) return false;

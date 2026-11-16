@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,9 +28,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -170,34 +172,67 @@ fun PredictiveChipsRow(
     onSelect: (PredictiveChip) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scrollState = rememberScrollState()
+    val fadeLeft = scrollState.canScrollBackward
+    val fadeRight = scrollState.canScrollForward
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .horizontalScroll(rememberScrollState())
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                if (fadeLeft || fadeRight) {
+                    val edgePx = 28.dp.toPx().coerceAtMost(size.width * 0.25f)
+                    val leftStop = if (size.width > 0f) edgePx / size.width else 0f
+                    val rightStop = if (size.width > 0f) 1f - edgePx / size.width else 1f
+                    drawRect(
+                        brush = Brush.horizontalGradient(
+                            0f to if (fadeLeft) Color.Transparent else Color.Black,
+                            leftStop to Color.Black,
+                            rightStop to Color.Black,
+                            1f to if (fadeRight) Color.Transparent else Color.Black,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                }
+            }
+            .horizontalScroll(scrollState)
             .padding(horizontal = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         chips.forEach { chip ->
-            AssistChip(
-                onClick = { onSelect(chip) },
-                modifier = Modifier.semantics(mergeDescendants = true) {
-                    contentDescription = chip.title
-                },
-                label = { Text(chip.title, fontSize = 13.sp) },
-                leadingIcon = chip.icon?.let { icon ->
-                    { Text(quickReplyGlyph(icon), fontSize = 13.sp, color = secondaryTint) }
-                },
-                // Flat and borderless, like the composer's own capsule: a
-                // suggestion is a quiet door, not a second row of buttons.
-                shape = CircleShape,
-                border = null,
-                colors = AssistChipDefaults.assistChipColors(
-                    containerColor = minisControl,
-                    labelColor = minisInk,
-                    leadingIconContentColor = secondaryTint,
-                ),
-            )
+            Box(
+                modifier = Modifier
+                    .heightIn(min = 40.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClick = { onSelect(chip) },
+                    )
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = chip.title
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .chromeCapsule(surface = true)
+                        .padding(horizontal = 13.dp, vertical = 7.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    chip.icon?.let { icon ->
+                        Text(quickReplyGlyph(icon), fontSize = 13.sp, color = secondaryTint)
+                    }
+                    Text(
+                        text = chip.title,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisInk,
+                        maxLines = 1,
+                    )
+                }
+            }
         }
         Spacer(Modifier.width(4.dp))
     }

@@ -149,11 +149,11 @@ test("the tray's menu and the startup screen speak the app's language, and the t
   }
   const tray = createSystemTray({ Tray, Menu: { buildFromTemplate: value => value }, nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
     iconPath, getWindow: () => null, onQuit: () => {}, t: text.t });
-  assert.deepEqual(trayInstance.menu.map(item => item.label), ["Open DEX BOT", undefined, "Quit DEX BOT"]);
+  assert.deepEqual(trayInstance.menu.map(item => item.label), ["Open Luna Bot", undefined, "Quit Luna Bot"]);
   text.set("pt-br");
   tray.relabel();
-  assert.deepEqual(trayInstance.menu.map(item => item.label), ["Abrir o DEX BOT", undefined, "Sair do DEX BOT"]);
-  assert.equal(trayInstance.tooltip, "DEX BOT");
+  assert.deepEqual(trayInstance.menu.map(item => item.label), ["Abrir o Luna Bot", undefined, "Sair do Luna Bot"]);
+  assert.equal(trayInstance.tooltip, "Luna Bot");
   const html = startupScreenHtml(iconPath, { t: text.t, lang: text.intlTag() });
   assert.match(html, /<html lang="pt-BR">/);
   assert.match(html, /<button aria-label="Fechar"/);

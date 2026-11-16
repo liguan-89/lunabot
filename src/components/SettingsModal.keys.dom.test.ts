@@ -115,6 +115,21 @@ describe("searching Settings for a key", () => {
     expect(result("openaiCompat")!.textContent).toBe("Custom model provider · AI providers");
   });
 
+  it("blocks invalid custom provider URLs before any config request", async () => {
+    flushSync(() => root.render(createElement(SettingsModal)));
+    type("custom");
+    flushSync(() => result("openaiCompat")!.click());
+    const url = () => row("openaiCompat").querySelector<HTMLInputElement>('input[aria-label="Base URL"]')!;
+    flushSync(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(url(), "https://user:pass@api.example.com/v1");
+      url().dispatchEvent(new Event("input", { bubbles: true }));
+      url().focus();
+      url().blur();
+    });
+    await vi.waitFor(() => expect(row("openaiCompat").textContent).toContain("Remove the username, password, query string or fragment"));
+    expect(fx.api).not.toHaveBeenCalled();
+  });
+
   it("says plainly when nothing matches", () => {
     flushSync(() => root.render(createElement(SettingsModal)));
     type("zzzz");

@@ -3,11 +3,14 @@
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
+import { Readable } from "node:stream";
+
+import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
-import { createPhoneHost } from "../phones/host.ts";
+import { createPhoneHost, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput } from "../phones/host.ts";
 import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
@@ -24,6 +27,21 @@ type Turn = { botId: string; threadId: string; generation: string };
 
 /** The owner of a desktop's phones: whoever works at this machine or holds an admin session. */
 const DESKTOP_OWNER = "owner";
+
+/** Saves a phone file into the attachment store; the caller appends the message row. */
+const savePhoneAttachment: NonNullable<PhoneHostDeps["saveAttachment"]> = async ({ name, mime, bytes }) => {
+  // A NUL is stripped with replaceAll rather than a character class: a control character in a regex literal is a lint error.
+  const safeName = name.replace(/[\\/]/g, "_").replaceAll("\u0000", "_").trim().slice(0, 200) || "file";
+  if (extensionForMime(mime)) {
+    if (bytes.byteLength > IMAGE_MAX_BYTES) return { ok: false, text: `这张图片超过 ${Math.round(IMAGE_MAX_BYTES / 1_048_576)} MB，没有放进对话。` };
+    const saved = saveImage(bytes, mime);
+    return { ok: true, attachment: { kind: "image" as const, path: saved.path, mime: saved.mime, name: safeName } };
+  }
+  if (!extensionForFileMime(mime)) return { ok: false, text: "这个文件类型不能作为附件放进对话。" };
+  if (bytes.byteLength > FILE_MAX_BYTES) return { ok: false, text: "文件超过了附件大小上限。" };
+  const saved = await saveFile(Readable.from(bytes), safeName, mime, { expectedBytes: bytes.byteLength });
+  return { ok: true, attachment: { kind: "file" as const, path: saved.path, mime: saved.mime, name: saved.name } };
+};
 
 export interface PhonesDeps {
   dataDir: string;
@@ -54,6 +72,10 @@ export interface PhonesDeps {
   mint(botId: string, turn: { threadId: string; generation: string }): string;
   harnessUrl: string;
   active(turn: Turn): boolean;
+  /** Screen writes hold for the same outgoing-action card a connected-app send does. */
+  holdPhoneOutbound?(input: PhoneOutboundHoldInput): Promise<PhoneOutboundHoldAnswer>;
+  /** The turn's effective approval mode, read at call time; absent is `ask`, so every screen write waits. */
+  approvalMode?(botId: string, threadId: string): string;
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -123,6 +145,9 @@ export function createPhones(deps: PhonesDeps) {
     inRoom: (threadId) => Boolean(store.groupByThread(threadId)),
     appendMessage: (threadId, message) => { store.appendMessage(threadId, message as Parameters<typeof store.appendMessage>[1]); },
     active: deps.active,
+    holdOutbound: deps.holdPhoneOutbound,
+    approvalMode: deps.approvalMode,
+    saveAttachment: savePhoneAttachment,
   });
 
   return {
@@ -166,7 +191,7 @@ export function createPhones(deps: PhonesDeps) {
     replySms: async (key: string, to: string, text: string) => {
       const outcome = await jobs.request(key, PHONE_REPLY_SMS, { to, text }, {
         active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
-        offlineText: "This phone is offline. Open the DEX BOT app on it.", online: () => registry.online(key),
+        offlineText: "This phone is offline. Open the Luna Bot app on it.", online: () => registry.online(key),
       });
       if (outcome.ok) registry.used(key);
       return outcome;

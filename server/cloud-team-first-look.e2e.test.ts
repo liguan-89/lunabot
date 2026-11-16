@@ -19,12 +19,12 @@ afterAll(async () => {
   await fx?.close();
 });
 
-it("the first list a new member asks for shows their own DEX BOT with its main chat and its hello", async () => {
+it("the first list a new member asks for shows their own Luna Bot with its main chat and its hello", async () => {
   const mira = (await team.pair({ email: "mira@acme.test", role: "member" })).token!;
   const first = await team.as(mira, "GET", "/api/bots?messages=20");
   expect(first.status).toBe(200);
   const own = (first.body.bots as Bot[]).find((bot) => bot.defaultBot?.person === "mira@acme.test");
-  expect(own, "their own DEX BOT is in the first list").toBeDefined();
+  expect(own, "their own Luna Bot is in the first list").toBeDefined();
   expect(own!.threadId).toBeTruthy();
   expect(own!.tasks?.map((task) => task.threadId)).toContain(own!.threadId);
   expect(own!.messages?.length, "its hello is there").toBeGreaterThan(0);

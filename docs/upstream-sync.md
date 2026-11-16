@@ -1,6 +1,6 @@
 # Absorbing upstream into this fork
 
-This fork does **not** share git history with `milind-soni/OpenMausBot`. It was
+This fork does **not** share git history with `milind-soni/Luna Bot`. It was
 imported as a squashed 20-commit tree at upstream `v0.1.89`, so an ordinary
 `git merge` has no base to work from (`git merge-base` returns nothing) and a
 `--allow-unrelated-histories` merge would present every file as a conflict.
@@ -139,7 +139,7 @@ git stash pop
 ## Known follow-ups
 
 * **Auto-update still points at upstream** (`electron-builder.yml` publish →
-  `milind-soni/OpenMausBot`). An upstream release would overwrite a build of
+  `milind-soni/Luna Bot`). An upstream release would overwrite a build of
   this fork. Point it at this repository (and start bumping the version)
   before shipping.
 * `android/` is fork-only now; upstream no longer carries it, so there is

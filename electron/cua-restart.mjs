@@ -1,8 +1,8 @@
 // Computer control's helper can die while the app runs. It is started again by itself a bounded number of times, and
 // what is true meanwhile is what readiness says.
-export const HELPER_RESTARTING = "Computer control stopped because its helper crashed. DEX BOT is restarting it.";
+export const HELPER_RESTARTING = "Computer control stopped because its helper crashed. Luna Bot is restarting it.";
 export const HELPER_KEEPS_CRASHING =
-  "Computer control's helper keeps crashing, so DEX BOT stopped restarting it. Quit and reopen DEX BOT to try again.";
+  "Computer control's helper keeps crashing, so Luna Bot stopped restarting it. Quit and reopen Luna Bot to try again.";
 
 export const RESTART_WAITS_MS = [1_000, 5_000, 15_000];
 /** A helper that ran this long was fine: the next crash starts a new count. */

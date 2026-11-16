@@ -96,8 +96,8 @@ export async function sendOtp(ctx, { email, purpose, userCode = null, checkoutId
   });
   await ctx.emailer({
     to: clean,
-    subject: "DEX BOT 登录码",
-    text: `你的 DEX BOT 登录码是 ${attempt.code}\n\n10 分钟内有效。如果不是你本人操作，请忽略这封邮件。`,
+    subject: "Luna Bot 登录码",
+    text: `你的 Luna Bot 登录码是 ${attempt.code}\n\n10 分钟内有效。如果不是你本人操作，请忽略这封邮件。`,
   });
   return attempt.attempt;
 }
@@ -129,7 +129,7 @@ export function grantSession(ctx, account, deviceName, platform, appVersion) {
   const device = ctx.store.insertDevice({
     id: `dev_${randomBytesB64u(16)}`,
     accountId: account.id,
-    name: deviceName || "DEX BOT",
+    name: deviceName || "Luna Bot",
     platform: platform || "linux",
     appVersion: appVersion || "0.0.0",
   });

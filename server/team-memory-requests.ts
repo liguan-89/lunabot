@@ -2,11 +2,18 @@
 // its owner did not drive, the owner confirms it on a card instead (direct-apply.ts).
 import type { DecisionRow } from "./decision-log.ts";
 import { UNDO_STALE, type DirectApply } from "./direct-apply.ts";
+import { conversationLanguage, serverLine, type ServerLineKey } from "./server-lines.ts";
 import { TeamMemoryConflict, type TeamMemory, type TeamMemoryInput } from "./team-memory.ts";
 import type { OptionCardData } from "../shared/wire.ts";
 
 type Speaker = { id: string; name: string; color: string; section?: string };
 type Card = OptionCardData;
+const KIND_KEYS = {
+  person: "server.teamMemory.kind.person",
+  place: "server.teamMemory.kind.place",
+  decision: "server.teamMemory.kind.decision",
+  term: "server.teamMemory.kind.term",
+} as const satisfies Record<TeamMemoryInput["kind"], ServerLineKey>;
 
 export interface TeamMemoryRequestDeps {
   teamMemory: Pick<TeamMemory, "propose" | "resolve" | "resolveProposal" | "undoAccept" | "list">;
@@ -46,15 +53,22 @@ export function createTeamMemoryRequests(deps: TeamMemoryRequestDeps) {
         }
         revision = teamMemory.list(from.section).find((candidate) => candidate.id === entry.id)?.revision;
       }
-      const summary = `${entry.kind[0].toUpperCase()}${entry.kind.slice(1)}: ${entry.name}${entry.aliases.length ? ` (also ${entry.aliases.join(", ")})` : ""} — ${entry.detail}`;
+      const language = conversationLanguage(threadId);
+      const kindLabel = serverLine(language, KIND_KEYS[entry.kind]);
+      const summary = serverLine(language, "server.teamMemory.summary", {
+        kind: kindLabel,
+        name: entry.name,
+        aliases: entry.aliases.length ? serverLine(language, "server.teamMemory.aliases", { aliases: entry.aliases.join(", ") }) : "",
+        detail: entry.detail,
+      });
       const message = store.appendMessage(threadId, {
         role: "bot",
         kind: "options",
         ...(inRoom ? { from: { botId: from.id, name: from.name, color: from.color } } : {}),
         card: {
-          title: direct ? "Remembered for the team" : "Remember this for the team?",
+          title: serverLine(language, direct ? "server.teamMemory.remembered" : "server.teamMemory.remember"),
           subtitle: summary,
-          options: direct ? [] : ["Remember", "Skip"],
+          options: direct ? [] : [serverLine(language, "server.teamMemory.rememberOption"), serverLine(language, "server.teamMemory.skipOption")],
           ...(direct ? { answered: "allow", autoApplied: true } : {}),
           requestId: entry.id,
           tool: TOOL,

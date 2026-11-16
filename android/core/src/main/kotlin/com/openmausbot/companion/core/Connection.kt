@@ -388,19 +388,27 @@ data class PairingInvite(val connection: Connection, val credential: String) {
     companion object {
         private const val MAX_ENDPOINTS = 8
 
-        /** The scheme the rebranded desktop writes. */
-        const val SCHEME = "dexbot"
+        /** The scheme the desktop writes now. */
+        const val SCHEME = "lunabot"
+
+        /**
+         * The scheme the previous rebrand wrote. Links and QR codes printed by
+         * a desktop older than this rename still have to pair, so it is read
+         * alongside [SCHEME]; only [SCHEME] is ever written.
+         */
+        const val PREVIOUS_SCHEME = "dexbot"
 
         /**
          * The pre-rebrand scheme. Links and QR codes printed by an older
-         * desktop (or saved by a person) still have to pair, so both are read;
-         * only [SCHEME] is ever written.
+         * desktop (or saved by a person) still have to pair, so every scheme
+         * ever written is read; only [SCHEME] is ever written.
          */
         const val LEGACY_SCHEME = "openmausbot"
 
         fun isPairingUri(scheme: String?, host: String?): Boolean =
             host.equals("pair", ignoreCase = true) &&
                 (scheme.equals(SCHEME, ignoreCase = true) ||
+                    scheme.equals(PREVIOUS_SCHEME, ignoreCase = true) ||
                     scheme.equals(LEGACY_SCHEME, ignoreCase = true))
 
         fun parse(url: URI): PairingInvite? {
@@ -449,7 +457,13 @@ data class PairingInvite(val connection: Connection, val credential: String) {
 
             values["endpoints"]?.let { encoded ->
                 val endpoints = decodeEndpoints(encoded) ?: return null
-                connection = connection.copy(endpoints = endpoints).dialing(endpoints.first())
+                // A computer that names itself over Bonjour is reachable by that
+                // name on every network it joins; the numeric LAN address in the
+                // same invite expires the moment either end changes networks.
+                // Consent to the name (and hosted), not the ephemeral address.
+                val preferred = endpoints.firstOrNull { it.kind == CompanionEndpointKind.BONJOUR }
+                    ?: endpoints.first()
+                connection = connection.copy(endpoints = endpoints).dialing(preferred)
             }
 
             values["e2e"]?.let { raw ->

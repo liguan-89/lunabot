@@ -12,6 +12,7 @@ import { newUuid } from "./crypto.js";
 
 const STATIC = {
   ".apk": "application/vnd.android.package-archive",
+  ".png": "image/png",
   ".json": "application/json; charset=utf-8",
   ".html": "text/html; charset=utf-8",
   ".yml": "text/yaml; charset=utf-8",
@@ -61,7 +62,7 @@ function updateManifest(config) {
     versionCode: 20000,
     versionName: config.latestVersion,
     apkUrl: "/download/dexbot.apk",
-    notes: "DEX BOT 2.0.0 · 自建 DEX Cloud，支持与官方版同时安装",
+    notes: `Luna Bot ${config.latestVersion} · 自建 Luna Bot Cloud，支持与官方版同时安装`,
     ...(size ? { size } : {}),
     ...(sha256 ? { sha256 } : {}),
   });
@@ -189,7 +190,7 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
         if (found.checkout.status === "complete") return html(res, 200, buyPage(found.checkout.id, found.plan, config));
         return html(res, 200, buyPage(found.checkout.id, found.plan, config));
       }
-      if (path === "/cloud/return") return html(res, 200, errorPage("已收到。回到 DEX BOT 即可看到最新的账号状态。"));
+      if (path === "/cloud/return") return html(res, 200, errorPage("已收到。回到 Luna Bot 即可看到最新的账号状态。"));
       if (path === "/provision") {
         const cloud = store.cloud(String(url.searchParams.get("cloud") ?? ""));
         if (!cloud) return html(res, 404, errorPage("云电脑不存在或已被移除。"));
@@ -202,6 +203,9 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
       if (path === "/update.json") {
         if (existsSync(config.updatePath) && staticResponse(res, config.updatePath)) return;
         return json(res, 200, JSON.parse(updateManifest(config)));
+      }
+      if (path === "/og.png") {
+        if (staticResponse(res, config.ogPath, { immutable: true })) return;
       }
       if (path === "/landing" && existsSync(config.landingPath)) {
         if (staticResponse(res, config.landingPath)) return;

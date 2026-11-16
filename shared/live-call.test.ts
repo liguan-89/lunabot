@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { clampAppend, commentaryChunks, formatCallDuration, FULL_ANSWER_IN_CHAT, joinFragments, LiveTranscript, liveCallRowText } from "./live-call.ts";
+import { clampAppend, commentaryChunks, formatCallDuration, FULL_ANSWER_IN_CHAT, joinFragments, LiveTranscript } from "./live-call.ts";
 
 describe("LiveTranscript", () => {
   it("rebuilds each delegated request from the words spoken since the previous one", () => {
@@ -126,10 +126,5 @@ describe("a call's length", () => {
     expect(formatCallDuration(Number.NaN)).toBe("0:00");
     expect(formatCallDuration(Number.POSITIVE_INFINITY)).toBe("0:00");
     expect(formatCallDuration(61.9)).toBe("1:01");
-  });
-
-  it("writes the call row's line for clients that do not know the row", () => {
-    expect(liveCallRowText("Ada", 102)).toBe("Call with Ada · 1:42");
-    expect(liveCallRowText("Ada", 3_725)).toBe("Call with Ada · 1:02:05");
   });
 });

@@ -91,7 +91,11 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(
         onDismissRequest = { if (SectionRules.canDismiss(saving)) onDismiss() },
         sheetState = sheetState,
+        containerColor = minisCanvas,
+        shape = MinisSheetShape,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
+        GlassBackdrop()
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
                 TextButton(
@@ -99,11 +103,10 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                     enabled = SectionRules.canDismiss(saving),
                     modifier = Modifier.align(Alignment.CenterStart),
                 ) {
-                    // Once something has been filed, leaving is finishing.
                     Text(if (lastCreated == null) "取消" else "完成")
                 }
                 Text(
-                    text = "整理机器人",
+                    text = "整理智能体",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.align(Alignment.Center),
@@ -145,8 +148,7 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
             lastCreated?.let { section ->
                 SectionNote(
                     text = "$section 已就绪",
-                    // Android files by checkbox, so there is nothing to swipe together.
-                    detail = "继续选择更多机器人以归入其他分组，或点击“完成”。",
+                    detail = "继续选择更多智能体以归入其他分组，或点击“完成”。",
                     container = MaterialTheme.colorScheme.secondaryContainer,
                     content = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
@@ -197,7 +199,7 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
             }
 
             Text(
-                text = "机器人",
+                text = "智能体",
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = secondaryTint,
@@ -271,10 +273,10 @@ internal object SectionRules {
         "一个分组只能有一位主管（Chief）。请返回并仅选择一位主管，或使用没有主管的分组。"
 
     /** `ios/App/NewSectionSheet.swift:492-499` — why a pinned bot appears not to move. */
-    const val PINNED_STAY = "已置顶的机器人在取消置顶前仍会保留在“已置顶”区域。"
+    const val PINNED_STAY = "已置顶的智能体在取消置顶前仍会保留在“已置顶”区域。"
 
     const val AT_LIMIT = "已选择 100 个——已达分组上限。"
-    const val UNDER_LIMIT = "单个分组最多可选择 100 个机器人。"
+    const val UNDER_LIMIT = "单个分组最多可选择 100 个智能体。"
 
     fun selectable(state: CompanionState): List<Bot> = state.bots.filter { it.hidden != true }
 

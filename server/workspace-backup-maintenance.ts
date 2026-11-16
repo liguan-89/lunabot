@@ -6,7 +6,7 @@ export class WorkspaceBackupMaintenance {
 
   assertAvailable(): void {
     if (this.active) throw Object.assign(new Error(this.pendingRestore
-      ? "A workspace restore is ready. Fully quit and reopen DEX BOT (or restart the hosted server) to finish."
+      ? "A workspace restore is ready. Fully quit and reopen Luna Bot (or restart the hosted server) to finish."
       : "A workspace backup is in progress. Try again when it finishes."), { status: 503 });
   }
 

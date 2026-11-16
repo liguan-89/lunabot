@@ -1,9 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { resolveDataDir } from "./data-dir.ts";
+
 export function handoffDir(): string {
-  return resolve(process.env.OMB_DATA_DIR || join(homedir(), ".dexbot"), "handoffs");
+  return resolve(resolveDataDir(), "handoffs");
 }
 
 export interface HandoffInput {

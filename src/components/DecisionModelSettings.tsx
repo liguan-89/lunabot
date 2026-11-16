@@ -1,5 +1,5 @@
 // Security: the key is write-only; the server reports configured-or-not, never the value.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, ExternalLink, Loader2 } from "lucide-react";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
@@ -14,8 +14,18 @@ const KEY_URL = { jev: "https://typesafe.ai", openrouter: "https://openrouter.ai
 /** The room decision budget in server/decider/room-routing.ts; slower falls back to the lead. */
 const ROOM_BUDGET_MS = 1_500;
 
-type Provider = "jev" | "openrouter";
+type Provider = "jev" | "laya" | "openrouter";
 type ModelList = { source: "openrouter" | "builtin"; models: Array<{ id: string; name: string; group: "recommended" | "more"; api?: "chat" | "decisions" }> };
+type LayaServiceStatus = {
+  available: boolean;
+  installed: boolean;
+  running: boolean;
+  busy: boolean;
+  operation: "idle" | "starting" | "ready" | "error";
+  model: string;
+  progress?: string;
+  error?: string;
+};
 type TestResult = { ok: true; latencyMs: number } | { ok: false; reason: string; status?: number };
 
 const FAILURES: Record<string, LocaleKey> = {
@@ -55,8 +65,8 @@ const WORKERS_AI_FAILURES: Record<string, LocaleKey> = {
   malformed: "decider.workersAi.error.malformed",
 };
 
-const BY: Record<"jev" | "workersai" | "openrouter", LocaleKey> = {
-  jev: "decider.status.byJev", workersai: "decider.status.byWorkersAi", openrouter: "decider.status.byOpenRouter",
+const BY: Record<"jev" | "laya" | "workersai" | "openrouter", LocaleKey> = {
+  jev: "decider.status.byJev", laya: "decider.status.byLaya", workersai: "decider.status.byWorkersAi", openrouter: "decider.status.byOpenRouter",
 };
 
 /** Who decides and who reads, in a word each: the person's own key, the Cloud plan's, or nothing yet. */
@@ -91,20 +101,29 @@ export function deciderFailureText(result: { reason: string; status?: number }, 
   return key ? t(key) : t("decider.error.other");
 }
 
-const COMING_SOON: LocaleKey[] = ["decider.jobs.browserClicks", "decider.jobs.toolSelection", "decider.jobs.placement"];
-
 export function DecisionModelSettings() {
   const { state, dispatch } = useStore();
   const decider = state.config?.decider;
-  const provider: Provider = decider?.provider === "openrouter" ? "openrouter" : "jev";
+  const [localLayaSelected, setLocalLayaSelected] = useState(false);
+  const provider: Provider = localLayaSelected ? "laya" : decider?.provider === "openrouter" ? "openrouter" : decider?.provider === "laya" ? "laya" : "jev";
   const openrouter = provider === "openrouter";
-  const configured = decider?.configured ?? false;
-  const included = configured && decider?.included === true;
+  const laya = provider === "laya";
+  const [localLaya, setLocalLaya] = useState<LayaServiceStatus | null>(null);
+  const [localLayaBusy, setLocalLayaBusy] = useState(false);
+  const [localLayaError, setLocalLayaError] = useState<string | null>(null);
+  const localConfigured = laya && localLaya?.operation === "ready" && localLaya.running;
+  const configured = laya ? Boolean(localConfigured) : decider?.configured ?? false;
+  const included = !laya && configured && decider?.included === true;
   const usingShared = openrouter && configured && decider?.keySource === "shared";
   const sharedKey = openrouter && decider?.sharedKey === true;
-  const ownKey = configured && !included && !usingShared;
-  const enabled = decider?.enabled ?? false;
+  const ownKey = configured && !included && !usingShared && !laya;
+  const enabled = laya && decider?.provider !== "laya" ? false : decider?.enabled ?? false;
   const roomRouting = decider?.jobs.roomRouting ?? true;
+  const extraJobs = [
+    { id: "browserClicks", on: decider?.jobs.browserClicks ?? false, label: "decider.jobs.browserClicks", detail: "decider.jobs.browserClicksDetail" },
+    { id: "toolSelection", on: decider?.jobs.toolSelection ?? false, label: "decider.jobs.toolSelection", detail: "decider.jobs.toolSelectionDetail" },
+    { id: "placement", on: decider?.jobs.placement ?? false, label: "decider.jobs.placement", detail: "decider.jobs.placementDetail" },
+  ] as const;
   const [value, setValue] = useState("");
   const [saving, setSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -139,6 +158,76 @@ export function DecisionModelSettings() {
     }
   };
 
+  const localLayaGeneration = useRef(0);
+  useEffect(() => {
+    if (!laya) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const generation = localLayaGeneration.current;
+    const refresh = async () => {
+      try {
+        const next = await api<LayaServiceStatus>("/api/decider/laya", { timeoutMs: 5_000 });
+        if (cancelled || generation !== localLayaGeneration.current) return;
+        setLocalLaya(next);
+        setLocalLayaBusy(next.operation === "starting");
+        if (next.operation === "starting") timer = setTimeout(() => void refresh(), 1_000);
+        else if (next.operation === "ready") {
+          const config = await api<ConfigStatus>("/api/config");
+          if (!cancelled && generation === localLayaGeneration.current) applied(config);
+        } else if (next.error) setLocalLayaError(next.error);
+      } catch {
+        if (cancelled || generation !== localLayaGeneration.current) return;
+        setLocalLayaError(t("decider.laya.error"));
+        setLocalLayaBusy(false);
+      }
+    };
+    void refresh();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [laya]);
+
+  const runLocalLaya = async (action: "start" | "stop"): Promise<boolean> => {
+    if (action === "start" && localLayaBusy) return false;
+    const run = ++localLayaGeneration.current;
+    setLocalLayaBusy(true);
+    setLocalLayaError(null);
+    if (action === "start") {
+      try {
+        const next = await api<LayaServiceStatus>("/api/decider/laya/start", { method: "POST", body: "{}", timeoutMs: 10_000 });
+        if (run !== localLayaGeneration.current) return false;
+        setLocalLaya(next);
+        setLocalLayaBusy(next.operation === "starting");
+        if (next.operation === "ready") {
+          const config = await api<ConfigStatus>("/api/config");
+          if (run !== localLayaGeneration.current) return false;
+          applied(config);
+          return true;
+        }
+        return next.operation === "starting";
+      } catch {
+        if (run !== localLayaGeneration.current) return false;
+        setLocalLayaBusy(false);
+        setLocalLayaError(t("decider.laya.error"));
+        return false;
+      }
+    }
+    try {
+      const next = await api<LayaServiceStatus>("/api/decider/laya/stop", { method: "POST", body: "{}", timeoutMs: 10_000 });
+      if (run !== localLayaGeneration.current) return false;
+      setLocalLaya(next);
+      setLocalLayaSelected(false);
+      setLocalLayaBusy(false);
+      const config = await api<ConfigStatus>("/api/config");
+      if (run !== localLayaGeneration.current) return false;
+      applied(config);
+      return true;
+    } catch {
+      if (run !== localLayaGeneration.current) return false;
+      setLocalLayaBusy(false);
+      setLocalLayaError(t("decider.laya.error"));
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (!openrouter || models) return;
     let cancelled = false;
@@ -149,14 +238,14 @@ export function DecisionModelSettings() {
     return () => { cancelled = true; };
   }, [openrouter, models]);
 
-  const choose = (decision: { provider: Provider } | { openrouterModel: string; openrouterApi: "chat" | "decisions" }) => {
+  const choose = (decision: { provider: "jev" | "openrouter" } | { openrouterModel: string; openrouterApi: "chat" | "decisions" }) => {
     setValue("");
     setVerdict(null);
     void patch(decision);
   };
 
   const save = async () => {
-    if (saving || (!draft && !ownKey)) return;
+    if (laya || saving || (!draft && !ownKey)) return;
     setSaving(true);
     setError(null);
     setVerdict(null);
@@ -174,7 +263,7 @@ export function DecisionModelSettings() {
   };
 
   const test = async () => {
-    if (testing || saving || (!draft && !configured)) return;
+    if (laya || testing || saving || (!draft && !configured)) return;
     setTesting(true);
     setVerdict(null);
     setError(null);
@@ -211,11 +300,25 @@ export function DecisionModelSettings() {
         <Select className="w-48"
           data-testid="decider-provider"
           value={provider}
-          onChange={(event) => choose({ provider: event.target.value === "openrouter" ? "openrouter" : "jev" })}
+          onChange={(event) => {
+            const next = event.target.value === "openrouter" ? "openrouter" : "jev";
+            if (event.target.value === "laya") {
+              setLocalLayaSelected(true);
+              void runLocalLaya("start");
+            } else if (laya && (localLayaBusy || localLaya?.running)) {
+              void (async () => {
+                if (await runLocalLaya("stop")) choose({ provider: next });
+              })();
+            } else {
+              setLocalLayaSelected(false);
+              choose({ provider: next });
+            }
+          }}
           disabled={switching || !state.config}
           aria-label={t("decider.provider.label")}
         >
           <option value="jev">{t("decider.provider.jev")}</option>
+          <option value="laya">{t("decider.provider.laya")}</option>
           <option value="openrouter">{t("decider.provider.openrouter")}</option>
         </Select>
       </SettingRow>
@@ -247,18 +350,34 @@ export function DecisionModelSettings() {
       )}
       <SettingRow
         title={t(openrouter ? "decider.openrouter.master" : "decider.master")}
-        subtitle={configured ? undefined : t(openrouter ? "decider.masterNeedsKey.openrouter" : "decider.masterNeedsKey")}
+        subtitle={laya ? t("decider.laya.masterHint") : configured ? undefined : t(openrouter ? "decider.masterNeedsKey.openrouter" : "decider.masterNeedsKey")}
       >
         <Switch
           data-testid="decider-master"
           aria-label={t(openrouter ? "decider.openrouter.master" : "decider.master")}
           checked={enabled}
-          disabled={!configured || switching || !state.config}
+          disabled={!configured || switching || !state.config || (laya && !localLaya?.running)}
           onClick={() => void patch({ enabled: !enabled })}
           className="cursor-pointer"
         />
       </SettingRow>
 
+      {laya ? (
+        <Card title={t("decider.laya.title")}>
+          <div role="status" data-testid="local-laya-status" className="flex items-center gap-2 text-[13px] text-ink-secondary">
+            <span className={cn("size-1.5 rounded-full", localConfigured ? "bg-success" : "bg-raised-hover")} />
+            <span>{localLaya?.progress ?? (localConfigured ? t("decider.laya.ready", { model: localLaya?.model ?? "Laya" }) : !localLaya ? t("decider.laya.preparing") : localLaya.installed ? t("decider.laya.installed") : localLaya.available ? t("decider.laya.notInstalled") : t("decider.laya.unsupported"))}</span>
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-ink-secondary">{t("decider.laya.detail")}</p>
+          {localLayaError && <p role="alert" className="mt-2 text-[12px] text-danger">{localLayaError}</p>}
+          {localLaya?.error && <p role="alert" className="mt-2 text-[12px] text-danger">{localLaya.error}</p>}
+          <div className="mt-3 flex justify-end">
+            {localLaya?.running || localLayaBusy
+              ? <button type="button" data-testid="local-laya-stop" disabled={false} onClick={() => void runLocalLaya("stop")} className="cursor-pointer rounded-lg border border-hairline/40 px-3 py-2 text-[13px] text-ink-secondary">{localLayaBusy ? t("decider.laya.cancel") : t("decider.laya.stop")}</button>
+              : <button type="button" data-testid="local-laya-start" disabled={!localLaya?.available || localLayaBusy} onClick={() => void runLocalLaya("start")} className="flex cursor-pointer items-center gap-2 rounded-lg bg-control px-3 py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50">{localLayaBusy && <Loader2 size={14} className="animate-spin" />}{localLaya?.installed ? t("decider.laya.start") : t("decider.laya.install")}</button>}
+          </div>
+        </Card>
+      ) : (
       <Card title={t(openrouter ? "decider.openrouter.key.label" : "decider.key.label")}>
         <div role="status" className="mb-2 flex items-center gap-2 text-[13px] text-ink-secondary">
           <span className={cn("size-1.5 rounded-full", configured ? "bg-success" : "bg-raised-hover")} />
@@ -340,6 +459,7 @@ export function DecisionModelSettings() {
           </a>
         )}
       </Card>
+      )}
 
       <Card title={t("decider.jobs.title")}>
         <ul className="flex flex-col">
@@ -357,12 +477,20 @@ export function DecisionModelSettings() {
               className="cursor-pointer"
             />
           </li>
-          {COMING_SOON.map((label) => (
-            <li key={label} data-testid="decider-coming-soon" aria-disabled="true" className="flex items-center justify-between gap-4 border-t border-hairline/40 py-2 opacity-50">
-              <span className="text-[13px] text-ink-secondary">{t(label)}</span>
-              <span className="rounded bg-control px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-ink-secondary">
-                {t("decider.jobs.comingSoon")}
-              </span>
+          {extraJobs.map((job) => (
+            <li key={job.id} className="flex items-start justify-between gap-4 border-t border-hairline/40 py-2">
+              <div className="min-w-0">
+                <div className="text-[13px] font-medium text-ink">{t(job.label)}</div>
+                <div className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">{t(job.detail)}</div>
+              </div>
+              <Switch
+                data-testid={`decider-job-${job.id}`}
+                aria-label={t(job.label)}
+                checked={enabled && job.on}
+                disabled={!enabled || switching}
+                onClick={() => void patch({ jobs: { [job.id]: !job.on } })}
+                className="cursor-pointer"
+              />
             </li>
           ))}
         </ul>

@@ -16,7 +16,7 @@ class PhoneJobsTest {
     @Test
     fun `the registration only claims the apps this build can serve`() {
         assertEquals(
-            setOf("calendar", "contacts", "reminders", "location", "messages"),
+            setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData"),
             PhoneToolCatalog.supportedCapabilities,
         )
         assertEquals(
@@ -68,11 +68,143 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `phone UI wire names map to an explicitly opt in capability`() {
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_OBSERVE"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_LAUNCH"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_TAP"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_TYPE"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_SCROLL"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_BACK"))
+        assertEquals(PhoneTool.UI_OBSERVE, PhoneTool.fromWire("PHONE_UI_OBSERVE"))
+        assertFalse(PhoneTool.UI_OBSERVE.writes)
+        assertTrue(PhoneTool.UI_TAP.writes)
+        assertEquals(mapOf("phoneUi" to "full"), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneUi = true))
+        assertEquals(emptyMap(), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneUi = false))
+    }
+
+    @Test
+    fun `the query and app-list reads are phone UI tools that write nothing`() {
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_QUERY"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_LIST_APPS"))
+        assertEquals(PhoneTool.UI_QUERY, PhoneTool.fromWire("PHONE_UI_QUERY"))
+        assertEquals(PhoneTool.LIST_APPS, PhoneTool.fromWire("PHONE_LIST_APPS"))
+        // Both only read: the query filters a snapshot, the list reads PackageManager.
+        assertFalse(PhoneTool.UI_QUERY.writes)
+        assertFalse(PhoneTool.LIST_APPS.writes)
+    }
+
+    @Test
+    fun `the run tool is one phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_RUN", PhoneTool.UI_RUN.wire)
+        assertEquals("phoneUi", PhoneTool.UI_RUN.capability)
+        assertTrue(PhoneTool.UI_RUN.writes)
+        assertEquals(PhoneTool.UI_RUN, PhoneTool.fromWire("PHONE_UI_RUN"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_RUN"))
+        // The command list travels as sent: the executor reads each step's fields itself.
+        val arguments = JsonObject(
+            mapOf(
+                "commands" to kotlinx.serialization.json.JsonArray(
+                    listOf(
+                        JsonObject(mapOf("op" to JsonPrimitive("tap"), "text" to JsonPrimitive("发送"))),
+                        JsonObject(mapOf("op" to JsonPrimitive("type"), "text" to JsonPrimitive("12"), "pressEnter" to JsonPrimitive(true))),
+                    ),
+                ),
+            ),
+        )
+        val job = PhoneJob(id = "job-1", tool = PhoneTool.UI_RUN.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_RUN", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
+    fun `files and notifications are their own capability, apart from the screen`() {
+        assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_FILE_LIST"))
+        assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_FILE_READ"))
+        assertEquals("phoneData", PhoneToolCatalog.capabilityOf("PHONE_NOTIF_LIST"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_CLIPBOARD_GET"))
+        // Sharing a file is a screen action (the compose screen must open on our display).
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_FILE_SHARE"))
+        assertEquals(mapOf("phoneData" to "full"), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneData = true))
+        assertEquals(emptyMap(), PhoneToolCatalog.capabilities(CalendarAccess.NONE, phoneData = false))
+    }
+
+    @Test
+    fun `the intent tools are phone UI writes on the wire the server sends`() {
+        assertEquals("PHONE_SET_ALARM", PhoneTool.SET_ALARM.wire)
+        assertEquals("PHONE_SET_TIMER", PhoneTool.SET_TIMER.wire)
+        assertEquals("PHONE_OPEN_LINK", PhoneTool.OPEN_LINK.wire)
+        assertEquals("PHONE_SHARE_TEXT", PhoneTool.SHARE_TEXT.wire)
+        for (tool in listOf(PhoneTool.SET_ALARM, PhoneTool.SET_TIMER, PhoneTool.OPEN_LINK, PhoneTool.SHARE_TEXT)) {
+            assertEquals("phoneUi", tool.capability, tool.wire)
+            assertTrue(tool.writes, tool.wire)
+            assertEquals(tool, PhoneTool.fromWire(tool.wire))
+            assertEquals("phoneUi", PhoneToolCatalog.capabilityOf(tool.wire))
+        }
+        // The alarm and timer arguments travel as sent: the executor reads them itself.
+        val job = PhoneJob(
+            id = "job-2",
+            tool = PhoneTool.SET_ALARM.wire,
+            arguments = JsonObject(
+                mapOf(
+                    "hour" to JsonPrimitive(7),
+                    "minute" to JsonPrimitive(30),
+                    "days" to kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("MON"))),
+                ),
+            ),
+            expiresAt = 1_760_000_000_000,
+        )
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_SET_ALARM", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(job.arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
+    fun `the after-task choice is a phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_AFTER_TASK", PhoneTool.UI_AFTER_TASK.wire)
+        assertEquals("phoneUi", PhoneTool.UI_AFTER_TASK.capability)
+        assertTrue(PhoneTool.UI_AFTER_TASK.writes)
+        assertEquals(PhoneTool.UI_AFTER_TASK, PhoneTool.fromWire("PHONE_UI_AFTER_TASK"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_AFTER_TASK"))
+        // The choice and the optional package travel as sent: the executor reads them itself.
+        val arguments = JsonObject(
+            mapOf("action" to JsonPrimitive("close"), "app" to JsonPrimitive("com.tencent.mm")),
+        )
+        val job = PhoneJob(id = "job-3", tool = PhoneTool.UI_AFTER_TASK.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_AFTER_TASK", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
+    fun `the collect tool is one phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_COLLECT", PhoneTool.UI_COLLECT.wire)
+        assertEquals("phoneUi", PhoneTool.UI_COLLECT.capability)
+        // It scrolls the screen between reads, so it is a write, unlike observe.
+        assertTrue(PhoneTool.UI_COLLECT.writes)
+        assertFalse(PhoneTool.UI_OBSERVE.writes)
+        assertEquals(PhoneTool.UI_COLLECT, PhoneTool.fromWire("PHONE_UI_COLLECT"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_COLLECT"))
+        // The call travels as sent: the executor reads its fields itself.
+        val arguments = JsonObject(
+            mapOf(
+                "direction" to JsonPrimitive("down"),
+                "pages" to JsonPrimitive(3),
+                "maxLines" to JsonPrimitive(120),
+            ),
+        )
+        val job = PhoneJob(id = "job-4", tool = PhoneTool.UI_COLLECT.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_COLLECT", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(19, PhoneTool.entries.size)
+        assertEquals(47, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
-                it.capability in setOf("calendar", "contacts", "reminders", "location", "messages")
+                it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")
             },
         )
         assertEquals(PhoneTool.CREATE_EVENT, PhoneTool.fromWire("PHONE_CREATE_EVENT"))

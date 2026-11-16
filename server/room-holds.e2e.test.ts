@@ -19,7 +19,7 @@ const REASK = "ended without a final message to the room";
 
 let child: ChildProcess;
 let home = "";
-// The server's runtime files (config, groups.json) live under .dexbot.
+// The server's runtime files (config, groups.json) live under .lunabot.
 let data = "";
 let base = "";
 let stderr = "";
@@ -46,7 +46,7 @@ const api = async (method: string, path: string, body?: unknown): Promise<{ stat
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-room-holds-"));
-  data = join(home, ".dexbot");
+  data = join(home, ".lunabot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });

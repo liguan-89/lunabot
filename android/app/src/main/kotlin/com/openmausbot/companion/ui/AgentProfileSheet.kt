@@ -3,7 +3,10 @@ package com.openmausbot.companion.ui
 import android.annotation.SuppressLint
 import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +27,7 @@ import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -35,28 +39,25 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -364,10 +365,16 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        val hazeState = rememberHazeState()
+        val scrollState = rememberScrollState()
+        val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
+        val topBandAlpha by animateFloatAsState(
+            targetValue = if (topScrolled) 1f else 0f,
+            animationSpec = tween(180),
+            label = "profile-top-haze",
+        )
+        CompositionLocalProvider(LocalHazeState provides hazeState) {
         Box(modifier = Modifier.fillMaxSize().background(minisCanvas).systemBarsPadding()) {
-            // The page owns its own window, so it must also own the status-bar
-            // icon appearance; without this the light canvas kept the
-            // Activity's white icons and the clock disappeared.
             val view = LocalView.current
             val dark = minisIsDark()
             SideEffect {
@@ -377,103 +384,33 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            Column(modifier = Modifier.fillMaxSize()) {
-                // Top bar: back, title, and the Done pill that inks itself in
-                // while the form differs from its baseline.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .padding(horizontal = 12.dp, vertical = 4.dp),
-                ) {
-                    TouchTarget(
-                        onClick = onDismiss,
-                        modifier = Modifier.align(Alignment.CenterStart),
-                        contentDescription = "返回",
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(44.dp)
-                                .background(minisCard, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = null,
-                                tint = minisInk,
-                                modifier = Modifier.size(20.dp),
-                            )
-                        }
-                    }
-                    Text(
-                        text = if (creating) "新建 Bot" else "编辑 Bot",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = minisInk,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .clip(CircleShape)
-                            .background(if (profileDirty) minisInk else minisCard)
-                            .clickable(role = Role.Button) {
-                                if (profileDirty && ProfileRules.canSave(form, busy)) {
-                                    saveProfile(close = true)
-                                } else if (creating) {
-                                    // Creating and nothing to save: closing here
-                                    // would throw the page away while the button
-                                    // still read "Done". Say what is missing.
-                                    nameHint = true
-                                } else {
-                                    onDismiss()
-                                }
-                            }
-                            .padding(horizontal = 16.dp, vertical = 8.dp),
-                    ) {
-                        Text(
-                            text = "完成",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (profileDirty) minisPage else minisSecondary,
-                        )
-                    }
-                }
-
-                // Under the bar, above the scroll: a failed save must be
-                // readable without hunting for the section it came from.
-                saveError?.let { message ->
-                    Text(
-                        text = message,
-                        fontSize = 13.sp,
-                        color = MinisTokens.Danger,
-                        modifier = Modifier.padding(
-                            start = MinisPagePadding,
-                            end = MinisPagePadding,
-                            top = 2.dp,
-                        ),
-                    )
-                }
-
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(minisCanvas)
+                    .hazeSource(hazeState),
+            ) {
                 Column(
                     modifier = Modifier
-                        .weight(1f)
-                        .verticalScroll(rememberScrollState())
-                        .padding(horizontal = MinisPagePadding, vertical = 8.dp)
-                        .padding(bottom = 24.dp),
+                        .fillMaxSize()
+                        .verticalScroll(scrollState)
+                        .padding(horizontal = MinisPagePadding)
+                        .padding(top = 66.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    // The bot's real face, with the pencil badge opening the
-                    // photo picker. PRESET is the roster's fallback: the flat
-                    // library circle, not the mascot.
+                    saveError?.let { message ->
+                        Text(
+                            text = message,
+                            fontSize = 13.sp,
+                            color = MinisTokens.Danger,
+                        )
+                    }
+
                     Box(
                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Box {
-                            // A face chosen before Save is previewed here, so
-                            // the picker looks instant even though the upload
-                            // waits for the bot.
                             val waiting = pendingPreset
                             if (waiting != null) {
                                 PresetBotAvatar(
@@ -499,8 +436,8 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
-                                        .background(minisCard, CircleShape),
+                                        .size(34.dp)
+                                        .chromeCapsule(surface = true),
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     Icon(
@@ -531,7 +468,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     }
                     if (nameHint) {
                         Text(
-                            text = "先给机器人起个名字，再点完成。",
+                            text = "先给智能体起个名字，再点完成。",
                             fontSize = 13.sp,
                             color = MinisTokens.Danger,
                             modifier = Modifier.padding(start = 4.dp, top = 2.dp),
@@ -571,25 +508,39 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                         }
                         if (libraryOpen) {
                             ProfileCardDivider()
-                            Column(
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    .background(minisGrouped, RoundedCornerShape(12.dp))
+                                    .padding(3.dp),
+                                horizontalArrangement = Arrangement.spacedBy(3.dp),
                             ) {
-                                SingleChoiceSegmentedButtonRow(
-                                    modifier = Modifier.fillMaxWidth().height(MIN_TOUCH_TARGET),
-                                ) {
-                                    AvatarCrop.entries.forEachIndexed { index, option ->
-                                        SegmentedButton(
-                                            selected = form.crop == option,
-                                            onClick = { form = form.copy(crop = option) },
-                                            shape = SegmentedButtonDefaults.itemShape(
-                                                index = index,
-                                                count = AvatarCrop.entries.size,
-                                            ),
-                                        ) {
-                                            Text(ProfileRules.cropLabel(option))
-                                        }
+                                AvatarCrop.entries.forEach { option ->
+                                    val active = form.crop == option
+                                    Box(
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .heightIn(min = 38.dp)
+                                            .clip(RoundedCornerShape(9.dp))
+                                            .then(
+                                                if (active) {
+                                                    Modifier
+                                                        .background(minisCard, RoundedCornerShape(9.dp))
+                                                        .border(0.5.dp, minisSeparator, RoundedCornerShape(9.dp))
+                                                } else {
+                                                    Modifier
+                                                },
+                                            )
+                                            .clickable(role = Role.RadioButton) { form = form.copy(crop = option) },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = ProfileRules.cropLabel(option),
+                                            fontSize = 13.sp,
+                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (active) minisInk else minisSecondary,
+                                        )
                                     }
                                 }
                             }
@@ -1005,17 +956,16 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     ProfileSectionLabel("通知")
                     ProfileCard {
                         ProfileSwitchRow(
-                            label = "机器人通知",
+                            label = "智能体通知",
                             checked = form.notifications,
                             onCheckedChange = { form = form.copy(notifications = it) },
                         )
                     }
 
-                    // An overview is about a bot the computer already has.
                     if (opened != null) {
                         ProfileCard {
                             ProfileActionRow(
-                                text = "此机器人的职责",
+                                text = "此智能体的职责",
                                 icon = Icons.Filled.Info,
                                 onClick = { onOpenOverview(opened.id) },
                             )
@@ -1024,11 +974,83 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
 
                     ProfileCard {
                         ProfileActionRow(
-                            text = if (creating) "创建 Bot" else "保存资料修改",
+                            text = if (creating) "创建智能体" else "保存资料修改",
                             enabled = ProfileRules.canSave(form, busy),
                             onClick = { saveProfile() },
                         )
                     }
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(78.dp)
+                    .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                TouchTarget(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterStart),
+                    contentDescription = "返回",
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(42.dp)
+                            .chromeCapsule(surface = true),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = null,
+                            tint = minisInk,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+                Text(
+                    text = if (creating) "新建智能体" else "编辑智能体",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .then(
+                            if (profileDirty) {
+                                Modifier
+                                    .clip(CircleShape)
+                                    .background(minisInk, CircleShape)
+                            } else {
+                                Modifier.chromeCapsule(surface = true)
+                            },
+                        )
+                        .clickable(role = Role.Button) {
+                            if (profileDirty && ProfileRules.canSave(form, busy)) {
+                                saveProfile(close = true)
+                            } else if (creating) {
+                                nameHint = true
+                            } else {
+                                onDismiss()
+                            }
+                        }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        text = "完成",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (profileDirty) minisPage else minisSecondary,
+                    )
                 }
             }
 
@@ -1040,6 +1062,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     CircularProgressIndicator(modifier = Modifier.size(44.dp))
                 }
             }
+        }
         }
     }
 
@@ -1073,8 +1096,6 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-/** A SwiftUI `Picker` as Material draws one: a read-only field that opens a menu. */
 @Composable
 internal fun ChoicePicker(
     label: String,
@@ -1083,43 +1104,14 @@ internal fun ChoicePicker(
     onSelect: (String) -> Unit,
     enabled: Boolean = true,
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = choices.firstOrNull { it.id == selected }?.label.orEmpty()
-    ExposedDropdownMenuBox(
-        expanded = expanded && enabled,
-        onExpandedChange = { if (enabled) expanded = it },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        OutlinedTextField(
-            value = selectedLabel,
-            onValueChange = {},
-            readOnly = true,
+    ProfileCard {
+        ProfilePickerRow(
+            label = label,
+            choices = choices,
+            selected = selected,
+            onSelect = onSelect,
             enabled = enabled,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            choices.forEach { choice ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(choice.label)
-                            choice.detail?.let {
-                                Text(it, fontSize = 13.sp, color = secondaryTint)
-                            }
-                        }
-                    },
-                    enabled = choice.enabled,
-                    onClick = {
-                        expanded = false
-                        onSelect(choice.id)
-                    },
-                )
-            }
-        }
     }
 }
 
@@ -1293,10 +1285,6 @@ private fun ProfileSwitchRow(
     }
 }
 
-/**
- * A picker drawn as a card row — label, selected value, chevron — that opens
- * the same dropdown menu `ChoicePicker` does.
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfilePickerRow(
@@ -1308,58 +1296,104 @@ private fun ProfilePickerRow(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = choices.firstOrNull { it.id == selected }?.label.orEmpty()
-    ExposedDropdownMenuBox(
-        expanded = expanded && enabled,
-        onExpandedChange = { if (enabled) expanded = it },
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(enabled = enabled, role = Role.Button) { expanded = true }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(
-            modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-                .heightIn(min = 56.dp)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Text(
+            text = label,
+            fontSize = 17.sp,
+            color = if (enabled) minisInk else minisTertiary,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = selectedLabel,
+            fontSize = 15.sp,
+            color = minisSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f).padding(start = 12.dp),
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = minisTertiary,
+            modifier = Modifier.padding(start = 8.dp).size(20.dp),
+        )
+    }
+    if (expanded && enabled) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { expanded = false },
+            sheetState = sheetState,
+            shape = MinisSheetShape,
+            containerColor = minisCanvas,
+            scrimColor = Color.Black.copy(alpha = 0.22f),
         ) {
-            Text(
-                text = label,
-                fontSize = 17.sp,
-                color = if (enabled) minisInk else minisTertiary,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                text = selectedLabel,
-                fontSize = 15.sp,
-                color = minisSecondary,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.weight(1f).padding(start = 12.dp),
-            )
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = minisTertiary,
-                modifier = Modifier.padding(start = 8.dp).size(20.dp),
-            )
-        }
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            choices.forEach { choice ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(choice.label)
-                            choice.detail?.let {
-                                Text(it, fontSize = 13.sp, color = secondaryTint)
+            GlassBackdrop()
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 16.dp, end = 16.dp, bottom = 28.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = label,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+                ProfileCard {
+                    choices.forEachIndexed { index, choice ->
+                        if (index > 0) ProfileCardDivider()
+                        val isSelected = choice.id == selected
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 52.dp)
+                                .clickable(enabled = choice.enabled, role = Role.Button) {
+                                    expanded = false
+                                    onSelect(choice.id)
+                                }
+                                .padding(horizontal = 16.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
+                                Text(
+                                    text = choice.label,
+                                    fontSize = 16.sp,
+                                    color = if (choice.enabled) minisInk else minisTertiary,
+                                )
+                                choice.detail?.let { detail ->
+                                    Text(
+                                        text = detail,
+                                        fontSize = 12.sp,
+                                        color = secondaryTint,
+                                    )
+                                }
+                            }
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Filled.Check,
+                                    contentDescription = null,
+                                    tint = minisAccent,
+                                    modifier = Modifier.size(18.dp),
+                                )
                             }
                         }
-                    },
-                    enabled = choice.enabled,
-                    onClick = {
-                        expanded = false
-                        onSelect(choice.id)
-                    },
-                )
+                    }
+                }
             }
         }
     }

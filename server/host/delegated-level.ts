@@ -4,6 +4,7 @@ import type { ApprovalMode } from "../../shared/approval-mode.ts";
 import { delegatedApprovalMode } from "../auto-approve.ts";
 import { chiefLevel } from "../chief-level.ts";
 import type { HandoffView, RoomAddress } from "../coordinator.ts";
+import { conversationLanguage, serverLine, type ServerLineKey } from "../server-lines.ts";
 import type { BotRecord, Store } from "../store.ts";
 
 /** A conversation that hands work on, and the node its turn runs: its parents lead up the chain. */
@@ -24,6 +25,9 @@ export interface DelegatedLevelDeps {
 }
 
 const NAMES: Partial<Record<ApprovalMode, string>> = { edits: "Auto-accept edits", auto: "Approve for me", full: "Full access" };
+const NAME_KEYS: Partial<Record<ApprovalMode, ServerLineKey>> = {
+  edits: "server.team.level.edits", auto: "server.team.level.auto", full: "server.team.level.full",
+};
 const MAX_HOPS = 32;
 
 export function createDelegatedLevel(deps: DelegatedLevelDeps) {
@@ -59,12 +63,13 @@ export function createDelegatedLevel(deps: DelegatedLevelDeps) {
     const passed = handedDown({ botId: from.id, threadId: fromThreadId, ...(parentId ? { parentId } : {}) }, target, own);
     if (!passed || store.taskByThread(target.id, threadId)?.approvalMode === passed.level) return;
     store.patchTask(target.id, threadId, { approvalMode: passed.level, autoApprove: false, alwaysAllow: [] });
-    const name = NAMES[passed.level] ?? passed.level;
-    const via = passed.chief.id === from.id ? "" : `from ${passed.chief.name}, `;
+    const language = conversationLanguage(threadId);
+    const name = NAME_KEYS[passed.level] ? serverLine(language, NAME_KEYS[passed.level]!) : NAMES[passed.level] ?? passed.level;
+    const via = passed.chief.id === from.id ? "" : serverLine(language, "server.team.levelVia", { name: passed.chief.name });
     store.appendMessage(threadId, {
       role: "bot",
       kind: "activity",
-      tool: { name: `${name} — handed on by ${from.name}, ${via}a Chief of Staff on ${name}`, ok: true },
+      tool: { name: serverLine(language, "server.team.levelChanged", { level: name, by: from.name, via }), ok: true },
     });
   }
 

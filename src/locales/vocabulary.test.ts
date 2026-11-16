@@ -9,11 +9,15 @@ import en from "./en.json";
 import { locales } from "./index";
 
 const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
-  ["OMB Cloud", /OMB Cloud/i, "DEX BOT Cloud"],
-  ["DEX BOT Cloud", /OpenMausBot Cloud/i, "DEX BOT Cloud"],
-  ["DEX BOT Pro", /MausBot Pro\b/, "DEX BOT Cloud"],
+  ["OMB Cloud", /OMB Cloud/i, "Luna Bot Cloud"],
+  ["OpenMausBot Cloud", /OpenMausBot Cloud/i, "Luna Bot Cloud"],
+  ["MausBot Pro", /MausBot Pro\b/, "Luna Bot Cloud"],
+  ["DEX BOT Cloud", /DEX BOT Cloud/i, "Luna Bot Cloud"],
   // \b before "_" fails, so environment names such as OMB_PUBLIC_IPV4 pass.
-  ["OMB", /\bOMB\b/, "DEX BOT"],
+  ["OMB", /\bOMB\b/, "Luna Bot"],
+  ["DEX BOT", /\bDEX BOT\b/, "Luna Bot"],
+  // \b keeps "Codex bots" and identifiers such as findDexBot out; the CamelCase name was UI copy too.
+  ["DexBot", /\bDexBot\b/, "Luna Bot"],
   ["Cloud box", /Cloud box/i, "cloud desktop"],
   ["Hosted desktop", /Hosted desktop/i, "cloud desktop"],
   ["Cloud VM", /Cloud VM/i, "cloud desktop"],
@@ -58,9 +62,15 @@ const isSource = (name: string) => /\.(?:ts|tsx|mjs|cjs|js)$/.test(name) && !/\.
 const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = [
   { file: "shared/credential-request.ts", snippet: "when Boat is selected", why: "the card that asks for a person's own Boat key" },
   { file: "server/boat-create-idempotency.ts", snippet: "unnamed Boat", why: "own-key repair: boat.dev's own name for a machine" },
-  { file: "src/lib/boat-offer.ts", snippet: "DEX BOT introduced me", why: "the email a person sends Boat to claim its credit" },
+  { file: "src/lib/boat-offer.ts", snippet: "Luna Bot introduced me", why: "the email a person sends Boat to claim its credit" },
   { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
   { file: "electron/company-backups.mjs", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
+  { file: "electron/user-data-migration.mjs", why: "the profile and data folder names earlier builds wrote, moved once on update" },
+  { file: "electron/cloud-sync.mjs", snippet: "DEX BOT", why: "the Documents folder earlier builds wrote, moved once on update" },
+  { file: "server/peer-provenance.ts", snippet: "another bot in this DEX BOT workspace", why: "normalizes peer notes written before the rename" },
+  { file: "server/phone-secret.ts", snippet: "DEX BOT phone credential v1", why: "the HPKE info string existing phone envelopes were encrypted under" },
+  { file: "server/default-bot.ts", snippet: "DexBot", why: "the built-in bot's name in places made before the rename, recognized so one is not added twice" },
+  { file: "electron/desktop-server-auth.cjs", snippet: "X-DexBot-Desktop-Owner", why: "the owner header this app and the server have always exchanged; renaming it would break a running pair" },
 ];
 
 function* sources(dir: string): Generator<string> {
@@ -104,7 +114,7 @@ const allows = (entry: (typeof ALLOWED)[number], finding: { file: string; text: 
   entry.file === finding.file && (entry.snippet === undefined || finding.text.includes(entry.snippet));
 
 describe("one name per thing", () => {
-  it("English copy uses DEX BOT Cloud, the Cloud, Cloud desktop, This computer and Plan page", () => {
+  it("English copy uses Luna Bot Cloud, the Cloud, Cloud desktop, This computer and Plan page", () => {
     const offending = Object.entries(en as Record<string, string>)
       .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)) && !Object.hasOwn(EN_ALLOWED, key))
       // English keys are UI copy, so lower-case "boat" counts too.
@@ -112,8 +122,8 @@ describe("one name per thing", () => {
     expect(offending).toEqual([]);
   });
 
-  const productNames = RETIRED.filter(([, , use]) => use === "DEX BOT Cloud");
-  it("translations never show OMB, T3 or an old name for DEX BOT Cloud, keep its name as it is, and say Boat only where the English does", () => {
+  const productNames = RETIRED.filter(([, , use]) => use === "Luna Bot Cloud");
+  it("translations never show OMB, T3 or an old name for Luna Bot Cloud, keep its name as it is, and say Boat only where the English does", () => {
     const offending = Object.entries(locales).filter(([code]) => code !== "en").flatMap(([code, pack]) =>
       Object.entries(pack)
         .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
@@ -137,7 +147,7 @@ describe("one name per thing", () => {
     expect(staleKeys).toEqual([]);
   });
 
-  it("the public docs name DEX BOT Cloud and the Cloud as the app does", () => {
+  it("the public docs name Luna Bot Cloud and the Cloud as the app does", () => {
     const names = new Set(["OMB Cloud", "DEX BOT Cloud", "DEX BOT Pro", "Connect to my Cloud", "your Cloud", "my Cloud"]);
     const cloudNames = RETIRED.filter(([word]) => names.has(word));
     const pages = (dir: string): string[] => readdirSync(dir).flatMap((name) => {
@@ -189,13 +199,14 @@ describe("one name per thing", () => {
   it("the check catches each retired word, and lets own-key Boat and env names through", () => {
     for (const bad of [
       "Sign in to OMB Cloud", "Sign in to OpenMausBot Cloud", "Get MausBot Pro", "MausBot Pro plans",
+      "Sign in to DEX BOT Cloud", "Restart DEX BOT", "locked by another DEX BOT process",
       "restart OMB", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
       "Open your Cloud dashboard", "Connect to my Cloud", "Your Cloud is ready", "Let my Cloud use this Mac",
       "Local (this computer)", "Choose Cloud to wake", "Auto, Cloud or Browser", "including one from T3",
       "Auto uses this Boat", "New Boat computer",
     ]) expect(retiredIn(bad), bad).not.toEqual([]);
     for (const good of [
-      "Sign in to DEX BOT Cloud", "Pro active · verified by DEX BOT Cloud", "Restart DEX BOT", "locked by another DEX BOT process",
+      "Sign in to Luna Bot Cloud", "Pro active · verified by Luna Bot Cloud", "Restart Luna Bot", "locked by another Luna Bot process",
       "set OMB_PUBLIC_IPV4", "Open My Cloud", "Open the Cloud", "Choose Cloud desktop to wake", "Auto, Cloud desktop or Browser",
       "Included with your Cloud plan", "Add a Boat API key in Settings → API keys", "Connect Boat", "Check boat.dev",
       "Bots here can get their own cloud desktops from Boat, a paid service", "Cloud desktops by Boat",

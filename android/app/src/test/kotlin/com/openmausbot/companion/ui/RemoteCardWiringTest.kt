@@ -110,7 +110,7 @@ class RemoteCardWiringTest {
 
         compose.waitForIdle()
         compose.onNodeWithText("Slack").assertIsDisplayed()
-        compose.onNodeWithText("机器人需要你连接这个应用。").assertIsDisplayed()
+        compose.onNodeWithText("智能体需要你连接这个应用。").assertIsDisplayed()
         compose.onNodeWithText("ElevenLabs API key").assertIsDisplayed()
         compose.onNodeWithText("手机端暂不支持直接提交凭据，请在电脑上填写后保存。").assertIsDisplayed()
         // The routine card sits below the fold of this fixture now that the
