@@ -258,6 +258,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
 
     val entry: @Composable (ChatSummary, Boolean) -> Unit = { summary, last ->
         Column {
+            val bot = (summary.chat as? Chat.BotChat)?.bot
             ChatRow(
                 summary = summary,
                 face = faces[summary.id] ?: MausState.IDLE,
@@ -265,23 +266,33 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 status = status,
                 last = last,
                 onClick = { navigator.open(environment.chatPreferences.restoringThread(summary.chat, connection?.id)) },
+                threadToggle = bot?.let { b ->
+                    {
+                        ThreadToggle(
+                            bot = b,
+                            expanded = b.id in expandedBots,
+                            searching = query.isNotBlank(),
+                            queuedThreadIds = state.queuedThreadIds,
+                            onToggle = {
+                                haptics.play(HapticCue.SELECT)
+                                expandedBots = if (b.id in expandedBots) expandedBots - b.id else expandedBots + b.id
+                            },
+                        )
+                    }
+                },
             )
-            (summary.chat as? Chat.BotChat)?.bot?.let { bot ->
+            bot?.let { b ->
                 // Grok's list is one row per assistant. A bot with a single
                 // thread had a "话题 1" row under it that said nothing; only
                 // show the tree when there is a tree to show.
-                if (bot.tasks.orEmpty().size > 1 || bot.id in expandedBots || query.isNotEmpty()) {
+                if (b.tasks.orEmpty().size > 1 || b.id in expandedBots || query.isNotEmpty()) {
                     BotThreadTree(
-                    bot = bot,
+                    bot = b,
                     queuedThreadIds = state.queuedThreadIds,
                     query = query,
-                    expanded = bot.id in expandedBots,
+                    expanded = b.id in expandedBots,
                     collapsedFolders = collapsedFolders,
-                    creating = bot.id in creatingThreads,
-                    onToggle = {
-                        haptics.play(HapticCue.SELECT)
-                        expandedBots = if (bot.id in expandedBots) expandedBots - bot.id else expandedBots + bot.id
-                    },
+                    creating = b.id in creatingThreads,
                     onToggleFolder = { key ->
                         haptics.play(HapticCue.SELECT)
                         collapsedFolders = if (key in collapsedFolders) collapsedFolders - key else collapsedFolders + key
@@ -289,23 +300,23 @@ fun RosterScreen(navigator: CompanionNavigator) {
                     onCreate = {
                         // Hoisted across bot sections and search, so moving a row
                         // cannot permit a second creation while the first is pending.
-                        if (bot.id !in creatingThreads) {
-                            creatingThreads = creatingThreads + bot.id
+                        if (b.id !in creatingThreads) {
+                            creatingThreads = creatingThreads + b.id
                             scope.launch {
                                 try {
-                                    val created = session.createTask(bot, title = null)
+                                    val created = session.createTask(b, title = null)
                                     if (created != null) {
                                         navigator.open(Chat.BotChat(created))
                                     } else if (session.actionError == null) {
                                         session.actionError = "无法创建会话，请检查连接后重试。"
                                     }
                                 } finally {
-                                    creatingThreads = creatingThreads - bot.id
+                                    creatingThreads = creatingThreads - b.id
                                 }
                             }
                         }
                     },
-                    onManage = { managingThreads = Chat.BotChat(bot) },
+                    onManage = { managingThreads = Chat.BotChat(b) },
                     onOpen = navigator::open,
                 )
                 }
@@ -1171,6 +1182,7 @@ private fun ChatRow(
     status: Session.Status,
     last: Boolean,
     onClick: () -> Unit,
+    threadToggle: (@Composable () -> Unit)? = null,
 ) {
     val chat = summary.chat
     val now = remember(summary.lastActivity) { System.currentTimeMillis() }
@@ -1243,6 +1255,9 @@ private fun ChatRow(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
+                    }
+                    if (threadToggle != null) {
+                        threadToggle()
                     }
                     Text(
                         text = RelativeStamp.list(

@@ -1,5 +1,6 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -52,12 +53,19 @@ class BotThreadTreeTest {
         var opened: Chat? = null
         compose.setContent {
             CompanionTheme(darkTheme = false) {
-                BotThreadTree(
-                    fixture, query = "", expanded = expanded, collapsedFolders = collapsed, creating = false,
-                    onToggle = { expanded = !expanded },
-                    onToggleFolder = { key -> collapsed = if (key in collapsed) collapsed - key else collapsed + key },
-                    onCreate = {}, onManage = {}, onOpen = { opened = it },
-                )
+                Column {
+                    ThreadToggle(
+                        bot = fixture,
+                        expanded = expanded,
+                        searching = false,
+                        onToggle = { expanded = !expanded },
+                    )
+                    BotThreadTree(
+                        fixture, query = "", expanded = expanded, collapsedFolders = collapsed, creating = false,
+                        onToggleFolder = { key -> collapsed = if (key in collapsed) collapsed - key else collapsed + key },
+                        onCreate = {}, onManage = {}, onOpen = { opened = it },
+                    )
+                }
             }
         }
 
@@ -78,11 +86,19 @@ class BotThreadTreeTest {
         var query by mutableStateOf("launch")
         compose.setContent {
             CompanionTheme(darkTheme = false) {
-                BotThreadTree(
-                    fixture, query = query, expanded = false,
-                    collapsedFolders = setOf("${fixture.id}:launch"), creating = false,
-                    onToggle = {}, onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = {},
-                )
+                Column {
+                    ThreadToggle(
+                        bot = fixture,
+                        expanded = false,
+                        searching = query.isNotBlank(),
+                        onToggle = {},
+                    )
+                    BotThreadTree(
+                        fixture, query = query, expanded = false,
+                        collapsedFolders = setOf("${fixture.id}:launch"), creating = false,
+                        onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = {},
+                    )
+                }
             }
         }
 
@@ -105,7 +121,7 @@ class BotThreadTreeTest {
             CompanionTheme(darkTheme = false) {
                 BotThreadTree(
                     liveBot, query = "", expanded = true, collapsedFolders = emptySet(), creating = false,
-                    onToggle = {}, onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = { opened = it },
+                    onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = { opened = it },
                 )
             }
         }
@@ -130,7 +146,7 @@ class BotThreadTreeTest {
             CompanionTheme(darkTheme = false) {
                 BotThreadTree(
                     fixture, query = "Release", expanded = false, collapsedFolders = emptySet(), creating = true,
-                    onToggle = {}, onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = {},
+                    onToggleFolder = {}, onCreate = {}, onManage = {}, onOpen = {},
                 )
             }
         }

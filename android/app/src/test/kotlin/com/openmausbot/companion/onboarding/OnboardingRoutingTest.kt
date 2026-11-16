@@ -66,11 +66,11 @@ class OnboardingRoutingTest {
     }
 
     @Test
-    fun `a first launch says what the app is before it asks the system for anything`() {
+    fun `a first launch lands on a home that asks the system for nothing`() {
         val scene = OnboardingScene()
         mount(scene)
 
-        compose.onNodeWithText(OnboardingCopy.WELCOME_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
         assertEquals(
             emptyList(),
             scene.asked(),
@@ -80,18 +80,15 @@ class OnboardingRoutingTest {
     }
 
     @Test
-    fun `Not now leads to a home that can still connect and still reach Settings`() {
+    fun `the unpaired home reaches Settings without entering a flow`() {
         val scene = OnboardingScene()
         mount(scene)
-
-        compose.onNodeWithText(OnboardingCopy.NOT_NOW).performClick()
-        compose.waitForIdle()
 
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_CONNECT).assertIsDisplayed()
 
-        // The later way back to notifications, without re-entering a connection
-        // flow this person has just declined.
+        // The later way back to notifications, without entering a connection
+        // flow first.
         compose.onNodeWithContentDescription("设置").performClick()
         compose.waitForIdle()
         compose.onNodeWithText("连接电脑").assertIsDisplayed()
@@ -102,7 +99,7 @@ class OnboardingRoutingTest {
         compose.onNodeWithText("取消配对此手机").assertDoesNotExist()
         compose.onNodeWithText("会话与例程").assertDoesNotExist()
 
-        assertEquals(emptyList(), scene.asked(), "declining setup still spent a prompt")
+        assertEquals(emptyList(), scene.asked(), "reaching Settings spent a prompt")
 
         // And back closes Settings rather than the app.
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
@@ -112,7 +109,7 @@ class OnboardingRoutingTest {
 
     @Test
     fun `the unpaired home leads back into pairing`() {
-        val scene = OnboardingScene(welcomeSeen = true)
+        val scene = OnboardingScene()
         mount(scene)
 
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
@@ -127,7 +124,7 @@ class OnboardingRoutingTest {
     fun `a deep link opens pairing even on a first launch nobody has answered`() {
         val scene = OnboardingScene()
         mount(scene)
-        compose.onNodeWithText(OnboardingCopy.WELCOME_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
 
         scene.session.receivePairingURL(
             "openmausbot://pair?address=127.0.0.1:8810&code=123456",
@@ -142,7 +139,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             // The marker is false because this pairing was committed before the
             // education step existed — an upgrade, not a first pairing.
             notificationOnboardingPending = false,
@@ -162,7 +158,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             notificationOnboardingPending = true,
         )
         mount(scene)
@@ -198,7 +193,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             notificationOnboardingPending = true,
         )
         mount(scene)
@@ -223,7 +217,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             notificationOnboardingPending = true,
             notificationsEnabled = true,
         )
@@ -234,20 +227,14 @@ class OnboardingRoutingTest {
     }
 
     /**
-     * The upgrade case, which has no welcome in its history at all.
-     *
-     * A phone that was already paired before any of this existed reads a marker
-     * file with nothing in it, so "has seen the welcome" is false while the
-     * person has been using the app for weeks. Landing them on a first-run
-     * welcome the day they unpair would be absurd; being paired is what answers
-     * that question for them.
+     * The upgrade case: a phone paired before the onboarding store existed
+     * unpairs and lands on the home — the one surface an unpaired phone has.
      */
     @Test
-    fun `an upgrade that unpairs lands on the home, not on a welcome it never needed`() {
+    fun `an upgrade that unpairs lands on the home`() {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = false,
         )
         mount(scene)
         compose.onNodeWithText("暂无智能体").assertIsDisplayed()
@@ -257,7 +244,6 @@ class OnboardingRoutingTest {
         compose.waitForIdle()
 
         compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
-        compose.onNodeWithText(OnboardingCopy.WELCOME_TITLE).assertDoesNotExist()
     }
 
     /**
@@ -275,10 +261,10 @@ class OnboardingRoutingTest {
      * because "I asked to connect" was answered a long time ago.
      */
     @Test
-    fun `a whole first run, from the welcome to a later unpair`() {
+    fun `a whole first run, from the unpaired home to a later unpair`() {
         val scene = OnboardingScene()
         mount(scene)
-        compose.onNodeWithText(OnboardingCopy.WELCOME_TITLE).assertIsDisplayed()
+        compose.onNodeWithText(OnboardingCopy.UNPAIRED_HOME_TITLE).assertIsDisplayed()
 
         scene.session.receivePairingURL(
             "openmausbot://pair?address=127.0.0.1:8810&code=123456",
@@ -337,7 +323,7 @@ class OnboardingRoutingTest {
             onboardingPairingState(Session.Status.Unpaired, null),
         )
         // A connection is what makes a phone paired, not a live stream: an
-        // offline restore still belongs in chats, not on the welcome screen.
+        // offline restore still belongs in chats, not on the unpaired home.
         assertEquals(
             OnboardingPairingState.UNPAIRED,
             onboardingPairingState(Session.Status.Connecting, null),
@@ -373,7 +359,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             notificationOnboardingPending = true,
             canRequestNotifications = false,
         )
@@ -403,7 +388,6 @@ class OnboardingRoutingTest {
         val scene = OnboardingScene(
             savedConnection = OnboardingScene.MAC,
             savedToken = "device-token",
-            welcomeSeen = true,
             notificationOnboardingPending = true,
             revoked = true,
         )

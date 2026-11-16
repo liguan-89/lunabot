@@ -47,6 +47,39 @@ internal fun rosterThreadRows(
     }
 }
 
+/**
+ * The disclosure affordance for a bot's threads — a small chevron and count
+ * that lives on the bot row itself, beside the timestamp, instead of a whole
+ * "话题 N" line under it. Returns null when there is nothing to expand.
+ */
+@Composable
+internal fun ThreadToggle(
+    bot: Bot,
+    expanded: Boolean,
+    searching: Boolean,
+    onToggle: () -> Unit,
+    queuedThreadIds: Set<String> = emptySet(),
+) {
+    val count = bot.threadGroups(queuedThreadIds = queuedThreadIds).sumOf { it.tasks.size }
+    if (!searching && count <= 1 && !expanded) return
+    Row(
+        modifier = Modifier
+            .testTag("threads-toggle.${bot.id}")
+            .semantics(mergeDescendants = true) {
+                contentDescription = "${bot.name} 的话题"
+                stateDescription = "${if (expanded) "已展开" else "已折叠"}，$count 个话题"
+            }
+            .clickable(enabled = !searching, role = Role.Button, onClick = onToggle)
+            .heightIn(min = 32.dp)
+            .padding(start = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(count.toString(), fontSize = 13.sp, color = secondaryTint)
+        DisclosureIcon(expanded)
+    }
+}
+
 @Composable
 internal fun BotThreadTree(
     bot: Bot,
@@ -54,7 +87,6 @@ internal fun BotThreadTree(
     expanded: Boolean,
     collapsedFolders: Set<String>,
     creating: Boolean,
-    onToggle: () -> Unit,
     onToggleFolder: (String) -> Unit,
     onCreate: () -> Unit,
     onManage: () -> Unit,
@@ -69,51 +101,35 @@ internal fun BotThreadTree(
         now = now,
         queuedThreadIds = queuedThreadIds,
     )
-    val count = bot.threadGroups(queuedThreadIds = queuedThreadIds).sumOf { it.tasks.size }
 
+    if (!isExpanded) return
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 88.dp, end = 18.dp, bottom = if (isExpanded) 12.dp else 0.dp),
+            .padding(start = 88.dp, end = 18.dp, bottom = 12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .testTag("threads-toggle.${bot.id}")
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "${bot.name} 的话题"
-                        stateDescription = "${if (isExpanded) "已展开" else "已折叠"}，$count 个话题"
-                    }
-                    .clickable(enabled = !searching, role = Role.Button, onClick = onToggle)
-                    .heightIn(min = 48.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TouchTarget(
+                onClick = onCreate,
+                enabled = !creating,
+                size = 44.dp,
+                contentDescription = "与 ${bot.name} 新建话题",
             ) {
-                DisclosureIcon(isExpanded)
-                Text("话题", fontSize = 13.sp, fontWeight = FontWeight.Medium, color = secondaryTint)
-                Text(count.toString(), fontSize = 13.sp, color = secondaryTint)
+                Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint)
             }
-            if (isExpanded) {
-                TouchTarget(
-                    onClick = onCreate,
-                    enabled = !creating,
-                    size = 48.dp,
-                    contentDescription = "与 ${bot.name} 新建话题",
-                ) {
-                    Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint)
-                }
-                TouchTarget(
-                    onClick = onManage,
-                    size = 48.dp,
-                    contentDescription = "管理 ${bot.name} 的话题",
-                ) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = null, tint = secondaryTint)
-                }
+            TouchTarget(
+                onClick = onManage,
+                size = 44.dp,
+                contentDescription = "管理 ${bot.name} 的话题",
+            ) {
+                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = secondaryTint)
             }
         }
-        if (isExpanded) {
-            groups.forEach { group ->
+        groups.forEach { group ->
                 val folder = group.project
                 if (folder == null) {
                     ThreadLinks(group.tasks, bot, now, queuedThreadIds, onOpen)
@@ -149,7 +165,6 @@ internal fun BotThreadTree(
                     }
                 }
             }
-        }
     }
 }
 

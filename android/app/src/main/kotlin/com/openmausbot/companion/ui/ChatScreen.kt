@@ -25,6 +25,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -130,6 +132,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.openmausbot.companion.R
 import com.openmausbot.companion.core.AttachmentPolicy
@@ -294,9 +298,11 @@ private fun LoadedChat(
     var searching by rememberSaveable { mutableStateOf(false) }
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var showingPlus by remember(threadId) { mutableStateOf(false) }
-    // Hold-to-talk. A dialog of its own: the + sheet has already closed by the
-    // time the recorder rises, and the gesture needs the whole screen.
-    var showingVoice by remember(threadId) { mutableStateOf(false) }
+    // 短按与按住说话是同一次按下的两种结局：卡片随手指落下即开并开始录音，
+    // 提前松手（< 400ms）留在卡片上继续录、由卡内按钮发送；按住超时则
+    // 松手即发送、卡片随之消失。
+    var voiceCardOpen by remember(threadId) { mutableStateOf(false) }
+    var voiceHold by remember(threadId) { mutableStateOf(false) }
     // The bot on the line. Not saveable: a call does not survive a rotation's
     // teardown of the audio session any better than a phone call would.
     var showingCall by remember { mutableStateOf(false) }
@@ -613,6 +619,9 @@ private fun LoadedChat(
                 first = false
                 return@collect
             }
+            // A call shares this recognizer: what it hears belongs to the
+            // call's transcript, never to the half-typed draft behind it.
+            if (showingCall || liveCall) return@collect
             val merged = Dictation.draft(base = dictation.base, transcript = next)
             composer.onDictation(merged)
             publishFrom(composer)
@@ -623,7 +632,7 @@ private fun LoadedChat(
     }
     // Stop when computer / tasks / profile / plus open — matching ChatView.swift.
     LaunchedEffect(showingPlus) { if (showingPlus) dictation.stop() }
-    LaunchedEffect(showingVoice) { if (showingVoice) dictation.stop() }
+    LaunchedEffect(voiceCardOpen) { if (voiceCardOpen) dictation.stop() }
     LaunchedEffect(showingTasks) { if (showingTasks) dictation.stop() }
     LaunchedEffect(showingProfile) { if (showingProfile) dictation.stop() }
     LaunchedEffect(showingCall) { if (showingCall) dictation.stop() }
@@ -708,6 +717,131 @@ private fun LoadedChat(
         settled = true
     }
 
+    // The voice card's finish: transcript or audio, same send path the sheet
+    // used, and the card closes itself through the same state the gesture set.
+    fun sendVoice(clip: VoiceClip, transcript: String) {
+        voiceCardOpen = false
+        voiceHold = false
+        // A recognized clip sends as text only: the wav would just
+        // cost the bot a transcription pass it no longer needs.
+        val voice = if (transcript.isEmpty()) listOf(
+            PendingMessageAttachment(
+                data = clip.data,
+                name = clip.name,
+                mime = "audio/wav",
+                kind = PendingMessageAttachment.Kind.FILE,
+            )
+        ) else emptyList()
+        scope.launch {
+            sendingMessage = true
+            attachmentError = null
+            val sent = try {
+                session.send(transcript, voice, chat)
+            } finally {
+                sendingMessage = false
+            }
+            if (!sent) {
+                attachmentError = session.actionError ?: "无法发送语音消息，请重试。"
+                session.actionError = null
+            } else {
+                stickToBottom.value = true
+                haptics.play(HapticCue.SEND)
+            }
+        }
+    }
+
+    val voiceCapture = remember(threadId) {
+        VoiceCapture(
+            context = context,
+            environment = environment,
+            scope = scope,
+            haptics = haptics,
+            onResult = { clip, transcript -> sendVoice(clip, transcript) },
+        )
+    }
+
+    // A microphone left open by a process switch is worse than a lost take.
+    DisposableEffect(voiceCapture, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) voiceCapture.cancel()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+            voiceCapture.release()
+        }
+    }
+
+    val cancelVoicePx = with(density) { 72.dp.toPx() }
+    fun openVoiceCard(hold: Boolean) {
+        dictation.stop()
+        focusManager.clearFocus()
+        voiceCardOpen = true
+        voiceHold = hold
+        voiceCapture.warmUp()
+        voiceCapture.begin()
+    }
+    val voiceGesture = Modifier
+        .pointerInput(threadId) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                down.consume()
+                openVoiceCard(hold = true)
+                var cancel = false
+                var released = false
+                var releasedAt = 0L
+                while (true) {
+                    val event = awaitPointerEvent()
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                    if (!change.pressed) {
+                        released = true
+                        releasedAt = change.uptimeMillis
+                        break
+                    }
+                    change.consume()
+                    val next = down.position.y - change.position.y > cancelVoicePx
+                    if (next != cancel) {
+                        cancel = next
+                        voiceCapture.cancelling = next
+                        haptics.play(HapticCue.SELECT)
+                    }
+                }
+                when {
+                    // The system taking the pointer (an incoming call, a back
+                    // gesture) must not leave the microphone open behind a
+                    // card nobody is holding.
+                    !released -> {
+                        voiceCapture.cancel()
+                        voiceCardOpen = false
+                        voiceHold = false
+                    }
+                    // Released inside the long-press window: a tap. The card
+                    // keeps recording; its own buttons finish the message.
+                    releasedAt - down.uptimeMillis < HOLD_TO_TALK_MS -> {
+                        voiceHold = false
+                    }
+                    // Held out: release means send (or cancel, slid up). A
+                    // permission sheet still on screen instead hands the card
+                    // to tap mode so the retry stays reachable.
+                    voiceCapture.recording -> {
+                        voiceCapture.finish(cancel = cancel)
+                        voiceCardOpen = false
+                        voiceHold = false
+                    }
+                    else -> voiceHold = false
+                }
+            }
+        }
+        .semantics {
+            contentDescription = "语音输入"
+            role = Role.Button
+            // TalkBack cannot hold-and-release; its click is the tap flow.
+            semanticsOnClick(label = "发送语音消息") {
+                openVoiceCard(hold = false)
+                true
+            }
+        }
+
     val bot = (chat as? Chat.BotChat)?.bot
     // The computer is bot-only; a non-DM room exposes task navigation when the
     // paired desktop supplied a task list. Both answers are constants.
@@ -729,10 +863,7 @@ private fun LoadedChat(
                 (AttachmentPolicy.IMAGE_MIME_TYPES + AttachmentPolicy.DOCUMENT_MIME_TYPES).toTypedArray(),
                 )
             }
-            ChatActionId.VOICE -> {
-                dictation.stop()
-                showingVoice = true
-            }
+            ChatActionId.VOICE -> openVoiceCard(hold = false)
             ChatActionId.NEW_TASK -> if (!creatingThread && TaskRules.canCreate(chat)) {
                 creatingThread = true
                 scope.launch {
@@ -851,7 +982,17 @@ private fun LoadedChat(
         // Deliberately not disabled while the bot is busy: the harness answers
         // 409 and Session surfaces "The bot is busy — stop it first." That is a
         // clearer answer than a dead button.
-        scope.launch { session.send(text, chat) }
+        scope.launch {
+            if (session.send(text, chat)) return@launch
+            // The draft was already cleared on the tap; a failed send hands the
+            // words back rather than dropping them behind a vanishing notice.
+            if (composer.text.isBlank()) {
+                composer.onTypedChange(text)
+                publishFrom(composer)
+            }
+            attachmentError = session.actionError ?: "无法发送此消息，请重试。"
+            session.actionError = null
+        }
     }
 
     fun selectCommand(command: SlashCommand) {
@@ -974,6 +1115,32 @@ private fun LoadedChat(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text("加载更早的消息", fontSize = 13.sp, color = secondaryTint)
+                            }
+                        }
+                    }
+
+                    // A brand-new thread is a full-screen invitation to ask,
+                    // not a blank sheet where the transcript will be.
+                    if (transcript.isEmpty() && liveCount == 0 && state.hasLoadedPage(threadId)) {
+                        item(key = EMPTY_STATE_KEY) {
+                            Column(
+                                modifier = Modifier.fillParentMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                            ) {
+                                ChatAvatar(chat = chat, size = 72.dp, animated = false)
+                                Text(
+                                    text = "还没有消息",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = minisInk,
+                                )
+                                Text(
+                                    text = "向 ${chat.name} 提问，开始这段对话",
+                                    fontSize = 14.sp,
+                                    color = minisSecondary,
+                                    textAlign = TextAlign.Center,
+                                )
                             }
                         }
                     }
@@ -1228,15 +1395,7 @@ private fun LoadedChat(
                     composer.onTypedChange(next)
                     publishFrom(composer)
                 },
-                onToggleDictation = {
-                    focusManager.clearFocus()
-                    dictation.toggle(capturing = draft)
-                },
-                onOpenVoice = {
-                    dictation.stop()
-                    focusManager.clearFocus()
-                    showingVoice = true
-                },
+                voiceButton = voiceGesture,
                 onSend = { submit() },
                 showCall = chat is Chat.BotChat,
                 onCall = openCall,
@@ -1312,37 +1471,14 @@ private fun LoadedChat(
         )
     }
 
-    if (showingVoice) {
-        VoiceMessageSheet(
-            onDismiss = { showingVoice = false },
-            onSend = { clip, transcript ->
-                showingVoice = false
-                // A recognized clip sends as text only: the wav would just
-                // cost the bot a transcription pass it no longer needs.
-                val voice = if (transcript.isEmpty()) listOf(
-                    PendingMessageAttachment(
-                        data = clip.data,
-                        name = clip.name,
-                        mime = "audio/wav",
-                        kind = PendingMessageAttachment.Kind.FILE,
-                    )
-                ) else emptyList()
-                scope.launch {
-                    sendingMessage = true
-                    attachmentError = null
-                    val sent = try {
-                        session.send(transcript, voice, chat)
-                    } finally {
-                        sendingMessage = false
-                    }
-                    if (!sent) {
-                        attachmentError = session.actionError ?: "无法发送语音消息，请重试。"
-                        session.actionError = null
-                    } else {
-                        stickToBottom.value = true
-                        haptics.play(HapticCue.SEND)
-                    }
-                }
+    if (voiceCardOpen) {
+        VoiceCard(
+            capture = voiceCapture,
+            hold = voiceHold,
+            onClose = {
+                voiceCapture.cancel()
+                voiceCardOpen = false
+                voiceHold = false
             },
         )
     }
@@ -1401,6 +1537,7 @@ private const val QUOTE_MAX_LINES = 4
 
 private const val LOAD_EARLIER_KEY = "companion.loadEarlier"
 private const val LIVE_BUBBLE_KEY = "companion.live"
+private const val EMPTY_STATE_KEY = "companion.empty"
 private val CHAT_CONTENT_MAX_WIDTH = 840.dp
 
 /**
@@ -1992,11 +2129,11 @@ private fun BackPill(unreadElsewhere: Int, onBack: () -> Unit) {
                 text = "$unreadElsewhere",
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color.White,
+                color = minisAccent,
                 modifier = Modifier
-                    .background(minisAccent, CircleShape)
-                    .defaultMinSize(minWidth = 18.dp, minHeight = 18.dp)
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                    .chromeCapsule(surface = true)
+                    .defaultMinSize(minWidth = 22.dp)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
                 textAlign = TextAlign.Center,
             )
         }
@@ -2103,6 +2240,9 @@ private fun BoxScope.PlusSheet(
     }
 }
 
+/** Longer than this is hold-to-talk; shorter is a tap that leaves the card up. */
+private const val HOLD_TO_TALK_MS = 400L
+
 private const val PLUS_MILLIS = 280
 
 /** The + becomes an ×. */
@@ -2167,9 +2307,8 @@ private fun Composer(
     dictationError: String?,
     onTogglePlus: () -> Unit,
     onDraftChange: (String) -> Unit,
-    onToggleDictation: () -> Unit,
-    /** Long-press on the microphone: hold-to-talk without a mode switch. */
-    onOpenVoice: () -> Unit,
+    /** The microphone's whole gesture: tap opens the card, hold talks. */
+    voiceButton: Modifier,
     onSend: () -> Unit,
     /** Grok Bot's black voice circle beside the pill; rooms have no call. */
     showCall: Boolean,
@@ -2241,7 +2380,11 @@ private fun Composer(
                     tint = minisWarning,
                     modifier = Modifier.size(18.dp),
                 )
-                Text(text = attachmentError, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(
+                    text = NoticeMessageFormat.humanize(attachmentError),
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
                 TouchTarget(
                     onClick = onDismissError,
                     size = 44.dp,
@@ -2425,43 +2568,16 @@ private fun Composer(
                     label = "composer-action",
                 ) { sending ->
                 if (!sending) {
-                // Tap = dictation, hold = voice message. That is the gesture
-                // people already know from chat apps, and it puts the voice
-                // recorder on the bar instead of hiding it under +.
+                // Tap opens the floating voice card and keeps recording until
+                // its send button; holding the mic records and the release
+                // sends — one press, decided by how long it is held.
                 val voiceInteraction = remember { MutableInteractionSource() }
                 Box(
                     modifier = Modifier
                         .size(MIN_TOUCH_TARGET)
                         .pressScale(voiceInteraction)
                         .clip(CircleShape)
-                        .combinedClickable(
-                            interactionSource = voiceInteraction,
-                            indication = LocalIndication.current,
-                            role = Role.Button,
-                            onClickLabel = if (dictationListening) {
-                                "停止语音听写"
-                            } else {
-                                "开始语音听写"
-                            },
-                            onLongClickLabel = "发送语音消息",
-                            onLongClick = onOpenVoice,
-                            onClick = onToggleDictation,
-                        )
-                        .clearAndSetSemantics {
-                            contentDescription =
-                                if (dictationListening) "停止语音听写" else "语音输入"
-                            role = Role.Button
-                            semanticsOnClick(
-                                label = if (dictationListening) "停止语音听写" else "开始语音听写",
-                            ) {
-                                onToggleDictation()
-                                true
-                            }
-                            semanticsOnLongClick(label = "发送语音消息") {
-                                onOpenVoice()
-                                true
-                            }
-                        },
+                        .then(voiceButton),
                     contentAlignment = Alignment.Center,
                 ) {
                     Box(

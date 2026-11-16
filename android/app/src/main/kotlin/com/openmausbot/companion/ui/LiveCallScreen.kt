@@ -25,7 +25,9 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -102,13 +104,36 @@ internal fun LiveCallScreen(bot: Bot, onDismiss: () -> Unit) {
         }
     }
 
+    // Opens as a floating card over the chat; the handle grows it into the
+    // full screen. Collapsing keeps the call alive either way.
+    var expanded by remember { mutableStateOf(false) }
+
     Dialog(
-        onDismissRequest = ::hangUp,
+        onDismissRequest = { if (expanded) expanded = false },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        BackHandler { hangUp() }
+        BackHandler { if (expanded) expanded = false else hangUp() }
         val tint = Color(MausPalette.argb(current.color))
         val live = call.state is LiveCallController.State.Live
+        if (!expanded) {
+            CallCard(
+                tint = tint,
+                bot = current,
+                phase = phaseText(call.state, current.name),
+                heard = call.heard,
+                spoken = if (live) call.caption else "",
+                note = null,
+                muted = call.muted,
+                onMute = { call.mute(!call.muted) },
+                onClose = ::hangUp,
+                onExpand = { expanded = true },
+                options = listOf(
+                    (if (call.speakerOn) "切到听筒" else "切到扬声器") to { call.setSpeaker(!call.speakerOn) },
+                ),
+                controlsEnabled = live,
+            )
+            return@Dialog
+        }
         val pulse = rememberInfiniteTransition(label = "speaking")
         val breathe by pulse.animateFloat(
             initialValue = 1f,
@@ -123,6 +148,12 @@ internal fun LiveCallScreen(bot: Bot, onDismiss: () -> Unit) {
                 .background(tint.copy(alpha = 0.18f))
                 .systemBarsPadding(),
         ) {
+            // Collapsing back to the card keeps the call; hanging up is the
+            // button that says so.
+            CallCollapseButton(
+                onClick = { expanded = false },
+                modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+            )
             Column(
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally,
