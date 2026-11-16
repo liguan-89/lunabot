@@ -6,7 +6,7 @@
 
 [**cloud.dexai.vip**](https://cloud.dexai.vip) &nbsp;·&nbsp; [下载](https://cloud.dexai.vip/download) &nbsp;·&nbsp; [文档](https://cloud.dexai.vip/docs) &nbsp;·&nbsp; [反馈](https://cloud.dexai.vip/feedback)
 
-<sub>Luna Bot 是 **OpenMausBot** 的独立分支（fork），保留上游 Apache-2.0 许可证与版权归属。
+<sub>Luna Bot 是 **OpenMausBot** 的独立分支（fork），上游 OpenMausBot 代码遵循 Apache-2.0（见 LICENSE.apache 与 NOTICE）；本项目自身的修改与新增代码以 AGPL-3.0 授权。
 Luna Bot 与 xAI、Meta、OpenAI、Manus 或 OpenMausBot 维护者无关联。</sub>
 
 </div>
@@ -98,9 +98,9 @@ Luna Bot Cloud 显式开启，不会默认暴露到公网。
 
 ## 许可与归属
 
-- 本项目使用 [Apache License 2.0](LICENSE)。
-- 原项目版权归 Milind Soni 与 OpenMausBot 贡献者所有，详见 [NOTICE](NOTICE)。
-- `enterprise/` 目录按[其自身许可证](enterprise/LICENSE)提供；删除该目录后剩余部分即为开源版本。
+- 本项目自身的修改与新增代码以 [GNU AGPL-3.0](LICENSE) 授权。
+- 继承自上游 OpenMausBot 的代码版权归 Milind Soni 与 OpenMausBot 贡献者所有，遵循
+  [Apache License 2.0](LICENSE.apache)，详见 [NOTICE](NOTICE)。
 - 打包的第三方组件（Cua Driver、cloudflared、DuckDB、OpenCode、T3 Code 等）保留各自的
   许可证与声明，随安装包一同分发。
 

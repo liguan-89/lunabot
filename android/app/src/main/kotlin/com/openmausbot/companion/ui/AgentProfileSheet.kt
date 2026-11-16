@@ -16,10 +16,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -374,7 +375,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
             label = "profile-top-haze",
         )
         CompositionLocalProvider(LocalHazeState provides hazeState) {
-        Box(modifier = Modifier.fillMaxSize().background(minisCanvas).systemBarsPadding()) {
+        Box(modifier = Modifier.fillMaxSize().background(minisCanvas).statusBarsPadding()) {
             val view = LocalView.current
             val dark = minisIsDark()
             SideEffect {
@@ -394,6 +395,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     modifier = Modifier
                         .fillMaxSize()
                         .verticalScroll(scrollState)
+                        .navigationBarsPadding()
                         .padding(horizontal = MinisPagePadding)
                         .padding(top = 66.dp, bottom = 32.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
