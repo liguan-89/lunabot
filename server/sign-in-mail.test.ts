@@ -38,7 +38,7 @@ describe("sign-in codes through the server's own mail server", () => {
   it("names the server the code signs in to in the subject", async () => {
     const box = mailbox();
     await createSignInMail({ url: URL_, transport: box.transport }).send("her@example.test", "maus.example.com");
-    expect(box.sent[0]).toMatchObject({ subject: "Your DexBot sign-in code for maus.example.com" });
+    expect(box.sent[0]).toMatchObject({ subject: "Your DEX BOT sign-in code for maus.example.com" });
     expect(box.sent[0]?.text).toContain("to sign in to maus.example.com is");
   });
 
