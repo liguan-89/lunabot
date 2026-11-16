@@ -1,6 +1,9 @@
 package com.openmausbot.companion.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.layout.Arrangement
@@ -10,12 +13,16 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
@@ -37,9 +44,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -137,50 +148,40 @@ internal fun TasksRoutinesScreen(
     }
 
     val receipts = remember(runs) { RoutineRules.receipts(runs) }
+    val hazeState = rememberHazeState()
+    val listState = rememberLazyListState()
+    val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
+    val topBandAlpha by animateFloatAsState(
+        targetValue = if (topScrolled) 1f else 0f,
+        animationSpec = tween(180),
+        label = "routines-top-haze",
+    )
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .background(minisCanvas)
+                .hazeSource(hazeState),
         ) {
-            HeaderBackButton(onBack)
-            Text(
-                text = if (botId == null) "会话与例程" else "定时任务",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            ChromeButton(
-                icon = Icons.Filled.Add,
-                contentDescription = "新建例程",
-                onClick = { editor = RoutineEditorTarget.new() },
-                size = 36.dp,
-                glyph = 18.dp,
-            )
-        }
-        // The app's hairline, not Material's 1 dp rule: beside 0.5 dp card
-        // borders a 1 dp divider reads as a different design.
-        MinisDivider()
-
-        PullToRefreshBox(
-            isRefreshing = refreshing,
-            onRefresh = {
-                scope.launch {
-                    refreshing = true
-                    reload()
-                    refreshing = false
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            LazyColumn(
+            PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = {
+                    scope.launch {
+                        refreshing = true
+                        reload()
+                        refreshing = false
+                    }
+                },
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(18.dp),
             ) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                    contentPadding = PaddingValues(top = 68.dp, bottom = 36.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                ) {
                 // The explainer describes tasks *and* routines; a bot-scoped
                 // page only shows the second half, so the generic copy would
                 // promise a section that is not on the screen.
@@ -286,7 +287,48 @@ internal fun TasksRoutinesScreen(
                     }
                 }
             }
+            }
         }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(78.dp)
+                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChromeButton(
+                icon = Icons.AutoMirrored.Filled.ArrowBack,
+                contentDescription = "返回",
+                onClick = onBack,
+                size = 40.dp,
+                glyph = 20.dp,
+                surface = true,
+            )
+            Text(
+                text = if (botId == null) "会话与例程" else "定时任务",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            ChromeButton(
+                icon = Icons.Filled.Add,
+                contentDescription = "新建例程",
+                onClick = { editor = RoutineEditorTarget.new() },
+                size = 40.dp,
+                glyph = 18.dp,
+                surface = true,
+            )
+        }
+    }
     }
 
     editor?.let { target ->

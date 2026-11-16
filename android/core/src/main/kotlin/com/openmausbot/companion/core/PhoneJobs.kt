@@ -100,6 +100,9 @@ enum class PhoneTool(
     // to a number that wrote in, unlike the compose-sheet tools above.
     REPLY_SMS("PHONE_REPLY_SMS", "messages", true),
     UI_OBSERVE("PHONE_UI_OBSERVE", "phoneUi", false),
+    // Several screens read in one job: it scrolls between reads, so it is a
+    // write like any other screen action, unlike the single observe.
+    UI_COLLECT("PHONE_UI_COLLECT", "phoneUi", true),
     // The read half of observe: the same snapshot, filtered down to the
     // elements a bot asked about, so a long screen costs one answer.
     UI_QUERY("PHONE_UI_QUERY", "phoneUi", false),
@@ -135,6 +138,9 @@ enum class PhoneTool(
     // helper's display, so it fails closed without the helper like a screen write.
     OPEN_LINK("PHONE_OPEN_LINK", "phoneUi", true),
     SHARE_TEXT("PHONE_SHARE_TEXT", "phoneUi", true),
+    // Whether the app a task drove stays in the background or is finished when
+    // the task ends; nothing changes on the phone until the executor releases.
+    UI_AFTER_TASK("PHONE_UI_AFTER_TASK", "phoneUi", true),
     ;
 
     companion object {
@@ -176,6 +182,7 @@ object PhoneToolCatalog {
         "PHONE_SEND_WHATSAPP" to "messages",
         "PHONE_REPLY_SMS" to "messages",
         "PHONE_UI_OBSERVE" to "phoneUi",
+        "PHONE_UI_COLLECT" to "phoneUi",
         "PHONE_UI_QUERY" to "phoneUi",
         "PHONE_UI_LAUNCH" to "phoneUi",
         "PHONE_LIST_APPS" to "phoneUi",
@@ -201,6 +208,7 @@ object PhoneToolCatalog {
         "PHONE_SET_TIMER" to "phoneUi",
         "PHONE_OPEN_LINK" to "phoneUi",
         "PHONE_SHARE_TEXT" to "phoneUi",
+        "PHONE_UI_AFTER_TASK" to "phoneUi",
     )
 
     fun capabilityOf(tool: String): String? = capabilityByTool[tool]

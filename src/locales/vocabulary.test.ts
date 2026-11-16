@@ -16,6 +16,8 @@ const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
   // \b before "_" fails, so environment names such as OMB_PUBLIC_IPV4 pass.
   ["OMB", /\bOMB\b/, "Luna Bot"],
   ["DEX BOT", /\bDEX BOT\b/, "Luna Bot"],
+  // \b keeps "Codex bots" and identifiers such as findDexBot out; the CamelCase name was UI copy too.
+  ["DexBot", /\bDexBot\b/, "Luna Bot"],
   ["Cloud box", /Cloud box/i, "cloud desktop"],
   ["Hosted desktop", /Hosted desktop/i, "cloud desktop"],
   ["Cloud VM", /Cloud VM/i, "cloud desktop"],
@@ -63,11 +65,12 @@ const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = 
   { file: "src/lib/boat-offer.ts", snippet: "Luna Bot introduced me", why: "the email a person sends Boat to claim its credit" },
   { file: "server/workspace-backup.ts", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
   { file: "electron/company-backups.mjs", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
-  { file: "server/service-unit.ts", why: "the packaged app's install paths on disk keep their bundle name until the deep rename" },
-  { file: "electron/build-speech-helper.mjs", why: "the speech helper bundle's directory name on disk" },
-  { file: "electron/speech.mjs", why: "loads the speech helper bundle by its directory name" },
+  { file: "electron/user-data-migration.mjs", why: "the profile and data folder names earlier builds wrote, moved once on update" },
+  { file: "electron/cloud-sync.mjs", snippet: "DEX BOT", why: "the Documents folder earlier builds wrote, moved once on update" },
   { file: "server/peer-provenance.ts", snippet: "another bot in this DEX BOT workspace", why: "normalizes peer notes written before the rename" },
   { file: "server/phone-secret.ts", snippet: "DEX BOT phone credential v1", why: "the HPKE info string existing phone envelopes were encrypted under" },
+  { file: "server/default-bot.ts", snippet: "DexBot", why: "the built-in bot's name in places made before the rename, recognized so one is not added twice" },
+  { file: "electron/desktop-server-auth.cjs", snippet: "X-DexBot-Desktop-Owner", why: "the owner header this app and the server have always exchanged; renaming it would break a running pair" },
 ];
 
 function* sources(dir: string): Generator<string> {

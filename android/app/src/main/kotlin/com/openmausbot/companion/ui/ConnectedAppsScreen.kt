@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -175,9 +176,7 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
                     Box(
                         modifier = Modifier
                             .size(44.dp)
-                            .clip(CircleShape)
-                            .background(minisCard)
-                            .border(0.5.dp, minisSeparator, CircleShape),
+                            .chromeCapsule(surface = true),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -327,14 +326,14 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .navigationBarsPadding()
                     .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
             ) {
                 Row(
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(minisCard)
+                        .chromeCapsule(surface = true)
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,

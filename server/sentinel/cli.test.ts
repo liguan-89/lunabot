@@ -128,13 +128,13 @@ describe("openmausbot sentinel", () => {
   it("--check-install reports a schedule whose node or script has moved", () => {
     const lines: string[] = [];
     const io = { log: (line: string) => lines.push(line), error: (line: string) => lines.push(line) };
-    const unit = "/Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist";
-    const plist = `<key>ProgramArguments</key>\n<array>\n<string>/old/node</string>\n<string>/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js</string>\n<string>sentinel</string>\n</array>`;
+    const unit = "/Users/maus/Library/LaunchAgents/com.lunabot.sentinel.plist";
+    const plist = `<key>ProgramArguments</key>\n<array>\n<string>/old/node</string>\n<string>/Applications/Luna Bot.app/Contents/Resources/server/openmausbot.js</string>\n<string>sentinel</string>\n</array>`;
     const host = (present: string[]) => ({ platform: "darwin" as const, home: "/Users/maus", exists: (path: string) => path === unit || present.includes(path), read: () => plist });
-    expect(runSentinelCli(["--check-install"], io, {}, host(["/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js"]))).toBe(1);
-    expect(lines.join("\n")).toContain("stale install: /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist needs /old/node, which no longer exists; rerun lunabot service install --sentinel");
+    expect(runSentinelCli(["--check-install"], io, {}, host(["/Applications/Luna Bot.app/Contents/Resources/server/openmausbot.js"]))).toBe(1);
+    expect(lines.join("\n")).toContain("stale install: /Users/maus/Library/LaunchAgents/com.lunabot.sentinel.plist needs /old/node, which no longer exists; rerun lunabot service install --sentinel");
     lines.length = 0;
-    expect(runSentinelCli(["--check-install", "--json"], io, {}, host(["/old/node", "/Applications/DEX BOT.app/Contents/Resources/server/openmausbot.js"]))).toBe(0);
+    expect(runSentinelCli(["--check-install", "--json"], io, {}, host(["/old/node", "/Applications/Luna Bot.app/Contents/Resources/server/openmausbot.js"]))).toBe(0);
     expect(JSON.parse(lines[0]!)).toMatchObject({ ok: true, status: "ok", node: "/old/node" });
     lines.length = 0;
     expect(runSentinelCli(["--check-install"], io, {}, { ...host([]), exists: () => false })).toBe(1);

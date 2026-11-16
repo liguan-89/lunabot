@@ -82,6 +82,10 @@ class PairingLinkManifestTest {
             "PairingLinkActivity must own the ${PairingLink.SCHEME}://pair filter",
         )
         assertTrue(
+            activity(".PairingLinkActivity").hasPairingFilter(PairingLink.PREVIOUS_SCHEME),
+            "a ${PairingLink.PREVIOUS_SCHEME}://pair QR made before this rename must still reach the trampoline",
+        )
+        assertTrue(
             activity(".PairingLinkActivity").hasPairingFilter(PairingLink.LEGACY_SCHEME),
             "an old ${PairingLink.LEGACY_SCHEME}://pair QR must still reach the trampoline",
         )
@@ -89,6 +93,10 @@ class PairingLinkManifestTest {
             activity(".MainActivity").hasPairingFilter(),
             "MainActivity must not receive credential-carrying pairing URLs: " +
                 "the system keeps and may persist a root Activity's launching Intent",
+        )
+        assertFalse(
+            activity(".MainActivity").hasPairingFilter(PairingLink.PREVIOUS_SCHEME),
+            "the previous scheme must not bypass the trampoline either",
         )
         assertFalse(
             activity(".MainActivity").hasPairingFilter(PairingLink.LEGACY_SCHEME),
@@ -196,6 +204,9 @@ class ShareReceiveManifestTest {
 class PairingLinkTest {
     @Test
     fun `only the pairing scheme and host are an invite`() {
+        assertTrue(PairingLink.isInvite("lunabot", "pair"))
+        assertTrue(PairingLink.isInvite("LUNABOT", "PAIR"))
+        assertTrue(PairingLink.isInvite("dexbot", "pair"))
         assertTrue(PairingLink.isInvite("openmausbot", "pair"))
         assertTrue(PairingLink.isInvite("OpenMausBot", "PAIR"))
         assertFalse(PairingLink.isInvite("https", "pair"))

@@ -4,12 +4,17 @@ import { defaultSentinelOut, isInside } from "./paths.ts";
 
 describe("sentinel paths", () => {
   it("keeps Sentinel's files in the platform's state folder, outside the data dir", () => {
+    expect(defaultSentinelOut("/Users/maus/.lunabot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/openmausbot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/openmausbot-sentinel");
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "/var/state/maus" })).toBe("/var/state/maus/openmausbot-sentinel");
+    // a relative XDG_STATE_HOME is invalid by the spec and ignored
+    expect(defaultSentinelOut("/home/maus/.lunabot", "linux", "/home/maus", { XDG_STATE_HOME: "state" })).toBe("/home/maus/.local/state/openmausbot-sentinel");
+    expect(defaultSentinelOut("C:\\Users\\maus\\.lunabot", "win32", "C:\\Users\\maus", { LOCALAPPDATA: "D:\\Local" })).toBe("D:\\Local\\openmausbot-sentinel");
+  });
+
+  it("treats a data dir left under the old name as the default too, so its issues stay in one place", () => {
     expect(defaultSentinelOut("/Users/maus/.dexbot", "darwin", "/Users/maus", {})).toBe("/Users/maus/Library/Application Support/openmausbot-sentinel");
     expect(defaultSentinelOut("/home/maus/.dexbot", "linux", "/home/maus", {})).toBe("/home/maus/.local/state/openmausbot-sentinel");
-    expect(defaultSentinelOut("/home/maus/.dexbot", "linux", "/home/maus", { XDG_STATE_HOME: "/var/state/maus" })).toBe("/var/state/maus/openmausbot-sentinel");
-    // a relative XDG_STATE_HOME is invalid by the spec and ignored
-    expect(defaultSentinelOut("/home/maus/.dexbot", "linux", "/home/maus", { XDG_STATE_HOME: "state" })).toBe("/home/maus/.local/state/openmausbot-sentinel");
-    expect(defaultSentinelOut("C:\\Users\\maus\\.dexbot", "win32", "C:\\Users\\maus", { LOCALAPPDATA: "D:\\Local" })).toBe("D:\\Local\\openmausbot-sentinel");
   });
 
   it("gives any other data dir its own subfolder, the same one every time", () => {

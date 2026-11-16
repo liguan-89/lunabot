@@ -11,7 +11,7 @@ import type { VerbContext, VerbOutcome } from "./context.ts";
 type Rec = Record<string, any>;
 
 /** The command that makes a pairing code on a server, whichever way that server was installed. */
-const PAIR_ON_SERVER = "npx dexbot pair (Docker: docker compose exec omb dexbot pair)";
+const PAIR_ON_SERVER = "npx lunabot pair (Docker: docker compose exec omb lunabot pair)";
 
 const isLoopback = (origin: string) => /^https?:\/\/(?:127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/i.test(origin);
 
@@ -40,7 +40,7 @@ export function writeTokenFile(path: string, token: string, force: boolean): voi
 
 const PROBLEM: Record<string, string> = {
   empty: "give the server's address or its pairing link",
-  codeOnly: "that is a pairing code: give the server's address too, like dexbot connect http://192.168.1.20:8799 --code CODE",
+  codeOnly: "that is a pairing code: give the server's address too, like lunabot connect http://192.168.1.20:8799 --code CODE",
   emailCode: "that is a sign-in code from an email; pairing needs a 12-character code like 7KQ2-M9XD-H4TP",
   oldCode: "that is a code from an older Luna Bot; pairing needs a 12-character code like 7KQ2-M9XD-H4TP",
   scriptKey: "that is a script key; pass it with --token-file instead of pairing",
@@ -76,9 +76,9 @@ export async function connectVerb(ctx: VerbContext): Promise<VerbOutcome> {
   let code = secret;
   if (!code && !isLoopback(origin)) throw usageError("a workspace elsewhere needs a pairing code", pairHint);
   if (described?.status !== 200 || typeof described.body.environmentId !== "string") {
-    throw new HeadlessError(`no Luna Bot server answers at ${origin}`, EXIT.unreachable, "check the address, and that the server is running with a way in (see dexbot serve --help on the server)");
+    throw new HeadlessError(`no Luna Bot server answers at ${origin}`, EXIT.unreachable, "check the address, and that the server is running with a way in (see lunabot serve --help on the server)");
   }
-  const label = flag(ctx.flags, "label")?.trim() || "dexbot CLI";
+  const label = flag(ctx.flags, "label")?.trim() || "lunabot CLI";
   if (!code) {
     const minted = await call(origin, "/api/auth/pairing", { method: "POST", body: JSON.stringify({ label, ...(ctx.flags.client ? { scopes: ["client"] } : {}) }) });
     if (minted.status !== 200 || typeof minted.body.code !== "string") {

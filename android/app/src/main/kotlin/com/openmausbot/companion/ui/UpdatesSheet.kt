@@ -144,13 +144,18 @@ internal fun UpdatesBar(updates: List<ChatUpdate>, onOpen: () -> Unit, modifier:
 @Composable
 internal fun MascotStack(colors: List<String>, size: Dp = 28.dp, overlap: Dp = 12.dp) {
     Row(horizontalArrangement = Arrangement.spacedBy(-overlap)) {
-        colors.forEach { color ->
+        colors.forEachIndexed { index, color ->
             Box(
                 modifier = Modifier
-                    .background(MaterialTheme.colorScheme.surface, CircleShape)
+                    .background(minisCanvas, CircleShape)
                     .padding(2.dp),
             ) {
-                MausAvatar(color = color, size = size, state = MausState.IDLE, animated = false)
+                PresetBotAvatar(
+                    color = color,
+                    size = size,
+                    contentDescription = null,
+                    seed = index * 31 + color.hashCode(),
+                )
             }
         }
     }
@@ -170,15 +175,15 @@ internal fun UpdatesSheet(onOpen: (Chat) -> Unit, onDismiss: () -> Unit) {
             if (items.isEmpty()) null else kind to items
         }
     }
-    // One pass over the fleet rather than one per row: resolving a face walks the
-    // chat's visible transcript.
     val faces = remember(state, updates) {
         updates.associate { it.id to MausState.forChat(it.chat, state) }
     }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        scrimColor = Color.Black.copy(alpha = 0.18f),
+        containerColor = minisCanvas,
+        shape = MinisSheetShape,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
         GlassBackdrop()
         LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -250,7 +255,13 @@ private fun UpdateRow(update: ChatUpdate, face: MausState, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        ChatAvatar(chat = update.chat, size = 40.dp, state = face)
+        ChatAvatar(
+            chat = update.chat,
+            size = 40.dp,
+            state = face,
+            animated = false,
+            fallback = AvatarFallback.PRESET,
+        )
 
         Column(
             modifier = Modifier.weight(1f),
@@ -266,7 +277,7 @@ private fun UpdateRow(update: ChatUpdate, face: MausState, onOpen: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = update.line.ifEmpty { " " },
+                text = RosterPreviewFormat.display(update.line).ifEmpty { " " },
                 fontSize = 14.sp,
                 color = secondaryTint,
                 maxLines = if (update.kind == UpdateKind.NEEDS_YOU) 3 else 1,

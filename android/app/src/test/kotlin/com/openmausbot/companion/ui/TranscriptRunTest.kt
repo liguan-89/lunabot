@@ -132,7 +132,7 @@ class ChatActionsTest {
         assertEquals("与 Scout 开启新话题", actions[3].subtitle)
         assertEquals("话题列表", actions[4].title)
         assertEquals("切换、重命名或移除话题", actions[4].subtitle)
-        assertEquals("机器人设置", actions[5].title)
+        assertEquals("智能体设置", actions[5].title)
         assertEquals("模型、资料、语音与通知", actions[5].subtitle)
         assertEquals("查看电脑画面", actions[6].title)
         assertEquals("实时查看 Scout 的操作", actions[6].subtitle)

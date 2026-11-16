@@ -22,20 +22,23 @@ function fixture({ open = async () => true } = {}) {
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve(); };
 
 test("the Cloud protocol is a fixed action without URL routing or credentials", () => {
-  assert.equal(CLOUD_DEEP_LINK, "dexbot://cloud");
-  assert.equal(isCloudDeepLink("dexbot://cloud"), true);
-  for (const value of [null, undefined, {}, ["dexbot://cloud"], "", "dexbot://cloud/", "dexbot://cloud?", "dexbot://cloud#",
-    "dexbot://cloud?code=ABCDE-FGHJK", "dexbot://cloud#code=ABCD-EFGH-JKLM", "dexbot://cloud?url=https://home.example",
-    "dexbot://cloud/pair", "dexbot://user@cloud", "dexbot://cloud:443", "dexbot://cloud.evil", "dexbot://CLOUD",
-    "OPENMAUSBOT://cloud", "openmausbot:cloud", "dexbot:///cloud", "https://cloud", " dexbot://cloud", "dexbot://cloud ",
-    "dexbot://%63loud", "dexbot://organization", "dexbot://install?url=https://github.com/x/y"]) {
+  assert.equal(CLOUD_DEEP_LINK, "lunabot://cloud");
+  assert.equal(isCloudDeepLink("lunabot://cloud"), true);
+  // Links written before the rename still open the same sheet.
+  assert.equal(isCloudDeepLink("lunabot://cloud"), true);
+  for (const value of [null, undefined, {}, ["lunabot://cloud"], "", "lunabot://cloud/", "lunabot://cloud?", "lunabot://cloud#",
+    "lunabot://cloud?code=ABCDE-FGHJK", "lunabot://cloud#code=ABCD-EFGH-JKLM", "lunabot://cloud?url=https://home.example",
+    "lunabot://cloud/pair", "lunabot://user@cloud", "lunabot://cloud:443", "lunabot://cloud.evil", "lunabot://CLOUD",
+    "OPENMAUSBOT://cloud", "openmausbot:cloud", "lunabot:///cloud", "https://cloud", " lunabot://cloud", "lunabot://cloud ",
+    "lunabot://%63loud", "lunabot://organization", "lunabot://install?url=https://github.com/x/y",
+    "dexbot://cloud/", "dexbot://cloud?code=X", "dexbot://cloud.evil"]) {
     assert.equal(isCloudDeepLink(value), false, String(value));
   }
 });
 
 test("consuming a launch action prevents it replaying on a later restart without changing other arguments", () => {
-  const original = ["/Applications/Luna Bot", "--profile=fixture", "dexbot://cloud?ignored", "dexbot://organization", "dexbot://install/example"];
-  const argv = [...original, "dexbot://cloud", "dexbot://cloud"];
+  const original = ["/Applications/Luna Bot", "--profile=fixture", "lunabot://cloud?ignored", "dexbot://organization", "dexbot://install/example"];
+  const argv = [...original, "lunabot://cloud", "lunabot://cloud"];
   assert.equal(takeCloudDeepLink(argv), true);
   assert.deepEqual(argv, original);
   assert.equal(takeCloudDeepLink(argv), false, "the action is consumed exactly once");
@@ -44,7 +47,7 @@ test("consuming a launch action prevents it replaying on a later restart without
 
 test("a cold-start link waits until main can navigate, then opens exactly once", async () => {
   const h = fixture();
-  const argv = ["/Applications/Luna Bot", "--fixture", "dexbot://cloud"];
+  const argv = ["/Applications/Luna Bot", "--fixture", "lunabot://cloud"];
   assert.equal(h.entry.fromLaunch(argv), true);
   assert.deepEqual(argv, ["/Applications/Luna Bot", "--fixture"]);
   await settle();
@@ -57,15 +60,15 @@ test("a cold-start link waits until main can navigate, then opens exactly once",
 
 test("a launch without the link leaves nothing pending", async () => {
   const h = fixture();
-  assert.equal(h.entry.fromLaunch(["/Applications/Luna Bot", "dexbot://cloud/"]), false);
+  assert.equal(h.entry.fromLaunch(["/Applications/Luna Bot", "lunabot://cloud/"]), false);
   assert.equal(await h.entry.ready(), false);
   assert.deepEqual(h.calls, []);
 });
 
 test("macOS open-url before ready is held, and several links open once", async () => {
   const h = fixture();
-  assert.equal(h.entry.fromUrl("dexbot://cloud"), true);
-  assert.equal(h.entry.fromUrl("dexbot://cloud"), true);
+  assert.equal(h.entry.fromUrl("lunabot://cloud"), true);
+  assert.equal(h.entry.fromUrl("lunabot://cloud"), true);
   await settle();
   assert.deepEqual(h.calls, ["reveal", "reveal"]);
   assert.equal(await h.entry.ready(), true);
@@ -75,10 +78,10 @@ test("macOS open-url before ready is held, and several links open once", async (
 test("once ready, open-url and a second instance open immediately and consume the argument", async () => {
   const h = fixture();
   await h.entry.ready();
-  assert.equal(h.entry.fromUrl("dexbot://cloud"), true);
+  assert.equal(h.entry.fromUrl("lunabot://cloud"), true);
   await settle();
   assert.deepEqual(h.calls, ["reveal", "open"]);
-  const commandLine = ["C:\\Luna Bot.exe", "--flag", "dexbot://cloud"];
+  const commandLine = ["C:\\Luna Bot.exe", "--flag", "lunabot://cloud"];
   assert.equal(h.entry.fromArgs(commandLine), true);
   await settle();
   assert.deepEqual(h.calls, ["reveal", "open", "reveal", "open"]);
@@ -88,7 +91,7 @@ test("once ready, open-url and a second instance open immediately and consume th
 test("anything else is left to the other link handlers without revealing or opening", async () => {
   const h = fixture();
   await h.entry.ready();
-  for (const url of ["dexbot://organization", "dexbot://install?url=https://github.com/x/y", "dexbot://cloud?code=X", "dexbot://cloud/"]) {
+  for (const url of ["dexbot://organization", "dexbot://install?url=https://github.com/x/y", "lunabot://cloud?code=X", "lunabot://cloud/"]) {
     assert.equal(h.entry.fromUrl(url), false);
     const argv = ["/app", url];
     assert.equal(h.entry.fromArgs(argv), false);
@@ -101,16 +104,16 @@ test("anything else is left to the other link handlers without revealing or open
 test("a failed open is contained and a later link still opens", async () => {
   let fail = true;
   const h = fixture({ open: async () => { if (fail) throw new Error("load failed"); return true; } });
-  h.entry.fromLaunch(["/app", "dexbot://cloud"]);
+  h.entry.fromLaunch(["/app", "lunabot://cloud"]);
   assert.equal(await h.entry.ready(), false);
   fail = false;
-  h.entry.fromUrl("dexbot://cloud");
+  h.entry.fromUrl("lunabot://cloud");
   await settle();
   assert.deepEqual(h.calls, ["open", "reveal", "open"]);
 });
 
 test("a consumed launch link is not replayed by the companion or updater relaunch", () => {
-  const argv = ["/fixture/Luna Bot", "--fixture", "dexbot://cloud", "dexbot://cloud?ignored"];
+  const argv = ["/fixture/Luna Bot", "--fixture", "lunabot://cloud", "lunabot://cloud?ignored"];
   takeCloudDeepLink(argv);
   const calls = [];
   runInNewContext(`${between("function relaunchAfterDesktopRemoteChange()", 'ipcMain.handle("desktop-remote:state"')}\nrelaunchAfterDesktopRemoteChange();`, {
@@ -119,7 +122,7 @@ test("a consumed launch link is not replayed by the companion or updater relaunc
   });
   const patched = patchOrganizationUpdater("      relaunch() {\n        this.app.relaunch();\n      }");
   runInNewContext(`({ app, ${patched} }).relaunch();`, { process: { argv }, app: { relaunch: options => calls.push(options.args) } });
-  assert.deepEqual(calls, [["--fixture", "dexbot://cloud?ignored"], ["--fixture", "dexbot://cloud?ignored"]]);
+  assert.deepEqual(calls, [["--fixture", "lunabot://cloud?ignored"], ["--fixture", "lunabot://cloud?ignored"]]);
 });
 
 test("main takes the link from launch arguments, open-url and a second instance", () => {

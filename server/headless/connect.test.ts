@@ -84,7 +84,7 @@ describe("connect", () => {
     const remote = capture();
     expect(await runHeadless(["connect", "https://maus.example.com", "--out", join(dir, "t")], { io: remote.io, env: {} })).toBe(2);
     expect(remote.err[0]).toBe("error: a workspace elsewhere needs a pairing code");
-    expect(remote.err.join("\n")).toContain("npx dexbot pair");
+    expect(remote.err.join("\n")).toContain("npx lunabot pair");
     expect(() => writeTokenFile("-", "x", false)).toThrow("never to the terminal");
     expect(() => writeTokenFile("/dev/stdout", "x", true)).toThrow("never to the terminal");
   });

@@ -37,7 +37,7 @@ async function boot(extraConfig: Record<string, unknown>) {
   const port = workerPort(18800, 10_000);
   const base = `http://127.0.0.1:${port}`;
   const home = mkdtempSync(join(tmpdir(), "omb-helper-model-"));
-  const dataDir = join(home, ".dexbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     instances: {

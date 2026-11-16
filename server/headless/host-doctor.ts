@@ -4,8 +4,9 @@
 import { execFile } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statfsSync } from "node:fs";
 import { arch, cpus, homedir, release, totalmem } from "node:os";
-import { dirname, join, posix, resolve } from "node:path";
+import { dirname, posix, resolve } from "node:path";
 
+import { resolveDataDir } from "../data-dir.ts";
 import { PRODUCTION_CLOUD_ORIGIN } from "../devs-report-send.ts";
 import { EXIT, flag, usageError } from "./args.ts";
 import type { VerbContext, VerbOutcome } from "./context.ts";
@@ -317,7 +318,7 @@ export async function hostDoctor(ctx: VerbContext, probe: HostProbe = systemProb
   const port = Number(rawPort);
   if (!Number.isInteger(port) || port < 1 || port > 65_535) throw usageError("--port must be 1-65535");
   // A Linux machine's path, also when the checks are tested on Windows.
-  const dataDir = posix.resolve(flag(ctx.flags, "data-dir") ?? (ctx.env.OMB_DATA_DIR || join(homedir(), ".openmausbot")));
+  const dataDir = posix.resolve(flag(ctx.flags, "data-dir") ?? resolveDataDir(ctx.env, { home: homedir(), join: posix.join }));
   const domain = flag(ctx.flags, "domain")?.trim().toLowerCase();
   return hostReport(await checkHost(probe, { dataDir, port, ...(domain ? { domain } : {}) }));
 }

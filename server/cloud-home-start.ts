@@ -14,6 +14,7 @@ import {
 import { procHidepid } from "./bot-box/hidepid.ts";
 import { boxMemory, heapSizeArgs } from "./box-memory.ts";
 import { clearRecordsFromOtherMachines } from "./data-dir-lease.ts";
+import { resolveDataDir } from "./data-dir.ts";
 import { OOM_SCORE, protectSupervisor, spawnWithOomScore } from "./oom-score.ts";
 import { restartPolicy } from "./restart.ts";
 
@@ -186,9 +187,9 @@ export function tunnelCommand(bin: string, token: string): { command: string; ar
   };
 }
 
-/** The server's data directory on the volume. */
+/** The server's data directory on the volume. The image runs on Linux, so the volume's home is a POSIX path. */
 export function cloudHomeDataDir(env: NodeJS.ProcessEnv, home: string): string {
-  return env.OMB_DATA_DIR || posix.join(home, ".dexbot");
+  return resolveDataDir(env, { home, join: posix.join });
 }
 
 /** flock(1)'s exit status when another process holds the lock (its --conflict-exit-code). */

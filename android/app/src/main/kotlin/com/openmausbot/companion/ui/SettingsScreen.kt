@@ -10,6 +10,8 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,7 +21,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.padding
@@ -49,13 +53,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -237,43 +245,34 @@ fun SettingsScreen(
     var signingIn by remember { mutableStateOf(false) }
     var cloudNotice by remember { mutableStateOf<String?>(null) }
 
-    Column(
+    val hazeState = rememberHazeState()
+    val scrollState = rememberScrollState()
+    val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
+    val topBandAlpha by animateFloatAsState(
+        targetValue = if (topScrolled) 1f else 0f,
+        animationSpec = tween(180),
+        label = "settings-top-haze",
+    )
+
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
-            // The sheet has no visible title, but the pane still needs one for
-            // TalkBack when it lands on the screen.
             .semantics { paneTitle = "设置" },
     ) {
-        // The sheet's own close control, with no title bar above the list.
-        Row(
+        Box(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 10.dp, top = 10.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxSize()
+                .background(minisCanvas)
+                .hazeSource(hazeState),
         ) {
-            TouchTarget(onClick = onBack, contentDescription = "关闭设置") {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .chromeCapsule(surface = true),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = null,
-                        tint = minisInk,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
-            }
-        }
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp),
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .navigationBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 66.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             val bound = connection
@@ -361,18 +360,24 @@ fun SettingsScreen(
                     otherComputers.forEachIndexed { index, computer ->
                         if (index > 0) SettingsDivider()
                         SettingsRow(
-                            title = "使用 ${computer.name}",
+                            title = computer.name,
+                            subtitle = SettingsPolicy.addressText(computer),
                             chevron = true,
+                            trailing = {
+                                TextButton(
+                                    onClick = { pendingComputerRemoval = computer },
+                                ) {
+                                    Text(
+                                        text = "移除",
+                                        fontSize = 13.sp,
+                                        color = minisDanger,
+                                    )
+                                }
+                            },
                             onClick = {
                                 haptics.play(TactileAction.SWITCH_COMPUTER)
                                 session.switchComputer(computer.id)
                             },
-                        )
-                        SettingsDivider()
-                        SettingsRow(
-                            title = "移除 ${computer.name}",
-                            destructive = true,
-                            onClick = { pendingComputerRemoval = computer },
                         )
                     }
                 }
@@ -643,35 +648,31 @@ fun SettingsScreen(
                 },
             ) {
                 SettingsSwitchRow(
-                    title = "允许机器人读取日历",
+                    title = "允许智能体读取日历",
                     checked = phoneCalendar,
                     onCheckedChange = toggleCalendar,
                 )
                 SettingsDivider()
                 SettingsSwitchRow(
-                    title = "允许机器人读取联系人",
+                    title = "允许智能体读取联系人",
                     checked = phoneContacts,
                     onCheckedChange = toggleContacts,
                 )
                 SettingsDivider()
-                // Reminders are this app's own list, not an OS permission: the
-                // switch is the whole grant.
                 SettingsSwitchRow(
-                    title = "允许机器人创建提醒",
+                    title = "允许智能体创建提醒",
                     checked = phoneReminders,
                     onCheckedChange = { environment.chatPreferences.setPhoneReminders(it) },
                 )
                 SettingsDivider()
                 SettingsSwitchRow(
-                    title = "允许机器人获取位置",
+                    title = "允许智能体获取位置",
                     checked = phoneLocation,
                     onCheckedChange = toggleLocation,
                 )
                 SettingsDivider()
-                // The grants cover the relay (inbound texts push up, replies
-                // send themselves) and the compose-sheet drafts both live under.
                 SettingsSwitchRow(
-                    title = "允许机器人收发短信",
+                    title = "允许智能体收发短信",
                     checked = phoneMessages,
                     onCheckedChange = toggleMessages,
                 )
@@ -704,7 +705,7 @@ fun SettingsScreen(
             SettingsSection(
                 label = "手机界面",
                 footer = {
-                    SettingsFootnote("屏幕文字会发送给该机器人的 AI 用于操作；密码字段会跳过。机器人要截图、识别画面文字、读取剪贴板、最近通知或你允许的文件时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
+                    SettingsFootnote("屏幕文字会发送给该智能体的 AI 用于操作；密码字段会跳过。智能体要截图、识别画面文字、读取剪贴板、最近通知或你允许的文件时才会上传对应内容，写剪贴板与每次点击输入一样需要桌面端权限审批。可随时关闭或取消配对。")
                     if (phoneUiStatus == PhoneUiStatus.Failed) {
                         SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
                     }
@@ -714,12 +715,10 @@ fun SettingsScreen(
                 },
             ) {
                 SettingsSwitchRow(
-                    title = "允许机器人操作手机界面",
+                    title = "允许智能体操作手机界面",
                     checked = phoneUiEnabled,
                     onCheckedChange = { enabled ->
                         environment.chatPreferences.setPhoneUi(enabled)
-                        // A deliberate Off tears the helper down; merely
-                        // navigating away never does.
                         if (!enabled) environment.phoneUi.disable()
                     },
                 )
@@ -786,7 +785,7 @@ fun SettingsScreen(
                     // Files are a separate consent on top of the screen switch:
                     // the media grant plus, optionally, one picked folder.
                     SettingsSwitchRow(
-                        title = "允许机器人读取相册与文件夹",
+                        title = "允许智能体读取相册与文件夹",
                         checked = phoneFiles,
                         onCheckedChange = { enabled ->
                             if (!enabled) {
@@ -835,7 +834,7 @@ fun SettingsScreen(
                     // The same system notification access the SMS relay uses,
                     // but this switch is the bot reading every app's posts.
                     SettingsSwitchRow(
-                        title = "允许机器人读取最近通知",
+                        title = "允许智能体读取最近通知",
                         checked = phoneNotices,
                         onCheckedChange = { enabled ->
                             environment.chatPreferences.setPhoneNotices(enabled)
@@ -996,6 +995,56 @@ fun SettingsScreen(
             }
             BrandBlock(version = brandVersion)
         }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(78.dp)
+                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(32.dp)
+                .progressiveHazeBand(hazeState, fromTop = false, alpha = 0.75f),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+        ) {
+            TouchTarget(
+                onClick = onBack,
+                contentDescription = "关闭设置",
+                modifier = Modifier.align(Alignment.CenterStart),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .chromeCapsule(surface = true),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+            Text(
+                text = "设置",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisInk,
+                modifier = Modifier.align(Alignment.Center),
+            )
+        }
+    }
     }
 
     if (editingAddress) {
@@ -1527,6 +1576,7 @@ private fun SettingsSheet(
         sheetState = sheetState,
         shape = MinisSheetShape,
         containerColor = minisCanvas,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -1537,6 +1587,7 @@ private fun SettingsSheet(
             )
         },
     ) {
+        GlassBackdrop()
         Column(
             modifier = Modifier
                 .fillMaxWidth()

@@ -54,6 +54,13 @@ const tools: PhoneTool[] = [
   tool("PHONE_SEND_MESSAGE", "Prepare a text message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
   tool("PHONE_SEND_WHATSAPP", "Prepare a WhatsApp message. It opens a sheet on the phone and is sent only when the person taps Send.", { to: TEXT(200, "Contact name or phone number."), text: { type: "string", minLength: 1, maxLength: 4000 } }, ["to", "text"]),
   tool("PHONE_UI_OBSERVE", "Read the phone's current screen as a short text description with opaque element refs, one screen at a time. Read only; no screenshots. Observe before a step; every driving action also returns the screen as it is afterwards, so read that instead of observing again. Never guess a ref.", {}),
+  tool("PHONE_UI_COLLECT", "Read several screens in one call: the text of the current screen, then one scroll and the next, for a long list or a chat history. A line already returned is not repeated, and the read stops at the end of the list or when the app changes. It scrolls, so it asks the person first like any other screen write.", {
+    direction: { type: "string", enum: ["up", "down"], description: "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way." },
+    pages: { type: "integer", minimum: 1, maximum: 20, description: "Most screens to read; default 8." },
+    maxLines: { type: "integer", minimum: 1, maximum: 1000, description: "Most text lines to return; default 300." },
+    fromY: { type: "integer", minimum: 0, maximum: 999, description: "Top of the band to read, 0 at the controlled display's top edge and 999 at its bottom, the same display element bounds use; default 50." },
+    toY: { type: "integer", minimum: 0, maximum: 999, description: "Bottom of the band to read, 0 at the controlled display's top edge and 999 at its bottom; default 950." },
+  }, ["direction"]),
   tool("PHONE_UI_QUERY", "Find elements of the phone's current screen by text, view id or role, at least one of the three, when the full element list is too long; its refs work with PHONE_UI_TAP and PHONE_UI_TYPE. Read only.", {
     text: TEXT(200, "Case-insensitive text or content description to find."),
     resourceId: TEXT(200, "Full or partial Android view id to find."),
@@ -121,6 +128,10 @@ const tools: PhoneTool[] = [
     text: { type: "string", minLength: 1, maxLength: 5000, description: "The text to place in the other app." },
     app: TEXT(200, "The Android package that should receive the text."),
   }, ["text"]),
+  tool("PHONE_UI_AFTER_TASK", "Choose what happens to the app this task drove when the task ends: keep leaves it running in the background on its last page, close finishes it. The choice holds for the rest of the task. Asks the person first.", {
+    action: { type: "string", enum: ["keep", "close"], description: "keep leaves the app running in the background; close finishes it." },
+    app: TEXT(200, "The Android package to act on; leave it out for the app the task last drove."),
+  }, ["action"]),
 ];
 
 /** Catalog in PHONE_TOOL_NAMES order. */
@@ -140,6 +151,13 @@ export function phoneToolCallProblem(name: unknown, args: unknown): string | nul
   }
   if (name === "PHONE_UI_QUERY" && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
     return "PHONE_UI_QUERY needs at least one of text, resourceId, or role.";
+  }
+  // An inverted band would read nothing at all; the schema cannot say one field must stay under another.
+  if (name === "PHONE_UI_COLLECT") {
+    const { fromY, toY } = args as { fromY?: unknown; toY?: unknown };
+    const top = typeof fromY === "number" ? fromY : 50;
+    const bottom = typeof toY === "number" ? toY : 950;
+    if (top >= bottom) return "PHONE_UI_COLLECT needs fromY to be smaller than toY.";
   }
   return null;
 }

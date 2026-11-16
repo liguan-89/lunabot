@@ -5,7 +5,10 @@ import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 
 const LEASE_NAME = "openmausbot-server.lease";
-const DELEGATED_CHILD_DIR = ".dexbot-server-child";
+const DELEGATED_CHILD_DIR = ".lunabot-server-child";
+/** Where a build from before the rename kept its delegated child's lease: still read, so one is never missed. */
+const LEGACY_DELEGATED_CHILD_DIRS = [".dexbot-server-child"];
+const DELEGATED_CHILD_DIRS = [DELEGATED_CHILD_DIR, ...LEGACY_DELEGATED_CHILD_DIRS];
 // Internal parent-to-child capability, obtained only from utilityServerLeaseEnvironment(); never public configuration.
 const CHILD_LEASE_ENV = "OPENMAUSBOT_INTERNAL_DATA_DIR_LEASE";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -409,18 +412,20 @@ function prepareDataDir(dataDir, legacyDataDir) {
 }
 
 function assertNoLiveDelegatedChild(dataDir, t) {
-  const childLeasePath = join(dataDir, DELEGATED_CHILD_DIR, LEASE_NAME);
-  const child = readOwner(childLeasePath);
-  if (!child) return;
-  if (!sameMachine(child)) {
-    throw leaseError(
-      `This Luna Bot data directory still has a delegated server on another machine. Delegated server lease: ${JSON.stringify(childLeasePath)}.${otherMachineAdvice(childLeasePath, t)}`,
-    );
-  }
-  if (ownerIsAlive(child)) {
-    throw leaseError(
-      `Luna Bot's previous server process ${child.pid} is still shutting down. Try again shortly.`,
-    );
+  for (const dir of DELEGATED_CHILD_DIRS) {
+    const childLeasePath = join(dataDir, dir, LEASE_NAME);
+    const child = readOwner(childLeasePath);
+    if (!child) continue;
+    if (!sameMachine(child)) {
+      throw leaseError(
+        `This Luna Bot data directory still has a delegated server on another machine. Delegated server lease: ${JSON.stringify(childLeasePath)}.${otherMachineAdvice(childLeasePath, t)}`,
+      );
+    }
+    if (ownerIsAlive(child)) {
+      throw leaseError(
+        `Luna Bot's previous server process ${child.pid} is still shutting down. Try again shortly.`,
+      );
+    }
   }
 }
 
@@ -602,7 +607,7 @@ function clearRecords(dataDir, stale) {
   }
   const paths = [
     join(dataDir, LEASE_NAME),
-    join(dataDir, DELEGATED_CHILD_DIR, LEASE_NAME),
+    ...DELEGATED_CHILD_DIRS.map((dir) => join(dataDir, dir, LEASE_NAME)),
     ...entries.filter((name) => name.startsWith(`${LEASE_NAME}.reap-`)).map((name) => join(dataDir, name)),
   ];
   const cleared = [];

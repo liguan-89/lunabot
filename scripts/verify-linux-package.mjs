@@ -398,7 +398,7 @@ function verifyCloudflaredResources(resources, label, { directoryMode = 0o755 } 
 const appImage = exactlyOne(".AppImage");
 const deb = exactlyOne(".deb");
 const unpacked = path.join(releaseDir, "linux-unpacked");
-const executable = path.join(unpacked, "dexbot");
+const executable = path.join(unpacked, "lunabot");
 const resources = path.join(unpacked, "resources");
 
 requireExecutable(appImage);
@@ -454,7 +454,7 @@ try {
     "usr",
     "share",
     "applications",
-    "com.dexbot.app.desktop",
+    "com.lunabot.app.desktop",
   );
   const scalableIcon = path.join(
     extracted,
@@ -464,16 +464,16 @@ try {
     "hicolor",
     "scalable",
     "apps",
-    "dexbot.svg",
+    "lunabot.svg",
   );
   requireFile(desktopFile);
   requireFile(scalableIcon);
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     "Name=Luna Bot",
-    'Exec="/opt/DEX BOT/dexbot" %U',
-    "Icon=dexbot",
-    "StartupWMClass=com.dexbot.app",
+    'Exec="/opt/Luna Bot/lunabot" %U',
+    "Icon=lunabot",
+    "StartupWMClass=com.lunabot.app",
     "Categories=Utility;",
   ]) {
     if (!desktop.includes(expected)) fail(`desktop entry is missing ${JSON.stringify(expected)}`);

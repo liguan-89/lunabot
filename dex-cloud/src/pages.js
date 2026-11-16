@@ -50,7 +50,7 @@ async function post(path, body) {
 export function approvalPage(userCode, _config) {
   const code = escapeHtml(userCode);
   const body = `<h1>在 Luna Bot 中登录</h1>
-<p class="lead">确认这台设备可以登录你的 DEX 账号。代码 <code>${code}</code>。</p>
+<p class="lead">确认这台设备可以登录你的 Luna Bot 账号。代码 <code>${code}</code>。</p>
 <div class="card">
   <label for="email">邮箱</label><input id="email" type="email" autocomplete="email" placeholder="you@example.com">
   <button id="send">发送登录码</button>
@@ -165,7 +165,7 @@ export function downloadPage(_config, desktopFiles = []) {
     : `<p class="note">这个服务器上还没有上传桌面端安装包。当前测试版本请从构建机获取。</p>`;
   const body = `<h1>下载 Luna Bot</h1>
 <p class="lead">桌面端与手机端使用同一个账号。局域网、Tailscale 和配对码连接都保留。</p>
-<div class="card"><h3>Android</h3><p class="note">与官方应用可同时安装，包名 <code>com.dexbot.companion</code>。</p>
+<div class="card"><h3>Android</h3><p class="note">与官方应用可同时安装，包名 <code>com.lunabot.companion</code>。</p>
 <p><a href="/download/dexbot.apk">下载 APK</a></p></div>
 <div class="card"><h3>桌面端</h3><p class="note">macOS 版已在本站提供；Windows 与 Linux 构建完成后也会出现在这里。</p>
 ${desktop}</div>
@@ -180,7 +180,7 @@ function section(id, title, html) {
 
 export function docsPage(_config) {
   const body = `<h1>Luna Bot 文档</h1>
-<p class="lead">桌面端、手机端和云电脑共用一个 DEX 账号。这里说明怎么安装、登录、连接和排查问题。</p>
+<p class="lead">桌面端、手机端和云电脑共用一个 Luna Bot 账号。这里说明怎么安装、登录、连接和排查问题。</p>
 
 ${section("start", "快速开始", `<div class="card"><ol>
 <li>在 <a href="/download">下载页</a> 安装桌面端；需要手机时再装 Android APK。</li>
@@ -205,7 +205,7 @@ ${section("connect", "连接方式", `<p>桌面端可以在不同网络条件下
 </dl>`)}
 
 ${section("phone", "手机端", `<div class="card"><h3>安装</h3>
-<p>从 <a href="/download">下载页</a> 安装 APK。包名是 <code>com.dexbot.companion</code>，可以和官方应用同时安装，方便对比。</p>
+<p>从 <a href="/download">下载页</a> 安装 APK。包名是 <code>com.lunabot.companion</code>，可以和官方应用同时安装，方便对比。</p>
 <h3>配对</h3>
 <p>桌面端 → 手机和设备 → 显示二维码；手机端 → 扫码。扫码后手机会保存这台电脑，并在后台保持连接。</p>
 <h3>更新</h3>
@@ -239,7 +239,7 @@ ${section("self-hosting", "自建服务器与自定义域名", `<p>Luna Bot 的�
 </ol>
 <p class="note">自定义域名只接受 <code>https://</code>。回环地址或只在本机可用的地址会被拒绝。</p>`)}
 
-${section("linux", "Linux 桌面", `<p>Linux 版以 AppImage 和 deb 分发。安装后从应用菜单启动，或在终端运行 <code>dexbot</code>。</p>
+${section("linux", "Linux 桌面", `<p>Linux 版以 AppImage 和 deb 分发。安装后从应用菜单启动，或在终端运行 <code>lunabot</code>。</p>
 <ul>
 <li><strong>本地控制</strong>：允许机器人操作当前桌面需要授予辅助功能/输入权限；首次开启时应用会提示需要的权限。</li>
 <li><strong>Omarchy / Hyprland</strong>：实验性支持。需要先安装对应的桌面环境和 CUA 驱动，再在设置里启用本地控制。</li>
@@ -262,7 +262,7 @@ ${section("troubleshooting", "疑难解答", `<dl>
 <dt>云电脑离线</dt><dd>在服务器列表里打开它或点“唤醒”，服务会在几十秒内重启容器。</dd>
 <dt>手机连不上家里电脑</dt><dd>电脑可能睡眠、换了 Wi-Fi，或防火墙拦住了端口。改用 Tailscale 或云电脑最稳。</dd>
 <dt>更新失败</dt><dd>桌面端从本服务器的 <code>/desktop/</code> 读取更新源；网络受限时直接重新下载安装包覆盖安装。</dd>
-<dt>数据在哪里</dt><dd>桌面端的数据在 <code>~/.dexbot</code>（Windows：<code>%USERPROFILE%\\.dexbot</code>）。云电脑的数据在服务器上的独立 Docker 卷里。</dd>
+<dt>数据在哪里</dt><dd>桌面端的数据在 <code>~/.lunabot</code>（Windows：<code>%USERPROFILE%\\.lunabot</code>）。云电脑的数据在服务器上的独立 Docker 卷里。</dd>
 </dl>`)}
 
 ${section("privacy", "数据与隐私", `<ul>

@@ -48,7 +48,7 @@ describe("what a server remembers about computers lent to it", () => {
       offline: [{ name: "ASH-PC", device: "PC", lastOnline: "2026-10-07 14:02 UTC", lent: true }],
       say: "Their PC ASH-PC is shared with the Cloud but offline (last online 2026-10-07 14:02 UTC): Luna Bot on it is closed, or the PC is asleep or off. Ask them to open Luna Bot on that PC; it reconnects by itself.",
     });
-    expect(awayNotice([{ ...record, stoppedAt: at }], new Set()).say).toBe("Their PC ASH-PC no longer shares itself with the Cloud: Luna Bot on it is paused, or signed out of DexBot Cloud. Ask them to choose Resume from Luna Bot's icon in the taskbar on that PC, or sign in there again.");
+    expect(awayNotice([{ ...record, stoppedAt: at }], new Set()).say).toBe("Their PC ASH-PC no longer shares itself with the Cloud: Luna Bot on it is paused, or signed out of the Cloud. Ask them to choose Resume from Luna Bot's icon in the taskbar on that PC, or sign in there again.");
     expect(awayNotice([{ ...record, platform: "darwin", stoppedAt: at }], new Set()).say).toContain("choose Resume from Luna Bot's icon in the menu bar on that Mac");
     expect(awayNotice([{ ...record, platform: "darwin" }], new Set()).say).toMatch(/^Their Mac ASH-PC is shared with the Cloud/u);
     expect(awayNotice([record], new Set([record.id]))).toEqual({});

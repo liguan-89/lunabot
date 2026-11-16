@@ -94,7 +94,7 @@ export async function openClient(flags: Flags, deps: ClientDeps, mutating: boole
       baseUrl = await mcp.probeBaseUrls(DISCOVERY_PORTS.map((port) => `http://127.0.0.1:${port}`));
     } catch {
       throw new HeadlessError(`no Luna Bot server answered on 127.0.0.1 ports ${DISCOVERY_PORTS.join(", ")}`, EXIT.unreachable,
-        "start one with `dexbot serve`, or name one with --url or DEXBOT_URL");
+        "start one with `lunabot serve`, or name one with --url or DEXBOT_URL");
     }
   }
   const request = deps.request ?? mcp.request;
@@ -139,21 +139,21 @@ export async function explain(error: unknown, baseUrl?: string): Promise<Headles
   const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : undefined;
   if (status === 401) {
     return new HeadlessError("this server needs a credential and did not accept the one given", EXIT.unreachable,
-      "get one with `dexbot connect URL --out FILE`, then pass --token-file FILE or set DEXBOT_TOKEN");
+      "get one with `lunabot connect URL --out FILE`, then pass --token-file FILE or set DEXBOT_TOKEN");
   }
   if (status === 403) {
     return new HeadlessError(`not allowed: ${message}`, EXIT.unreachable,
-      "this needs a paired session with the right scope: `dexbot connect` mints one on this computer");
+      "this needs a paired session with the right scope: `lunabot connect` mints one on this computer");
   }
   if (status === 404 && /^no such (bot|channel|conversation|task|message)\b/i.test(message)) {
-    return usageError(message, "dexbot bots and dexbot channels list the ids");
+    return usageError(message, "lunabot bots and lunabot channels list the ids");
   }
   if (/cannot report a conversation's job/.test(message)) return new HeadlessError(message, EXIT.unreachable, "update Luna Bot on the server");
   const cause = (error as { cause?: { code?: unknown } })?.cause?.code;
   if ((error instanceof TypeError && /fetch failed/i.test(message)) || cause === "ECONNREFUSED" || cause === "ENOTFOUND"
     || (error instanceof Error && (error.name === "TimeoutError" || /timed out|aborted due to timeout/i.test(message)))) {
     return new HeadlessError(`cannot reach Luna Bot${baseUrl ? ` at ${baseUrl}` : ""}`, EXIT.unreachable,
-      "check the server is running and the address is right (dexbot doctor)");
+      "check the server is running and the address is right (lunabot doctor)");
   }
   if (error instanceof Error && error.name === "AbortError") return new HeadlessError("stopped", EXIT.interrupted);
   return new HeadlessError(message, EXIT.failed);

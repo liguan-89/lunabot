@@ -96,10 +96,9 @@ android {
     compileSdk = 37
 
     defaultConfig {
-        // DEX BOT's own install identity, so it sits beside the upstream app on
-        // one phone. The namespace stays the source package until the Kotlin
-        // package migration lands.
-        applicationId = "com.dexbot.companion"
+        // Luna Bot's own install identity. The namespace stays the source
+        // package until the Kotlin package migration lands.
+        applicationId = "com.lunabot.companion"
         minSdk = 26
         targetSdk = 37
         versionCode = appVersionCode

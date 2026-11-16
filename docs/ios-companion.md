@@ -4,7 +4,7 @@ The iOS app is a thin, native client for the Luna Bot instance running on
 your Mac. The Mac remains the only machine that persists agent processes,
 credentials, SQLite data, transcripts, and computers. The iPhone trusts a Mac
 by scanning the QR code shown in desktop **Settings → Phone & devices**; it does not need
-an Luna Bot account of its own.
+a Luna Bot account of its own.
 
 ## Use My Cloud on your phone
 
@@ -195,7 +195,7 @@ paired and no code is open, the phone link sleeps: nothing listens and there is
 no relay connection. A desktop that is only a client of another computer starts
 none of it.
 
-Tailscale is optional. The direct path does not use an Luna Bot-operated
+Tailscale is optional. The direct path does not use a Luna Bot-operated
 relay or create a cloud copy of local transcript data.
 
 ### Optional hosted HTTPS
@@ -269,7 +269,7 @@ new hosted address—or its withdrawal—without another pairing ceremony. The
 route never reaches the harness and returns only the computer name plus a
 bounded list of connection origins.
 
-An Luna Bot account is not required for nearby, manual, or Tailscale
+A Luna Bot account is not required for nearby, manual, or Tailscale
 connections. Only the desktop owner signs in when enabling the optional hosted
 HTTPS route; the iPhone always uses the same QR trust flow.
 

@@ -1,11 +1,11 @@
 // Container entry: restarts the server in place on RESTART_EXIT_CODE, so a restart the server asks for keeps the container.
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, realpathSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { boxMemory, heapSizeArgs, type BoxMemory } from "./box-memory.ts";
 import { clearRecordsFromEarlierRunOfThisContainer } from "./data-dir-lease.ts";
+import { resolveDataDir } from "./data-dir.ts";
 import { restartPolicy } from "./restart.ts";
 
 /** The server's heap sized to the container's memory limit, run through the bootstrap that keeps Node's compile cache on
@@ -13,7 +13,7 @@ import { restartPolicy } from "./restart.ts";
 export function serverCommand(here: string, env: NodeJS.ProcessEnv, options: { exists?: (path: string) => boolean; box?: BoxMemory } = {}) {
   const bootstrap = join(here, "desktop-entry.mjs");
   const cached = (options.exists ?? existsSync)(bootstrap);
-  const dataDir = env.OMB_DATA_DIR || join(homedir(), ".dexbot");
+  const dataDir = resolveDataDir(env);
   return {
     args: [...heapSizeArgs((options.box ?? boxMemory()).cgroupLimit, env.NODE_OPTIONS), cached ? bootstrap : join(here, "index.js")],
     env: cached ? { ...env, OMB_SERVER_COMPILE_CACHE: join(dataDir, "cache", "node-compile") } : env,
@@ -52,7 +52,7 @@ function isEntry(): boolean {
 }
 
 if (isEntry()) {
-  const dataDir = process.env.OMB_DATA_DIR || join(homedir(), ".dexbot");
+  const dataDir = resolveDataDir();
   try {
     // A container starts with nothing of its own running: a lease its earlier run left is a dead server's.
     for (const { path, pid } of clearRecordsFromEarlierRunOfThisContainer(dataDir)) console.log(`Removed ${path}, left by this container's server (process ${pid}) when it stopped without closing.`);

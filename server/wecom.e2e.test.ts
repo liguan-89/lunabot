@@ -113,8 +113,8 @@ posixOnly("a WeCom text message reaches the bot and the reply posts back", () =>
       expect(send.url).toContain("access_token=w-token");
       expect(send.body).toMatchObject({ touser: "ZhangSan", agentid: "1000002", msgtype: "text", text: { content: expect.stringContaining("Hello from pi") } });
 
-      await waitFor(() => existsSync(join(home, ".dexbot", "wecom-chats.json")), "the chat mapping to persist");
-      const mapping = JSON.parse(readFileSync(join(home, ".dexbot", "wecom-chats.json"), "utf8")) as { chats: Record<string, string> };
+      await waitFor(() => existsSync(join(home, ".lunabot", "wecom-chats.json")), "the chat mapping to persist");
+      const mapping = JSON.parse(readFileSync(join(home, ".lunabot", "wecom-chats.json"), "utf8")) as { chats: Record<string, string> };
       expect(Object.keys(mapping.chats)).toEqual(["u:ZhangSan"]);
 
       // A replay of the same delivery is deduped by sendId, not turned into a second turn.

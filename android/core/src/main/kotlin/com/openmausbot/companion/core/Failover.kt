@@ -111,7 +111,7 @@ object ConnectionAdvice {
     private const val MISSING_ROUTE_STATUS = 404
 
     internal const val MISSING_ROUTE_MESSAGE =
-        "连不上电脑：地址已失效，或电脑上的 DEX BOT 未在运行。"
+        "连不上电脑：地址已失效，或电脑上的 Luna Bot 未在运行。"
 
     private const val MISSING_ROUTE_HINT =
         "在电脑上重新开启远程访问，或点「编辑地址」改用局域网地址；应用会继续自动重试。"
@@ -218,7 +218,7 @@ object ConnectionAdvice {
             ConnectionFailure.CANNOT_FIND_HOST ->
                 "无法解析“$host”。如果这是 Tailscale 名称，此手机可能未加入 Tailnet。"
             ConnectionFailure.CANNOT_CONNECT_TO_HOST ->
-                "已连接电脑，但端口 $port 上的手机访问未响应——请打开 DEX BOT → 设置 → 手机。"
+                "已连接电脑，但端口 $port 上的手机访问未响应——请打开 Luna Bot → 设置 → 手机。"
             ConnectionFailure.TIMED_OUT ->
                 "无法路由到位于 $host 的电脑——可能处于不同网络或被防火墙拦截。"
             ConnectionFailure.NOT_CONNECTED_TO_INTERNET -> "当前处于离线状态。"

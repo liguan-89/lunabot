@@ -14,9 +14,19 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
+/**
+ * Robolectric only for `Intent`: the extras are the assertion here, and no
+ * activity is started and no package is resolved.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class PhoneUiSystemActionsTest {
 
     private fun args(vararg fields: Pair<String, Any?>): JsonObject = buildJsonObject {
@@ -66,8 +76,8 @@ class PhoneUiSystemActionsTest {
         assertEquals("Run", oneTime.getStringExtra("android.intent.extra.alarm.MESSAGE"))
         assertTrue(oneTime.getBooleanExtra("android.intent.extra.alarm.SKIP_UI", false))
         // No days asked for: the alarm is one-time, so EXTRA_DAYS is absent rather than empty.
-        assertNull(oneTime.extras?.get("android.intent.extra.alarm.DAYS"))
-        assertNull(oneTime.extras?.get("android.intent.extra.alarm.VIBRATE"))
+        assertFalse(oneTime.hasExtra("android.intent.extra.alarm.DAYS"))
+        assertFalse(oneTime.hasExtra("android.intent.extra.alarm.VIBRATE"))
 
         val repeating = PhoneUiSystemActions.alarmIntent(
             ready(
@@ -77,11 +87,13 @@ class PhoneUiSystemActionsTest {
             ),
         )
         // SUNDAY=1 … SATURDAY=7: Monday 2, Wednesday 4, Sunday 1.
-        @Suppress("UNCHECKED_CAST")
-        val days = repeating.extras?.get("android.intent.extra.alarm.DAYS") as? ArrayList<Int>
-        assertEquals(listOf(2, 4, 1), days)
+        assertEquals(
+            listOf(2, 4, 1),
+            repeating.getIntegerArrayListExtra("android.intent.extra.alarm.DAYS")?.toList(),
+        )
         // An explicit false is carried as false, not left to the Clock app's own setting.
-        assertEquals(false, repeating.extras?.get("android.intent.extra.alarm.VIBRATE"))
+        assertTrue(repeating.hasExtra("android.intent.extra.alarm.VIBRATE"))
+        assertFalse(repeating.getBooleanExtra("android.intent.extra.alarm.VIBRATE", true))
     }
 
     @Test
@@ -90,8 +102,10 @@ class PhoneUiSystemActionsTest {
             listOf(2, 3, 4, 5, 6, 7, 1),
             PhoneUiSystemActions.dayConstants(listOf("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")),
         )
-        // Case does not matter; a name outside the seven is refused whole.
-        assertEquals(listOf(2), ready(PhoneUiSystemActions.parseAlarm(args("hour" to 1, "minute" to 2, "days" to listOf("mon")))).days)
+        // Case does not matter, and the parsed day is the wire name again.
+        assertEquals(listOf("MON"), ready(PhoneUiSystemActions.parseAlarm(args("hour" to 1, "minute" to 2, "days" to listOf("mon")))).days)
+        // An empty list is no repeat days either: still a one-time alarm.
+        assertNull(ready(PhoneUiSystemActions.parseAlarm(args("hour" to 1, "minute" to 2, "days" to emptyList<String>()))).days)
         assertTrue(refused(PhoneUiSystemActions.parseAlarm(args("hour" to 1, "minute" to 2, "days" to listOf("MONDAY")))).contains("days"))
         assertTrue(refused(PhoneUiSystemActions.parseAlarm(args("hour" to 1, "minute" to 2, "days" to listOf("MON", "FUN")))).contains("days"))
         assertTrue(

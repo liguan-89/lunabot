@@ -197,7 +197,7 @@ test("Luna Bot Cloud's own checkout page is the only checkout address ever opene
   assert.equal(checkoutDestination("https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1"), "https://cloud.dexai.vip/pro/buy?checkout=cks_123&x=1");
   for (const url of ["https://staging.cloud.dexai.vip/pro/buy?checkout=1", "http://cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip.evil.test/pro/buy?checkout=1",
     "https://user:pw@cloud.dexai.vip/pro/buy?checkout=1", "https://cloud.dexai.vip/pro/buy?checkout=1#x", "https://cloud.dexai.vip/pro/buy?checkout=1#",
-    "javascript:alert(1)", "file:///etc/passwd", "dexbot://cloud", "https://evil.example.test/", "", 42, null, `https://cloud.dexai.vip/pro/buy?checkout=${"x".repeat(2100)}`]) {
+    "javascript:alert(1)", "file:///etc/passwd", "lunabot://cloud", "https://evil.example.test/", "", 42, null, `https://cloud.dexai.vip/pro/buy?checkout=${"x".repeat(2100)}`]) {
     assert.equal(checkoutDestination(url), null, String(url));
   }
   assert.equal(checkoutDestination("https://cloud.dexai.vip/pro/buy?checkout=cks_123", { fixture: true }), "https://cloud.dexai.vip/pro/buy?checkout=cks_123");

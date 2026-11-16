@@ -27,15 +27,21 @@ import {
 
 const service: ServiceInfo = {
   name: "Milind's computer",
-  type: "_dexbot._tcp",
+  type: "_lunabot._tcp",
   port: 8800,
   host: "openmausbot-1a2b3c4d.local",
   addresses: ["192.168.1.42"],
   txt: ["v=1", "name=Milind's computer"],
 };
 
-const INSTANCE = "Milind's computer._dexbot._tcp.local";
-const SERVICE_NAME = "_dexbot._tcp.local";
+/** The same computer under its pre-rename type: a phone that predates the
+ * rebrand still has to find it. */
+const legacyService: ServiceInfo = { ...service, type: "_dexbot._tcp" };
+
+const INSTANCE = "Milind's computer._lunabot._tcp.local";
+const SERVICE_NAME = "_lunabot._tcp.local";
+const LEGACY_INSTANCE = "Milind's computer._dexbot._tcp.local";
+const LEGACY_SERVICE_NAME = "_dexbot._tcp.local";
 
 function query(name: string, type: number, opts: { id?: number; unicast?: boolean } = {}): Buffer {
   const header = Buffer.alloc(12);
@@ -231,6 +237,84 @@ describe("answersFor", () => {
     expect(ask(service.host, TYPE.SRV).answers).toEqual([]);
     const response = decodeMessage(encodeResponse(announcement(service)))!;
     expect(answersFor({ ...response, response: true, questions: [] }, service).answers).toEqual([]);
+  });
+});
+
+describe("publishing the same machine under two types", () => {
+  const both = [service, legacyService];
+
+  /** Unicast, so no multicast routing is needed in CI. */
+  const askOnSocket = (port: number, packet: Buffer) =>
+    new Promise<Buffer>((resolve, reject) => {
+      const socket = createSocket("udp4");
+      const timer = setTimeout(() => {
+        socket.close();
+        reject(new Error("no response from the responder"));
+      }, 5_000);
+      timer.unref?.();
+      socket.on("message", (buf) => {
+        clearTimeout(timer);
+        socket.close();
+        resolve(buf);
+      });
+      socket.on("error", (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
+      socket.bind(0, "127.0.0.1", () => socket.send(packet, port, "127.0.0.1"));
+    });
+
+  it("announces a PTR for each type, and one A record for the shared host", () => {
+    const records = announcement(both);
+    const ptrs = records.filter((r) => r.type === TYPE.PTR).map((r) => r.data);
+    expect(ptrs).toEqual([INSTANCE, LEGACY_INSTANCE]);
+    expect(records.filter((r) => r.type === TYPE.SRV)).toHaveLength(2);
+    expect(records.filter((r) => r.type === TYPE.TXT)).toHaveLength(2);
+    // Both types claim the same host and address; the address is said once.
+    expect(records.filter((r) => r.type === TYPE.A)).toHaveLength(1);
+  });
+
+  it("answers a browse for either type, and enumerates both", () => {
+    const browse = (name: string) => answersFor(decodeMessage(query(name, TYPE.PTR))!, both);
+    expect(browse(SERVICE_NAME).answers).toEqual([expect.objectContaining({ data: INSTANCE })]);
+    expect(browse(LEGACY_SERVICE_NAME).answers).toEqual([expect.objectContaining({ data: LEGACY_INSTANCE })]);
+    expect(browse(SERVICE_ENUMERATION).answers.map((r) => r.data)).toEqual([SERVICE_NAME, LEGACY_SERVICE_NAME]);
+  });
+
+  it("resolves either instance to the same port and host", () => {
+    for (const instance of [INSTANCE, LEGACY_INSTANCE]) {
+      const { answers } = answersFor(decodeMessage(query(instance, TYPE.SRV))!, both);
+      expect(answers[0]).toMatchObject({ type: TYPE.SRV, data: { port: 8800, target: service.host } });
+    }
+  });
+
+  it("answers an old phone's browse off one socket", async () => {
+    const responder = new MdnsResponder({ port: 0, multicast: false });
+    expect(await responder.advertise(both)).toBe(true);
+    try {
+      const port = responder.address()!;
+      for (const name of [SERVICE_NAME, LEGACY_SERVICE_NAME]) {
+        const parsed = parseResponse(await askOnSocket(port, query(name, TYPE.PTR, { id: 42 })));
+        expect(parsed.answerCount).toBe(1);
+        expect(parsed.records[0]).toMatchObject({ name, type: TYPE.PTR });
+      }
+    } finally {
+      await responder.stop();
+    }
+  });
+
+  it("withdraws both types in one goodbye", async () => {
+    const socket = new FakeSocket();
+    const responder = new MdnsResponder({ socketFactory: () => socket });
+    await responder.advertise(both.map((one) => ({ ...one, addresses: homes })));
+    await drained();
+    socket.packets.length = 0;
+    await responder.stop();
+    await drained();
+    const parsed = parseResponse(socket.packets[0]);
+    const ptrs = parsed.records.filter((r) => r.type === TYPE.PTR).map((r) => r.name);
+    expect(ptrs).toEqual([SERVICE_NAME, LEGACY_SERVICE_NAME]);
+    for (const record of parsed.records) expect(record.ttl).toBe(0);
   });
 });
 

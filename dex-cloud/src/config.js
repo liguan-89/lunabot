@@ -69,7 +69,7 @@ export function loadConfig(env = process.env) {
     /** Desktop installers and electron-updater feeds (`latest-mac.yml`, …), served under `/desktop/`. */
     desktopDir: trim(env.DEXCLOUD_DESKTOP_DIR) || "/data/downloads/desktop",
     dockerSocket: trim(env.DEXCLOUD_DOCKER_SOCKET) || "/var/run/docker.sock",
-    cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "dexbot-cloud-home:local",
+    cloudImage: trim(env.DEXCLOUD_CLOUD_IMAGE) || "lunabot-cloud-home:local",
     cloudNetwork: trim(env.DEXCLOUD_CLOUD_NETWORK) || "dexcloud",
     cloudHostSuffix: trim(env.DEXCLOUD_CLOUD_HOST_SUFFIX) || "cloud.dexai.vip",
     cloudMemoryMb: int(env.DEXCLOUD_CLOUD_MEMORY_MB, 1536, { min: 512, max: 8192 }),

@@ -4,7 +4,7 @@ import { terminal, type Assignee, type Assignment, type Mode, type Owner, type T
 
 export const CUT_TWICE = "Interrupted by another Luna Bot restart after resuming once; not resumed again. Some of its steps may already have taken effect.";
 
-export const INTERRUPTED_OUTWARD = "Interrupted by an Luna Bot restart after it already";
+export const INTERRUPTED_OUTWARD = "Interrupted by a Luna Bot restart after it already";
 
 const OUTWARD_SHOWN = 4;
 const OUTWARD_LABEL_MAX = 48;

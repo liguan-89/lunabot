@@ -41,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -69,11 +70,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -97,14 +100,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import dev.chrisbanes.haze.HazeProgressive
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
 import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.platform.LocalFocusManager
@@ -560,21 +557,15 @@ private fun LoadedChat(
     // Captured once: the two jump paths run inside effects, where
     // LocalDensity.current cannot be read.
     val density = LocalDensity.current
-    // The two blur bands sample the transcript: each draws the recorded list
-    // under a tint whose blur ramps toward the screen edge, so content melts
-    // away underneath the capsules instead of stopping at them.
     val hazeState = rememberHazeState()
-    val bandHazeStyle = HazeStyle(
-        // The material body: a fixed radius the eye reads as one surface.
-        // Tints stay OUT of the style — hazeEffect paints them as one uniform
-        // rectangle whose hard edge is exactly the "colour block" that kept
-        // showing up; the canvas wash is a separate gradient scrim that fades
-        // with the same geometry instead.
-        backgroundColor = Color.Transparent,
-        tints = emptyList(),
-        fallbackTint = HazeTint(minisCanvas.copy(alpha = 0.72f)),
-        blurRadius = 18.dp,
-    )
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    var composerHeightPx by remember { mutableIntStateOf(0) }
+    val headerClearance = with(density) {
+        if (headerHeightPx > 0) headerHeightPx.toDp() + 12.dp else HEADER_CLEARANCE
+    }
+    val bottomClearance = with(density) {
+        if (composerHeightPx > 0) composerHeightPx.toDp() + 10.dp else BOTTOM_CHROME_HEIGHT + 8.dp
+    }
     // Whether new content keeps the transcript pinned to the newest row. True
     // until the reader scrolls up: a bot that streams while someone is reading
     // history must not drag them back down on every token. Sending, jumping to a
@@ -705,7 +696,7 @@ private fun LoadedChat(
         if (turn != null) expandedTurns = expandedTurns + turn.turnId
         // The header floats over the list, so an item at offset 0 sits *behind*
         // it. A negative offset leaves the hit in the clear below the glass.
-        val header = with(density) { HEADER_CLEARANCE.roundToPx() }
+        val header = with(density) { headerClearance.roundToPx() }
         listState.scrollToItem(headerCount + index, -header)
         if (turn != null) {
             // The fold can span several screens. Its child brings the actual
@@ -921,36 +912,34 @@ private fun LoadedChat(
     BackHandler(enabled = searching) { searching = false }
     BackHandler(enabled = !showingPlus && !hudOpen && !searching) { leaveToRoster() }
 
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    // Tapping the transcript puts the keyboard away, the way
-                    // it does on iOS. `detectTapGestures` and not `clickable`:
-                    // the transcript is not a button, so it should not answer
-                    // to TalkBack as one, and a tap a row has already taken —
-                    // a link, a card button — never reaches this far.
                     .pointerInput(Unit) {
                         detectTapGestures { focusManager.clearFocus() }
                     },
             ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(minisCanvas)
+                        .hazeSource(hazeState),
+                ) {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                        .hazeSource(hazeState)
                         .fillMaxSize(),
                     contentPadding = PaddingValues(
                         start = 16.dp,
                         end = 16.dp,
-                        // Room for the floating face when scrolled to the top.
-                        top = HEADER_CLEARANCE,
-                        // The last message scrolls clear of the floating
-                        // composer; everything earlier passes underneath it.
-                        bottom = BOTTOM_CHROME_HEIGHT + 8.dp,
+                        top = headerClearance,
+                        bottom = bottomClearance,
                     ),
                     // Grok gives each turn a little air; 6 dp made a run of
                     // bubbles read as one block even when the speakers changed.
@@ -1089,63 +1078,27 @@ private fun LoadedChat(
                         }
                     }
                 }
+                }
 
-                // Shown only when there is more transcript below. The dot says
-                // the bot is still writing down there, so staying in history is
-                // a choice rather than an accident.
-                // Fully qualified: this Box sits inside the screen's Column, so
-                // the bare name resolves to the ColumnScope overload and the
-                // horizontal alignment below has nowhere to go.
-                // iOS materials, ported: one fixed blur radius per material
-                // view — a radius ramp has no counterpart in UIBlurEffect and
-                // reads as slabs. What fades is the material itself: its
-                // opacity runs from full at the screen edge to nothing at the
-                // inner line, so content melts into the canvas the way a
-                // UIVisualEffectView dissolves when it ends.
-                // Cross-fade, the way the two directions feather into each
-                // other: the sharp transcript is hidden by an inverse canvas
-                // gradient (opaque at the edge, gone at the inner line) while
-                // the blurred copy fades in over it. One ink fades out as the
-                // other fades in, so glyphs never double-darken.
+                val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
+                val topBandAlpha by animateFloatAsState(
+                    targetValue = if (topScrolled) 1f else 0.72f,
+                    animationSpec = tween(180),
+                    label = "chat-top-haze",
+                )
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(TOP_BAND_HEIGHT)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to minisCanvas.copy(alpha = 0.92f),
-                                0.55f to minisCanvas.copy(alpha = 0.35f),
-                                1f to Color.Transparent,
-                            ),
-                        )
-                        .hazeEffect(hazeState, bandHazeStyle) {
-                            progressive = HazeProgressive.LinearGradient(
-                                startIntensity = 1f,
-                                endIntensity = 0f,
-                                easing = CubicBezierEasing(0.33f, 0f, 0.67f, 1f),
-                            )
-                        },
+                        .height(headerClearance + 20.dp)
+                        .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
                 )
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(BOTTOM_CHROME_HEIGHT)
-                        .background(
-                            Brush.verticalGradient(
-                                0f to Color.Transparent,
-                                0.45f to minisCanvas.copy(alpha = 0.35f),
-                                1f to minisCanvas.copy(alpha = 0.92f),
-                            ),
-                        )
-                        .hazeEffect(hazeState, bandHazeStyle) {
-                            progressive = HazeProgressive.LinearGradient(
-                                startIntensity = 0f,
-                                endIntensity = 1f,
-                                easing = CubicBezierEasing(0.42f, 0f, 0.58f, 1f),
-                            )
-                        },
+                        .height(bottomClearance + 24.dp)
+                        .progressiveHazeBand(hazeState, fromTop = false),
                 )
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -1157,7 +1110,7 @@ private fun LoadedChat(
                     exit = fadeOut(tween(120)) + scaleOut(targetScale = 0.8f, animationSpec = tween(120)),
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 16.dp, bottom = BOTTOM_CHROME_HEIGHT + 10.dp),
+                        .padding(end = 16.dp, bottom = bottomClearance + 6.dp),
                 ) {
                     ScrollToLatestButton(
                         live = tail != TranscriptTail.NONE,
@@ -1200,13 +1153,16 @@ private fun LoadedChat(
                     },
                     modifier = Modifier
                         .align(Alignment.TopCenter)
-                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
+                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                        .onSizeChanged { headerHeightPx = it.height },
                 )
 
                 Composer(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH),
+                        .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                        .navigationBarsPadding()
+                        .onSizeChanged { composerHeightPx = it.height },
                 name = chat.name,
                 draft = draft,
                 accessory = ComposerAccessories.accessory(
@@ -1304,6 +1260,7 @@ private fun LoadedChat(
 
         PlusSheet(
             open = showingPlus,
+            bottomClearance = bottomClearance,
             actions = remember(chat, pendingApproval, canAddAttachment) {
                 ChatActions.sheet(chat, hasPendingApproval = pendingApproval, canAddAttachment = canAddAttachment)
             },
@@ -1313,6 +1270,7 @@ private fun LoadedChat(
                 onAction(it)
             },
         )
+    }
     }
 
     if (searching) {
@@ -1332,12 +1290,10 @@ private fun LoadedChat(
                     row is TranscriptRow.Single && row.message.id == message.id
                 }
                 if (index >= 0) {
-                    // Stay on the hit. Only the newest row keeps following live.
                     stickToBottom.value = index == transcript.lastIndex
                     scope.launch {
-                        // The "load earlier" row is item 0 while older pages exist.
                         val offset = if (hasMore) 1 else 0
-                        val header = with(density) { HEADER_CLEARANCE.roundToPx() }
+                        val header = with(density) { headerClearance.roundToPx() }
                         listState.animateScrollToItem(
                             (index + offset).coerceAtLeast(0),
                             -header,
@@ -1583,7 +1539,7 @@ private fun ChatSearchOverlay(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(minisPage)
+            .background(minisCanvas)
             .padding(horizontal = 16.dp),
     ) {
         Row(
@@ -1599,12 +1555,13 @@ private fun ChatSearchOverlay(
                 onClick = onClose,
                 size = 40.dp,
                 glyph = 20.dp,
+                surface = true,
             )
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .chromeCapsule()
-                    .height(52.dp)
+                    .chromeCapsule(surface = true)
+                    .height(48.dp)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1649,7 +1606,10 @@ private fun ChatSearchOverlay(
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         )
 
-        LazyColumn(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 32.dp),
+        ) {
             items(results, key = { it.messageId }) { result ->
                 Column(
                     modifier = Modifier
@@ -1763,8 +1723,8 @@ private fun ChatHeader(
                     // opens, while the name stays in the merged tree.
                     .semantics(mergeDescendants = true) {
                         contentDescription =
-                            if (chat.supportsTasks) "${chat.name}，打开任务列表"
-                            else "${chat.name}，编辑机器人资料"
+                            if (chat.supportsTasks) "${chat.name}，打开话题列表"
+                            else "${chat.name}，编辑智能体资料"
                     }
                     .padding(start = 14.dp, end = 14.dp, top = 3.dp, bottom = 3.dp),
                 horizontalArrangement = Arrangement.Center,
@@ -1892,7 +1852,7 @@ private fun ChatOverflowMenu(
                 )
                 ChatMenuDivider()
                 ChatMenuRow(
-                    title = "编辑资料",
+                    title = "智能体资料",
                     icon = menuIcon(R.drawable.ic_edit_line),
                     onClick = onOpenProfile,
                 )
@@ -1901,7 +1861,6 @@ private fun ChatOverflowMenu(
     }
 }
 
-private val CHAT_MENU_SHAPE = RoundedCornerShape(16.dp)
 private val CHAT_MENU_WIDTH = 240.dp
 
 @Composable
@@ -1911,10 +1870,7 @@ private fun ChatMenuCard(
 ) {
     Column(
         modifier = modifier
-            .shadow(16.dp, CHAT_MENU_SHAPE)
-            .background(minisCard, CHAT_MENU_SHAPE)
-            .border(0.5.dp, minisSeparator, CHAT_MENU_SHAPE)
-            .clip(CHAT_MENU_SHAPE)
+            .chromeSheet(cornerRadius = 18.dp, elevation = 14.dp)
             .padding(vertical = 4.dp),
         content = content,
     )
@@ -1983,16 +1939,11 @@ private fun actionIcon(id: ChatActionId): @Composable (Color) -> Unit = { tint -
  */
 @Composable
 private fun ScrollToLatestButton(live: Boolean, onClick: () -> Unit) {
-    // The circle stays 40 dp so it does not crowd the transcript; the target
-    // around it is the 48 dp every other control here uses.
     TouchTarget(onClick = onClick, contentDescription = "回到最新消息") {
         Box(
             modifier = Modifier
                 .size(40.dp)
-                .shadow(6.dp, CircleShape, clip = false)
-                .background(minisRaised, CircleShape)
-                .border(0.5.dp, minisSeparator, CircleShape)
-                .clip(CircleShape),
+                .chromeCapsule(elevation = 6.dp, surface = true),
             contentAlignment = Alignment.Center,
         ) {
         Icon(
@@ -2060,6 +2011,7 @@ private fun BackPill(unreadElsewhere: Int, onBack: () -> Unit) {
 @Composable
 private fun BoxScope.PlusSheet(
     open: Boolean,
+    bottomClearance: androidx.compose.ui.unit.Dp,
     actions: List<ChatAction>,
     onDismiss: () -> Unit,
     onAction: (ChatActionId) -> Unit,
@@ -2073,9 +2025,7 @@ private fun BoxScope.PlusSheet(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.35f))
-                // The scrim is a dismissal, not a control: no ripple, and the
-                // back gesture does the same thing for anyone not using touch.
+                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.24f))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -2088,14 +2038,58 @@ private fun BoxScope.PlusSheet(
 
     AnimatedVisibility(
         visible = open,
-        enter = slideInVertically(tween(PLUS_MILLIS)) { it / 2 } + fadeIn(tween(PLUS_MILLIS)),
-        exit = slideOutVertically(tween(PLUS_MILLIS)) { it / 2 } + fadeOut(tween(PLUS_MILLIS)),
+        enter = slideInVertically(tween(PLUS_MILLIS)) { it / 3 } + fadeIn(tween(PLUS_MILLIS)),
+        exit = slideOutVertically(tween(PLUS_MILLIS)) { it / 3 } + fadeOut(tween(PLUS_MILLIS)),
         modifier = Modifier
             .align(Alignment.BottomStart)
-            .padding(start = 12.dp, end = 44.dp, bottom = 70.dp),
+            .padding(start = 12.dp, end = 32.dp, bottom = bottomClearance.coerceAtLeast(68.dp)),
     ) {
-        ChatMenuCard(modifier = Modifier.width(CHAT_MENU_WIDTH)) {
-            actions.forEachIndexed { index, action ->
+        val mediaIds = remember { setOf(ChatActionId.PHOTOS, ChatActionId.FILES, ChatActionId.VOICE) }
+        val mediaActions = remember(actions) { actions.filter { it.id in mediaIds } }
+        val listActions = remember(actions) { actions.filterNot { it.id in mediaIds } }
+        ChatMenuCard(modifier = Modifier.width(268.dp)) {
+            if (mediaActions.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    mediaActions.forEach { action ->
+                        val alpha = if (action.enabled) 1f else 0.42f
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(secondaryTint.copy(alpha = 0.10f))
+                                .clickable(
+                                    enabled = action.enabled,
+                                    role = Role.Button,
+                                    onClick = { onAction(action.id) },
+                                )
+                                .padding(vertical = 10.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            ChatActionIcon(action.id, minisInk.copy(alpha = alpha))
+                            Text(
+                                text = when (action.id) {
+                                    ChatActionId.PHOTOS -> "图库"
+                                    ChatActionId.FILES -> "文件"
+                                    ChatActionId.VOICE -> "语音"
+                                    else -> action.title
+                                },
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = minisInk.copy(alpha = alpha),
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+                if (listActions.isNotEmpty()) ChatMenuDivider()
+            }
+            listActions.forEachIndexed { index, action ->
                 if (index > 0) ChatMenuDivider()
                 ChatMenuRow(
                     title = action.title,
@@ -2302,25 +2296,10 @@ private fun Composer(
                 onClose = onCloseHud,
             )
 
-            ComposerAccessory.CHIPS -> Box(modifier = Modifier.fillMaxWidth()) {
-                PredictiveChipsRow(chips = chips, onSelect = onSelectChip)
-                // The row scrolls; a soft edge says so instead of cutting the
-                // last chip in half at the screen border.
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        // Fixed to the chip row's height: fillMaxHeight() here
-                        // resolved against the composer's unbounded column and
-                        // stretched the whole chat out of the window.
-                        .height(36.dp)
-                        .width(28.dp)
-                        .background(
-                            Brush.horizontalGradient(
-                                listOf(Color.Transparent, MaterialTheme.colorScheme.surface),
-                            ),
-                        ),
-                )
-            }
+            ComposerAccessory.CHIPS -> PredictiveChipsRow(
+                chips = chips,
+                onSelect = onSelectChip,
+            )
 
             ComposerAccessory.NONE -> Unit
         }
@@ -2331,13 +2310,9 @@ private fun Composer(
                 Row(
                 modifier = Modifier
                     .weight(1f)
-                    // Grok Bot's bar is a thin white pill on the grey canvas,
-                    // not a tinted glass block. Same 48dp target, flatter fill.
-                    .background(minisCard, RoundedCornerShape(MIN_TOUCH_TARGET / 2))
-                    .border(
-                        0.5.dp,
-                        minisSeparator,
-                        RoundedCornerShape(MIN_TOUCH_TARGET / 2),
+                    .chromeSheet(
+                        cornerRadius = MIN_TOUCH_TARGET / 2,
+                        elevation = if (minisIsDark()) 0.dp else 3.dp,
                     )
                     .heightIn(min = MIN_TOUCH_TARGET)
                     .padding(start = 2.dp, end = 4.dp),

@@ -82,8 +82,8 @@ posixOnly("a text a paired phone receives reaches the bot and the reply comes ba
       expect(job.arguments.text).toContain("Hello from pi");
       expect((await api("POST", `/api/phones/self/jobs/${job.id}/result`, { ok: true, result: { sent: true } }, phone)).body).toEqual({ ok: true });
 
-      await waitFor(() => existsSync(join(home, ".dexbot", "sms-chats.json")), "the chat mapping to persist");
-      const mapping = JSON.parse(readFileSync(join(home, ".dexbot", "sms-chats.json"), "utf8")) as { chats: Record<string, string> };
+      await waitFor(() => existsSync(join(home, ".lunabot", "sms-chats.json")), "the chat mapping to persist");
+      const mapping = JSON.parse(readFileSync(join(home, ".lunabot", "sms-chats.json"), "utf8")) as { chats: Record<string, string> };
       expect(Object.keys(mapping.chats)).toEqual([`${phoneKey}|8613800138000`]);
 
       // The inbound line belongs to the sms sender; a phone-side retry of the same sms is deduped.

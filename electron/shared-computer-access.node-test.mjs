@@ -528,15 +528,15 @@ process.stdout.write(JSON.stringify({jsonrpc:'2.0',id:m.id,result})+'\\n'); });`
 test("a protected directory spelled in another case is still refused", async t => {
   const { dir, folder, grant, run } = await fixture(t);
   if (!(await spellings(dir)).case) return t.skip("this filesystem is case-sensitive, so no case variant names the same directory");
-  await mkdir(path.join(dir, "DEX BOT"));
-  await writeFile(path.join(dir, "DEX BOT", "credentials.bin"), "credential blob");
-  grant.protectedPaths = [path.join(dir, "DEX BOT")];
+  await mkdir(path.join(dir, "Luna Bot"));
+  await writeFile(path.join(dir, "Luna Bot", "credentials.bin"), "credential blob");
+  grant.protectedPaths = [path.join(dir, "Luna Bot")];
   folder.write = true;
-  await assert.rejects(run({ action: "read_file", path: "DEX BOT/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "read_file", path: "dex bot/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "read_file", path: "Dex Bot/credentials.bin" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "list_files", path: "dex bot" }), /Desktop credentials/);
-  await assert.rejects(run({ action: "write_file", path: "dex bot/computer-sharing.json", content: "{}" }), /sharing settings/);
+  await assert.rejects(run({ action: "read_file", path: "Luna Bot/credentials.bin" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "read_file", path: "luna bot/credentials.bin" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "read_file", path: "Luna BOT/credentials.bin" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "list_files", path: "luna bot" }), /Desktop credentials/);
+  await assert.rejects(run({ action: "write_file", path: "luna bot/computer-sharing.json", content: "{}" }), /sharing settings/);
 });
 
 test("a protected directory spelled in another Unicode normalization is still refused", async t => {
@@ -674,16 +674,16 @@ test("with the whole home folder lent, keys, a browser profile and this app's da
     };
     const secrets = [".ssh/id_ed25519", "Library/Application Support/Google/Chrome/Default/Cookies", ".dexbot/config.json"];
     for (const relative of secrets) await put(relative, `fixture ${relative}`);
-    await put("Library/Application Support/DEX BOT/computer-sharing.json", "{}");
+    await put("Library/Application Support/Luna Bot/computer-sharing.json", "{}");
     await put("Documents/plan.txt", "an ordinary file");
     const stub = stubWorkspace();
     stub.state.work.push(...secrets.map(relative => ({ action: "read_file", path: relative })),
-      { action: "read_file", path: "Library/Application Support/DEX BOT/computer-sharing.json" },
+      { action: "read_file", path: "Library/Application Support/Luna Bot/computer-sharing.json" },
       { action: "read_file", path: "Documents/plan.txt" }, { action: "list_files" });
     // Wired as main wires it: the grants file under the app's own profile, and this app's data folder in protectedPaths.
     sharing = createComputerSharing({
-      file: path.join(home, "Library", "Application Support", "DEX BOT", "computer-sharing.json"), fetch: stub.fetchImpl, home,
-      environments: () => [stub.env], enabled: async () => true, cuaConnection: async () => null, protectedPaths: [path.join(home, ".dexbot"), path.join(home, "Library", "Application Support", "DEX BOT")],
+      file: path.join(home, "Library", "Application Support", "Luna Bot", "computer-sharing.json"), fetch: stub.fetchImpl, home,
+      environments: () => [stub.env], enabled: async () => true, cuaConnection: async () => null, protectedPaths: [path.join(home, ".lunabot"), path.join(home, ".dexbot"), path.join(home, "Library", "Application Support", "Luna Bot")],
     });
     const info = await sharing.identity(stub.env);
     // Lent as the picker lends it after its warning: the home folder itself, read only even when edits are asked for.

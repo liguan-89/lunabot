@@ -890,6 +890,56 @@
         }
       },
       {
+        "name": "PHONE_UI_COLLECT",
+        "description": "Read several screens in one call: the text of the current screen, then one scroll and the next, for a long list or a chat history. A line already returned is not repeated, and the read stops at the end of the list or when the app changes. It scrolls, so it asks the person first like any other screen write.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ],
+              "description": "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way."
+            },
+            "pages": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "Most screens to read; default 8."
+            },
+            "maxLines": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "description": "Most text lines to return; default 300."
+            },
+            "fromY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999,
+              "description": "Top of the band to read, 0 at the controlled display's top edge and 999 at its bottom, the same display element bounds use; default 50."
+            },
+            "toY": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 999,
+              "description": "Bottom of the band to read, 0 at the controlled display's top edge and 999 at its bottom; default 950."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
         "name": "PHONE_UI_LAUNCH",
         "description": "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.",
         "inputSchema": {
@@ -1675,6 +1725,37 @@
           },
           "required": [
             "text"
+          ],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_AFTER_TASK",
+        "description": "Choose what happens to the app this task drove when the task ends: keep leaves it running in the background on its last page, close finishes it. The choice holds for the rest of the task. Asks the person first.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "action": {
+              "type": "string",
+              "enum": [
+                "keep",
+                "close"
+              ],
+              "description": "keep leaves the app running in the background; close finishes it."
+            },
+            "app": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "The Android package to act on; leave it out for the app the task last drove."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "action"
           ],
           "additionalProperties": false
         }

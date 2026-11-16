@@ -27,10 +27,10 @@ describe("openmausbot service", () => {
   it("writes the unit next to the data and prints how to install it; under npx, runs a copy kept beside the data", () => {
     const code = runServiceCommand({ action: "install", dataDir: dir, port: 8799, domain: "maus.example.com", script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", platform: "linux", home: "/home/maus", user: "maus" }, io);
     expect(code).toBe(0);
-    const unit = readFileSync(join(dir, "dexbot.service"), "utf8");
+    const unit = readFileSync(join(dir, "lunabot.service"), "utf8");
     expect(unit).toContain("--domain maus.example.com");
     expect(unit).toContain("AmbientCapabilities=CAP_NET_BIND_SERVICE");
-    expect(out.join("\n")).toContain("sudo systemctl enable --now dexbot");
+    expect(out.join("\n")).toContain("sudo systemctl enable --now lunabot");
     expect(out.join("\n")).toContain("no setcap is needed");
 
     out.length = 0;
@@ -38,9 +38,9 @@ describe("openmausbot service", () => {
     const installs: string[] = [];
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return false; } }, io)).toBe(1);
     expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} lunabot@latest`);
-    expect(existsSync(join(dir, "x", "dexbot.service"))).toBe(false);
+    expect(existsSync(join(dir, "x", "lunabot.service"))).toBe(false);
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return true; }, exists: () => true }, io)).toBe(0);
-    const pinned = readFileSync(join(dir, "x", "dexbot.service"), "utf8");
+    const pinned = readFileSync(join(dir, "x", "lunabot.service"), "utf8");
     const script = join(dir, "x", "app", "latest", "node_modules", "lunabot", "dist-server", "openmausbot.js");
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
@@ -51,11 +51,11 @@ describe("openmausbot service", () => {
 
   it("writes a launchd agent on macOS and explains uninstall on both", () => {
     expect(runServiceCommand({ action: "install", dataDir: dir, port: 8799, tunnel: true, script: "/opt/homebrew/lib/node_modules/openmausbot/cli.js", node: "/opt/homebrew/bin/node", platform: "darwin", home: "/Users/maus" }, io)).toBe(0);
-    expect(readFileSync(join(dir, "com.dexbot.serve.plist"), "utf8")).toContain("<string>--tunnel</string>");
+    expect(readFileSync(join(dir, "com.lunabot.serve.plist"), "utf8")).toContain("<string>--tunnel</string>");
     expect(out.join("\n")).toContain("launchctl bootstrap");
     out.length = 0;
     expect(runServiceCommand({ action: "uninstall", dataDir: dir, port: 8799, script: "/x", node: "/n", platform: "linux" }, io)).toBe(0);
-    expect(out.join("\n")).toContain("sudo systemctl disable --now dexbot");
+    expect(out.join("\n")).toContain("sudo systemctl disable --now lunabot");
     expect(runServiceCommand({ action: "install", dataDir: dir, port: 8799, script: "/x", node: "/n", platform: "win32" }, io)).toBe(1);
   });
 
@@ -64,29 +64,29 @@ describe("openmausbot service", () => {
     const dataDir = join(dir, "data");
     const base = { action: "install" as const, dataDir, port: 8799, sentinel: true, sentinelOut, script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", exists: () => false };
     expect(runServiceCommand({ ...base, platform: "darwin", home: "/Users/maus" }, io)).toBe(0);
-    const plist = readFileSync(join(sentinelOut, "com.dexbot.sentinel.plist"), "utf8");
+    const plist = readFileSync(join(sentinelOut, "com.lunabot.sentinel.plist"), "utf8");
     expect(plist).toContain("<string>sentinel</string>");
     expect(plist).toContain("<string>/usr/bin/node</string>");
     expect(plist).not.toContain("ELECTRON_RUN_AS_NODE");
     expect(plist).toContain(`<string>${sentinelOut}</string>`);
-    expect(out.join("\n")).toContain("dexbot sentinel --check-install");
+    expect(out.join("\n")).toContain("lunabot sentinel --check-install");
     expect(existsSync(dataDir)).toBe(false);
-    expect(out.join("\n")).toContain("launchctl bootstrap gui/$(id -u) /Users/maus/Library/LaunchAgents/com.dexbot.sentinel.plist");
+    expect(out.join("\n")).toContain("launchctl bootstrap gui/$(id -u) /Users/maus/Library/LaunchAgents/com.lunabot.sentinel.plist");
     expect(out.join("\n")).toContain(`issues: ${join(sentinelOut, "issues.jsonl")}`);
 
     out.length = 0;
     expect(runServiceCommand({ ...base, platform: "linux", home: "/home/maus" }, io)).toBe(0);
-    expect(readFileSync(join(sentinelOut, "dexbot-sentinel.service"), "utf8")).toContain("sentinel --once --data-dir");
-    expect(readFileSync(join(sentinelOut, "dexbot-sentinel.timer"), "utf8")).toContain("OnUnitActiveSec=120s");
-    expect(out.join("\n")).toContain("systemctl --user enable --now dexbot-sentinel.timer");
+    expect(readFileSync(join(sentinelOut, "lunabot-sentinel.service"), "utf8")).toContain("sentinel --once --data-dir");
+    expect(readFileSync(join(sentinelOut, "lunabot-sentinel.timer"), "utf8")).toContain("OnUnitActiveSec=120s");
+    expect(out.join("\n")).toContain("systemctl --user enable --now lunabot-sentinel.timer");
     expect(existsSync(dataDir)).toBe(false);
 
     out.length = 0;
     expect(runServiceCommand({ ...base, action: "uninstall", platform: "linux", home: "/home/maus" }, io)).toBe(0);
-    expect(out.join("\n")).toContain("systemctl --user disable --now dexbot-sentinel.timer");
+    expect(out.join("\n")).toContain("systemctl --user disable --now lunabot-sentinel.timer");
 
     // Windows gets a schtasks line, with the platform's own folder as --out
-    expect(runServiceCommand({ ...base, sentinelOut: undefined, platform: "win32", dataDir: "C:\\Users\\maus\\.dexbot", home: "C:\\Users\\maus", env: {} }, io)).toBe(1);
+    expect(runServiceCommand({ ...base, sentinelOut: undefined, platform: "win32", dataDir: "C:\\Users\\maus\\.lunabot", home: "C:\\Users\\maus", env: {} }, io)).toBe(1);
     expect(err.join("\n")).toContain('schtasks /Create /SC MINUTE /MO 2 /TN "Luna Bot Sentinel" /TR "\\"/usr/bin/node\\" \\"/usr/lib/node_modules/openmausbot/cli.js\\" \\"sentinel\\"');
     expect(err.join("\n")).toContain("\\\"--out\\\" \\\"C:\\Users\\maus\\AppData\\Local\\openmausbot-sentinel\\\"");
   });
@@ -109,11 +109,11 @@ describe("openmausbot service", () => {
 
   it("--sentinel prefers the installed app's own CLI over a checkout, which an update or Node upgrade would strand", () => {
     const sentinelOut = join(dir, "sentinel-state");
-    const app = "/Applications/DEX BOT.app/Contents";
+    const app = "/Applications/Luna Bot.app/Contents";
     const checkout = { action: "install" as const, dataDir: join(dir, "data"), port: 8799, sentinel: true, sentinelOut, script: "/src/Luna Bot/server/openmausbot.ts", node: "/home/maus/.nvm/versions/node/v24.0.0/bin/node", platform: "darwin" as const, home: "/Users/maus" };
     expect(runServiceCommand({ ...checkout, exists: (path) => path.startsWith(app), hasSentinel: () => true }, io)).toBe(0);
-    const plist = readFileSync(join(sentinelOut, "com.dexbot.sentinel.plist"), "utf8");
-    expect(plist).toContain(`<string>${app}/MacOS/DEX BOT</string>`);
+    const plist = readFileSync(join(sentinelOut, "com.lunabot.sentinel.plist"), "utf8");
+    expect(plist).toContain(`<string>${app}/MacOS/Luna Bot</string>`);
     expect(plist).toContain(`<string>${app}/Resources/server/openmausbot.js</string>`);
     expect(plist).toContain("<key>ELECTRON_RUN_AS_NODE</key>");
     expect(plist).not.toContain("openmausbot.ts");
@@ -123,10 +123,10 @@ describe("openmausbot service", () => {
     // from, with a warning that it can move
     out.length = 0;
     expect(runServiceCommand({ ...checkout, exists: (path) => path.startsWith(app), hasSentinel: () => false }, io)).toBe(0);
-    expect(readFileSync(join(sentinelOut, "com.dexbot.sentinel.plist"), "utf8")).not.toContain("ELECTRON_RUN_AS_NODE");
+    expect(readFileSync(join(sentinelOut, "com.lunabot.sentinel.plist"), "utf8")).not.toContain("ELECTRON_RUN_AS_NODE");
     out.length = 0;
     expect(runServiceCommand({ ...checkout, exists: () => false }, io)).toBe(0);
-    expect(readFileSync(join(sentinelOut, "com.dexbot.sentinel.plist"), "utf8")).toContain("<string>--experimental-strip-types</string>");
+    expect(readFileSync(join(sentinelOut, "com.lunabot.sentinel.plist"), "utf8")).toContain("<string>--experimental-strip-types</string>");
     expect(out.join("\n")).toContain("if either moves (a new checkout, a Node upgrade), run this again");
   });
 });

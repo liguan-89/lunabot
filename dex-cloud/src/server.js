@@ -62,7 +62,7 @@ function updateManifest(config) {
     versionCode: 20000,
     versionName: config.latestVersion,
     apkUrl: "/download/dexbot.apk",
-    notes: "Luna Bot 2.0.0 · 自建 Luna Bot Cloud，支持与官方版同时安装",
+    notes: `Luna Bot ${config.latestVersion} · 自建 Luna Bot Cloud，支持与官方版同时安装`,
     ...(size ? { size } : {}),
     ...(sha256 ? { sha256 } : {}),
   });

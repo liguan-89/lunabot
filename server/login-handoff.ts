@@ -60,9 +60,12 @@ const CONNECTION_ID = /^(?:mcp:[a-z][a-z0-9_-]{0,31}|key:\w{1,40}|composio|email
 const INSTALLATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u;
 const DIGEST = /^[0-9a-f]{64}$/u;
 
+/** The label an authenticator app shows; only the secret parameters carry meaning, and both readers parse those. */
+const TOTP_LABEL = encodeURIComponent("Luna Bot");
+
 export function totpAddress(key: TotpKey): string {
   const query = new URLSearchParams({ secret: key.secret, algorithm: key.algorithm, digits: String(key.digits), period: String(key.period) });
-  return `otpauth://totp/DEXBOT?${query}`;
+  return `otpauth://totp/${TOTP_LABEL}?${query}`;
 }
 
 /** What main may ask: a connection's fingerprints are asked only on its behalf, by a check of the credentials. */

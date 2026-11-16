@@ -760,7 +760,7 @@ describe("steer-queue e2e (fake pi fleet)", () => {
   beforeAll(async () => {
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-test-"));
-    mkdirSync(join(home, ".dexbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     mkdirSync(join(home, "gates"), { recursive: true });
     turnGate = join(home, "gates", "turn.gate");
     receiptGate = join(home, "gates", "receipt.gate");
@@ -814,7 +814,7 @@ describe("steer-queue e2e (fake pi fleet)", () => {
       '};',
     ].join("\n"));
     writeFileSync(
-      join(home, ".dexbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {
@@ -909,7 +909,7 @@ describe("steer-queue e2e (fake pi fleet)", () => {
     const queued = await api("POST", `/api/bots/${bot.id}/messages`, body);
     expect(queued.body).toMatchObject({ queued: true, queueId: expect.any(String) });
     const receipt = () => {
-      const database = new DatabaseSync(join(home, ".dexbot", "messages.db"), { readOnly: true });
+      const database = new DatabaseSync(join(home, ".lunabot", "messages.db"), { readOnly: true });
       try { return database.prepare("SELECT status FROM chat_followups WHERE id = ?").get(queued.body.queueId); }
       finally { database.close(); }
     };

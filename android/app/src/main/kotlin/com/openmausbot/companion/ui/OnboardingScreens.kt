@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -52,7 +53,7 @@ import androidx.compose.ui.unit.sp
 
 /** The sentences these screens are made of, named so a test can look them up. */
 object OnboardingCopy {
-    const val WELCOME_TITLE = "随身携带您的机器人"
+    const val WELCOME_TITLE = "随身携带您的智能体"
     const val WELCOME_SUBTITLE =
         "在手机上打开对话、审批操作并派发新任务。"
     const val WELCOME_CONNECT = "连接我的电脑"
@@ -60,7 +61,7 @@ object OnboardingCopy {
 
     const val UNPAIRED_HOME_TITLE = "随时准备连接"
     const val UNPAIRED_HOME_BODY =
-        "将此手机与 Luna Bot 配对，即可查看对话并回复您的机器人。"
+        "将此手机与 Luna Bot 配对，即可查看对话并回复您的智能体。"
     const val UNPAIRED_HOME_HINT =
         "请在电脑上打开 Luna Bot → 设置 → 手机和设备。"
     const val UNPAIRED_HOME_CONNECT = "连接电脑"
@@ -118,7 +119,7 @@ fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
         )
         Benefit(
             icon = Icons.Filled.CheckCircle,
-            title = "在机器人需要时及时响应",
+            title = "在智能体需要时及时响应",
             detail = "无需回到电脑桌前即可审阅并批准请求。",
         )
         Benefit(
@@ -296,6 +297,7 @@ private fun OnboardingLayout(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {

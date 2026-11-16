@@ -416,6 +416,31 @@ class PhoneUiShellService(
             ?.let { ComponentName(it.packageName, it.name).flattenToShortString() }
     }.getOrNull()
 
+    /**
+     * Finish an app the bot chose to close: its tasks and process go away, as
+     * `am force-stop` does. Only a well-formed package that is not the system,
+     * the system UI or this helper is accepted; the caller has already checked
+     * that it is not its own package.
+     */
+    override fun forceStop(packageName: String): Boolean {
+        if (!forceStoppable(packageName)) return false
+        return try {
+            val am = Class.forName("android.app.ActivityManager").getMethod("getService").invoke(null)!!
+            am.javaClass.getMethod("forceStopPackage", String::class.java, Int::class.javaPrimitiveType)
+                .invoke(am, packageName, USER_CURRENT)
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "forceStopPackage($packageName) unavailable, falling back to am", t)
+            sh("am", "force-stop", packageName).first == 0
+        }
+    }
+
+    /** A package name this helper may finish: the PackageManager shape, never the system's own processes. */
+    private fun forceStoppable(packageName: String): Boolean =
+        packageName.length in 3..200 && packageName.count { it == '.' } >= 1 &&
+            packageName.all { it.isLetterOrDigit() || it == '.' || it == '_' } &&
+            packageName !in PROTECTED_PACKAGES
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
     override fun releaseAll() {
@@ -507,6 +532,9 @@ class PhoneUiShellService(
         const val START_FALLBACK_FAILED = 5
 
         private val TASK_INFO: Class<*> by lazy { Class.forName("android.app.TaskInfo") }
+
+        /** Packages force-stop must never touch: the framework, the system UI and this helper's own shell. */
+        private val PROTECTED_PACKAGES = setOf("android", "com.android.systemui", ShellContext.SHELL_PACKAGE)
         private const val VIRTUAL_KEYBOARD = -1 // KeyCharacterMap.VIRTUAL_KEYBOARD
         private const val USER_CURRENT = -2 // UserHandle.USER_CURRENT
     }

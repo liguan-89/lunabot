@@ -92,7 +92,7 @@ class SettingsReconnectWiringTest {
             troubleshootingText(Session.Status.Live),
         )
         assertEquals(
-            "DEX BOT 正在自动尝试已保存的连接。",
+            "Luna Bot 正在自动尝试已保存的连接。",
             troubleshootingText(Session.Status.Connecting),
         )
         assertEquals(

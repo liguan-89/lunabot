@@ -23,7 +23,7 @@ export interface ConfigStatus {
   modelgo?: SavedKey;
   deepseek?: SavedKey;
   meta?: SavedKey;
-  /** X research comes with DexBot Cloud plans: `included` while this server holds the plan's relay credential;
+  /** X research comes with Luna Bot Cloud plans: `included` while this server holds the plan's relay credential;
    * `unavailable` when the Admin said no to this desktop's paid sign-in. */
   xResearch?: { included: boolean; unavailable?: boolean };
   /** The person's own treg key for research: configured or not, never the key. */
@@ -172,10 +172,10 @@ export interface ConfigStatus {
   /** The enrolled organisation's read-only desktop policy; null when this
    * desktop is not enrolled or its Admin sends no policy. */
   managedPolicy?: ManagedPolicySummary | null;
-  /** This server is an OMB Cloud home: it offers no "this computer" and no
+  /** This server is a Luna Bot Cloud home: it offers no "this computer" and no
    * Local VM (server/cloud-home.ts). Absent everywhere else. */
   cloudHome?: boolean;
-  /** A Team Cloud: the team this server is the home of, and the Plan page (DexBot Cloud) where its people and plan
+  /** A Team Cloud: the team this server is the home of, and the Plan page (Luna Bot Cloud) where its people and plan
    * are managed. Absent everywhere else. */
   team?: { id: string; name: string; cloudPage?: string };
 }
@@ -214,7 +214,7 @@ export interface BrowserEngineSummary {
   /** browserEngine.engine: "chrome" when the bots' browsers run on Luna Bot's own Chrome driver. */
   engine?: "agent-browser" | "chrome";
   /** Self-hosted servers only: whether bots' browsers may open this server's own sites and its local network
-   * (browserEngine.egress.localNetwork, off by default). Absent on the desktop and on DexBot Cloud. */
+   * (browserEngine.egress.localNetwork, off by default). Absent on the desktop and on Luna Bot Cloud. */
   serverSites?: boolean;
 }
 

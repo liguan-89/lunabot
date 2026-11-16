@@ -12,7 +12,7 @@ const bootstrapSource = fileURLToPath(new URL("../scripts/desktop-server-entry.m
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 test("the packaged server forks the bootstrap with a compile cache under userData", () => {
-  const resourcesPath = path.join("/Applications", "DEX BOT.app", "Contents", "Resources");
+  const resourcesPath = path.join("/Applications", "Luna Bot.app", "Contents", "Resources");
   const userData = path.join("/Users", "someone", "Library", "Application Support", "Luna Bot");
   assert.deepEqual(serverChildLaunch({ resourcesPath, userData, env: {}, exists: () => true }), {
     entry: path.join(resourcesPath, "server", "desktop-entry.mjs"),
@@ -39,8 +39,8 @@ test("no cache where the app's path changes every launch: AppImage and App Trans
   assert.equal(appImage.entry, path.join("/tmp/.mount_OpenMaXk3f9a/resources", "server", "desktop-entry.mjs"));
   assert.equal(appImage.compileCacheDir, null);
   const translocated = serverChildLaunch({
-    resourcesPath: "/private/var/folders/xy/T/AppTranslocation/2F1C/d/DEX BOT.app/Contents/Resources",
-    userData: "/Users/someone/Library/Application Support/DEX BOT",
+    resourcesPath: "/private/var/folders/xy/T/AppTranslocation/2F1C/d/Luna Bot.app/Contents/Resources",
+    userData: "/Users/someone/Library/Application Support/Luna Bot",
     env: {},
     exists: () => true,
   });

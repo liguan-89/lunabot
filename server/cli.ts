@@ -1,21 +1,20 @@
-// `dexbot` on the command line: run the server anywhere and pair devices to it.
+// `lunabot` on the command line: run the server anywhere and pair devices to it.
 //
-//   dexbot setup [--data-dir ~/.dexbot]
-//   dexbot start [serve options]
-//   dexbot serve [--port 8799] [--data-dir ~/.dexbot] [--label "cab mini"]
-//                     [--public-url https://host] [--tailscale | --tunnel | --domain HOST] [--relay] [--no-pair]
-//   dexbot pair  [--label "My MacBook"] [--client] [--public-url https://host]
-//   dexbot sessions [revoke <id>]
-//   dexbot status
-//   dexbot login [--email you@example.com] [--relay]
-//   dexbot logout
-//   dexbot run | send | wait | doctor | team apply | export | …
+//   lunabot setup [--data-dir ~/.lunabot]
+//   lunabot start [serve options]
+//   lunabot serve [--port 8799] [--data-dir ~/.lunabot] [--label "cab mini"]
+//
+//   lunabot pair  [--label "My MacBook"] [--client] [--public-url https://host]
+//   lunabot sessions [revoke <id>]
+//   lunabot status
+//   lunabot login [--email you@example.com] [--relay]
+//   lunabot logout
+//   lunabot run | send | wait | doctor | team apply | export | …
 //
 // This module only exports: openmausbot.ts runs main(), so bundling this file into other entries never runs it twice.
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
-import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
@@ -40,6 +39,7 @@ import { HEADLESS_VERB_NAMES, usage } from "./cli-usage.ts";
 import { normalizePhoneOrigin, phonePairingInstructions, runPhoneSetup } from "./cli-phone-setup.ts";
 import { browserSignInLines, formatSessions, pairingBlock, RELAY_NOT_WITH_TUNNEL, relayPairingBlock, showRelayPairing } from "./cli-pairing.ts";
 import { cliCommand, cliPrefix } from "./cli-invocation.ts";
+import { resolveDataDir } from "./data-dir.ts";
 import { checkReach, envPublicUrl, lanProblem, localLinkBase, noRouteLines, publicUrlProblem, reachLines, waitForReach, type Route } from "./cli-reach.ts";
 import { lanUrl } from "./lan-address.ts";
 import { isLoopbackHost } from "../electron/server-address.mjs";
@@ -131,7 +131,7 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
   const options: CliOptions = {
     command: command === "--help" || command === "-h" ? "help" : command === "--version" || command === "-v" ? "version" : command === "devices" ? "sessions" : (command as CliOptions["command"]),
     port: Number(env.OMB_PORT || 8799),
-    dataDir: env.OMB_DATA_DIR || join(homedir(), ".dexbot"),
+    dataDir: resolveDataDir(env),
     tailscale: false,
     tunnel: false,
     client: false,
@@ -269,7 +269,7 @@ async function api(port: number, path: string, init: { method?: string; body?: s
   return { status: res.status, body };
 }
 
-export const SERVICE_TRUST_HELP = "This server does not treat commands on this computer as its owner (OMB_LOOPBACK_TRUST=service, or a hosted workspace), so it will not pair devices or list sessions for them. Sign in as an admin and use Settings → Remote access, let people sign in with their email (dexbot access add you@example.com), or restart the server with OMB_LOOPBACK_TRUST=owner.";
+export const SERVICE_TRUST_HELP = "This server does not treat commands on this computer as its owner (OMB_LOOPBACK_TRUST=service, or a hosted workspace), so it will not pair devices or list sessions for them. Sign in as an admin and use Settings → Remote access, let people sign in with their email (lunabot access add you@example.com), or restart the server with OMB_LOOPBACK_TRUST=owner.";
 
 function refusedAsService(status: number, body: any): boolean {
   return status === 403 && typeof body?.error === "string" && /shared server|Sign in through the workspace portal/.test(body.error);
@@ -480,7 +480,7 @@ export async function runAccess(options: CliOptions, io: CliIo = defaultIo()): P
   };
   if (options.accessAction === "list") {
     if (!admins.length && !members.length) {
-      io.log("nobody can sign in with an email yet; pairing codes only. Add someone with: dexbot access add you@example.com");
+      io.log("nobody can sign in with an email yet; pairing codes only. Add someone with: lunabot access add you@example.com");
       return 0;
     }
     for (const entry of admins) io.log(`${entry.padEnd(40)} full access`);
@@ -580,7 +580,7 @@ export async function runBrowser(options: CliOptions, io: CliIo = defaultIo()): 
   const status = browserEngineStatus({ dataDir: options.dataDir });
   if (options.browserAction === "status") {
     io.log(describeBrowserEngine(status, status.kind === "ready" ? new (await import("./browser/chrome/launcher.ts")).ChromeLauncher({ dataDir: options.dataDir }).describe() : undefined));
-    if (status.kind !== "ready" && status.installable) io.log("install it with:  dexbot browser install");
+    if (status.kind !== "ready" && status.installable) io.log("install it with:  lunabot browser install");
     return status.kind === "ready" ? 0 : 1;
   }
   let binary = resolveAgentBrowserBinary({ dataDir: options.dataDir });
@@ -968,7 +968,7 @@ export async function runOnboardingCommand(
     }
     if (options.command === "setup") {
       io.log(`\nAll set. Start with: ${cliPrefix()}`);
-      if (options.dataDir !== join(homedir(), ".dexbot") || options.port !== 8799) {
+      if (options.dataDir !== resolveDataDir({}) || options.port !== 8799) {
         io.log(`Use the same --data-dir (${options.dataDir}) and --port (${options.port}) options when starting.`);
       }
       return 0;

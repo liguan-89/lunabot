@@ -238,7 +238,7 @@ class FailoverTest {
         // there (`ios/Sources/CompanionCore/Failover.swift:156`).
         assertEquals(
             "已连接电脑，但端口 8810 上的手机访问未响应——" +
-                "请打开 DEX BOT → 设置 → 手机。 应用会自动持续重试。",
+                "请打开 Luna Bot → 设置 → 手机。 应用会自动持续重试。",
             message,
         )
     }

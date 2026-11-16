@@ -48,7 +48,7 @@ internal object PhoneUiSystemActions {
     /** No app on this phone handles the intent: the model should drive the screen instead. */
     private const val CODE_NOT_SUPPORTED = "not_supported"
 
-    /** Sunday first, in the order the wire names the week; the values are Calendar's own day constants. */
+    /** The wire's seven day names and the `Calendar` constant each one means; SUNDAY is 1 and SATURDAY 7. */
     private val DAYS: Map<String, Int> = linkedMapOf(
         "MON" to Calendar.MONDAY,
         "TUE" to Calendar.TUESDAY,
@@ -99,7 +99,8 @@ internal object PhoneUiSystemActions {
             null, JsonNull -> null
             is JsonArray -> {
                 if (element.size > DAYS.size) return Parsed.Refused("days 最多 ${DAYS.size} 个。")
-                element.map { day ->
+                // An empty list is the same as none: a one-time alarm, no extra.
+                if (element.isEmpty()) null else element.map { day ->
                     val name = (day as? JsonPrimitive)
                         ?.takeIf { it !is JsonNull }
                         ?.contentOrNull
@@ -193,7 +194,7 @@ internal object PhoneUiSystemActions {
         val parsed = parseAlarm(arguments)
         if (parsed is Parsed.Refused) return PhoneToolOutcome.Failure(parsed.message, CODE_UNSUPPORTED)
         val request = (parsed as Parsed.Ready).request
-        start(context, alarmIntent(request), displayId, "手机上没有能设置闹钟的应用。")?.let { return it }
+        start(context, alarmIntent(request), displayId, "手机上没有能设置闹钟的应用，请改用手机屏幕工具。")?.let { return it }
         return PhoneToolOutcome.Success(
             buildJsonObject {
                 put("alarm", buildJsonObject {
@@ -211,7 +212,7 @@ internal object PhoneUiSystemActions {
         val parsed = parseTimer(arguments)
         if (parsed is Parsed.Refused) return PhoneToolOutcome.Failure(parsed.message, CODE_UNSUPPORTED)
         val request = (parsed as Parsed.Ready).request
-        start(context, timerIntent(request), displayId, "手机上没有能设置计时器的应用。")?.let { return it }
+        start(context, timerIntent(request), displayId, "手机上没有能设置计时器的应用，请改用手机屏幕工具。")?.let { return it }
         return PhoneToolOutcome.Success(
             buildJsonObject {
                 put("timer", buildJsonObject {
@@ -226,7 +227,7 @@ internal object PhoneUiSystemActions {
         val parsed = parseLink(arguments)
         if (parsed is Parsed.Refused) return PhoneToolOutcome.Failure(parsed.message, CODE_UNSUPPORTED)
         val request = (parsed as Parsed.Ready).request
-        start(context, linkIntent(request), displayId, "手机上没有能打开这个链接的应用。")?.let { return it }
+        start(context, linkIntent(request), displayId, "手机上没有能打开这个链接的应用，请改用手机屏幕工具。")?.let { return it }
         return PhoneToolOutcome.Success(
             buildJsonObject {
                 put("opened", true)
@@ -241,26 +242,34 @@ internal object PhoneUiSystemActions {
         if (parsed is Parsed.Refused) return PhoneToolOutcome.Failure(parsed.message, CODE_UNSUPPORTED)
         val request = (parsed as Parsed.Ready).request
         val send = shareIntent(request)
-        // A named app goes straight there; with none named, one matching app is
-        // opened as it is and anything else (several, or none visible to us)
-        // gets the chooser, which then opens on the helper's display too.
-        val packages = runCatching { context.packageManager.queryIntentActivities(send, 0) }
-            .getOrNull()
-            .orEmpty()
-            .mapNotNull { it.activityInfo?.packageName }
-            .distinct()
-        val outgoing = if (request.app == null && packages.size != 1) {
+        // With no app named, the matching apps decide the shape: one opens as it
+        // is, several get the chooser (which opens on the helper's display too),
+        // and none is a handler this phone does not have. A named app is started
+        // as it is: package visibility can hide a handler that is there, and the
+        // start answers not_supported when it cannot find one.
+        val packages = if (request.app == null) {
+            runCatching { context.packageManager.queryIntentActivities(send, 0) }
+                .getOrNull()
+                .orEmpty()
+                .mapNotNull { it.activityInfo?.packageName }
+                .distinct()
+        } else {
+            emptyList()
+        }
+        if (request.app == null && packages.isEmpty()) {
+            return PhoneToolOutcome.Failure("手机上没有能接收文字的分享入口，请改用手机屏幕工具。", CODE_NOT_SUPPORTED)
+        }
+        val outgoing = if (packages.size > 1) {
             Intent.createChooser(send, null).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         } else {
             send
         }
         val noHandler = request.app?.let { "「$it」没有能接收文字的分享入口。" } ?: "手机上没有能接收文字的分享入口。"
         start(context, outgoing, displayId, noHandler)?.let { return it }
-        val resolved = request.app ?: packages.singleOrNull()
         return PhoneToolOutcome.Success(
             buildJsonObject {
                 put("shared", true)
-                put("package", resolved?.let { JsonPrimitive(it) } ?: JsonNull)
+                put("package", (request.app ?: packages.singleOrNull())?.let { JsonPrimitive(it) } ?: JsonNull)
             },
         )
     }

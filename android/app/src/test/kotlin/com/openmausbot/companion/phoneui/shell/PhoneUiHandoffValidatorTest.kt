@@ -157,15 +157,15 @@ class PhoneUiHandoffValidatorTest {
     @Test
     fun `the launch command runs the helper detached and feeds the nonce through stdin`() {
         val cmd = HandoffProtocol.command(
-            "/data/app/~~x/com.dexbot.companion-y/base.apk",
-            "com.dexbot.companion",
+            "/data/app/~~x/com.lunabot.companion-y/base.apk",
+            "com.lunabot.companion",
             10234,
             "ab'cd",
         )
         assertTrue(cmd.startsWith("read n; (echo \"\$n\" | CLASSPATH="))
         // Detached session, named process, entry point and pinned cert as arguments.
-        assertTrue(cmd.contains(" setsid app_process /system/bin --nice-name='com.dexbot.companion:phoneui-helper' "))
-        assertTrue(cmd.contains(" com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain 'com.dexbot.companion' 10234 'ab'\\''cd' "))
+        assertTrue(cmd.contains(" setsid app_process /system/bin --nice-name='com.lunabot.companion:phoneui-helper' "))
+        assertTrue(cmd.contains(" com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain 'com.lunabot.companion' 10234 'ab'\\''cd' "))
         // No nonce in the command line, and stdin held open until the handoff.
         assertTrue(cmd.endsWith(" >/dev/null 2>&1 &); read _"))
         assertFalse(cmd.contains("nonce"))
@@ -178,11 +178,11 @@ class PhoneUiHandoffValidatorTest {
 
     @Test
     fun `the provider authority is the application id plus phoneui dot helper`() {
-        assertEquals("com.dexbot.companion.phoneui.helper", HandoffProtocol.authority("com.dexbot.companion"))
+        assertEquals("com.lunabot.companion.phoneui.helper", HandoffProtocol.authority("com.lunabot.companion"))
     }
 
     @Test
     fun `the helper process name is package plus phoneui-helper`() {
-        assertEquals("com.dexbot.companion:phoneui-helper", HandoffProtocol.processName("com.dexbot.companion"))
+        assertEquals("com.lunabot.companion:phoneui-helper", HandoffProtocol.processName("com.lunabot.companion"))
     }
 }

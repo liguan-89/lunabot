@@ -9839,10 +9839,10 @@ try {
     claimRequest: () => { cloudPower?.arrived("/hooks", {}); moveFreeze.assertTurns(); return workspaceMaintenance.request(); }, door: botApi.door,
   });
   const advertised = WEBHOOK_PUBLIC_URL ? ` (advertised as ${webhookIngress.baseUrl})` : "";
-  console.log(`dexbot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${webhookIngress.socketServer ? ` and ${process.env.OMB_WEBHOOK_SOCKET?.trim()}` : ""}${advertised}`);
+  console.log(`lunabot webhook receiver on http://${webhookIngress.host}:${webhookIngress.port}${webhookIngress.socketServer ? ` and ${process.env.OMB_WEBHOOK_SOCKET?.trim()}` : ""}${advertised}`);
 } catch (error) {
   webhookIngressError = error instanceof Error ? error.message : String(error);
-  console.error(`dexbot webhook receiver unavailable: ${webhookIngressError}`);
+  console.error(`lunabot webhook receiver unavailable: ${webhookIngressError}`);
 }
 
 const webhookIngressStatus = () => ({
@@ -10424,7 +10424,7 @@ async function runClaimedGroupMemberTurn(
     `Reply as yourself, briefly and conversationally. To bring a teammate in, mention them like @Name — they'll see the conversation and respond.${readyGroup.dm ? "" : ` To get ${typeof userName === "string" ? `${userName}'s` : "a person's"} attention or ask them something blocking, write @you.`} A "[reacted 👍 to …]" line is that person's whole reply to the message it names: 👍 means yes, go ahead, and 👎 means no.`,
     outsideRoom.length > 0 && roomPeerRosterSystemPrompt(outsideRoom), sharedNamesNote(roomMembers.filter((member) => member.id !== bot.id), Boolean(integrations.agents)),
     integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretNamesFor(bot.id)) + (orchestration && !orchestration.roomHandoffId ? THREADS_PROMPT : "")).trim(),
-    integrations.agents && (!orchestration || orchestration.roomHandoffId) && "For actual Luna Bot teamwork, discover IDs with list_room_targets and use coordinate_bots for advice or work in this or another room. Do not substitute native coding helpers for these named bots. Consult only when needed to make a decision; no discussion step is mandatory. Give concrete responsibilities, exact accessible paths and acceptance checks. End your turn after assigning; busy teammates queue and results automatically resume you. When they return, finish the requested verification and give the user one final answer. Native helper names are not evidence that an Luna Bot teammate participated. Plain @mentions are only for conversational replies in this room." + requesterRule,
+    integrations.agents && (!orchestration || orchestration.roomHandoffId) && "For actual Luna Bot teamwork, discover IDs with list_room_targets and use coordinate_bots for advice or work in this or another room. Do not substitute native coding helpers for these named bots. Consult only when needed to make a decision; no discussion step is mandatory. Give concrete responsibilities, exact accessible paths and acceptance checks. End your turn after assigning; busy teammates queue and results automatically resume you. When they return, finish the requested verification and give the user one final answer. Native helper names are not evidence that a Luna Bot teammate participated. Plain @mentions are only for conversational replies in this room." + requesterRule,
     integrations.agents && TRIGGER_PROMPT.trim(),
     integrations.agents && PROFILE_PROMPT.trim(),
     integrations.agents && skillAuthoringEnabled(cfg) && LEARN_PROMPT.trim(),
@@ -15909,7 +15909,7 @@ if (CLOUD_HOME) registerCloudPower(cloudPower = createCloudPower({ dataDir: DATA
 let pausedSent = starterAwake.paused().join(); store.onChange((change) => { if (change.type !== "bot" && change.type !== "bot.deleted") return; const paused = starterAwake.paused().join(); if (paused !== pausedSent) { pausedSent = paused; broadcast({ kind: "config", ...configStatus() }); } });
 server.listen(PORT, listenHost(server), async () => {
   companyRuntimeReady(); cloudHealth?.speed.ready();
-  console.log(`dexbot server on http://127.0.0.1:${PORT}`);
+  console.log(`lunabot server on http://127.0.0.1:${PORT}`);
   if (localLaya?.installed() && cfg.decider?.provider === "laya") {
     void localLaya.start().then(async () => {
       const checked = await localLaya.test();
@@ -15944,7 +15944,7 @@ if (TUNNEL_SOCKET) {
   tunnelListener = createServer(IDLE_HTTP_SERVER, gzipTunnelReplies(handleRequest));
   upgrades.attach(tunnelListener, handleRequest);
   tunnelListener.listen(TUNNEL_SOCKET, () => {
-    console.log(`openmausbot tunnel listener on ${TUNNEL_SOCKET}`);
+    console.log(`lunabot tunnel listener on ${TUNNEL_SOCKET}`);
   });
 }
 // `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request.

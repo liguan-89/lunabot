@@ -1,6 +1,6 @@
-// ~/.openmausbot/config.json, with env vars overriding its credentials.
+// ~/.lunabot/config.json, with env vars overriding its credentials.
 import { readFileSync, mkdirSync, existsSync, renameSync } from "node:fs";
-import { dataHome } from "./data-dir.ts";
+import { dataHome, resolveDataDir } from "./data-dir.ts";
 import { signInFromEnv } from "./sign-in-env.ts";
 export { signInFromEnv };
 import { join } from "node:path";
@@ -794,7 +794,7 @@ export function changedInstanceIds(before: Record<string, unknown>, after: Recor
     .filter((id) => !isDeepStrictEqual(before[id], after[id]));
 }
 
-export const DATA_DIR = process.env.OMB_DATA_DIR || join(dataHome(), ".dexbot");
+export const DATA_DIR = resolveDataDir(process.env, { home: dataHome() });
 /** Earlier names this workspace may have used. The closest predecessor wins. */
 const LEGACY_DATA_DIRS = [join(dataHome(), ".openmausbot"), join(dataHome(), ".opengrokbot")];
 export const EVENTS_DIR = join(DATA_DIR, "events");

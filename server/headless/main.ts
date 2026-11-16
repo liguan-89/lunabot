@@ -14,27 +14,27 @@ import { tokenVerb } from "./token.ts";
 
 const T = "TARGET is a bot or room by name or id, or --bot ID, --channel ID, --thread ID; --task ID picks one of its conversations.";
 
-/** Each verb's help, in plain words. `dexbot help VERB` or `VERB --help`. */
+/** Each verb's help, in plain words. `lunabot help VERB` or `VERB --help`. */
 export const VERB_HELP: Record<string, string> = {
-  doctor: `dexbot doctor [--wait DURATION]
+  doctor: `lunabot doctor [--wait DURATION]
   Check the server answers, is new enough, says who you are to it, and has an engine ready.
   --wait 2m keeps checking until it is ready. Exit 0 ready, 1 no engine, 5 unreachable or too old.
-dexbot doctor --host [--data-dir DIR] [--port 8799] [--domain HOST]
+lunabot doctor --host [--data-dir DIR] [--port 8799] [--domain HOST]
   Check this Linux machine can run the server and the bots' sandbox: the system, Docker or Podman, user
   namespaces, seccomp, cgroup v2, free disk, size, ports and the clock. Each problem says its fix.
   Exit 0 ready (warnings allowed), 7 something is missing. On macOS and Windows it says it is for Linux.`,
-  bots: "dexbot bots\n  Your bots and what each is doing.",
-  channels: "dexbot channels\n  Your rooms (group chats) and who is in them.",
-  models: "dexbot models\n  The engines and the models each offers (use them as INSTANCE/MODEL).",
-  messages: `dexbot messages TARGET [--limit 30]\n  The latest messages of a conversation (at most 200).
+  bots: "lunabot bots\n  Your bots and what each is doing.",
+  channels: "lunabot channels\n  Your rooms (group chats) and who is in them.",
+  models: "lunabot models\n  The engines and the models each offers (use them as INSTANCE/MODEL).",
+  messages: `lunabot messages TARGET [--limit 30]\n  The latest messages of a conversation (at most 200).
   ${T}`,
-  send: `dexbot send TARGET (TEXT | --text TEXT | --message-file FILE | -) [--task new|current|ID] [--title T] [--send-id ID] [--dry-run]
+  send: `lunabot send TARGET (TEXT | --text TEXT | --message-file FILE | -) [--task new|current|ID] [--title T] [--send-id ID] [--dry-run]
   Send one message and return at once. It goes to the conversation the bot or room has open (--task current,
   the default), to a new one (--task new, titled by --title or the message's first line), or to --task ID.
   It says which conversation it went to. The same --send-id never sends twice.
   ${T}`,
-  "send-channel": "dexbot send-channel --channel ID (TEXT | --text TEXT) [--task new|current|ID] [--title T] [--dry-run]\n  The same as send, for a room named by id.",
-  run: `dexbot run TARGET (TEXT | --message-file FILE | -) [--task new|current|ID] [--title T]
+  "send-channel": "lunabot send-channel --channel ID (TEXT | --text TEXT) [--task new|current|ID] [--title T] [--dry-run]\n  The same as send, for a room named by id.",
+  run: `lunabot run TARGET (TEXT | --message-file FILE | -) [--task new|current|ID] [--title T]
                 [--wait job|turn|none] [--timeout 30m] [--on-input exit|wait|stop] [--on-timeout leave|stop]
                 [--strict] [--export DIR [--force]]
   Give a bot or room one job and wait until it, and every teammate it asked, is done.
@@ -45,53 +45,53 @@ dexbot doctor --host [--data-dir DIR] [--port 8799] [--domain HOST]
   --on-timeout: leave the work running, or stop it. --strict: a teammate that failed fails the run.
   Exit 0 done, 1 failed or stopped, 3 needs you, 4 timed out, 130 Ctrl-C (the work keeps running).
   ${T}`,
-  wait: `dexbot wait TARGET [--for job|turn] [--timeout 30m] [--on-input …] [--on-timeout …] [--strict] [--since MS]
+  wait: `lunabot wait TARGET [--for job|turn] [--timeout 30m] [--on-input …] [--on-timeout …] [--strict] [--since MS]
   Wait on a conversation already running (after run --wait none, Ctrl-C or a restarted CI step).
   --since MS (which run prints) keeps watching the same job, so one that ended meanwhile reports how.
   Nothing running: it returns at once (exit 0). Same exit codes as run.
   ${T}`,
-  interrupt: `dexbot interrupt TARGET [--tree] [--dry-run]\n  Press Stop on a conversation. --tree also stops every teammate still working on its job.
+  interrupt: `lunabot interrupt TARGET [--tree] [--dry-run]\n  Press Stop on a conversation. --tree also stops every teammate still working on its job.
   ${T}`,
-  "new-bot": "dexbot new-bot NAME [--title T] [--team T] [--model INSTANCE/MODEL] [--effort E]\n  Make a bot.",
-  "new-channel": "dexbot new-channel NAME --members A,B [--team T]\n  Make a room from bots, by name or id.",
-  "set-model": "dexbot set-model BOT --model INSTANCE/MODEL [--effort E] [--task ID] [--dry-run]\n  Change an idle bot's model (or one idle conversation's, with --task).",
-  edit: "dexbot edit BOT --message ID (TEXT | --text TEXT) [--task ID] [--dry-run]\n  Rewrite an earlier message of yours and have the bot answer again from there.",
-  export: `dexbot export TARGET --out DIR [--root ID] [--since MS] [--max-files 200] [--max-screens 100] [--max-bytes 500MB] [--force]
+  "new-bot": "lunabot new-bot NAME [--title T] [--team T] [--model INSTANCE/MODEL] [--effort E]\n  Make a bot.",
+  "new-channel": "lunabot new-channel NAME --members A,B [--team T]\n  Make a room from bots, by name or id.",
+  "set-model": "lunabot set-model BOT --model INSTANCE/MODEL [--effort E] [--task ID] [--dry-run]\n  Change an idle bot's model (or one idle conversation's, with --task).",
+  edit: "lunabot edit BOT --message ID (TEXT | --text TEXT) [--task ID] [--dry-run]\n  Rewrite an earlier message of yours and have the bot answer again from there.",
+  export: `lunabot export TARGET --out DIR [--root ID] [--since MS] [--max-files 200] [--max-screens 100] [--max-bytes 500MB] [--force]
   Write a conversation's job to DIR: the job tree, every transcript (secrets removed),
   the files its replies link to, and screen captures. --root keeps one job.
   ${T}`,
-  events: `dexbot events [--thread ID]… [--job THREAD_ID [--until-settled]] [--kind K,…] [--since CURSOR] [--screens] [--jsonl]
+  events: `lunabot events [--thread ID]… [--job THREAD_ID [--until-settled]] [--kind K,…] [--since CURSOR] [--screens] [--jsonl]
   The server's live events, one JSON line each: messages, threads, bots and rooms, or the kinds --kind names
   (--kind message,runtime adds token-level events to messages).
   --job follows the threads of one conversation's job; --until-settled ends with it.`,
-  team: "dexbot team apply FILE | team export --out FILE   (see help team apply, help team export)",
-  "team apply": `dexbot team apply FILE [--dry-run | --check] [--prune] [--rotate-secrets] [--wait-idle 2m]
+  team: "lunabot team apply FILE | team export --out FILE   (see help team apply, help team export)",
+  "team apply": `lunabot team apply FILE [--dry-run | --check] [--prune] [--rotate-secrets] [--wait-idle 2m]
   Make the workspace match a team file (YAML or JSON): teams and briefs, bots, skills, Chiefs,
   rooms and engines. Prints the plan, then applies it; a second apply prints "No changes.".
   --dry-run only prints the plan; --check exits 6 if anything would change. --prune deletes bots
   and rooms the file leaves out, in teams marked prune: true. Keys come from { env } or { file },
   and a key already set is kept unless --rotate-secrets. docs/headless-cli.md has the format.`,
-  "team export": "dexbot team export [--team NAME]… --out FILE\n  Write the workspace (or some teams) as a team file; skills go beside it, keys as placeholders,\n  and a key written into a soul, brief or skill is taken out.",
-  engine: "dexbot engine set KIND … | engine list   (see help engine set)",
-  "engine set": `dexbot engine set KIND (--key-env VAR | --key-file FILE) [--base-url URL] [--only-claude-api] [--install] [--rotate] [--dry-run]
+  "team export": "lunabot team export [--team NAME]… --out FILE\n  Write the workspace (or some teams) as a team file; skills go beside it, keys as placeholders,\n  and a key written into a soul, brief or skill is taken out.",
+  engine: "lunabot engine set KIND … | engine list   (see help engine set)",
+  "engine set": `lunabot engine set KIND (--key-env VAR | --key-file FILE) [--base-url URL] [--only-claude-api] [--install] [--rotate] [--dry-run]
   Give the workspace an engine key: claude, openai, openrouter, openai-compatible, xai, groq, greenference, modelgo, mistral or cerebras.
   The key is never printed. One already set is kept unless --rotate. --install installs the engine's
   command if it is not running already, so a script can run this on every start.
   claude: the key runs every Claude bot; --only-claude-api keeps it to "Claude (API key)" bots.`,
-  "engine list": "dexbot engine list\n  The engines, whether each is ready, and which keys are set (never their values).",
-  connect: `dexbot connect [URL] [--code CODE] --out FILE [--label NAME] [--client] [--force]
+  "engine list": "lunabot engine list\n  The engines, whether each is ready, and which keys are set (never their values).",
+  connect: `lunabot connect [URL] [--code CODE] --out FILE [--label NAME] [--client] [--force]
   Get a token for a workspace you reach over the network, saved to FILE (only you can read it).
   On this computer's own server the code is made for you; elsewhere, get one from Settings → Phone.
   Then use it: --url URL --token-file FILE (or DEXBOT_URL and DEXBOT_TOKEN).`,
-  mcp: "dexbot mcp\n  Serve the Luna Bot MCP tools on stdin and stdout, for an agent (docs/mcp-server.md).",
-  token: "dexbot token create NAME --out FILE … | token list | token revoke ID   (see help token create)",
-  "token create": `dexbot token create NAME --out FILE [--scope client|admin] [--expires 90d] [--force]
+  mcp: "lunabot mcp\n  Serve the Luna Bot MCP tools on stdin and stdout, for an agent (docs/mcp-server.md).",
+  token: "lunabot token create NAME --out FILE … | token list | token revoke ID   (see help token create)",
+  "token create": `lunabot token create NAME --out FILE [--scope client|admin] [--expires 90d] [--force]
   An access token for CI and scripts, saved to FILE (only you can read it) and never printed.
   It ends on its date (--expires, at most the server's session limit: 180 days unless OMB_SESSION_MAX_DAYS)
   and never renews. --scope client (the default) can chat and answer approvals; admin can change settings.
-  Then: --url URL --token-file FILE. It is listed with dexbot sessions too.`,
-  "token list": "dexbot token list\n  The access tokens, their scope, when each ends and when it was last used (never the token).",
-  "token revoke": "dexbot token revoke ID\n  End an access token at once (dexbot token list shows the ids).",
+  Then: --url URL --token-file FILE. It is listed with lunabot sessions too.`,
+  "token list": "lunabot token list\n  The access tokens, their scope, when each ends and when it was last used (never the token).",
+  "token revoke": "lunabot token revoke ID\n  End an access token at once (lunabot token list shows the ids).",
 };
 
 export interface HeadlessOptions {

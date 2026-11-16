@@ -130,8 +130,78 @@ class PhoneJobsTest {
     }
 
     @Test
+    fun `the intent tools are phone UI writes on the wire the server sends`() {
+        assertEquals("PHONE_SET_ALARM", PhoneTool.SET_ALARM.wire)
+        assertEquals("PHONE_SET_TIMER", PhoneTool.SET_TIMER.wire)
+        assertEquals("PHONE_OPEN_LINK", PhoneTool.OPEN_LINK.wire)
+        assertEquals("PHONE_SHARE_TEXT", PhoneTool.SHARE_TEXT.wire)
+        for (tool in listOf(PhoneTool.SET_ALARM, PhoneTool.SET_TIMER, PhoneTool.OPEN_LINK, PhoneTool.SHARE_TEXT)) {
+            assertEquals("phoneUi", tool.capability, tool.wire)
+            assertTrue(tool.writes, tool.wire)
+            assertEquals(tool, PhoneTool.fromWire(tool.wire))
+            assertEquals("phoneUi", PhoneToolCatalog.capabilityOf(tool.wire))
+        }
+        // The alarm and timer arguments travel as sent: the executor reads them itself.
+        val job = PhoneJob(
+            id = "job-2",
+            tool = PhoneTool.SET_ALARM.wire,
+            arguments = JsonObject(
+                mapOf(
+                    "hour" to JsonPrimitive(7),
+                    "minute" to JsonPrimitive(30),
+                    "days" to kotlinx.serialization.json.JsonArray(listOf(JsonPrimitive("MON"))),
+                ),
+            ),
+            expiresAt = 1_760_000_000_000,
+        )
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_SET_ALARM", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(job.arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
+    fun `the after-task choice is a phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_AFTER_TASK", PhoneTool.UI_AFTER_TASK.wire)
+        assertEquals("phoneUi", PhoneTool.UI_AFTER_TASK.capability)
+        assertTrue(PhoneTool.UI_AFTER_TASK.writes)
+        assertEquals(PhoneTool.UI_AFTER_TASK, PhoneTool.fromWire("PHONE_UI_AFTER_TASK"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_AFTER_TASK"))
+        // The choice and the optional package travel as sent: the executor reads them itself.
+        val arguments = JsonObject(
+            mapOf("action" to JsonPrimitive("close"), "app" to JsonPrimitive("com.tencent.mm")),
+        )
+        val job = PhoneJob(id = "job-3", tool = PhoneTool.UI_AFTER_TASK.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_AFTER_TASK", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
+    fun `the collect tool is one phone UI write on the wire the server sends`() {
+        assertEquals("PHONE_UI_COLLECT", PhoneTool.UI_COLLECT.wire)
+        assertEquals("phoneUi", PhoneTool.UI_COLLECT.capability)
+        // It scrolls the screen between reads, so it is a write, unlike observe.
+        assertTrue(PhoneTool.UI_COLLECT.writes)
+        assertFalse(PhoneTool.UI_OBSERVE.writes)
+        assertEquals(PhoneTool.UI_COLLECT, PhoneTool.fromWire("PHONE_UI_COLLECT"))
+        assertEquals("phoneUi", PhoneToolCatalog.capabilityOf("PHONE_UI_COLLECT"))
+        // The call travels as sent: the executor reads its fields itself.
+        val arguments = JsonObject(
+            mapOf(
+                "direction" to JsonPrimitive("down"),
+                "pages" to JsonPrimitive(3),
+                "maxLines" to JsonPrimitive(120),
+            ),
+        )
+        val job = PhoneJob(id = "job-4", tool = PhoneTool.UI_COLLECT.wire, arguments = arguments, expiresAt = 1_760_000_000_000)
+        val json = CompanionJson.encodeToJsonElement(PhoneJob.serializer(), job).jsonObject
+        assertEquals("PHONE_UI_COLLECT", json.getValue("tool").jsonPrimitive.content)
+        assertEquals(arguments, json.getValue("arguments").jsonObject)
+    }
+
+    @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(41, PhoneTool.entries.size)
+        assertEquals(47, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")

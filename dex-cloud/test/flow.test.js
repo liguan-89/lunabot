@@ -224,6 +224,8 @@ test("the Cloud serves docs, feedback and the download page instead of a private
     const download = await call(app.base, "GET", "/download");
     assert.equal(download.status, 200);
     assert.match(String(download.body), /\/download\/dexbot\.apk/);
+    assert.match(String(download.body), /com\.lunabot\.companion/);
+    assert.doesNotMatch(String(download.body), /com\.dexbot\.companion/);
     assert.doesNotMatch(String(download.body), /github\.com\/liguan-89/);
   } finally {
     app.server.close();
@@ -293,6 +295,30 @@ test("an admin reads reports and marks one fixed, which the sender then sees", a
 
     const status = await call(app.base, "POST", "/api/bug-reports/status", { installId: "install-abc123", ids: [sent.body.id] });
     assert.deepEqual(status.body.reports[0], { id: sent.body.id, status: "fixed", fixedIn: "2.0.1" });
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});
+
+test("the defaults name Luna Bot's own image and update manifest", async () => {
+  const defaults = config();
+  assert.equal(defaults.cloudImage, "lunabot-cloud-home:local");
+  const overridden = loadConfig({
+    DEXCLOUD_ORIGIN: "https://cloud.dexai.vip",
+    DEXCLOUD_RELAY_TOKEN_SEED: b64u(randomBytes(32)),
+    DEXCLOUD_CLOUD_IMAGE: "example.invalid/cloud-home:test",
+    DEXCLOUD_LATEST_VERSION: "9.8.7",
+  });
+  assert.equal(overridden.cloudImage, "example.invalid/cloud-home:test");
+
+  const app = await start(overridden);
+  try {
+    const manifest = await call(app.base, "GET", "/update.json");
+    assert.equal(manifest.status, 200);
+    assert.equal(manifest.body.versionName, "9.8.7");
+    assert.match(String(manifest.body.notes), /^Luna Bot 9\.8\.7 · /);
+    assert.doesNotMatch(String(manifest.body.notes), /DEX BOT/);
   } finally {
     app.server.close();
     app.store.close();

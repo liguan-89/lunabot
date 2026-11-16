@@ -161,4 +161,7 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
     /** 0=opened 2=no handler 3=error; the helper validates the URI, mime and package shape. */
     fun shareIntent(displayId: Int, contentUri: String, mime: String, packageName: String): Int =
         aidl.shareIntent(displayId, contentUri, mime, packageName)
+
+    /** Finish [packageName] as `am force-stop` does; the helper refuses the system, the system UI and itself. */
+    fun forceStop(packageName: String): Boolean = aidl.forceStop(packageName)
 }

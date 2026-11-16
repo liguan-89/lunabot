@@ -52,7 +52,7 @@ data class PairingOutcome(
 /** No automatically permitted route identified itself and completed the logical pairing. */
 class PairingRouteError(val attemptedRoutes: List<String>) : IOException(
     "无法通过任何可用路由连接到此电脑 " +
-        "(${attemptedRoutes.joinToString()})。请在 DEX BOT 中保持开启“手机访问”后再试。",
+        "(${attemptedRoutes.joinToString()})。请在 Luna Bot 中保持开启“手机访问”后再试。",
 )
 
 /** Keep the same code and request id after an uncertain redemption or rate-limit refusal. */
@@ -744,7 +744,7 @@ class CompanionClient(
             if (error.serverMessage?.contains(ALREADY_DRAINED, ignoreCase = true) == true) return false
             throw APIError.Status(
                 404,
-                "此电脑版本过旧，无法撤回排队中的消息。请在电脑上更新 DEX BOT。",
+                "此电脑版本过旧，无法撤回排队中的消息。请在电脑上更新 Luna Bot。",
             )
         }
     }

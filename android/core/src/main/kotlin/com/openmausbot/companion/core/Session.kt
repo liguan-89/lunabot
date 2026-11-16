@@ -1476,7 +1476,7 @@ class Session(
                     activeClient.imageCapableInstanceIds()
                 } catch (error: APIError.Status) {
                     if (error.code != 404) throw error
-                    _actionError.value = "发送图片前请先在此电脑上更新 DEX BOT。"
+                    _actionError.value = "发送图片前请先在此电脑上更新 Luna Bot。"
                     return false
                 }
                 if (!imageSupported(to, capable)) {
@@ -1682,7 +1682,7 @@ class Session(
         val endpoints = saved.automaticEndpoints
         if (endpoints.isEmpty()) {
             throw APIError.Transport(
-                "无法连接到 ${saved.name}。请保持 DEX BOT 打开并开启手机访问，然后重试。",
+                "无法连接到 ${saved.name}。请保持 Luna Bot 打开并开启手机访问，然后重试。",
             )
         }
         var lastError: Throwable? = null
@@ -1698,7 +1698,7 @@ class Session(
             }
         }
         throw lastError ?: APIError.Transport(
-            "无法连接到 ${saved.name}。请保持 DEX BOT 打开并开启手机访问，然后重试。",
+            "无法连接到 ${saved.name}。请保持 Luna Bot 打开并开启手机访问，然后重试。",
         )
     }
 
@@ -2370,7 +2370,7 @@ class Session(
      */
     private fun voiceWriteFailure(error: Throwable): String =
         if ((error as? APIError)?.isForbidden == true) {
-            "新版电脑端已不允许手机修改语音设置，请在电脑上的 DEX BOT 中修改。"
+            "新版电脑端已不允许手机修改语音设置，请在电脑上的 Luna Bot 中修改。"
         } else {
             error.message ?: "无法修改语音设置。"
         }

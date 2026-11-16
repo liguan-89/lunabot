@@ -76,7 +76,7 @@ async function fetchJson(url: string, options: RequestInit = {}): Promise<any> {
     const text = await response.text().catch(() => "");
     if (response.status === 403 && !new Headers(headers).has("Authorization")) {
       throw new OpenMausBotApiError(403, /on this shared server/.test(text) // the server says which kind refused it
-        ? "This is a shared server, so a program on it without a paired session token may only check its health. Set DEXBOT_TOKEN to a paired session (dexbot connect), as described in docs/mcp-server.md."
+        ? "This is a shared server, so a program on it without a paired session token may only check its health. Set DEXBOT_TOKEN to a paired session (lunabot connect), as described in docs/mcp-server.md."
         : "Luna Bot refused this request because the installed desktop app requires a paired session token. Set DEXBOT_TOKEN as described in docs/mcp-server.md.");
     }
     throw new OpenMausBotApiError(response.status, `Luna Bot API error (${response.status}): ${text || response.statusText}`);

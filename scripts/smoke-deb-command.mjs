@@ -68,7 +68,7 @@ const installed = inContainer(
     prepare,
     command,
     'dpkg-query -W -f="INSTALLED=\\${Version} \\${db:Status-Abbrev}\\n" dexbot',
-    'test -x "/opt/DEX BOT/dexbot" && echo "EXECUTABLE=yes"',
+    'test -x "/opt/Luna Bot/lunabot" && echo "EXECUTABLE=yes"',
   ].join("\n"),
 );
 

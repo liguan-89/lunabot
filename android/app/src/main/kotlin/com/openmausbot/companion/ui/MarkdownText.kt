@@ -1,6 +1,7 @@
 package com.openmausbot.companion.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,7 +24,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.LinkInteractionListener
@@ -123,21 +130,47 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                 Text(inline(block.text, tail, muted), fontSize = 17.sp, color = muted)
             }
 
-        is MarkdownBlock.Table ->
+        is MarkdownBlock.Table -> {
+            val tableScroll = rememberScrollState()
+            val fadeLeft = tableScroll.canScrollBackward
+            val fadeRight = tableScroll.canScrollForward
+            val tableShape = RoundedCornerShape(14.dp)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(muted.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
-                    .padding(10.dp),
+                    .clip(tableShape)
+                    .background(minisCard, tableShape)
+                    .border(0.5.dp, minisSeparator, tableShape)
+                    .padding(vertical = 10.dp),
             ) {
                 DataGrid(
                     headers = block.headers,
                     rows = block.rows,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            if (fadeLeft || fadeRight) {
+                                val edge = 20.dp.toPx().coerceAtMost(size.width * 0.2f)
+                                val l = if (size.width > 0f) edge / size.width else 0f
+                                val r = if (size.width > 0f) 1f - edge / size.width else 1f
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to if (fadeLeft) Color.Transparent else Color.Black,
+                                        l to Color.Black,
+                                        r to Color.Black,
+                                        1f to if (fadeRight) Color.Transparent else Color.Black,
+                                    ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            }
+                        }
+                        .horizontalScroll(tableScroll)
+                        .padding(horizontal = 12.dp),
                 )
             }
+        }
 
         is MarkdownBlock.Code ->
             Column(

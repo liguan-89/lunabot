@@ -1,7 +1,7 @@
 # OpenMausMobile privacy
 
-OpenMausMobile is a companion for an Luna Bot service chosen and operated
-by the user. Local Wi-Fi and Tailscale connections work without an Luna Bot
+OpenMausMobile is a companion for a Luna Bot service chosen and operated
+by the user. Local Wi-Fi and Tailscale connections work without a Luna Bot
 account. A user may separately sign in on the desktop to enable the optional
 **Use your phone anywhere** HTTPS connection.
 

@@ -2,6 +2,7 @@ package com.openmausbot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -34,6 +36,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -58,9 +61,12 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -76,7 +82,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import dev.chrisbanes.haze.hazeSource
+import dev.chrisbanes.haze.rememberHazeState
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -304,40 +313,43 @@ fun RosterScreen(navigator: CompanionNavigator) {
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            RosterHeader(
-                canCreateBot = true,
-                onSettings = { navigator.push(Destination.Settings) },
-                onCreateBot = createBot,
-                onCreateGroup = {
-                    haptics.play(TactileAction.START_NEW_GROUP)
-                    showingNewGroup = true
-                },
-                onCreateSection = {
-                    haptics.play(TactileAction.START_NEW_SECTION)
-                    showingNewSection = true
-                },
-            )
-            StatusBanner()
+    val hazeState = rememberHazeState()
+    val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    var headerHeightPx by remember { mutableIntStateOf(0) }
+    var bottomBarHeightPx by remember { mutableIntStateOf(0) }
+    val topClearance = with(density) {
+        if (headerHeightPx > 0) headerHeightPx.toDp() else 60.dp
+    }
+    val bottomClearance = with(density) {
+        if (bottomBarHeightPx > 0) bottomBarHeightPx.toDp() + 12.dp else BAR_CLEARANCE
+    }
+    val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
+    val topBandAlpha by animateFloatAsState(
+        targetValue = if (topScrolled) 1f else 0f,
+        animationSpec = tween(180),
+        label = "roster-top-haze",
+    )
 
+    CompositionLocalProvider(LocalHazeState provides hazeState) {
+    Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(minisCanvas)
+                .hazeSource(hazeState),
+        ) {
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = {
                     scope.launch {
                         refreshing = true
-                        // Session.refresh waits until the stream leaves connecting
-                        // (or 10s), so the spinner means what it appears to mean.
                         session.refresh()
                         refreshing = false
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                // Unsearched, the empty state is about bots: channels are tiles
-                // in the strip, not rows.
                 val nothingToList =
                     if (query.isEmpty()) !RosterLayout.listsAnyBot(summaries) else rows.isEmpty()
                 if (nothingToList && hits.isEmpty()) {
@@ -356,8 +368,9 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 }
 
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = BAR_CLEARANCE),
+                    contentPadding = PaddingValues(top = topClearance, bottom = bottomClearance),
                 ) {
                     hero?.let { main ->
                         item(key = "hero") {
@@ -540,6 +553,44 @@ fun RosterScreen(navigator: CompanionNavigator) {
             }
         }
 
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(topClearance + 20.dp)
+                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+        )
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .height(bottomClearance + 26.dp)
+                .progressiveHazeBand(hazeState, fromTop = false),
+        )
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .onSizeChanged { headerHeightPx = it.height },
+        ) {
+            RosterHeader(
+                canCreateBot = true,
+                onSettings = { navigator.push(Destination.Settings) },
+                onCreateBot = createBot,
+                onCreateGroup = {
+                    haptics.play(TactileAction.START_NEW_GROUP)
+                    showingNewGroup = true
+                },
+                onCreateSection = {
+                    haptics.play(TactileAction.START_NEW_SECTION)
+                    showingNewSection = true
+                },
+            )
+            StatusBanner()
+        }
+
         RosterBottomBar(
             updates = updates,
             bar = bar,
@@ -558,11 +609,13 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 haptics.play(TactileAction.START_NEW_SECTION)
                 showingNewSection = true
             },
-            // The same rule the sheet picks from: two copies of "which bots can
-            // be sectioned" could disagree about a hidden one.
             canCreateSection = remember(state) { SectionRules.selectable(state).isNotEmpty() },
-            modifier = Modifier.align(Alignment.BottomCenter),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .onSizeChanged { bottomBarHeightPx = it.height },
         )
+    }
     }
 
     if (showingUpdates) {
@@ -663,12 +716,7 @@ private fun RosterHeader(
             Box(
                 modifier = Modifier
                     .size(44.dp)
-                    .clip(CircleShape)
-                    // White controls on the grey Grok Bot canvas; the old
-                    // grouped grey disappeared into the page once the page
-                    // itself went grey.
-                    .background(minisCard)
-                    .border(0.5.dp, minisSeparator, CircleShape),
+                    .chromeCapsule(surface = true),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -689,9 +737,7 @@ private fun RosterHeader(
                 modifier = Modifier
                     .size(44.dp)
                     .pressScale(interaction, pressed = 0.92f)
-                    .clip(CircleShape)
-                    .background(minisCard)
-                    .border(0.5.dp, minisSeparator, CircleShape)
+                    .chromeCapsule(surface = true)
                     .combinedClickable(
                         interactionSource = interaction,
                         indication = LocalIndication.current,
@@ -748,11 +794,8 @@ private fun NewMenu(
     ) {
         Column(
             modifier = Modifier
-                .width(172.dp)
-                .shadow(14.dp, RoundedCornerShape(18.dp))
-                .background(minisCard, RoundedCornerShape(18.dp))
-                .border(0.5.dp, minisSeparator, RoundedCornerShape(18.dp))
-                .clip(RoundedCornerShape(18.dp))
+                .width(176.dp)
+                .chromeSheet(cornerRadius = 18.dp, elevation = 14.dp)
                 .padding(vertical = 4.dp),
         ) {
             NewMenuRow(
@@ -878,8 +921,7 @@ private fun RosterHero(
             Spacer(Modifier.height(6.dp))
             Row(
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(minisCard)
+                    .chromeCapsule(surface = true)
                     .clickable(role = Role.Button, onClick = onChooseComputer)
                     .clearAndSetSemantics {
                         contentDescription = "切换电脑，当前 $computerName"
@@ -889,7 +931,7 @@ private fun RosterHero(
                             true
                         }
                     }
-                    .padding(start = 10.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                    .padding(start = 11.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
@@ -926,7 +968,13 @@ private fun ComputerSheet(
     onChoose: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = minisCanvas,
+        shape = MinisSheetShape,
+        scrimColor = Color.Black.copy(alpha = 0.22f),
+    ) {
+        GlassBackdrop()
         Column(modifier = Modifier.padding(bottom = 24.dp)) {
             Text(
                 text = "电脑",
@@ -1220,7 +1268,7 @@ private fun ChatRow(
                 ) {
                     // One line for every bot, so the rows keep one rhythm.
                     Text(
-                        text = summary.preview.ifEmpty { " " },
+                        text = RosterPreviewFormat.display(summary.preview).ifEmpty { " " },
                         fontSize = 15.sp,
                         color = minisSecondary,
                         maxLines = 1,
@@ -1345,19 +1393,11 @@ private fun RosterBottomBar(
                 Text("取消", fontSize = 17.sp)
             }
         } else {
-            // Grok's bar: one square on the left, one long search pill.
             Box(
                 modifier = Modifier
                     .size(52.dp)
-                    // Grok Bot's left control is a circle with a four-tile
-                    // glyph, not a rounded square. The dot still sits on it.
-                    .clip(CircleShape)
-                    .background(minisCard)
-                    .border(0.5.dp, minisSeparator, CircleShape)
+                    .chromeCapsule(surface = true)
                     .clickable(role = Role.Button, onClick = onOpenUpdates)
-                    // The accent dot is the only visible unread signal; without
-                    // a state description TalkBack reads a plain "动态" button.
-                    // Merge so the glyph's label lands on the button itself.
                     .semantics(mergeDescendants = true) {
                         contentDescription = "动态"
                         stateDescription = if (updates.isNotEmpty()) "有未读更新" else "无未读更新"
@@ -1384,9 +1424,7 @@ private fun RosterBottomBar(
                 modifier = Modifier
                     .weight(1f)
                     .height(BAR_HEIGHT)
-                    .clip(CircleShape)
-                    .background(minisCard)
-                    .border(0.5.dp, minisSeparator, CircleShape)
+                    .chromeCapsule(surface = true)
                     .clickable(role = Role.Button, onClick = onOpenSearch)
                     .semantics(mergeDescendants = true) {
                         contentDescription = "搜索会话"

@@ -94,7 +94,15 @@ class OpenMausApp : Application() {
     lateinit var cloudAccount: CloudAccountController
         private set
 
-    /** The preference files moved from openmaus.* to dexbot.*; carry the old ones over once. */
+    /**
+     * The preference files each rename moved, carried forward once.
+     *
+     * The list is ordered oldest first and applied in sequence, so an install
+     * that still has `openmaus.*` files is renamed to `dexbot.*` and then to
+     * `lunabot.*` in the same launch; an install from the middle of the chain
+     * only takes the later step. Each step is a no-op when its target already
+     * exists, so a file is never clobbered by an older copy.
+     */
     private fun migrateLegacyPreferences() {
         val directory = File(applicationInfo.dataDir, "shared_prefs")
         val names = listOf(
@@ -102,6 +110,8 @@ class OpenMausApp : Application() {
             "openmaus.onboarding" to "dexbot.onboarding",
             "openmaus.chat-preferences" to "dexbot.chat-preferences",
             "openmaus.always_on" to "dexbot.always_on",
+            "dexbot.permissions" to "lunabot.permissions",
+            "dexbot.onboarding" to "lunabot.onboarding",
         )
         for ((legacy, current) in names) {
             val source = File(directory, "$legacy.xml")

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createReplyTracker, createTalkServer, findDexBot, readFrames } from "./talk-server.mjs";
+import { createReplyTracker, createTalkServer, findBuiltInBot, readFrames } from "./talk-server.mjs";
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const turn = turnId => (turnId ? { turnId } : {});
@@ -45,9 +45,9 @@ const asking = (server, { signal = new AbortController().signal, onUpdate = () =
 
 test("findLuna Bot picks this computer's Luna Bot, else the Chief of Staff", () => {
   const mine = { id: "m", defaultBot: {} }, member = { id: "p", defaultBot: { person: "a@b.test" } }, chief = { id: "c", chiefOfStaff: true };
-  assert.equal(findDexBot([member, chief, mine]).id, "m");
-  assert.equal(findDexBot([member, chief]).id, "c");
-  assert.equal(findDexBot([{ id: "x" }, { ...chief, hidden: true }]), null);
+  assert.equal(findBuiltInBot([member, chief, mine]).id, "m");
+  assert.equal(findBuiltInBot([member, chief]).id, "c");
+  assert.equal(findBuiltInBot([{ id: "x" }, { ...chief, hidden: true }]), null);
 });
 
 test("prepare reuses the saved Quick asks chat while Luna Bot still has it", async () => {

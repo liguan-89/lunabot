@@ -7,7 +7,7 @@ Console declarations or establish that a release is ready to publish.
 ## Release identity and build
 
 The Android app is **Luna Bot**, the same product name as the desktop app.
-The Android package is `com.dexbot.companion`.
+The Android package is `com.lunabot.companion`.
 
 Use the selected release commit's [Gradle configuration](../app/build.gradle.kts)
 for `appVersionName`, the derived `versionCode`, and SDK versions. The code is
@@ -92,7 +92,7 @@ Account for each supported connection, provider, and hosting configuration:
 - [Network configuration](../app/src/main/res/xml/network_security_config.xml)
   permits cleartext local LAN traffic. Do not claim all traffic is encrypted in
   transit based on the availability of HTTPS or Tailscale routes.
-- [Composer dictation](../app/src/main/kotlin/com/lunabot/companion/dictation/SpeechDictation.kt)
+- [Composer dictation](../app/src/main/kotlin/com/openmausbot/companion/dictation/SpeechDictation.kt)
   can fall back to a platform speech recognizer that uses the network. Review
   that processing alongside messages, attachments, credentials, identifiers,
   optional hosted sign-in, and any other enabled data flows.

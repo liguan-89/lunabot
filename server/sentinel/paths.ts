@@ -4,6 +4,8 @@ import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, posix, resolve, win32 } from "node:path";
 
+import { DATA_DIR_NAME, LEGACY_DATA_DIR_NAME } from "../data-dir.ts";
+
 const FOLDER = "openmausbot-sentinel";
 
 export function defaultSentinelOut(dataDir: string, platform: NodeJS.Platform = process.platform, home = homedir(), env: NodeJS.ProcessEnv = process.env): string {
@@ -12,9 +14,9 @@ export function defaultSentinelOut(dataDir: string, platform: NodeJS.Platform = 
   const base = platform === "darwin" ? path.join(home, "Library", "Application Support", FOLDER)
     : platform === "win32" ? path.join(env.LOCALAPPDATA || path.join(home, "AppData", "Local"), FOLDER)
     : path.join(state, FOLDER);
-  // two workspaces never count into one set of issues
+  // two workspaces never count into one set of issues; the default data dir keeps the plain folder, under either name
   const resolved = path.resolve(dataDir);
-  if (resolved === path.join(home, ".dexbot")) return base;
+  if (resolved === path.join(home, DATA_DIR_NAME) || resolved === path.join(home, LEGACY_DATA_DIR_NAME)) return base;
   return path.join(base, `data-${createHash("sha256").update(resolved).digest("hex").slice(0, 12)}`);
 }
 

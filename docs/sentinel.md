@@ -1,6 +1,6 @@
 # Sentinel
 
-Sentinel is an opt-in health scanner for an Luna Bot data dir. It reads the
+Sentinel is an opt-in health scanner for a Luna Bot data dir. It reads the
 data dir's databases and logs without modifying them, groups failures into
 issues, and writes those issues to its own folder outside the data dir (see
 [Privacy model](#privacy-model)). An `--out` inside the data dir is refused.
@@ -82,10 +82,10 @@ Issues hold references and a normalized title, never raw content. A line in
   `events` → event id, `runtime` → assignment id). A later stage can look the
   evidence up there for someone who is allowed to see it.
 - Output goes to a folder outside the data dir: on macOS
-  `~/Library/Application Support/lunabot-sentinel/`, on Linux
-  `$XDG_STATE_HOME/lunabot-sentinel/` (by default
-  `~/.local/state/lunabot-sentinel/`), on Windows
-  `%LOCALAPPDATA%\lunabot-sentinel\`. You can choose another folder with
+  `~/Library/Application Support/openmausbot-sentinel/`, on Linux
+  `$XDG_STATE_HOME/openmausbot-sentinel/` (by default
+  `~/.local/state/openmausbot-sentinel/`), on Windows
+  `%LOCALAPPDATA%\openmausbot-sentinel\`. You can choose another folder with
   `--out`. A data dir other than `~/.lunabot` gets its own `data-<hash>`
   subfolder. The folder is `0700` and its files are `0600`. Sentinel refuses
   an `--out` inside a git repository or inside the data dir, so it never
@@ -137,7 +137,7 @@ commands that install it. It doesn't install anything itself, and it writes
 nothing to the data dir. The scheduled command passes `--data-dir` and `--out`
 explicitly, so the paths it prints are the ones the scan uses.
 
-- **macOS:** a launchd agent `com.openmausbot.sentinel` with
+- **macOS:** a launchd agent `com.lunabot.sentinel` with
   `StartInterval` 120, logging to `sentinel.log` in Sentinel's folder.
 - **Linux:** a systemd user service and timer, `lunabot-sentinel`, that
   runs every 120 s. It doesn't need root.
@@ -154,8 +154,8 @@ ships, whichever command you ran it from:
 
 | Platform | Node | Script |
 |---|---|---|
-| macOS | `/Applications/Luna Bot.app/Contents/MacOS/Luna Bot` (or under `~/Applications`) | `…/Contents/Resources/server/lunabot.js` |
-| Ubuntu `.deb` | `/opt/Luna Bot/lunabot` | `/opt/Luna Bot/resources/server/lunabot.js` |
+| macOS | `/Applications/Luna Bot.app/Contents/MacOS/Luna Bot` (or under `~/Applications`) | `…/Contents/Resources/server/openmausbot.js` |
+| Ubuntu `.deb` | `/opt/Luna Bot/lunabot` | `/opt/Luna Bot/resources/server/openmausbot.js` |
 
 The app's own executable runs as Node with `ELECTRON_RUN_AS_NODE=1`, just as
 the [MCP server](mcp-server.md#from-the-installed-desktop-app) does. App

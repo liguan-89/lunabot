@@ -1,5 +1,5 @@
 // X research: the x_* agents tools' only way out, through treg (treg.to). With the person's own treg key it calls treg
-// directly, billed to their treg balance; otherwise it calls the DexBot Cloud Admin's relay, which calls treg on our
+// directly, billed to their treg balance; otherwise it calls the Luna Bot Cloud Admin's relay, which calls treg on our
 // account for paying Cloud plans within each plan's monthly calls. It hands back compact posts and profiles, never a
 // scraper's raw JSON, and turns every failure into an XResearchError carrying a sentence a bot can pass on.
 //

@@ -79,7 +79,8 @@
         android:required="false" />
     <!--
       Android 13+ NSD / Wi-Fi peer discovery. neverForLocation: we only browse
-      for _dexbot._tcp, never derive physical location from the scan.
+      for _lunabot._tcp (and the older _dexbot._tcp / _openmausbot._tcp), never
+      derive physical location from the scan.
       Without this (and the multicast permission), NsdManager returns an empty
       list silently — the same footgun as missing NSLocalNetworkUsageDescription
       on iOS (briefing §19).
@@ -102,7 +103,7 @@
     <!--
       Phone UI launch: the executor resolves an installed package's launcher
       intent before asking the shell helper to start it. Without this filter
-      package visibility hides every app DEX BOT does not name, and every
+      package visibility hides every app Luna Bot does not name, and every
       launch would answer "not installed" on API 30+.
     -->
     <queries>
@@ -187,6 +188,13 @@
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
+                <!-- The scheme the desktop writes now. -->
+                <data
+                    android:host="pair"
+                    android:scheme="lunabot" />
+                <!-- The previous rebrand's scheme: links and QR codes made
+                     before this rename must still open the trampoline, and the
+                     parser accepts every scheme ever written. -->
                 <data
                     android:host="pair"
                     android:scheme="dexbot" />

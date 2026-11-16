@@ -391,15 +391,16 @@ const __APP_VERSION__: string;
         state(): Promise<{ maximized: boolean }>;
         onMaximizedChanged(cb: (maximized: boolean) => void): () => void;
       };
-      /** Receives a GitHub package URL opened through dexbot://install. */
+      /** Receives a GitHub package URL opened through lunabot://install (or an older dexbot://install). */
       onPackageInstall?(cb: (url: string) => void): () => void;
-      /** Receives a chat link (dexbot://thread/… or dexbot://bot/…)
-       * opened from outside the app. */
+      /** Receives a chat link (lunabot://thread/… or lunabot://bot/…, and the
+       * dexbot:// / openmausbot:// spellings earlier builds wrote) opened from
+       * outside the app. */
       onChatLink?(cb: (link: string) => void): () => void;
       /** The desktop shell's app-menu Preferences… item was activated; open
        * app Settings. Every server's page in the window receives it, and the
        * bridge is absent in the browser. "cloud" is the
-       * dexbot://cloud link (Settings → OMB Cloud, opened by the link). */
+       * lunabot://cloud link (Settings → Luna Bot Cloud, opened by the link). */
       onOpenAppSettings?(cb: (section?: "organization" | "cloud" | "cloud-settings" | "cloud-add" | "cloud-add-howto") => void): () => void;
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;

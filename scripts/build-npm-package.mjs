@@ -146,7 +146,7 @@ without starting a server. Completed installs and sign-ins remain; run
 
 For a service, use \`serve --tunnel\` after \`login\` for managed HTTPS,
 \`serve --tailscale\` for your tailnet, or your own reverse proxy. The
-\`login\` command signs in to an Luna Bot account, not an AI provider;
+\`login\` command signs in to a Luna Bot account, not an AI provider;
 it does not start the tunnel itself.
 
 Scripts, CI and other agents can drive a running workspace without a screen:

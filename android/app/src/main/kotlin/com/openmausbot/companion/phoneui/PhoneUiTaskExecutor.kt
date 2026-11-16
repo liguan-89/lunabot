@@ -66,14 +66,35 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private var session: PhoneUiDisplaySession? = null
     private var lastUsedAtMs = 0L
 
+    /** The bot's after-task choice, applied in [release]; null until it records one. */
+    private val afterTask = PhoneUiAfterTask()
+
+    /** The package the task drove most recently, for a choice that names none. */
+    @Volatile
+    private var lastPackage: String? = null
+
+    /** Text on the screen the last action left behind, for the dwell's reading time. */
+    @Volatile
+    private var screenChars = 0
+
+    /** How the screen is driven. FAST is the default and the old touch exactly: no waits, no jitter. */
+    @Volatile
+    private var pace = OperatingPace.FAST
+    @Volatile
+    private var gesturePace: GesturePace = GesturePace.Instant
+    @Volatile
+    private var typingPace: TypingPace = TypingPace.Instant
+    @Volatile
+    private var actionPace: ActionPace = ActionPace.Off
+
     /** Resolved once: which packages are the system's own questions, and which are home. */
     private val pickerPackages: Set<String> by lazy { PhoneUiSystemPickers.resolve(packageManager) }
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
     private enum class Action {
-        OBSERVE, QUERY, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
+        OBSERVE, COLLECT, QUERY, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
         SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SEND, FILE_SHARE,
-        SET_ALARM, SET_TIMER, OPEN_LINK, SHARE_TEXT,
+        SET_ALARM, SET_TIMER, OPEN_LINK, SHARE_TEXT, AFTER_TASK,
     }
 
     /** The pre-action fingerprint, plus the change verdict once an action has measured it. */
@@ -97,6 +118,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 // itself; neither the helper nor the screen is involved.
                 Action.SET_ALARM -> return@withContext PhoneUiSystemActions.setAlarm(appContext, null, arguments)
                 Action.SET_TIMER -> return@withContext PhoneUiSystemActions.setTimer(appContext, null, arguments)
+                // Choosing what happens after the task touches nothing now: it
+                // only records the choice release() applies, so it answers while
+                // the helper is asleep too.
+                Action.AFTER_TASK -> return@withContext afterTaskTool(arguments)
                 else -> Unit
             }
             val shell = bridge.shell.value
@@ -138,6 +163,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 ).execute(arguments)
                 else -> write(shell, service, session) { step ->
                     when (action) {
+                        Action.COLLECT -> collect(shell, service, session, arguments, step)
                         Action.LAUNCH -> launch(shell, arguments, session, step)
                         Action.TAP -> tap(shell, service, session, arguments, step)
                         Action.TAP_AT -> tapAt(shell, service, session, arguments, step)
@@ -161,16 +187,80 @@ internal class PhoneUiTaskExecutor(context: Context) {
         }
     }
 
-    /** Drop the session display immediately; the idle timeout covers the normal path. */
+    /**
+     * Drop the session display immediately, then apply the bot's after-task
+     * choice: keeping is the default and leaves the app running in the
+     * background on its last page, while closing finishes it through the
+     * helper. The display goes first either way, so closing never races the
+     * display's own release.
+     */
     fun release() {
         synchronized(lock) {
             session?.close()
             session = null
         }
+        when (val decision = afterTask.decide(lastPackage, appContext.packageName)) {
+            // Keeping is today's behaviour: the display is gone, the app is not.
+            PhoneUiAfterTask.Decision.Keep, PhoneUiAfterTask.Decision.Nothing -> Unit
+            is PhoneUiAfterTask.Decision.Close -> {
+                bridge.shell.value?.let { shell -> runCatching { shell.forceStop(decision.packageName) } }
+            }
+        }
+        // The choice is one task's; the next task starts from the default again.
+        afterTask.clear()
+    }
+
+    /**
+     * PHONE_UI_AFTER_TASK: record whether the app stays or is finished when
+     * the task ends. The choice is per task and release() applies it; nothing
+     * on the phone changes here.
+     */
+    private fun afterTaskTool(arguments: JsonObject): PhoneToolOutcome {
+        val choice = PhoneUiAfterTask.Choice.parse(arguments.string("action"))
+            ?: return PhoneToolOutcome.Failure("action 只支持 keep 或 close。", CODE_UNSUPPORTED)
+        val requested = arguments.string("app")
+        if (requested != null && !PhoneUiRules.isValidPackageName(requested)) {
+            return PhoneToolOutcome.Failure("包名不合法。", CODE_UNSUPPORTED)
+        }
+        val pkg = requested ?: lastPackage
+        // Closing a package the caller may not name would finish the wrong app
+        // later; refuse it here, where the bot can still choose another.
+        if (choice == PhoneUiAfterTask.Choice.CLOSE) {
+            val decision = PhoneUiAfterTask.whatToDo(choice, pkg, appContext.packageName, PhoneUiAfterTask.SYSTEM_UI_PACKAGES)
+            if (decision !is PhoneUiAfterTask.Decision.Close) {
+                return PhoneToolOutcome.Failure(
+                    if (pkg == null) "还不知道要关闭哪个应用：先打开一个应用，或者用 app 指明包名。" else "不能关闭这个应用。",
+                    CODE_UNSUPPORTED,
+                )
+            }
+        }
+        // A named package is stored as named; an omitted one stays omitted, so
+        // release acts on whatever app the task drove last by then. The answer
+        // already says which package that is right now.
+        afterTask.record(choice, requested)
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("afterTask", choice.wire)
+                if (pkg == null) put("package", JsonNull) else put("package", pkg)
+            },
+        )
+    }
+
+    /**
+     * Opt into a pacing level from outside the executor. FAST is the default
+     * and the old behaviour; the caller owns any setting that selects one, so
+     * no preference is read here.
+     */
+    internal fun setPace(pace: OperatingPace) {
+        this.pace = pace
+        gesturePace = this.pace.gesturePace()
+        typingPace = this.pace.typingPace()
+        actionPace = this.pace.actionPace()
     }
 
     private fun actionOf(wire: String): Action? = when (wire) {
         "PHONE_UI_OBSERVE" -> Action.OBSERVE
+        "PHONE_UI_COLLECT" -> Action.COLLECT
         "PHONE_UI_QUERY" -> Action.QUERY
         "PHONE_UI_LAUNCH" -> Action.LAUNCH
         "PHONE_LIST_APPS" -> Action.LIST_APPS
@@ -196,6 +286,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_SET_TIMER" -> Action.SET_TIMER
         "PHONE_OPEN_LINK" -> Action.OPEN_LINK
         "PHONE_SHARE_TEXT" -> Action.SHARE_TEXT
+        "PHONE_UI_AFTER_TASK" -> Action.AFTER_TASK
         else -> null
     }
 
@@ -525,6 +616,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
         session: PhoneUiDisplaySession,
         body: suspend (Step) -> PhoneToolOutcome,
     ): PhoneToolOutcome {
+        // The dwell the last action still owes, plus reading time for the
+        // screen it left behind. FAST owes zero, so this costs nothing until
+        // someone opts into a slower pace. It runs before the fingerprint, so
+        // a change during the wait is not mistaken for this action's.
+        actionPace.waitBefore(screenChars).takeIf { it > 0 }?.let { delay(it) }
         val before = service.reading(session.displayId)
         val topBefore = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
         val startedAt = System.currentTimeMillis()
@@ -537,10 +633,13 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (step.changed == null) {
             step.changed = awaitChange(service, session, step.before)
         }
-        spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
-            return withScreen(spill, shell, service, session, step.changed)
-        }
-        return withScreen(outcome, shell, service, session, step.changed)
+        val answer = spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
+            withScreen(spill, shell, service, session, step.changed)
+        } ?: withScreen(outcome, shell, service, session, step.changed)
+        // A screen that changed starts the dwell the next action waits out. It
+        // is noted after the answer, so the app named is the one now in front.
+        if (step.changed == true) actionPace.noteAction(lastPackage, newScreen = true)
+        return answer
     }
 
     /**
@@ -691,6 +790,42 @@ internal class PhoneUiTaskExecutor(context: Context) {
         )
     }
 
+    /** PHONE_UI_COLLECT: several screens read by one call, through the scroll and settle the other actions use. */
+    private suspend fun collect(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        arguments: JsonObject,
+        step: Step,
+    ): PhoneToolOutcome {
+        var before = step.before
+        var moved = false
+        val answer = PhoneUiCollect(
+            snapshot = { service.snapshot(session.displayId) },
+            scroll = { direction ->
+                val one = Step(before)
+                val ref = service.snapshot(session.displayId)?.elements?.firstOrNull { it.scrollable }?.ref
+                val done = if (ref != null) {
+                    scroll(shell, service, session, buildJsonObject { put("direction", direction); put("ref", ref) }, one) is PhoneToolOutcome.Success
+                } else {
+                    // The same stroke PHONE_UI_SCROLL falls back to on a screen with no scrollable element.
+                    gesture(shell, session, if (direction == "down") "up" else "down", null)
+                        .also { if (it) one.changed = awaitChange(service, session, one.before) }
+                }
+                before = service.reading(session.displayId).fingerprint
+                moved = one.changed == true
+                done
+            },
+            // The scroll already waited for its change; this only reports it.
+            settle = { moved },
+            topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
+            height = session.height,
+            elementJson = ::elementJson,
+        ).execute(arguments)
+        if (answer is PhoneToolOutcome.Success) step.changed = moved
+        return answer
+    }
+
     /**
      * The same snapshot PHONE_UI_OBSERVE reads, narrowed to the elements whose
      * text, view id or class matches what the bot asked. `count` is the total
@@ -814,7 +949,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (x !in 0 until session.width || y !in 0 until session.height) {
             return PhoneToolOutcome.Failure("坐标超出受控屏幕（${session.width}x${session.height}）。", CODE_UNSUPPORTED)
         }
-        if (!runCatching { shell.injectTap(session.displayId, x, y) }.getOrDefault(false)) {
+        if (!injectTap(shell, session, gesturePace.tapAt(x, y))) {
             return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
         }
         step.changed = awaitChange(service, session, step.before)
@@ -872,10 +1007,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
             return PhoneToolOutcome.Failure("这个按钮像发送、支付或确认一类的动作，没有改用坐标再点一次。", CODE_DENIED)
         }
         if (bounds == null) return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
-        val x = bounds.centerX()
-        val y = bounds.centerY()
-        val tapped = runCatching { shell.injectTap(session.displayId, x, y) }.getOrDefault(false)
-        if (!tapped) return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
+        // The paced tap on the element; its Instant point is the element's centre.
+        val coordinate = gesturePace.tap(bounds.left, bounds.top, bounds.right, bounds.bottom)
+        val x = coordinate.x
+        val y = coordinate.y
+        if (!injectTap(shell, session, coordinate)) return PhoneToolOutcome.Failure("点击没有被执行。", CODE_DENIED)
         val changedByTap = awaitChange(service, session, step.before)
         step.changed = changedByTap
         if (changedByTap) {
@@ -955,10 +1091,9 @@ internal class PhoneUiTaskExecutor(context: Context) {
         }
         val supportsSetText = node.actionList.any { it.id == AccessibilityNodeInfo.ACTION_SET_TEXT }
         if (node.isEditable && supportsSetText) {
-            val args = Bundle().apply {
-                putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
-            }
-            if (performWith(node, AccessibilityNodeInfo.ACTION_SET_TEXT, args)) {
+            // A native field takes growing prefixes; a paced run writes them
+            // with the planned waits, and FAST still writes the whole string once.
+            if (setTextPaced(node, text)) {
                 step.changed = awaitChange(service, session, step.before)
                 return PhoneToolOutcome.Success(
                     buildJsonObject {
@@ -983,7 +1118,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (!focused) {
             return PhoneToolOutcome.Failure("这个输入框无法获得焦点，不能输入。", CODE_DENIED)
         }
-        if (!runCatching { shell.typeText(session.displayId, text) }.getOrDefault(false)) {
+        if (!typeKeysPaced(shell, session, text)) {
             return PhoneToolOutcome.Failure("写入没有生效。", CODE_DENIED)
         }
         step.changed = awaitChange(service, session, step.before)
@@ -993,6 +1128,64 @@ internal class PhoneUiTaskExecutor(context: Context) {
                 put("channel", "keys")
             },
         )
+    }
+
+    /**
+     * Write [text] into a field that takes ACTION_SET_TEXT. A paced run writes
+     * growing prefixes, each replacing the last, so the field's value is always
+     * the prefix a person would have typed so far; [TypingPace.Instant] (FAST)
+     * writes the whole string once, which is the old call exactly.
+     *
+     * [TypingPace.forField] is not consulted: its paste-only rule is about
+     * fields that lose earlier writes, and this channel rewrites the whole
+     * value on every step, so it never relies on one.
+     */
+    private suspend fun setTextPaced(node: AccessibilityNodeInfo, text: String): Boolean {
+        val typing = typingPace
+        if (!typing.paced) return setText(node, text)
+        var previous = ""
+        for (step in typing.plan(text)) {
+            if (step.delayBeforeMs > 0) delay(step.delayBeforeMs)
+            if (!setText(node, step.prefix)) return false
+            previous = step.prefix
+        }
+        return previous == text
+    }
+
+    private fun setText(node: AccessibilityNodeInfo, text: String): Boolean {
+        val args = Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, text)
+        }
+        return performWith(node, AccessibilityNodeInfo.ACTION_SET_TEXT, args)
+    }
+
+    /**
+     * Type [text] through the helper's key events. A paced run sends each
+     * segment's incremental suffix after the planned wait, so the field grows
+     * the way a person's typing does; [TypingPace.Instant] sends the whole
+     * string in one call, as before.
+     *
+     * [TypingPace.forField] is not consulted here: its paste-only rule covers
+     * set-text writes into a web view, and key events are exactly what such a
+     * field does accept.
+     */
+    private suspend fun typeKeysPaced(
+        shell: PhoneUiShell,
+        session: PhoneUiDisplaySession,
+        text: String,
+    ): Boolean {
+        val typing = typingPace
+        if (!typing.paced) return runCatching { shell.typeText(session.displayId, text) }.getOrDefault(false)
+        var previous = ""
+        for (step in typing.plan(text)) {
+            if (step.delayBeforeMs > 0) delay(step.delayBeforeMs)
+            val suffix = step.prefix.substring(previous.length)
+            if (suffix.isNotEmpty() && !runCatching { shell.typeText(session.displayId, suffix) }.getOrDefault(false)) {
+                return false
+            }
+            previous = step.prefix
+        }
+        return previous == text
     }
 
     private suspend fun scroll(
@@ -1241,13 +1434,22 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (outcome !is PhoneToolOutcome.Success) return outcome
         val snapshot = service.snapshot(session.displayId) ?: return outcome
         val top = runCatching { shell.topPackage(session.displayId) }.getOrNull()
+        // The app in front is the one the task drove last, so an after-task
+        // choice that names no package acts on it.
+        if (top != null) lastPackage = top
+        // The screen the answer carries is the one the next action reads, so
+        // its text is what the dwell's reading time is measured against.
+        screenChars = snapshot.elements.sumOf { (it.text?.length ?: 0) + (it.description?.length ?: 0) }
         return PhoneToolOutcome.Success(
             buildJsonObject {
                 outcome.result.forEach { (key, value) -> put(key, value) }
                 changed?.let { put("changed", it) }
                 put("snapshot", snapshot.id)
                 top?.let { put("topPackage", it) }
-                if (snapshot.truncated) put("truncated", true)
+                // A tool that answers with its own `truncated` (PHONE_UI_COLLECT
+                // cuts its line list) keeps that meaning; for the rest this says
+                // the snapshot itself was cut.
+                if (snapshot.truncated && outcome.result["truncated"] == null) put("truncated", true)
                 put("elements", JsonArray(snapshot.elements.map(::elementJson)))
             },
         )
@@ -1256,6 +1458,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
     /**
      * One finger stroke across [area] (or the whole display). [finger] is the
      * direction the finger travels; the screen content moves the other way.
+     *
+     * The stroke is built by the pacing profile: FAST hands back
+     * [GesturePace.Instant], whose eight segments, linear interpolation and
+     * fixed 280 ms are the old stroke exactly; a human pace bows it slightly
+     * and keeps every point inside the same area.
      */
     private fun gesture(shell: PhoneUiShell, session: PhoneUiDisplaySession, finger: String, area: Rect?): Boolean {
         val rect = area ?: Rect(0, 0, session.width, session.height)
@@ -1271,17 +1478,36 @@ internal class PhoneUiTaskExecutor(context: Context) {
             "right" -> listOf(cx - dx, cy, cx + dx, cy)
             else -> return false
         }
-        val points = GESTURE_POINTS
-        val xs = IntArray(points + 1)
-        val ys = IntArray(points + 1)
-        val times = LongArray(points + 1)
-        for (i in 0..points) {
-            val t = i.toFloat() / points
-            xs[i] = (fx + (tx - fx) * t).toInt()
-            ys[i] = (fy + (ty - fy) * t).toInt()
-            times[i] = GESTURE_MS * i / points
+        val stroke = gesturePace.swipe(
+            fromX = fx,
+            fromY = fy,
+            toX = tx,
+            toY = ty,
+            durationMs = GESTURE_MS,
+            // A human stroke bows, so it is clamped into the area it belongs
+            // to. Instant's points are already inside it, and no area keeps the
+            // old arrays exact even for an area too narrow for the travel.
+            area = if (gesturePace.paced) GesturePace.Area(rect.left, rect.top, rect.right, rect.bottom) else null,
+        )
+        return runCatching {
+            shell.injectStroke(session.displayId, stroke.xs, stroke.ys, stroke.times)
+        }.getOrDefault(false)
+    }
+
+    /**
+     * A paced tap: the approach pause, then the press-to-lift stroke the tap
+     * became. FAST's tap is the helper's own down/up pair, so an opted-out run
+     * keeps that call (and its shell fallback) exactly.
+     */
+    private suspend fun injectTap(shell: PhoneUiShell, session: PhoneUiDisplaySession, tap: GesturePace.Tap): Boolean {
+        if (tap.approachMs > 0) delay(tap.approachMs)
+        if (!gesturePace.paced) {
+            return runCatching { shell.injectTap(session.displayId, tap.x, tap.y) }.getOrDefault(false)
         }
-        return runCatching { shell.injectStroke(session.displayId, xs, ys, times) }.getOrDefault(false)
+        val stroke = tap.stroke()
+        return runCatching {
+            shell.injectStroke(session.displayId, stroke.xs, stroke.ys, stroke.times)
+        }.getOrDefault(false)
     }
 
     private fun clickableAncestor(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
@@ -1359,9 +1585,8 @@ internal class PhoneUiTaskExecutor(context: Context) {
         const val SPILL_PROBE_MS = 1_200L
         const val SPILL_POLL_MS = 150L
 
-        /** A stroke covers this share of the area it runs in. */
+        /** A stroke covers this share of the area it runs in; its points come from the pacing profile. */
         const val GESTURE_TRAVEL = 0.3f
-        const val GESTURE_POINTS = 8
         const val GESTURE_MS = 280L
 
         /** Screenshots are scaled to this longest side and JPEG-compressed below [MAX_IMAGE_BYTES]. */

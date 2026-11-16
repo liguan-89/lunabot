@@ -250,7 +250,7 @@ object ChatActions {
             )
             out += ChatAction(
                 id = ChatActionId.SETTINGS,
-                title = "机器人设置",
+                title = "智能体设置",
                 subtitle = "模型、资料、语音与通知",
             )
             out += ChatAction(
@@ -263,9 +263,6 @@ object ChatActions {
                 id = ChatActionId.NEW_TASK,
                 title = "新建话题",
                 subtitle = "在 ${chat.name} 中开启新话题",
-                // iOS: `disabled: current.busy || hasPendingApproval`, on the room
-                // branch only — a channel waiting on an answer does not get a
-                // second thread started over it.
                 enabled = !chat.busy && !hasPendingApproval,
             )
             out += ChatAction(
@@ -288,11 +285,61 @@ object ChatActions {
             out += ChatAction(
                 id = ChatActionId.INTERRUPT,
                 title = "中断",
-                subtitle = if (bot != null) "停止当前轮次" else "让正在发言的机器人停下",
+                subtitle = if (bot != null) "停止当前轮次" else "让正在发言的智能体停下",
                 destructive = true,
             )
         }
         return out
+    }
+}
+
+object RosterPreviewFormat {
+    private const val MAX_PREVIEW_CHARS = 140
+    private val httpJsonErrorRegex =
+        Regex("""^(?:error:\s*)?(\d{3})\s*:\s*\{.*"message"\s*:\s*"([^"]+)"[\s\S]*$""", RegexOption.IGNORE_CASE)
+    private val genericJsonErrorRegex =
+        Regex("""^(?:error:\s*)\{.*"message"\s*:\s*"([^"]+)"[\s\S]*$""", RegexOption.IGNORE_CASE)
+    private val requestIdSuffixRegex = Regex("""\s*\(request_id:\s*[^)]+\)""", RegexOption.IGNORE_CASE)
+    private val markdownLinkRegex = Regex("""\[([^\]]+)]\([^)]+\)""")
+    private val fenceRegex = Regex("""```[a-zA-Z0-9_-]*\s*""")
+    private val linePrefixRegex = Regex("""(?m)^\s*(?:#{1,6}\s+|>\s+|[-*+]\s+)""")
+    private val inlineMarkerRegex = Regex("""(\*\*|__|~~|`)""")
+    private val whitespaceRegex = Regex("""\s+""")
+
+    fun display(raw: String): String {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return ""
+
+        httpJsonErrorRegex.matchEntire(trimmed)?.let { match ->
+            val code = match.groupValues[1]
+            val msg = humanizeErrorMessage(match.groupValues[2])
+            return "错误 $code：$msg"
+        }
+        genericJsonErrorRegex.matchEntire(trimmed)?.let { match ->
+            return "错误：${humanizeErrorMessage(match.groupValues[1])}"
+        }
+
+        val cleaned = trimmed
+            .replace(fenceRegex, " ")
+            .replace(markdownLinkRegex, "$1")
+            .replace(linePrefixRegex, "")
+            .replace(inlineMarkerRegex, "")
+            .replace(whitespaceRegex, " ")
+            .trim()
+        return if (cleaned.length <= MAX_PREVIEW_CHARS) {
+            cleaned
+        } else {
+            cleaned.take(MAX_PREVIEW_CHARS).trimEnd() + "…"
+        }
+    }
+
+    private fun humanizeErrorMessage(rawMessage: String): String {
+        val stripped = rawMessage.replace(requestIdSuffixRegex, "").trim()
+        return when {
+            stripped.equals("Insufficient Balance", ignoreCase = true) -> "账户余额不足"
+            stripped.contains("rate limit", ignoreCase = true) -> "请求频率超限（$stripped）"
+            else -> stripped
+        }
     }
 }
 

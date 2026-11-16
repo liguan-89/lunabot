@@ -1,6 +1,6 @@
 // Research for bots through treg (treg.to): find an endpoint for a job in treg's catalog, read it, call it. With the
 // person's own treg key the calls go straight to treg, billed to their treg balance, with no limits from this side;
-// otherwise they go through the DexBot Cloud Admin's research relay (its `/research/*` routes under the plan's X relay
+// otherwise they go through the Luna Bot Cloud Admin's research relay (its `/research/*` routes under the plan's X relay
 // URL), within the plan's monthly research budget.
 import { createHash, randomUUID } from "node:crypto";
 
@@ -21,7 +21,7 @@ const RESEARCH_INSTEAD = "Tell the person research isn't available here and offe
 
 export const RESEARCH_MESSAGES = {
   unavailable: "Research is temporarily unavailable. Try again shortly.",
-  notOffered: `DexBot Cloud doesn't offer research yet. ${RESEARCH_INSTEAD}`,
+  notOffered: `Luna Bot Cloud doesn't offer research yet. ${RESEARCH_INSTEAD}`,
   off: `Research isn't on for this Luna Bot Cloud plan right now, so research_search and research_call can't be used. ${RESEARCH_INSTEAD}`,
 } as const;
 

@@ -2,6 +2,7 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
+import { resolveDataDir } from "../data-dir.ts";
 import { checkSentinelInstall, type SentinelInstallCheck } from "../service-unit.ts";
 import { defaultSentinelOut, outRefusal } from "./paths.ts";
 import { runScan, type ScanSummary } from "./scan.ts";
@@ -20,7 +21,7 @@ export const SENTINEL_USAGE = `lunabot sentinel [--data-dir DIR] [--out DIR] [--
                      [--queue-wait SECONDS] [--cost USD]
 lunabot sentinel --check-install [--json]
 
-Scans an Luna Bot data dir, read-only, for failed tool calls, stopped or
+Scans a Luna Bot data dir, read-only, for failed tool calls, stopped or
 timed-out turns, long queue waits, expensive turns and retry loops, and keeps
 them as issues in issues.jsonl, outside the data dir: on macOS in
 ~/Library/Application Support/openmausbot-sentinel, on Linux in
@@ -38,7 +39,7 @@ copy tool output or message text.
 
 export function parseSentinelArgs(argv: string[], env: NodeJS.ProcessEnv = process.env): SentinelArgs | { error: string; json: boolean } {
   const json = argv.includes("--json");
-  let dataDir = env.OMB_DATA_DIR || join(homedir(), ".dexbot");
+  let dataDir = resolveDataDir(env);
   let out: string | undefined;
   const args: Omit<SentinelArgs, "dataDir" | "out"> = { json };
   for (let i = 0; i < argv.length; i += 1) {

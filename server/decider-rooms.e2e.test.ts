@@ -86,7 +86,7 @@ beforeAll(async () => {
 
   home = mkdtempSync(join(tmpdir(), "omb-decider-rooms-"));
   // The workspace's current data folder; the server renames a legacy `.openmausbot` here at boot.
-  data = join(home, ".dexbot");
+  data = join(home, ".lunabot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });

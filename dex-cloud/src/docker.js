@@ -118,7 +118,7 @@ export function createDocker(socket) {
       const spec = {
         Image: image,
         Env: env,
-        Labels: { "dexbot.cloud": name },
+        Labels: { "lunabot.cloud": name },
         HostConfig: {
           Binds: [`${volume}:/data`],
           Init: true,

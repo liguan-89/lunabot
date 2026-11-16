@@ -1,8 +1,8 @@
 # Luna Bot · Minis 风格 Android 客户端
 
-> **Luna Bot** 是独立分支：安装包名改为 `com.dexbot.companion`，可以和原版同时安装、对照使用；桌面端应用 ID 为 `com.dexbot.app`。
+> **Luna Bot** 是独立分支：安装包名改为 `com.lunabot.companion`，可以和原版同时安装、对照使用；桌面端应用 ID 为 `com.lunabot.app`。
 >
-> 基于 [Luna Bot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/Luna Bot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面，并接入自建 **Luna Bot Cloud**（`https://cloud.dexai.vip`）。
+> 基于 [OpenMausBot](https://github.com/milind-soni/OpenMausBot) 官方 **android-release/v1.5.0** 伴侣客户端，以及社区全量简体中文汉化 [soyeoning94/OpenMausBot-Android-CN](https://github.com/soyeoning94/OpenMausBot-Android-CN)，按 **OpenMinis** 的移动端体验重做界面，并接入自建 **Luna Bot Cloud**（`https://cloud.dexai.vip`）。
 >
 > 保留上游 Apache-2.0 许可与署名。手机连的是电脑上的 companion；局域网直连、Tailscale 和自建配对服务都保留。
 
@@ -583,6 +583,6 @@ PNG 是上传给电脑端、给别的客户端看的，App 里画的脸必须和
 
 ## 许可与归属
 
-- 上游 Luna Bot：Apache-2.0（见 `LICENSE`、`NOTICE`）。
-- 中文基线来自 `soyeoning94/Luna Bot-Android-CN`，同为 Apache-2.0。
+- 上游 OpenMausBot：Apache-2.0（见 `LICENSE`、`NOTICE`）。
+- 中文基线来自 `soyeoning94/OpenMausBot-Android-CN`，同为 Apache-2.0。
 - OpenMinis 仅作为视觉与交互参考；本项目没有复制其 GPLv3 源码，设计令牌是独立实现的。

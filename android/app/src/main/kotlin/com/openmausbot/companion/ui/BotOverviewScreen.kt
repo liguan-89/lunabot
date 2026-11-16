@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -158,9 +159,7 @@ fun BotOverviewScreen(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .clip(CircleShape)
-                        .background(minisCard)
-                        .border(0.5.dp, minisSeparator, CircleShape),
+                        .chromeCapsule(surface = true),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -172,7 +171,7 @@ fun BotOverviewScreen(
                 }
             }
             Text(
-                text = name.ifEmpty { "Bot" },
+                text = name.ifEmpty { "智能体" },
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = minisInk,
@@ -196,6 +195,7 @@ fun BotOverviewScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
                     .padding(horizontal = MinisPagePadding, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {

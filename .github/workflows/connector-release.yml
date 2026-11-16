@@ -6,7 +6,7 @@ name: Connector image
 # no pull request starts this, and a manual run on a branch builds nothing.
 on:
   # Upstream publishes this image as ghcr.io/milind-soni/mausbot-connector.
-  # DEX BOT does not publish that image from a version tag; keep this manual.
+  # Luna Bot does not publish that image from a version tag; keep this manual.
   workflow_dispatch:
 
 permissions:

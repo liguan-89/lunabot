@@ -90,9 +90,9 @@ class ModelRulesTest {
 
     @Test
     fun `the note names the one thing in the way`() {
-        assertEquals("请先停止此机器人，再切换其模型。", ModelRules.note(botBusy = true, instance = codex))
-        assertEquals("请选择一个可用的提供商以切换此机器人的模型。", ModelRules.note(botBusy = false, instance = gone))
-        assertEquals("请选择一个可用的提供商以切换此机器人的模型。", ModelRules.note(botBusy = false, instance = null))
+        assertEquals("请先停止此智能体，再切换其模型。", ModelRules.note(botBusy = true, instance = codex))
+        assertEquals("请选择一个可用的提供商以切换此智能体的模型。", ModelRules.note(botBusy = false, instance = gone))
+        assertEquals("请选择一个可用的提供商以切换此智能体的模型。", ModelRules.note(botBusy = false, instance = null))
         assertNull(ModelRules.note(botBusy = false, instance = codex))
     }
 

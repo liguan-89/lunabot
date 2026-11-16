@@ -57,6 +57,11 @@ interface IPhoneUiShell {
     // shell, which already holds storage access, so the target can read the
     // file without the app staying in the foreground.
     int shareIntent(int displayId, String contentUri, String mime, String packageName) = 16;
+    // Finish [packageName] the way `am force-stop` does: its tasks and process
+    // go away, as if the person swiped it out of recents. Called only when the
+    // bot chose to close the app it drove; the caller refuses our own package,
+    // the system UI and the helper, and a name that is not a package.
+    boolean forceStop(String packageName) = 17;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

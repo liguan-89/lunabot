@@ -93,7 +93,7 @@ function decoded(value) {
   }
 }
 
-/** `{ address, secret }` from an `dexbot://pair` link; only one naming a server's own http(s) origin. */
+/** `{ address, secret }` from a `lunabot://pair` link (or an older `dexbot://`/`openmausbot://` one); only one naming a server's own http(s) origin. */
 function appLink(url) {
   const address = url.searchParams.get("address") ?? "";
   if (!/^https?:\/\//i.test(address)) return null;
@@ -120,7 +120,7 @@ export function parseServerInput(addressInput, codeInput = "") {
   if (asCode.kind === "wrong" && asCode.problem !== "notACode") return { ok: false, problem: asCode.problem };
   if (/[\s\\]/.test(text)) return { ok: false, problem: "notAnAddress" };
   let secret = null;
-  if (/^(?:openmausbot|dexbot):/i.test(text)) {
+  if (/^(?:lunabot|openmausbot|dexbot):/i.test(text)) {
     let link;
     try {
       link = appLink(new URL(text));

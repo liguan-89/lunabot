@@ -21,7 +21,7 @@ const BACKOFF_MS = [1_000, 3_000, 8_000, 15_000, 30_000];
 const CHECK_FILES_MAX = 100_000, CHECK_MS = 3_000;
 // Keys and settings: never shared, wherever they sit.
 // Folders that hold keys or sign-ins, including the AI CLIs' own homes (their login files live there).
-const PRIVATE = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".config", ".local", ".npm", "Library", "AppData", ".dexbot", ".openmausbot", ".claude", ".codex", ".gemini", ".grok"];
+const PRIVATE = [".ssh", ".aws", ".gnupg", ".kube", ".docker", ".config", ".local", ".npm", "Library", "AppData", ".lunabot", ".dexbot", ".openmausbot", ".claude", ".codex", ".gemini", ".grok"];
 
 const within = (child, parent, platform) => pathKey(child, platform) === pathKey(parent, platform) || pathKey(child, platform).startsWith(`${pathKey(parent, platform)}/`);
 
@@ -64,6 +64,19 @@ export function createCloudFilesService({
   let settings = readSettings(settingsFile);
   const state = openSyncState(stateFile);
   const outputsDir = path.join(documentsDir, "Luna Bot");
+  // The bots' work used to arrive in Documents/DEX BOT. Move that folder once, so a person updating keeps
+  // every file their bots made; a failed move leaves the old folder where it is and starts the new one empty.
+  if (!fs.existsSync(outputsDir)) {
+    const legacy = path.join(documentsDir, "DEX BOT");
+    if (fs.existsSync(legacy)) {
+      try {
+        fs.renameSync(legacy, outputsDir);
+        console.error(`[files] moved ${legacy} to ${outputsDir}`);
+      } catch (error) {
+        console.error(`[files] could not move ${legacy} to ${outputsDir}: ${error?.message ?? error}`);
+      }
+    }
+  }
   let closed = false, interval = null, poller = null, cursor = 0, chain = Promise.resolve(), pending = null;
   let status = { phase: "unavailable", lastSyncedAt: null, disk: null, shared: [], outputs: { enabled: true, dir: outputsDir, folders: 0, problem: null } };
   const results = new Map();

@@ -42,7 +42,7 @@ class PhoneSectionCopyTest {
 
         // Step one of setup, and the action that opens the pairing code.
         assertTrue(
-            source.contains("1.  打开 DEX BOT → 设置 → 手机和设备"),
+            source.contains("1.  打开 Luna Bot → 设置 → 手机和设备"),
             "the setup steps must name the Phone section",
         )
         assertTrue(

@@ -25,7 +25,7 @@ Implemented and covered by `test/flow.test.js`:
 - Ed25519 relay grants (`relay1.dexai.vip` or `cloud.dexai.vip`);
 - consent records, update manifest and APK download;
 - self-hosted plan activation pages (`/cloud`, `/pro/buy`);
-- hosted Cloud desktops: one `dexbot-cloud-home` container and volume per
+- hosted Cloud desktops: one `lunabot-cloud-home` container and volume per
   Cloud, a `c-<id>.cloud.dexai.vip` origin, health-checked provisioning,
   start/stop, and signed pairing codes from the Cloud itself.
 
@@ -116,7 +116,7 @@ The two `/v1` paths belong to the phone relay. Everything else is Luna Bot Cloud
 | `DEXCLOUD_APK_PATH` / `DEXCLOUD_UPDATE_PATH` | Android package and update manifest on the volume |
 | `DEXCLOUD_DESKTOP_DIR` | desktop installers and `latest*.yml` feeds, served at `/desktop/<file>` |
 | `DEXCLOUD_DOCKER_SOCKET` | Docker Engine socket, default `/var/run/docker.sock` |
-| `DEXCLOUD_CLOUD_IMAGE` | image for each Cloud, default `dexbot-cloud-home:local` |
+| `DEXCLOUD_CLOUD_IMAGE` | image for each Cloud, default `lunabot-cloud-home:local` |
 | `DEXCLOUD_CLOUD_NETWORK` | shared Docker network, default `dexcloud` |
 | `DEXCLOUD_CLOUD_HOST_SUFFIX` | per-Cloud hostname suffix, default `cloud.dexai.vip` |
 | `DEXCLOUD_CLOUD_MEMORY_MB` | memory limit per Cloud, default 1536 |
@@ -129,7 +129,7 @@ anyone who can read the container log can sign in.
 
 ## Hosted Cloud desktops
 
-Each Cloud is one `dexbot-cloud-home` container with a `dexcloud-<id>-data`
+Each Cloud is one `lunabot-cloud-home` container with a `dexcloud-<id>-data`
 volume on the shared `dexcloud` Docker network. The container's own edge Caddy
 listens on `:8080`; no host port is published. `src/router.js` reads the Host
 header, looks the Cloud up in SQLite, and proxies the connection to
@@ -167,7 +167,7 @@ Build the image from the repository root:
 
 ```sh
 docker buildx build --load --platform linux/amd64 \
-  --target cloud-home -t dexbot-cloud-home:local .
+  --target cloud-home -t lunabot-cloud-home:local .
 ```
 
 The container starts as root to take ownership of `/data`, then runs the server

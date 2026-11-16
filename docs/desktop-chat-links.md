@@ -55,3 +55,11 @@ local-shell actions: a page loaded from a remote server never receives them, and
 the browser build has no such links at all. An app connected to another
 computer as its companion (**Settings → Remote access → Connect to another
 computer**) opens them against that computer's chats, the ones it shows.
+
+## Legacy links
+
+Links written before the rename — `dexbot://thread/…`, `dexbot://bot/…` and
+`dexbot://task…`, and the older `openmausbot://` spelling — still open, because
+`src/lib/thread-refs.ts` keeps them as accepted prefixes next to the primary
+`lunabot://` ones (`LEGACY_THREAD_URL_PREFIXES`, `LEGACY_BOT_URL_PREFIXES`,
+`LEGACY_TASK_URL_PREFIXES`). **Copy link** only ever writes `lunabot://`.

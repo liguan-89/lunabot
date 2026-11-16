@@ -64,7 +64,7 @@ The examples below assume a global install; prefix them with `npx` otherwise.
 | `lunabot pair` | Create another phone invitation while the configured workspace and HTTPS connection are running. |
 | `lunabot devices` | List paired devices; `lunabot devices revoke ID` signs one out. |
 | `lunabot serve` | Start without onboarding prompts or automatic browser opening; specify remote-access flags explicitly for a service. |
-| `lunabot login` | Sign in to an Luna Bot account for `--tunnel`; this does not sign in to an AI provider or start the tunnel. |
+| `lunabot login` | Sign in to a Luna Bot account for `--tunnel`; this does not sign in to an AI provider or start the tunnel. |
 
 `start` accepts the same server options as `serve`, including `--port`, `--data-dir`, `--tailscale`, `--tunnel`, and `--public-url`. Keep using your custom data directory and port when starting or pairing:
 

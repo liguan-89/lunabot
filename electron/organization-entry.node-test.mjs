@@ -25,9 +25,12 @@ function fixture({ activeId = "old", remoteAccess = null, restartIntent = false,
 }
 
 test("the organisation protocol is a fixed action without URL routing or credentials", () => {
+  assert.equal(isOrganizationDeepLink("lunabot://organization"), true);
+  // A link written before the rename opens the same action.
   assert.equal(isOrganizationDeepLink("dexbot://organization"), true);
-  for (const value of [null, {}, "", "dexbot://organization/", "dexbot://organization?", "dexbot://organization#", "dexbot://organization?url=https://old.example", "dexbot://organization#token=secret", "dexbot://organization/other", "dexbot://user@organization", "dexbot://organization:443", "dexbot://organization.evil", "https://organization", " dexbot://organization", "dexbot://%6frganization"]) {
-    assert.equal(isOrganizationDeepLink(value), false);
+  for (const value of [null, {}, "", "lunabot://organization/", "lunabot://organization?", "lunabot://organization#", "lunabot://organization?url=https://old.example", "lunabot://organization#token=secret", "lunabot://organization/other", "lunabot://user@organization", "lunabot://organization:443", "lunabot://organization.evil", "https://organization", " lunabot://organization", "lunabot://%6frganization",
+    "dexbot://organization/", "dexbot://organization?url=https://old.example", "openmausbot://organization"]) {
+    assert.equal(isOrganizationDeepLink(value), false, String(value));
   }
 });
 
@@ -38,8 +41,8 @@ test("local entry opens Settings without enrollment or persistence", async () =>
 });
 
 test("consuming a launch action prevents it replaying on a later restart without changing other arguments", () => {
-  const original = ["/Applications/Luna Bot", "--profile=fixture", "dexbot://organization?ignored", "dexbot://install/example"];
-  const argv = [...original, "dexbot://organization", "dexbot://organization"];
+  const original = ["/Applications/Luna Bot", "--profile=fixture", "lunabot://organization?ignored", "dexbot://install/example"];
+  const argv = [...original, "lunabot://organization", "lunabot://organization"];
   assert.equal(takeOrganizationDeepLink(argv), true);
   assert.deepEqual(argv, original);
   assert.equal(takeOrganizationDeepLink(argv), false, "the action is consumed exactly once");
@@ -50,7 +53,7 @@ test("desktop relaunch accepts every platform once, guards its sender, and prese
   const main = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
   const source = main.slice(main.indexOf('ipcMain.handle("desktop:relaunch"'), main.indexOf("const talk = installTalk("))
     + main.slice(main.indexOf("function requireMainWindowSender("), main.indexOf('ipcMain.handle("desktop-remote:state"'));
-  const argv = ["/fixture/Luna Bot", "--fixture", "dexbot://organization", "dexbot://organization?ignored"];
+  const argv = ["/fixture/Luna Bot", "--fixture", "dexbot://organization", "lunabot://organization?ignored"];
   takeOrganizationDeepLink(argv);
   const origin = "http://127.0.0.1:48995";
   localOrigin.setLocalOrigin(origin);
@@ -84,7 +87,7 @@ test("desktop relaunch accepts every platform once, guards its sender, and prese
     assert.equal(timers.length, 1, `${platform}: repeated calls schedule only one restart`);
     assert.deepEqual(calls, [], "the IPC response precedes normal shutdown");
     timers[0]();
-    assert.deepEqual(calls, [["--fixture", "dexbot://organization?ignored"], "quit"]);
+    assert.deepEqual(calls, [["--fixture", "lunabot://organization?ignored"], "quit"]);
   }
 });
 
@@ -95,11 +98,11 @@ test("the shipped updater adapter explicitly omits only the fixed action and its
   const bundle = readFileSync(new URL("./vendor/electron-updater.cjs", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   assert.ok(bundle.includes(patched));
   const calls = [];
-  const argv = ["/fixture/Luna Bot", "--fixture", "dexbot://organization", "dexbot://organization?ignored"];
+  const argv = ["/fixture/Luna Bot", "--fixture", "dexbot://organization", "lunabot://organization?ignored"];
   runInNewContext(`({ app, ${patched} }).relaunch();`, {
     process: { argv }, app: { relaunch: options => calls.push(options.args) },
   });
-  assert.deepEqual(calls, [["--fixture", "dexbot://organization?ignored"]]);
+  assert.deepEqual(calls, [["--fixture", "lunabot://organization?ignored"]]);
   for (const changed of ["", `${before}\n${before}`, patched]) {
     assert.throws(() => patchOrganizationUpdater(changed), /to patch, found/);
   }

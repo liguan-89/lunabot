@@ -106,7 +106,7 @@ export function createCloudLook({ store, accountId, homeEntry, saveEntry }) {
   };
 }
 
-/** dexbot://cloud, the same with or without a checkout waiting: the sheet while a purchase made here is under way
+/** lunabot://cloud (or the older dexbot://), the same with or without a checkout waiting: the sheet while a purchase made here is under way
  * (a checkout opened in the last day, a payment being linked, setup), else Settings, which signs in or opens the Cloud. */
 export function cloudLinkOpensSheet(state) {
   return Boolean((state?.checkout && !state.checkout.done) || (state?.adding && !state.adding.done) || state?.purchase || state?.machine?.status === "provisioning");

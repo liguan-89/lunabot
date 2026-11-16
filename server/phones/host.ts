@@ -1,8 +1,10 @@
 import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // The phone integration's per-turn pieces: the mount, the prompt part and the internal MCP handler (owner check, per-bot
 // verdict, decision rows, the phone job, write activity). A send waits on the person's Send tap on the phone; a screen
-// write waits on Luna Bot's outgoing-action card, because it reaches every app on the phone.
-import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
+// write waits on Luna Bot's outgoing-action card, because it reaches every app on the phone, and then on the narrower
+// gate in confirm.ts when the control's own words name a pay, order, delete or send. A bot that keeps doing the same
+// thing on a screen that does not move is nudged once and then refused, so a loop ends instead of running out the turn.
+import { PHONE_MCP_SERVER, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
@@ -79,6 +81,11 @@ export interface PhoneHost {
   parts(bot: PhoneBot, owner: string | null, place: PhonePlace): [PromptPart, PromptPart];
   /** For a turn that may not use the phone although the owner's phone would serve this bot: say so, so it does not guess. */
   withheld(bot: PhoneBot, owner: string | null): string;
+  /**
+   * The gate that holds the approvals of irreversible screen controls. A confirmation tool
+   * reaches it here to declare a request and take the person's answer.
+   */
+  confirm: PhoneConfirms;
   handle(body: unknown, capability: TurnCapability, assertActive: () => void): Promise<PhoneToolsList | PhoneToolResult>;
   /** The PHONE_* names for the per-bot tool grants picker (/api/connectors/tools); null when no phone is registered. */
   toolListing(): { phone: Array<{ name: string; description: string }> } | null;
@@ -98,6 +105,17 @@ const notAllowed = (phone: string, name: PhoneToolName): PhoneRefusal =>
   ({ ok: false, code: "denied", text: `${phone} does not allow ${capName(phoneToolCapability(name))}.` });
 const denied = (name: string, text: string, rule: string, code: ChatNoticeKey): PhoneAccess =>
   ({ ok: false, text, rows: [{ tool: name, ...noticeSummary(code), decision: "auto-denied", rule }] });
+
+/** A nudge rides in the answer the model reads, under the same `note` key the phone's own answers carry, so the phone
+ * never has to know the field. A note the phone wrote itself is kept in front of it. A failed call has no screen answer
+ * to read the nudge against, so it keeps its own sentence. */
+function withNudge(outcome: PhoneJobOutcome, nudge: string): PhoneJobOutcome {
+  if (!outcome.ok) return outcome;
+  const result = outcome.result;
+  const record = result && typeof result === "object" && !Array.isArray(result) ? result as Record<string, unknown> : null;
+  const said = typeof record?.note === "string" && record.note.trim() ? `${record.note} ` : "";
+  return { ok: true, result: record ? { ...record, note: `${said}${nudge}` } : { result, note: nudge } };
+}
 
 export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
   const { registry, jobs } = deps;
@@ -132,10 +150,22 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       return [{ id: "device", label: "Phone", text }, { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] }];
     },
     withheld: (bot, owner) => (owner !== null && mounts(bot, owner) ? phoneWithheldPrompt(bot, phonesOf(owner).map(({ registration }) => registration)) : ""),
+    confirm: confirms,
     toolListing: () => (registry.list(null, () => false).length === 0 ? null : { phone: PHONE_TOOLS.map(({ name, description }) => ({ name, description })) }),
     async handle(body, capability, assertActive) {
+      const turn = { threadId: capability.threadId, botId: capability.botId, generation: capability.generation };
+      // A turn that the server says is no longer live has no run left to guard: its loop state goes with it, so the next
+      // turn in the same conversation starts clean even though the phone's last screen stands.
+      const assertLive = () => {
+        try {
+          assertActive();
+        } catch (error) {
+          confirms.reset(turn);
+          throw error;
+        }
+      };
       return phoneRpc(body as { method?: unknown; params?: unknown }, {
-        assertActive,
+        assertActive: assertLive,
         // Re-read the live bot and the turn's owner on every call, so a permission change wins over a request
         // authenticated under the old one.
         authorize: (name) => {
@@ -167,6 +197,12 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
         },
         run: async (phone, name, args): Promise<PhoneJobOutcome> => {
           const owner = deps.turnOwner(capability);
+          // A deleted bot is refused as before, before the loop guard has anything to say about the call.
+          if (isPhoneUiWrite(name) && !deps.bot(capability.botId)) return { ok: false, code: "denied", error: GONE_TEXT };
+          // A bot looping on a phone is caught before the card asks the person anything: the same action on a screen that
+          // did not move earns a nudge in the answer, and then a refusal, so a stuck task ends instead of running on.
+          const advice = isPhoneUiWrite(name) ? confirms.advise(turn, phone.key, name, args) : { result: "proceed" as const };
+          if (advice.result === "stop") return { ok: false, code: "denied", error: advice.reason };
           const active = () => {
             if (!deps.active(capability) || owner === null || deps.turnOwner(capability) !== owner) return false;
             const bot = deps.bot(capability.botId);
@@ -192,9 +228,10 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             // The person may have taken the turn back while the card waited.
             if (!active()) return { ok: false, code: "denied", error: GONE_TEXT };
           }
-          // A second, narrower gate: the card above approves the tool call, this one approves the control. A tap the
-          // word list names as irreversible runs only on an approval of that exact step, and only once.
-          const turn = { threadId: capability.threadId, botId: capability.botId };
+          // A second, narrower gate: the card above approves the tool call, so it is also the person's approval of the
+          // control, once and for one action. A run that hides a control in its steps is refused instead.
+          const approval = isPhoneUiWrite(name) ? confirms.approveCard(turn, phone.key, name, args) : { result: "approved" as const };
+          if (approval.result === "refused") return { ok: false, code: "denied", error: approval.reason };
           const check = isPhoneUiWrite(name) ? confirms.check(turn, phone.key, name, args) : { result: "proceed" as const };
           if (check.result === "refused") return { ok: false, code: "denied", error: check.reason };
           const outcome = await jobs.request(phone.key, name, args, {
@@ -204,11 +241,18 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             offlineText: `${phone.name} is offline. Open the Luna Bot app on it.`, online: () => registry.online(phone.key),
           });
           if (outcome.ok) registry.used(phone.key);
-          if (outcome.ok && recordsScreen(name)) confirms.noteScreen(phone.key, outcome.result);
-          // A control the gate let through used up its approval; any other write voids one still waiting, since the
-          // step the person approved is no longer the step the bot is on. Typing is part of an approved send.
-          if (outcome.ok && isPhoneWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other");
-          return outcome;
+          // The answer's screen is recorded first, so the loop guard reads the screen the answer left, then the call
+          // joins that guard's history. A read that took a snapshot moves the guard's trail along the same way.
+          if (outcome.ok && recordsScreen(name) && confirms.noteScreen(phone.key, outcome.result)) {
+            confirms.noteGuard(turn, phone.key, name, args);
+          }
+          // A control the gate let through used up its approval; any other screen write voids one still waiting, since
+          // the step the person approved is no longer the step the bot is on. Typing is part of an approved send.
+          if (outcome.ok && isPhoneUiWrite(name)) confirms.noteWrite(turn, name === "PHONE_UI_TYPE" ? "typing" : "other");
+          // A turn that ended while the job waited, or a phone dropped while it did, has no run left to guard: the next
+          // turn starts clean. A turn that outlives this call keeps its guard, and a new generation starts fresh anyway.
+          if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.reset(turn);
+          return advice.result === "warn" ? withNudge(outcome, advice.nudge) : outcome;
         },
         onWrite: (record) => {
           const bot = deps.bot(capability.botId);
