@@ -18,16 +18,16 @@
 ## Driving it
 
 ```sh
-pnpm exec vitest run server/enterprise.test.ts enterprise/server/register.test.ts
+pnpm exec vitest run server/enterprise.test.ts
 pnpm exec vitest run --no-file-parallelism server/license-expiry-api.test.ts
 pnpm test:packaged-server
 ```
 
 `server/enterprise.test.ts` builds each layout in a temporary directory and
 checks which copy wins, the warning window, the grace period and the moment it
-ends. `enterprise/server/register.test.ts` issues keys with a throwaway signing
-pair and checks the layer accepts a key that lapsed less than 7 days ago and
-refuses it after. `server/license-expiry-api.test.ts` boots the `control-omb`
+ends. This AGPL tree ships no enterprise layer of its own, so the key-issuing
+register test lives upstream and is not cited here.
+`server/license-expiry-api.test.ts` boots the `control-omb`
 fixture with a stand-in layer whose key expires in 12 days, expired 2 days
 ago, or expires in 90 days, and reads `/api/edition`, the server log, and
 `/api/config` as an admin and as a chat-only device. The packaged-server smoke copies `dist-server/`
