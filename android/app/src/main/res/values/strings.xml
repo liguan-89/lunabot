@@ -11,4 +11,15 @@
     <string name="notification_channel_always_on_desc">当 Luna Bot 在后台保持连接时显示</string>
     <string name="always_on_notification_title">Luna Bot 正在后台保持连接</string>
     <string name="always_on_notification_text">即使关闭应用也能实时收到通知</string>
+    <string name="settings_phone_pace">Operation pace</string>
+    <string name="settings_phone_pace_fast">Fast</string>
+    <string name="settings_phone_pace_fast_caption">No extra waiting, the whole text in one write (today\'s behaviour)</string>
+    <string name="settings_phone_pace_standard">Standard</string>
+    <string name="settings_phone_pace_standard_caption">Pauses between actions, text typed in pieces</string>
+    <string name="settings_phone_pace_human">Human</string>
+    <string name="settings_phone_pace_human_caption">Slower pauses and typing everywhere</string>
+    <string name="settings_phone_pace_footnote">Slower levels make automation look less mechanical on apps that rate-limit or notice automation; they make tasks take longer.</string>
+    <string name="settings_phone_self_check">Self check</string>
+    <string name="settings_phone_self_check_caption">Checks the device, permissions, helper and controlled screen</string>
+    <string name="settings_phone_self_check_title">Self check report</string>
 </resources>

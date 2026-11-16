@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -795,17 +796,17 @@ fun SettingsScreen(
                     }
                     SettingsDivider()
                     SettingsRow(
-                        title = "操作节奏",
+                        title = stringResource(R.string.settings_phone_pace),
                         value = phonePaceLabel(phonePace),
                         chevron = true,
                         onClick = { choosingPhonePace = true },
                     )
                     SettingsDivider()
-                    // The run has a 90 s budget, so the row stays pressable but
-                    // shows a spinner: a second tap would start a second run.
+                    // The run has a 90 s budget, so the row shows a spinner and
+                    // refuses a second tap while it runs.
                     SettingsRow(
-                        title = "自检",
-                        subtitle = "检查设备、权限、辅助进程和受控屏幕",
+                        title = stringResource(R.string.settings_phone_self_check),
+                        subtitle = stringResource(R.string.settings_phone_self_check_caption),
                         enabled = !phoneUiChecking,
                         trailing = {
                             if (phoneUiChecking) {
@@ -1319,12 +1320,13 @@ fun SettingsScreen(
     }
 
     if (choosingPhonePace) {
-        SettingsSheet(title = "操作节奏", onDismiss = { choosingPhonePace = false }) {
+        SettingsSheet(
+            title = stringResource(R.string.settings_phone_pace),
+            onDismiss = { choosingPhonePace = false },
+        ) {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 SettingsSection(
-                    footer = {
-                        SettingsFootnote("越慢的档位越不像机器操作，在被限流或识别自动化的应用上更稳；代价是任务耗时更长。")
-                    },
+                    footer = { SettingsFootnote(stringResource(R.string.settings_phone_pace_footnote)) },
                 ) {
                     PhonePace.entries.forEachIndexed { index, pace ->
                         if (index > 0) SettingsDivider()
@@ -1353,7 +1355,10 @@ fun SettingsScreen(
     }
 
     phoneUiCheckReport?.let { report ->
-        SettingsSheet(title = "自检结果", onDismiss = { phoneUiCheckReport = null }) {
+        SettingsSheet(
+            title = stringResource(R.string.settings_phone_self_check_title),
+            onDismiss = { phoneUiCheckReport = null },
+        ) {
             Column(Modifier.padding(horizontal = 16.dp)) {
                 SettingsSection {
                     SelectionContainer {
@@ -2104,18 +2109,24 @@ private fun voiceAsrCaption(mode: VoiceAsrMode): String? = when (mode) {
     VoiceAsrMode.ONLINE -> "识别在电脑上完成"
 }
 
-private fun phonePaceLabel(pace: PhonePace): String = when (pace) {
-    PhonePace.FAST -> "快"
-    PhonePace.STANDARD -> "标准"
-    PhonePace.HUMAN -> "像人"
-}
+@Composable
+private fun phonePaceLabel(pace: PhonePace): String = stringResource(
+    when (pace) {
+        PhonePace.FAST -> R.string.settings_phone_pace_fast
+        PhonePace.STANDARD -> R.string.settings_phone_pace_standard
+        PhonePace.HUMAN -> R.string.settings_phone_pace_human
+    },
+)
 
 /** Each level says what it costs; the footnote under the sheet says why anyone would pick a slower one. */
-private fun phonePaceCaption(pace: PhonePace): String = when (pace) {
-    PhonePace.FAST -> "不额外等待，整段文字一次写入（当前行为）"
-    PhonePace.STANDARD -> "操作之间停顿，文字分段输入"
-    PhonePace.HUMAN -> "停顿和输入都更慢，所有应用一致"
-}
+@Composable
+private fun phonePaceCaption(pace: PhonePace): String = stringResource(
+    when (pace) {
+        PhonePace.FAST -> R.string.settings_phone_pace_fast_caption
+        PhonePace.STANDARD -> R.string.settings_phone_pace_standard_caption
+        PhonePace.HUMAN -> R.string.settings_phone_pace_human_caption
+    },
+)
 
 /** The right-hand status of the one update row. */
 private fun updateStatusText(state: UpdateState): String = when (state) {
