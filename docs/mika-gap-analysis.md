@@ -712,7 +712,7 @@ the helper's return instead of blocked until a manual retry.
 
 ## Verification
 
-The TypeScript phone subset — 25 files, 499 tests, all passing:
+The TypeScript phone subset — 26 files, 502 tests, all passing:
 
 ```sh
 node_modules/.bin/vitest run \
@@ -728,6 +728,7 @@ node_modules/.bin/vitest run \
   server/phone-guards.test.ts server/phone-notices.test.ts \
   server/intent-gate.test.ts server/phone-risk.test.ts \
   server/phone-routes.test.ts server/answer-verify.test.ts \
+  server/phones/summary.test.ts \
   shared/phone-apps.test.ts server/chat-notices.test.ts
 ```
 
@@ -736,9 +737,9 @@ Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
 `steer` 10, `tools` 19, `irreversible` 26, `route-replay` 45, `untrusted` 6,
 `sensitive` 11, `verify-grounding` 38, `phone-guards` 16, `phone-notices` 54,
 `intent-gate` 23, `phone-risk` 25, `phone-routes` 23, `answer-verify` 30,
-`phone-apps` 6, `chat-notices` 12.
+`summary` 3, `phone-apps` 6, `chat-notices` 12.
 
-The Android unit tests — 27 classes, 304 tests, all passing:
+The Android unit tests — 27 classes, 305 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
@@ -748,7 +749,7 @@ cd android && ./gradlew :app:testDebugUnitTest \
 That covers the 22 classes in
 `android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 5 in
 its `shell/` subdirectory. The counts that matter for this batch:
-`PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 16,
+`PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 17,
 `PhoneUiWaitTest` 10,
 `PhoneUiPacingTest` 22, `PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
 `PhoneUiAccessibilityRepairTest` 16, `PhoneUiRepairLoopTest` 11,
