@@ -65,12 +65,12 @@ let project = "";
 
 it("Make Garage server my home: bots, chats, memory and routines arrive, this computer stops for good, and no routine runs twice", async () => {
   const { local } = fx;
-  scout = (await local("POST", "/api/bots", { name: "Scout", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  scout = (await local("POST", "/api/bots", { name: "Scout" })).body.bot;
   project = join(fx.root, "desktop", "code", "shop");
   mkdirSync(project, { recursive: true });
   expect((await local("PATCH", `/api/bots/${scout.id}`, { soul: "You are Scout.", cwd: project })).status).toBe(200);
   await turn(local, scout, "Plan the week.");
-  ember = (await local("POST", "/api/bots", { name: "Ember", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  ember = (await local("POST", "/api/bots", { name: "Ember" })).body.bot;
   await turn(local, ember, "Hello Ember.");
   expect((await local("PUT", `/api/bots/${ember.id}/memory/file`, { path: "MEMORY.md", text: "# Memory\n\n- The person likes short answers.\n" })).status).toBeLessThan(300);
   const add = async (body: Record<string, unknown>) => { const made = (await local("POST", "/api/routines", body)).body; return (made.routine ?? made).id as string; };

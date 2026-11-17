@@ -1,6 +1,6 @@
 // A teammate's question as a card on a Team Cloud, end to end (docs/team-cloud.md "One inbox per person"): Cleo asks
 // Scout, her Chief, whose chat is her inbox, to have Ledger fix something. Ledger asks a decision with set answers through
-// the synthetic Claude CLI's real ask_user server; the card is in Ledger's chat and its copy in Cleo's inbox has the
+// the synthetic pi CLI's real ask_user tool; the card is in Ledger's chat and its copy in Cleo's inbox has the
 // same choices; a tap there, or her own words in Ledger's chat, answers Ledger, who carries on with that answer, and Scout
 // hears the result once. Ledger's NEEDS INPUT question becomes the same card with a reply field. Cleo is never sent a
 // question twice. It proves where things land, not a model's judgement.
@@ -130,12 +130,17 @@ afterAll(async () => {
 });
 
 const brief = (job: string) => `${job}-BRIEF: Apply the fix to the pricing page, on branch fix/pricing-page-footer, with a PR into main.`;
+/** Each job gets a work thread of its own: the fake pi names its dialogs "plan-ui-1", "plan-ui-2"… from one process to
+ * the next, and a thread keeps one card per request id, so two jobs sharing a thread would share a request id. */
 const handOn = (job: string) => [
-  { key: `${job}-L`, match: [`${job}-JOB`], steps: [{ arguments: { bot_ids: [ledger.id], message: brief(job) } }], reply: `${job}-L: Ledger is applying the fix.` },
+  { key: `${job}-L`, match: [`${job}-JOB`], steps: [{ arguments: { bot_ids: [ledger.id], message: brief(job), thread: "new" } }], reply: `${job}-L: Ledger is applying the fix.` },
   { key: `${job}-L-DONE`, match: [SETTLED, `${job}-JOB`], reply: `${job}-L-DONE: Ledger is done.` },
 ];
+/** pi's ask_user hands the model the person's pick as a "The user answered your questions." preamble and then a
+ * "Q: … / A: …" pair, so the scripted turn keeps the answer line: what it carries on with is the answer itself, as the
+ * retired engine's ask tool gave it. */
 const askWithCard = (job: string) => ({ key: `${job}-B`, match: [`${job}-BRIEF`], timeoutMs: 120_000,
-  steps: [{ server: "ogb", tool: "ask_user", arguments: { question: QUESTION, choices: CHOICES }, capture: { answer: "([\\s\\S]+)" } }],
+  steps: [{ server: "ogb", tool: "ask_user", arguments: { question: QUESTION, choices: CHOICES }, capture: { answer: "A: ([\\s\\S]+)" } }],
   reply: `${job}-B: Done with: {{answer}}` });
 
 it("asks Cleo a decision with set answers as a card in Ledger's chat and a copy in her inbox, and a tap there answers Ledger, who carries on", async () => {
@@ -160,7 +165,7 @@ it("asks Cleo a decision with set answers as a card in Ledger's chat and a copy 
   const answered = await team.as(cleo, "POST", `/api/threads/${inbox}/respond`, { requestId: row.card!.requestId, behavior: "answer", message: CHOICES[0] });
   expect(answered.status, JSON.stringify(answered.body)).toBe(200);
   await until(async () => (await messages(work)).some((line) => line.role === "bot" && line.text === `QC1-B: Done with: ${CHOICES[0]}`));
-  expect(told(ledger.id, "QC1-B"), "the envelope offered the card tool for set answers, by the name Claude calls it").toContain("ask it with mcp__ogb__ask_user, not show_widget");
+  expect(told(ledger.id, "QC1-B"), "the envelope offered the card tool for set answers, by the name pi's model calls it").toContain("ask it with ask_user, not show_widget");
   await until(async () => (await messages(inbox)).some((line) => line.text === "QC1-L-DONE: Ledger is done."));
   expect((await messages(work)).find((line) => line.id === row.id)!.card).toMatchObject({ answered: "answer", answeredText: CHOICES[0] });
   expect((await messages(inbox)).find((line) => line.id === copy.id)!.card, "the copy follows").toMatchObject({ answered: "answer" });
@@ -179,7 +184,8 @@ it("takes Cleo's own words in Ledger's chat as the answer to the card Ledger wai
   const sent = await say(ledger, work, "Just the footer text, please");
   expect(sent.message, "her line is kept, under the card it answers").toMatchObject({ role: "user", text: "Just the footer text, please", replyToId: row.id });
   await until(async () => (await messages(work)).some((line) => line.role === "bot" && line.text === "QC2-B: Done with: Just the footer text, please"));
-  expect((await messages(work)).find((line) => line.id === row.id)!.card).toMatchObject({ answered: "answer", answeredText: "Just the footer text, please" });
+  // The card records the answer the engine was handed: pi's ask_user carries it as a Q/A pair, her words intact.
+  expect((await messages(work)).find((line) => line.id === row.id)!.card!.answeredText, "the card says what she answered").toContain("Just the footer text, please");
   await until(async () => (await messages(inbox)).some((line) => line.text === "QC2-L-DONE: Ledger is done."));
   expect((await messages(inbox)).find((line) => line.card?.requestId === row.card!.requestId)!.card, "the copy follows").toMatchObject({ answered: "answer" });
   await until(idle);

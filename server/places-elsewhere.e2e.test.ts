@@ -8,6 +8,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { installTwoPlacesMain } from "../electron/two-places-main.mjs";
 import { launchOwnHomeFixture, type OwnHomeFixture, type OwnServer } from "../scripts/testing/own-home-fixture.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { ONE_PLACE } from "./places-elsewhere.ts";
 
 const KEY = randomBytes(16).toString("hex");
@@ -16,10 +17,20 @@ let garage: OwnServer, family: OwnServer;
 
 beforeAll(async () => {
   fx = await launchOwnHomeFixture({ env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY } });
-  garage = await fx.addServer("Garage server", { FAKE_CLAUDE_DUMP: join(fx.root, "garage-turn.json") });
+  garage = await fx.addServer("Garage server", { FAKE_PI_DUMP: join(fx.root, "garage-turn.jsonl") });
   family = await fx.addServer("Family server", { OMB_SIGNIN_MEMBER_EMAILS: "friend@example.test" });
 }, hostTimeout(120_000));
 afterAll(async () => { await fx?.close(); });
+
+/** The pi launch log the Garage server's turns append to (a JSONL of launches and prompts). */
+const garageTurns = () => join(fx.root, "garage-turn.jsonl");
+/** The instructions in effect on the last Garage turn whose own words hold `text`: pi sends the whole system prompt
+ * on a session's first turn and only the note that replaced part of it afterwards. */
+const instructionsFor = (text: string): string => {
+  const turns = piTurns(garageTurns());
+  const index = turns.findLastIndex((turn) => turn.prompt.includes(text));
+  return index < 0 ? "" : piInstructionsFor(turns, index);
+};
 
 type Side = OwnHomeFixture["local"];
 type Bot = { id: string; threadId: string };
@@ -87,7 +98,7 @@ it("a bot asking for a teammate on the person's other place hears where it lives
 
   // The person @mentions Scout to Ledger: the turn is told where Scout lives, and a room says it once in plain words.
   expect((await garage.as("POST", `/api/bots/${ledger.id}/messages`, { text: "@Scout can you check this month's numbers?", threadId: ledger.threadId })).status).toBe(202);
-  await expect.poll(() => { try { return JSON.parse(readFileSync(join(fx.root, "garage-turn.json"), "utf8")).systemPrompt ?? ""; } catch { return ""; } }, { timeout: 60_000, interval: 200 })
+  await expect.poll(() => instructionsFor("@Scout can you check this month's numbers?"), { timeout: 60_000, interval: 200 })
     .toContain("The user named @Scout, a bot of theirs that is not here: Scout lives on Work laptop, the person's computer, not here.");
   const idle = async () => ((await garage.as("GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>).every((bot) => bot.activity !== "working" && !bot.busy);
   await expect.poll(idle, { timeout: 60_000, interval: 200 }).toBe(true);
