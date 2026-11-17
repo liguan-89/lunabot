@@ -27,20 +27,17 @@ export interface RestartableServer {
   close(): Promise<void>;
 }
 
-export async function launchRestartableServer(options: { scripted?: boolean; dataDirRoot?: string; engine?: "claude" | "pi" } = {}): Promise<RestartableServer> {
+export async function launchRestartableServer(options: { scripted?: boolean; dataDirRoot?: string; /** pi is the only engine this build runs; the option stays so a recipe can say so. */ engine?: "pi" } = {}): Promise<RestartableServer> {
   const port = await freePortBlock([0, 1]);
   // Native browser daemons use UNIX sockets, and a macOS temp home can exceed their path limit.
   const dataDir = mkdtempSync(join(options.dataDirRoot ?? tmpdir(), "omb-restartable-"));
   mkdirSync(join(dataDir, "tmp"), { recursive: true });
   const planPath = join(dataDir, "room-plan.json");
   if (options.scripted) writeFileSync(planPath, "{}");
-  const pi = options.engine === "pi";
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ language: "en", instances: pi ? { pi: {
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ language: "en", instances: { pi: {
     driver: "piAgent", displayName: "Verification pi", config: { cli: join(ROOT, "server", "testing", "fake-pi-cli.ts") },
+    // verificationServerEnvironment points FAKE_PI_DUMP at this home's pi log (piDumpPath); a scripted plan goes here.
     ...(options.scripted ? { environment: { FAKE_PI_ROOM_PLAN: planPath } } : {}),
-  } } : { claude: {
-    driver: "claudeAgent", displayName: "Verification fixture", config: { cli: join(ROOT, "server", "testing", "fake-claude-cli.ts") },
-    ...(options.scripted ? { environment: { FAKE_CLAUDE_ROOM_PLAN: planPath } } : {}),
   } } }, null, 2));
   // Kept after close, for a failed run's evidence.
   const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");

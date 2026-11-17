@@ -155,6 +155,7 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
     OMB_WEBHOOK_PORT: String(port + 1),
     // A caller's FAKE_CLAUDE_MODE overrides this below to drive failure paths.
     FAKE_CLAUDE_MODE: parentEnv.FAKE_CLAUDE_MODE || "happy",
+    // Inert for pi, which logs to FAKE_PI_DUMP; kept for a caller's wrapper that reads it.
     FAKE_CLAUDE_DUMP: join(dataDir, "fake-claude-dump.json"),
     // POSIX resolves the fake CLI's `#!/usr/bin/env node` shebang through PATH;
     // Windows resolves it through spawnCli without a shell.
@@ -165,8 +166,9 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   });
   // The fake engines' knobs are the one thing a caller may script into the child.
   for (const [key, value] of Object.entries(parentEnv)) {
-    // FAKE_CLAUDE_DUMP stays the launcher's: assertions read fixtureDumpPath.
-    if ((key.startsWith("FAKE_CLAUDE_") || key.startsWith("FAKE_PI_") || key.startsWith("FAKE_CODEX_TEXT_") || key.startsWith("FAKE_CODEX_COMMAND") || key === "FAKE_ACP_HANG_ON") && key !== "FAKE_CLAUDE_DUMP" && value) childEnv[key] = value;
+    // FAKE_CLAUDE_DUMP and FAKE_PI_DUMP stay the launcher's: assertions read fixtureDumpPath, so the pi log must be
+    // the file that path names.
+    if ((key.startsWith("FAKE_CLAUDE_") || key.startsWith("FAKE_PI_") || key.startsWith("FAKE_CODEX_TEXT_") || key.startsWith("FAKE_CODEX_COMMAND") || key === "FAKE_ACP_HANG_ON") && key !== "FAKE_CLAUDE_DUMP" && key !== "FAKE_PI_DUMP" && value) childEnv[key] = value;
   }
   // Enables POST /api/testing/org-library; the route does not exist without it.
   if (parentEnv.OMB_TEST_ORG_LIBRARY_KEY) childEnv.OMB_TEST_ORG_LIBRARY_KEY = parentEnv.OMB_TEST_ORG_LIBRARY_KEY;
@@ -245,8 +247,9 @@ export function verificationServerEnvironment(parentEnv: NodeJS.ProcessEnv, data
   // The driver record the app hands its own server: without it, no server may use this computer.
   if (parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION) childEnv.OMB_TEST_DESKTOP_CUA_CONNECTION = parentEnv.OMB_TEST_DESKTOP_CUA_CONNECTION;
   // The one agent every fixture runs: the fake pi. Its dump carries the launch it was given,
-  // including the agents server's env, for recipes that need its token.
-  childEnv.FAKE_PI_DUMP ??= join(dataDir, "fake-pi-dump.jsonl");
+  // including the agents server's env, for recipes that need its token. Fixed here, not taken
+  // from the caller, so it is always the file `fixtureDumpPath` names.
+  childEnv.FAKE_PI_DUMP = join(dataDir, "fake-pi-dump.jsonl");
   // A pi fixture borrows the retired Claude knobs only when the caller set one.
   if (["FAKE_CLAUDE_MODE", "FAKE_CLAUDE_REPLIES", "FAKE_CLAUDE_REPLY_FILE", "FAKE_CLAUDE_REPLY_STATE",
     "FAKE_CLAUDE_TOOL_CALLS", "FAKE_CLAUDE_TOOL_CALLS_FILE", "FAKE_CLAUDE_MARKER_REPLIES", "FAKE_CLAUDE_PROMPTS",
@@ -312,7 +315,9 @@ export async function launchVerificationServer(
   // their path limit.
   const dataDir = mkdtempSync(join(browser && process.platform !== "win32" ? "/tmp" : tmpdir(), "openmausbot-verify-data-"));
   const fixtureTemp = join(dataDir, "tmp");
-  const fixtureDumpPath = join(dataDir, "fake-claude-dump.json");
+  // The fixture's pi launch and prompt log (server/testing/pi-dump.ts piDumpPath), the file every assertion reads: a
+  // JSONL of the launch line the pi child writes at boot and one per prompt it is given.
+  const fixtureDumpPath = join(dataDir, "fake-pi-dump.jsonl");
   mkdirSync(fixtureTemp, { recursive: true });
   const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });

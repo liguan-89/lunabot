@@ -2,7 +2,7 @@
 // utility-process port emulated over Node's IPC, the owner's capability delivered through it), and the person's Cloud
 // home, paired the way the Admin pairs it. Main's own wiring (electron/one-home-main.mjs, which installs
 // cloud-send-main.mjs) sits between them with a fake ipcMain and a fake MausBot Cloud sign-in. Either server can be
-// killed and started again on its own data, as an app that quits or crashes is. Disposable homes, a synthetic Claude CLI
+// killed and started again on its own data, as an app that quits or crashes is. Disposable homes, a synthetic pi CLI
 // and a fake 1Password SDK; no network.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -160,23 +160,21 @@ exports.createClient = async ({ auth }) => {
  * refuse this computer's token on My Cloud. `toolCalls`: each turn on this computer makes that many tool calls first, so a
  * few turns make a conversation of several pages. `broker`: the connected-apps service both servers use, this computer
  * with an installation of its own as the desktop app registers one, My Cloud registering itself as a Cloud home does.
- * `env`: more of both servers' environment. `cloudEngine`: lines run at the start of My Cloud's synthetic Claude CLI, to
- * script its turns (fake-claude-cli.ts). */
-export async function launchCloudSendFixture({ onePasswordToken, cloudOnePasswordToken = onePasswordToken, toolCalls = 0, broker, env = {}, cloudEnv = {}, cloudEngine = "", desktopEngine = "", space, cloudSignedIn = true, team }: {
+ * `env`: more of both servers' environment. `cloudEngine`: lines run at the start of My Cloud's synthetic pi CLI, to
+ * script its turns (fake-pi-cli.ts, with the retired Claude fixture's knobs under FAKE_PI_CLAUDE_COMPAT). */
+export async function launchCloudSendFixture({ onePasswordToken, cloudOnePasswordToken = onePasswordToken, toolCalls = 0, broker, env = {}, cloudEnv = {}, cloudEngine = "", desktopEngine = "", space, team }: {
   onePasswordToken: string; cloudOnePasswordToken?: string; toolCalls?: number;
-  /** A Team Cloud too (OMB_CLOUD_ROLE=team), with its own environment and synthetic Claude CLI lines. */
+  /** A Team Cloud too (OMB_CLOUD_ROLE=team), with its own environment and synthetic pi CLI lines. */
   team?: { id: string; name: string; env?: NodeJS.ProcessEnv; engine?: string; noAi?: boolean };
   broker?: { url: string; install(): Promise<{ id: string; token: string; userId: string }> };
   env?: NodeJS.ProcessEnv;
   /** My Cloud's own environment only (a store limit, say). */
   cloudEnv?: NodeJS.ProcessEnv;
   cloudEngine?: string;
-  /** The same for this computer's synthetic Claude CLI. */
+  /** The same for this computer's synthetic pi CLI. */
   desktopEngine?: string;
   /** My Cloud's plan disk and the Admin's grow, as main gives them to a move. */
   space?: { disk(): unknown; grow(sizeGb: number): Promise<unknown> };
-  /** False: My Cloud's own Claude is signed out, as on a new Cloud. */
-  cloudSignedIn?: boolean;
 }): Promise<CloudSendFixture> {
   const root = mkdtempSync(join(tmpdir(), "omb-cloud-send-"));
   const secret = randomBytes(32).toString("base64url");
@@ -187,23 +185,31 @@ export async function launchCloudSendFixture({ onePasswordToken, cloudOnePasswor
   const children = new Set<ChildProcess>();
   const remember = async (response: Response) => { answers.push(await response.clone().text()); return response; };
 
-  async function start(name: string, own: NodeJS.ProcessEnv, port: number, extra: string[] = [], ipc = false, acceptedToken = onePasswordToken, calls = 0, engine = "", signedIn = true): Promise<ChildProcess> {
+  async function start(name: string, own: NodeJS.ProcessEnv, port: number, extra: string[] = [], ipc = false, acceptedToken = onePasswordToken, calls = 0, engine = ""): Promise<ChildProcess> {
     const home = join(root, name);
     const dataDir = join(home, ".openmausbot");
     mkdirSync(dataDir, { recursive: true });
-    const cli = join(home, "fixture-claude.mjs");
+    const cli = join(home, "fixture-pi.mjs");
     const tools = calls ? JSON.stringify(Array.from({ length: calls }, (_, i) => ({ name: "Bash", input: { command: `echo step ${i}` } }))) : "";
+    // The synthetic engine is the fake pi (server/testing/fake-pi-cli.ts). It runs with the retired Claude fixture's
+    // knobs on (FAKE_PI_CLAUDE_COMPAT), so a recipe's engine lines still speak FAKE_CLAUDE_*; FAKE_CLAUDE_FIXTURE_DIR
+    // is this home, where those lines put their tool-calls, reply and release files. FAKE_PI_MOUNT_TOOLS mounts each
+    // turn's MCP servers at boot, as the retired fixture's own mcpToolCall did, so a scripted `server` call reaches
+    // the real agents proxy. A plan named the retired way drives the pi room-plan runner too. The pi log is
+    // FAKE_PI_DUMP when the caller named one, else the file a recipe's line named as FAKE_CLAUDE_DUMP, else this home's.
     writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify(${signedIn ? '{ loggedIn: true, email: "person@example.test" }' : '{ loggedIn: false, authMethod: "none" }'})); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
+process.env.FAKE_PI_CLAUDE_COMPAT = "1";
+process.env.FAKE_PI_MOUNT_TOOLS = "1";
 process.env.FAKE_CLAUDE_FIXTURE_DIR = ${JSON.stringify(home)};
 ${tools ? `process.env.FAKE_CLAUDE_TOOL_CALLS = ${JSON.stringify(tools)};` : ""}
 ${engine}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
+if (!process.env.FAKE_PI_ROOM_PLAN && process.env.FAKE_CLAUDE_ROOM_PLAN) process.env.FAKE_PI_ROOM_PLAN = process.env.FAKE_CLAUDE_ROOM_PLAN;
+process.env.FAKE_PI_DUMP = process.env.FAKE_PI_DUMP || process.env.FAKE_CLAUDE_DUMP || ${JSON.stringify(join(dataDir, "fake-pi-dump.jsonl"))};
+await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi-cli.ts")).href)});
 `, { mode: 0o755 });
     if (!existsSync(join(dataDir, "config.json"))) writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
+      pi: { driver: "piAgent", displayName: "pi", config: { cli } },
     } }));
     const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; const admin = process.env.FIXTURE_ADMIN_STAND_IN; globalThis.fetch = async (url, init) => admin && String(url).startsWith("https://cloud.example.test/") ? real(admin + String(url).slice(26), init) : String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
     const child = spawn(process.execPath, ["--import", offline, ...extra, join(SERVER_DIR, "index.ts")], {
@@ -247,7 +253,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   const cloudPort = await freePortBlock([0, 1]);
   const cloudBase = `http://127.0.0.1:${cloudPort}`;
   const startCloud = (more: NodeJS.ProcessEnv = {}) => start("cloud", { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "7c1d2e3f-4a5b-4c6d-8e7f-9a0b1c2d3e4f", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-    OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${CLOUD_HOST}`, ...(broker ? { OMB_COMPOSIO_BROKER_URL: broker.url } : {}), ...cloudEnv, ...more }, cloudPort, [], false, cloudOnePasswordToken, 0, cloudEngine, cloudSignedIn);
+    OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${CLOUD_HOST}`, ...(broker ? { OMB_COMPOSIO_BROKER_URL: broker.url } : {}), ...cloudEnv, ...more }, cloudPort, [], false, cloudOnePasswordToken, 0, cloudEngine);
   let cloud = await startCloud();
 
   const mintCode = async (label: string) => {
@@ -283,13 +289,17 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     const stopOverIpc = process.platform === "win32";
     const stopOnMessage = `data:text/javascript,${encodeURIComponent('process.on("message", (message) => { if (message === "stop") process.emit("SIGTERM"); }); process.channel?.unref();')}`;
     if (team.noAi) {
+      // No AI to run: the one engine's CLI is not installed here, so its snapshot is unavailable and no bot gets a
+      // model selection — what a team whose owner has connected nothing looks like (server/host/no-ai-notice.ts).
       mkdirSync(join(root, "team", ".openmausbot"), { recursive: true });
-      writeFileSync(join(root, "team", ".openmausbot", "config.json"), JSON.stringify({ instances: Object.fromEntries(["claude", "codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])) }));
+      writeFileSync(join(root, "team", ".openmausbot", "config.json"), JSON.stringify({ instances: { pi: {
+        driver: "piAgent", displayName: "pi", config: { cli: join(root, "team", "no-pi-installed.mjs") },
+      } } }));
     }
     const startTeam = (more: NodeJS.ProcessEnv = {}) => start("team", { OMB_CLOUD_ROLE: "team", OMB_CLOUD_TEAM_ID: team.id, OMB_CLOUD_TEAM_NAME: team.name,
       OMB_CLOUD_MACHINE_ID: "0d9e8f7a-6b5c-4d3e-9f8a-7b6c5d4e3f2a", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: secret,
       OMB_PUBLIC_URL: `https://${CLOUD_HOST}`, OMB_TEST_INTERNAL_CAPABILITY_KEY: CAPABILITY_KEY, ...(broker ? { OMB_COMPOSIO_BROKER_URL: broker.url } : {}), ...team.env, ...more },
-      teamPort, stopOverIpc ? ["--import", stopOnMessage] : [], stopOverIpc, onePasswordToken, 0, team.engine ?? "", true);
+      teamPort, stopOverIpc ? ["--import", stopOnMessage] : [], stopOverIpc, onePasswordToken, 0, team.engine ?? "");
     let teamServer = await startTeam();
     const as: CloudTeamFixture["as"] = async (token, method, path, body, headers = {}) => {
       const init: RequestInit = { method, headers: { ...EDGE, authorization: `Bearer ${token}`, ...headers,

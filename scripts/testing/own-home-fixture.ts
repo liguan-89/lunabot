@@ -1,7 +1,7 @@
 // This computer's server, started as the desktop app starts it (its private port emulated over Node's IPC), and servers of
 // the person's own (`openmausbot serve`, nothing of MausBot Cloud), each paired with this app as a pairing link pairs it.
 // Main's own wiring for the move to such a server (electron/own-home-main.mjs) sits between them, its requests carrying
-// the pairing's session as the window's would. Disposable homes and a synthetic Claude CLI; no network.
+// the pairing's session as the window's would. Disposable homes and a synthetic pi CLI; no network.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -63,17 +63,22 @@ export async function launchOwnHomeFixture({ env = {} }: { env?: NodeJS.ProcessE
     const home = join(root, name);
     const dataDir = join(home, ".openmausbot");
     mkdirSync(dataDir, { recursive: true });
-    const cli = join(home, "fixture-claude.mjs");
+    const cli = join(home, "fixture-pi.mjs");
+    // The synthetic engine is the fake pi (server/testing/fake-pi-cli.ts), run with the retired Claude fixture's knobs
+    // on (FAKE_PI_CLAUDE_COMPAT), so a caller's engine lines and environment still speak FAKE_CLAUDE_*; mounting each
+    // turn's MCP servers lets a scripted `server` call reach the real agents proxy. The pi log is FAKE_PI_DUMP when
+    // the caller named one, else the file a line named as FAKE_CLAUDE_DUMP, else this home's own.
     writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
+process.env.FAKE_PI_CLAUDE_COMPAT = "1";
+process.env.FAKE_PI_MOUNT_TOOLS = "1";
 process.env.FAKE_CLAUDE_FIXTURE_DIR = ${JSON.stringify(home)};
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
+if (!process.env.FAKE_PI_DUMP) process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_DUMP || ${JSON.stringify(join(dataDir, "fake-pi-dump.jsonl"))};
+await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi-cli.ts")).href)});
 `, { mode: 0o755 });
     try { readFileSync(join(dataDir, "config.json")); } catch {
       writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-        claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+        ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes"].map((id) => [id, { driver: "not-a-real-driver" }])),
+        pi: { driver: "piAgent", displayName: "pi", config: { cli } },
       } }));
     }
     const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
