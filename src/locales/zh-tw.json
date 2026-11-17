@@ -902,7 +902,6 @@
   "attach.previewVideo": "預覽 {name}",
   "attach.loadVideo": "載入影片",
   "attach.closeVideo": "關閉影片預覽",
-  "attach.videoHint": "依需求載入 · 最多 25 MB",
   "attach.videoLoading": "正在載入影片…",
   "attach.videoUnavailable": "無法在此播放這部影片，但你仍可儲存副本。",
   "attach.previewAudio": "播放 {name}",
@@ -10262,5 +10261,6 @@
   "chat.newChatHint": "開啟新聊天可節省 token。",
   "chat.newChatHintButton": "新聊天",
   "room.queue.busyIn": "正在 {place} 忙碌 · 排隊中（第 {position}/{of} 位），忙完即開始",
-  "room.queue.busyElsewhere": "正在另一會話忙碌 · 排隊中（第 {position}/{of} 位），忙完即開始"
+  "room.queue.busyElsewhere": "正在另一會話忙碌 · 排隊中（第 {position}/{of} 位），忙完即開始",
+  "attach.videoHintStreams": "按需播放"
 }
