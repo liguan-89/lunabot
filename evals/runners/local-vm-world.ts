@@ -148,7 +148,7 @@ export class LocalVmWorld extends BaseWorld {
       }
       case "captureComputer": {
         const botId = this.botId(step.bot);
-        const launch = await waitUntil("the bot's engine launch",
+        const launch = await waitUntil<any | null>("the bot's engine launch",
           () => this.launchFor(botId), (value) => value !== null, 20_000);
         const computer = launch?.mcpConfig?.mcpServers?.computer;
         if (!computer?.env?.OMB_CONTROL_URL) {
