@@ -686,7 +686,9 @@ describe("PiDriver turns (fake CLI)", () => {
     const threadId = "t-pi-prewarm-mismatch-" + randomUUID();
 
     instance.adapter.prewarm?.({ threadId, model: "ollama-cloud/glm-5.2" });
-    await vi.waitFor(() => expect(spawns()).toHaveLength(1));
+    // The fake's node boot is ~300 ms on an idle machine and longer on a shard running several files at once: the
+    // child's argv row is the only sign it launched, so wait past that.
+    await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 10_000 });
     const pid = spawns()[0].pid as number;
     const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi", model: "openai/gpt-4o" });
     await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
@@ -718,9 +720,11 @@ describe("PiDriver turns (fake CLI)", () => {
       const threadId = "t-pi-prewarm-expire-" + randomUUID();
 
       instance.adapter.prewarm?.({ threadId });
-      await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 5_000 });
-      const pid = spawns()[0].pid as number;
+      // The credential dir is made with the spawn, before the child boots: read it now, not after a wait that a slower
+      // Windows runner could stretch past the expiry.
       expect(mcpDirs()).toHaveLength(1);
+      await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 10_000 });
+      const pid = spawns()[0].pid as number;
       // sendTurn never ran: the expiry killed the child and removed its credential dir.
       await vi.waitFor(() => {
         expect(() => process.kill(pid, 0)).toThrow();

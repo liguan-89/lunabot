@@ -72,7 +72,9 @@ describe("macAppScript", () => {
   });
 });
 
-describe("macAppCall", () => {
+// The calls answer "mac_apps only works on macOS" before any script runs, so the script-and-answer tests need a Mac;
+// they run on the macOS shard (host-tests) and are skipped where the app's own apps cannot exist.
+describe.skipIf(process.platform !== "darwin")("macAppCall", () => {
   it("never spawns for bad input", async () => {
     let ran = false;
     const result = await macAppCall({ app: "photos", action: "list" }, async () => { ran = true; return ""; });
