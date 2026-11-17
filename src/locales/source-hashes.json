@@ -3735,7 +3735,9 @@
       "server.wait.parkedHolder": "55e71c05ba74101cedf34bf3bf745665f420374054a66ad4a54b77d93961f77f",
       "server.wait.parked": "14b5e1b20e9954d1578bd7f9ba4d74f5e7767cb6ba2828eb8e7b2384a44e577e",
       "server.wait.personAway": "694ecd701d9e3f302d7cc5f2c79e76435aa727447f9f46ff01b2026b2eca9883",
-      "server.surface.couldNotContinue": "559f15490af7cc4a0e95432d78e2a8c64a125312d5ed3c485f836a71577bceb6"
+      "server.surface.couldNotContinue": "559f15490af7cc4a0e95432d78e2a8c64a125312d5ed3c485f836a71577bceb6",
+      "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
+      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec"
     },
     "es": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -34161,7 +34163,9 @@
       "settings.vault.memberSubtitle": "8c168e2b50487ce44bff1e44b06f7a74771650ed20eaf138ac4540028d8a9fc4",
       "settings.vault.memberEmpty": "0b981e9a0ad8b4a2bf317822c9b1e4df265ff0ad73a1e53c8486009e1b7253af",
       "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde",
-      "chat.notice.engineExited": "655897876364cea09c9b39119d927c31e80e21ea8931d88d2966d37dfb5dbb02"
+      "chat.notice.engineExited": "655897876364cea09c9b39119d927c31e80e21ea8931d88d2966d37dfb5dbb02",
+      "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
+      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -44764,7 +44768,9 @@
       "desktopMount.unpin": "1db76955eedce6a4728019e7e9229e13d6cc9740d612af2d21a1caac3128f540",
       "desktopMount.placeholder": "d3e9c5b80896f4b83b23f31f445c65e0dbe4ef4529aba2afdd14aad870664a5e",
       "desktopMount.openChat": "f8ccd95f5dbb1626d1d7ab8c5ec3e94328da6d8174cacb90bb28ec2d8a4d6bd7",
-      "desktopMount.dropHint": "1ab1b095c1ed143e05cfebb9bd67a4594ced2ec7679efa2e48559f913e0d2f9d"
+      "desktopMount.dropHint": "1ab1b095c1ed143e05cfebb9bd67a4594ced2ec7679efa2e48559f913e0d2f9d",
+      "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
+      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -55026,7 +55032,9 @@
       "attach.imageCopied": "d2f93ee383fa87452f9a67e88bcfd22d6b26782d777a4d751c3e16b260fc54d4",
       "attach.copyImageFailed": "1b711a9276f5accb89acffd2a86b0c86c379e9382cb74f8cddb0da27c7e1494c",
       "skills.origin.nativeHint": "bee2376a8f6c41590707e2f4360170f67410193554d75d55a51f9bbff9e30fde",
-      "chat.notice.engineExited": "655897876364cea09c9b39119d927c31e80e21ea8931d88d2966d37dfb5dbb02"
+      "chat.notice.engineExited": "655897876364cea09c9b39119d927c31e80e21ea8931d88d2966d37dfb5dbb02",
+      "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
+      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec"
     },
     "uk": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",

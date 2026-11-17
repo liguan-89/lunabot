@@ -10610,5 +10610,7 @@
   "desktopMount.unpin": "取消桌面挂载",
   "desktopMount.placeholder": "快速给 {name} 发消息…",
   "desktopMount.openChat": "打开主窗口",
-  "desktopMount.dropHint": "拖放文件以附加"
+  "desktopMount.dropHint": "拖放文件以附加",
+  "chat.newChatHint": "开一个新聊天可以节省 token。",
+  "chat.newChatHintButton": "新聊天"
 }

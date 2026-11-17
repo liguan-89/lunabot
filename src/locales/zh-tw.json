@@ -10258,5 +10258,7 @@
   "server.wait.parkedHolder": "電腦在 {duration} 後仍忙 — {holder}。已暫停——電腦閒置後會自動繼續。",
   "server.wait.parked": "電腦在 {duration} 後仍忙。已暫停——電腦閒置後會自動繼續。",
   "server.wait.personAway": "有人已控制這台電腦超過 {duration}，因此本次呼叫未執行，本輪也不再等待對方。請暫停此任務：告訴對方你在等其交回控制權，並在其交回後、下次操作前重新截圖。",
-  "server.surface.couldNotContinue": "無法在{surface}上繼續：{error}"
+  "server.surface.couldNotContinue": "無法在{surface}上繼續：{error}",
+  "chat.newChatHint": "開啟新聊天可節省 token。",
+  "chat.newChatHintButton": "新聊天"
 }
