@@ -25,6 +25,8 @@ export function isLongPollPath(path: string): boolean {
 
 /** A job answer can carry one file for the chat as base64 (the phone caps the file at 8 MB); other answers are small. */
 export const PHONE_RESULT_MAX_BYTES = 12_000_000;
+/** An inbound event carries at most eight pictures as base64 (WECHAT_IMAGES_MAX_BASE64), so it needs room beyond a text. */
+export const PHONE_EVENT_MAX_BYTES = 12_000_000;
 
 export interface PhoneRouteDeps {
   registry: PhoneRegistry;
@@ -82,12 +84,13 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
       }
       if (path === "/api/phones/self/events" && method === "POST") {
         if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) return json(res, 415, { error: "JSON required" });
-        const parsed = phoneEvent.safeParse(await readBody(req, 16_384));
+        const parsed = phoneEvent.safeParse(await readBody(req, PHONE_EVENT_MAX_BYTES));
         if (!deps.live(auth)) return json(res, 401, { error: "Session expired" });
         if (!parsed.success) return json(res, 400, { error: "Invalid phone event" });
         const phone = registry.get(key);
         if (!phone) return json(res, 404, { error: "Register this phone first" });
-        if (parsed.data.kind === "sms" && !phone.registration.capabilities["messages"]) return json(res, 403, { error: "Messages is not allowed on this phone" });
+        // Both relays send from the phone (SMS and WeChat), so both stand on the same grant.
+        if (!phone.registration.capabilities["messages"]) return json(res, 403, { error: "Messages is not allowed on this phone" });
         deps.onEvent?.(key, parsed.data);
         return json(res, 202, { ok: true });
       }

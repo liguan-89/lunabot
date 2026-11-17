@@ -126,7 +126,7 @@ import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from ".
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { createChannels } from "./channels.ts";
-import { createSmsRelay } from "./sms-relay.ts";
+import { createSmsRelay } from "./sms-relay.ts"; import { createWechatRelay } from "./wechat-relay.ts";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
 import { createAboutMe } from "./about-me.ts"; import { createPersonPreference } from "./host/person-preference.ts";
@@ -5306,7 +5306,7 @@ const smsRelay = createSmsRelay({
   ignoreEvent: shouldIgnoreProviderEvent,
   replySms: (key, to, text) => phones.replySms(key, to, text),
 });
-phones.onSmsEvent((key, event) => smsRelay.push(key, event));
+phones.onSmsEvent((key, event) => smsRelay.push(key, event)); const wechatRelay = createWechatRelay({ store, cfg, dataDir: DATA_DIR, bus, acceptDirectSend: (input) => acceptDirectSend(input), routineRunForThread: (threadId) => routines?.runForThread(threadId), ignoreEvent: shouldIgnoreProviderEvent, replyWechat: (key, to, text) => phones.replyWechat(key, to, text) }); phones.onWechatEvent((key, event) => wechatRelay.push(key, event)); // WeChat over the phone's own iLink binding; cfg.wechat.botId is the on switch, as cfg.sms.botId is for SMS
 bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
   try {

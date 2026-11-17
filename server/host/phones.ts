@@ -21,6 +21,7 @@ import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
 import { PHONE_REPLY_SMS, type PhoneEvent } from "../sms-relay.ts";
+import { PHONE_REPLY_WECHAT, type WechatEvent } from "../wechat-relay.ts";
 import type { SessionRegistry } from "../sessions.ts";
 import type { BotRecord, Store } from "../store.ts";
 import type { PromptPart } from "../system-prompt.ts";
@@ -145,8 +146,9 @@ export function createPhones(deps: PhonesDeps) {
     return cloudHomeLendingRefusal(lending) === null ? DESKTOP_OWNER : null;
   }
 
-  /** The SMS relay's inbound hook, installed after channels are built. */
+  /** The SMS and WeChat relays' inbound hooks, installed after channels are built. */
   let smsHandler: ((key: string, event: PhoneEvent) => void) | undefined;
+  let wechatHandler: ((key: string, event: WechatEvent) => void) | undefined;
 
   const fromPhone = (auth: RequestAuth): boolean => {
     const key = phoneKey(auth);
@@ -237,12 +239,23 @@ export function createPhones(deps: PhonesDeps) {
      * bot told about a route would start trusting one before any replay exists to run it.
      */
     matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
-    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => smsHandler?.(key, event) }),
+    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => { if (event.kind === "sms") smsHandler?.(key, event); else wechatHandler?.(key, event); } }),
     /** The SMS relay installs itself here once channels exist. */
     onSmsEvent: (handler: (key: string, event: PhoneEvent) => void) => { smsHandler = handler; },
+    /** The WeChat relay installs itself here once channels exist. */
+    onWechatEvent: (handler: (key: string, event: WechatEvent) => void) => { wechatHandler = handler; },
     /** A channel reply the phone sends itself as SMS; only ever goes to the number that wrote in. */
     replySms: async (key: string, to: string, text: string) => {
       const outcome = await jobs.request(key, PHONE_REPLY_SMS, { to, text }, {
+        active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
+        offlineText: "This phone is offline. Open the Luna Bot app on it.", online: () => registry.online(key),
+      });
+      if (outcome.ok) registry.used(key);
+      return outcome;
+    },
+    /** A channel reply the phone sends itself as WeChat; only ever to the peer that wrote in, never a DM to anyone else. */
+    replyWechat: async (key: string, to: string, text: string) => {
+      const outcome = await jobs.request(key, PHONE_REPLY_WECHAT, { to, text }, {
         active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
         offlineText: "This phone is offline. Open the Luna Bot app on it.", online: () => registry.online(key),
       });
