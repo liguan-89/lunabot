@@ -148,8 +148,10 @@ it("on a self-hosted server with a sign-in list: an admin's session gets through
   expect(await s.start(botId, admin)).toEqual(THROUGH);
 }, 90_000);
 
+// A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a tmpfs
+// and hides the fake pi's dump; the box has its own suites, so it stays off in these two boots.
 it("on a person's own Cloud: their session gets through, a bot's shell does not", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "home", ...CLOUD_ENV });
+  const s = await boot({ OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", ...CLOUD_ENV });
   const owner = await s.signedSession();
   const botId = await s.newBot(owner);
   expect(await s.start(botId, owner)).toEqual(THROUGH);
@@ -159,7 +161,7 @@ it("on a person's own Cloud: their session gets through, a bot's shell does not"
 }, 90_000);
 
 it("on a Team Cloud: a Super admin and an Admin get through; a User is refused in plain words, on the app or their phone, and a bot's shell does not get through", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "team", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
+  const s = await boot({ OMB_CLOUD_ROLE: "team", OMB_BOT_BOX: "0", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
   const session = (email: string, role: string) => s.signedSession({ team: TEAM, member: { email, role } });
   const owner = await session("olive@acme.test", "owner");
   const admin = await session("ben@acme.test", "admin");

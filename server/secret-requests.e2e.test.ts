@@ -99,7 +99,10 @@ beforeAll(async () => {
   } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
-  const contract = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "7d1c3b5a-2e4f-4a6b-8c9d-0e1f2a3b4c5d", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+  // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
+  // tmpfs and hides the fake pi's dump; the box has its own suites, so it stays off here (the launcher passes it on:
+  // OMB_BOT_BOX is on server/cloud-home-start.ts's allow-list).
+  const contract = { OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "7d1c3b5a-2e4f-4a6b-8c9d-0e1f2a3b4c5d", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
     OMB_CLOUD_BOOTSTRAP_SECRET: bootstrap, OMB_PUBLIC_URL: `https://${HOST}` };
   const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: join(home, "empty-tree"), ...contract };
   const { server, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(imageEnv)!, imageEnv, home);

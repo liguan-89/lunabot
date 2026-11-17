@@ -668,14 +668,19 @@ it.each<[string, Record<string, unknown>, string]>([
 it("dispatches to a spare recipient thread without waiting for unrelated work", () => fixture(async f => {
   await f.api("/api/config", { threads: { maxConcurrentPerBot: 2 } }, "PUT");
   const gate = join(f.session.info.dataDir, "unrelated-work.gate");
-  f.plan[f.lead.id] = { gateFile: gate, reply: "Unrelated work completed" };
+  // The plan is chosen by the turn's own words, so rewriting the file once the prompt has reached pi cannot race the
+  // held turn's read of it: the unrelated work stays under the gate, the coordinated work answers at once. The
+  // coordinated rule comes first: a turn's context carries the earlier turn's words too, and the first match wins.
+  f.plan[f.lead.id] = { byPrompt: [
+    { promptIncludes: "Implement and independently verify", plan: { reply: "Coordinated work completed" } },
+    { promptIncludes: "My unrelated task", plan: { gateFile: gate, reply: "Unrelated work completed" } },
+  ] };
   f.save();
   await f.cli("send", "--bot", f.lead.id, "--task", f.lead.activeTaskId, "--text", "My unrelated task");
   try {
     // The held turn is under way once its prompt reaches pi; its streamed text is only committed at turn
     // end, so the RPC launch log is the evidence, not a message (the Claude fixture emitted it mid-turn).
     await expect.poll(() => piTurnsForThread(f.dumpPath, f.lead.activeTaskId).some((turn) => turn.prompt.includes("My unrelated task")), { timeout: 10_000 }).toBe(true);
-    f.plan[f.lead.id] = { reply: "Coordinated work completed" };
     await f.start();
     await expect.poll(() => f.nodes().find((n: any) => n.parentId)?.status, { timeout: 8_000 }).toBe("completed");
     expect((await f.wait()).status).toBe("settled");
