@@ -682,6 +682,72 @@ switch off, or with no grant and no helper, the loop folds no event at all —
 `Refused` and spending the write budget, so a reboot leaves the phone ready for
 the helper's return instead of blocked until a manual retry.
 
+## WeChat channel
+
+The phone owns the transport; the server owns the turn. Mika's channel lives in
+its app because its agent does. Ours splits the same way the SMS relay already
+does: `WechatRuntime` long-polls iLink and pushes
+`{kind:"wechat", sendId, from, text, images}` to `/api/phones/self/events`, the
+server runs a normal turn, and the reply comes back as a `PHONE_REPLY_WECHAT` job
+the phone sends itself.
+
+What iLink is: Tencent's bot API — `get_bot_qrcode`, `get_qrcode_status`,
+`getupdates`, `sendmessage`, `getuploadurl`, with a bearer token from a QR the
+person scans. It has no contacts, groups, moments, payments or "send as the
+person"; those are refused rather than faked, in the same places Mika refuses
+them.
+
+Ported: the owner-only DM filter (`message_type == 1 && groupId == null && from
+== the bound owner`), `sendId` dedupe that survives a cursor rewind, backoff
+1/2/4/8/16/30 s, 401/403 → rebind, image download → AES-128-ECB decrypt →
+signature sniff → size cap → re-encode, one image per outbound message, and a
+Keystore AES/GCM token.
+
+Two divergences. The host is pinned to `ilinkai.weixin.qq.com`, and the `baseurl`
+the bind response returns is parsed and discarded — Mika sends the token to
+whatever host that response names, which lets a hostile login redirect it. And
+there is no outbound rate limit, which is Mika's behaviour too: the only guards
+are dedupe and failure backoff.
+
+The QR encoder is ours, not ported, because zxing is not on the offline build
+path: ISO/IEC 18004 versions 1–20, level M, byte mode, with golden matrices
+checked against a decoder and Reed–Solomon syndromes before they were pinned.
+
+The server side is `server/wechat-relay.ts`, a sibling of `sms-relay.ts`: one
+thread per (phone, peer), the same `acceptDirectSend` and routine guards, dedupe
+on `sendId`, and one reply per bot text of a successful turn. Inbound images are
+saved through `saveImage` and attached with the composer's tag, so the turn gets
+them as native image input. It is gated on `cfg.wechat.botId` and has no
+Settings UI yet, so it is a file or environment setting.
+
+## Device unlock
+
+Mika's `DeviceUnlockInput` types the keyguard credential into the SystemUI
+window. Ours does the same through four new helper transactions —
+`wakeDevice` 20, `revealKeyguard` 21, `enterDeviceCredential(kind, bytes,
+clear)` 22, `tapKeyguard` 23 — and the existing transaction range gate covers
+them.
+
+The injection targets the **SystemUI uid**, never a display, and only while
+`isKeyguardLocked && isDeviceLocked`; every key re-checks that, so an unlock that
+completes mid-sequence cannot send the rest of the credential into the app
+underneath. It needs Android 13's hidden
+`injectInputEvent(event, mode, targetUid)`; below that `canReachKeyguard()` is
+false and nothing is injected, rather than an untargeted key landing wherever
+focus happens to be.
+
+The credential is entered on the phone, kept AES/GCM under a Keystore key with a
+revision, zeroized after use, and never a job argument, a result, a log line or
+anything the computer sees. Remote unlock is off until the person saves a
+credential and turns the switch on; a failed attempt blocks further ones until
+the person unlocks by hand or saves it again. A `phoneUi` job unlocks first when
+the switch is on and the phone is locked; a refusal is logged and the job still
+runs, because a virtual display often works while the device is locked.
+
+Not ported: Mika's `wm dismiss-keyguard` (the helper keeps its no-command rule)
+and its `TaskUnlockPolicy` origin rules — ours is one switch, and a channel turn
+here is already owner-only.
+
 ## What is still missing
 
 | Capability | Mika's files | Why not ported |
@@ -739,23 +805,29 @@ Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
 `intent-gate` 23, `phone-risk` 25, `phone-routes` 23, `answer-verify` 30,
 `summary` 3, `phone-apps` 6, `chat-notices` 12.
 
-The Android unit tests — 27 classes, 305 tests, all passing:
+The Android unit tests — 36 classes, 398 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
-  --tests "com.openmausbot.companion.phoneui.*" --offline
+  --tests "com.openmausbot.companion.phoneui.*" \
+  --tests "com.openmausbot.companion.wechat.*" --offline
 ```
 
-That covers the 22 classes in
-`android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 5 in
-its `shell/` subdirectory. The counts that matter for this batch:
+That covers the 26 classes in
+`android/app/src/test/kotlin/com/openmausbot/companion/phoneui/`, the 6 in
+its `shell/` subdirectory and the 4 in `wechat/`. The counts that matter for
+this batch:
 `PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 17,
 `PhoneUiWaitTest` 10,
 `PhoneUiPacingTest` 22, `PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
 `PhoneUiAccessibilityRepairTest` 16, `PhoneUiRepairLoopTest` 11,
 `PhoneUiProbesTest` 35, `PhoneUiProbesProbeTest` 16,
 `PhoneUiProbesPackagesTest` 4, `PhoneUiSystemActionsTest` 8,
-`PhoneUiAfterTaskTest` 9, `PhoneUiSecureSettingTest` 9, `PhoneUiGrantTest` 8.
+`PhoneUiAfterTaskTest` 9, `PhoneUiSecureSettingTest` 9, `PhoneUiGrantTest` 8,
+`PhoneUiUnlockTest` 15, `UnlockCredentialStoreTest` 11,
+`UnlockCredentialTest` 4, `PhoneUiShellUnlockGateTest` 3,
+`PhoneUiUnlockTransactionsTest` 3, `WechatRuntimeTest` 22, `WechatApiTest` 21,
+`WechatQrTest` 7, `WechatStoreTest` 7.
 
 The job catalogue — 16 tests:
 
@@ -823,3 +895,5 @@ weights file that names a test this checkout does not have;
 | Route replacement | Replaces every route with the same template | Replaces only a copy with the same fingerprint | A different working path for the same sentence is a real alternative; replacing it would throw away the only route that worked on a different screen. `needsDecision` can ask instead. |
 | API-key shapes | Mika's own four shapes | Delegated to `redactSecretsInText`, which knows ~20 provider shapes and PEM blocks | One definition of what a credential looks like, shared with the field-level skip and every other write path. Two lists would drift. |
 | `other` irreversible kinds | Graded by payment context | Same, but a kind outside pay/order/delete/send is `unknown` until a payment context appears | `unknown` is the honest grade: `shared/irreversible.ts` has no other kinds today, so anything else means a caller passed something the gate does not classify. |
+| WeChat host | Every call goes to the `baseurl` the bind response returned | Pinned to `ilinkai.weixin.qq.com`; `baseurl` is parsed and discarded | That field is chosen by the login response, and what it redirects is a bearer token for the whole bot channel. |
+| Device unlock | `wm dismiss-keyguard` plus targeted injection | Targeted injection only, no command endpoint | The helper has no shell command surface by design; `reveal` then `enter` covers the same path without one. |
