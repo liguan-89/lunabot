@@ -12,7 +12,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLAUDE = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const INCLUDED = `box_omb_${randomUUID()}`;
 const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 
@@ -55,7 +55,7 @@ describe("taking control never waits for the screen preview", () => {
   };
   const newBot = async (name: string, patch: Record<string, unknown>) => {
     const { bot } = await apiOk("POST", "/api/bots", { name });
-    await apiOk("PATCH", `/api/bots/${bot.id}`, { browser: false, modelSelection: { instanceId: "engine", model: "claude-sonnet-5" }, ...patch });
+    await apiOk("PATCH", `/api/bots/${bot.id}`, { browser: false, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, ...patch });
     return bot as { id: string; name: string; threadId: string };
   };
 
@@ -113,7 +113,7 @@ describe("taking control never waits for the screen preview", () => {
     home = mkdtempSync(join(tmpdir(), "omb-take-control-"));
     const data = join(home, "data");
     mkdirSync(data, { recursive: true });
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { engine: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE } } } }));
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: { driver: "piAgent", config: { cli: FAKE_PI } } } }));
     const port = await freePortBlock([0, 1]);
     base = `http://127.0.0.1:${port}`;
     child = spawn(process.execPath, [join(ROOT, "server/index.ts")], {

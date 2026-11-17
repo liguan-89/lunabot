@@ -1,6 +1,6 @@
 // A real Team Cloud home (OMB_CLOUD_ROLE=team) whose idle windows are a quarter second (the power clock): it agrees to
 // the Admin's sleep request once nobody uses it, waits while a member does, and waits for work one bot handed another
-// until it is done. The engine is the synthetic Claude CLI with each bot's tool calls scripted; nothing leaves loopback.
+// until it is done. The engine is the fake pi with each bot's tool calls scripted; nothing leaves loopback.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -56,7 +56,7 @@ async function pair(person: { email: string; role: "owner" | "member" }) {
   return ((await paired.json()) as { token: string }).token;
 }
 
-/** Each bot's engine reads its own scripted tool calls (its working folder names the bot); a held call ends with `release`. */
+/** Each bot's engine reads its own scripted tool calls (the pi child is told whose turn it is); a held call ends with `release`. */
 const script = (bot: Bot, calls: unknown[] | null) => {
   const file = join(home, `tools-${bot.id}.json`);
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
@@ -74,17 +74,22 @@ async function sleepsWithin(ms: number) {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-team-sleep-"));
-  const cli = join(home, "fixture-claude.mjs");
+  // One pi child per turn is told its bot and thread; the wrapper gives each bot its own scripted calls and the
+  // release file a held call waits for, and mounts the agents tools so a scripted coordination call really runs.
+  const cli = join(home, "fixture-pi.mjs");
   writeFileSync(cli, `#!/usr/bin/env node
-import { readdirSync } from "node:fs";
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-process.env.FAKE_CLAUDE_RELEASE = ${JSON.stringify(join(home, "release"))};
-const own = readdirSync(${JSON.stringify(home)}).map((name) => /^tools-(.+)\\.json$/.exec(name)?.[1]).find((id) => id && process.cwd().includes(id));
-if (own) process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = ${JSON.stringify(home)} + "/tools-" + own + ".json";
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
+import { existsSync } from "node:fs";
+const bot = process.env.OMB_BOT_ID ?? "";
+const calls = ${JSON.stringify(home)} + "/tools-" + bot + ".json";
+if (bot && existsSync(calls)) process.env.FAKE_PI_TOOL_CALLS_FILE = calls;
+process.env.FAKE_PI_MOUNT_TOOLS = "1";
+// A slow turn plays its scripted calls, holds a scripted held call until the release file exists, then answers.
+process.env.FAKE_PI_MODE = "slow";
+process.env.FAKE_PI_RELEASE = ${JSON.stringify(join(home, "release"))};
+process.env.FAKE_PI_DUMP = ${JSON.stringify(join(home, "fake-pi-dump.jsonl"))};
+await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi-cli.ts")).href)});
 `, { mode: 0o755 });
-  writeFileSync(join(home, "config.json"), JSON.stringify({ instances: { claude: { driver: "claudeAgent", displayName: "Fixture", config: { cli } } } }));
+  writeFileSync(join(home, "config.json"), JSON.stringify({ instances: { pi: { driver: "piAgent", displayName: "Fixture", config: { cli } } } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
@@ -110,7 +115,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   owner = await pair(OWNER);
   member = await pair(MEMBER);
   const make = async (name: string) => {
-    const made = await as(owner, "POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } });
+    const made = await as(owner, "POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     return made.body.bot as Bot;
   };

@@ -16,6 +16,7 @@ import { createCloudFilesService } from "../electron/cloud-sync.mjs";
 import { lendingForFiles } from "../electron/lent-folders.mjs";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -63,18 +64,10 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-lent-e2e-"));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") {
-  console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" }));
-  process.exit(0);
-}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+      pi: { driver: "piAgent", displayName: "pi", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts") },
+        environment: { FAKE_PI_DUMP: piDumpPath(dataDir) } },
     },
   }));
   mkdirSync(join(home, "web"));
@@ -92,8 +85,8 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
       OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`, OMB_SYNC_ROOT: join(home, "Synced"),
-      // The bot's turn stays open, so its agents tools stay usable; the dump says how to reach them.
-      FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_DUMP: join(home, "fake-claude-dump.json"),
+      // The bot's turn stays open, so its agents tools stay usable; the pi dump says how to reach them.
+      FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -120,11 +113,15 @@ const desktopFetch = (url: string, init: RequestInit & { headers?: Record<string
 
 /** The bot's own agents MCP tools, from its live turn. */
 async function botTools(botId: string) {
-  const dump = join(home, "fake-claude-dump.json");
+  const dump = piDumpPath(join(home, ".openmausbot"));
   expect((await api("POST", `/api/bots/${botId}/messages`, { body: { text: "Work on my Notes folder tonight." } })).status).toBe(202);
-  await vi.waitFor(() => expect(existsSync(dump)).toBe(true), { timeout: 15_000 });
-  const agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents;
-  proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
+  const agents = await vi.waitFor(() => {
+    const launch = piTurns(dump).at(-1)?.launch;
+    const found = launch?.mcpConfig?.mcpServers?.agents;
+    expect(found, "the turn's pi launch has not mounted the agents server yet").toBeDefined();
+    return found!;
+  }, { timeout: 15_000 });
+  proxy = spawn(agents.command!, agents.args ?? [], { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   const replies = new Map<number, (value: any) => void>();
   createInterface({ input: proxy.stdout! }).on("line", (line) => { const message = JSON.parse(line); replies.get(message.id)?.(message.result); replies.delete(message.id); });
   let next = 0;
@@ -177,10 +174,11 @@ it("a lent folder keeps working while the Mac is away: read from the copy, chang
     expect(readFileSync(join(copy, computerDir!, "Notes", "plan.md"), "utf8")).toBe("the plan");
     expect(existsSync(join(home, "Synced", computerDir!, "Notes"))).toBe(false);
 
-    const bot = (await api("POST", "/api/bots", { body: { name: "Night Owl", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot;
+    const bot = (await api("POST", "/api/bots", { body: { name: "Night Owl", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
     const tools = await botTools(bot.id);
     // The bot is told how lent folders behave while the Mac is away, and is never handed the copy's place on disk.
-    const prompt = String(JSON.parse(readFileSync(join(home, "fake-claude-dump.json"), "utf8")).systemPrompt);
+    const turns = piTurns(piDumpPath(join(home, ".openmausbot")));
+    const prompt = piInstructionsFor(turns, turns.length - 1);
     expect(prompt).toContain("each folder it lends that the Cloud keeps a copy of still works from that copy");
     expect(prompt).not.toContain(join("sync", "lent"));
     const live = await tools.list();

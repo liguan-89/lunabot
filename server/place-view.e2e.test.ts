@@ -1,4 +1,4 @@
-// Real server, fake Claude CLI and a loopback Boat whose answers each journey sets; a restartable home lets a test seed an automatic pin.
+// Real server, fake pi CLI and a loopback Boat whose answers each journey sets; a restartable home lets a test seed an automatic pin.
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
+import { piDumpPath } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
@@ -138,9 +139,14 @@ describe("a cloud computer that can't start, against the real server", () => {
   const writeConfig = (ownKey: boolean) => writeFileSync(join(data, "config.json"), JSON.stringify({
     ...(ownKey ? { box: { token: "box_place_view_fixture" } } : {}),
     // Every turn first takes one screenshot through the cloud computer's tools: that call, not the message, starts the cloud computer.
-    instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
+    instances: { pi: {
+      driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+      environment: {
+        FAKE_PI_DUMP: piDumpPath(data),
+        // The turn's first call is a screenshot through the mounted computer server, as a real model's would be.
+        FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1",
+        FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]),
+      },
     } },
   }));
   afterAll(async () => {

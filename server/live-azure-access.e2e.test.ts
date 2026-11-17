@@ -17,7 +17,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const HOST = "omb-t-0123456789ab.fly.dev";
 const REMOTE = { host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" };
 const ENDPOINT = "https://fixture.openai.azure.com";
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}) {
-  chmodSync(FAKE_CLAUDE, 0o755);
+  chmodSync(FAKE_PI, 0o755);
   const home = mkdtempSync(join(tmpdir(), "omb-live-azure-"));
   const dataDir = join(home, ".openmausbot");
   const fetches = join(home, "fetches.log");
@@ -43,10 +43,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
   mkdirSync(join(home, "web"));
   writeFileSync(join(home, "web", "index.html"), "<!doctype html><title>Luna Bot</title>");
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
-    },
+    instances: { pi: { driver: "piAgent", config: { cli: FAKE_PI } } },
     live: { provider: "azure", azureEndpoint: ENDPOINT, azureDeployment: "fixture-dep", key: "fixture-not-a-key", keyFor: "azure:fixture.openai.azure.com" },
     // There to fall back on: a refused caller must not get a call through OpenAI instead.
     openai: { key: "fixture-not-a-key-either" },
@@ -99,7 +96,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
     return redeem(granted.code);
   };
   const newBot = async (headers: Headers = {}) => {
-    const created = await call("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "claude", model: "claude-fake" } }, headers);
+    const created = await call("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } }, headers);
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     return created.body.bot.id as string;
   };

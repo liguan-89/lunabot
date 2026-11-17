@@ -1,15 +1,19 @@
-// Real server and connected-apps bridge, a fake Claude CLI that starts the connection as a model does, and a loopback connection service.
+// Real server and connected-apps bridge, a fake pi CLI that starts the connection as a model does, and the loopback
+// connected-apps service (server/testing/broker-fake.ts) with no accounts, so Gmail is not connected yet.
 import { spawn, type ChildProcess } from "node:child_process";
-import { createServer, type Server } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+/** The fake scripts a call by the mounted tool's own name (its server prefix is matched, not spelled out). */
+const MANAGE_CONNECTIONS = "composio_manage_connections";
 
 describe("/setup connects an app through a Connect card, against the real server", () => {
   let home = "";
@@ -18,8 +22,8 @@ describe("/setup connects an app through a Connect card, against the real server
   let output = "";
   let child: ChildProcess | null = null;
   let base = "";
-  let broker: Server;
-  let brokerUrl = "";
+  let broker: BrokerFake;
+  let brokerToken = "";
 
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(base + path, {
@@ -43,33 +47,43 @@ describe("/setup connects an app through a Connect card, against the real server
   const idle = (botId: string) => until(
     async () => (await api("GET", "/api/bots?messages=0")).bots.find((bot: any) => bot.id === botId),
     (bot: any) => bot && !bot.busy, "idle bot");
+  /** The turn this send started: its launch (what it mounted) and the instructions in effect. Counting from the turns
+   * already in the log keeps it this bot's own even when an earlier bot was sent the same words. */
   const setupTurn = async (bot: { id: string; threadId: string }) => {
-    rmSync(dump, { force: true });
+    const before = piTurns(dump).length;
     await api("POST", `/api/bots/${bot.id}/messages`, { text: "/setup set up my Gmail", threadId: bot.threadId });
-    await until(() => existsSync(dump), Boolean, "engine launch");
+    const index = await until(() => {
+      const turns = piTurns(dump);
+      for (let i = before; i < turns.length; i++) {
+        // /setup rewrites the turn's words: the model is told "Set yourself up for this job: …".
+        if (turns[i]!.prompt.includes("Set yourself up for this job: set up my Gmail")) return i;
+      }
+      return -1;
+    }, (found) => found >= 0, "the setup turn");
+    const turns = piTurns(dump);
+    const seen = { mcpConfig: turns[index]!.launch?.mcpConfig ?? null, systemPrompt: piInstructionsFor(turns, index) };
     await idle(bot.id);
-    const seen = JSON.parse(readFileSync(dump, "utf8")) as { systemPrompt: string; mcpConfig: { mcpServers: Record<string, unknown> } };
     return { seen, messages: await messages(bot.threadId) };
   };
 
   beforeAll(async () => {
     home = mkdtempSync(join(tmpdir(), "omb-setup-connect-"));
     data = join(home, "data");
-    dump = join(home, "fake-claude-dump.json");
+    dump = piDumpPath(data);
     mkdirSync(data);
-    // The managed connection service is present but knows no accounts, so Gmail is not connected.
-    broker = createServer((req, res) => {
-      req.resume();
-      res.writeHead(404, { "content-type": "application/json" });
-      res.end(JSON.stringify({ error: "fixture knows no accounts" }));
-    });
-    await new Promise<void>(resolve => broker.listen(0, "127.0.0.1", resolve));
-    brokerUrl = `http://127.0.0.1:${(broker.address() as { port: number }).port}/broker`;
+    // The managed connection service, registered as an installation; it knows no accounts, so Gmail is not connected.
+    broker = await startBrokerFake();
+    brokerToken = (await broker.install()).token;
     writeFileSync(join(data, "config.json"), JSON.stringify({
-      instances: { claude: {
-        driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-        // Every turn with the connected-apps tools starts a Gmail connection through them, as a model told to would.
-        environment: { FAKE_CLAUDE_CONNECT_APPS: "gmail", FAKE_CLAUDE_DUMP: dump },
+      instances: { pi: {
+        driver: "piAgent", config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+        // Every turn first asks the mounted composio server to connect Gmail, as a model told to would.
+        environment: {
+          FAKE_PI_DUMP: dump, FAKE_PI_MOUNT_TOOLS: "1",
+          // The compatibility turn is the one that runs its scripted calls before replying.
+          FAKE_PI_CLAUDE_COMPAT: "1",
+          FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "composio", name: MANAGE_CONNECTIONS, input: { toolkits: ["gmail"] } }]),
+        },
       } },
     }));
     const port = await freePortBlock([0, 1]);
@@ -81,7 +95,7 @@ describe("/setup connects an app through a Connect card, against the real server
         APPDATA: join(home, "appdata"), LOCALAPPDATA: join(home, "localappdata"),
         TEMP: home, TMP: home, TMPDIR: home, OMB_TEST_SEALED_PATH: "1",
         OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_USER_DATA: join(home, "user-data"),
-        OMB_COMPOSIO_BROKER_URL: brokerUrl, OMB_COMPOSIO_BROKER_TOKEN: "c".repeat(64),
+        OMB_COMPOSIO_BROKER_URL: broker.url, OMB_COMPOSIO_BROKER_TOKEN: brokerToken,
       }, stdio: ["ignore", "pipe", "pipe"],
     });
     child = proc;
@@ -94,17 +108,17 @@ describe("/setup connects an app through a Connect card, against the real server
   }, 60_000);
   afterAll(async () => {
     if (child) await waitForExit(child, { signal: "SIGTERM" });
-    if (broker) await new Promise<void>(resolve => broker.close(() => resolve()));
+    if (broker) await broker.close();
     if (home) await removeTempDir(home);
   });
 
   it("shows a Connect card for Gmail in the chat when the bot's connected apps are on", async () => {
     const { bot } = await api("POST", "/api/bots", { name: "Inbox" });
     const { seen, messages: chat } = await setupTurn(bot);
-    expect(seen.mcpConfig.mcpServers.composio).toBeDefined();
+    expect(seen.mcpConfig?.mcpServers?.composio).toBeDefined();
     expect(seen.systemPrompt).toContain("make COMPOSIO_MANAGE_CONNECTIONS for its toolkit (for example gmail) your last tool call");
     expect(seen.systemPrompt).not.toContain("point them to the Access section");
-    const call = chat.find(message => message.tool?.name === "mcp__composio__COMPOSIO_MANAGE_CONNECTIONS");
+    const call = chat.find(message => message.tool?.name === MANAGE_CONNECTIONS);
     expect(call?.tool).toMatchObject({ ok: true, output: expect.stringContaining("showed the user a secure connection card for gmail") });
     const card = chat.find(message => message.kind === "connector");
     expect(card, JSON.stringify(chat.map(message => [message.kind, message.text]))).toBeDefined();
@@ -116,7 +130,7 @@ describe("/setup connects an app through a Connect card, against the real server
     const { bot } = await api("POST", "/api/bots", { name: "Quiet inbox" });
     await api("PATCH", `/api/bots/${bot.id}`, { composio: false });
     const { seen, messages: chat } = await setupTurn(bot);
-    expect(seen.mcpConfig.mcpServers.composio).toBeUndefined();
+    expect(seen.mcpConfig?.mcpServers?.composio).toBeUndefined();
     expect(seen.systemPrompt).toContain("ask the user to turn on Connected apps in your settings under Access");
     expect(seen.systemPrompt).not.toContain("COMPOSIO_MANAGE_CONNECTIONS");
     expect(chat.some(message => message.kind === "connector")).toBe(false);

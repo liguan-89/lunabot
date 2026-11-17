@@ -9,12 +9,13 @@ import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync,
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { cloudHomeConfiguration, cloudPairingSignature } from "./cloud-home.ts";
 import { cloudHomeChildEnvironments, spawnWithSecrets } from "./cloud-home-start.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -61,13 +62,11 @@ async function pairOwner(): Promise<string> {
 }
 
 async function proxyFor(start: () => Promise<void>) {
-  const dump = join(home, "spawn.json");
+  const dump = piDumpPath(join(home, ".lunabot"));
   await start();
-  let agents: { command: string; args: string[]; env: Record<string, string> } | undefined;
-  await expect.poll(() => {
-    try { agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents; return true; } catch { return false; }
-  }, { timeout: 15_000 }).toBe(true);
-  const proxy = spawn(agents!.command, agents!.args, { env: { PATH: process.env.PATH, HOME: home, ...agents!.env }, stdio: ["pipe", "pipe", "pipe"] });
+  await expect.poll(() => Boolean(piTurnHolding(dump, "Set up Stripe test charges")?.launch?.mcpConfig?.mcpServers?.agents), { timeout: 15_000 }).toBe(true);
+  const found = piTurnHolding(dump, "Set up Stripe test charges")!.launch!.mcpConfig!.mcpServers!.agents!;
+  const proxy = spawn(found.command!, found.args ?? [], { env: { PATH: process.env.PATH, HOME: home, ...found.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
   const replies = new Map<number, (value: any) => void>();
   createInterface({ input: proxy.stdout! }).on("line", (line) => { const message = JSON.parse(line); replies.get(message.id)?.(message.result); replies.delete(message.id); });
@@ -91,16 +90,12 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-secret-requests-"));
   const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "spawn.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+    pi: {
+      driver: "piAgent", displayName: "pi", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts") },
+      // The bot's turn stays open (the retired fixture's `hang`), so its agents tools stay usable mid-turn.
+      environment: { FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" },
+    },
   } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -147,7 +142,7 @@ function filesHolding(root: string, needle: string): string[] {
 }
 
 it("keeps a file secret and a ref secret out of every record, and the bot uses each once", async () => {
-  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   const tools = await proxyFor(async () => {
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Set up Stripe test charges and Notion's MCP." })).status).toBe(202);
   });
