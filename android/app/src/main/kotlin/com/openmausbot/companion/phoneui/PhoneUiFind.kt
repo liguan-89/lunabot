@@ -95,6 +95,14 @@ internal class PhoneUiFind(
         /** Every element that matched on the screen the loop stopped on, before `limit`. */
         val total: Int,
         val elements: List<PhoneUiElement>,
+        /**
+         * The whole screen the loop stopped on, not just the matches. Its refs
+         * are the ones in [elements], and the server records it so a later step
+         * naming one of those refs is still judged against a screen it knows —
+         * otherwise a control a find surfaced would slip past the irreversible
+         * gate, which can only judge what it has seen.
+         */
+        val screen: List<PhoneUiElement>,
         val packageName: String?,
         val snapshotId: String?,
     )
@@ -130,6 +138,16 @@ internal class PhoneUiFind(
                 put("total", outcome.total)
                 put("truncated", outcome.total > options.limit)
                 put("elements", JsonArray(outcome.elements.map(elementJson)))
+                // The screen the loop stopped on, as the server records its
+                // screens: the refs in `elements` belong to this snapshot, so a
+                // step naming one of them is judged against what the phone saw.
+                put(
+                    "screen",
+                    buildJsonObject {
+                        outcome.packageName?.let { put("topPackage", it) }
+                        put("elements", JsonArray(outcome.screen.map(elementJson)))
+                    },
+                )
                 outcome.snapshotId?.let { put("snapshot", it) }
                 outcome.packageName?.let { put("topPackage", it) }
             },
@@ -185,6 +203,8 @@ internal class PhoneUiFind(
         var app: String? = null
         var snapshotId: String? = null
         var packageName: String? = null
+        /** The elements of the last screen that was read, which is the one the answer's refs belong to. */
+        var lastScreen: List<PhoneUiElement> = emptyList()
         val deadline = now() + budgetMs
         while (true) {
             val screen = snapshot()
@@ -194,6 +214,7 @@ internal class PhoneUiFind(
                 break
             }
             snapshotId = screen.id
+            lastScreen = screen.elements
             // Our snapshot carries no protected/readable flag. An empty tree is what
             // an unreadable screen looks like here: the read worked, there is just
             // nothing in it we may act on, so the loop stops rather than scrolling
@@ -254,6 +275,7 @@ internal class PhoneUiFind(
             scrolls = scrolled,
             total = total,
             elements = matches,
+            screen = lastScreen,
             packageName = packageName,
             snapshotId = snapshotId,
         )

@@ -115,6 +115,10 @@ class PhoneUiFindTest {
         (result["elements"] as? JsonArray ?: JsonArray(emptyList()))
             .map { it.jsonObject.getValue("ref").jsonPrimitive.content }
 
+    private fun screenRefs(result: JsonObject): List<String> =
+        ((result["screen"] as? JsonObject)?.get("elements") as? JsonArray ?: JsonArray(emptyList()))
+            .map { it.jsonObject.getValue("ref").jsonPrimitive.content }
+
     @Test
     fun `a target on the first screen is found with no scroll`() = runBlocking {
         val screens = Screens(listOf(listOf(element(text = "设置"), element(text = "目标"))))
@@ -129,6 +133,25 @@ class PhoneUiFindTest {
         assertEquals("s1", result["snapshot"]!!.jsonPrimitive.content)
         assertEquals("com.example.app", result["topPackage"]!!.jsonPrimitive.content)
         assertTrue(screens.directions.isEmpty())
+    }
+
+    @Test
+    fun `the answer carries the whole screen beside the matches`() = runBlocking {
+        val last = listOf(
+            element("e1", text = "上一屏的标题"),
+            element("e2", text = "目标"),
+            element("e3", text = "旁边的按钮"),
+        )
+        val screens = Screens(listOf(listOf(element("e0", text = "第一屏")), last))
+        val result = answer(find(screens).execute(arguments()))
+
+        // The matches are what the bot asked for...
+        assertEquals(listOf("e2"), refs(result))
+        // ...and the whole screen travels with them, because the refs belong to
+        // that snapshot: the server records it, so a step naming e3 is judged
+        // against a screen it knows instead of slipping past the gate.
+        assertEquals(listOf("e1", "e2", "e3"), screenRefs(result))
+        assertEquals("com.example.app", (result["screen"] as JsonObject)["topPackage"]!!.jsonPrimitive.content)
     }
 
     @Test

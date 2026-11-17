@@ -98,8 +98,12 @@ describe("controlFor", () => {
     expect(recordsScreen("PHONE_LIST_EVENTS")).toBe(false);
   });
 
-  it("records a COLLECT answer as a screen, but not a query's", () => {
+  it("records a COLLECT or FIND answer as a screen, but not a query's", () => {
     expect(recordsScreen("PHONE_UI_COLLECT")).toBe(true);
+    // FIND answers with a match list, but carries the whole snapshot beside it
+    // in `screen`; its refs are that snapshot's, so a later tap is judged
+    // against it rather than against a stale screen.
+    expect(recordsScreen("PHONE_UI_FIND")).toBe(true);
     expect(recordsScreen("PHONE_UI_QUERY")).toBe(false);
   });
 });

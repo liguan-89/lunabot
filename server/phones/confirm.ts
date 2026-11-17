@@ -241,11 +241,13 @@ export function controlFor(tool: string, args: Record<string, unknown>, observeR
 }
 
 /** Every tool whose answer is a full snapshot: the reads that take one, and the driving actions that answer with the
- * screen they ended on. A query's answer carries only the elements it matched, so it is not one. */
+ * screen they ended on. A query's answer carries only the elements it matched, so it is not one. A find's answer is a
+ * match list too, but it carries the whole screen beside it in `screen`, because the refs it hands out belong to that
+ * snapshot and a later step names them. */
 const SCREEN_ANSWERS: ReadonlySet<string> = new Set([
   "PHONE_UI_OBSERVE", "PHONE_UI_SCREENSHOT", "PHONE_UI_RUN", "PHONE_UI_WAIT", "PHONE_UI_COLLECT",
   "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
-  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK",
+  "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_FIND",
 ]);
 
 /** Does this tool's answer carry the whole screen as it now is? Recording anything else would shrink the screen the next

@@ -201,8 +201,17 @@ tuples; as `app_switched` when another app comes in front; as `read_failed`
 when no snapshot could be taken; as `screen_needs_review` when the snapshot is
 empty or its package cannot be read; and as `scroll_failed` when a scroll step
 did not happen. The answer carries `ok`/`found`, `stoppedBecause`, `scrolls`,
-`total`, `truncated`, the `query` it ran, the elements with refs, and the
-snapshot and package it stopped on.
+`total`, `truncated`, the `query` it ran, the elements with refs, the snapshot
+and package it stopped on, and — beside the match list — the whole screen it
+stopped on as `screen`.
+
+That last field is why `PHONE_UI_FIND` is in `confirm.ts`'s `SCREEN_ANSWERS`
+even though it answers with a filtered list: the refs it hands out belong to
+that snapshot, so the server records the screen and a later `PHONE_UI_TAP`
+naming one of those refs is judged against what the phone actually showed. A
+match-only answer would leave the stored screen stale, and the irreversible gate
+can only judge elements it has seen — a control a find surfaced would slip past
+it.
 
 Three divergences from Mika, all deliberate and recorded in the file's header:
 
