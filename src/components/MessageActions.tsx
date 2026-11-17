@@ -29,6 +29,7 @@ export const ChatBusyContext = createContext(false);
 export const MESSAGE_ROW = "data-message-row";
 
 const INTERACTIVE = "a, button, input, textarea, select, summary, label, [role=button], [contenteditable=true]";
+const OWN_MENU_MEDIA = "img, video, audio";
 const LONG_PRESS_MS = 450;
 
 function focusVisible(target: EventTarget | null): boolean {
@@ -117,7 +118,7 @@ export function MessageActions({
     const context = (event: MouseEvent) => {
       if (!canPointRef.current || (event as Partial<PointerEvent>).pointerType === "touch") return;
       const target = event.target;
-      if (!(target instanceof Element) || !target.closest("[data-chat-bubble]") || target.closest(INTERACTIVE)) return;
+      if (!(target instanceof Element) || !target.closest("[data-chat-bubble]") || target.closest(INTERACTIVE) || target.closest(OWN_MENU_MEDIA)) return;
       if (window.getSelection()?.toString().trim()) return;
       const box = rootRef.current?.getBoundingClientRect();
       if (!box) return;

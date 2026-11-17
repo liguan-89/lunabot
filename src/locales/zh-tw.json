@@ -10262,5 +10262,13 @@
   "chat.newChatHintButton": "新聊天",
   "room.queue.busyIn": "正在 {place} 忙碌 · 排隊中（第 {position}/{of} 位），忙完即開始",
   "room.queue.busyElsewhere": "正在另一會話忙碌 · 排隊中（第 {position}/{of} 位），忙完即開始",
-  "attach.videoHintStreams": "按需播放"
+  "attach.videoHintStreams": "按需播放",
+  "native.context.copyImage": "複製圖片",
+  "native.context.saveImageAs": "圖片另存為…",
+  "native.context.saveVideoAs": "影片另存為…",
+  "native.context.saveAudioAs": "音訊另存為…",
+  "native.context.saveLinkAs": "連結另存為…",
+  "native.context.openInDefaultApp": "在預設應用程式中開啟",
+  "native.context.cannotOpen": "此檔案無法從這裡開啟。請改用「另存為…」。",
+  "native.context.openFailed": "無法開啟此檔案"
 }

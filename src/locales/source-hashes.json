@@ -34163,7 +34163,15 @@
       "chat.notice.engineExited": "655897876364cea09c9b39119d927c31e80e21ea8931d88d2966d37dfb5dbb02",
       "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
       "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec",
-      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e"
+      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e",
+      "native.context.copyImage": "bf21aa9bebe41ba69dab0d5a172aea1b9124d8fb824eabe7d7c46df5c1237e14",
+      "native.context.saveImageAs": "bbbda8c84f5fd419ee4ec680301910a75bfd4e6d46c9ea0495f3c818ac4b9a59",
+      "native.context.saveVideoAs": "a697fb64a2f1f67e7a33825a7f574653a957827be60531aa58dc1e3ae0ee2f8c",
+      "native.context.saveAudioAs": "3bc11da7aced7adf5ddc1286a3d347e2c012dfba9937a5bc11ad6b1d7411c6c3",
+      "native.context.saveLinkAs": "e4e9bea4f92587829080b691bde74a8bbf4335b425b846e7a31a396ef2309c20",
+      "native.context.openInDefaultApp": "42148b60f4d8a124879f213855108acbc74ff4210cc6408f5cbea7b15e595aa4",
+      "native.context.cannotOpen": "0b3b5e25baf6058ec4b29099941edfb212324eaa707e76ce9521b7606846811c",
+      "native.context.openFailed": "67bbee6999fe12ddd399e1ef2be47f3a75af55bd32ca137a907caee9781fa166"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -44770,7 +44778,15 @@
       "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec",
       "room.queue.busyIn": "57c8a5a630dcea31ceae7b194162bcaaa5dcef4f7bb24eeaf532f5143cc791c7",
       "room.queue.busyElsewhere": "ecdbe34c1cca24d6d0365a04bf672203b437647795ac4e358fbcf671ef345b97",
-      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e"
+      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e",
+      "native.context.copyImage": "bf21aa9bebe41ba69dab0d5a172aea1b9124d8fb824eabe7d7c46df5c1237e14",
+      "native.context.saveImageAs": "bbbda8c84f5fd419ee4ec680301910a75bfd4e6d46c9ea0495f3c818ac4b9a59",
+      "native.context.saveVideoAs": "a697fb64a2f1f67e7a33825a7f574653a957827be60531aa58dc1e3ae0ee2f8c",
+      "native.context.saveAudioAs": "3bc11da7aced7adf5ddc1286a3d347e2c012dfba9937a5bc11ad6b1d7411c6c3",
+      "native.context.saveLinkAs": "e4e9bea4f92587829080b691bde74a8bbf4335b425b846e7a31a396ef2309c20",
+      "native.context.openInDefaultApp": "42148b60f4d8a124879f213855108acbc74ff4210cc6408f5cbea7b15e595aa4",
+      "native.context.cannotOpen": "0b3b5e25baf6058ec4b29099941edfb212324eaa707e76ce9521b7606846811c",
+      "native.context.openFailed": "67bbee6999fe12ddd399e1ef2be47f3a75af55bd32ca137a907caee9781fa166"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -55036,7 +55052,15 @@
       "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec",
       "room.queue.busyIn": "57c8a5a630dcea31ceae7b194162bcaaa5dcef4f7bb24eeaf532f5143cc791c7",
       "room.queue.busyElsewhere": "ecdbe34c1cca24d6d0365a04bf672203b437647795ac4e358fbcf671ef345b97",
-      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e"
+      "attach.videoHintStreams": "3b4fa3b4ffeaaccd64df3df7295d1268c4cf5d857bd1ba067d2a727bce43f21e",
+      "native.context.copyImage": "bf21aa9bebe41ba69dab0d5a172aea1b9124d8fb824eabe7d7c46df5c1237e14",
+      "native.context.saveImageAs": "bbbda8c84f5fd419ee4ec680301910a75bfd4e6d46c9ea0495f3c818ac4b9a59",
+      "native.context.saveVideoAs": "a697fb64a2f1f67e7a33825a7f574653a957827be60531aa58dc1e3ae0ee2f8c",
+      "native.context.saveAudioAs": "3bc11da7aced7adf5ddc1286a3d347e2c012dfba9937a5bc11ad6b1d7411c6c3",
+      "native.context.saveLinkAs": "e4e9bea4f92587829080b691bde74a8bbf4335b425b846e7a31a396ef2309c20",
+      "native.context.openInDefaultApp": "42148b60f4d8a124879f213855108acbc74ff4210cc6408f5cbea7b15e595aa4",
+      "native.context.cannotOpen": "0b3b5e25baf6058ec4b29099941edfb212324eaa707e76ce9521b7606846811c",
+      "native.context.openFailed": "67bbee6999fe12ddd399e1ef2be47f3a75af55bd32ca137a907caee9781fa166"
     },
     "uk": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",

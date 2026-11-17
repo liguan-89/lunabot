@@ -10614,5 +10614,13 @@
   "chat.newChatHintButton": "新聊天",
   "room.queue.busyIn": "在 {place} 中忙 · 排队中（第 {position}/{of} 位），忙完即开始",
   "room.queue.busyElsewhere": "在另一会话中忙 · 排队中（第 {position}/{of} 位），忙完即开始",
-  "attach.videoHintStreams": "按需播放"
+  "attach.videoHintStreams": "按需播放",
+  "native.context.copyImage": "复制图片",
+  "native.context.saveImageAs": "图片另存为…",
+  "native.context.saveVideoAs": "视频另存为…",
+  "native.context.saveAudioAs": "音频另存为…",
+  "native.context.saveLinkAs": "链接另存为…",
+  "native.context.openInDefaultApp": "在默认应用中打开",
+  "native.context.cannotOpen": "此文件无法从这里打开。请改用“另存为…”。",
+  "native.context.openFailed": "无法打开此文件"
 }
