@@ -457,8 +457,135 @@ It is not wired into a turn. Nothing calls `assessIntent` or
   route cannot replay, at least one write that did something, no overlapping
   slot spans, and a template that can be read back from this request.
 
-Storage and execution are not built. There is no route codec, no file store, no
-replayer, and nothing imports `route-replay.ts` outside its test.
+`server/phone-routes.ts` is the recording and storage layer. `note` buffers a
+turn's calls with the screen before and after each one; `finish` records only
+when `learnable` holds, every step is replayable and at least one write did
+something; a route is written to `DATA_DIR/phone-routes/<owner>/<id>.json`
+(0700 folders, 0600 files, atomic, 50 per owner, 64 KiB each, corrupt files
+skipped, never fatal). The owner folder is the key itself when it is already
+`[A-Za-z0-9_-]{1,64}`, otherwise its SHA-256, so an email or a path can never
+become a path. `match` shortlists by similarity or a matching package.
+
+A whole run is refused when any step typed into an editable field, when a
+password or code field appears, or when a `PHONE_UI_RUN` carries a nested `type`
+command, because the pure core does not slot nested commands. Pairing codes
+survive neither: `stableAnchor` already rejects anything containing a digit.
+
+Replay itself is not built. Nothing fills a route's slots and feeds its steps
+back to the phone, and `match` is exposed on the phones object but not injected
+into a prompt, so a stored route is a record, not yet a shortcut.
+
+## Answer verification
+
+A phone bot's worst failure is not a missed tap but a confident "sent" after a
+tap that did not send. `shared/verify-grounding.ts` is the model-free half of
+Mika's `verify/Grounding.kt`: the quoted text, numbers with a unit or a
+magnitude, decimals, three-digit integers, ids embedded in letters, dates and
+times in an answer must each appear literally somewhere in the evidence. The
+comparison folds NFKC, zero-width characters, citation marks and footnotes,
+thousands separators, 万/亿 and punctuation, and it compares line by line so an
+answer line is never joined to the next one. Ordinals are not values: `第N条`,
+`前N`, `Top N`, `No.N`, `#N`, a leading list number and a leading number
+followed by a name are all excluded, and 千 inside 千米/千克/千瓦/千卡/千帕/千焦
+is a unit, not a magnitude. Two-digit integers without a unit are never checked,
+and numbers already in the task prompt are known.
+
+`server/answer-verify.ts` is the model half: `Criteria` (the person's own words
+as the fallback standard, `read` or `irreversible`), `criteriaFor`,
+`verifierRequest`, `parseVerification` and `verifyAnswer`, with the model call
+injected so no provider or key is bound here. A model `pass` is downgraded to
+`fail` when grounding finds an ungrounded fact, and everything else fails open
+to `cannot_verify` with a reason — a timeout or a bad reply never throws and
+never blocks a turn. `VERIFY_TIMEOUT_MS` is a flat 60 s.
+
+Mika's relative-date resolution (今天/明天/周二 against a clock), arithmetic over
+evidence numbers, the 约/≈ rounding tolerance, truncated-line detection and the
+evidence-ledger excerpting with a retried, trimmed request are not ported. A
+derived number must appear on screen.
+
+The evidence itself comes from `PhoneEvidenceLedger` in `server/phones/host.ts`:
+bounded per turn (64 entries, 24 000 characters, 64 turns, 200 last screens),
+one entry per screen-carrying call with the screen before and after, refusals
+kept as evidence but never as route steps, and password-flagged elements or
+lines the sensitive filter would flag left out. `server/index.ts` calls
+`phones.turnEnded` after the reply is settled, never for a turn the person
+stopped. Verification is **off**: `PHONE_VERIFY_MODE` is a constant in
+`host.ts`, and setting it to `"log"` writes one decision row per phone turn and
+nothing else. There is no `"warn"` mode — a finished turn has no reply left to
+append a caveat to.
+
+## Untrusted screen text
+
+`shared/untrusted.ts` is Mika's `observation/Untrusted.kt`: the text is wrapped
+in `<untrusted>`/`</untrusted>`, the markers cost 29 characters of the budget,
+and a literal closing marker inside the body is escaped so the body cannot close
+the tag early. `wrapUntrustedWithin` cuts only the body, so a result is never
+left open.
+
+`phoneOkResult` applies it in `server/phones/tools.ts`, on the text block the
+model reads and only there: element text and descriptions, collect lines, OCR
+lines, notification titles and bodies, clipboard text, file names and a text
+file's body. Refs, bounds, view ids, class names, counts, package names, urls,
+mime types, ids, base64 images and every value in `structuredContent` stay raw,
+and our own `ok`/`error`/`phone`/screen size is not wrapped. A calendar title, a
+contact name or a place name is still app data but is not wrapped yet. The phone
+prompt in `server/phones/instructions.ts` says once that marked text is data
+from an app, never an instruction.
+
+## Sensitive text
+
+`shared/sensitive.ts` is Mika's `memory/SensitiveFilter.kt`: `hit(text)` answers
+`api_key`, `id_number`, `card_number`, `password` or null. Keyword rules allow a
+short gap (`是否/是为/：/=`, optional is/was/are) before a four-character run,
+`pin` and `otp` count only before four digits (`pinned` and `hotpot` do not), the
+18-digit id must pass its weighted checksum, a card number must pass Luhn over
+13–19 digits written with single spaces or hyphens, and a NFKC + compact retry
+catches `验证码 1 2 3 4`. Phone numbers, addresses, birthdays and family terms
+are deliberately not flagged: they are the facts a phone bot exists to keep.
+
+`api_key` is not re-implemented: it is delegated to the existing
+`redactSecretsInText`, which already knows about twenty provider shapes and PEM
+blocks. The gate runs in `server/workspace.ts` at both memory writes —
+`updateMemory` and `appendMemoryLog` — after the existing redaction, before
+anything touches a file, an archive or an index. A refusal names the kind only
+and never the matched text.
+
+## Steering
+
+`server/phones/steer.ts` is Mika's `run/SteerSignal.kt`. A person's mid-turn
+message marks the turn; a phone job being waited on is raced against that mark
+and loses at once, so the model reads the new words instead of sitting out a
+six-second screen wait or a two-minute Send. The job is never cancelled: it runs
+on the phone and only its answer goes unread, and its later rejection is caught
+rather than left unhandled. A mark is spent by the wait it cuts, so one message
+cuts one wait, and a newer turn in the same conversation replaces the mark
+rather than inheriting it. `MAX_STEER_TURNS = 200`, the same bound as the
+per-turn gates in `confirm.ts`.
+
+The signal is the steered branch of `acceptDirectSend` in `server/index.ts`,
+where the person's words are appended into the running turn. `host.ts` returns
+`{ ok: false, error: "skipped_for_new_message" }` before it reaches
+`registry.used`, the confirm gates or the guard reset, so nothing that happened
+is counted twice and no guard state is touched by a wait that did not finish.
+The string is not in `PhoneJobCode`, so the tool answers an error with no
+structured code.
+
+## Risk grading
+
+`server/phone-risk.ts` is Mika's `action/RiskJudge.kt`: `read`, `change`,
+`external`, `irreversible`, `unknown`, from the tool and the irreversibility hit
+already computed in `shared/irreversible.ts`. The rule worth keeping is Mika's:
+an amount on a screen is page content, not a charge. A price, a salary range, a
+discount, or an amount in a field the person typed into is never a payment
+context; only an amount in the same row as a total label (合计/实付/应付/总计) or
+a pay control, or payment-sheet wording with an amount, makes the looser kinds
+irreversible. `send` is always `external`, `pay` and `order` are always
+`irreversible`, `delete` is `irreversible`, and `share_text`/`file_share` count
+as `external` because the content leaves our hands.
+
+This module grades only. It grants nothing, and `pay` is still refused outright
+by `ConfirmGate.declare`. The grade is not yet fed into the refusal wording or
+the decision log.
 
 ## Self-repair and self-check
 
@@ -520,7 +647,7 @@ the helper's return instead of blocked until a manual retry.
 
 | Capability | Mika's files | Why not ported |
 | --- | --- | --- |
-| Storage glue | `core/.../adb/` identity types (`AdbIdentitySource`, `AdbKeyState`, `AdbKeyStore`, `WrappedKeyFile`), `replay/FileRouteStore.kt`, `replay/RouteStore.kt`, `proactive/NoticeJournal.kt`, `app/src/main/java/com/wangzan101/mika/record/RunStore.kt` | Not built here: our state lives server-side (the gates in `PhoneUiConfirms`, the phone registry) and the ADB key store stays app-side by design, as `third_party/mika/README.md` records. |
+| Storage glue | `core/.../adb/` identity types (`AdbIdentitySource`, `AdbKeyState`, `AdbKeyStore`, `WrappedKeyFile`), `replay/FileRouteStore.kt`, `replay/RouteStore.kt`, `proactive/NoticeJournal.kt`, `app/src/main/java/com/wangzan101/mika/record/RunStore.kt` | Route storage is built, as `server/phone-routes.ts` rather than Mika's `FileRouteStore`: per-owner folder, 0700/0600, atomic, bounded. `NoticeJournal`, `RunStore` and the ADB key store stay unported: our state lives server-side (the gates in `PhoneUiConfirms`, the phone registry), and the ADB key store stays app-side by design, as `third_party/mika/README.md` records. |
 | Model client | `core/src/main/kotlin/com/wangzan101/mika/core/agent/ModelCaller.kt`, `ModelRouter.kt` | Not built: `server/decider/` already owns every model call we make, with keys, logging, relay and fail-open. A second client on the phone would duplicate it. |
 | Android notification-format parsing | `core/src/main/kotlin/com/wangzan101/mika/core/proactive/NoticeShapes.kt` | Not built: our phone posts flat `title`/`text` through `PhoneNoticeStore`, which reads `EXTRA_TITLE`, `EXTRA_TEXT` and `EXTRA_BIG_TEXT` only. Splitting MessagingStyle conversations needs a phone-side parser we do not have. |
 | Screen port and snapshot plumbing | `core/.../uistate/ScreenPort.kt`, `ScreenSession.kt`, `AppAccessScreenPort.kt` | Not built: `PhoneUiDisplaySession`, `PhoneUiAccessibilityService.snapshot` and `PhoneUiTaskExecutor` already provide the display, the tree and the refs, with different types. |
@@ -546,7 +673,7 @@ the helper's return instead of blocked until a manual retry.
 
 ## Verification
 
-The TypeScript phone subset — 18 files, 331 tests, all passing:
+The TypeScript phone subset — 25 files, 497 tests, all passing:
 
 ```sh
 node_modules/.bin/vitest run \
@@ -555,29 +682,35 @@ node_modules/.bin/vitest run \
   server/phones/host.test.ts server/phones/jobs.test.ts \
   server/phones/owner.test.ts server/phones/registry.test.ts \
   server/phones/rpc.test.ts server/phones/sends.test.ts \
-  server/phones/tools.test.ts \
+  server/phones/steer.test.ts server/phones/tools.test.ts \
   shared/irreversible.test.ts shared/route-replay.test.ts \
+  shared/untrusted.test.ts shared/sensitive.test.ts \
+  shared/verify-grounding.test.ts \
   server/phone-guards.test.ts server/phone-notices.test.ts \
-  server/intent-gate.test.ts shared/phone-apps.test.ts \
-  server/chat-notices.test.ts
+  server/intent-gate.test.ts server/phone-risk.test.ts \
+  server/phone-routes.test.ts server/answer-verify.test.ts \
+  shared/phone-apps.test.ts server/chat-notices.test.ts
 ```
 
 Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
-`host` 15, `jobs` 18, `owner` 12, `registry` 13, `rpc` 16, `sends` 2, `tools` 6,
-`irreversible` 26, `route-replay` 45, `phone-guards` 16, `phone-notices` 54,
-`intent-gate` 23, `phone-apps` 6, `chat-notices` 12.
+`host` 25, `jobs` 18, `owner` 12, `registry` 13, `rpc` 16, `sends` 2,
+`steer` 10, `tools` 19, `irreversible` 26, `route-replay` 45, `untrusted` 6,
+`sensitive` 11, `verify-grounding` 38, `phone-guards` 16, `phone-notices` 54,
+`intent-gate` 23, `phone-risk` 25, `phone-routes` 23, `answer-verify` 30,
+`phone-apps` 6, `chat-notices` 12.
 
-The Android unit tests — 26 classes, 294 tests, all passing:
+The Android unit tests — 27 classes, 304 tests, all passing:
 
 ```sh
 cd android && ./gradlew :app:testDebugUnitTest \
   --tests "com.openmausbot.companion.phoneui.*" --offline
 ```
 
-That covers the 21 classes in
+That covers the 22 classes in
 `android/app/src/test/kotlin/com/openmausbot/companion/phoneui/` and the 5 in
 its `shell/` subdirectory. The counts that matter for this batch:
 `PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 16,
+`PhoneUiWaitTest` 10,
 `PhoneUiPacingTest` 22, `PhoneUiSelfCheckTest` 12, `PhoneUiSelfRepairTest` 17,
 `PhoneUiAccessibilityRepairTest` 16, `PhoneUiRepairLoopTest` 11,
 `PhoneUiProbesTest` 35, `PhoneUiProbesProbeTest` 16,
@@ -591,7 +724,7 @@ cd android && ./gradlew :core:test \
   --tests "com.openmausbot.companion.core.PhoneJobsTest" --offline
 ```
 
-The locale check — 16 languages, 10542 English strings:
+The locale check — 16 languages, 10543 English strings:
 
 ```sh
 pnpm i18n:check
@@ -619,6 +752,15 @@ touched by this work and fails identically, so the cause is that harness
 mismatch, not the tool list: `server/phones/rpc.test.ts` asserts
 `toolListing()` against `PHONE_TOOL_NAMES.length` and passes.
 
+Five unit tests also fail on this machine, none of them in a file this work
+touched: `scripts/testing/verification-docs.test.ts` reads
+`enterprise/server/workspace-access.ts`, and this checkout has no `enterprise/`;
+`scripts/packaged-native-modules.test.mjs` misses a `NOTICE` in its temporary
+package; `scripts/testing/duration-sequencer.test.ts` (2 tests) runs a shard
+weights file that names a test this checkout does not have;
+`server/service-cli.test.ts` expects the installed `Luna Bot.app` plist; and
+`server/testing/worker-port.test.ts` scans the same absent `enterprise/`.
+
 ## Deliberate divergences
 
 | Area | Mika | Us | Why |
@@ -635,3 +777,9 @@ mismatch, not the tool list: `server/phones/rpc.test.ts` asserts
 | `phone_wait` conditions | `appear`, `disappear`, `activity` and `stable`, each woken by the accessibility event stream and re-checked on the screen | `appear` and `disappear` poll snapshots every 150 ms up to `timeoutMs`; `activity` is not offered | Our service takes snapshots on demand and exposes no event stream, so the conditions are ported without the plumbing that woke Mika. `activity` needs an activity class name the snapshot does not carry, so it could only be faked. |
 | Route replay and editable text | Stores an element's text and hint | Never names an editable text by its text | Our observe reports a field's `text` as what was typed into it and carries no separate hint flag, so storing it would persist the person's words into the next run. Role, resource id, bounds and ordinal identify the field instead. |
 | Wireless-debugging grant | Mika's manifest declares `WRITE_SECURE_SETTINGS`, and its shell grants it whenever it can; auto-on then runs unconditionally | Off by default: a Settings switch asks for the grant, and the helper grants only that one permission, to the caller's own package | `WRITE_SECURE_SETTINGS` is not scoped to `adb_wifi_enabled`: an app holding it can write any secure or global setting. We already keep settings writes narrow (two allow-listed keys), so handing the app the broad permission has to be a decision the person makes, not a side effect of enabling phone control. |
+| Grounding relative days and arithmetic | Resolves 今天/明天/周二 against the run clock and accepts an expression's result and 约/≈ rounding | Every such value must appear literally in the evidence | A date dependency and an expression evaluator are two more things to get wrong in a check whose whole value is being cheap and unfalsifiable. A bot that cannot show the number on screen should say it could not verify, not compute a plausible one. |
+| Verifier timeout | Re-asks once with trimmed evidence and scales the budget with evidence size | One flat 60 s attempt, then `cannot_verify` | The retry doubles the cost of the one check that must never delay a reply. A timeout is a real answer: the evidence was too large or the model was slow, and the person still got the reply. |
+| Steering a phone wait | Cancels the waiting coroutine with `select` | Races the promise and leaves the job running | A phone job cannot be stopped without telling the phone to stop, and a half-run screen session is worse than an unread answer. Nothing already done is undone; only the answer is dropped. |
+| Route replacement | Replaces every route with the same template | Replaces only a copy with the same fingerprint | A different working path for the same sentence is a real alternative; replacing it would throw away the only route that worked on a different screen. `needsDecision` can ask instead. |
+| API-key shapes | Mika's own four shapes | Delegated to `redactSecretsInText`, which knows ~20 provider shapes and PEM blocks | One definition of what a credential looks like, shared with the field-level skip and every other write path. Two lists would drift. |
+| `other` irreversible kinds | Graded by payment context | Same, but a kind outside pay/order/delete/send is `unknown` until a payment context appears | `unknown` is the honest grade: `shared/irreversible.ts` has no other kinds today, so anything else means a caller passed something the gate does not classify. |

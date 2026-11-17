@@ -1267,7 +1267,7 @@
       },
       {
         "name": "PHONE_UI_WAIT",
-        "description": "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.",
+        "description": "Wait for the phone's screen to change, to stop changing, or for a text to appear or disappear, before deciding the next step. Read only.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -1275,9 +1275,16 @@
               "type": "string",
               "enum": [
                 "change",
-                "settle"
+                "settle",
+                "appear",
+                "disappear"
               ],
-              "description": "change waits for any change; settle waits for the screen to stop."
+              "description": "change waits for any change; settle waits for the screen to stop; appear waits until the text is on the screen and disappear until it is gone."
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Case-insensitive text or content description to wait for; required for appear and disappear."
             },
             "timeoutMs": {
               "type": "integer",

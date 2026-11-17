@@ -944,10 +944,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
      * would recognize a label.
      */
     private fun matches(element: PhoneUiElement, text: String?, resourceId: String?, role: String?): Boolean {
-        if (text != null) {
-            val labels = listOfNotNull(element.text, element.description)
-            if (labels.none { it.contains(text, ignoreCase = true) }) return false
-        }
+        if (text != null && !PhoneUiWait.textMatches(element, text)) return false
         if (resourceId != null && element.viewId?.contains(resourceId, ignoreCase = true) != true) return false
         if (role != null && element.className?.contains(role, ignoreCase = true) != true) return false
         return true
@@ -1455,7 +1452,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         arguments: JsonObject,
     ): PhoneToolOutcome {
         val mode = (arguments.string("mode") ?: "change").lowercase()
-        val timeout = (arguments.int("timeoutMs") ?: 2_500).coerceIn(300, 6_000).toLong()
+        val timeout = (arguments.int("timeoutMs") ?: DEFAULT_WAIT_MS).coerceIn(MIN_WAIT_MS, MAX_WAIT_MS).toLong()
         val read = { service.reading(session.displayId) }
         return when (mode) {
             "settle" -> {
@@ -1479,7 +1476,40 @@ internal class PhoneUiTaskExecutor(context: Context) {
                     shell, service, session, null,
                 )
             }
-            else -> PhoneToolOutcome.Failure("mode 只支持 change 或 settle。", CODE_UNSUPPORTED)
+            // The text conditions are polled from snapshots: this slice has no
+            // accessibility event stream to wake on, so a bounded poll is what
+            // Mika's event-driven wait becomes here. A snapshot is what carries
+            // text and content descriptions; reading() only fingerprints them.
+            // Each poll rotates the ref registry, which costs nothing extra:
+            // withScreen below takes the snapshot whose refs the answer carries.
+            // An unmet wait is a success with met=false, the way change answers
+            // changed=false at its cap.
+            "appear", "disappear" -> {
+                val text = arguments.string("text")
+                    ?: return PhoneToolOutcome.Failure("appear 和 disappear 需要 text。", CODE_UNSUPPORTED)
+                if (text.length > PhoneUiRules.MAX_QUERY_TEXT) {
+                    return PhoneToolOutcome.Failure("查询条件过长。", CODE_UNSUPPORTED)
+                }
+                val met = PhoneUiWait.await(
+                    mode = mode,
+                    text = text,
+                    timeoutMs = timeout,
+                    now = { System.currentTimeMillis() },
+                    sleep = { delay(it) },
+                    read = { service.snapshot(session.displayId)?.elements },
+                ) ?: return PhoneToolOutcome.Failure("此 Android 版本无法按显示器读取窗口。", CODE_UNSUPPORTED)
+                withScreen(
+                    PhoneToolOutcome.Success(
+                        buildJsonObject {
+                            put("met", met)
+                            put("condition", mode)
+                            put("text", text)
+                        },
+                    ),
+                    shell, service, session, null,
+                )
+            }
+            else -> PhoneToolOutcome.Failure("mode 只支持 change、settle、appear 或 disappear。", CODE_UNSUPPORTED)
         }
     }
 
@@ -1646,6 +1676,11 @@ internal class PhoneUiTaskExecutor(context: Context) {
         const val SPILL_PROBE_MS = 1_200L
         const val SPILL_POLL_MS = 150L
 
+        /** PHONE_UI_WAIT's budget: the schema's band, and the old 2.5 s when the call names none. */
+        const val MIN_WAIT_MS = 300
+        const val MAX_WAIT_MS = 6_000
+        const val DEFAULT_WAIT_MS = 2_500
+
         /** A stroke covers this share of the area it runs in; its points come from the pacing profile. */
         const val GESTURE_TRAVEL = 0.3f
         const val GESTURE_MS = 280L
@@ -1668,3 +1703,56 @@ private fun JsonObject.string(key: String): String? =
 
 private fun JsonObject.int(key: String): Int? =
     (this[key] as? JsonPrimitive)?.takeIf { it !is JsonNull }?.intOrNull
+
+/**
+ * PHONE_UI_WAIT's text conditions, `appear` and `disappear`: whether a text or
+ * content description is on the screen, or is gone from it.
+ *
+ * Mika waits on an accessibility event stream and re-checks the screen only
+ * when an event wakes it. This slice has no event stream — the service takes
+ * snapshots on demand — so the condition is polled at [POLL_MS], the same
+ * cadence the change/settle waits use, and never past [timeoutMs]. The clock
+ * and sleep are injected so the decision and the budget are pinned by JVM
+ * tests without a device.
+ *
+ * `activity` is not ported: a snapshot carries no activity class name, so a
+ * condition on one could not be observed here rather than being faked.
+ */
+internal object PhoneUiWait {
+    /** The cadence of the other screen waits; a screen is cheap to re-read, a busy loop is not. */
+    const val POLL_MS = PhoneUiStability.POLL_MS
+
+    /** The matching rule PHONE_UI_QUERY and PHONE_UI_FIND use: text or description, case-insensitive substring. */
+    fun textMatches(element: PhoneUiElement, text: String): Boolean =
+        listOfNotNull(element.text, element.description).any { it.contains(text, ignoreCase = true) }
+
+    /** Whether [mode]'s condition holds on one reading: appear when the text is there, disappear when it is not. */
+    fun isMet(elements: List<PhoneUiElement>, mode: String, text: String): Boolean =
+        elements.any { textMatches(it, text) } == (mode == "appear")
+
+    /**
+     * Poll the screen until the condition holds or the budget is spent. True
+     * when it held, false when [timeoutMs] passed without it — the same
+     * "answered, just not met" shape `change` reports as `changed=false`. Null
+     * only when the screen could not be read at all, which is a refusal rather
+     * than an unmet wait.
+     */
+    suspend fun await(
+        mode: String,
+        text: String,
+        timeoutMs: Long,
+        now: () -> Long,
+        sleep: suspend (Long) -> Unit,
+        read: () -> List<PhoneUiElement>?,
+    ): Boolean? {
+        val deadline = now() + timeoutMs
+        while (true) {
+            val elements = read() ?: return null
+            if (isMet(elements, mode, text)) return true
+            if (now() >= deadline) return false
+            // Never zero: the deadline check above already returned, so there
+            // is at least one millisecond left to wait out.
+            sleep(minOf(POLL_MS, (deadline - now()).coerceAtLeast(1)))
+        }
+    }
+}
