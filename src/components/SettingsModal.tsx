@@ -70,6 +70,7 @@ import { NotificationRows } from "./NotificationSettingsRows";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { Select } from "./Select";
 import { SavedStepsRow } from "./SavedStepsRow";
+import { PhoneVerifyRow } from "./PhoneVerifyRow";
 import { BrowserProfilesRow, ColorUserBubblesRow, AdvancedModeRow, ExperimentalFeaturesRow, LanguageRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, FollowUpRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
 import { SimpleAdvancedPage, SimpleAiPage, SimpleBillingPage, SimpleComputerPage, SimpleGeneralPage, SimpleTeamPage, SimpleUpdatesPage, type Disclose, type SimpleDisclosureId } from "./SettingsSimplePages";
 import type { SettingsRowEntry } from "./settings/rows";
@@ -360,6 +361,7 @@ function SettingsDialog() {
               <AutomaticRecoverySettings />
               <ThreadCleanupSettings />
               <SavedStepsRow />
+              <PhoneVerifyRow />
             </SettingsGroupBlock>
           </>
         );

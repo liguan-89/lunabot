@@ -4,10 +4,14 @@ import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // write waits on Luna Bot's outgoing-action card, because it reaches every app on the phone, and then on the narrower
 // gate in confirm.ts when the control's own words name a pay, order, delete or send. A bot that keeps doing the same
 // thing on a screen that does not move is nudged once and then refused, so a loop ends instead of running out the turn.
-import { PHONE_MCP_SERVER, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
+import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
+import { effectiveWrite, isReplayablePhoneTool, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
+import { hit } from "../../shared/sensitive.ts";
+import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type VerifyMessage } from "../answer-verify.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
+import { elementAtPoint, elementByRef, screenFromAnswer, type PhoneRoutes, type RouteTurn } from "../phone-routes.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { BotRecord } from "../store.ts";
 import type { PromptPart } from "../system-prompt.ts";
@@ -17,9 +21,197 @@ import { PHONE_NO_PHONE_TEXT, PHONE_PLACE_PROMPT } from "./instructions.ts";
 import { PHONE_JOB_TIMEOUT_MS, PHONE_SEND_TIMEOUT_MS, type PhoneJobOutcome, type PhoneJobs } from "./jobs.ts";
 import type { PhoneRecord, PhoneRegistry } from "./registry.ts";
 import { phoneRpc, type PhoneRefusal, type PhoneTarget, type PhoneToolsList } from "./rpc.ts";
+import { SKIPPED_FOR_NEW_MESSAGE, type PhoneSteer } from "./steer.ts";
 import { PHONE_TOOLS, type PhoneToolResult } from "./tools.ts";
 
-type TurnCapability = { botId: string; threadId: string; generation: string };
+export type TurnCapability = { botId: string; threadId: string; generation: string };
+
+/** One phone call, as the turn's ledger keeps it: what it read, on which app, and whether it moved anything. */
+export interface PhoneEvidence {
+  /** The phone tool this was, by its own name. */
+  tool: string;
+  /** The screen the answer carried, one line per element: what the bot actually read. Empty when it carried none. */
+  text: string;
+  /** The app in front, when the answer named it. */
+  where: string | null;
+  /** The call's arguments, so a route step knows what it acted on. */
+  args: Record<string, unknown>;
+  /** The screen the call was made against, so a tap's ref resolves to the element it came from. */
+  before: ScreenSnapshot | null;
+  /** The screen the answer carried, for the route recorder. */
+  screen: ScreenSnapshot | null;
+  /** The call's result, as the route recorder judges whether it did anything. */
+  result: Record<string, unknown>;
+  /** The call ran on the phone. A refused or skipped call did not, and is still evidence: nothing was read. */
+  ok: boolean;
+  /** The screen moved, an app opened or text was typed: a step a route could replay. */
+  changed: boolean;
+  /** A screen write, a send or another control: the turn is judged as irreversible. */
+  irreversible: boolean;
+  /** A batch that stopped before its last step, or a screen the phone shielded: the run cannot be learned. */
+  incomplete: boolean;
+  protected: boolean;
+  at: number;
+}
+
+/** How many calls one turn's ledger keeps, how many characters of screen text, how many turns and phones it tracks; the
+ * oldest is dropped past each, so a long-lived server does not grow without bound. */
+export const MAX_EVIDENCE_PER_TURN = 64;
+export const MAX_EVIDENCE_CHARS = 24_000;
+export const MAX_EVIDENCE_TURNS = 64;
+export const MAX_LAST_SCREENS = 200;
+
+/** The pair and the turn, as one map key: a new turn in one conversation never inherits the last one's screens. */
+function evidenceKey(turn: TurnCapability): string {
+  return `${turn.threadId}\u0000${turn.botId}\u0000${turn.generation}`;
+}
+
+function evict<K, V>(map: Map<K, V>, max: number): void {
+  for (const key of map.keys()) {
+    if (map.size <= max) break;
+    map.delete(key);
+  }
+}
+
+const recordOf = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+/**
+ * A field or line whose own wording says it holds a secret: a password box, a one-time code or a pairing code, in either
+ * language the interface may be in. This mirrors the rule server/phone-routes.ts keeps private to the recorder (its
+ * `SECRET_FIELD` is not exported, and nothing was added there), so the ledger and the recorder agree on what a secret
+ * looks like. `hit()` from shared/sensitive.ts covers the rest: a typed password, a code with its keyword.
+ */
+const SECRET_LINE = /(password|passcode|pass[-_ ]?code|otp|one[-_ ]?time|verification code|pairing code|\bpin\b|密码|口令|验证码|校验码|动态码|配对码)/i;
+
+/**
+ * The lines one screen reads as for the ledger. An editable element's `text` is what was typed into it rather than a
+ * label, so only its `description` — the interface's own hint — is kept, the same distinction server/phone-routes.ts
+ * draws. A password box, and any line the recorder's secret rule or the shared sensitive filter calls a secret, is
+ * dropped whole: a pairing code must never reach the model, the decision log or a route file.
+ */
+function readableLines(screen: ScreenSnapshot): string[] {
+  const lines: string[] = [];
+  for (const element of screen.elements) {
+    if (element.password === true) continue;
+    const said = (element.editable === true ? element.description : element.text || element.description) ?? "";
+    const line = said.trim().slice(0, 400);
+    if (line === "" || SECRET_LINE.test(`${line} ${element.viewId ?? ""}`) || hit(line) !== null) continue;
+    lines.push(line);
+  }
+  return lines;
+}
+
+/** The element a call acted on, from the screen it was made against: a ref, or a point a coordinate tap names. */
+function targetOf(tool: string, args: Record<string, unknown>, screen: ScreenSnapshot | null): ScreenElement | null {
+  if (!screen) return null;
+  return tool === "PHONE_UI_TAP_AT" ? elementAtPoint(screen.elements, args.x, args.y) : elementByRef(screen.elements, args.ref);
+}
+
+/** A run that stopped at a step that failed, or a screen the phone shielded: neither can be recorded or trusted. */
+function runCutShort(tool: string, result: Record<string, unknown>): boolean {
+  return tool === "PHONE_UI_RUN" && typeof result.stopped === "string" && result.stopped !== "done";
+}
+
+function shielded(result: Record<string, unknown>): boolean {
+  return result.protected === true || result.state === "protected";
+}
+
+/** Does this answer show the same screen the call was made against? Refs are left out: the phone issues new ones for
+ * every snapshot, so a screen that did not move must read the same. */
+function sameScreen(before: ScreenSnapshot | null, after: ScreenSnapshot): boolean {
+  if (!before || (before.packageName ?? null) !== (after.packageName ?? null)) return false;
+  if (before.elements.length !== after.elements.length) return false;
+  return before.elements.every((element, index) => {
+    const other = after.elements[index]!;
+    return element.text === other.text && element.description === other.description
+      && (element.viewId ?? null) === (other.viewId ?? null)
+      && JSON.stringify(element.bounds ?? null) === JSON.stringify(other.bounds ?? null);
+  });
+}
+
+/**
+ * The per-turn phone ledger: what each call read, the last screen each phone showed, and the evidence handed on when
+ * the turn ends. It is the one piece the answer check and the route recorder both read, so neither re-parses answers.
+ */
+class PhoneEvidenceLedger {
+  private readonly turns = new Map<string, PhoneEvidence[]>();
+  /** The newest turn's key per conversation and bot, so a caller that has lost the generation still finds its evidence. */
+  private readonly latest = new Map<string, string>();
+  /** Turns whose oldest entries were dropped, or whose capability ended mid-run: the run is not whole, so no route is
+   * cut from it. The evidence is still handed over for the answer check. */
+  private readonly notWhole = new Set<string>();
+  private readonly screens = new Map<string, ScreenSnapshot>();
+
+  /** The turn's key: its own generation, or, when the caller has lost it, the newest one this conversation and bot had.
+   * A named generation is never substituted, so one turn never inherits another's evidence. */
+  private resolve(turn: TurnCapability): string | null {
+    const exact = evidenceKey(turn);
+    if (this.turns.has(exact)) return exact;
+    if (turn.generation !== "") return null;
+    const newest = this.latest.get(`${turn.threadId}\u0000${turn.botId}`);
+    return newest && this.turns.has(newest) ? newest : null;
+  }
+
+  evidence(turn: TurnCapability): readonly PhoneEvidence[] {
+    const key = this.resolve(turn);
+    return key === null ? [] : this.turns.get(key) ?? [];
+  }
+
+  /** The generation the turn's calls were actually recorded under, for a caller that has lost track of it. */
+  generationOf(turn: TurnCapability): string {
+    const key = this.resolve(turn);
+    return key === null ? turn.generation : key.slice(key.lastIndexOf("\u0000") + 1);
+  }
+
+  /** The turn's evidence, handed over once; the ledger forgets it as it answers. */
+  take(turn: TurnCapability): { evidence: readonly PhoneEvidence[]; complete: boolean } {
+    const key = this.resolve(turn);
+    if (key === null) return { evidence: [], complete: true };
+    const held = this.turns.get(key) ?? [];
+    this.turns.delete(key);
+    for (const [pair, newest] of this.latest) if (newest === key) this.latest.delete(pair);
+    return { evidence: held, complete: !this.notWhole.delete(key) };
+  }
+
+  /** The screen one phone last showed, or null: the screen a tap's ref was issued for. */
+  lastScreen(phoneKey: string): ScreenSnapshot | null {
+    return this.screens.get(phoneKey) ?? null;
+  }
+
+  /** Remember the screen an answer left, so the next call's ref is resolved against it. */
+  remember(phoneKey: string, screen: ScreenSnapshot): void {
+    this.screens.delete(phoneKey);
+    this.screens.set(phoneKey, screen);
+    evict(this.screens, MAX_LAST_SCREENS);
+  }
+
+  note(turn: TurnCapability, entry: PhoneEvidence): void {
+    const key = evidenceKey(turn);
+    const entries = this.turns.get(key) ?? [];
+    entries.push(entry);
+    // A turn past either ceiling lost its own beginning, so it is evidence of what was read but not a whole run.
+    if (entries.length > MAX_EVIDENCE_PER_TURN) {
+      entries.shift();
+      this.notWhole.add(key);
+    }
+    let chars = entries.reduce((sum, item) => sum + item.text.length, 0);
+    while (entries.length > 1 && chars > MAX_EVIDENCE_CHARS) {
+      chars -= entries.shift()!.text.length;
+      this.notWhole.add(key);
+    }
+    this.turns.delete(key);
+    this.turns.set(key, entries);
+    this.latest.delete(`${turn.threadId}\u0000${turn.botId}`);
+    this.latest.set(`${turn.threadId}\u0000${turn.botId}`, key);
+    evict(this.latest, MAX_EVIDENCE_TURNS);
+    for (const oldest of this.turns.keys()) {
+      if (this.turns.size <= MAX_EVIDENCE_TURNS) break;
+      this.turns.delete(oldest);
+      this.notWhole.delete(oldest);
+    }
+  }
+}
 
 export interface PhoneHostDeps {
   registry: PhoneRegistry;
@@ -56,6 +248,21 @@ export interface PhoneHostDeps {
     | { ok: true; attachment: { kind: "image" | "file"; path: string; mime: string; name?: string } }
     | { ok: false; text: string }
   >;
+  /**
+   * The person's new messages, so a phone job being waited on stops waiting. Absent
+   * means off: every job waits out its timeout exactly as before.
+   */
+  steer?: PhoneSteer;
+  /**
+   * The route recorder. Absent means nothing is recorded and no route is offered,
+   * which is what a test that does not care about routes gets.
+   */
+  routes?: PhoneRoutes;
+  /**
+   * The answer check's mode, read at call time so a Settings change wins over
+   * the next turn. Absent is `off`: nothing is checked and no model call is made.
+   */
+  verifyMode?(): PhoneVerifyMode;
 }
 
 export interface PhoneOutboundHoldInput {
@@ -89,6 +296,116 @@ export interface PhoneHost {
   handle(body: unknown, capability: TurnCapability, assertActive: () => void): Promise<PhoneToolsList | PhoneToolResult>;
   /** The PHONE_* names for the per-bot tool grants picker (/api/connectors/tools); null when no phone is registered. */
   toolListing(): { phone: Array<{ name: string; description: string }> } | null;
+  /** What this turn's phone calls read, oldest first. Empty once `endTurn` has handed it over. */
+  evidenceFor(turn: TurnCapability): readonly PhoneEvidence[];
+  /** The screen one phone last showed, so a tap's ref resolves to the element it came from. */
+  lastScreen(phoneKey: string): ScreenSnapshot | null;
+  /** The answer check's mode as it stands now: the caller reads it when a turn ends, so a Settings change wins. */
+  verifyMode(): PhoneVerifyMode;
+  /**
+   * The turn is over: learn its route when it earned one, hand its evidence back, and forget it. `goal` is the person's
+   * request as typed, `ownerKey` whose routes it may extend (null learns nothing), and `stopped` is a turn the person
+   * stopped, which is never learned. Never throws.
+   */
+  endTurn(turn: TurnCapability, input: PhoneTurnEnd): PhoneTurnEnded;
+}
+
+/** What the server can honestly say about a turn that has just ended, for the route recorder. */
+export interface PhoneTurnEnd {
+  /** The person's request, as typed: a route's template is cut from it. */
+  goal: string;
+  /** The owner whose routes this turn may extend; absent or null learns nothing. */
+  ownerKey?: string | null;
+  /** The person stopped the turn, so nothing about it is worth learning. */
+  stopped?: boolean;
+  /** The turn's own reason not to learn: a takeover, a handoff, an automation. */
+  spoiled?: boolean;
+  /** A route is rebuilt from a persisted run, so there must be one; defaults to the turn's generation. */
+  runId?: string | null;
+}
+
+/** A route learned from a turn: its file name and the request it answers. */
+export type RouteRecorded = { id: string; template: string };
+
+/** What a finished turn leaves behind for the caller: the evidence it read, and the route it earned, if any. */
+export interface PhoneTurnEnded {
+  evidence: readonly PhoneEvidence[];
+  route: RouteRecorded | null;
+  /** The request the evidence was read for, so the checker need not look it up again. */
+  goal: string;
+}
+
+/** `off` does nothing; `log` writes one decision row and never touches the reply. A mode that edits the settled reply
+ * needs a notice mechanism this server does not have for a finished turn, so `warn` is not offered.
+ *
+ * The mode is the Settings switch `features.phoneVerify`, read at call time through `PhoneHostDeps.verifyMode`: absent
+ * is `off`, so a server that says nothing makes no model call. `log` writes one decision row per turn that had screen
+ * evidence, never a message the person would see. */
+export type PhoneVerifyMode = "off" | "log";
+
+/** What the answer check needs from the caller: the turn it belongs to, the settled reply, and one model call. */
+export interface PhoneVerifyOptions {
+  dataDir: string;
+  threadId: string;
+  /** Absent is `off`: nothing is checked unless a caller says so. */
+  mode?: PhoneVerifyMode;
+  /** The person's request, as typed. */
+  goal: string;
+  /** The reply as it was written to the conversation. */
+  reply: string;
+  evidence: readonly PhoneEvidence[];
+  /** One model call. Absent means this engine cannot make one, so nothing is checked and nothing is logged. */
+  complete?: (messages: readonly VerifyMessage[]) => Promise<string>;
+  timeoutMs?: number;
+}
+
+/** The messages as one prompt, for an engine whose one-off call takes text rather than a chat. */
+export function verifyPrompt(messages: readonly VerifyMessage[]): string {
+  return messages.map((message) => (typeof message.content === "string"
+    ? message.content
+    : message.content.map((part) => (part.type === "text" ? part.text : "")).join("\n"))).join("\n\n");
+}
+
+/**
+ * Check a settled reply against the screens the turn read. The verdict, the criteria it did not meet and the facts no
+ * screen held go to the decision log; the screens themselves never do. It never throws, never blocks and never edits
+ * the reply: the caller fires it after the turn has settled.
+ */
+export async function verifyPhoneTurn(options: PhoneVerifyOptions): Promise<Verification | null> {
+  if ((options.mode ?? "off") === "off" || !options.complete) return null;
+  try {
+    // Only what was actually read: a refused call read nothing, and a screen that carried no readable line is no evidence.
+    const evidence: VerifyEvidence[] = [];
+    options.evidence.forEach((entry, index) => {
+      if (!entry.ok || entry.text.trim() === "") return;
+      evidence.push({ text: entry.text, step: index + 1, kind: "screen", ...(entry.where ? { where: entry.where } : {}) });
+    });
+    if (evidence.length === 0) return null;
+    // A turn that wrote or sent anything is judged as irreversible: its "done" is worth less than a read's.
+    const irreversible = options.evidence.some((entry) => entry.ok && entry.irreversible);
+    const verification = await verifyAnswer(
+      { complete: options.complete, ...(options.timeoutMs !== undefined ? { timeoutMs: options.timeoutMs } : {}) },
+      { goal: options.goal, criteria: criteriaFor(options.goal, irreversible), answer: options.reply, evidence },
+    );
+    const unmet = verification.checks.filter((check) => check.status !== "met").map((check) => check.criterion);
+    const detail = [
+      `phone-verify:${verification.verdict}`,
+      ...(unmet.length ? [`unmet: ${unmet.join(" | ")}`] : []),
+      ...(verification.notFound.length ? [`not found: ${verification.notFound.join(" | ")}`] : []),
+    ].join("; ").slice(0, 400);
+    // No botId: the audit log keeps the verdict, and the bot's activity does not grow a tool that never ran.
+    appendDecision(options.dataDir, {
+      threadId: options.threadId,
+      tool: "phone.verify",
+      summary: `phone answer ${verification.verdict}`,
+      decision: verification.verdict === "pass" ? "review-would-approve" : "review-would-deny",
+      source: "model",
+      rule: detail,
+    });
+    return verification;
+  } catch {
+    return null;
+  }
 }
 
 const NOT_OWNER_TEXT = "This conversation can't use a phone: only the owner's own turns can.";
@@ -121,6 +438,10 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
   const { registry, jobs } = deps;
   /** The per-turn approvals of irreversible screen controls, and the last screen each phone showed. */
   const confirms = deps.confirm ?? new PhoneConfirms();
+  /** What each turn's calls read, and the last screen each phone showed: the evidence both later pieces read. */
+  const ledger = new PhoneEvidenceLedger();
+  /** The route recorder, when the server wired one; recording is on there and reuse is not offered unless it is. */
+  const routes = deps.routes;
   /** The owner's phones that allow at least one app, in default order. */
   const phonesOf = (owner: string) => registry.forOwner(owner)
     .filter((phone) => Object.values(phone.registration.capabilities).some(Boolean))
@@ -134,6 +455,43 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
     return phonesOf(owner).some((phone) => granted.some((cap) => allows(phone, cap)));
   };
   const prompt = (bot: PhoneBot, owner: string | null) => (owner === null ? "" : phoneSystemPrompt(bot, phonesOf(owner).map(({ registration }) => registration)));
+  /**
+   * One answered call, as the ledger keeps it: the screen it read, the screen it was made against, and whether it moved
+   * anything. A refused call is kept with `ok: false` and no text, so the answer check knows nothing was read and the
+   * route recorder never mistakes it for a step. Nothing here throws: a call is never affected by its own bookkeeping.
+   */
+  const noteEvidence = (
+    turn: TurnCapability, phoneKey: string, name: string, args: Record<string, unknown>,
+    before: ScreenSnapshot | null, outcome: PhoneJobOutcome,
+  ): void => {
+    try {
+      const result = outcome.ok ? recordOf(outcome.result) ?? {} : {};
+      const screen = outcome.ok ? screenFromAnswer(outcome.result) : null;
+      // A write's answer is the screen after it, so a screen that differs from the one before is the change a route
+      // replays; a run's answer is the screen it ended on, which is the same comparison.
+      const moved = outcome.ok && isPhoneWrite(name) && screen !== null && !sameScreen(before, screen);
+      ledger.note(turn, {
+        tool: name,
+        text: screen ? readableLines(screen).join("\n") : "",
+        where: screen?.packageName ?? null,
+        before,
+        screen,
+        args,
+        // A screen the phone left different from the one it was shown is the evidence a route replays; the phone's own
+        // answer need not spell `changed` out for a tap that plainly moved.
+        result: moved ? { ...result, changed: true } : result,
+        ok: outcome.ok,
+        changed: outcome.ok && (moved || effectiveWrite(name, result)),
+        irreversible: isPhoneWrite(name),
+        incomplete: outcome.ok && runCutShort(name, result),
+        protected: outcome.ok && shielded(result),
+        at: Date.now(),
+      });
+      if (screen) ledger.remember(phoneKey, screen);
+    } catch {
+      // A ledger that cannot keep one call must not affect the call.
+    }
+  };
   return {
     mounts,
     integration(bot, owner, mint, harnessUrl) {
@@ -152,6 +510,52 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
     withheld: (bot, owner) => (owner !== null && mounts(bot, owner) ? phoneWithheldPrompt(bot, phonesOf(owner).map(({ registration }) => registration)) : ""),
     confirm: confirms,
     toolListing: () => (registry.list(null, () => false).length === 0 ? null : { phone: PHONE_TOOLS.map(({ name, description }) => ({ name, description })) }),
+    evidenceFor: (turn) => ledger.evidence(turn),
+    lastScreen: (phoneKey) => ledger.lastScreen(phoneKey),
+    /** Read on each call rather than captured, so a Settings change reaches the next turn. */
+    verifyMode: () => deps.verifyMode?.() ?? "off",
+    /**
+     * The turn is over. Its calls are offered to the route recorder one at a time, and a route is kept only when the
+     * turn ended without a stop and at least one successful screen-changing write moved the screen: anything else is
+     * not learnable, so nothing is written. The evidence is handed over either way, and never kept afterwards.
+     */
+    endTurn(turn, input) {
+      // The generation the calls were recorded under: a caller that has already cleared the turn's own still finds them.
+      const generation = ledger.generationOf(turn);
+      const { evidence, complete } = ledger.take(turn);
+      const ended: PhoneTurnEnded = { evidence, route: null, goal: input.goal };
+      const ownerKey = input.ownerKey ?? null;
+      if (!routes || ownerKey === null || evidence.length === 0 || !complete) return ended;
+      try {
+        const routeTurn: RouteTurn = {
+          ownerKey, threadId: turn.threadId, botId: turn.botId, generation,
+          goal: input.goal, runId: input.runId ?? generation,
+        };
+        for (const entry of evidence) {
+          // A refused or skipped call never ran, so it is evidence of what the turn saw, never a step of what it did.
+          if (!entry.ok) continue;
+          routes.note(routeTurn, {
+            tool: entry.tool,
+            args: entry.args,
+            target: targetOf(entry.tool, entry.args, entry.before),
+            screen: entry.before,
+            after: entry.screen,
+            result: entry.result,
+            incomplete: entry.incomplete,
+            protected: entry.protected,
+          });
+        }
+        const moved = evidence.some((entry) => entry.ok && entry.changed && isReplayablePhoneTool(entry.tool));
+        const stopped = input.stopped === true;
+        const route = routes.finish(routeTurn, {
+          outcome: !stopped && !input.spoiled && moved ? "done" : "partial",
+          spoiled: stopped || input.spoiled === true,
+        });
+        return { ...ended, route: route ? { id: route.id, template: route.template } : null };
+      } catch {
+        return ended;
+      }
+    },
     async handle(body, capability, assertActive) {
       const turn = { threadId: capability.threadId, botId: capability.botId, generation: capability.generation };
       // A turn that the server says is no longer live has no run left to guard: its loop state goes with it, so the next
@@ -197,10 +601,18 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
         },
         run: async (phone, name, args): Promise<PhoneJobOutcome> => {
           const owner = deps.turnOwner(capability);
+          // The screen the call is about to be made against: a tap's ref names an element on it, so it is resolved here
+          // before the phone answers and moves the screen on.
+          const before = ledger.lastScreen(phone.key);
+          /** A call this host refused or skipped: nothing ran, and nothing was read, but it is still what the turn saw. */
+          const refuse = (outcome: PhoneJobOutcome): PhoneJobOutcome => {
+            noteEvidence(turn, phone.key, name, args, before, outcome);
+            return outcome;
+          };
           // A bot looping on a phone is caught before the card asks the person anything: the same action on a screen that
           // did not move earns a nudge in the answer, and then a refusal, so a stuck task ends instead of running on.
           const advice = isPhoneUiWrite(name) ? confirms.advise(turn, phone.key, name, args) : { result: "proceed" as const };
-          if (advice.result === "stop") return { ok: false, code: "denied", error: advice.reason };
+          if (advice.result === "stop") return refuse({ ok: false, code: "denied", error: advice.reason });
           const active = () => {
             if (!deps.active(capability) || owner === null || deps.turnOwner(capability) !== owner) return false;
             const bot = deps.bot(capability.botId);
@@ -212,9 +624,9 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           // itself skips the card at Full access, exactly as a send does.
           if (isPhoneUiWrite(name)) {
             const bot = deps.bot(capability.botId);
-            if (!bot) return { ok: false, code: "denied", error: GONE_TEXT };
+            if (!bot) return refuse({ ok: false, code: "denied", error: GONE_TEXT });
             const hold = deps.holdOutbound;
-            if (!hold) return { ok: false, code: "denied", error: "This server cannot ask for approval, so it cannot control a phone screen." };
+            if (!hold) return refuse({ ok: false, code: "denied", error: "This server cannot ask for approval, so it cannot control a phone screen." });
             const held = await hold({
               bot,
               threadId: capability.threadId,
@@ -222,22 +634,28 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
               fullAccess: (deps.approvalMode?.(bot.id, capability.threadId) ?? "ask") === "full",
               active,
             });
-            if (!held.ok) return { ok: false, code: "denied", error: held.text };
+            if (!held.ok) return refuse({ ok: false, code: "denied", error: held.text });
             // The person may have taken the turn back while the card waited.
-            if (!active()) return { ok: false, code: "denied", error: GONE_TEXT };
+            if (!active()) return refuse({ ok: false, code: "denied", error: GONE_TEXT });
           }
           // A second, narrower gate: the card above approves the tool call, so it is also the person's approval of the
           // control, once and for one action. A run that hides a control in its steps is refused instead.
           const approval = isPhoneUiWrite(name) ? confirms.approveCard(turn, phone.key, name, args) : { result: "approved" as const };
-          if (approval.result === "refused") return { ok: false, code: "denied", error: approval.reason };
+          if (approval.result === "refused") return refuse({ ok: false, code: "denied", error: approval.reason });
           const check = isPhoneUiWrite(name) ? confirms.check(turn, phone.key, name, args) : { result: "proceed" as const };
-          if (check.result === "refused") return { ok: false, code: "denied", error: check.reason };
-          const outcome = await jobs.request(phone.key, name, args, {
+          if (check.result === "refused") return refuse({ ok: false, code: "denied", error: check.reason });
+          const job = jobs.request(phone.key, name, args, {
             // A UI control keeps the short job timeout: it already waited on
             // the person's approval above, not on a Send tap on the phone.
             active, timeoutMs: phoneToolSends(name) ? PHONE_SEND_TIMEOUT_MS : PHONE_JOB_TIMEOUT_MS,
             offlineText: `${phone.name} is offline. Open the Luna Bot app on it.`, online: () => registry.online(phone.key),
           });
+          // The person's new message ends the wait, not the job: it may already have run on the phone, so it is left to
+          // finish and only its answer goes unread. Nothing here was performed differently, so the loop guard and the
+          // gate stay as they are and the turn goes on to read what they said.
+          const raced = deps.steer ? await deps.steer.race(turn, turn.generation, job) : { kind: "done" as const, value: await job };
+          if (raced.kind === "steered") return refuse({ ok: false, error: SKIPPED_FOR_NEW_MESSAGE });
+          const outcome = raced.value;
           if (outcome.ok) registry.used(phone.key);
           // The answer's screen is recorded first, so the loop guard reads the screen the answer left, then the call
           // joins that guard's history. A read that took a snapshot moves the guard's trail along the same way.
@@ -250,6 +668,7 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
           // A turn that ended while the job waited, or a phone dropped while it did, has no run left to guard: the next
           // turn starts clean. A turn that outlives this call keeps its guard, and a new generation starts fresh anyway.
           if ((!outcome.ok && outcome.code === "turn_ended") || !registry.get(phone.key)) confirms.resetGuard(turn);
+          noteEvidence(turn, phone.key, name, args, before, outcome);
           return advice.result === "warn" ? withNudge(outcome, advice.nudge) : outcome;
         },
         onWrite: (record) => {

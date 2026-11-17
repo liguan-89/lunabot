@@ -2,6 +2,7 @@
 import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
+import { hit, SENSITIVE_KIND_LABELS } from "../shared/sensitive.ts";
 import { writeFileAtomic } from "./atomic.ts";
 import { alwaysCore, isExpired, isMemoryDate, parseMemoryEntries, untilMark, withoutExpired, withoutSuperseded, type MemoryEntryLine } from "./memory-entries.ts";
 import { parseTopicHeader, readTopicHead, renderTopicIndex } from "./memory-topics.ts";
@@ -352,6 +353,13 @@ export function updateMemory(botId: string, update: MemoryUpdate, opts: MemoryUp
   }
   const entryOpts: MemoryUpdateOptions = update.until ? { ...opts, until: update.until } : opts;
   const text = update.text === undefined ? undefined : redactSecretsInText(update.text);
+  // The gate reads the text after the mask has run: a credential shape is already gone, and what is left is what
+  // masking cannot make safe (a password, a one-time code, an ID or card number). Refused before any file is touched,
+  // and the reason names the kind alone — the matched text never reaches the error or a log.
+  const kind = text === undefined ? null : hit(text);
+  if (kind) {
+    return { ok: false, code: "invalid", error: `Memory never keeps ${SENSITIVE_KIND_LABELS[kind]}: save the fact without the value, or keep it in the conversation.` };
+  }
   const dir = ensureWorkspace(botId);
   // Not readMemoryFile's fallback: a failed read must never become an overwrite of old notes.
   const raw = readMemoryText(join(dir, "MEMORY.md"));
@@ -460,10 +468,17 @@ export function appendMemoryLog(botId: string, text: string, opts: MemoryUpdateO
   if (typeof text !== "string" || !text.trim()) {
     return { ok: false, code: "invalid", error: "memory_log needs the text of what happened." };
   }
+  // A log line is memory too, and it outlives the turn: the same gate as updateMemory, naming the kind only.
+  // Read after the mask, so a credential shape is scrubbed as before and only what masking cannot save is refused.
+  const masked = redactSecretsInText(text);
+  const kind = hit(masked);
+  if (kind) {
+    return { ok: false, code: "invalid", error: `A log line never keeps ${SENSITIVE_KIND_LABELS[kind]}: say what happened without the value.` };
+  }
   const now = opts.now ?? new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const source = cleanSource(opts.source);
-  const line = `- ${pad(now.getHours())}:${pad(now.getMinutes())}${SEP}${source ? `from ${source}${SEP}` : ""}${normaliseEntryText(redactSecretsInText(text))}`;
+  const line = `- ${pad(now.getHours())}:${pad(now.getMinutes())}${SEP}${source ? `from ${source}${SEP}` : ""}${normaliseEntryText(masked)}`;
   const dir = join(ensureWorkspace(botId), "memory", MEMORY_LOG_DIR);
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   const relativePath = memoryLogPath(now);

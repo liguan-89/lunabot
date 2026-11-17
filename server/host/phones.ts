@@ -10,11 +10,13 @@ import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
-import { createPhoneHost, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput } from "../phones/host.ts";
+import { createPhoneHost, verifyPhoneTurn, verifyPrompt, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput, type PhoneTurnEnd, type PhoneTurnEnded } from "../phones/host.ts";
 import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
 import { createPhoneSends } from "../phones/sends.ts";
+import { PhoneSteer } from "../phones/steer.ts";
+import { PhoneRoutes } from "../phone-routes.ts";
 import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
@@ -76,6 +78,13 @@ export interface PhonesDeps {
   holdPhoneOutbound?(input: PhoneOutboundHoldInput): Promise<PhoneOutboundHoldAnswer>;
   /** The turn's effective approval mode, read at call time; absent is `ask`, so every screen write waits. */
   approvalMode?(botId: string, threadId: string): string;
+  /**
+   * The answer check's one model call, per bot, as a plain one-off text call; null when its engine cannot make one.
+   * Only called when the check is on; the mode itself lives beside the check in server/phones/host.ts.
+   */
+  verify?(botId: string): ((prompt: string) => Promise<string>) | null;
+  /** The check's mode, read at call time from Settings; absent is `off`, so nothing is checked. */
+  verifyMode?: () => "off" | "log";
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -85,6 +94,10 @@ export function createPhones(deps: PhonesDeps) {
   const registry = new PhoneRegistry(join(deps.dataDir, "phones.json"));
   const sends = createPhoneSends();
   const jobs = new PhoneJobs((phone, id) => deps.nudge({ kind: "device.job", phone, id }));
+  /** A person's mid-turn words stop a job being waited on; the job itself keeps running on the phone. */
+  const steer = new PhoneSteer();
+  /** The routes a turn's phone calls walked: recorded on by default, offered for reuse only where a caller asks. */
+  const phoneRoutes = new PhoneRoutes({ root: join(deps.dataDir, "phone-routes"), enabled: true });
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
     try { registry.remove(key); } catch {}
@@ -148,11 +161,16 @@ export function createPhones(deps: PhonesDeps) {
     holdOutbound: deps.holdPhoneOutbound,
     approvalMode: deps.approvalMode,
     saveAttachment: savePhoneAttachment,
+    steer,
+    routes: phoneRoutes,
+    verifyMode: deps.verifyMode ?? (() => "off"),
   });
 
   return {
     routineAuthors,
     fromPhone,
+    steer,
+    phoneRoutes,
     noteSend: (sendId: string) => sends.note(sendId),
     /** A fresh send id, known as the phone's when one of the owner's registered phones made the send. */
     sendIdFor(auth: RequestAuth): string {
@@ -184,6 +202,41 @@ export function createPhones(deps: PhonesDeps) {
     },
     handle: host.handle,
     toolListing: host.toolListing,
+    /** What this turn's phone calls read, for the answer check at turn end. */
+    evidenceFor: host.evidenceFor,
+    /**
+     * The turn is over: learn its route when it earned one and hand its evidence back. Answers what the turn left
+     * behind, so the caller can check the reply and log the route; never throws.
+     */
+    endTurn: (turn: Turn, input: PhoneTurnEnd): PhoneTurnEnded => {
+      // The owner is only worked out when there is something to learn, since that reads the thread's messages.
+      const ownerKey = input.ownerKey ?? (host.evidenceFor(turn).length ? turnOwner(turn) : null);
+      return host.endTurn(turn, { ...input, ownerKey });
+    },
+    /**
+     * The turn is over, for a caller that has only the bot and the settled reply: learn the route when it earned one,
+     * and check the reply against the same evidence when the check is on. Fire-and-forget, so nothing here delays a
+     * reply or throws; the goal comes from the thread's latest direct request, and only the person's own line counts.
+     */
+    turnEnded(turn: Turn, input: { reply: string; stopped: boolean }): void {
+      if (!store.bot(turn.botId)) return;
+      const request = deps.request(turn.threadId);
+      const goal = request?.messageId
+        ? store.messagesFor(turn.threadId).find((message) => message.id === request.messageId)?.text ?? "" : "";
+      // A routine's run, a handoff and an unattended wake are nobody's own line: their calls are evidence, not a route.
+      const personLine = request !== undefined && request.automation === undefined && request.origin?.kind === "user";
+      const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine });
+      // The mode is asked for now, not captured at start-up: turning the switch on reaches the next turn that ends.
+      const mode = host.verifyMode();
+      const complete = mode === "off" || input.stopped || input.reply.trim() === "" ? null : deps.verify?.(turn.botId) ?? null;
+      if (!complete) return;
+      void verifyPhoneTurn({ dataDir: deps.dataDir, threadId: turn.threadId, mode, goal, reply: input.reply, evidence: ended.evidence, complete: async (messages) => complete(verifyPrompt(messages)) }).catch(() => {});
+    },
+    /**
+     * The routes that fit a request, best first. Exposed for a later prompt part; nothing injects them yet, because a
+     * bot told about a route would start trusting one before any replay exists to run it.
+     */
+    matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
     routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => smsHandler?.(key, event) }),
     /** The SMS relay installs itself here once channels exist. */
     onSmsEvent: (handler: (key: string, event: PhoneEvent) => void) => { smsHandler = handler; },

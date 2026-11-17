@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { builtInBrowserEnabled, llmThreadTitlesEnabled, parseSkillReviewSteps, roomMemoryCaptureEnabled, savedStepsEnabled, shareLearnedSkillsMode, sharedComputersEnabled, showToolCallsEnabled, skillAuthoringEnabled, skillReviewEnabled, skillReviewSteps, skillReviewUnavailableEngines } from "./feature-flags";
+import { builtInBrowserEnabled, llmThreadTitlesEnabled, parseSkillReviewSteps, phoneVerifyEnabled, roomMemoryCaptureEnabled, savedStepsEnabled, shareLearnedSkillsMode, sharedComputersEnabled, showToolCallsEnabled, skillAuthoringEnabled, skillReviewEnabled, skillReviewSteps, skillReviewUnavailableEngines } from "./feature-flags";
 
 describe("experimental feature flags", () => {
   it("keeps skill authoring on by default, before and after the config arrives", () => {
@@ -96,5 +96,15 @@ describe("saved steps flag", () => {
     expect(savedStepsEnabled(null)).toBe(true);
     expect(savedStepsEnabled({ features: {} })).toBe(true);
     expect(savedStepsEnabled({ features: { savedSteps: false } })).toBe(false);
+  });
+});
+
+describe("phone answer check flag", () => {
+  it("is off until the config names the log mode", () => {
+    expect(phoneVerifyEnabled(null)).toBe(false);
+    expect(phoneVerifyEnabled({})).toBe(false);
+    expect(phoneVerifyEnabled({ features: {} })).toBe(false);
+    expect(phoneVerifyEnabled({ features: { phoneVerify: "off" } })).toBe(false);
+    expect(phoneVerifyEnabled({ features: { phoneVerify: "log" } })).toBe(true);
   });
 });
