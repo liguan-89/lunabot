@@ -3,6 +3,7 @@ package com.openmausbot.companion.core
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
@@ -63,6 +64,7 @@ class PhoneJobsTest {
         assertEquals("reminders", PhoneToolCatalog.capabilityOf("PHONE_CREATE_REMINDER"))
         assertEquals("messages", PhoneToolCatalog.capabilityOf("PHONE_SEND_MESSAGE"))
         assertEquals("messages", PhoneToolCatalog.capabilityOf("PHONE_REPLY_SMS"))
+        assertEquals("messages", PhoneToolCatalog.capabilityOf("PHONE_REPLY_WECHAT"))
         assertEquals("contacts", PhoneToolCatalog.capabilityOf("PHONE_SEARCH_CONTACTS"))
         assertNull(PhoneToolCatalog.capabilityOf("PHONE_FUTURE_THING"))
     }
@@ -207,7 +209,7 @@ class PhoneJobsTest {
 
     @Test
     fun `only the implemented phone apps are in the catalog`() {
-        assertEquals(48, PhoneTool.entries.size)
+        assertEquals(49, PhoneTool.entries.size)
         assertTrue(
             PhoneTool.entries.all {
                 it.capability in setOf("calendar", "contacts", "reminders", "location", "messages", "phoneUi", "phoneData")
@@ -220,8 +222,48 @@ class PhoneJobsTest {
         assertEquals(PhoneTool.SEND_MESSAGE, PhoneTool.fromWire("PHONE_SEND_MESSAGE"))
         assertEquals(PhoneTool.SEND_WHATSAPP, PhoneTool.fromWire("PHONE_SEND_WHATSAPP"))
         assertEquals(PhoneTool.REPLY_SMS, PhoneTool.fromWire("PHONE_REPLY_SMS"))
+        assertEquals(PhoneTool.REPLY_WECHAT, PhoneTool.fromWire("PHONE_REPLY_WECHAT"))
         // Home and nearby places need a vendor SDK this build does not carry.
         assertNull(PhoneTool.fromWire("PHONE_RUN_SCENE"))
+    }
+
+    @Test
+    fun `the WeChat reply is a messages write beside the SMS one`() {
+        assertEquals("PHONE_REPLY_WECHAT", PhoneTool.REPLY_WECHAT.wire)
+        assertEquals("messages", PhoneTool.REPLY_WECHAT.capability)
+        assertTrue(PhoneTool.REPLY_WECHAT.writes)
+        // It rides the messages capability the SMS relay already registers, so
+        // a phone with the switch on claims it without a second grant.
+        assertTrue(PhoneTool.REPLY_WECHAT.capability in PhoneToolCatalog.supportedCapabilities)
+    }
+
+    @Test
+    fun `a WeChat text event has exactly the SMS shape plus its kind`() {
+        val event = PhoneSmsEvent(kind = "wechat", sendId = "msg-2", from = "wxid_owner", text = "在吗")
+        val json = CompanionJson.encodeToJsonElement(PhoneSmsEvent.serializer(), event).jsonObject
+        // No `group` and no `images`: the runtime only forwards private text
+        // and image messages, and the encoder drops empty collections.
+        assertEquals(setOf("kind", "sendId", "from", "text"), json.keys)
+        assertEquals("wechat", json.getValue("kind").jsonPrimitive.content)
+        assertEquals("wxid_owner", json.getValue("from").jsonPrimitive.content)
+    }
+
+    @Test
+    fun `an event with images lists them as base64 payloads`() {
+        val event = PhoneSmsEvent(
+            kind = "wechat",
+            sendId = "msg-3",
+            from = "wxid_owner",
+            text = "",
+            images = listOf(PhoneEventImage(mime = "image/jpeg", name = "wechat-1.jpg", data = "aGVsbG8=")),
+        )
+        val json = CompanionJson.encodeToJsonElement(PhoneSmsEvent.serializer(), event).jsonObject
+        val images = json.getValue("images").jsonArray
+        assertEquals(1, images.size)
+        val image = images.single().jsonObject
+        assertEquals("image/jpeg", image.getValue("mime").jsonPrimitive.content)
+        assertEquals("wechat-1.jpg", image.getValue("name").jsonPrimitive.content)
+        assertEquals("aGVsbG8=", image.getValue("data").jsonPrimitive.content)
     }
 
     @Test

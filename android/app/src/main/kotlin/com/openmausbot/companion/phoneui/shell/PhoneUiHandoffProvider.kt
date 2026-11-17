@@ -37,6 +37,19 @@ import kotlinx.coroutines.flow.asStateFlow
 class PhoneUiHandoffHub internal constructor(context: Context) {
     private val app = context.applicationContext
 
+    /**
+     * Whether remote unlocking is allowed right now. Set by the app from the
+     * person's switch (see [PhoneUiShellBridge.setUnlockAllowed]) and read on
+     * every handoff, so a helper that re-attaches after an app restart learns
+     * the current answer rather than a stale one. Off until set.
+     */
+    @Volatile
+    private var unlockAllowed: () -> Boolean = { false }
+
+    fun setUnlockAllowed(source: () -> Boolean) {
+        unlockAllowed = source
+    }
+
     private val _shell = MutableStateFlow<IPhoneUiShell?>(null)
 
     /** The helper interface in hand; null again as soon as the helper's binder dies. */
@@ -102,6 +115,9 @@ class PhoneUiHandoffHub internal constructor(context: Context) {
             putBoolean(HandoffProtocol.KEY_ACCEPTED, true)
             putString(HandoffProtocol.KEY_NEXT, next)
             putBinder(HandoffProtocol.KEY_TOKEN, Binder())
+            // The switch, not the credential: the helper needs to know whether
+            // the person allows a remote unlock, nothing more.
+            putBoolean(HandoffProtocol.KEY_UNLOCK, runCatching { unlockAllowed() }.getOrDefault(false))
         }
     }
 

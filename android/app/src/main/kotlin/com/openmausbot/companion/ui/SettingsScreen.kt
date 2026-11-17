@@ -105,6 +105,7 @@ import com.openmausbot.companion.storage.ThemeMode
 import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
+import com.openmausbot.companion.wechat.WechatSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -711,6 +712,10 @@ fun SettingsScreen(
                 }
             }
 
+            // 微信: its own card in its own file — binding, the QR, and the
+            // enable/unbind rows. This screen only places it.
+            WechatSettingsSection()
+
             // 手机界面 (wireless debugging + shell helper): default off, the
             // system pages open only from an explicit tap, and pairing needs
             // the port and code the system pairing dialog shows — nothing is
@@ -937,6 +942,11 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // 手机解锁: the credential stays on this phone, encrypted, and is
+            // typed into the keyguard by the shell helper. Off until the person
+            // saves one and turns the remote switch on.
+            UnlockSettingsSection(phoneUi = environment.phoneUi)
 
             SettingsSection {
                 SettingsRow(

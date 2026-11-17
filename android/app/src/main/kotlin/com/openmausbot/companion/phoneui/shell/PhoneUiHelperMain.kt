@@ -152,6 +152,9 @@ object PhoneUiHelperMain {
                     return Outcome.Rejected
                 }
                 val appBinder = result.getBinder(HandoffProtocol.KEY_TOKEN) ?: return Outcome.Rejected
+                // Set before the app is told the handoff succeeded, so no call
+                // can arrive while the switch still holds an older answer.
+                service.setUnlockEnabled(result.getBoolean(HandoffProtocol.KEY_UNLOCK, false))
                 nonce = result.getString(HandoffProtocol.KEY_NEXT)
                 appToken = appBinder
                 try {

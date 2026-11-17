@@ -8,6 +8,8 @@ import com.dexbot.companion.core.phoneui.adb.AdbConnectionException
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
 import com.openmausbot.companion.storage.ChatPreferences
+import com.openmausbot.companion.storage.UnlockCredentialStore
+import com.openmausbot.companion.storage.UnlockState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -99,6 +101,29 @@ class PhoneUiController(
     private val bridge = PhoneUiShellBridge.of(app)
     private val pairingNotification = PhoneUiPairingNotification(app)
 
+    /** The credential the person entered here, and the switch that authorizes remote use of it. */
+    private val unlockStore = UnlockCredentialStore.of(app)
+
+    private val keyguardManager = app.getSystemService(android.app.KeyguardManager::class.java)
+    private val powerManager = app.getSystemService(android.os.PowerManager::class.java)
+
+    /** Mika's unlock order over this phone's own state; the store owns the credential and the block. */
+    val unlocker = PhoneUiUnlocker(
+        store = unlockStore,
+        shell = { bridge.shell.value },
+        keyguard = {
+            KeyguardSnapshot(
+                interactive = powerManager.isInteractive,
+                showing = keyguardManager.isKeyguardLocked,
+                deviceLocked = keyguardManager.isDeviceLocked,
+                secure = keyguardManager.isDeviceSecure,
+            )
+        },
+    )
+
+    /** The non-secret unlock state Settings renders. */
+    val unlockState: StateFlow<UnlockState> = unlockStore.state
+
     private val _status = MutableStateFlow(PhoneUiStatus.Disabled)
 
     /** Derive [PhoneUiStatus] from this flow. */
@@ -161,6 +186,11 @@ class PhoneUiController(
 
     init {
         bridge.setLaunchCallback { command, nonce -> launchHelper(command, nonce) }
+        // The helper is told the switch at handoff time; this lambda is also
+        // what gates every unlock call, so turning the switch off takes effect
+        // on the next call rather than on the next connection.
+        bridge.setUnlockAllowed { unlockStore.state.value.remoteUnlockEnabled }
+        scope.launch(Dispatchers.IO) { unlockStore.refresh() }
         scope.launch {
             bridge.shell.collect { attached ->
                 if (attached != null) {
@@ -356,6 +386,29 @@ class PhoneUiController(
         _status.value = PhoneUiStatus.Disabled
         scope.launch(Dispatchers.IO) { bridge.detach() }
     }
+
+    /**
+     * Store the credential the person just typed. It is encrypted on this phone
+     * and never leaves it: no server call, no job argument, no log. A new
+     * credential clears any outstanding attempt block.
+     */
+    suspend fun setUnlockCredential(kind: Int, value: CharArray): Boolean =
+        withContext(Dispatchers.IO) { unlockStore.set(kind, value) }
+
+    /** Forget the credential and the permission that went with it. */
+    suspend fun clearUnlockCredential() = withContext(Dispatchers.IO) { unlockStore.clear() }
+
+    /** The person's remote-unlock switch; off by default, and cleared with the credential. */
+    suspend fun setRemoteUnlockEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) { unlockStore.setRemoteUnlockEnabled(enabled) }
+
+    /**
+     * The Settings "try one unlock" action: the same order the remote path uses,
+     * started by the person, so a wrong PIN is discovered here rather than in a
+     * turn. Still gated on the switch, because the helper refuses keyguard input
+     * when it is off.
+     */
+    suspend fun unlockNow(): UnlockOutcome = withContext(Dispatchers.IO) { unlocker.unlock() }
 
     /**
      * Start or stop the repair loop to match the capability switch. Called from

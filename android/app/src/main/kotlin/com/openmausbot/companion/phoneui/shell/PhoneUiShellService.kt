@@ -7,12 +7,14 @@
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
  * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
  * translated into English, and trimmed to the IPhoneUiShell surface. No
- * clipboard, audio muting, device unlock, device files, call audio, devtools
- * sockets, shell command endpoint, orientation watch or IME policy remain;
- * task moving is kept only as a bounded main-display <-> own-display move, and
- * display keep-awake only pokes the helper's own display group. Every
- * display-bound input endpoint requires a display this service created
- * (ownDisplay), which excludes the primary display from all event injection.
+ * clipboard, audio muting, device files, call audio, devtools sockets, shell
+ * command endpoint, orientation watch or IME policy remain; task moving is kept
+ * only as a bounded main-display <-> own-display move, and display keep-awake
+ * only pokes the helper's own display group. Every display-bound input endpoint
+ * requires a display this service created (ownDisplay), which excludes the
+ * primary display from all event injection. The keyguard endpoints are the one
+ * exception, and they name a window uid instead of a display: see
+ * [PhoneUiUnlock].
  */
 package com.openmausbot.companion.phoneui.shell
 
@@ -41,6 +43,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
+import com.openmausbot.companion.phoneui.PhoneUiUnlock
 import kotlin.system.exitProcess
 
 /**
@@ -80,6 +83,32 @@ class PhoneUiShellService(
 
     /** Clipboard access as shell; reads skip the framework's Settings query. */
     private val clipboard by lazy { ShellClipboard(context) }
+
+    /**
+     * The person's "allow remote unlock" switch, as the app reported it during
+     * the handoff that attached this helper ([HandoffProtocol.KEY_UNLOCK]).
+     * Off until that says otherwise, so a helper whose handoff carried no
+     * answer unlocks nothing. Flipping the switch off while attached is
+     * enforced by the app, which re-reads the switch before every call; this
+     * snapshot can only ever be as permissive as what the app sent.
+     */
+    @Volatile
+    private var unlockEnabled = false
+
+    /** Called once per accepted handoff, before the app can reach the binder. */
+    fun setUnlockEnabled(enabled: Boolean) {
+        unlockEnabled = enabled
+    }
+
+    /** Wake, keyguard reveal, credential typing and the fallback tap; see [PhoneUiUnlock]. */
+    private val unlock by lazy {
+        PhoneUiUnlock.of(
+            context = context,
+            enabled = { unlockEnabled },
+            inject = { event -> inject(event, Display.DEFAULT_DISPLAY) },
+            injectTo = ::injectToWindow,
+        )
+    }
 
     override fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
@@ -477,6 +506,21 @@ class PhoneUiShellService(
 
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
 
+    /**
+     * The four keyguard calls. Each re-reads the person's switch through
+     * [unlock] (whose `enabled` predicate reads [unlockEnabled]) and refuses
+     * when it is off; [PhoneUiUnlock] itself refuses when there is no secure
+     * keyguard, so a swipe-only lock screen is not a typing target.
+     */
+    override fun wakeDevice(): Boolean = unlock.wake()
+
+    override fun revealKeyguard(): Boolean = unlock.reveal()
+
+    override fun enterDeviceCredential(kind: Int, credential: ByteArray, clear: Int): Boolean =
+        unlock.enter(kind, credential, clear)
+
+    override fun tapKeyguard(x: Int, y: Int): Boolean = unlock.tap(x, y)
+
     override fun releaseAll() {
         awake.stopAll()
         val all = synchronized(displays) {
@@ -515,6 +559,29 @@ class PhoneUiShellService(
     private fun inputManager(): Any = runCatching {
         Class.forName("android.hardware.input.InputManagerGlobal").getMethod("getInstance").invoke(null)
     }.getOrNull() ?: Class.forName("android.hardware.input.InputManager").getMethod("getInstance").invoke(null)!!
+
+    /**
+     * Inject only into a window owned by [targetUid], waiting for the system to
+     * finish dispatch. This is the Android 13+ overload
+     * `injectInputEvent(InputEvent, int, int)`: if the focus is not a window of
+     * that uid — another app over the keyguard, or the app itself after the
+     * phone unlocked mid-sequence — the system refuses the event instead of
+     * delivering it somewhere else. On an older platform, or if the overload is
+     * absent, nothing is injected and the answer is false.
+     *
+     * Failures log the exception class only: the events on this path carry the
+     * device credential.
+     */
+    @SuppressLint("PrivateApi")
+    private fun injectToWindow(event: InputEvent, targetUid: Int): Boolean = try {
+        val manager = inputManager()
+        manager.javaClass
+            .getMethod("injectInputEvent", InputEvent::class.java, Int::class.java, Int::class.java)
+            .invoke(manager, event, INJECT_MODE_WAIT_FOR_FINISH, targetUid) as Boolean
+    } catch (t: Throwable) {
+        Log.w(TAG, "targeted injectInputEvent failed: ${(t.cause ?: t).javaClass.simpleName}")
+        false
+    }
 
     /**
      * A press/lift pair: only an unsuccessful press falls back to a shell
@@ -571,6 +638,9 @@ class PhoneUiShellService(
         private val PROTECTED_PACKAGES = setOf("android", "com.android.systemui", ShellContext.SHELL_PACKAGE)
         private const val VIRTUAL_KEYBOARD = -1 // KeyCharacterMap.VIRTUAL_KEYBOARD
         private const val USER_CURRENT = -2 // UserHandle.USER_CURRENT
+
+        /** InputManager.INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH: return only after the window handled it. */
+        private const val INJECT_MODE_WAIT_FOR_FINISH = 2
 
         /**
          * The only settings [putSecureSetting] will write, each mapped to its

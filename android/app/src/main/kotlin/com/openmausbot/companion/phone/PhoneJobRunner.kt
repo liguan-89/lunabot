@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import com.openmausbot.companion.core.PhoneRegistration
+import com.openmausbot.companion.core.PhoneJob
 import com.openmausbot.companion.core.PhoneTool
 import com.openmausbot.companion.core.PhoneToolCatalog
 import com.openmausbot.companion.core.Session
@@ -13,14 +14,20 @@ import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
 import com.openmausbot.companion.phoneui.PhoneUiTaskExecutor
 import com.openmausbot.companion.phoneui.PhoneUiController
 import com.openmausbot.companion.phoneui.PhoneUiStatus
+import com.openmausbot.companion.phoneui.UnlockOutcome
 import com.openmausbot.companion.phoneui.OperatingPace
 import com.openmausbot.companion.storage.ChatPreferences
 import com.openmausbot.companion.storage.PhonePace
+import com.openmausbot.companion.wechat.WechatConnectionState
+import com.openmausbot.companion.wechat.WechatRuntimeHost
+import com.openmausbot.companion.wechat.answerWechatReply
 import java.time.ZoneId
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -63,6 +70,21 @@ internal class PhoneJobRunner(
     private val phoneUiExecutor = PhoneUiTaskExecutor(context)
     private val fileStore = PhoneFileStore(context)
 
+    /**
+     * The WeChat channel's own state. Read through [WechatRuntimeHost] so the
+     * runner and the settings card observe one instance.
+     *
+     * `by lazy` on purpose: building the runtime reads preferences and asks the
+     * Keystore to unwrap the token, which is IPC and disk I/O — and this class
+     * is constructed on the main thread in `OpenMausApp.onCreate`. The flow is
+     * first read from [start]'s coroutine, so only a phone that has bound
+     * WeChat ever reaches the Keystore.
+     */
+    private val wechatState: StateFlow<WechatConnectionState> by lazy {
+        runCatching { WechatRuntimeHost.of(context).state }
+            .getOrElse { MutableStateFlow<WechatConnectionState>(WechatConnectionState.Off) }
+    }
+
     init {
         // The executor starts on FAST; the person's stored choice has to reach
         // it before the first job. The preference is observed separately from
@@ -83,25 +105,42 @@ internal class PhoneJobRunner(
 
     fun start() {
         scope.launch {
+            // The WeChat relay, if the person left it on. Its service is
+            // START_STICKY, so this only matters for a process that was never
+            // running (an update, or the app reopened after a force-stop).
+            // Idempotent, and a no-op with no binding. Inside the coroutine
+            // because building the runtime reads preferences.
+            runCatching { WechatRuntimeHost.startIfEnabled(context) }
             combine(
                 combine(
-                    preferences.phoneCalendar,
-                    preferences.phoneContacts,
-                    preferences.phoneReminders,
-                    preferences.phoneLocation,
-                    preferences.phoneMessages,
-                ) { calendar, contacts, reminders, location, messages ->
-                    Switches(calendar, contacts, reminders, location, messages)
+                    combine(
+                        preferences.phoneCalendar,
+                        preferences.phoneContacts,
+                        preferences.phoneReminders,
+                        preferences.phoneLocation,
+                        preferences.phoneMessages,
+                    ) { calendar, contacts, reminders, location, messages ->
+                        Switches(calendar, contacts, reminders, location, messages)
+                    },
+                    preferences.phoneFiles,
+                    preferences.phoneNotices,
+                    phoneUi.status,
+                    PhoneUiAccessibilityService.instance,
+                ) { switches, files, notices, phoneUiStatus, accessibilityService ->
+                    switches.copy(
+                        phoneUi = phoneUiStatus == PhoneUiStatus.Ready && accessibilityService != null,
+                        files = files && filesReadable(),
+                        notices = notices && noticesReadable(),
+                    )
                 },
-                preferences.phoneFiles,
-                preferences.phoneNotices,
-                phoneUi.status,
-                PhoneUiAccessibilityService.instance,
-            ) { switches, files, notices, phoneUiStatus, accessibilityService ->
+                wechatState,
+            ) { switches, wechat ->
+                // A bound, listening WeChat channel claims `messages` on its own:
+                // it needs no SMS grant, and without the claim the computer would
+                // never route PHONE_REPLY_WECHAT to this phone.
                 switches.copy(
-                    phoneUi = phoneUiStatus == PhoneUiStatus.Ready && accessibilityService != null,
-                    files = files && filesReadable(),
-                    notices = notices && noticesReadable(),
+                    wechat = wechat is WechatConnectionState.Connected ||
+                        wechat is WechatConnectionState.Connecting,
                 )
             }
                 .distinctUntilChanged()
@@ -126,11 +165,19 @@ internal class PhoneJobRunner(
         val phoneUi: Boolean = false,
         val files: Boolean = false,
         val notices: Boolean = false,
+        /**
+         * A bound WeChat channel that is listening. It is its own transport for
+         * `PHONE_REPLY_WECHAT` and needs no SMS grant, but it rides the same
+         * `messages` capability — so it counts as a reason to stay registered
+         * and poll, even when every other switch is off.
+         */
+        val wechat: Boolean = false,
     ) {
         /** Files and notifications share one capability: read-only, no helper needed. */
         val phoneData: Boolean get() = files || notices
 
-        val any: Boolean get() = calendar || contacts || reminders || location || messages || phoneUi || phoneData
+        val any: Boolean
+            get() = calendar || contacts || reminders || location || messages || phoneUi || phoneData || wechat
     }
 
     private suspend fun runWhileEnabled(switches: Switches) {
@@ -140,7 +187,8 @@ internal class PhoneJobRunner(
         // Enabled in Settings but the Android grants were revoked (or never
         // given): nothing to register, and the screen explains each switch.
         if (!calendarAccess.canRead && !contactsAccess.canRead && !switches.reminders &&
-            !locationAccess.canRead && !switches.messages && !switches.phoneUi && !switches.phoneData
+            !locationAccess.canRead && !switches.messages && !switches.phoneUi && !switches.phoneData &&
+            !switches.wechat
         ) {
             session.reportPhoneTools(
                 Session.PhoneToolsStatus.Failed("系统权限尚未授予，请在系统设置中允许日历、联系人或定位。"),
@@ -159,9 +207,10 @@ internal class PhoneJobRunner(
                 contacts = contactsAccess,
                 reminders = switches.reminders,
                 location = locationAccess,
-                // The switch asked for both SMS grants; without them the phone can
-                // neither relay inbound texts nor answer replies, so it claims nothing.
-                messages = switches.messages && messages.canRelay(),
+                // Two transports claim `messages`: the SMS relay (which needs
+                // both SMS grants) and a bound, listening WeChat channel (which
+                // needs no grant at all — its credential is the scan).
+                messages = (switches.messages && messages.canRelay()) || switches.wechat,
                 phoneUi = switches.phoneUi,
                 phoneData = switches.files || switches.notices,
             ),
@@ -188,7 +237,8 @@ internal class PhoneJobRunner(
             val filesNow = switches.files && filesReadable()
             val noticesNow = switches.notices && noticesReadable()
             if (!calendarNow.canRead && !contactsNow.canRead && !switches.reminders &&
-                !locationNow.canRead && !switches.messages && !switches.phoneUi && !filesNow && !noticesNow
+                !locationNow.canRead && !switches.messages && !switches.phoneUi && !filesNow && !noticesNow &&
+                !switches.wechat
             ) {
                 // Every permission was revoked under us; don't offer apps we
                 // can no longer read.
@@ -205,7 +255,7 @@ internal class PhoneJobRunner(
                 contacts = contactsNow,
                 reminders = switches.reminders,
                 location = locationNow,
-                messages = switches.messages && messages.canRelay(),
+                messages = (switches.messages && messages.canRelay()) || switches.wechat,
                 phoneUi = switches.phoneUi,
                 phoneData = filesNow || noticesNow,
             )
@@ -241,7 +291,14 @@ internal class PhoneJobRunner(
             // A stuck executor would stall this serial poll until the server marks
             // the phone offline. Blocking calls ignore cancellation, so the run
             // sits on the runner scope and the bound only stops awaiting it.
+            //
+            // The WeChat reply answers a *different* frozen shape — exactly
+            // `{ "ok": true }` or `{ "ok": false, "error": "<short code>" }` —
+            // so it builds its own JSON instead of going through toJson().
             val run = scope.async {
+                if (tool == PhoneTool.REPLY_WECHAT) {
+                    return@async wechatReplyJson(job)
+                }
                 when {
                     tool == null -> PhoneToolOutcome.Failure(
                         "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
@@ -253,9 +310,20 @@ internal class PhoneJobRunner(
                     tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
                     tool.capability == "location" -> location.current()
                     tool.capability == "messages" -> messages.execute(tool, job.arguments)
-                    tool.capability == "phoneUi" -> phoneUiExecutor.execute(tool, job.arguments)
+                    tool.capability == "phoneUi" -> {
+                        // A locked phone cannot show anything to the person and
+                        // some ROMs refuse to start an app at all, so a screen
+                        // job unlocks first when the person allowed it. A
+                        // refusal is not fatal: the executor still runs and
+                        // reports whatever the screen gives it.
+                        val unlocked = phoneUi.unlocker.unlock()
+                        if (unlocked != UnlockOutcome.Unlocked && unlocked != UnlockOutcome.AlreadyUnlocked) {
+                            Log.d(TAG, "job=${job.id} unlock skipped: ${unlocked.name}")
+                        }
+                        phoneUiExecutor.execute(tool, job.arguments)
+                    }
                     else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
-                }
+                }.toJson()
             }
             val outcome = try {
                 withTimeoutOrNull(JOB_RUN_TIMEOUT_MILLIS) { run.await() }
@@ -264,11 +332,26 @@ internal class PhoneJobRunner(
             } catch (error: Throwable) {
                 Log.w(TAG, "job=${job.id} executor threw", error)
                 null
-            } ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout")
-            val posted = session.completePhoneJob(job.id, outcome.toJson())
+            } ?: PhoneToolOutcome.Failure("手机端执行超时，请稍后再试。", "timeout").toJson()
+            val posted = session.completePhoneJob(job.id, outcome)
             Log.d(TAG, "job=${job.id} outcome posted=$posted")
         }
     }
+
+    /**
+     * `PHONE_REPLY_WECHAT` — `{ to, text }` over iLink.
+     *
+     * The answer is the frozen pair, `{ "ok": true }` or
+     * `{ "ok": false, "error": "<short code>" }`, built by the same helper the
+     * tests pin. An absent runtime or an absent binding is `not_bound`; the job
+     * id doubles as the iLink client id, so a retried job cannot double-send.
+     */
+    private suspend fun wechatReplyJson(job: PhoneJob): JsonObject =
+        answerWechatReply(
+            runtime = runCatching { WechatRuntimeHost.of(context) }.getOrNull(),
+            jobId = job.id,
+            arguments = job.arguments,
+        )
 
     private companion object {
         const val TAG = "PhoneJobs"

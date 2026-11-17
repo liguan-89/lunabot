@@ -25,4 +25,14 @@
     <string name="settings_phone_repair_wireless">Re-enable wireless debugging after a reboot</string>
     <string name="settings_phone_repair_wireless_caption">Off: nothing is granted and the app cannot touch this setting.</string>
     <string name="settings_phone_repair_wireless_pending">On: the helper is asked for the grant once it connects; until then nothing has been granted.</string>
+    <!--
+      WeChat relay. The notification says only that the channel is listening;
+      it never names a sender or shows message text, because a notification is
+      readable from a locked screen.
+    -->
+    <string name="notification_channel_wechat">微信消息转发</string>
+    <string name="notification_channel_wechat_desc">微信消息转发开启时显示</string>
+    <string name="wechat_notification_title">微信消息转发中</string>
+    <string name="wechat_notification_text">微信消息会转给已配对的电脑处理</string>
+    <string name="wechat_notification_turn_off">关闭转发</string>
 </resources>
