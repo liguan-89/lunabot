@@ -146,6 +146,15 @@ write tools (`PHONE_UI_RUN`, `PHONE_UI_COLLECT`, `PHONE_UI_FIND`,
 in both `src/locales/en.json` and `zh.json`; `PHONE_UI_QUERY` and
 `PHONE_LIST_APPS` are reads and post no activity row.
 
+The screen writes that predate this batch get one too: `PHONE_UI_TAP_AT`,
+`PHONE_UI_SWIPE`, `PHONE_UI_KEY`, `PHONE_CLIPBOARD_SET` and
+`PHONE_FILE_SHARE` are in `phoneWriteSummary`'s `WRITES` set now, so their rows
+name the action instead of falling back to the bare `describeAction` sentence.
+`PHONE_FILE_SEND` stays out on purpose: handing a file to the share sheet is a
+read in `shared/outbound.ts`, because nothing leaves the phone until the person
+picks a target. The generic fallback in `summary.ts` remains for any future
+write the packs have no words for yet.
+
 ### `PHONE_UI_COLLECT`
 
 `android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiCollect.kt`

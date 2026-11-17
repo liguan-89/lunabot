@@ -9,6 +9,10 @@ const WRITES = new Set<PhoneToolName>([
   "PHONE_CREATE_CONTACT", "PHONE_UPDATE_CONTACT", "PHONE_SET_ACCESSORY", "PHONE_RUN_SCENE", "PHONE_SEND_MESSAGE", "PHONE_SEND_WHATSAPP",
   "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TYPE", "PHONE_UI_SCROLL", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_UI_COLLECT",
   "PHONE_UI_FIND", "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_OPEN_LINK", "PHONE_SHARE_TEXT", "PHONE_UI_AFTER_TASK",
+  // The remaining screen writes, which used to fall back to their bare action name. PHONE_FILE_SEND is absent on
+  // purpose: handing a file to the share sheet is a read here, because nothing leaves the phone until the person
+  // picks a target.
+  "PHONE_UI_TAP_AT", "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE",
 ]);
 
 export function phoneWriteSummary(name: PhoneToolName, phone: string): { summary: string; summaryCode?: ChatNoticeKey; summaryParams?: Record<string, string> } {
