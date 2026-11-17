@@ -414,6 +414,16 @@ Nothing calls it yet: no server module imports `phone-notices.ts`. The phone's
 own `PHONE_NOTIF_LIST` reads `PhoneNoticeStore`, a separate flat title/text
 store, and never reaches this module.
 
+Wiring it is not a matter of adding a caller. This split is server → phone:
+the server sends a job, the phone answers one. Notices are the opposite
+direction — the phone would have to push each notification as it arrives, and
+nothing in the protocol does that today; `PHONE_NOTIF_LIST` is a read the bot
+asks for, not a stream. So a caller needs a phone → server ingress (a new
+authenticated endpoint plus its own retention), and with it a consent decision
+the person makes, because reading every notification is broader than the
+`phoneData` reads they already granted. Until that exists, `NoticeInbox`,
+`shouldLearn` and `planTriage` stay the tested rules for whoever builds it.
+
 ## Intent gate
 
 `server/intent-gate.ts` ports Mika's `agent/IntentGate.kt` without the decider.
@@ -437,6 +447,17 @@ decision must be thrown, and reaches the caller.
 
 It is not wired into a turn. Nothing calls `assessIntent` or
 `intentGateRequest` outside `server/intent-gate.test.ts`.
+
+Wiring it needs one product decision this module cannot make for a caller: what
+ACT means here. In Mika the gate decides whether the phone may be driven at all
+before a tool is offered; in our split the same request may be a chat answer, a
+phone job or a delegation, and the gate would sit in front of the turn's first
+tool choice rather than in front of a whole turn. Its two cheap fallbacks — a
+judge word, then no intent — also mean a wrongly-read DISCUSS would let a
+screen write through, so the caller has to decide whether an ACT-only rule is
+stricter than the approval gate we already have (it is not: the card is shown
+either way). Until that is settled, the module stays the tested question and
+its parser.
 
 ## Route replay
 
@@ -518,10 +539,10 @@ one entry per screen-carrying call with the screen before and after, refusals
 kept as evidence but never as route steps, and password-flagged elements or
 lines the sensitive filter would flag left out. `server/index.ts` calls
 `phones.turnEnded` after the reply is settled, never for a turn the person
-stopped. Verification is **off**: `PHONE_VERIFY_MODE` is a constant in
-`host.ts`, and setting it to `"log"` writes one decision row per phone turn and
-nothing else. There is no `"warn"` mode — a finished turn has no reply left to
-append a caveat to.
+stopped. Verification is **off by default** and has a Settings switch:
+`features.phoneVerify` is `"off"` or `"log"`, read at call time, and `"log"`
+writes one decision row per phone turn and nothing else. There is no `"warn"`
+mode — a finished turn has no reply left to append a caveat to.
 
 ## Untrusted screen text
 
@@ -682,7 +703,7 @@ the helper's return instead of blocked until a manual retry.
 
 ## Verification
 
-The TypeScript phone subset — 25 files, 497 tests, all passing:
+The TypeScript phone subset — 25 files, 499 tests, all passing:
 
 ```sh
 node_modules/.bin/vitest run \
@@ -702,7 +723,7 @@ node_modules/.bin/vitest run \
 ```
 
 Per file: `access` 10, `confirm` 27, `fixture` 6, `host-revocation` 24,
-`host` 25, `jobs` 18, `owner` 12, `registry` 13, `rpc` 16, `sends` 2,
+`host` 27, `jobs` 18, `owner` 12, `registry` 13, `rpc` 16, `sends` 2,
 `steer` 10, `tools` 19, `irreversible` 26, `route-replay` 45, `untrusted` 6,
 `sensitive` 11, `verify-grounding` 38, `phone-guards` 16, `phone-notices` 54,
 `intent-gate` 23, `phone-risk` 25, `phone-routes` 23, `answer-verify` 30,
@@ -733,7 +754,7 @@ cd android && ./gradlew :core:test \
   --tests "com.openmausbot.companion.core.PhoneJobsTest" --offline
 ```
 
-The locale check — 16 languages, 10543 English strings:
+The locale check — 16 languages, 10552 English strings:
 
 ```sh
 pnpm i18n:check
