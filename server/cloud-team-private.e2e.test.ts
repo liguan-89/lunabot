@@ -2,7 +2,8 @@
 // audience rule"). A real Team Cloud (OMB_CLOUD_ROLE=team) with the Owner, an Admin and Bob, a member, paired with the
 // Admin's signed claims: Bob's chat, its words, its files and its live frames never reach the Owner or the Admin through
 // any route, the event stream, search, a bot's tools or another bot; they cannot write in it; Bob uses it as before; and
-// when Bob leaves the team it is deleted, never handed over. The engine is the synthetic Claude CLI.
+// when Bob leaves the team it is deleted, never handed over. The engine is the synthetic pi CLI, whose launch log is a
+// JSONL of launches and prompts.
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -11,12 +12,13 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { personKey } from "./person-key.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const OWNER = { email: "olive@acme.test", role: "owner" as const };
 const ADMIN = { email: "ari@acme.test", role: "admin" as const };
 const BOB = { email: "bob@acme.test", role: "member" as const };
 const ENGINE = `import { readFileSync as readToolCalls } from "node:fs";
-process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 try { process.env.FAKE_CLAUDE_TOOL_CALLS = readToolCalls(process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json", "utf8"); } catch {}`;
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const bobKey = personKey({ id: "", email: BOB.email });
@@ -26,7 +28,13 @@ let owner = "", admin = "", bob = "";
 let bot: { id: string; mainThreadId: string };
 let bobThread = "", bobFile = "", bobDoc = "", bobUnsent = "", adminThread = "";
 
-const dump = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { systemPrompt: string };
+/** The instructions in effect on the last pi turn whose own words hold `text`, as the retired Claude dump's
+ * systemPrompt read: what the bot was told, not just what changed on the turn. */
+const dump = (text: string) => {
+  const turns = piTurns(join(team.home, "dump.jsonl"));
+  const index = turns.findLastIndex((turn) => turn.prompt.includes(text));
+  return { systemPrompt: index < 0 ? "" : piInstructionsFor(turns, index) };
+};
 const scriptToolCalls = (calls: unknown[] | null) => {
   const file = join(team.home, "tool-calls.json");
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
@@ -36,12 +44,11 @@ const messages = (token: string, threadId: string) => team.as(token, "GET", `/ap
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
 async function turn(token: string, threadId: string, text: string) {
-  rmSync(join(team.home, "dump.json"), { force: true });
   const before = ((await messages(token, threadId)).body.messages as unknown[]).length;
   const sent = await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await until(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2 && existsSync(join(team.home, "dump.json")));
-  return dump();
+  await until(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2);
+  return dump(text);
 }
 /** expect.poll, usable in beforeAll too. */
 async function until(done: () => Promise<boolean> | boolean, timeoutMs = 60_000): Promise<void> {

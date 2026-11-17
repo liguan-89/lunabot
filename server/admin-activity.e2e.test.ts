@@ -99,7 +99,8 @@ const month = () => new Date().toISOString().slice(0, 7);
 posixOnly("admin activity log", () => {
   beforeAll(async () => {
     home = mkdtempSync(join(tmpdir(), "omb-admin-activity-"));
-    data = join(home, ".openmausbot");
+    // The server below starts with HOME only, so its data folder is the current name (server/data-dir.ts DATA_DIR_NAME).
+    data = join(home, ".lunabot");
     mkdirSync(join(data, "decisions"), { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({ signIn: { admins: [BOSS], members: [ADA] } }));
     // One card Ada answered earlier, as the decision log recorded it.

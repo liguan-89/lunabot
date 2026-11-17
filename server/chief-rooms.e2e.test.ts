@@ -1,11 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
 import { z } from "zod";
 
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 type Bot = { id: string; threadId: string; name: string };
 type Room = { id: string; name: string; memberIds: string[]; section?: string; bulletin: string; working?: boolean };
@@ -15,7 +16,9 @@ type Mounted = { command: string; args: string[]; env: Record<string, string> };
 const CHIEF_ONLY_TOOLS = ["create_bot", "list_team_setup", "propose_team_setup", "propose_bot_deletion", "manage_room", "retry_thread"];
 
 it("creates and manages an own-section room through the mounted Chief MCP proxy", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: "hang" });
+  // Every turn is held open (the fake pi's compatibility `hang` turn), so the turn stays live while its tools are used.
+  const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" });
+  const dumpPath = piDumpPath(fixture.info.dataDir);
   const evidence: unknown[] = [{ fixture: fixture.info }];
   const proxies: ChildProcess[] = [];
   const control = async (args: string[]) => {
@@ -41,12 +44,19 @@ it("creates and manages an own-section room through the mounted Chief MCP proxy"
     const [chief, peer, second, foreign] = bots;
     await api("PATCH", `/api/bots/${chief.id}`, { chiefOfStaff: true });
     const mount = async (bot: Bot, text: string): Promise<Mounted> => {
-      rmSync(fixture.fixtureDumpPath, { force: true });
+      const since = piTurns(dumpPath).length;
       await control(["send", "--bot", bot.id, "--text", text]);
-      await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 15_000 }).toBe(true);
+      let launch: { mcpConfig: { mcpServers: Record<string, unknown> } } | undefined;
+      await expect.poll(() => {
+        const turns = piTurns(dumpPath).filter((_turn, at) => at >= since);
+        const found = turns.findLast((turn) => turn.prompt.includes(text));
+        if (!found?.launch?.mcpConfig) return false;
+        launch = { mcpConfig: found.launch.mcpConfig as { mcpServers: Record<string, unknown> } };
+        return true;
+      }, { timeout: 15_000 }).toBe(true);
       const { mcpConfig } = z.object({ mcpConfig: z.object({ mcpServers: z.object({
         agents: z.object({ command: z.string(), args: z.array(z.string()), env: z.record(z.string(), z.string()) }),
-      }) }) }).parse(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")));
+      }) }) }).parse(launch!);
       const mounted = mcpConfig.mcpServers.agents;
       expect(mounted.env.OMB_BOT_ID).toBe(bot.id);
       expect(mounted.env.OMB_HARNESS_URL).toBe(fixture.info.url);

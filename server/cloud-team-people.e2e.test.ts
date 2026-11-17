@@ -1,19 +1,21 @@
 // Teammates as people a bot can name on a Team Cloud (docs/team-cloud.md "Telling a teammate"): Acme's Owner (Olive), an
-// Admin (Ada) and two members (Bob, Carl), the synthetic Claude CLI with the real agents MCP server. A team's turns are
+// Admin (Ada) and two members (Bob, Carl), the synthetic pi CLI with the real agents MCP server. A team's turns are
 // told the team's people and get message_person; someone who left is refused in plain words, passes from one
 // conversation are capped, and a My Cloud has none of it. Where a message lands is cloud-team-inbox.e2e.test.ts.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const OLIVE = { email: "olive@acme.test", role: "owner" as const };
 const ADA = { email: "ada@acme.test", role: "admin" as const };
 const BOB = { email: "bob@acme.test", role: "member" as const };
 const CARL = { email: "carl@acme.test", role: "member" as const };
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+// The pi log is a JSONL of launches and prompts (server/testing/pi-dump.ts); the retired knobs still drive it.
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";
 process.env.FAKE_CLAUDE_REPLY_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/reply.txt";`;
 const CLOUD_CAPABILITY_KEY = randomBytes(16).toString("hex");
@@ -43,14 +45,16 @@ async function until(done: () => Promise<boolean> | boolean, timeoutMs = 60_000)
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
-/** As `token`, one message to Scout in `threadId`, through the bot's settled turn. */
+/** As `token`, one message to Scout in `threadId`, through the bot's settled turn. The pi log appends a row per launch
+ * and per prompt, so the turn just sent is the last one whose own words carry `text`. */
 async function turn(token: string, threadId: string, text: string) {
-  rmSync(join(team.home, "dump.json"), { force: true });
   const sent = await team.as(token, "POST", `/api/bots/${scout.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await until(() => existsSync(join(team.home, "dump.json")));
   await until(async () => await idle() && (await messages(token, threadId)).rows.some((row) => row.role === "bot" && row.kind === "text" && row.text === readFileSync(join(team.home, "reply.txt"), "utf8")));
-  return JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { systemPrompt: string; mcpConfig: { mcpServers: { agents?: { env?: Record<string, string> } } } };
+  const turns = piTurns(join(team.home, "dump.jsonl"));
+  const index = turns.findIndex((entry) => entry.prompt.includes(text));
+  expect(index, `no pi turn carried "${text}"`).toBeGreaterThanOrEqual(0);
+  return { systemPrompt: piInstructionsFor(turns, index), mcpConfig: (turns[index]!.launch?.mcpConfig ?? { mcpServers: {} }) as { mcpServers: { agents?: { env?: Record<string, string> } } } };
 }
 /** message_person straight from a turn's own bearer, as the agents server sends it. */
 async function passDirect(threadId: string, to: string, message: string) {

@@ -1,8 +1,8 @@
-// A person writes to a bot that is stuck in a long tool call (a CI poll): the fake Claude CLI's scripted Bash call holds
-// until it is stopped, so the steered message is never read. With the wait set to 1.5 s, the server stops that turn and
+// A person writes to a bot that is stuck in a long tool call (a CI poll): the fake pi's scripted Bash call holds until
+// the call is stopped, so the steered message is never read. With the wait set to 1.5 s, the server stops that turn and
 // the bot answers in a new turn that leads with the person's words and says what was stopped.
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -10,6 +10,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 
 const POLL = { name: "Bash", input: { command: "gh run view 42; sleep 30" }, hold: true };
 const QUESTION = "Is the PR up yet?";
@@ -23,6 +24,8 @@ it("stops a turn that keeps the person's message unread in a long tool call, and
   const realFetch = globalThis.fetch;
   globalThis.fetch = (input, init = {}) => realFetch(input, { ...init,
     headers: { ...Object.fromEntries(new Headers(init.headers)), "x-openmausbot-desktop-owner": owner } });
+  // The scripted calls and marker replies ride the fake pi's compat bridge (the launcher turns it on for a retired
+  // Claude knob name), which is how a turn runs the calls a recipe scripts.
   const fixture = await launchVerificationServer({ ...process.env, OMB_TEST_DESKTOP_OWNER_TOKEN: owner, OMB_PERSON_FIRST_MS: "1500",
     FAKE_CLAUDE_TOOL_CALLS_FILE: calls, FAKE_CLAUDE_MARKER_REPLIES: markers });
   try {
@@ -56,10 +59,9 @@ it("stops a turn that keeps the person's message unread in a long tool call, and
     const answered = rows.findIndex((message) => message.role === "bot" && message.text === ANSWER);
     expect(rows.indexOf(asked[0])).toBeLessThan(stopped);
     expect(stopped).toBeLessThan(answered);
-    const content = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).prompt?.message?.content;
-    const prompt = typeof content === "string" ? content : (content as Array<{ text?: string }>).map((block) => block.text ?? "").join("\n");
-    expect(prompt).toContain(QUESTION);
-    expect(prompt).toContain('[Luna Bot: your step "Bash: gh run view 42; sleep 30" had run for');
+    const content = piTurnHolding(piDumpPath(fixture.info.dataDir), QUESTION)?.prompt ?? "";
+    expect(content).toContain(QUESTION);
+    expect(content).toContain('[Luna Bot: your step "Bash: gh run view 42; sleep 30" had run for');
   } finally {
     globalThis.fetch = realFetch;
     await fixture.close();

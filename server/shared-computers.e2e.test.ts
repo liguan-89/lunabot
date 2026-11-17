@@ -1,12 +1,13 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
 import { createComputerSharing, type SharedFolder } from "../electron/computer-sharing.mjs";
 import { sessionCookieName } from "./request-auth.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 let fixture: VerificationServer;
 let connector: ReturnType<typeof createComputerSharing>;
@@ -50,7 +51,9 @@ const commandAlive = (marker: string) => {
 };
 
 beforeAll(async () => {
-  fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang" });
+  // The fake pi keeps the turn open (the retired fixture's `hang`, through its compatibility knobs), so the agents
+  // capability its launch mounted stays usable while the test drives the lent desktop.
+  fixture = await launchVerificationServer({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" });
   // Computer sharing ships off: turn it on before anything is paired, since routes, capability and agent tools read one gate.
   expect((await api("PATCH", "/api/config", { features: { sharedComputers: true } })).status).toBe(200);
   env = { id: "hosted-fixture", name: "Hosted fixture", origin: fixture.info.url };
@@ -91,15 +94,20 @@ function mcpClient(child: ChildProcess) {
   return { initialize: () => request("initialize", { protocolVersion: "2024-11-05" }), call: (name: string, args: unknown = {}) => request("tools/call", { name, arguments: args }) };
 }
 
+/** The turn's own agents proxy, from the launch its pi child wrote (server/testing/pi-dump.ts): the launch line before
+ * the prompt carries the turn's MCP config. */
 async function proxyForTurn(start: () => Promise<void>): Promise<ChildProcess> {
-  const dump = join(fixture.info.dataDir, "fake-claude-dump.json");
-  rmSync(dump, { force: true });
+  const dump = piDumpPath(fixture.info.dataDir);
+  const before = piTurns(dump).length;
   await start();
-  await vi.waitFor(() => expect(existsSync(dump)).toBe(true), { timeout: 15_000 });
-  const agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents;
-  expect(agents.env.OMB_COMMS_TOKEN).toBeTruthy();
-  return spawn(agents.command, agents.args, {
-    env: { PATH: process.env.PATH, HOME: fixture.info.dataDir, ...agents.env }, stdio: ["pipe", "pipe", "pipe"],
+  let agents: { command: string; args: string[]; env: Record<string, string> } | undefined;
+  await vi.waitFor(() => {
+    agents = piTurns(dump).slice(before).findLast((turn) => turn.launch?.mcpConfig?.mcpServers?.agents)?.launch?.mcpConfig?.mcpServers?.agents as typeof agents;
+    expect(agents, "the turn's pi launch has not mounted the agents server yet").toBeDefined();
+  }, { timeout: 15_000 });
+  expect(agents!.env.OMB_COMMS_TOKEN).toBeTruthy();
+  return spawn(agents!.command, agents!.args, {
+    env: { PATH: process.env.PATH, HOME: fixture.info.dataDir, ...agents!.env }, stdio: ["pipe", "pipe", "pipe"],
   });
 }
 

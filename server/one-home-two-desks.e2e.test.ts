@@ -13,7 +13,8 @@ import { hostTimeout } from "./testing/host-timeout.ts";
 const TOKEN = `ops_fake-two-desks-${randomBytes(8).toString("hex")}`;
 const GATES = mkdtempSync(join(tmpdir(), "omb-two-desks-"));
 const HOLD = join(GATES, "hold"), RELEASE = join(GATES, "release");
-/** Either computer's turns that start while HOLD exists run until RELEASE does. */
+/** Either computer's turns that start while HOLD exists run until RELEASE does (the fixture runs pi with the retired
+ * Claude fixture's knobs on, so FAKE_CLAUDE_MODE/RELEASE still drive its turns). */
 const HOLD_TURNS = `if ((await import("node:fs")).existsSync(${JSON.stringify(HOLD)})) { process.env.FAKE_CLAUDE_MODE = "hang"; process.env.FAKE_CLAUDE_RELEASE = ${JSON.stringify(RELEASE)}; }`;
 let fx: CloudSendFixture, studio: CloudSendDesk;
 
@@ -60,12 +61,13 @@ async function moveUntilDone(oneHome: { kick(): Promise<void> }, journalFile: st
 it("My Cloud ends after two computers moved to it: everything comes home to the one used most recently, and the other runs nothing", async () => {
   const air = fx.local, imac = studio.local;
   // Each computer's own bots and automations, before either moved.
-  const scout = (await air("POST", "/api/bots", { name: "Scout", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  // This build runs one engine, so a bot takes its models from pi's own catalog.
+  const scout = (await air("POST", "/api/bots", { name: "Scout" })).body.bot;
   await turn(air, scout, "Plan the week.");
   const add = async (side: Side, body: Record<string, unknown>) => { const made = (await side("POST", "/api/routines", body)).body; return (made.routine ?? made).id as string; };
   const later = { type: "interval", everyMinutes: 1_440, anchorAt: Date.now() + 2 * 86_400_000 };
   await add(air, { name: "Air at every start", prompt: "Say hello from the Air.", botId: scout.id, runOnStartup: true, schedule: later, durationMinutes: 15 });
-  const pip = (await imac("POST", "/api/bots", { name: "Pip", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const pip = (await imac("POST", "/api/bots", { name: "Pip" })).body.bot;
   await turn(imac, pip, "Hello Pip.");
   await add(imac, { name: "iMac at every start", prompt: "Say hello from the iMac.", botId: pip.id, runOnStartup: true, schedule: later, durationMinutes: 15 });
   const hook = (await imac("POST", "/api/webhooks", { name: "Orders", prompt: "File the order.", botId: pip.id })).body;

@@ -1,9 +1,10 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createServer } from "node:http";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piInstructionsFor, piModelsSet, piTurns } from "./testing/pi-dump.ts";
 
 const BOAT_TOKEN = "box_verification_fixture";
 const JPEG = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAABAAEDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD8qqKKKAP/2Q==", "base64");
@@ -87,8 +88,10 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
   if (!address || typeof address === "string") throw new Error("fixture failed to bind");
   const origin = `http://127.0.0.1:${address.port}`;
   const gate = join(await import("node:os").then(os => os.tmpdir()), `omb-hosted-desktop-gate-${process.pid}-${Date.now()}`);
-  // Each turn uses the cloud computer as a real model would: its first computer call creates or wakes the Boat.
-  const fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate, FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
+  // Each turn uses the cloud computer as a real model would: its scripted screenshot call creates or wakes the Boat.
+  // The fake pi's `slow` turn answers once the gate exists, so a turn's launch can be read while it runs.
+  const fixture = await launchVerificationServer({ FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
+    FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]) },
     undefined, undefined, undefined, undefined, undefined, [], origin).catch(async error => {
     upstream.closeAllConnections(); await new Promise<void>(resolve => upstream.close(() => resolve())); throw error;
   });
@@ -107,13 +110,27 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
     .map((message: any) => message.kind === "activity" ? String(message.tool?.name) : `${message.role}:${message.kind}`);
   const task = async (botId: string, threadId: string) =>
     (await apiOk("GET", "/api/bots")).bots.find((bot: any) => bot.id === botId).tasks.find((entry: any) => entry.threadId === threadId);
-  const dump = async () => {
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 15_000 }).toBe(true);
-    let parsed: any = null;
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  /** The turn sent since `since` (or the last one) as the launch it ran on, with its instructions. */
+  const dump = async (since = 0) => {
+    let found: { argv: string[]; cwd?: string; envConfigured: string[]; mcpConfig: { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> }; systemPrompt: string; model?: string } | null = null;
     await expect.poll(() => {
-      try { parsed = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); return true; } catch { return false; }
-    }, { timeout: 5_000 }).toBe(true);
-    return parsed;
+      const turns = piTurns(dumpPath);
+      const index = turns.findLastIndex((_turn, at) => at >= since);
+      if (index < 0 || !turns[index]!.launch) return false;
+      const launch = turns[index]!.launch!;
+      const model = piModelsSet(dumpPath).at(-1);
+      found = {
+        argv: launch.argv,
+        cwd: launch.cwd,
+        envConfigured: launch.envConfigured,
+        mcpConfig: { mcpServers: (launch.mcpConfig?.mcpServers ?? {}) as Record<string, { command: string; args: string[]; env: Record<string, string> }> },
+        systemPrompt: piInstructionsFor(turns, index),
+        model: model ? `${model.provider}/${model.modelId}` : undefined,
+      };
+      return true;
+    }, { timeout: 15_000 }).toBe(true);
+    return found!;
   };
   const finish = async (botId: string, threadId: string) => {
     writeFileSync(gate, "finish");
@@ -121,21 +138,21 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
     rmSync(gate, { force: true });
   };
   const hostedTurn = async (botId: string, threadId: string, model: string) => {
-    rmSync(fixture.fixtureDumpPath, { force: true });
+    const since = piTurns(dumpPath).length;
     const before = commands.length;
     await control(["send", "--bot", botId, "--task", threadId, "--text", "Take a screenshot of the hosted desktop."]);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath) || prompts > 0, { timeout: 15_000 }).toBe(true);
+    await expect.poll(() => piTurns(dumpPath).length > since || prompts > 0, { timeout: 15_000 }).toBe(true);
     expect(prompts, "the turn was handed to Boat's own runner").toBe(0);
-    const sent = await dump();
-    expect(sent.argv[sent.argv.indexOf("--model") + 1]).toBe(model);
+    const sent = await dump(since);
+    expect(sent.model).toBe(model);
     expect(sent.systemPrompt).toContain("You control the assigned cloud computer");
     const computer = sent.mcpConfig.mcpServers.computer;
     expect(computer.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(computer.env.OMB_MCP_TOKEN_COMPUTER).toEqual(expect.any(String));
     expect(computer.env.OMB_HARNESS_URL).toBe(fixture.info.url);
     expect(JSON.stringify(sent)).not.toContain(BOAT_TOKEN);
-    expect(Object.keys(sent.env).filter(key => /BOAT|BOX_TOKEN|OMB_CLOUD/.test(key))).toEqual([]);
-    expect(sent.argv[sent.argv.indexOf("--allowedTools") + 1].split(",")).toContain("mcp__computer");
+    // The launch carries no Cloud or Boat credential: only the names the sealed fixture keeps.
+    expect(sent.envConfigured.filter(key => /BOAT|BOX_TOKEN|OMB_CLOUD/.test(key))).toEqual([]);
     const client = mcpClient(computer);
     try {
       expect((await client.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "fixture", version: "1" } })).result.serverInfo.name).toBe("openmausbot-computer");
@@ -178,9 +195,9 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
 
     const autoThread = (await apiOk("POST", `/api/bots/${bot.id}/tasks`, {})).task.threadId as string;
     const callsBeforeAuto = boatCalls;
-    rmSync(fixture.fixtureDumpPath, { force: true });
+    const autoSince = piTurns(dumpPath).length;
     await control(["send", "--bot", bot.id, "--task", autoThread, "--text", "what is 2+2?"]);
-    expect((await dump()).mcpConfig?.mcpServers?.computer?.args?.[1]).not.toBe("computer");
+    expect((await dump(autoSince)).mcpConfig.mcpServers.computer?.args?.[1]).not.toBe("computer");
     await finish(bot.id, autoThread);
     expect(boatCalls - callsBeforeAuto, "an Auto turn read the Boat account").toBe(0);
     expect((await task(bot.id, autoThread)).surface).toBeUndefined();
@@ -210,31 +227,13 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
     failNewBoat = false;
     expect(boxesCreated).toBe(2);
 
-    await apiOk("PUT", "/api/config", { openaiCompat: { url: `${origin}/v1`, key: "synthetic-fixture-key", model: "tools-off-model" } });
-    await apiOk("PATCH", "/api/instances/openaiCompat", { tools: false });
-    const { bot: plain } = await control(["new-bot", "--name", "Tools-off fixture"]);
-    await control(["set-model", "--bot", plain.id, "--instance", "openaiCompat", "--model", "tools-off-model"]);
-    await apiOk("PATCH", `/api/bots/${plain.id}`, { computer: "cloud" });
-    await control(["send", "--bot", plain.id, "--task", plain.activeTaskId, "--text", "hello"]);
-    expect((await control(["wait", "--bot", plain.id, "--task", plain.activeTaskId, "--timeout", "30"])).status).toBe("failed");
-    expect((await lastRows(plain.activeTaskId)).at(-1)).toBe("error: tools-off-model can't use a desktop. Choose a model that can, such as Claude or ChatGPT. Choose another model in Tools-off fixture's settings.");
+    // This build runs one engine, and it always has computer tools: the "can't use a desktop" refusal below has no
+    // engine to fire on, and the instance a second one used to be saved under is gone.
+    const instances = (await apiOk("GET", "/api/instances")).instances as Array<{ instanceId: string; capabilities?: { computerMcp?: boolean } }>;
+    expect(instances.map((instance) => instance.instanceId)).toEqual(["pi"]);
+    expect(instances.find((instance) => instance.instanceId === "pi")!.capabilities?.computerMcp).toBe(true);
+    expect((await api("PATCH", "/api/instances/openaiCompat", { tools: false })).status).toBeGreaterThanOrEqual(400);
     expect(boxesCreated).toBe(2);
-    expect((await task(plain.id, plain.activeTaskId)).busy).toBe(false);
-    const { routine } = await apiOk("POST", "/api/routines", { name: "Tools-off cloud", botId: plain.id,
-      prompt: "Inspect the cloud desktop.", runOn: "cloud", enabled: false,
-      schedule: { type: "interval", everyMinutes: 60, anchorAt: Date.now() + 3_600_000 } });
-    const { run } = await apiOk("POST", `/api/routines/${routine.id}/run`, {});
-    let routineThread = "";
-    await expect.poll(async () => {
-      routineThread = (await apiOk("GET", "/api/routines")).runs.find((entry: any) => entry.id === run.id)?.threadId ?? "";
-      return routineThread;
-    }, { timeout: 15_000 }).not.toBe("");
-    expect((await control(["wait", "--bot", plain.id, "--task", routineThread, "--timeout", "30"])).status).toBe("failed");
-    expect((await lastRows(routineThread)).at(-1)).toBe("error: tools-off-model can't use a desktop. Choose a model that can, such as Claude or ChatGPT. Choose another model in Tools-off fixture's settings.");
-    expect(boxesCreated).toBe(2);
-    await apiOk("PATCH", `/api/bots/${plain.id}`, { computer: null });
-    await control(["send", "--bot", plain.id, "--task", plain.activeTaskId, "--text", "hello again"]);
-    expect((await control(["wait", "--bot", plain.id, "--task", plain.activeTaskId, "--timeout", "30"])).status).toBe("settled");
     expect(prompts).toBe(0);
   } finally {
     rmSync(gate, { force: true });

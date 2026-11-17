@@ -21,7 +21,10 @@ import { stagedWorkspaceData, stageWorkspaceBackup } from "./workspace-backup.ts
 
 const ADA = { email: "ada@acme.test", role: "owner" as const };
 const MIRA = { email: "mira@acme.test", role: "member" as const };
-const ENGINE = `process.env.FAKE_CLAUDE_ROOM_PLAN = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/plan.json";`;
+// The plan drives the pi room-plan runner; the launch log stays beside the team's home, outside its data folder, so the
+// export check below reads only what a backup may carry.
+const ENGINE = `process.env.FAKE_PI_ROOM_PLAN = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/plan.json";
+process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/fake-pi-dump.jsonl";`;
 const TEAM_LINE = "Acme's bots never use anyone's own computer; they use Acme's cloud computer.";
 const SECRET = "Zebrafinch42";
 const SHARED = "Okapi77";
@@ -92,7 +95,9 @@ beforeAll(async () => {
   gateway = await startFakeHttpMcp({ tools: [{ name: "lookup_order", inputSchema: { type: "object", properties: {} } }], callResult: () => ({ content: [{ type: "text", text: "ok" }] }) });
   broker = await startBrokerFake();
   fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-team-${randomBytes(8).toString("hex")}`, broker, team: { id: "team-acme-3", name: "Acme", engine: ENGINE,
-    env: { OMB_BOT_BOX: "0", OMB_TEST_WAIT_CLOCK: CLOCK, NODE_OPTIONS: `--import=${new URL("./testing/wait-clock-hooks.mjs", import.meta.url).href}`, FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}` } } });
+    // The reporter's own prompt asks the person's permission instead of running (a real extension-UI confirm), so its
+    // turn holds one open ask; every other turn here is the plan's.
+    env: { OMB_BOT_BOX: "0", OMB_TEST_WAIT_CLOCK: CLOCK, FAKE_PI_PERMISSION_ON: "Clean the build", NODE_OPTIONS: `--import=${new URL("./testing/wait-clock-hooks.mjs", import.meta.url).href}`, FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}` } } });
   team = fx.team!;
   ada = (await team.pair(ADA)).token!;
   mira = (await team.pair(MIRA)).token!;
@@ -234,7 +239,7 @@ it("a question left for a day is said in the person's own inbox chat, once the c
   expect(own.chiefOfStaff).toBeFalsy();
   const saidLine = "Reporter still waits on your answer about the build, since yesterday.";
   plan({
-    [reporter.id]: { turns: [{ approve: { tool_name: "Bash", input: { command: "rm -rf build" } }, reply: "Cleaned." }] },
+    // The reporter's prompt asks the person's permission instead (FAKE_PI_PERMISSION_ON), so its turn holds one open ask.
     [own.id]: { turns: [{ reply: "Morning." }, { reply: saidLine }] },
   });
   const asked = await team.as(ada, "POST", `/api/bots/${reporter.id}/messages`, { text: "Clean the build", threadId: reporter.threadId });

@@ -14,6 +14,9 @@ import { hostTimeout } from "./testing/host-timeout.ts";
 
 const TOKEN = `ops_fake-kinds-${randomBytes(8).toString("hex")}`;
 const HOME_MODEL_KEY = `sk-fake-home-${randomBytes(8).toString("hex")}`;
+// The synthetic engine is the fake pi (server/testing/fake-pi-cli.ts), so a bot names it and one of its models.
+const ENGINE = "pi";
+const MODEL = "ollama-cloud/glm-5.2", SECOND_MODEL = "openai/gpt-4o";
 let broker: BrokerFake;
 let fx: CloudSendFixture;
 let replyFile = "";
@@ -64,7 +67,7 @@ let first: CloudSendOutcome;
 
 it("a move carries the automations, files, memory, fields and skills, and its check finds all of it there", async () => {
   const { local, onCloud } = fx;
-  nova = (await local("POST", "/api/bots", { name: "Nova", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  nova = (await local("POST", "/api/bots", { name: "Nova", modelSelection: { instanceId: ENGINE, model: MODEL } })).body.bot;
   expect((await local("PATCH", `/api/bots/${nova.id}`, { soul: "You are Nova.", section: "Ops" })).status).toBe(200);
   await turn(local, nova, nova.threadId, "Hello Nova.");
   // Nova reached My Cloud once before, with an older app's Send: from then on each side keeps its own memory.
@@ -91,7 +94,7 @@ it("a move carries the automations, files, memory, fields and skills, and its ch
 
   // The bot fields Send everything left out, and a bot archived here.
   project = (await local("POST", `/api/bots/${nova.id}/projects`, { name: "Launch", emoji: "🚀" })).body.project.id;
-  expect((await local("PATCH", `/api/bots/${nova.id}`, { pinned: true, chiefOfStaff: true, fallback: [{ instanceId: "claude", model: "claude-haiku-5" }] })).status).toBe(200);
+  expect((await local("PATCH", `/api/bots/${nova.id}`, { pinned: true, chiefOfStaff: true, fallback: [{ instanceId: ENGINE, model: SECOND_MODEL }] })).status).toBe(200);
   old = (await local("POST", "/api/bots", { name: "Old" })).body.bot;
   expect((await local("PATCH", `/api/bots/${old.id}`, { soul: "Retired.", hidden: true })).status).toBe(200);
 
@@ -99,7 +102,8 @@ it("a move carries the automations, files, memory, fields and skills, and its ch
   plan = (await local("POST", `/api/bots/${nova.id}/tasks`, { title: "Plan", projectId: project })).body.task;
   await turn(local, nova, plan.threadId, "Plan the launch.");
   const snooze = Date.now() + 86_400_000;
-  expect((await local("PATCH", `/api/bots/${nova.id}/tasks/${plan.threadId}`, { snoozedUntil: snooze, approvalMode: "edits", modelSelection: { instanceId: "claude", model: "claude-opus-5" } })).status).toBe(200);
+  // pi has no auto-accept-edits level of its own (shared/approval-mode.ts), so "auto" is the level a pi bot keeps.
+  expect((await local("PATCH", `/api/bots/${nova.id}/tasks/${plan.threadId}`, { snoozedUntil: snooze, approvalMode: "auto", modelSelection: { instanceId: ENGINE, model: SECOND_MODEL } })).status).toBe(200);
   room = (await local("POST", "/api/groups", { name: "Standup", memberIds: [nova.id], setup: { bulletin: "Daily.", defaultResponder: { kind: "mentions" } } })).body.group;
   expect((await local("POST", `/api/groups/${room.id}/messages`, { text: "Notes for the standup.", threadId: room.threadId })).status).toBeLessThan(300);
   expect((await local("PATCH", `/api/groups/${room.id}/tasks/${room.threadId}`, { turnTimeoutMinutes: 45 })).status).toBe(200);
@@ -207,10 +211,10 @@ it("a move carries the automations, files, memory, fields and skills, and its ch
   expect(team.map((entry) => entry.name).sort()).toEqual(["Dana", "PO"]);
 
   // The bot and conversation fields.
-  expect(await botOn(onCloud, nova.id)).toMatchObject({ pinned: true, chiefOfStaff: true, fallback: [{ instanceId: "claude", model: "claude-haiku-5" }], projects: [{ id: project, name: "Launch", emoji: "🚀" }] });
+  expect(await botOn(onCloud, nova.id)).toMatchObject({ pinned: true, chiefOfStaff: true, fallback: [{ instanceId: ENGINE, model: SECOND_MODEL }], projects: [{ id: project, name: "Launch", emoji: "🚀" }] });
   expect(await botOn(onCloud, old.id)).toMatchObject({ hidden: true });
   const planThere = ((await botOn(onCloud, nova.id)).tasks as Array<Record<string, any>>).find((task) => task.threadId === plan.threadId)!;
-  expect(planThere).toMatchObject({ projectId: project, snoozedUntil: snooze, approvalMode: "edits", modelSelection: { instanceId: "claude", model: "claude-opus-5" } });
+  expect(planThere).toMatchObject({ projectId: project, snoozedUntil: snooze, approvalMode: "auto", modelSelection: { instanceId: ENGINE, model: SECOND_MODEL } });
   const roomThere = ((await onCloud("GET", "/api/cloud-send/chats")).body.conversations as Array<{ threadId: string; settings: Record<string, unknown> }>).find((head) => head.threadId === room.threadId);
   expect(roomThere?.settings).toMatchObject({ turnTimeoutMinutes: 45 });
 

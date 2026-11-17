@@ -117,8 +117,10 @@ async function proxyFor(start: () => Promise<void>) {
 async function startCloudHome(at: string, tree: string, port: number, onLog: (chunk: string) => void): Promise<ChildProcess> {
   const contract = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
     OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}` };
-  // What the image's ENV sets for the native modules, then the supervisor's own allow-list and secrets pipe.
-  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: tree, ...contract };
+  // What the image's ENV sets for the native modules, then the supervisor's own allow-list and secrets pipe. No bot box:
+  // a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi writes its launch
+  // log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: tree, OMB_BOT_BOX: "0", ...contract };
   const { server, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(imageEnv)!, imageEnv, at);
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   const started = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {

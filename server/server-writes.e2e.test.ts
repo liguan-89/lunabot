@@ -21,7 +21,9 @@ const json = (path: string) => {
 };
 
 it.each(["SIGKILL", "SIGTERM"] as const)("a turn and a routine run cut by %s keep everything saved so far", async (signal) => {
-  fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: "hang" });
+  // Both turns stay open until the process is cut. The fake's "hang" turn lives in its compat bridge (the retired
+  // fixture's shape), so the compat switch is on with it.
+  fixture = await launchVerificationServer({ ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" });
   const { url, dataDir } = fixture.info;
   const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {
@@ -47,11 +49,14 @@ it.each(["SIGKILL", "SIGTERM"] as const)("a turn and a routine run cut by %s kee
   expect(saved.title).toBe("Plan the offsite");
   expect(saved.askedAt).toEqual(expect.any(Number));
   expect(saved.cwd).toEqual(expect.any(String));
-  expect(saved.resumeCursors.claude).toEqual(expect.any(String));
+  expect(saved.resumeCursors.pi).toEqual(expect.any(String));
   expect(savedRun()).toMatchObject({ status: "running", threadId: expect.any(String) });
 
   const native = read(join(dataDir, "native", `${bot.activeTaskId}.ndjson`)).split("\n").filter(Boolean).map((line) => JSON.parse(line));
   expect(JSON.stringify(native.filter((row) => row.dir === "out"))).toContain("Plan the offsite");
   // An orderly exit writes the lines still held; a kill can lose only those, the last FLUSH_MS of what the engine said.
-  if (signal === "SIGTERM") expect(native.some((row) => row.dir === "in" && row.msg?.subtype === "init")).toBe(true);
+  // pi's own frame for "the session is ready" is the answer to new_session, which carries the session file the cursor holds.
+  if (signal === "SIGTERM") {
+    expect(native.some((row) => row.dir === "in" && row.msg?.type === "response" && row.msg?.command === "new_session" && row.msg?.success === true)).toBe(true);
+  }
 }, hostTimeout(90_000));

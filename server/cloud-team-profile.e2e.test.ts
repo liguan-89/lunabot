@@ -1,14 +1,15 @@
 // A real Team Cloud (OMB_CLOUD_ROLE=team) with two people: who "you" is. Each person's profile (name, picture, About you)
 // is their own, keyed by their verified claim; the server's one profile from config.json is nobody's there: it moves to
 // the person whose address it names. Bots name the person a conversation is for, and each group chat line its speaker.
-// The engine is the synthetic Claude CLI, so this proves the plumbing, not a model's judgement.
+// The engine is the synthetic pi CLI, so this proves the plumbing, not a model's judgement.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { seedTeamProfile } from "../electron/team-profile-seed.mjs";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 const ADA = { email: "ada@acme.test", role: "owner" as const };
 const BOB = { email: "bob@acme.test", role: "admin" as const };
@@ -16,7 +17,7 @@ const CLEO = { email: "cleo@acme.test", role: "member" as const };
 const DEE = { email: "dee@acme.test", role: "member" as const };
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
 const ADA_PHOTO = "/api/attachments/ada-photo.png";
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";`;
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";`;
 
 let fx: CloudSendFixture, team: CloudTeamFixture;
 let ada = "", bob = "";
@@ -30,21 +31,27 @@ const you = async (token: string) => {
   expect(config.status, JSON.stringify(config.body)).toBe(200);
   return config.body.profile as Profile;
 };
-const dump = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { systemPrompt: string; prompt: unknown };
+/** The last pi turn whose own words hold `text`: the instructions in effect and the words it was given, as the retired
+ * Claude fixture's dump carried them (its systemPrompt and prompt). */
+const dump = (text: string) => {
+  const turns = piTurns(join(team.home, "dump.jsonl"));
+  const index = turns.findLastIndex((turn) => piTurnText(turn).includes(text));
+  expect(index, `no pi turn carried "${text}"`).toBeGreaterThanOrEqual(0);
+  return { systemPrompt: piInstructionsFor(turns, index), prompt: piTurnText(turns[index]!) };
+};
 const messages = async (token: string, threadId: string) =>
   (await team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`)).body.messages as Array<{ role: string; kind: string; text?: string; sender?: { name: string; id?: string } }>;
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
 async function turn(token: string, threadId: string, text: string, room?: string) {
-  rmSync(join(team.home, "dump.json"), { force: true });
   const before = (await messages(token, threadId)).length;
   const sent = room
     ? await team.as(token, "POST", `/api/groups/${room}/messages`, { text, threadId })
     : await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => await idle(token) && (await messages(token, threadId)).length >= before + 2 && existsSync(join(team.home, "dump.json")),
+  await expect.poll(async () => await idle(token) && (await messages(token, threadId)).length >= before + 2,
     { timeout: 60_000, interval: 100 }).toBe(true);
-  return dump();
+  return dump(text);
 }
 
 /** The config frames a person's own event stream carries until one passes `until`, after `trigger` runs. */

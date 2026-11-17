@@ -1,4 +1,4 @@
-// Real server, the repository's fake Claude held silent: the first-reply rescue end to end.
+// Real server, the repository's fake pi held silent: the first-reply rescue end to end.
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,8 +10,9 @@ import { openSse } from "./testing/sse.ts";
 it("posts one rescue notice into a silent first reply, readable as plain text, and settles it when the reply starts", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-first-reply-"));
   const release = join(scratch, "release");
+  // The fake pi's compatibility `hang` turn says nothing until the release file exists, as the retired fixture did.
   const fixture = await launchVerificationServer({
-    ...process.env, FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_RELEASE: release, OMB_FIRST_REPLY_NOTICE_MS: "1500",
+    ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release, OMB_FIRST_REPLY_NOTICE_MS: "1500",
   });
   const { url } = fixture.info;
   const control = (args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
@@ -56,7 +57,8 @@ it("posts one rescue notice into a silent first reply, readable as plain text, a
       ok: true,
       rescue: { botId: bot.id, threadId, turnId: notice.turnId, requestMessageId: asked.id, instanceId, ai, settled: true },
     });
-    expect(after.some((message) => message.kind === "text" && message.text === "released")).toBe(true);
+    // The reply that follows the silence is the fixture's own answer, once the turn is let go.
+    expect(after.some((message) => message.kind === "text" && message.text === "hello from fake claude")).toBe(true);
   } finally {
     stream.close();
     await fixture.close();

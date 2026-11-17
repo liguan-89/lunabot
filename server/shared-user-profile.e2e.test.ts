@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import type { WireBot } from "../shared/wire.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 it("persists shared user context and includes it in preview, direct and group turns", async () => {
   const fixture = await launchVerificationServer();
@@ -15,8 +16,12 @@ it("persists shared user context and includes it in preview, direct and group tu
     expect(response.status).toBe(status);
     return response.json() as Promise<T>;
   };
-  // Read only the synthetic engine's system text, never its environment.
-  const sentSystem = () => (JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { systemPrompt: string }).systemPrompt;
+  // The instructions the last pi turn ran under, never its environment: pi sends the whole system prompt on a
+  // session's first turn and only the note that replaced part of it afterwards, and this reads both as the model saw them.
+  const sentSystem = () => {
+    const turns = piTurns(piDumpPath(fixture.info.dataDir));
+    return piInstructionsFor(turns, turns.length - 1);
+  };
   try {
     const { bot } = await api<{ bot: WireBot }>("/api/bots", "POST", { name: "Profile fixture" }, 201);
     await api("/api/config", "PUT", { profile: { name: "Fixture user", email: "fixture@example.invalid" } });

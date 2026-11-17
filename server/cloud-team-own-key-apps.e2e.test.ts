@@ -2,9 +2,9 @@
 // stands in for Composio (OMB_COMPOSIO_API), and the managed connected-apps service is a loopback address that records
 // whatever reaches it. Ada's own Gmail is her own Composio user in the team's project, used only by her own request in
 // her private chat, and removed from the project when she leaves; the service hears nothing. The engine is the
-// synthetic Claude CLI, calling the connected-apps bridges it was launched with.
+// synthetic pi CLI, calling the connected-apps bridges it was launched with.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -14,6 +14,7 @@ import { personKey } from "./person-key.ts";
 import { memberComposioUser } from "./team-connections.ts";
 import { startFakeComposioProject, type FakeComposioProject } from "./testing/fake-composio-project.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
 const KEY = "ak_team_project_key";
@@ -22,7 +23,7 @@ const OWNER = { email: "olive@acme.test", role: "owner" as const };
 const ADA = { email: "ada@acme.test", role: "member" as const };
 const CLEO = { email: "cleo@acme.test", role: "member" as const };
 const ADA_USER = memberComposioUser(TEAM_ID, personKey({ id: "", email: ADA.email }));
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
 
 let fx: CloudSendFixture, team: CloudTeamFixture, project: FakeComposioProject;
@@ -61,7 +62,8 @@ const scriptToolCalls = (calls: unknown[] | null) => {
   const file = join(team.home, "tool-calls.json");
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
 };
-const gmailCall = (server: "composio" | "own_apps") => ({ name: "COMPOSIO_MULTI_EXECUTE_TOOL", server, input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } });
+/** pi names a mounted MCP tool "<server>_<tool>", lower-cased (server/drivers/pi-mcp-extension.ts). */
+const gmailCall = (server: "composio" | "own_apps") => ({ name: `${server}_composio_multi_execute_tool`, server, input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } });
 const messages = async (token: string, threadId: string) => team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`);
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
@@ -72,14 +74,16 @@ async function newThread(token: string, title: string) {
 }
 async function turn(token: string, threadId: string, text: string, calls: unknown[]) {
   scriptToolCalls(calls);
-  rmSync(join(team.home, "dump.json"), { force: true });
   const before = ((await messages(token, threadId)).body.messages as unknown[]).length;
   const sent = await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2 && existsSync(join(team.home, "dump.json")),
-    { timeout: 60_000, interval: 100 }).toBe(true);
-  const seen = JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { mcpConfig: { mcpServers: Record<string, unknown> } };
-  return { servers: Object.keys(seen.mcpConfig?.mcpServers ?? {}), thread: JSON.stringify((await messages(token, threadId)).body) };
+  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2
+    && piTurns(join(team.home, "dump.jsonl")).some((entry) => entry.prompt.includes(text)),
+  { timeout: 60_000, interval: 100 }).toBe(true);
+  const turns = piTurns(join(team.home, "dump.jsonl"));
+  const index = turns.findLastIndex((entry) => entry.prompt.includes(text));
+  const seen = { mcpConfig: (turns[index]!.launch?.mcpConfig ?? { mcpServers: {} }) as { mcpServers: Record<string, unknown> } };
+  return { servers: Object.keys(seen.mcpConfig.mcpServers ?? {}), thread: JSON.stringify((await messages(token, threadId)).body) };
 }
 const gmailCallsBy = (user: string) => project.toolCalls.filter((call) => call.user === user && call.slugs.includes("GMAIL_FETCH_EMAILS")).length;
 

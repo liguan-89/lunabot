@@ -443,12 +443,15 @@ it("speaks every reply when the Voice setting is on: failed turns too with how t
   const failing = (await f.cli("new-bot", "--name", "Failing bot")).bot;
   const stopped = (await f.cli("new-bot", "--name", "Stopped bot")).bot;
   const gate = join(f.dataDir, "every-reply-gate");
+  // `readyFile` is written once the working note has been streamed (server/testing/room-handoff-agent.ts), so the test
+  // stops a turn that has really said something rather than one still starting.
+  const ready = join(f.dataDir, "every-reply-ready");
   f.savePlan({
     [muted.id]: { steps: [], reply: "Muted reply." },
     [plain.id]: { steps: [], reply: "The **report** is ready." },
     [own.id]: { steps: [{ tool: "send_voice_note", arguments: { text: "My own note." } }], reply: "Reply next to my own note." },
     [failing.id]: { turns: [{ steps: [], progress: "Half the export is done.", failWith: "the export step crashed" }, { steps: [], reply: "Retried." }] },
-    [stopped.id]: { steps: [], progress: "Starting the long job.", gateFile: gate, reply: "Never reached." },
+    [stopped.id]: { steps: [], progress: "Starting the long job.", readyFile: ready, gateFile: gate, reply: "Never reached." },
   });
 
   await settle(f, muted);
@@ -468,13 +471,15 @@ it("speaks every reply when the Voice setting is on: failed turns too with how t
 
   await f.cli("send", "--bot", stopped.id, "--task", stopped.activeTaskId, "--text", "Start the long job.");
   // The fake streams the working note but pi keeps it as the turn's text only when the turn settles, so the turn is
-  // known under way by its prompt in the launch log rather than by a stored line.
+  // known under way by its prompt in the launch log, and known to have said something by the plan's ready file.
   await expect.poll(() => piTurnsForThread(piDumpPath(f.dataDir), stopped.activeTaskId)
     .some((turn) => turn.prompt.includes("Start the long job.")), { timeout: 20_000 }).toBe(true);
+  await expect.poll(() => existsSync(ready), { timeout: 20_000 }).toBe(true);
   await f.api("/api/bots/" + stopped.id + "/interrupt", { threadId: stopped.activeTaskId });
   await f.cli("wait", "--bot", stopped.id, "--task", stopped.activeTaskId, "--timeout", "30");
   // The person's Stop keeps what was said, and the Voice setting still does not speak it.
-  expect((await f.messages(stopped.activeTaskId)).some((m: any) => m.role === "bot" && m.text === "Starting the long job.")).toBe(true);
+  await expect.poll(async () => (await f.messages(stopped.activeTaskId)).some((m: any) => m.role === "bot" && m.text === "Starting the long job."),
+    { timeout: 20_000 }).toBe(true);
   await settle(f, plain, "Once more.");
   await expect.poll(() => f.seen.filter((call: any) => call.input === "The report is ready.").length, { timeout: 20_000 }).toBe(2);
   const spoken = f.seen.map((call: any) => call.input);

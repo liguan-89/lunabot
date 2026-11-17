@@ -90,6 +90,10 @@ beforeAll(async () => {
     child = spawnWithSecrets(process.execPath, ["--import", offline, ...hooks, join(SERVER_DIR, "index.ts")], {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+      // writes its launch log to (server/testing/pi-dump.ts), which every turn here is read from. The box has its own
+      // suites (server/bot-box/*.linux.test.ts).
+      OMB_BOT_BOX: "0",
       OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE_ID, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_PUBLIC_URL: `https://${HOST}`, OMB_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
       OMB_CLOUD_SECRETS_FD: "3", ...stall,
