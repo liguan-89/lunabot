@@ -37,6 +37,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -44,7 +47,10 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -218,6 +224,7 @@ private fun OpeningThread(onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -313,6 +320,7 @@ private fun LoadedChat(
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val openCall: () -> Unit = {
+        dictation.stop()
         focusManager.clearFocus()
         scope.launch {
             // Once a socket call proved viable it stays the pick: re-probing
@@ -564,11 +572,15 @@ private fun LoadedChat(
     // LocalDensity.current cannot be read.
     val density = LocalDensity.current
     val hazeState = rememberHazeState()
+    val topInset = WindowInsets.safeDrawing
+        .only(WindowInsetsSides.Top)
+        .asPaddingValues()
+        .calculateTopPadding()
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var composerHeightPx by remember { mutableIntStateOf(0) }
     val headerClearance = with(density) {
         if (headerHeightPx > 0) headerHeightPx.toDp() + 12.dp else HEADER_CLEARANCE
-    }
+    } + topInset
     val bottomClearance = with(density) {
         if (composerHeightPx > 0) composerHeightPx.toDp() + 10.dp else BOTTOM_CHROME_HEIGHT + 8.dp
     }
@@ -612,7 +624,8 @@ private fun LoadedChat(
     // session, and applying that on open would clobber this chat's draft.
     // Merged text stays in the volatile draft / holder — never in the
     // saveable typed snapshot.
-    LaunchedEffect(threadId, dictation) {
+    LaunchedEffect(threadId, dictation, showingCall) {
+        if (showingCall) return@LaunchedEffect
         var first = true
         dictation.transcript.collect { next ->
             if (first) {
@@ -621,7 +634,7 @@ private fun LoadedChat(
             }
             // A call shares this recognizer: what it hears belongs to the
             // call's transcript, never to the half-typed draft behind it.
-            if (showingCall || liveCall) return@collect
+            if (showingCall) return@collect
             val merged = Dictation.draft(base = dictation.base, transcript = next)
             composer.onDictation(merged)
             publishFrom(composer)
@@ -1321,6 +1334,7 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
+                        .statusBarsPadding()
                         .onSizeChanged { headerHeightPx = it.height },
                 )
 
@@ -1512,9 +1526,17 @@ private fun LoadedChat(
 
     if (showingCall && bot != null) {
         if (liveCall) {
-            LiveCallScreen(bot = bot, onDismiss = { showingCall = false })
+            LiveCallScreen(
+                bot = bot,
+                bottomClearance = bottomClearance,
+                onDismiss = { showingCall = false },
+            )
         } else {
-            CallScreen(bot = bot, onDismiss = { showingCall = false })
+            CallScreen(
+                bot = bot,
+                bottomClearance = bottomClearance,
+                onDismiss = { showingCall = false },
+            )
         }
     }
 }
@@ -1677,6 +1699,7 @@ private fun ChatSearchOverlay(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
+            .statusBarsPadding()
             .padding(horizontal = 16.dp),
     ) {
         Row(

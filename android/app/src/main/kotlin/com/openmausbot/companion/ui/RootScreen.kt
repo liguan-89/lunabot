@@ -218,8 +218,9 @@ fun CompanionRoot(
 
     CompanionTheme(darkTheme = darkTheme) {
         // One place for system insets: the app draws edge to edge, and every
-        // screen wants the same answer — keep content clear of the status bar,
-        // the gesture bar, and the keyboard.
+        // screen keeps clear of the gesture bar and keyboard. Conversation
+        // owns its top inset so the transcript and its haze can reach the
+        // status bar; other destinations keep the shared safe area.
         //
         // The strips outside the inset Surface are painted here, and a screen
         // that is deliberately full-bleed (the computer viewer) may replace
@@ -234,7 +235,7 @@ fun CompanionRoot(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                     )
                     .imePadding(),
             ) {
@@ -250,6 +251,12 @@ fun CompanionRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .then(
+                            if (route == OnboardingRoute.CHATS) Modifier
+                            else Modifier.windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+                            ),
+                        )
                         .onGloballyPositioned { observerOrigin.value = it.positionInWindow() }
                         .pointerInput(faceClock) {
                             val clock = faceClock ?: return@pointerInput
@@ -464,6 +471,16 @@ private const val NAV_MILLIS = 300
 /** The one place a destination becomes a screen. */
 @Composable
 private fun DestinationContent(destination: Destination, navigator: CompanionNavigator) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(
+                if (destination is Destination.Conversation) Modifier
+                else Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+                ),
+            ),
+    ) {
     when (destination) {
         Destination.Roster -> RosterScreen(navigator)
         Destination.Settings -> SettingsScreen(
@@ -510,6 +527,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onOpenChat = navigator::open,
             botId = destination.botId,
         )
+    }
     }
 }
 
