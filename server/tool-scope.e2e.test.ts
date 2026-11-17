@@ -1,20 +1,28 @@
 import { spawn } from "node:child_process";
 import { once } from "node:events";
-import { existsSync, openSync, closeSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { openSync, closeSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { DatabaseSync } from "node:sqlite";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { piTurns } from "./testing/pi-dump.ts";
+
+/** The fake pi mounts the turn's MCP config at boot only on request: a turn under a tool selection is enforced through
+ * pi's own active-tool APIs, which the fake provides as it mounts (server/testing/fake-pi-cli.ts). */
+const MOUNTED_ENGINE = { FAKE_PI_MOUNT_TOOLS: "1" } as const;
 
 async function withFixture(mode: "happy" | "hang", run: (helpers: {
   api(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; body: any }>;
   control(args: string[]): Promise<any>;
   url: string;
   dataDir: string;
-  dump(): Promise<any>;
+  dump(text?: string): Promise<any>;
 }) => Promise<void>) {
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: mode });
+  const fixture = await launchVerificationServer({ ...process.env, ...MOUNTED_ENGINE, FAKE_CLAUDE_MODE: mode });
+  // The pi launch log accumulates across the fixture's life, so a recipe waits for the next prompt row rather than the
+  // file's existence: the launch that row names is what the retired Claude fixture's per-turn dump used to say.
+  let seen = 0;
   try {
     await run({
       url: fixture.info.url, dataDir: fixture.info.dataDir,
@@ -23,11 +31,17 @@ async function withFixture(mode: "happy" | "hang", run: (helpers: {
         return { status: response.status, body: await response.json() };
       },
       control: (args) => runControlOmb([...args, "--url", fixture.info.url]),
-      dump: async () => {
-        await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 15_000 }).toBe(true);
-        const value = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
-        rmSync(fixture.fixtureDumpPath, { force: true });
-        return value;
+      dump: async (text?: string) => {
+        let found = -1;
+        await expect.poll(() => {
+          const turns = piTurns(fixture.fixtureDumpPath);
+          found = turns.findIndex((turn, at) => at >= seen && (text === undefined || turn.prompt.includes(text)));
+          return found >= 0;
+        }, { timeout: 15_000 }).toBe(true);
+        const turns = piTurns(fixture.fixtureDumpPath);
+        seen = found + 1;
+        const turn = turns[found]!;
+        return { mcpConfig: turn.launch?.mcpConfig ?? null, pid: turn.launch?.pid, prompt: turn.prompt };
       },
     });
   } finally { await fixture.close(); }
@@ -89,6 +103,8 @@ it.each(["direct", "preview", "room", "goal"] as const)("keeps a corrupt persist
     const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
     const { bot } = await control(["new-bot", "--name", "Corrupt scope fixture"]) as any;
     const { channel } = await control(["new-channel", "--name", "Corrupt scope room", "--members", bot.id]) as any;
+    // The pi launch log is the fixture's, not one turn's: the check below is that no turn is added after the restart.
+    const turnsBefore = piTurns(fixture.fixtureDumpPath).length;
     const stopped = once(fixture.child, "close"); fixture.child.kill(); await stopped;
     const file = join(fixture.info.dataDir, "bots.json");
     const bots = JSON.parse(readFileSync(file, "utf8"));
@@ -134,7 +150,7 @@ it.each(["direct", "preview", "room", "goal"] as const)("keeps a corrupt persist
         expect(room?.messages.find(message => message.kind === "goal.run")?.goalRun?.status).toBe("failed");
       }
     }
-    expect(existsSync(fixture.fixtureDumpPath)).toBe(false);
+    expect(piTurns(fixture.fixtureDumpPath)).toHaveLength(turnsBefore);
   } finally {
     if (restarted && restarted.exitCode === null && restarted.signalCode === null) {
       const stopped = once(restarted, "close"); restarted.kill(); await stopped;
@@ -166,7 +182,7 @@ it("refuses selection changes during direct and room turns and requires a truste
 }, 60_000);
 
 it("carries the latest original tool selection into fresh direct and room MCP connections", async () => {
-  await withFixture("happy", async ({ api, control, dump }) => {
+  await withFixture("happy", async ({ api, control, dump, url }) => {
     const server = { name: "notes", command: process.execPath, args: ["--experimental-strip-types", fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url))], enabled: true };
     expect((await api("POST", "/api/mcp/servers", server)).status).toBe(201);
     expect((await api("PATCH", "/api/mcp/servers/notes", { enabled: true })).status).toBe(200);
@@ -174,14 +190,16 @@ it("carries the latest original tool selection into fresh direct and room MCP co
     const direct = { allow: ["native:*", "mcp:notes:read_notes"] };
     expect((await api("PATCH", `/api/bots/${bot.id}`, { toolScope: direct })).status).toBe(200);
     await control(["send", "--bot", bot.id, "--text", "Reply once."]);
-    const first = await dump();
+    const first = await dump("Reply once.");
     expect(JSON.parse(first.mcpConfig.mcpServers.notes.env.OMB_GATE_TOOL_SCOPE)).toEqual(direct);
     await control(["wait", "--bot", bot.id, "--timeout", "30"]);
     const roomScope = { deny: ["mcp:notes:write_notes"] };
-    expect((await api("PATCH", `/api/bots/${bot.id}`, { toolScope: roomScope })).status).toBe(200);
+    // Dropping the allow list for a deny list is a widening: it takes the trusted path, as the desktop app's own does.
+    const narrowed = await api("PATCH", `/api/bots/${bot.id}`, { toolScope: roomScope }, { origin: url });
+    expect(narrowed.status, JSON.stringify(narrowed.body)).toBe(200);
     const { channel } = await control(["new-channel", "--name", "Scope dispatch room", "--members", bot.id]);
     await control(["send-channel", "--channel", channel.id, "--text", "Reply once in this room."]);
-    const second = await dump();
+    const second = await dump("Reply once in this room.");
     expect(second.pid).not.toBe(first.pid);
     expect(JSON.parse(second.mcpConfig.mcpServers.notes.env.OMB_GATE_TOOL_SCOPE)).toEqual(roomScope);
     await control(["wait", "--channel", channel.id, "--timeout", "30"]);

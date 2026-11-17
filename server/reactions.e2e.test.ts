@@ -1,11 +1,11 @@
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 it("answers a bot's yes-or-no question with a 👍, and the bot goes on by itself", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-reactions-"));
@@ -60,7 +60,9 @@ it("answers a bot's yes-or-no question with a 👍, and the bot goes on by itsel
       ["bot", "Sent it to Sam."],
     ]);
     expect(prompts()).toHaveLength(2);
-    expect(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).systemPrompt).toContain(
+    // pi sends the whole system prompt on a session's first turn; the launch log keeps it there (server/testing/pi-dump.ts).
+    const turns = piTurns(fixture.fixtureDumpPath);
+    expect(piInstructionsFor(turns, turns.length - 1)).toContain(
       "A plain yes or no, such as whether to go ahead, needs no widget: ask it in one short sentence; the person answers in a word or with 👍 or 👎 on your message, and either comes back to you as their reply.");
     const reactionPrompt = prompts()[1]!;
     evidence.push({ reactionPrompt });
@@ -148,45 +150,27 @@ function client(fixture: Fixture, evidence: unknown[]) {
 
 it("allows an open approval with a 👍 on its card and denies one with a 👎", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-reaction-cards-"));
-  const gate = join(scratch, "finish");
-  const fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_FINISH_GATE: gate });
+  // The fake pi raises its own confirmation card on every prompt carrying the marker, as a real permission ask would.
+  const fixture = await launchVerificationServer({ FAKE_PI_PERMISSION_ON: "Push the branch.", FAKE_PI_CONFIRM_TITLE: "Allow bash?" });
   const evidence: unknown[] = [];
   const api = client(fixture, evidence);
-  let broker: Socket | undefined;
   try {
-    const bot = (await api("POST", "/api/bots", { name: "Pusher" }, 201)).bot;
-    await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask" });
-    await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text: "Push the branch." }, 202);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 15_000 }).toBe(true);
-    const socketPath = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).mcpConfig.mcpServers.ogb.args[1] as string;
-    broker = connect(socketPath);
-    await new Promise<void>((resolve, reject) => { broker!.once("connect", resolve); broker!.once("error", reject); });
-    const answers: Array<{ id: string; behavior: string }> = [];
-    let buffer = "";
-    broker.on("data", (chunk) => {
-      buffer += chunk.toString();
-      for (let end = buffer.indexOf("\n"); end >= 0; end = buffer.indexOf("\n")) {
-        const frame = JSON.parse(buffer.slice(0, end));
-        buffer = buffer.slice(end + 1);
-        if (frame.t === "answer") answers.push(frame);
-      }
-    });
-    const card = async (requestId: string) => (await api("GET", `/api/threads/${bot.threadId}/messages`)).messages
-      .find((message: any) => message.card?.requestId === requestId);
-
-    for (const [requestId, emoji, behavior] of [["push-1", "👍", "allow"], ["push-2", "👎", "deny"]] as const) {
-      broker.write(JSON.stringify({ t: "ask", id: requestId, kind: "permission", tool: "Bash", input: { command: "git push origin feature" } }) + "\n");
-      await expect.poll(() => card(requestId), { timeout: 10_000 }).toMatchObject({ kind: "options", card: { requestId, tool: "Bash" } });
-      const shown = await card(requestId);
+    /** The fake pi asks every confirmation with the same request id, so each answer gets a conversation of its own. */
+    const card = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages`)).messages
+      .find((message: any) => message.kind === "options" && message.card?.requestId);
+    for (const [name, emoji, behavior] of [["Pusher", "👍", "allow"], ["Pusher two", "👎", "deny"]] as const) {
+      const bot = (await api("POST", "/api/bots", { name }, 201)).bot;
+      await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask" });
+      await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text: "Push the branch." }, 202);
+      await expect.poll(async () => Boolean(await card(bot.threadId)), { timeout: 15_000 }).toBe(true);
+      const shown = await card(bot.threadId);
       expect(await api("POST", `/api/threads/${bot.threadId}/messages/${shown.id}/reactions`, { emoji, on: true }))
         .toMatchObject({ delivery: "answered", message: { reactions: [{ emoji, by: "user" }] } });
-      await expect.poll(() => answers.find((answer) => answer.id === requestId), { timeout: 10_000 }).toMatchObject({ behavior });
-      expect((await card(requestId)).card).toMatchObject({ answered: behavior, answeredBy: { kind: "loopback", via: "reaction" } });
+      await expect.poll(async () => (await card(bot.threadId)).card.answered, { timeout: 10_000 }).toBe(behavior);
+      expect((await card(bot.threadId)).card).toMatchObject({ answered: behavior, answeredBy: { kind: "loopback", via: "reaction" } });
+      expect((await api("GET", `/api/threads/${bot.threadId}/messages`)).messages.filter((message: any) => message.role === "user")).toHaveLength(1);
     }
-    expect((await api("GET", `/api/threads/${bot.threadId}/messages`)).messages.filter((message: any) => message.role === "user")).toHaveLength(1);
-    writeFileSync(gate, "finish");
   } finally {
-    broker?.destroy();
     writeFileSync(`${fixture.info.logPath}.reaction-cards.json`, JSON.stringify(evidence, null, 2));
     await fixture.close();
     await removeTempDir(scratch);
@@ -236,7 +220,11 @@ it("in a room, gives the 👍 to the member that asked, by name", async () => {
     evidence.push({ answered });
     expect(answered).toContain(": [reacted 👍 to Otter: “Shall I post the launch note?”]");
     expect(answered).not.toContain("@Otter: 👍");
-    expect(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).systemPrompt)
+    // pi carries the room's own instructions on its first turn for this conversation; read them from the launch log.
+    const turns = piTurns(fixture.fixtureDumpPath);
+    const last = turns.findLastIndex((turn) => turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === room.threadId);
+    expect(last).toBeGreaterThanOrEqual(0);
+    expect(piInstructionsFor(turns, last))
       .toContain("A \"[reacted 👍 to …]\" line is that person's whole reply to the message it names: 👍 means yes, go ahead when that message asked them something or offered to do something, and only got it (start no new work) when it just told them something; 👎 means no.");
 
     const posted = after.find((message) => message.text === "Posted it.");

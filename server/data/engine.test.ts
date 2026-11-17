@@ -301,8 +301,10 @@ describe("a bot's database", () => {
   });
 
   it("keeps an earlier query result when the sheet reopens before the next query", async () => {
-    const database = await engine().forBot("query-names");
-    const options = { botId: "query-names", dir: join(root, "bots", "query-names") };
+    // Its own bot: each engine() here opens data.duckdb for real, and on Windows a second engine on the same file
+    // cannot open it (the OS keeps the first process's handle).
+    const database = await engine().forBot("query-sheet");
+    const options = { botId: "query-sheet", dir: join(root, "bots", "query-sheet") };
     const first = new DataSheetStore(options).nextResultName();
     await database.materialise("SELECT 11 AS value", first, bot);
     const second = new DataSheetStore(options).nextResultName();
