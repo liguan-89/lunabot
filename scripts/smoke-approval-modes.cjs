@@ -278,27 +278,84 @@ app.whenReady().then(async () => {
   assert.ok(fullDecisions.length > 0, "Full must answer the provider's own permission request and log it");
   console.log(JSON.stringify({ provider: "pi", mode: "full", autoApproved: true, humanInterrupted: false }));
 
-  // A delegated turn runs at the receiving thread's own level, never the sender's.
+  // A delegated turn lands on the receiving bot's own work thread — never on a
+  // selected sibling — and runs at that work thread's level, never the sender's.
   const sender = await newBot("Delegating fixture");
   await coordinator.request(child, sender.id, "full");
-  const target = await newBot("Delegated fixture");
-  await coordinator.request(child, target.id, "ask");
+  const peerTarget = await newBot("Delegated fixture");
+  await coordinator.request(child, peerTarget.id, "ask");
+  const peerThread = await newTask(peerTarget.id, "Unrelated selected conversation");
+  await coordinator.request(child, peerTarget.id, "full");
+  await coordinator.request(child, peerTarget.id, "full", { threadId: peerThread.threadId });
   const capability = await api("/api/testing/internal-capability", "POST",
     { botId: sender.id, threadId: sender.threadId }, { "x-openmausbot-test-capability": testCapabilityKey });
   assert.equal(capability.status, 201);
   const peerResponse = await api("/api/internal/coordinate-bots", "POST",
-    { botIds: [target.id], message: "Peer-initiated permission fixture", consult: true },
+    { botIds: [peerTarget.id], message: `${permissionMarker}, peer-initiated on the work thread`, consult: true },
     { authorization: `Bearer ${capability.body.token}` });
   assert.equal(peerResponse.status, 200);
   // Coordination opens its own work thread without selecting it in the UI.
-  const peerThreadId = peerResponse.body.receipts[0].threadId;
-  assert.ok(peerThreadId);
-  assert.notEqual(peerThreadId, target.threadId);
-  // Its own child boot records the receiving thread's level, never the sender's.
-  await until(async () => launchOf(peerThreadId));
-  assert.equal(levelOf(peerThreadId), "ask");
-  await until(async () => (await taskOf(target.id, peerThreadId))?.busy === false);
-  console.log(JSON.stringify({ provider: "pi", mode: "ask", senderMode: "full", peerInitiated: true, piLaunch: "ask" }));
+  const peerWorkThreadId = peerResponse.body.receipts[0].threadId;
+  assert.ok(peerWorkThreadId);
+  assert.notEqual(peerWorkThreadId, peerThread.threadId);
+  // The receiving thread runs at its own Full level: the provider's request is auto-approved there.
+  await until(async () => launchOf(peerWorkThreadId));
+  assert.equal(levelOf(peerWorkThreadId), "full");
+  const peerDecisions = await until(async () => {
+    const rows = (await api("/api/decisions")).body.decisions.filter((row) => row.botId === peerTarget.id && row.threadId === peerWorkThreadId);
+    return rows.some((row) => row.source === "full-access") && rows;
+  });
+  await until(async () => (await readBot(peerTarget.id))?.tasks.find((task) => task.threadId === peerWorkThreadId)?.busy === false);
+  const peerWorkMessages = (await api(`/api/threads/${peerWorkThreadId}/messages`)).body.messages ?? [];
+  assert.ok(!peerWorkMessages.some((message) => message.card?.requestId && !message.card.answered && !message.card.dismissed));
+  assert.ok(!peerDecisions.some((row) => row.decision === "card-shown"));
+  console.log(JSON.stringify({ provider: "pi", mode: "full", peerInitiated: true, piLaunch: "full", autoApproved: true, humanApproved: false }));
+
+  // Revoking the receiving thread's grant must restore the provider's own
+  // approval card on the resumed delegated session, even when the sender has Full.
+  await coordinator.request(child, sender.id, "full");
+  await coordinator.request(child, peerTarget.id, "ask");
+  assert.equal((await api(`/api/bots/${peerTarget.id}/tasks/${peerWorkThreadId}`, "PATCH", { approvalMode: "ask" })).status, 200);
+  const revokedPeer = await readBot(peerTarget.id);
+  assert.equal(revokedPeer.tasks.find((task) => task.threadId === peerWorkThreadId)?.approvalMode, "ask");
+  assert.equal(revokedPeer.tasks.find((task) => task.threadId === peerThread.threadId)?.approvalMode, "full");
+  // The fake pi reuses its ask id on a thread, so only rows written after this point tell this ask apart.
+  const decisionRowsBefore = (await api("/api/decisions")).body.decisions.length;
+  const askPeerResponse = await api("/api/internal/coordinate-bots", "POST",
+    { botIds: [peerTarget.id], message: `${permissionMarker} again, the revoked thread must not inherit sender Full`, consult: true },
+    { authorization: `Bearer ${capability.body.token}` });
+  assert.equal(askPeerResponse.status, 200);
+  assert.equal(askPeerResponse.body.receipts[0].threadId, peerWorkThreadId);
+  const peerCard = await until(async () => pendingCard(peerWorkThreadId));
+  assert.equal(levelOf(peerWorkThreadId), "ask");
+  // The card can show before its decision row is written: wait for the row, as the checks above do.
+  const askDecision = await until(async () => (await api("/api/decisions")).body.decisions.slice(decisionRowsBefore)
+    .find((row) => row.threadId === peerWorkThreadId && row.requestId === peerCard.requestId));
+  assert.equal(askDecision.decision, "card-shown");
+  assert.notEqual(askDecision.source, "full-access");
+  assert.equal((await api(`/api/threads/${peerWorkThreadId}/respond`, "POST", { requestId: peerCard.requestId, behavior: "allow" })).status, 200);
+  await until(async () => !(await taskOf(peerTarget.id, peerWorkThreadId))?.busy);
+  console.log(JSON.stringify({ provider: "pi", mode: "ask", senderMode: "full", peerInitiated: true, piLaunch: "ask", humanApproved: true }));
+
+  // Custom approval settings were Codex-only, and Codex is gone; the residual
+  // invariant is the native Auto reviewer: a delegated turn at Auto holds the
+  // action on the delegated work thread, and the receipt thread answers it.
+  const customTarget = await newBot("Delegated custom fixture");
+  await coordinator.request(child, customTarget.id, "auto");
+  const customResponse = await api("/api/internal/coordinate-bots", "POST",
+    { botIds: [customTarget.id], message: `${permissionMarker} under delegated Auto`, consult: true },
+    { authorization: `Bearer ${capability.body.token}` });
+  assert.equal(customResponse.status, 200);
+  const customThreadId = customResponse.body.receipts[0].threadId;
+  assert.ok(customThreadId);
+  assert.notEqual(customThreadId, customTarget.threadId);
+  const customCard = await until(async () => ((await api(`/api/threads/${customThreadId}/messages`)).body.messages ?? [])
+    .find((message) => message.card?.requestId && !message.card.answered && !message.card.dismissed)?.card);
+  assert.equal(customCard.held, "The provider requires your approval for this action.");
+  assert.equal((await api(`/api/threads/${customThreadId}/respond`, "POST", { requestId: customCard.requestId, behavior: "allow" })).status, 200);
+  await until(async () => !(await taskOf(customTarget.id, customThreadId))?.busy);
+  const customCalls = piRows().filter((row) => row.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === customThreadId);
+  assert.ok(customCalls.length > 0, "the delegated Custom turn really ran on the pi engine");
 
   if (process.argv.includes("--ui")) {
     await verifyUi();
