@@ -57,19 +57,10 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-sync-e2e-"));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") {
-  console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" }));
-  process.exit(0);
-}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli } } },
   }));
   mkdirSync(join(home, "web"));
   writeFileSync(join(home, "web", "index.html"), "<!doctype html><title>Luna Bot</title>");
@@ -124,7 +115,7 @@ it("shares a PC folder as a read-only copy: changes go to My Cloud, a bot's edit
   const project = join(pcHome, "Clients");
   mkdirSync(project, { recursive: true });
   writeFileSync(join(project, "brief.md"), "the brief");
-  const created = await api("POST", "/api/bots", { body: { name: "Files fixture", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } });
+  const created = await api("POST", "/api/bots", { body: { name: "Files fixture", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const service = desktop(pcHome);
   try {
@@ -165,7 +156,7 @@ it("shares a PC folder as a read-only copy: changes go to My Cloud, a bot's edit
 
 it("a bot's turn wakes the desktop, and its new work comes down to Documents/Luna Bot/<bot>/<conversation>", async () => {
   const pcHome = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-pc-")));
-  const created = await api("POST", "/api/bots", { body: { name: "Report Owl", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } });
+  const created = await api("POST", "/api/bots", { body: { name: "Report Owl", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } });
   const bot = created.body.bot as { id: string; threadId: string };
   const service = desktop(pcHome);
   try {

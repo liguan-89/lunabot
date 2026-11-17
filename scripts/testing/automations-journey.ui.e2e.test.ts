@@ -6,12 +6,13 @@ import { randomBytes } from "node:crypto";
 import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 import { cloudHomeChildEnvironments, spawnWithSecrets } from "../../server/cloud-home-start.ts";
 import { cloudHomeConfiguration, cloudPairingSignature } from "../../server/cloud-home.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
+import { piDumpPath, piTurns } from "../../server/testing/pi-dump.ts";
 import { freePortBlock } from "../../server/testing/ports.ts";
 import { launchRestartableServer, type RestartableServer } from "../../server/testing/restartable-server.ts";
 import { runControlOmb } from "../control-omb.ts";
@@ -453,16 +454,13 @@ async function launchCloudHome() {
   mkdirSync(dataDir, { recursive: true });
   const planPath = join(home, "room-plan.json");
   writeFileSync(planPath, "{}");
-  const claude = join(home, "claude-cli.mjs");
-  writeFileSync(claude, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "owner@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-process.env.FAKE_CLAUDE_MODE ??= "happy";
-await import(${JSON.stringify(pathToFileURL(join(ROOT, "server", "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(ROOT, "server", "testing", "fake-pi-cli.ts");
+  // The one engine this build runs, scripted from the plan file: a prompt carrying the order words asks the person's
+  // permission instead, so the webhook-made routine's run waits on a card.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ language: "en", instances: {
-    ...Object.fromEntries(["cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli: claude }, environment: { FAKE_CLAUDE_ROOM_PLAN: planPath } },
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_ROOM_PLAN: planPath, FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_PERMISSION_ON: "Email the order list.",
+    } },
   } }));
   const port = await freePortBlock([0, 1]);
   const secret = randomBytes(32).toString("base64url");
@@ -512,7 +510,7 @@ await import(${JSON.stringify(pathToFileURL(join(ROOT, "server", "testing", "fak
       if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${JSON.stringify(value)}`);
       return value;
     };
-    const newBot = async (name: string) => (await api("POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).bot.id as string;
+    const newBot = async (name: string) => (await api("POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).bot.id as string;
     const scout = await newBot("Scout");
     const ledger = await newBot("Ledger");
     const script = [
@@ -521,7 +519,7 @@ await import(${JSON.stringify(pathToFileURL(join(ROOT, "server", "testing", "fak
       // The webhook's own run makes a routine: what came in from outside stays confined.
       { key: "run-lead", match: ["Draft a follow-up for the lead."], repeat: true, steps: [{ tool: "create_trigger", arguments: { when: "schedule", name: "Hourly orders", instructions: "Email the order list.", schedule: { type: "interval", every_minutes: 60 } } }], reply: "Drafted a follow-up for Ada." },
       { key: "run-summary", match: ["Send me a summary of my inbox"], repeat: true, steps: [], reply: "Inbox: 3 new emails, nothing urgent." },
-      { key: "run-orders", match: ["Email the order list."], repeat: true, steps: [], approve: { tool_name: "mcp__composio__COMPOSIO_SEARCH_TOOLS", input: { queries: [] } }, reply: "Sent." },
+      { key: "run-orders", match: ["Email the order list."], repeat: true, steps: [], reply: "Sent." },
       { key: "chat", match: [""], repeat: true, steps: [], reply: "OK." },
     ];
     writeFileSync(cloud.planPath, JSON.stringify({ [scout]: { script }, [ledger]: { script } }));
@@ -582,12 +580,17 @@ await import(${JSON.stringify(pathToFileURL(join(ROOT, "server", "testing", "fak
     await expect.poll(panel, { timeout: 30_000 }).toMatch(/✓\nInbox: 3 new emails, nothing urgent\./);
     const ownersRun = turns().findLast((turn) => String(JSON.stringify(turn.prompt)).includes("Send me a summary of my inbox."));
     expect(ownersRun).toMatchObject({ restricted: false, permissionMode: ownerTurn.permissionMode });
+    // The pi launch the owner's run really got: full access, and nothing held back from it.
+    const ownerLaunch = piTurns(piDumpPath(join(cloud.dataDir, ".openmausbot"))).findLast((turn) => turn.prompt.includes("Send me a summary of my inbox."))?.launch;
+    expect(ownerLaunch?.mcpConfig?.approvalMode).toBe("full");
+    expect(ownerLaunch?.mcpConfig?.toolScope).toBeUndefined();
     const ownersRunThread = (await state()).runs.find((run) => run.routineName === "Morning inbox summary")?.threadId;
     expect((await api("GET", `/api/threads/${ownersRunThread}/messages`)).messages.filter((message: any) => message.card?.held || message.card?.guestConfined)).toEqual([]);
     await screenshot("cloud-owner-routine-ran");
     await click("Close");
 
-    // The routine the webhook's run made stays confined, and its held approval says why.
+    // The routine the webhook's run made stays confined, and its held approval says why. Its turn asks a real
+    // extension-UI confirmation, which becomes the card the panel shows under Needs you.
     const hourly = "Every hour, Scout emails the order list";
     await expect.poll(() => rowStatus(hourly)).toBe("working");
     await evaluate(`[...document.querySelectorAll('[data-automation]')].find((item) => item.innerText.includes(${JSON.stringify(hourly)})).querySelector("button").click(); true`);

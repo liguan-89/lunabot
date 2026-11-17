@@ -16,7 +16,7 @@ import { connect as tcpConnect } from "node:net";
 import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WebSocketServer, type WebSocket } from "ws";
 import { createComputerSharing } from "../electron/computer-sharing.mjs";
@@ -26,6 +26,7 @@ import { chromeLaunchEnv, findChrome } from "./testing/chrome-pipe.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -74,19 +75,14 @@ async function adminPairing(cloud: Cloud): Promise<string> {
 async function bootCloud(home: string, agentBrowser: string, env: Record<string, string> = {}): Promise<Cloud> {
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  mkdirSync(join(home, "turns"), { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-// One engine process, one dump: a new turn never takes the place of the one a test is waiting for.
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "turns"))} + "/" + process.pid + ".json"; process.env.FAKE_CLAUDE_TEXT_DUMP = ${JSON.stringify(join(home, "one-shot.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);
+  // Every launch and prompt lands in one log, each row carrying its own pid: a new turn never takes the place of the
+  // one a test is waiting for.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang",
+    } },
   } }));
   const port = await freePortBlock([0, 1]);
   const offlinePrelude = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
@@ -178,29 +174,30 @@ function lender(cloud: Cloud, chromeDirs: string[], signedIn: () => boolean = ()
 const engineOf = async (cloud: Cloud) => (await api(cloud, "GET", "/api/config")).body.browserEngine;
 
 async function newChromeBot(cloud: Cloud, name: string): Promise<{ id: string; threadId: string }> {
-  const bot = (await api(cloud, "POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const bot = (await api(cloud, "POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   const patched = await api(cloud, "PATCH", `/api/bots/${bot.id}`, { computer: "browser", browserProfile: PROFILE });
   if (patched.status !== 200) throw new Error(`could not give the bot My Chrome: ${JSON.stringify(patched.body)}`);
   return { id: bot.id, threadId: bot.threadId };
 }
 
-const readTurns = (dir: string) => new Map(readdirSync(dir).filter((name) => name.endsWith(".json")).flatMap((name) => {
-  try { return [[name, readFileSync(join(dir, name), "utf8")] as const]; } catch { return []; }
-}));
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
+  const env = agents?.env ?? {};
+  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+};
 
 /** A bot's turn, started by `start`: its browser tools, as the engine would spawn them from the turn's MCP config. */
 async function browserOf(cloud: Cloud, start: () => Promise<void>, botId: string, threadId?: string): Promise<Call> {
-  const dumps = join(cloud.home, "turns");
-  const before = readTurns(dumps);
+  const dump = piDumpPath(join(cloud.home, ".openmausbot"));
+  const before = piTurns(dump).length;
   await start();
   let browser: McpServer | undefined;
   await until(() => {
-    for (const [name, text] of readTurns(dumps)) {
-      if (before.get(name) === text) continue;
-      let servers: Record<string, McpServer> | undefined;
-      try { servers = JSON.parse(text).mcpConfig?.mcpServers; } catch { continue; }
-      const env = servers?.agents?.env;
-      if (servers?.browser && env?.OMB_BOT_ID === botId && (!threadId || env.OMB_THREAD_ID === threadId)) { browser = servers.browser; return true; }
+    for (const turn of piTurns(dump).slice(before)) {
+      const servers = turn.launch?.mcpConfig?.mcpServers as Record<string, McpServer> | undefined;
+      const env = agentsEnv(servers?.agents);
+      if (servers?.browser && env.OMB_BOT_ID === botId && (!threadId || env.OMB_THREAD_ID === threadId)) { browser = servers.browser; return true; }
     }
     return false;
   }, "the turn's browser tools");

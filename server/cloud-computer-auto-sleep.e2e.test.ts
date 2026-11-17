@@ -1,5 +1,7 @@
 // A cloud computer turns itself off after use. One stub plays the Admin's Boat relay and records every call, and the
 // server's idle window is cut from ten minutes to IDLE_MS, so each journey can say exactly when a computer went to sleep.
+// Each bot's turn comes from the scripted plan file: one that takes a screenshot through the cloud computer's tools, one
+// that holds until a gate file, or both.
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
@@ -12,7 +14,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLAUDE = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const INCLUDED = `box_omb_${randomUUID()}`;
 const IDLE_MS = 1_500;
 const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
@@ -28,6 +30,20 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
   let gate = "";
   let usesGate = "";
   let dockerLog = "";
+  let planFile = "";
+  /** Each bot's plan: a turn that takes one screenshot through the cloud computer's tools, holding on `gate` after it. */
+  const plans: Record<string, unknown> = {};
+  const savePlan = () => writeFileSync(planFile, JSON.stringify(plans));
+  /** One screenshot through the cloud computer's tools, then the turn ends. */
+  const usesThenReplies = () => ({
+    steps: [{ server: "computer", tool: "screenshot", input: {} }],
+    reply: "Took a screenshot.",
+  });
+  /** One screenshot, then the turn holds until `hold` exists. */
+  const usesThenHolds = (hold: string) => ({
+    steps: [{ server: "computer", tool: "screenshot", input: {} }],
+    gateFile: hold,
+  });
   let base = "";
   let child: ChildProcess | null = null;
   let output = "";
@@ -65,12 +81,13 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
   const idle = (botId: string) => until(() => task(botId), bot => bot?.busy === false);
   const busy = (botId: string) => until(() => task(botId), bot => bot?.busy === true);
   const send = (botId: string, text: string) => apiOk("POST", `/api/bots/${botId}/messages`, { text });
-  const newBot = async (name: string, patch: Record<string, unknown>) => {
+  const newBot = async (name: string, patch: Record<string, unknown>, plan?: unknown) => {
     const { bot } = await apiOk("POST", "/api/bots", { name });
     await apiOk("PATCH", `/api/bots/${bot.id}`, { browser: false, ...patch });
+    if (plan !== undefined) { plans[bot.id as string] = plan; savePlan(); }
     return bot as { id: string; name: string; threadId: string };
   };
-  const model = (instanceId: string) => ({ modelSelection: { instanceId, model: "claude-sonnet-5" } });
+  const model = () => ({ modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } });
 
   async function launch() {
     const port = await freePortBlock([0, 1]);
@@ -157,6 +174,7 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
     gate = join(home, "finish");
     usesGate = join(home, "finish-uses");
     dockerLog = join(home, "docker.log");
+    planFile = join(home, "room-plan.json");
     mkdirSync(data, { recursive: true });
     mkdirSync(join(home, "bin"), { recursive: true });
     writeFileSync(join(home, "bin", "docker"), FAKE_DOCKER);
@@ -164,14 +182,13 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
     // A fake ssh, so VPS commands reach the fake docker instead of a real host.
     writeFileSync(join(home, "bin", "ssh"), "#!/bin/sh\nexit 0\n");
     chmodSync(join(home, "bin", "ssh"), 0o755);
+    chmodSync(FAKE_PI, 0o755);
+    savePlan();
     writeFileSync(join(data, "config.json"), JSON.stringify({ instances: {
-      // Every turn first takes one screenshot through the cloud computer's tools, as a model's first computer call does.
-      uses: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE }, environment: { FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" } },
-      // Works until the gate file exists, touching no computer.
-      slow: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE }, environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate } },
-      // One screenshot, then works until its own gate file exists.
-      usesSlow: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE }, environment: {
-        FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1", FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: usesGate,
+      pi: { driver: "piAgent", config: { cli: FAKE_PI }, environment: {
+        FAKE_PI_ROOM_PLAN: planFile,
+        // A plan step that names a server calls through the tools the turn really mounted, so mount them at boot.
+        FAKE_PI_MOUNT_TOOLS: "1",
       } },
     } }));
     await launch();
@@ -187,7 +204,7 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
   let workerBox = "";
 
   it("a bot's computer sleeps one idle window after its turn ends, and the next turn wakes it", async () => {
-    worker = await newBot("Worker", { ...model("uses"), computer: "cloud" });
+    worker = await newBot("Worker", { ...model(), computer: "cloud" }, usesThenReplies());
     await send(worker.id, "Take a screenshot of your desktop");
     await idle(worker.id);
     const turnEnded = Date.now();
@@ -211,20 +228,23 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
 
   it("a turn shorter than the window on a computer already on: the window starts when the turn ends", async () => {
     await apiOk("POST", `/api/bots/${worker.id}/computer/provision`, {});
-    await apiOk("PATCH", `/api/bots/${worker.id}`, model("usesSlow"));
+    plans[worker.id] = usesThenHolds(usesGate);
+    savePlan();
     const before = stopsOf(workerBox).length;
     rmSync(usesGate, { force: true });
     const asked = calls.length;
     await send(worker.id, "Check the desktop, then keep working");
     await until(() => calls.slice(asked).some(call => call.path === `/boxes/${workerBox}/artifacts`), Boolean);
-    await pause(IDLE_MS * 0.8);
+    // Past a whole window, so the idle check runs while the turn is still working and starts a fresh window at its end.
+    await pause(IDLE_MS * 1.5);
     writeFileSync(usesGate, "finish");
     await idle(worker.id);
     const turnEnded = Date.now();
     const stops = await until(() => stopsOf(workerBox), found => found.length === before + 1);
     // Timed from when the turn began, it would sleep under IDLE_MS * 0.2 after the end.
     expect(stops.at(-1)!.at - turnEnded).toBeGreaterThanOrEqual(IDLE_MS - 500);
-    await apiOk("PATCH", `/api/bots/${worker.id}`, model("uses"));
+    plans[worker.id] = usesThenReplies();
+    savePlan();
   }, 60_000);
 
   it("a person watching its live screen keeps it on; it sleeps once they stop", async () => {
@@ -269,8 +289,8 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
     const requestId = randomUUID();
     await apiOk("POST", "/api/team-computers", { requestId, name: "Ops desktop", acknowledgeCost: true });
     teamBox = rows.at(-1)!.id;
-    ada = await newBot("Ada", { ...model("uses"), section: "Ops" });
-    ben = await newBot("Ben", { ...model("slow"), section: "Ops", computer: "off" });
+    ada = await newBot("Ada", { ...model(), section: "Ops" }, usesThenReplies());
+    ben = await newBot("Ben", { ...model(), section: "Ops", computer: "off" }, { gateFile: gate });
     await apiOk("PATCH", `/api/team-computers/${requestId}`, { section: "Ops", acknowledgeSharedAccess: true });
 
     rmSync(gate, { force: true });
@@ -339,7 +359,7 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
   }, 60_000);
 
   it("a teammate's routine keeps the team's shared computer on; one for a teammate whose computer is off does not", async () => {
-    const cy = await newBot("Cy", { ...model("uses"), section: "Ops" });
+    const cy = await newBot("Cy", { ...model(), section: "Ops" }, usesThenReplies());
     const teammate = await routineAt(cy.id, 20 * 60_000);
     const offline = await routineAt(ben.id, 20 * 60_000);
     await send(ada.id, "Take a screenshot of the team desktop");
@@ -356,7 +376,7 @@ describe("a cloud computer goes to sleep after use and wakes on the next", () =>
 
   it.skipIf(process.platform === "win32")("never touches a VPS: its activity starts no idle stop of any kind", async () => {
     expect((await api("PUT", "/api/config", { vps: { sshAlias: "fixture-vps" } })).status).toBe(200);
-    const vee = await newBot("Vee", { ...model("uses"), computer: "cloud", cloudBackend: "vps" });
+    const vee = await newBot("Vee", { ...model(), computer: "cloud", cloudBackend: "vps" }, usesThenReplies());
     const before = calls.length;
     await api("POST", `/api/bots/${vee.id}/computer/screenshot?threadId=${vee.threadId}`, {});
     await apiOk("POST", `/api/bots/${vee.id}/computer/control`, { action: "take" });

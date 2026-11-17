@@ -4,17 +4,18 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { hostname, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { createComputerSharing } from "../electron/computer-sharing.mjs";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piInstructionsAt, piTurns } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -58,22 +59,23 @@ async function adminPairing(): Promise<string> {
 }
 
 type Spec = { url?: string; headers?: Record<string, string>; command?: string; args?: string[]; env?: Record<string, string> };
-type Turn = { systemPrompt?: string; mcpConfig: { mcpServers: Record<string, Spec & { env?: Record<string, string> }> } };
-const turnDumps = () => join(home, "turns");
-const readTurns = () => new Map(readdirSync(turnDumps()).filter((name) => name.endsWith(".json")).flatMap((name) => {
-  try { return [[name, readFileSync(join(turnDumps(), name), "utf8")] as const]; } catch { return []; }
-}));
+type Turn = { systemPrompt: string; mcpConfig: { mcpServers: Record<string, Spec & { env?: Record<string, string> }> } };
+const dump = () => piDumpPath(join(home, ".openmausbot"));
 
-/** The turn a message to a new bot starts, as its engine was given it. */
+/** The turn a message to a new bot starts, as its engine was given it: the pi launch, its MCP servers, and the
+ * instructions in effect on that turn (pi sends the whole system prompt on a session's first turn). */
 async function turnOf(name: string): Promise<Turn> {
-  const bot = (await api("POST", "/api/bots", { token: owner, body: { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot;
-  const before = readTurns();
+  const bot = (await api("POST", "/api/bots", { token: owner, body: { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
+  const before = piTurns(dump()).length;
   expect((await api("POST", `/api/bots/${bot.id}/messages`, { token: owner, body: { text: "Search my notes on my Mac." } })).status).toBe(202);
   let turn: Turn | undefined;
   await expect.poll(() => {
-    for (const [file, text] of readTurns()) {
-      if (before.get(file) === text) continue;
-      try { const found = JSON.parse(text) as Turn; if (found.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === bot.id) { turn = found; return true; } } catch {}
+    const turns = piTurns(dump());
+    for (let index = before; index < turns.length; index++) {
+      const found = turns[index]!;
+      if (found.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID !== bot.id) continue;
+      turn = { systemPrompt: piInstructionsAt(turns, index), mcpConfig: { mcpServers: found.launch!.mcpConfig!.mcpServers ?? {} } };
+      return true;
     }
     return false;
   }, { timeout: 15_000 }).toBe(true);
@@ -109,17 +111,13 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-lent-mcp-"));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  mkdirSync(turnDumps());
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "turns"))} + "/" + process.pid + ".json"; process.env.FAKE_CLAUDE_TEXT_DUMP = ${JSON.stringify(join(home, "one-shot.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // Each turn holds until the server stops, so its launch and MCP config can be read while it runs.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: dump(), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang",
+    } },
   } }));
   port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;

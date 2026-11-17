@@ -4,11 +4,11 @@
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
 import { createComputerSharing } from "../electron/computer-sharing.mjs";
@@ -20,6 +20,7 @@ import { LENT_BROWSER_NO_ENDPOINT, LENT_SCREEN_BROWSING } from "./lent-screen-gu
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -76,12 +77,16 @@ async function until(check: () => unknown | Promise<unknown>, what: string, time
 }
 
 async function proxyFor(start: () => Promise<void>) {
-  const dump = join(home, "spawn.json");
-  rmSync(dump, { force: true });
+  const dump = piDumpPath(join(home, ".openmausbot"));
+  const before = piTurns(dump).length;
   await start();
   let agents: { command: string; args: string[]; env: Record<string, string> } | undefined;
   await until(() => {
-    try { agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents; return true; } catch { return false; }
+    for (const turn of piTurns(dump).slice(before)) {
+      const found = turn.launch?.mcpConfig?.mcpServers?.agents;
+      if (found) { agents = found as { command: string; args: string[]; env: Record<string, string> }; return true; }
+    }
+    return false;
   }, "the turn's agents proxy");
   const proxy = spawn(agents!.command, agents!.args, { env: { PATH: process.env.PATH, HOME: home, ...agents!.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
@@ -133,18 +138,14 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-lent-browser-"));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "spawn.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
-  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-  } }));
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);
+  // Each turn holds until the server stops, so its launch and MCP config can be read while it runs.
+  writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang",
+    } },
+  } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
   const offlinePrelude = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
@@ -169,7 +170,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   }
   owner = await adminPairing();
 
-  lender = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang" });
+  lender = await launchVerificationServer({ FAKE_PI_MODE: "hang" });
   const enabled = await fetch(`${lender.info.url}/api/config`, { method: "PATCH", headers: { "content-type": "application/json", origin: lender.info.url }, body: JSON.stringify({ features: { sharedComputers: true } }) });
   expect(enabled.status).toBe(200);
 
@@ -205,7 +206,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   const status = (await api("GET", "/api/shared-computers", { token: owner })).body.computers;
   expect(status).toMatchObject([{ online: true, scopes: { screen: true, terminal: false } }]);
   computerId = status[0].id;
-  const bot = (await api("POST", "/api/bots", { token: owner, body: { name: "Cloud bot", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { token: owner, body: { name: "Cloud bot", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
   call = await proxyFor(async () => {
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { token: owner, body: { text: "Open order 1042 in the browser on my PC and tell me its total." } })).status).toBe(202);
   });

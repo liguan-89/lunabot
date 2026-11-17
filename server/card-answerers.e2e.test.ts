@@ -1,5 +1,5 @@
-// The fake ACP CLI in "permission" mode (every turn asks to run `echo hi`), and an email sign-in list naming one admin and
-// two members whose sessions are issued before boot.
+// The fake pi asking permission on every prompt that says "run it" (a real extension-UI confirmation), and an email
+// sign-in list naming one admin and two members whose sessions are issued before boot.
 import { spawn, type ChildProcess } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -13,7 +13,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_CLI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const PORT = workerPort(28800, 10_000);
 const BASE = `http://127.0.0.1:${PORT}`;
 const posixOnly = describe.skipIf(process.platform === "win32");
@@ -78,20 +78,33 @@ const openCard = (threadId: string) => waitFor(async () => {
   const { body } = await api("GET", `/api/threads/${threadId}/messages`, undefined, BOSS);
   return (body.messages ?? []).find((m: any) => m.kind === "options" && m.card?.requestId && !m.card.answered) ?? null;
 });
+/** A card for `requestId` answered by that kind of actor. The fake pi asks every confirmation with the same id, so a
+ * test names the answer it made rather than whichever card of that id was answered first. */
+const settledBy = (threadId: string, requestId: string, kind: "session" | "loopback" | "worker") => waitFor(async () => {
+  const { body } = await api("GET", `/api/threads/${threadId}/messages`, undefined, BOSS);
+  return (body.messages ?? []).findLast((m: any) => m.card?.requestId === requestId && m.card.answeredBy?.kind === kind) ?? null;
+});
 const settledCard = (threadId: string, requestId: string) => waitFor(async () => {
   const { body } = await api("GET", `/api/threads/${threadId}/messages`, undefined, BOSS);
-  return (body.messages ?? []).find((m: any) => m.card?.requestId === requestId && m.card.answeredBy) ?? null;
+  return (body.messages ?? []).findLast((m: any) => m.card?.requestId === requestId && m.card.answeredBy) ?? null;
 });
-const decision = (requestId: string, kind: DecisionRow["decision"]) => waitFor(async () => {
+/** The decisions already recorded for a request id: the fake pi asks every confirmation with the same id ("ask-1"), so
+ * one test's answer must not be read as another's. */
+const decisionsFor = async (requestId: string) => {
   const { body } = await api("GET", "/api/decisions", undefined, BOSS);
-  return ((body.decisions ?? []) as DecisionRow[]).find((row) => row.requestId === requestId && row.decision === kind) ?? null;
+  return ((body.decisions ?? []) as DecisionRow[]).filter((row) => row.requestId === requestId);
+};
+/** The decision row this action wrote, not one an earlier card of the same id left behind. */
+const decisionAfter = (before: number, requestId: string, kind: DecisionRow["decision"]) => waitFor(async () => {
+  const rows = (await decisionsFor(requestId)).filter((row) => row.decision === kind);
+  return rows.length > before ? rows.at(-1)! : null;
 });
 
 async function makeBot(name: string) {
   const created = await api("POST", "/api/bots", { name }, BOSS);
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   // On Ask, so the fake engine's permission request becomes a card.
-  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "grok", model: "fake-model" }, approvalMode: "ask" }, BOSS);
+  const patched = await api("PATCH", `/api/bots/${created.body.bot.id}`, { modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, approvalMode: "ask" }, BOSS);
   expect(patched.status).toBe(200);
   return created.body.bot as { id: string; threadId: string };
 }
@@ -114,7 +127,8 @@ posixOnly("who may answer a card on a shared workspace", () => {
     mkdirSync(data, { recursive: true });
     writeFileSync(join(data, "config.json"), JSON.stringify({
       signIn: { admins: [BOSS], members: [ADA, BOB] },
-      instances: { grok: { driver: "grokAgent", environment: { FAKE_ACP_MODE: "permission" }, config: { cli: FAKE_CLI, fullAuto: false } } },
+      // A prompt carrying these words asks the person's permission instead of running (a real extension-UI confirm).
+      instances: { pi: { driver: "piAgent", environment: { FAKE_PI_PERMISSION_ON: "run it" }, config: { cli: FAKE_CLI } } },
     }));
     const role = (email: string) => (email === BOSS ? ["admin", "client"] as const : ["client"] as const);
     const registry = new SessionRegistry({ file: join(data, "sessions.json"), emailScopes: (email) => [...role(email)] });
@@ -147,10 +161,11 @@ posixOnly("who may answer a card on a shared workspace", () => {
     }
     expect((await openCard(bot.threadId))?.card.requestId).toBe(requestId);
 
+    const approvedBefore = (await decisionsFor(requestId)).filter((row) => row.decision === "user-approved").length;
     const answered = await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId, behavior: "allow" }, ADA);
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
     expect(answered.body.outcome).not.toBe("unavailable");
-    const row = await decision(requestId, "user-approved");
+    const row = await decisionAfter(approvedBefore, requestId, "user-approved");
     expect(row?.actor).toEqual({ kind: "session", sessionId: sessionIds[ADA], label: "ada's laptop", email: ADA });
     expect((await settledCard(bot.threadId, requestId))?.card.answeredBy).toEqual({ kind: "session", name: ADA, person: expect.stringMatching(/^p_/u) });
   }, 90_000);
@@ -168,9 +183,10 @@ posixOnly("who may answer a card on a shared workspace", () => {
     expect(JSON.stringify(roomTask.body)).not.toContain("startedBy");
     expect(JSON.stringify((await api("GET", "/api/bots?messages=0", undefined, BOB)).body)).not.toContain("startedBy");
     const requestId = await cardFrom(bot, threadId, ADA);
+    const deniedBefore = (await decisionsFor(requestId)).filter((row) => row.decision === "user-denied").length;
     const answered = await api("POST", `/api/bots/${bot.id}/respond`, { requestId, behavior: "deny", threadId }, BOB);
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-    expect((await decision(requestId, "user-denied"))?.actor).toMatchObject({ kind: "session", email: BOB });
+    expect((await decisionAfter(deniedBefore, requestId, "user-denied"))?.actor).toMatchObject({ kind: "session", email: BOB });
   }, 90_000);
 
   it("follows a thread a bot opened for a member back to that member", async () => {
@@ -201,8 +217,9 @@ posixOnly("who may answer a card on a shared workspace", () => {
     const refused = await api("POST", `/api/threads/${helperThreadId}/respond`, { requestId, behavior: "allow" }, BOB);
     expect(refused.status).toBe(403);
     expect(refused.body.error).toMatch(refusal);
+    const delegatedBefore = (await decisionsFor(requestId)).filter((row) => row.decision === "user-approved").length;
     expect((await api("POST", `/api/threads/${helperThreadId}/respond`, { requestId, behavior: "allow" }, ADA)).status).toBe(200);
-    expect((await decision(requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: ADA });
+    expect((await decisionAfter(delegatedBefore, requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: ADA });
   }, 90_000);
 
   it("lets only who may answer in a member's chat answer the copy of a run's card there", async () => {
@@ -228,31 +245,38 @@ posixOnly("who may answer a card on a shared workspace", () => {
       expect(refused.status, path).toBe(403);
       expect(refused.body.error).toMatch(refusal);
     }
+    const copyBefore = (await decisionsFor(requestId)).filter((row) => row.decision === "user-approved").length;
     const answered = await api("POST", `/api/threads/${threadId}/respond`, { requestId, behavior: "allow" }, BOB);
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-    expect((await decision(requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOB });
+    expect((await decisionAfter(copyBefore, requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOB });
     expect((await settledCard(copy.automation.executionThreadId, requestId))?.card.answeredBy).toEqual({ kind: "session", name: BOB, person: expect.stringMatching(/^p_/u) });
   }, 90_000);
 
   it("lets any member answer a card that names nobody, as before", async () => {
     const bot = await makeBot("Unnamed");
     const requestId = await cardFrom(bot, bot.threadId);
+    const before = (await decisionsFor(requestId)).filter((row) => row.decision === "user-approved").length;
     const answered = await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId, behavior: "allow" }, BOB);
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-    expect((await decision(requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOB });
+    expect((await decisionAfter(before, requestId, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOB });
   }, 90_000);
 
   it("lets an admin and the owner on this machine answer anyone's card", async () => {
     const bot = await makeBot("Anyone");
     const first = await cardFrom(bot, bot.threadId, ADA);
+    const firstBefore = (await decisionsFor(first)).filter((row) => row.decision === "user-approved").length;
     expect((await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId: first, behavior: "allow" }, BOSS)).status).toBe(200);
-    expect((await decision(first, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOSS });
+    expect((await decisionAfter(firstBefore, first, "user-approved"))?.actor).toMatchObject({ kind: "session", email: BOSS });
     expect((await settledCard(bot.threadId, first))?.card.answeredBy).toEqual({ kind: "session", name: BOSS, person: expect.stringMatching(/^p_/u) });
 
-    const second = await cardFrom(bot, bot.threadId, BOB);
-    expect((await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId: second, behavior: "deny" })).status).toBe(200);
-    expect((await decision(second, "user-denied"))?.actor).toEqual({ kind: "loopback" });
-    expect((await settledCard(bot.threadId, second))?.card.answeredBy).toEqual({ kind: "loopback" });
+    // A second bot, not a second card in the same thread: the fake pi asks every confirmation with the same id, and a
+    // thread keeps one card per id.
+    const secondBot = await makeBot("Anyone too");
+    const second = await cardFrom(secondBot, secondBot.threadId, BOB);
+    const secondBefore = (await decisionsFor(second)).filter((row) => row.decision === "user-denied").length;
+    expect((await api("POST", `/api/threads/${secondBot.threadId}/respond`, { requestId: second, behavior: "deny" })).status).toBe(200);
+    expect((await decisionAfter(secondBefore, second, "user-denied"))?.actor).toEqual({ kind: "loopback" });
+    expect((await settledBy(secondBot.threadId, second, "loopback"))?.card.answeredBy).toEqual({ kind: "loopback" });
   }, 90_000);
 
   it("lets whoever may answer a card undo its receipt, and no other member", async () => {
@@ -295,10 +319,11 @@ posixOnly("who may answer a card on a shared workspace", () => {
     expect((await api("POST", `/api/threads/${bot.threadId}/undo`, { requestId })).status).toBe(403);
     expect((await openCard(bot.threadId))?.card.requestId).toBe(requestId);
 
+    const declineBefore = (await decisionsFor(requestId)).filter((row) => row.decision === "user-denied").length;
     const decline = await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId, behavior: "deny" });
     expect(decline.status, JSON.stringify(decline.body)).toBe(200);
-    expect((await decision(requestId, "user-denied"))?.actor).toEqual({ kind: "worker" });
-    expect((await settledCard(bot.threadId, requestId))?.card.answeredBy).toEqual({ kind: "worker" });
+    expect((await decisionAfter(declineBefore, requestId, "user-denied"))?.actor).toEqual({ kind: "worker" });
+    expect((await settledBy(bot.threadId, requestId, "worker"))?.card.answeredBy).toEqual({ kind: "worker" });
 
     // A Slack-shaped request: the worker opens the thread and sends through
     // the guarded route, so no person can be named. Any member may approve it
