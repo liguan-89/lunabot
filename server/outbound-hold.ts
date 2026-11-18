@@ -73,6 +73,7 @@ export function createOutboundHold(deps: OutboundHoldDeps): OutboundHold {
             held: HELD_NOTE["approval.held.outbound"],
             heldCode: "approval.held.outbound",
             outboundRequest: { tool: outboundTool, app, calls },
+            ...(always || opaque || outboundTool === "fill_payment" ? { danger: true } : {}),
           },
         });
         appendDecision(DATA_DIR, {

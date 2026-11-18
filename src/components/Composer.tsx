@@ -718,7 +718,7 @@ export function Composer({
         <MentionMenu listRef={mentionListRef} motion={mentionMotion} choices={candidates} highlight={highlight}
           everyoneCount={mentionEveryoneCount} onPick={pickMention} onHighlight={setHighlight} />
         {approval && (
-          <div className={cn("mb-2 overflow-hidden rounded-[18px]", ELEVATED_CARD)}>
+          <div className={cn("mb-2 overflow-hidden rounded-[18px]", ELEVATED_CARD, approval.danger && "ring-1 ring-danger/35")}>
             <PendingApprovalPanel
               key={approval.requestId}
               pending={approval}
@@ -726,7 +726,7 @@ export function Composer({
               count={approvals.length}
               index={0}
               locale={activeLocale()}
-              actions={<PendingApprovalActions part="primary" pending={approval} threadId={threadId} bot={approvalBot} onCancelTurn={interruptTurn} />}
+              actions={<PendingApprovalActions part="primary" pending={approval} approvals={approvals} threadId={threadId} bot={approvalBot} onCancelTurn={interruptTurn} />}
               more={approval.message.inbox ? undefined : <PendingApprovalActions part="more" pending={approval} threadId={threadId} bot={approvalBot} onCancelTurn={interruptTurn} />}
             />
           </div>

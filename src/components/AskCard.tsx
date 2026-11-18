@@ -292,7 +292,7 @@ export function askPrimary(color: MausColor | undefined, shape = ASK_BUTTON_SHAP
 /** A card's other answers: Deny, Cancel, Not now. */
 export const ASK_SECONDARY_BUTTON = `${ASK_BUTTON_SHAPE} ${ASK_LOOK} bg-ink/[0.07] text-ink enabled:hover:bg-ink/[0.11] enabled:active:bg-ink/[0.15]`;
 /** The allow action of a danger-flagged card (it deletes something). */
-export const ASK_DANGER_BUTTON = `${ASK_BUTTON_SHAPE} ${ASK_LOOK} bg-danger/10 text-danger enabled:hover:bg-danger/15 enabled:active:bg-danger/20`;
+export const ASK_DANGER_BUTTON = `${ASK_BUTTON_SHAPE} ${ASK_LOOK} bg-danger/15 text-danger enabled:hover:bg-danger enabled:hover:text-white enabled:active:bg-danger/90`;
 /** An extra option that should not compete with the answer: Always allow, Details. */
 export const ASK_QUIET_ANSWER = `${ASK_BUTTON_SHAPE} ${ASK_LOOK} text-ink-secondary enabled:hover:bg-ink/[0.06] enabled:hover:text-ink enabled:active:bg-ink/[0.1]`;
 

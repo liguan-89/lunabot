@@ -58,6 +58,7 @@ import { newEventId, newId, TurnNotStartedError } from "../contracts.ts";
 import { ASK_USER_TOOL, MAX_QUESTION_TEXT, parseAskQuestions, parseChoices, questionAnswersByQuestion } from "../../shared/ask-question.ts";
 import { appendNative } from "./native.ts";
 import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
+import { isDangerousApprovalRequest } from "../../shared/approval-danger.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
 import { noticeFailure } from "../chat-notices.ts";
 
@@ -262,6 +263,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       stop: () => Promise<void>;
       turnId: string;
       pending: Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>;
+      requestMeta: Map<string, { toolKey: string; dangerous: boolean; controlsHost: boolean }>;
+      sessionAllowedTools: Set<string>;
       child?: { stdin: { write: (s: string) => void } };
       steer?: (text: string) => Promise<SteerOutcome>;
     }>();
@@ -280,6 +283,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       sessionFile: string | null;
       sessionReady: boolean;
       confirmedModel: string | null;
+      sessionAllowedTools: Set<string>;
       idleTimer: ReturnType<typeof setTimeout> | null;
     }
     const warmSessions = new Map<string, PiWarmSession>();
@@ -478,6 +482,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const recoverOnStart = turn.startupRecovery === true;
       const prePromptQuiet = () => recoverOnStart && !promptSent;
       const pending = new Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>();
+      const requestMeta = new Map<string, { toolKey: string; dangerous: boolean; controlsHost: boolean }>();
       const askTimers = new Set<ReturnType<typeof setTimeout>>();
       let settled = false;
       /** Mirrors the settle outcome; read at the pre-prompt checkpoints. */
@@ -506,6 +511,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       let sessionFile: string | null;
       let sessionReady: boolean;
       let confirmedModel: string | null;
+      let sessionAllowedTools: Set<string>;
       if (reuse && warm) {
         const stale = pendingSpawns.get(threadId);
         if (stale) dropPending(threadId, stale);
@@ -513,6 +519,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         sessionFile = warm.sessionFile;
         sessionReady = warm.sessionReady;
         confirmedModel = warm.confirmedModel;
+        sessionAllowedTools = warm.sessionAllowedTools;
         if (warm.idleTimer) {
           clearTimeout(warm.idleTimer);
           warm.idleTimer = null;
@@ -540,6 +547,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         sessionFile = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
         sessionReady = false;
         confirmedModel = null;
+        sessionAllowedTools = new Set<string>();
       }
       const freshSpawn = !reuse;
       let assistantText = "";
@@ -602,6 +610,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         for (const timer of askTimers) clearTimeout(timer);
         askTimers.clear();
         pending.clear();
+        requestMeta.clear();
         // `keep` is decided once: a warm child survives an ordinary completion
         // (that is the whole point), and every other exit — an explicit stop, a
         // dead or unconfirmed child — takes the kill path.
@@ -617,6 +626,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               sessionFile,
               sessionReady,
               confirmedModel,
+              sessionAllowedTools,
               idleTimer: null,
             };
             warm.idleTimer = setTimeout(() => closeWarmSession(threadId, "idle"), SESSION_IDLE_MS);
@@ -712,7 +722,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return error instanceof PiRpcRefusalError ? "refused" : "indeterminate";
         }
       };
-      active.set(threadId, { stop, turnId, pending, child, steer: steerActiveTurn });
+      active.set(threadId, { stop, turnId, pending, requestMeta, sessionAllowedTools, child, steer: steerActiveTurn });
 
       const onEvent = (evt: PiEvent) => {
         appendNative(threadId, { dir: "in", source: "pi.rpc", msg: evt });
@@ -793,6 +803,23 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                   if (typeof cmd === "string" && cmd) commandLine = cmd;
                 } catch {}
               }
+              const toolKey = gated?.[1] ?? String(evt.title ?? "pi");
+              const dangerous = !isQuestion && isDangerousApprovalRequest({
+                tool: toolKey,
+                commandLine,
+                approvalScope: controlsHost ? "local-computer" : undefined,
+              });
+              if (!isQuestion && !dangerous && !controlsHost && sessionAllowedTools.has(toolKey)) {
+                send({ type: "extension_ui_response", id: reqId, confirmed: true });
+                emit({
+                  ...base(threadId, turnId),
+                  requestId: reqId,
+                  type: "request.resolved",
+                  behavior: "allow",
+                  source: "auto",
+                });
+                return;
+              }
               const summary = detail ? `${title} — ${commandLine ?? detail}`.slice(0, 600) : title;
               const question = isSelect
                 ? (parseAskQuestions({
@@ -801,6 +828,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 : undefined;
               const choices = question?.options.length ? question.options.map((option) => option.label) : undefined;
               let timer: ReturnType<typeof setTimeout> | undefined;
+              if (!isQuestion) {
+                requestMeta.set(reqId, { toolKey, dangerous, controlsHost });
+              }
               // Register BEFORE emitting: the harness may auto-approve inside its synchronous request.opened listener.
               pending.set(reqId, (decision) => {
                 if (timer) {
@@ -824,6 +854,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 timer = setTimeout(() => {
                   if (timer) askTimers.delete(timer);
                   if (!pending.delete(reqId)) return;
+                  requestMeta.delete(reqId);
                   send({ type: "extension_ui_response", id: reqId, cancelled: true });
                   emit({ ...base(threadId, turnId), requestId: reqId, type: "request.resolved", behavior: "deny", source: "timeout" });
                 }, 15 * 60_000);
@@ -835,8 +866,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 requestId: reqId,
                 type: "request.opened",
                 requestType: isQuestion ? "question" : "permission",
-                tool: gated?.[1] ?? String(evt.title ?? "pi"),
+                tool: toolKey,
                 summary,
+                ...(!isQuestion && !dangerous && !controlsHost ? { allowSession: true } : {}),
                 ...(commandLine ? { commandLine } : {}),
                 ...(commandLine && turn.cwd ? { command: { command: commandLine, cwd: turn.cwd } } : {}),
                 ...(choices ? { choices } : {}),
@@ -1193,6 +1225,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           const answer = entry?.pending.get(requestId);
           if (!entry || !answer) return "unavailable";
           entry.pending.delete(requestId);
+          const meta = entry.requestMeta.get(requestId);
+          entry.requestMeta.delete(requestId);
+          if (decision.behavior === "allow" && decision.always === true && meta && !meta.dangerous && !meta.controlsHost) {
+            entry.sessionAllowedTools.add(meta.toolKey);
+          }
           answer({ behavior: decision.behavior, message: decision.message });
           emit({
             ...base(threadId, entry.turnId),

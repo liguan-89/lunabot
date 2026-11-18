@@ -1203,6 +1203,8 @@
   "approval.action.enable": "启用",
   "approval.action.confirm": "确认",
   "approval.action.allowOnce": "允许一次",
+  "approval.action.allowDanger": "确认允许",
+  "approval.action.allowAllMatching": "允许全部同类 ({count})",
   "approval.yourComputer.browserSite": "我需要使用你已登录 {site} 的 {app}。允许一次吗？",
   "approval.yourComputer.browser": "我需要使用你已登录的 {app}。允许一次吗？",
   "approval.yourComputer.site": "我需要使用你已登录 {site} 的浏览器。允许一次吗？",

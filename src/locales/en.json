@@ -1199,6 +1199,8 @@
   "approval.action.enable": "Enable",
   "approval.action.confirm": "Confirm",
   "approval.action.allowOnce": "Allow once",
+  "approval.action.allowDanger": "Confirm & allow",
+  "approval.action.allowAllMatching": "Allow all similar ({count})",
   "approval.yourComputer.browserSite": "I need to use your {app} where you're signed in to {site}. Allow once?",
   "approval.yourComputer.browser": "I need to use your {app} where you're signed in. Allow once?",
   "approval.yourComputer.site": "I need to use your browser where you're signed in to {site}. Allow once?",
