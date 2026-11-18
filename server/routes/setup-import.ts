@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { claudeUserMcpEnabled, DATA_DIR, type AppConfig } from "../config.ts";
+import { importGrokHistory, type GrokHistoryStore } from "../grok-history.ts";
 import { lookForGrokBot, removeOldCursorSignIn } from "../grok-local.ts";
 import { applySetupImport, detectSetup, thisMachine, type SetupHost, type SetupMachine } from "../setup-import.ts";
 import type { BusyFlag } from "./config.ts";
@@ -12,6 +13,7 @@ export interface SetupImportRouteDeps {
    * person's own. */
   local: boolean;
   cfg: Pick<AppConfig, "mcpServers" | "features">;
+  store: GrokHistoryStore;
   mcpConfigBusy: BusyFlag;
   mcpPolicyRefusal(name: string, server: object): string | undefined;
   persistMcpServers(next: Record<string, unknown>): void;
@@ -22,11 +24,16 @@ export interface SetupImportRouteDeps {
 
 export const SETUP_IMPORT_PATH = "/api/setup-import";
 export const GROK_LOOK_PATH = "/api/setup-import/grok";
+export const GROK_CONNECTOR_PATH = "/api/setup-import/grok/connector";
+export const GROK_HISTORY_PATH = "/api/setup-import/grok/history";
 const LOCAL_ONLY = "Only the desktop app on the computer running Luna Bot can bring in that computer's skills and tools.";
 const requestSchema = z.object({ skills: z.boolean().optional(), tools: z.boolean().optional() }).strict();
+const historySchema = z.object({ botId: z.string().min(1).max(200), grokName: z.string().trim().min(1).max(500) }).strict();
 
-/** GET finds what is new here; POST brings in the chosen kinds. Only the owner's own loopback, never a paired device,
- * a browser elsewhere, a bot's shell on a service server, a Cloud home or a hosted server. */
+/** GET finds what is new here; POST brings in the chosen kinds. The Grok Bot connector: POST opens the link (a quick
+ * tunnel to a listener that serves only the move MCP), GET reads what arrived, DELETE ends it. POST …/grok/history brings
+ * a moved Bot's chat over from the Grok Bot app on this computer. Only the owner's own
+ * loopback, never a paired device, a browser elsewhere, a bot's shell on a service server, a Cloud home or a hosted server. */
 export function createSetupImportRoutes(deps: SetupImportRouteDeps): RouteHandler {
   removeOldCursorSignIn(deps.dataDir ?? DATA_DIR);
   const machine = deps.machine ?? thisMachine;
@@ -44,6 +51,37 @@ export function createSetupImportRoutes(deps: SetupImportRouteDeps): RouteHandle
       res.setHeader("Cache-Control", "no-store");
       return json(res, 200, lookForGrokBot(machine()));
     }
+<<<<<<< HEAD
+=======
+    if (path === GROK_CONNECTOR_PATH) {
+      if (method !== "GET" && method !== "POST" && method !== "DELETE") return json(res, 405, { error: "method not allowed" });
+      if (!deps.local || auth.kind !== "loopback" || auth.trust === "service") return json(res, 403, { error: LOCAL_ONLY });
+      res.setHeader("Cache-Control", "no-store");
+      // As for POST below: a page in a browser cannot send this type across origins.
+      if (method === "POST" && !String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+        return json(res, 415, { error: "content-type must be application/json" });
+      }
+      const after = Number(url.searchParams.get("after") ?? "0");
+      if (!Number.isSafeInteger(after) || after < 0) return json(res, 400, { error: "after must be a number" });
+      try {
+        return json(res, 200, await (method === "POST" ? grokMove.connect() : method === "DELETE" ? grokMove.end() : grokMove.look(after)));
+      } catch (error) {
+        return json(res, 502, { error: error instanceof Error ? error.message : String(error) });
+      }
+    }
+    if (path === GROK_HISTORY_PATH) {
+      if (method !== "POST") return json(res, 405, { error: "method not allowed" });
+      if (!deps.local || auth.kind !== "loopback" || auth.trust === "service") return json(res, 403, { error: LOCAL_ONLY });
+      res.setHeader("Cache-Control", "no-store");
+      if (!String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
+        return json(res, 415, { error: "content-type must be application/json" });
+      }
+      const parsed = historySchema.safeParse(await readBody(req, 4_096));
+      if (!parsed.success) return json(res, 400, { error: "Name the bot and its Grok Bot." });
+      const answer = importGrokHistory(deps.store, machine(), parsed.data.botId, parsed.data.grokName);
+      return answer ? json(res, 200, answer) : json(res, 404, { error: "bot not found" });
+    }
+>>>>>>> e8bff37e52 (Move from Grok Bot: POST /api/setup-import/grok/history)
     if (path !== SETUP_IMPORT_PATH) return PASS;
     if (method !== "GET" && method !== "POST") return json(res, 405, { error: "method not allowed" });
     if (!deps.local || auth.kind !== "loopback" || auth.trust === "service") return json(res, 403, { error: LOCAL_ONLY });
