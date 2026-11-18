@@ -707,10 +707,16 @@ describe("PiDriver turns (fake CLI)", () => {
     mkdirSync(childTmp);
     const savedTtl = process.env.OMB_PI_PREWARM_MS;
     const savedTmp = process.env.TMPDIR;
+    const savedTemp = process.env.TEMP;
+    const savedTmpWin = process.env.TMP;
     // Past the fake's node boot (~300 ms) so the child logs its argv row before the expiry lands; slow Windows
     // runners also need room for the spawn's credential dir to appear before anything is read.
     process.env.OMB_PI_PREWARM_MS = "15000";
+    // os.tmpdir() reads TMPDIR only on POSIX; on Windows it reads TEMP and TMP, so point all three at the isolated
+    // directory or the credential dir lands in the real %TEMP% and this suite never sees it.
     process.env.TMPDIR = childTmp;
+    process.env.TEMP = childTmp;
+    process.env.TMP = childTmp;
     try {
       await create(undefined, { FAKE_PI_DUMP: dump });
       await instance.startupModelRefresh;
@@ -740,6 +746,10 @@ describe("PiDriver turns (fake CLI)", () => {
       else process.env.OMB_PI_PREWARM_MS = savedTtl;
       if (savedTmp === undefined) delete process.env.TMPDIR;
       else process.env.TMPDIR = savedTmp;
+      if (savedTemp === undefined) delete process.env.TEMP;
+      else process.env.TEMP = savedTemp;
+      if (savedTmpWin === undefined) delete process.env.TMP;
+      else process.env.TMP = savedTmpWin;
     }
   });
 
