@@ -79,7 +79,9 @@ const chiefTurns = async () => (await messages(ben, inbox)).rows.filter((row) =>
 const openCard = async (threadId: string, requestType: "permission" | "question") =>
   (await messages(cleo, threadId)).rows.findLast((row) => row.card?.requestType === requestType && !row.card.answered);
 
-async function until(done: () => Promise<boolean> | boolean, timeoutMs = 60_000): Promise<void> {
+// 150 s, not 60: a loaded ubuntu shard once missed a turn's prompt line inside 60 s across three attempts
+// (Nov 18 CI rounds); local runs settle in single-digit seconds, so the headroom costs nothing green.
+async function until(done: () => Promise<boolean> | boolean, timeoutMs = hostTimeout(150_000)): Promise<void> {
   const end = Date.now() + timeoutMs;
   while (!(await done())) {
     if (Date.now() > end) throw new Error("timed out waiting");

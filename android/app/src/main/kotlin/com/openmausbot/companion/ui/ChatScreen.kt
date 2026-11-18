@@ -851,7 +851,17 @@ private fun LoadedChat(
         // Deliberately not disabled while the bot is busy: the harness answers
         // 409 and Session surfaces "The bot is busy — stop it first." That is a
         // clearer answer than a dead button.
-        scope.launch { session.send(text, chat) }
+        scope.launch {
+            if (session.send(text, chat)) return@launch
+            // The draft was already cleared on the tap; a failed send hands the
+            // words back rather than dropping them behind a vanishing notice.
+            if (composer.text.isBlank()) {
+                composer.onTypedChange(text)
+                publishFrom(composer)
+            }
+            attachmentError = session.actionError ?: "无法发送此消息，请重试。"
+            session.actionError = null
+        }
     }
 
     fun selectCommand(command: SlashCommand) {
@@ -974,6 +984,32 @@ private fun LoadedChat(
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
                                 Text("加载更早的消息", fontSize = 13.sp, color = secondaryTint)
+                            }
+                        }
+                    }
+
+                    // A brand-new thread is a full-screen invitation to ask,
+                    // not a blank sheet where the transcript will be.
+                    if (transcript.isEmpty() && liveCount == 0 && state.hasLoadedPage(threadId)) {
+                        item(key = EMPTY_STATE_KEY) {
+                            Column(
+                                modifier = Modifier.fillParentMaxSize(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                            ) {
+                                ChatAvatar(chat = chat, size = 72.dp, animated = false)
+                                Text(
+                                    text = "还没有消息",
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = minisInk,
+                                )
+                                Text(
+                                    text = "向 ${chat.name} 提问，开始这段对话",
+                                    fontSize = 14.sp,
+                                    color = minisSecondary,
+                                    textAlign = TextAlign.Center,
+                                )
                             }
                         }
                     }
@@ -1401,6 +1437,7 @@ private const val QUOTE_MAX_LINES = 4
 
 private const val LOAD_EARLIER_KEY = "companion.loadEarlier"
 private const val LIVE_BUBBLE_KEY = "companion.live"
+private const val EMPTY_STATE_KEY = "companion.empty"
 private val CHAT_CONTENT_MAX_WIDTH = 840.dp
 
 /**
@@ -2241,7 +2278,11 @@ private fun Composer(
                     tint = minisWarning,
                     modifier = Modifier.size(18.dp),
                 )
-                Text(text = attachmentError, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text(
+                    text = NoticeMessageFormat.humanize(attachmentError),
+                    fontSize = 13.sp,
+                    modifier = Modifier.weight(1f),
+                )
                 TouchTarget(
                     onClick = onDismissError,
                     size = 44.dp,

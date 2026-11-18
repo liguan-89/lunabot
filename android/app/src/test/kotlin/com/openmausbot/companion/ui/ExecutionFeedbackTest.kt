@@ -207,17 +207,17 @@ class ActivityReceiptTest {
             readableActivityName("notice: continuing on Claude after hitting the usage limit"),
         )
         assertEquals(
-            "402: Insufficient Balance",
+            "错误 402：账户余额不足",
             readableActivityName("error: 402: {\"message\":\"Insufficient Balance\"}"),
         )
         // A clipped provider payload still gives up its message.
         assertEquals(
-            "402: Insufficient Balance",
+            "错误 402：账户余额不足",
             readableActivityName("error: 402: {\"message\":\"Insufficient Balance"),
         )
         // The request id is for support, not for the transcript line.
         assertEquals(
-            "402: Insufficient Balance",
+            "错误 402：账户余额不足",
             readableActivityName(
                 "error: 402: {\"message\":\"Insufficient Balance (request_id: 34e0417a-5663-4ee9)\"}",
             ),

@@ -55,12 +55,24 @@ object RelativeStamp {
     fun updated(
         atMillis: Double,
         zone: ZoneId = ZoneId.systemDefault(),
-        locale: Locale = Locale.SIMPLIFIED_CHINESE,
+        locale: Locale = Locale.getDefault(),
+        nowMillis: Long = System.currentTimeMillis(),
     ): String {
         if (atMillis <= 0.0 || !atMillis.isFinite()) return ""
+        val at = zoned(atMillis, zone)
+        if (locale.language == "zh") {
+            val now = zoned(nowMillis.toDouble(), zone)
+            val clock = time(atMillis, zone, locale)
+            return when {
+                at.toLocalDate() == now.toLocalDate() -> "今天 $clock"
+                at.toLocalDate() == now.toLocalDate().minusDays(1) -> "昨天 $clock"
+                at.year == now.year -> "${DateTimeFormatter.ofPattern("M月d日", locale).format(at)} $clock"
+                else -> "${DateTimeFormatter.ofPattern("yyyy年M月d日", locale).format(at)} $clock"
+            }
+        }
         return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT, FormatStyle.SHORT)
             .withLocale(locale)
-            .format(zoned(atMillis, zone))
+            .format(at)
     }
 
     fun time(
