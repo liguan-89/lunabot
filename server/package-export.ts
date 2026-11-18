@@ -745,8 +745,6 @@ function withPresetSkills(
   return { ...preset, ...(kept.length ? { skills: kept } : {}) };
 }
 
-export const PRESET_TOO_LARGE_MESSAGE = USER_ERROR["serverError.preset.tooLarge"];
-
 export interface LibraryExportInput {
   name?: string;
   tagline?: string;

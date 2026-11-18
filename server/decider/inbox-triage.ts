@@ -9,7 +9,6 @@ export const INBOX_TRIAGE_OPTIONS = {
   important: "They must not miss it, though no reply is needed: a deadline, money owed or due, a change to their plans, or someone they work with.",
   skip: "It can wait: newsletters, receipts, notifications, marketing, automated mail, and mail like what they recently dismissed.",
 } as const;
-export type InboxVerdict = keyof typeof INBOX_TRIAGE_OPTIONS;
 /** The relay accepts no other key; `email` is required. */
 export const INBOX_TRIAGE_STATE_KEYS = ["email", "details", "dismissed_senders"] as const;
 export const INBOX_EMAIL_KEYS = ["from", "subject", "preview"] as const;

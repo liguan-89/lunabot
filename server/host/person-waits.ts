@@ -130,4 +130,3 @@ export function createPersonWaits(deps: PersonWaitsDeps) {
   };
 }
 
-export type PersonWaits = ReturnType<typeof createPersonWaits>;

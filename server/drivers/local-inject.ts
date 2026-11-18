@@ -107,23 +107,8 @@ export function localHost(id: string): LocalHost | undefined {
   return HOST_BY_ID.get(id);
 }
 
-export function injectedApiModel(id: string | null | undefined): string | null {
-  return decodeInjectId(id)?.model ?? null;
-}
-
 /** Claude Code's settings.model is its last slug and not host-encoded, so a Custom pick of it maps
  * here instead of demanding /login. */
-export function resolveInjectId(
-  modelId: string | null | undefined,
-  extras: readonly InjectedModel[],
-): string | null | undefined {
-  if (!modelId) return modelId;
-  if (decodeInjectId(modelId)) return modelId;
-  const matches = extras.filter((row) => row.id === modelId || row.model === modelId);
-  const match = matches.find((row) => row.loaded) ?? matches[0];
-  return match?.id ?? modelId;
-}
-
 /** Anthropic-compatible base (Claude Code wants this without a trailing /v1). */
 export function anthropicBaseUrl(host: LocalHost): string {
   return host.baseUrl.replace(/\/v1\/?$/, "");
@@ -139,29 +124,7 @@ export function hostApiKey(host: LocalHost, env: Record<string, string | undefin
   return "local";
 }
 
-const CODEX_RESERVED_PROVIDERS = new Set(["openai", "ollama", "lmstudio"]);
-
 /** Codex local providers without rewriting config.toml: secrets ride the child env, argv names the key only. */
-export function codexLocalProviderArgs(
-  env: Record<string, string | undefined>,
-  modelId: string | null | undefined,
-): string[] {
-  const inject = decodeInjectId(modelId);
-  if (!inject || CODEX_RESERVED_PROVIDERS.has(inject.host)) return [];
-  const host = localHost(inject.host);
-  if (!host) return [];
-  const envKey = `OPENMAUSBOT_LOCAL_${host.id.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_API_KEY`;
-  env[envKey] = hostApiKey(host, env);
-  return [
-    "-c",
-    `model_providers.${host.id}.name=${JSON.stringify(host.label)}`,
-    "-c",
-    `model_providers.${host.id}.base_url=${JSON.stringify(host.baseUrl)}`,
-    "-c",
-    `model_providers.${host.id}.env_key=${JSON.stringify(envKey)}`,
-  ];
-}
-
 function firstUnslothToken(row: unknown): string | null {
   if (!row || typeof row !== "object") return null;
   const rec = row as { minted?: unknown; saved?: unknown; api_key?: unknown };
@@ -440,20 +403,6 @@ export async function mergeLocalInject(
     });
   }
   return { default: catalog.default, options };
-}
-
-export function applyOpenAIInject(
-  env: Record<string, string | undefined>,
-  modelId: string | null | undefined,
-): { model: string | null; injected: boolean } {
-  const inject = decodeInjectId(modelId);
-  if (!inject) return { model: modelId ?? null, injected: false };
-  const host = localHost(inject.host);
-  if (!host) return { model: modelId ?? null, injected: false };
-  const key = hostApiKey(host, env);
-  env.OPENAI_BASE_URL = host.baseUrl;
-  env.OPENAI_API_KEY = key;
-  return { model: inject.model, injected: true };
 }
 
 export function applyClaudeInject(

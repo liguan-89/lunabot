@@ -138,10 +138,6 @@ export function imageSlots(cfg: ImageCredentials): { primary: ImageSlot; fallbac
   return { primary, fallback: same ? null : fallback };
 }
 
-export function primaryImageSlot(cfg: ImageCredentials): ImageSlot {
-  return imageSlots(cfg).primary;
-}
-
 export function imageSlotConfigured(cfg: ImageCredentials, slot: ImageSlot): boolean {
   if (slot.provider === "custom") return Boolean(customImageUrl(cfg) && slot.model);
   return Boolean(PROVIDERS[slot.provider].key(cfg)?.trim() && slot.model);

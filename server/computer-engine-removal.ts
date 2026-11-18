@@ -16,13 +16,6 @@ export function removedComputerInstanceIds(saved: InstanceConfigMap | undefined)
   return ids;
 }
 
-export function withoutComputerEngine(map: InstanceConfigMap): InstanceConfigMap {
-  for (const [id, entry] of Object.entries(map)) {
-    if (entry.driver === REMOVED_COMPUTER_DRIVER) delete map[id];
-  }
-  return map;
-}
-
 export interface ComputerEngineMove {
   botId: string;
   threadId: string;

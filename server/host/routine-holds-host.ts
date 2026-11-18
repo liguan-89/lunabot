@@ -130,4 +130,3 @@ export function createRoutineHoldsHost(deps: RoutineHoldsHostDeps) {
   };
 }
 
-export type RoutineHoldsHost = ReturnType<typeof createRoutineHoldsHost>;

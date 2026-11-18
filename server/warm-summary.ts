@@ -231,4 +231,3 @@ export function createWarmSummary(deps: WarmSummaryDeps) {
   };
 }
 
-export type WarmSummaries = ReturnType<typeof createWarmSummary>;

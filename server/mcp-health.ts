@@ -159,4 +159,3 @@ export function createMcpHealth(deps: McpHealthDeps) {
   };
 }
 
-export type McpHealth = ReturnType<typeof createMcpHealth>;

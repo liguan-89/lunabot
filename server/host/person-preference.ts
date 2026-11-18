@@ -37,4 +37,3 @@ export function createPersonPreference<T extends Turn>(deps: PersonPreferenceDep
   };
 }
 
-export type PersonPreference<T extends Turn> = ReturnType<typeof createPersonPreference<T>>;

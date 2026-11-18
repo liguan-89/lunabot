@@ -10,8 +10,6 @@ export const CLAUDE_API_INSTANCE = "claudeApi";
 
 /** The only instance this build runs. */
 export const PI_INSTANCE = "pi";
-export const KEPT_INSTANCE_IDS: ReadonlySet<string> = new Set([PI_INSTANCE]);
-
 export const API_KEY_FLEET: InstanceConfigMap = {};
 
 export const DEFAULT_FLEET: InstanceConfigMap = {

@@ -16,7 +16,6 @@ const LEDGER = "default-bot.json";
 /** The colour a new install gave its MausBot before Chrome, which an adopted MausBot trades for Chrome. */
 const STARTER_COLOR = "silver";
 
-export const HELPER_ASKS = ["What are my bots up to?", "Set up a bot for my inbox", "Make me a morning routine", "How do I connect my email?"];
 const HELPER_ASK_KEYS = [
   "server.defaultBot.askBots", "server.defaultBot.askInbox", "server.defaultBot.askRoutine", "server.defaultBot.askEmail",
 ] as const;

@@ -200,8 +200,6 @@ export function createResearchAvailability(deps: {
   };
 }
 
-export type ResearchAvailability = ReturnType<typeof createResearchAvailability>;
-
 /** The research client for a credential: treg's own API with the person's key (`included` false), else the plan's
  * relay. One retry, with the same Idempotency-Key, when a call's answer is lost on the way or treg says it is still
  * running; anything else is answered once. */
