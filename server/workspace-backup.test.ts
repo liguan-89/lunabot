@@ -183,7 +183,7 @@ describe("encrypted full workspace backups", () => {
       json(join(target, "team-computers.json"), targetComputers);
       writeFileSync(join(target, "environment-id"), "target-environment");
       json(join(target, "data-format.json"), { format: 1, writtenBy: "0.1.151", writtenAt: "2026-11-01T00:00:00.000Z" });
-      writeFileSync(join(target, "openmausbot-server.lease"), "live-lease");
+      writeFileSync(join(target, "lunabot-server.lease"), "live-lease");
       writeFileSync(join(target, "messages.db-wal"), "old database WAL must not enter the new DB");
       writeFileSync(join(target, "messages.db-shm"), "old database shared memory");
       const staged = await stageWorkspaceBackup(target, exported.path, { password: PASSWORD });
@@ -215,7 +215,7 @@ describe("encrypted full workspace backups", () => {
       expect(readJson(join(target, "team-computers.json"))).toEqual(targetComputers);
       expect(readFileSync(join(target, "environment-id"), "utf8")).toBe("target-environment");
       expect(readJson(join(target, "data-format.json"))).toMatchObject({ format: 1, writtenBy: "0.1.151" });
-      expect(readFileSync(join(target, "openmausbot-server.lease"), "utf8")).toBe("live-lease");
+      expect(readFileSync(join(target, "lunabot-server.lease"), "utf8")).toBe("live-lease");
       expect(existsSync(join(target, "messages.db-wal"))).toBe(false);
       expect(readFileSync(join(result.safetyCopyPath!, "data", "messages.db-wal"), "utf8")).toBe("old database WAL must not enter the new DB");
       expect(existsSync(join(target, "tools"))).toBe(false);

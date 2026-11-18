@@ -4,7 +4,7 @@ import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, readlinkSyn
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 
-const LEASE_NAME = "openmausbot-server.lease";
+const LEASE_NAME = "lunabot-server.lease";
 const DELEGATED_CHILD_DIR = ".lunabot-server-child";
 /** Where a build from before the rename kept its delegated child's lease: still read, so one is never missed. */
 const LEGACY_DELEGATED_CHILD_DIRS = [".dexbot-server-child"];
