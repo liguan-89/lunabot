@@ -659,7 +659,7 @@ fun SettingsScreen(
                 footer = if (toolsFailure == null) {
                     null
                 } else {
-                    { SettingsFootnote(toolsFailure.message) }
+                    { SettingsFootnote(NoticeMessageFormat.humanize(toolsFailure.message)) }
                 },
             ) {
                 SettingsSwitchRow(
@@ -729,7 +729,9 @@ fun SettingsScreen(
                         SettingsFootnote("连接失败，请确认无线调试仍开启，或重新配对。")
                     }
                     (phoneToolsStatus as? Session.PhoneToolsStatus.Failed)?.let { failure ->
-                        if (phoneUiStatus == PhoneUiStatus.Ready) SettingsFootnote(failure.message)
+                        if (phoneUiStatus == PhoneUiStatus.Ready) {
+                            SettingsFootnote(NoticeMessageFormat.humanize(failure.message))
+                        }
                     }
                 },
             ) {

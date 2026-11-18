@@ -32,7 +32,9 @@ else
   if [ -L "$launcher" ]; then
     APP_ROOT=$(dirname -- "$(readlink -f -- "$launcher")")
   else
-    APP_ROOT=/opt/Luna Bot
+    # Quoted: the product name has a space, and an unquoted assignment runs
+    # "Bot" as a command under dash (exit 127 in the in-place upgrade smoke).
+    APP_ROOT="/opt/LunaBot"
   fi
   EXPECTED_OWNER=root:root
   TEST_MODE=0

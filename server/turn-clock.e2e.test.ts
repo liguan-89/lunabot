@@ -5,8 +5,7 @@ import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import type { WireBot } from "../shared/wire.ts";
-import { splitLaunchNote } from "./testing/launch-note.ts";
-import { turnClockLine } from "./turn-clock.ts";
+import { TURN_CLOCK_LEAD, turnClockLine } from "./turn-clock.ts";
 
 const ZONE = "Asia/Kolkata";
 // ICU may report the zone by its older alias (Asia/Calcutta), so the test asks the same runtime.
@@ -33,13 +32,13 @@ it("stamps every direct and room turn with the time it was sent", async () => {
     try {
       return readFileSync(prompts, "utf8").trim().split("\n").filter(Boolean)
         .map((line) => JSON.parse(line) as { message?: { content?: unknown } } | string)
-        // a new session's first message carries the volatile half of the instructions ahead of the person's words
-        .map((prompt) => splitLaunchNote(prompt).prompt)
-        // a stream-json user message: plain text, or text blocks beside images
+        // a new session's first message carries the instructions ahead of the person's words: what the model reads as
+        // "the prompt" is the clock line and what follows it (server/testing/pi-dump.ts piTurnText)
         .map((prompt) => {
           const content = typeof prompt === "string" ? prompt : prompt.message?.content;
-          if (typeof content === "string") return content;
-          return Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("") : JSON.stringify(prompt);
+          const text = typeof content === "string" ? content : Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("") : JSON.stringify(prompt);
+          const at = text.indexOf(TURN_CLOCK_LEAD);
+          return at >= 0 ? text.slice(at) : text;
         });
     } catch {
       return [];

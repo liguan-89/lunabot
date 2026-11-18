@@ -35,11 +35,11 @@ export const PAYMENT_NAME_MAX = 80;
 export const PAYMENT_HOLDER_MAX = 120;
 
 export function cardBrand(pan: string): CardBrand {
-  if (/^4/.test(pan)) return "visa";
+  if (pan.startsWith("4")) return "visa";
   if (/^(5[1-5]|2[2-7])/.test(pan)) return "mastercard";
   if (/^3[47]/.test(pan)) return "amex";
-  if (/^62/.test(pan)) return "unionpay";
-  if (/^35/.test(pan)) return "jcb";
+  if (pan.startsWith("62")) return "unionpay";
+  if (pan.startsWith("35")) return "jcb";
   if (/^6(?:011|5)/.test(pan)) return "discover";
   if (/^3[0689]/.test(pan)) return "diners";
   return "card";

@@ -1,13 +1,15 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { rmSync, writeFileSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 it("bounds a real roster, retrieves its tail, isolates owners and expires stopped capabilities", async () => {
-  const fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang" });
+  // The fake pi keeps the turn open (the retired fixture's `hang`, through its compatibility knobs), so its agents
+  // tools stay usable mid-turn.
+  const fixture = await launchVerificationServer({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" });
   const proxies: ChildProcess[] = [];
   const evidence: unknown[] = [];
   const cli = async (...args: string[]) => {
@@ -21,15 +23,19 @@ it("bounds a real roster, retrieves its tail, isolates owners and expires stoppe
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10_000) });
     return { status: response.status, body: await response.json() as any };
   };
-  const dumpFile = join(fixture.info.dataDir, "fake-claude-dump.json");
+  const dumpFile = piDumpPath(fixture.info.dataDir);
   const held = async (bot: any, threadId = bot.activeTaskId) => {
     rmSync(dumpFile, { force: true });
     await cli("send", "--bot", bot.id, "--task", threadId, "--text", "Hold this isolated verification turn open.");
-    await expect.poll(() => existsSync(dumpFile), { timeout: 15_000 }).toBe(true);
-    const mounted = JSON.parse(readFileSync(dumpFile, "utf8")).mcpConfig.mcpServers.agents;
-    expect(mounted.env.OMB_THREAD_ID).toBe(threadId);
-    const proxy = spawn(mounted.command, mounted.args, { cwd: process.cwd(),
-      env: { ...mounted.env, PATH: process.env.PATH, HOME: fixture.info.dataDir }, stdio: ["pipe", "pipe", "pipe"] });
+    // The launch line before the prompt carries the turn's MCP config; the prompt row follows it.
+    let mounted: { command: string; args: string[]; env: Record<string, string> } | undefined;
+    await expect.poll(() => {
+      mounted = piTurns(dumpFile).findLast((turn) => turn.launch?.mcpConfig?.mcpServers?.agents)?.launch?.mcpConfig?.mcpServers?.agents as typeof mounted;
+      return Boolean(mounted);
+    }, { timeout: 15_000 }).toBe(true);
+    expect(mounted!.env.OMB_THREAD_ID).toBe(threadId);
+    const proxy = spawn(mounted!.command, mounted!.args, { cwd: process.cwd(),
+      env: { ...mounted!.env, PATH: process.env.PATH, HOME: fixture.info.dataDir }, stdio: ["pipe", "pipe", "pipe"] });
     proxies.push(proxy);
     proxy.stderr!.resume();
     let sequence = 0;
@@ -46,7 +52,7 @@ it("bounds a real roster, retrieves its tail, isolates owners and expires stoppe
       proxy.stdin!.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
     });
     await rpc("initialize", { protocolVersion: "2024-11-05" });
-    return { token: mounted.env.OMB_COMMS_TOKEN as string,
+    return { token: mounted!.env.OMB_COMMS_TOKEN as string,
       tool: async (name: string, args = {}) => (await rpc("tools/call", { name, arguments: args })).result };
   };
   try {

@@ -26,7 +26,7 @@ async function answered(side: Side, bot: { id: string; threadId: string }, text:
 
 it("a check that can't pass lifts the freeze and tries again in an hour, with nothing switched on; a day of it offers Try again, which finishes the move", async () => {
   const { local, onCloud } = fx;
-  const juno = (await local("POST", "/api/bots", { name: "Juno", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+  const juno = (await local("POST", "/api/bots", { name: "Juno" })).body.bot as { id: string; threadId: string };
   await answered(local, juno, "Hello Juno.");
   const made = (await local("POST", "/api/routines", { name: "Daily", prompt: "Report.", botId: juno.id, schedule: { type: "daily", time: "09:00", weekdays: [1, 2, 3, 4, 5] }, durationMinutes: 15 })).body;
   const daily = (made.routine ?? made).id as string;

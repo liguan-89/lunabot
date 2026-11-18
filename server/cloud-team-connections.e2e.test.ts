@@ -2,9 +2,9 @@
 // makes once, and connections each person makes for themselves. Ada's own Gmail and mail key reach only work her own
 // message started: her private chat, her own line in a group chat, and the work those hand on to other bots. Never
 // anyone else's request or the work it hands on, Cleo's chat or an admin; and no admin read ever holds them. The engine
-// is the synthetic Claude CLI, calling the connected-apps bridges it was launched with.
+// is the synthetic pi CLI, calling the connected-apps bridges it was launched with.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { get } from "node:http";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -14,6 +14,7 @@ import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
 import { startFakeOAuth, type FakeOAuth } from "./testing/fake-oauth-server.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
 const OWNER = { email: "olive@acme.test", role: "owner" as const };
@@ -23,7 +24,7 @@ const CLEO = { email: "cleo@acme.test", role: "member" as const };
 const ADA_KEY = "ada-own-mail-key-5521";
 const TEAM_KEY = "team-mail-key-9034";
 // Each turn reads its scripted calls again: a conversation's engine stays warm across turns, as in production.
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";
 process.env.FAKE_CLAUDE_MARKER_REPLIES = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/marker-replies.json";`;
 const LINK = "https://cloud.example.test/cloud/team/team-acme-1";
@@ -68,13 +69,24 @@ afterAll(async () => {
   await oauth?.close();
 });
 
-type Dump = { systemPrompt: string; mcpConfig: { mcpServers: Record<string, unknown> } };
-const dump = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as Dump;
+/** The pi log, a JSONL of launches and prompts (server/testing/pi-dump.ts): the launch a turn ran on carries the servers
+ * it was handed, and the prompt's instructions half is what the bot was told. */
+const dumpPath = () => join(team.home, "dump.jsonl");
+const turns = () => piTurns(dumpPath());
+/** The turn the test just sent: the last one whose own words carry `text`, with its launch. */
+function turnOf(text: string) {
+  const all = turns();
+  const index = all.findLastIndex((turn) => turn.prompt.includes(text));
+  expect(index, `no pi turn carried "${text}"`).toBeGreaterThanOrEqual(0);
+  const launch = all[index]!.launch;
+  return { launch, systemPrompt: piInstructionsFor(all, index), mcpConfig: (launch?.mcpConfig ?? { mcpServers: {} }) as { mcpServers: Record<string, unknown> } };
+}
 const scriptToolCalls = (calls: unknown[] | null) => {
   const file = join(team.home, "tool-calls.json");
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
 };
-const gmailCall = (server: "composio" | "own_apps") => ({ name: "COMPOSIO_MULTI_EXECUTE_TOOL", server, input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } });
+/** pi names a mounted MCP tool "<server>_<tool>", lower-cased (server/drivers/pi-mcp-extension.ts). */
+const gmailCall = (server: "composio" | "own_apps") => ({ name: `${server}_composio_multi_execute_tool`, server, input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } });
 const messages = async (token: string, threadId: string) => team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`);
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
@@ -86,15 +98,14 @@ async function newThread(token: string, title: string) {
 /** One turn, from `token`, and what the engine was launched with; `room` sends it in the group chat. */
 async function turn(token: string, threadId: string, text: string, options: { room?: string; calls?: unknown[] } = {}) {
   scriptToolCalls(options.calls ?? null);
-  rmSync(join(team.home, "dump.json"), { force: true });
   const before = ((await messages(token, threadId)).body.messages as unknown[]).length;
   const sent = options.room
     ? await team.as(token, "POST", `/api/groups/${options.room}/messages`, { text, threadId })
     : await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2 && existsSync(join(team.home, "dump.json")),
+  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as unknown[]).length >= before + 2 && turns().some((turn) => turn.prompt.includes(text)),
     { timeout: 60_000, interval: 100 }).toBe(true);
-  const seen = dump();
+  const seen = turnOf(text);
   return { ...seen, servers: Object.keys(seen.mcpConfig?.mcpServers ?? {}), config: JSON.stringify(seen.mcpConfig ?? {}), thread: JSON.stringify((await messages(token, threadId)).body) };
 }
 const gmailCallsBy = (user: string) => broker.mcpCalls.filter((call) => call.method === "tools/call" && call.user === user).length;
@@ -181,7 +192,7 @@ it("gives Ada's own Gmail and mail to her private chat, for her own request, and
   expect(team_.thread).toContain(`Gmail here is ${ADA.email}'s own: use it through the own_apps tools`);
   expect(gmailCallsBy(teamUser)).toBe(teamBefore);
   // Each bridge keeps its own bearer from turn to turn, so her conversation's engine stays warm.
-  const bearer = (dumped: Dump, server: string) => (dumped.mcpConfig.mcpServers[server] as { env: Record<string, string> }).env.OMB_CONNECTOR_TOKEN;
+  const bearer = (dumped: { mcpConfig: { mcpServers: Record<string, unknown> } }, server: string) => (dumped.mcpConfig.mcpServers[server] as { env: Record<string, string> }).env.OMB_CONNECTOR_TOKEN;
   expect(bearer(team_, "own_apps")).toBe(bearer(seen, "own_apps"));
   expect(bearer(team_, "composio")).toBe(bearer(seen, "composio"));
   expect(bearer(seen, "own_apps")).not.toBe(bearer(seen, "composio"));
@@ -193,7 +204,9 @@ it("never uses her own Gmail or mail where others read, even for her own line in
   expect(room.servers).not.toContain("own_apps");
   expect(room.servers).not.toContain("mail");
   expect(room.config).not.toContain(ADA_KEY);
-  expect(room.thread).toContain("no own_apps MCP server was launched for this turn");
+  // pi mounts no own_apps server here at all, so the scripted call finds no such tool (the retired engine answered
+  // "no own_apps MCP server was launched for this turn" instead).
+  expect(room.thread).toContain("mounted no agents tool named own_apps_composio_multi_execute_tool");
   // Her bot is told why, and how her Gmail does it instead: handed on into a chat that is hers alone.
   expect(room.thread).toContain(`Gmail is ${ADA.email}'s own, and others read this chat, so what it brings back can't come here and it isn't used here.`);
   expect(room.systemPrompt).toContain(`Others read this chat, so ${ADA.email}'s own aren't here`);
@@ -202,7 +215,7 @@ it("never uses her own Gmail or mail where others read, even for her own line in
   const ownerRoom = await turn(owner, roomThread, "@Scout check the inbox", { room: roomId, calls: [gmailCall("own_apps"), gmailCall("composio")] });
   expect(ownerRoom.servers).not.toContain("own_apps");
   expect(ownerRoom.config).not.toContain(ADA_KEY);
-  expect(ownerRoom.thread).toContain("no own_apps MCP server was launched for this turn");
+  expect(ownerRoom.thread).toContain("mounted no agents tool named own_apps_composio_multi_execute_tool");
 
   const main = await turn(owner, bot.mainThreadId, "Check the inbox.", { calls: [gmailCall("composio")] });
   expect(main.servers).not.toContain("own_apps");
@@ -212,7 +225,7 @@ it("never uses her own Gmail or mail where others read, even for her own line in
   expect(cleos.servers).not.toContain("own_apps");
   expect(cleos.servers).not.toContain("mail");
   expect(cleos.config).not.toContain(ADA_KEY);
-  expect(cleos.thread).toContain("no own_apps MCP server was launched for this turn");
+  expect(cleos.thread).toContain("mounted no agents tool named own_apps_composio_multi_execute_tool");
   expect(cleos.systemPrompt).toContain(`${CLEO.email} hasn't connected them yet, or their sign-in ended: Gmail and mail. If the task needs one, don't try it another way (the browser or another tool): reply with one plain line and nothing more about it: "Connect your <name> here: ${LINK}".`);
 
   // Ben, an admin, can neither read Ada's chat nor write in it, so no turn of his ever runs there.
@@ -236,7 +249,7 @@ it("gives work her own message hands to another bot her own Gmail, and never wor
       const work = helperThreads().find((threadId) => !known.includes(threadId));
       if (!work) return false;
       const rows = (await messages(token, work)).body.messages as Array<{ kind: string; tool?: { name: string; ok?: boolean; output?: string; whose?: unknown } }>;
-      row = rows.find((message) => message.kind === "activity" && message.tool?.name === "COMPOSIO_MULTI_EXECUTE_TOOL" && message.tool.ok !== undefined) as typeof row;
+      row = rows.find((message) => message.kind === "activity" && /(?:^|_)composio_multi_execute_tool$/u.test(message.tool?.name ?? "") && message.tool?.ok !== undefined) as typeof row;
       return Boolean(row) && await idle(token);
     }, { timeout: 90_000, interval: 250 }).toBe(true);
     return row!.tool;
@@ -272,7 +285,8 @@ it("gives work her own message hands to another bot her own Gmail, and never wor
   const cleos = await helperGmail(cleo, seen);
   await finished(cleo, cleoThread, cleoResumes);
   expect(cleos.ok).toBe(false);
-  expect(cleos.output, "Cleo connected nothing, and Ada's is never hers").toContain("no own_apps MCP server was launched for this turn");
+  // Cleo connected nothing, so her work mounts no own_apps server: the call finds no such tool and runs nowhere.
+  expect(cleos.output, "Cleo connected nothing, and Ada's is never hers").toContain("mounted no agents tool named own_apps_composio_multi_execute_tool");
   expect(cleos.whose).toBeUndefined();
   expect(gmailCallsBy(adaUser)).toBe(adaCalls);
   expect(gmailCallsBy(teamUser), "nor did the team's Gmail stand in").toBe(teamBefore);
@@ -336,7 +350,7 @@ it("runs work her group-chat line hands on in the receiving bot's chat with her,
 }, hostTimeout(240_000));
 
 it("tells the bot one plain line with the link when a person's app isn't connected, never a card", async () => {
-  const seen = await turn(cleo, cleoThread, "Connect my Gmail.", { calls: [{ name: "COMPOSIO_MANAGE_CONNECTIONS", server: "composio", input: { toolkits: ["gmail"] } }] });
+  const seen = await turn(cleo, cleoThread, "Connect my Gmail.", { calls: [{ name: "composio_composio_manage_connections", server: "composio", input: { toolkits: ["gmail"] } }] });
   expect(seen.thread).toContain(`Connect your Gmail here: ${LINK}`);
   expect(((await messages(cleo, cleoThread)).body.messages as Array<{ kind: string }>).some((message) => message.kind === "connector")).toBe(false);
 }, hostTimeout(60_000));

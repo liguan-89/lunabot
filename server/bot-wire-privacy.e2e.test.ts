@@ -15,7 +15,7 @@ import { installLibrarySkill } from "./skill-library.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLI = join(SERVER_DIR, "testing", "fake-acp-cli.ts");
+const FAKE_CLI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 
 describe("bot wire privacy against the real server", () => {
   let home = "";
@@ -40,7 +40,7 @@ describe("bot wire privacy against the real server", () => {
     output = "";
     writeFileSync(join(data, "config.json"), JSON.stringify({
       features: { skillsLibrary },
-      instances: { grok: { driver: "grokAgent", config: { cli: FAKE_CLI, fullAuto: false } } },
+      instances: { pi: { driver: "piAgent", displayName: "Fixture", config: { cli: FAKE_CLI } } },
     }));
     const proc = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], {
       cwd: ROOT,

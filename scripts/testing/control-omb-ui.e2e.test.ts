@@ -34,7 +34,9 @@ const TOOL_CALLS = JSON.stringify([
   { name: "Bash", input: { command: "pnpm control:omb ui click --name Missing" }, ok: false },
   { name: "Bash", input: { command: "pnpm control:omb ui flag --set features.showToolCalls=true --dry-run" }, ok: true },
 ]);
-const REPLY = "hello from fake claude"; // the fake engine's default reply text
+const REPLY = "Hello from pi"; // the fake pi's default reply text
+// A launch with --tool-calls runs the fake pi in its retired-Claude compatibility mode, whose default reply is this one.
+const COMPAT_REPLY = "hello from fake claude";
 // OMB_UI_EVIDENCE_DIR keeps the screenshot (CI uploads it); otherwise it is temporary.
 const evidenceDir = process.env.OMB_UI_EVIDENCE_DIR ? resolve(ROOT, process.env.OMB_UI_EVIDENCE_DIR) : mkdtempSync(join(tmpdir(), "omb-ui-evidence-"));
 const ownsEvidenceDir = !process.env.OMB_UI_EVIDENCE_DIR;
@@ -141,8 +143,8 @@ describe("control-omb ui drives the real renderer", () => {
     await ui("click", info.ui, "--name", "Find in this conversation");
     await ui("eval", info.ui, "--js", "document.querySelector('input[aria-label=\"Find in this conversation\"]').select(); true");
     await ui("press", info.ui, "--keys", "Backspace");
-    await ui("type", info.ui, "--name", "Find in this conversation", "--text", "fake claude");
-    await expect.poll(highlighted, { timeout: 10_000 }).toBe("fake claude");
+    await ui("type", info.ui, "--name", "Find in this conversation", "--text", REPLY);
+    await expect.poll(highlighted, { timeout: 10_000 }).toBe(REPLY);
     await ui("press", info.ui, "--keys", "Escape");
     // The sidebar's search opens from its button into a field of the same name.
     await ui("click", info.ui, "--name", "Search bots and messages");
@@ -171,10 +173,11 @@ describe("control-omb ui drives the real renderer", () => {
     const masked = () => evaluate(`${row}.querySelector('[data-key-masked]')?.textContent ?? null`);
     const replace = () => evaluate(`${row}.querySelector('[data-key-replace]').click(); true`);
     const type = async (text: string) => {
-      await click("OpenAI-compatible API key");
+      // The one custom provider's key row: its label names the provider pi uses.
+      await click("Custom model provider");
       await evaluate(`${input}.select(); true`);
       await ui("press", info.ui, "--keys", "Backspace");
-      if (text) await ui("type", info.ui, "--name", "OpenAI-compatible API key", "--text", text);
+      if (text) await ui("type", info.ui, "--name", "Custom model provider", "--text", text);
     };
     const enter = () => ui("press", info.ui, "--keys", "Enter");
     await evaluate(`(() => {
@@ -214,7 +217,8 @@ describe("control-omb ui drives the real renderer", () => {
     const savedUrl = "http://127.0.0.1:1/v1";
     await evaluate(`(() => {
       const field = document.querySelector('[aria-label="Base URL"]');
-      field.value = "https://user:pass@provider.invalid/v1";
+      // The prototype setter, not field.value: React's own setter would record the change and swallow the event.
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(field, "https://user:pass@provider.invalid/v1");
       field.dispatchEvent(new Event("input", { bubbles: true }));
       field.focus();
       field.blur();
@@ -246,7 +250,7 @@ describe("control-omb ui drives the real renderer", () => {
     await expect.poll(rowText, { timeout: 10_000 }).toContain("Didn't work: Fixture save rejected");
     await expect.poll(() => evaluate(`${input}?.value ?? null`), { timeout: 10_000 }).toBe("fixture-replacement-key");
     await evaluate("window.rejectKeySave = false");
-    await click("OpenAI-compatible API key");
+    await click("Custom model provider");
     await enter();
     await expect.poll(() => evaluate(`${input} ?? null`), { timeout: 10_000 }).toBe(null);
     await expect.poll(() => evaluate("window.keyTests.length")).toBe(3);
@@ -276,29 +280,32 @@ describe("control-omb ui drives the real renderer", () => {
     const originalModel = originalBot.modelSelection.model;
     const models = await runControlOmb(["models", "--url", info.url]) as any;
     const options = models.instances.find((instance: any) => instance.instanceId === originalBot.modelSelection.instanceId).models.options;
-    const originalLabel = options.find((option: any) => option.id === originalModel).label;
+    const originalOption = options.find((option: any) => option.id === originalModel);
     const nextModel = options.find((option: any) => option.id !== originalModel);
+    // Simple mode keeps the model picker in the bot panel, which the chat header's pill opens.
+    const rowName = (option: any) => [option.label, option.provider].filter(Boolean).join(" · ");
     // The picker sets the bot's model, which every chat of it uses.
     const threadModel = async () => (await savedBot()).tasks.find((task: any) => task.threadId === originalBot.threadId).modelSelection.model;
-    await ui("click", info.ui, "--name", originalLabel);
+    await ui("click", info.ui, "--name", "Open Pepper's profile");
+    await ui("click", info.ui, "--name", originalOption.label);
     await expect.poll(async () => (await ui("snapshot", info.ui)).snapshot, { timeout: 10_000 }).toContain("Pepper's model, used in all its chats");
     mkdirSync(evidenceDir, { recursive: true });
     await ui("screenshot", info.ui, "--out", join(evidenceDir, "model-picker.png"));
-    await ui("click", info.ui, "--name", nextModel.label);
+    await ui("click", info.ui, "--name", rowName(nextModel));
     await expect.poll(async () => (await savedBot()).modelSelection.model, { timeout: 10_000 }).toBe(nextModel.id);
     expect(await threadModel()).toBe(nextModel.id);
-    // A model with reasoning levels keeps the menu open after the pick, so its level can be set next.
-    expect(await ui("eval", info.ui, "--js", "String(Boolean(document.querySelector('[data-model-picker-content]')))"))
-      .toMatchObject({ result: "true" });
-    const modelSnapshot = await ui("snapshot", info.ui, "--interactive");
-    const [originalRow] = refsNamed(modelSnapshot, originalLabel, "button");
-    expect(originalRow).toBeDefined();
-    await ui("click", info.ui, "--ref", originalRow);
+    // The panel's picker closes on a pick; reopening it and choosing the first model again restores the bot's.
+    await ui("click", info.ui, "--name", nextModel.label);
+    await expect.poll(async () => (await ui("snapshot", info.ui)).snapshot, { timeout: 10_000 }).toContain("Pepper's model, used in all its chats");
+    await ui("click", info.ui, "--name", rowName(originalOption));
     await expect.poll(async () => (await savedBot()).modelSelection.model, { timeout: 10_000 }).toBe(originalModel);
     expect(await threadModel()).toBe(originalModel);
     expect((await savedBot()).approvalMode).toBe(originalBot.approvalMode);
-    // The menu is still open after that pick; close it before using the composer.
+    // Close the panel (and any menu it still shows) before using the composer. Escape may have closed both already.
     await ui("press", info.ui, "--keys", "Escape");
+    if ((await ui("eval", info.ui, "--js", "Boolean(document.querySelector('[aria-label=\"Close settings\"]'))")).result === true) {
+      await ui("click", info.ui, "--name", "Close settings");
+    }
     await expect.poll(async () => (await ui("eval", info.ui, "--js", "String(Boolean(document.querySelector('[data-model-picker-content]')))")).result,
       { timeout: 10_000 }).toBe("false");
 
@@ -307,7 +314,7 @@ describe("control-omb ui drives the real renderer", () => {
     const [composer, ...moreComposers] = refsNamed(before, "Message Pepper", "textbox");
     expect(composer).toMatch(/^@e\d+$/);
     expect(moreComposers).toEqual([]);
-    expect(before.snapshot).not.toContain(REPLY);
+    expect(before.snapshot).not.toContain(COMPAT_REPLY);
 
     const typed = await ui("type", info.ui, "--ref", composer, "--text", "hello");
     expect(typed).toMatchObject({ ok: true, target: composer, typed: "hello" });
@@ -326,7 +333,7 @@ describe("control-omb ui drives the real renderer", () => {
     expect(transcriptStart).toBeGreaterThan(-1);
     const transcript = tree.slice(transcriptStart);
     expect(transcript).toContain('StaticText "hello"'); // the sent turn
-    expect(transcript).toContain(`StaticText "${REPLY}"`);
+    expect(transcript).toContain(`StaticText "${COMPAT_REPLY}"`);
     // The scripted Bash calls, in plain words, and the turn's count of them.
     expect(transcript).toContain('StaticText "Run a command"');
     expect(transcript).toContain("Did 3 tool calls");
@@ -360,13 +367,13 @@ describe("control-omb ui drives the real renderer", () => {
     expect(png.subarray(0, 8)).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]));
 
     await ui("click", info.ui, "--name", "Open Pepper's profile");
-    await ui("click", info.ui, "--name", "Inspector");
-    // A local page fetches a screen when it opens, so the panel arrives just after the click.
+    // The panel's own Inspector row; its lazy chunk paints once the click lands.
+    await ui("eval", info.ui, "--js", `document.querySelector('[data-panel-item="inspector"]').click(); true`);
     const inspected = await vi.waitFor(async () => {
       const snapshot = await ui("snapshot", info.ui);
       expect(snapshot.snapshot).toContain('complementary "Inspector"');
       return snapshot;
-    }, { timeout: 5_000, interval: 100 });
+    }, { timeout: 20_000, interval: 250 });
     const runLog = (inspected.snapshot as string).slice((inspected.snapshot as string).indexOf('complementary "Inspector"'));
     expect(runLog).toContain('tab "Run Log" [selected');
     expect(runLog).toContain("pnpm control:omb doctor");

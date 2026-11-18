@@ -4,7 +4,7 @@
 // run gets no phone at all, a turn hears whether the person wrote from the phone or the computer, and a send goes to the
 // phone with no card of OpenMausBot's own.
 import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
@@ -16,6 +16,7 @@ import { PHONE_PLACE_PROMPT } from "./phones/instructions.ts";
 import { PHONE_INTERNAL_MCP_PATH } from "./phones/rpc.ts";
 import { READ_AND_DRAFT_REFUSAL } from "./read-and-draft.ts";
 import { waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { openSse, type SseRecorder } from "./testing/sse.ts";
 
 const key = "isolated-phone-capability";
@@ -27,8 +28,10 @@ let url: string;
 let chief: { id: string; threadId: string };
 let pairing: { token: string; session: { id: string } };
 let events: SseRecorder | undefined;
-/** While this file exists every hanging fake turn ends normally (FAKE_CLAUDE_RELEASE). */
+/** While this file exists every hanging fake turn ends normally (FAKE_PI_RELEASE). */
 let release: string;
+/** The pi launch log: a JSONL of the launch each child was given and every prompt it received. */
+let dumpPath: string;
 
 const api = async (method: string, path: string, body?: unknown, token?: string) => {
   const response = await fetch(url + path, {
@@ -62,18 +65,21 @@ const mint = async (botId: string, threadId: string) => {
   expect(response.status).toBe(201);
   return (await response.json() as any).token as string;
 };
-/** systemPrompt is what the model is instructed with; systemPromptFile only its stable half, the file the engine is launched with. */
-type Launch = { prompt: unknown; mcpConfig: { mcpServers: Record<string, { env: Record<string, string> }> } | null; systemPrompt: string | null; systemPromptFile: string | null };
-/** Starts whatever begins a turn and returns the launch whose prompt carries `marker`: its MCP servers and its system prompt. */
+/** Starts whatever begins a turn and returns the turn whose prompt carries `marker`: its MCP servers and its instructions. */
 const launched = async (marker: string, start: () => Promise<void>) => {
-  rmSync(fixture.fixtureDumpPath, { force: true });
+  const since = piTurns(dumpPath).length;
   await start();
   return vi.waitFor(() => {
-    expect(existsSync(fixture.fixtureDumpPath)).toBe(true);
-    const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as Launch;
-    expect(JSON.stringify(dump.prompt)).toContain(marker);
-    expect(dump.mcpConfig).not.toBeNull();
-    return dump as Launch & { mcpConfig: NonNullable<Launch["mcpConfig"]> };
+    const turns = piTurns(dumpPath);
+    const index = turns.findIndex((turn, at) => at >= since && turn.prompt.includes(marker));
+    expect(index, `no pi turn carried "${marker}"`).toBeGreaterThanOrEqual(0);
+    expect(turns[index]!.launch?.mcpConfig).not.toBeNull();
+    return {
+      prompt: turns[index]!.prompt,
+      mcpConfig: { mcpServers: (turns[index]!.launch?.mcpConfig?.mcpServers ?? {}) as Record<string, { env: Record<string, string> }> },
+      systemPrompt: piInstructionsFor(turns, index),
+      launch: { pid: turns[index]!.launch?.pid, cwd: turns[index]!.launch?.cwd },
+    };
   }, { timeout: 15_000 });
 };
 /** Ends every hanging turn and waits for the Chief to be idle, since a busy bot queues a new conversation's message;
@@ -91,14 +97,15 @@ const turn = (bot: { id: string; threadId: string }, text: string, token?: strin
 });
 
 beforeAll(async () => {
-  fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang" });
+  fixture = await launchVerificationServer({});
   url = fixture.info.url;
   release = join(fixture.info.dataDir, "release-hanging-turns");
+  dumpPath = piDumpPath(fixture.info.dataDir);
   await waitForExit(fixture.child, { signal: "SIGTERM" });
   const log = openSync(fixture.info.logPath, "a", 0o600);
   child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...verificationServerEnvironment({ FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_RELEASE: release, FAKE_CLAUDE_TEXT_DUMP: join(fixture.info.dataDir, "one-shot-dump.json") }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
+    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
     stdio: ["ignore", log, log],
   });
   closeSync(log);
@@ -173,7 +180,8 @@ it("any bot left on the default hears where the person is talking from: the pair
   const atDesk = (await api("POST", "/api/bots", { name: "Desk helper" })).body.bot;
   const desk = await sendFrom(atDesk, "Remind me to call Ada at five.", "desk-send-000000000001");
   expect(desk.mcpConfig.mcpServers).toHaveProperty(PHONE_MCP_SERVER);
-  expect(desk.systemPromptFile).toContain(`${PHONE_NAME} is an iPhone; this bot may use: Calendar.`);
+  // The phone itself is part of a turn's standing instructions; where the person is changes per turn.
+  expect(desk.systemPrompt).toContain(`${PHONE_NAME} is an iPhone; this bot may use: Calendar.`);
   expect(desk.systemPrompt).toContain(PHONE_PLACE_PROMPT.computer);
   expect(desk.systemPrompt).not.toContain(PHONE_PLACE_PROMPT.phone);
   // A phone's send with no id of its own (a walkie or command send) is still the phone's.
@@ -182,11 +190,19 @@ it("any bot left on the default hears where the person is talking from: the pair
   expect(fromPhone.mcpConfig.mcpServers).toHaveProperty(PHONE_MCP_SERVER);
   expect(fromPhone.systemPrompt).toContain(PHONE_PLACE_PROMPT.phone);
   expect(fromPhone.systemPrompt).not.toContain(PHONE_PLACE_PROMPT.computer);
-  // Where the person is never reaches the stable file, so a phone turn after a computer one keeps the engine's cache.
-  for (const text of Object.values(PHONE_PLACE_PROMPT)) {
-    expect(desk.systemPromptFile).not.toContain(text);
-    expect(fromPhone.systemPromptFile).not.toContain(text);
+  // Where the person is never reaches the stable head: the same conversation's next turn, now from the phone, keeps it
+  // byte-identical and carries only the changed note.
+  writeFileSync(release, "");
+  try {
+    await expect.poll(async () => (await api("GET", "/api/bots")).body.bots.find((bot: { id: string }) => bot.id === atDesk.id).busy, { timeout: 20_000 }).toBe(false);
+  } finally {
+    rmSync(release, { force: true });
   }
+  const again = await sendFrom(atDesk, "Remind me again at seven.", "desk-send-000000000002", pairing.token);
+  expect(again.systemPrompt).toContain(PHONE_PLACE_PROMPT.phone);
+  expect(again.systemPrompt).not.toContain(PHONE_PLACE_PROMPT.computer);
+  const head = (instructions: string) => instructions.slice(0, instructions.indexOf("File locations for this bot"));
+  expect(head(again.systemPrompt)).toBe(head(desk.systemPrompt));
 }, 60_000);
 
 it("a confined run has no device integration", async () => {

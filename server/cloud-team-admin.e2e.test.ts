@@ -2,10 +2,10 @@
 // the Admin. Disposable home; every request but the test's own is offline.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { cloudPairingSignature, cloudRequestSignature } from "./cloud-home.ts";
 import { CLOUD_TEAM_ADMIN_PATH } from "./cloud-team-admin.ts";
@@ -33,20 +33,13 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-team-admin-"));
   dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") {
-  console.log(JSON.stringify({ loggedIn: true, email: "mira@gmail.com" }));
-  process.exit(0);
-}
-process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = ${JSON.stringify(join(home, "tool-calls.json"))};
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      // The retired fixture's scripted-call knobs: each turn runs the tool calls this file names, then replies.
+      FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_TOOL_CALLS_FILE: join(home, "tool-calls.json"),
+    } } },
     treg: { key: "treg-key-never-shown" },
     mcpServers: { linear: { type: "http", url: "https://mcp.linear.app/sse?token=query-never-shown", headers: { Authorization: "Bearer header-never-shown" } } },
   }));
@@ -60,6 +53,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     env: {
       PATH: process.env.PATH, ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}), ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
+      // No bot box: a Team Cloud boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+      // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+      OMB_BOT_BOX: "0",
       OMB_CLOUD_ROLE: "team", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, OMB_CLOUD_TEAM_LANGUAGE: "de",
       OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test", OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
     },
@@ -85,11 +81,12 @@ it("the Admin reads a Team Cloud's shared connections and AI by a signed request
   let summary: any;
   await expect.poll(async () => {
     summary = (await signed("GET", CLOUD_TEAM_ADMIN_PATH)).body;
-    return summary?.ai?.engines?.find((engine: { id: string }) => engine.id === "claude")?.authenticated;
+    return summary?.ai?.engines?.find((engine: { id: string }) => engine.id === "pi")?.authenticated;
   }, { timeout: 20_000, interval: 200 }).toBe(true);
   expect(summary.mcp).toEqual([{ name: "linear", transport: "http", host: "mcp.linear.app", enabled: true, signedIn: null, secrets: ["Authorization"], bots: expect.any(Array) }]);
   expect(summary.keys.find((key: { id: string }) => key.id === "treg")).toEqual({ id: "treg", configured: true });
-  expect(summary.ai.engines.find((engine: { id: string }) => engine.id === "claude")).toMatchObject({ name: "Claude", authenticated: true, account: { email: "mira@gmail.com" } });
+  // pi manages its own credentials: it reports available and signed in, with no account of its own to name.
+  expect(summary.ai.engines.find((engine: { id: string }) => engine.id === "pi")).toMatchObject({ name: "pi", authenticated: true, account: null });
   expect(JSON.stringify(summary)).not.toMatch(/never-shown|token=|Bearer/);
   // Unsigned, or with any other key: nothing.
   expect((await call("GET", CLOUD_TEAM_ADMIN_PATH)).status).toBe(401);
@@ -140,7 +137,12 @@ it("the signed read says who added a server, which bots use it and how it is doi
   const tracker = async () => ((await signed("GET", CLOUD_TEAM_ADMIN_PATH)).body.mcp as Array<Record<string, unknown>>).find((server) => server.name === "tracker")!;
   expect(await tracker()).toMatchObject({ addedBy: { email: "admin@acme.test", name: null }, addedAt: expect.any(String), bots: expect.arrayContaining(["Scout"]) });
   expect(await tracker()).not.toHaveProperty("health");
+  // Each turn sends one scripted call and the fake replies, so the next one waits for the bot to be free: a message sent
+  // while it works would only queue behind the turn the test is still reading.
+  const idle = () => expect.poll(async () => (await admin("GET", "/api/bots?messages=0")).body.bots.find((candidate: { id: string }) => candidate.id === bot.id)?.busy,
+    { timeout: 30_000, interval: 100 }).toBeFalsy();
   const turn = async (calls: unknown[], until: (server: Record<string, unknown>) => boolean) => {
+    await idle();
     writeFileSync(join(home, "tool-calls.json"), JSON.stringify(calls));
     expect((await admin("POST", `/api/bots/${bot.id}/messages`, { text: "Look at the tracker.", threadId: bot.mainThreadId })).status).toBe(202);
     await expect.poll(async () => until(await tracker()), { timeout: 30_000, interval: 200 }).toBe(true);

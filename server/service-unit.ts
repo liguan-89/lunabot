@@ -152,8 +152,8 @@ export function shippedSentinelCli(
   platform: NodeJS.Platform, home: string, exists: (path: string) => boolean, hasSentinel: (script: string) => boolean = () => true,
 ): { node: string; script: string } | null {
   const candidates = platform === "darwin"
-    ? ["/Applications/LunaBot.app", join(home, "Applications", "LunaBot.app")].map((app) => ({
-      node: join(app, "Contents", "MacOS", "LunaBot"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
+    ? ["/Applications/Luna Bot.app", join(home, "Applications", "Luna Bot.app")].map((app) => ({
+      node: join(app, "Contents", "MacOS", "Luna Bot"), script: join(app, "Contents", "Resources", "server", "openmausbot.js"),
     }))
     : platform === "linux" ? [{ node: "/opt/LunaBot/lunabot", script: "/opt/LunaBot/resources/server/openmausbot.js" }] : [];
   return candidates.find((cli) => exists(cli.node) && exists(cli.script) && hasSentinel(cli.script)) ?? null;

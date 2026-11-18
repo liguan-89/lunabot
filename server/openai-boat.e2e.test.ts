@@ -96,7 +96,16 @@ it("keeps the selected model for direct, group and scheduled Boat turns, runs th
   try {
     await api("PATCH", "/api/config", { openaiCompat: { key: "synthetic-model-key", url: origin + "/v1", model: MODEL } });
     const { bot } = await control(["new-bot", "--name", "Boat API fixture"]);
-    await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", PI_MODEL]);
+    // The config PATCH above folds the custom provider's model into pi's catalog asynchronously; on a slow runner an
+    // immediate set-model races that merge, so retry until the catalog offers it.
+    await expect.poll(async () => {
+      try {
+        await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", PI_MODEL]);
+        return true;
+      } catch {
+        return false;
+      }
+    }, { timeout: 15_000, interval: 500 }).toBe(true);
     // On Ask, so pi's own permission card is offered when a prompt asks for it.
     await api("PATCH", `/api/bots/${bot.id}`, { computer: "cloud", browser: false, approvalMode: "ask" });
     const direct = ["--bot", bot.id, "--task", bot.activeTaskId];

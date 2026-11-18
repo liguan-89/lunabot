@@ -1,4 +1,7 @@
 // POSIX only: a Windows SIGTERM ends the process without its shutdown hooks.
+// pi's driver has no one-shot text call, so no capture pass ever runs: the turn waiting at the stop is kept in the pending
+// file, restored on the next start, and refused there with the reason upkeep gives (server/memory-upkeep.ts NO_TEXT_ENGINE)
+// instead of reaching memory. This proves that whole round trip, which is what the file is for.
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,18 +10,14 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../scripts/control-omb.ts";
 import type { WireBot } from "../shared/wire.ts";
-import { CAPTURE_MARKER } from "./memory-capture.ts";
+import { NO_TEXT_ENGINE } from "./memory-upkeep.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
-it.skipIf(process.platform === "win32")("captures a turn that was still waiting when the server stopped, after the next start", async () => {
+it.skipIf(process.platform === "win32")("keeps a turn that was still waiting when the server stopped, and answers for it after the next start", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-capture-restart-"));
-  const routes = join(scratch, "routes.json");
-  writeFileSync(routes, JSON.stringify({
-    [CAPTURE_MARKER]: JSON.stringify([{ text: "The person plays the cello on Sundays", kind: "fact", evidence: "I play the cello every Sunday morning", confidence: 0.9 }]),
-  }));
-  const parentEnv = { ...process.env, FAKE_CLAUDE_TEXT_ROUTES: routes };
+  const parentEnv = { ...process.env };
   const fixture = await launchVerificationServer(parentEnv);
   const { url, dataDir } = fixture.info;
   let restarted: ChildProcess | undefined;
@@ -42,6 +41,7 @@ it.skipIf(process.platform === "win32")("captures a turn that was still waiting 
     await waitForExit(fixture.child, { signal: "SIGTERM" });
     const saved = readFileSync(pending, "utf8");
     expect(saved).toContain(bot.threadId);
+    // The queue holds which turn to read again, never what was said in it.
     expect(saved).not.toContain("cello");
 
     const config = JSON.parse(readFileSync(join(dataDir, "config.json"), "utf8"));
@@ -58,10 +58,13 @@ it.skipIf(process.platform === "win32")("captures a turn that was still waiting 
         return false;
       }
     }, { timeout: 20_000, interval: 150 }).toBe(true);
-    // upkeep starts once the engines are read, a moment after health answers
-    await expect.poll(async () => (await api<{ text: string }>(`/api/bots/${bot.id}/memory/file?path=MEMORY.md`)).text, { timeout: 20_000 })
-      .toContain("The person plays the cello on Sundays");
+    // upkeep starts once the engines are read, a moment after health answers; the restored turn reaches the capture
+    // call, which this engine cannot make, and the status says so.
+    await expect.poll(async () => (await api<{ lastCapture?: { note?: string } }>(`/api/bots/${bot.id}/memory/upkeep`)).lastCapture?.note ?? null,
+      { timeout: 30_000 }).toBe(NO_TEXT_ENGINE);
+    // The queue is consumed either way: the turn is not left to be read a second time at every later start.
     expect(existsSync(pending)).toBe(false);
+    expect((await api<{ text: string }>(`/api/bots/${bot.id}/memory/file?path=MEMORY.md`)).text).not.toContain("The person plays the cello on Sundays");
   } finally {
     await waitForExit(restarted, { signal: "SIGTERM" });
     await fixture.close();

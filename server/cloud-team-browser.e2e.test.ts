@@ -1,7 +1,7 @@
 // A real Team Cloud (OMB_CLOUD_ROLE=team) for the two things one member must never get from another: their browser and
 // their phone's view. Each member's private chat with a team bot drives a browser of its own, a group chat its own, and a
 // live view shows the browser of the conversation it is opened from, to whoever may read that conversation. A member's
-// phone pairs with a code the member made, and gets their role and their chats. The engine is the synthetic Claude CLI.
+// phone pairs with a code the member made, and gets their role and their chats. The engine is the synthetic pi CLI.
 // The sign-in part needs a real browser (agent-browser and its Chrome, on Linux): it runs where one resolves or
 // OMB_TEAM_BROWSER_E2E=1 asks for it, and says why it is skipped otherwise.
 import { randomBytes } from "node:crypto";
@@ -21,19 +21,49 @@ const ADMIN = { email: "ben@acme.test", role: "admin" as const };
 const MEMBER_A = { email: "ada@acme.test", role: "member" as const };
 const MEMBER_C = { email: "cleo@acme.test", role: "member" as const };
 // A conversation's engine stays warm across turns, as in production: it reads its launch files on the first turn, while
-// they are on disk (the dump does), and its scripted calls again on every turn.
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
-process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
+// they are on disk, and its scripted calls again on every turn.
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
+process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";
+`;
 const REAL_BROWSER = process.env.OMB_TEAM_BROWSER_E2E === "1" || (process.platform === "linux" && Boolean(resolveAgentBrowserBinary({ env: process.env })));
 if (!REAL_BROWSER) console.log("skipping the Team Cloud sign-in check: it needs agent-browser and its Chrome on Linux (or OMB_TEAM_BROWSER_E2E=1)");
 
 /** Without a real browser, an agent-browser stand-in that logs each command with the session it is for, so the browser
- * each turn and each view reaches is visible by name. */
+ * each turn and each view reaches is visible by name. A shell script starts a Node helper (the engine is spawned as a
+ * program, so its shebang has to work): the helper answers `session` with no running daemons, and `mcp` with the
+ * handshake and a small browser tool list, because pi mounts every server a turn carries at boot and a server that only
+ * logged would leave the turn with no browser tools at all. */
 const stub = REAL_BROWSER ? null : (() => {
   const dir = mkdtempSync(join(tmpdir(), "omb-team-browser-stub-"));
-  const engine = join(dir, "agent-browser"), log = join(dir, "commands.log");
-  writeFileSync(engine, ["#!/bin/sh", `printf '%s %s\\n' "$AGENT_BROWSER_SESSION" "$1" >> '${log}'`,
-    `if [ "$1" = session ]; then printf '{"success":true,"data":{"sessions":[]}}\\n'; fi`, "exit 0"].join("\n"), { mode: 0o755 });
+  const engine = join(dir, "agent-browser"), helper = join(dir, "agent-browser-stub.cjs"), log = join(dir, "commands.log");
+  writeFileSync(helper, String.raw`
+const { appendFileSync } = require("node:fs");
+const { createInterface } = require("node:readline");
+const args = process.argv.slice(2);
+appendFileSync(${JSON.stringify(log)}, (process.env.AGENT_BROWSER_SESSION || "") + " " + (args[0] || "") + "\n");
+const tools = [
+  { name: "agent_browser_status", description: "state", inputSchema: { type: "object", properties: {} } },
+  { name: "agent_browser_open", description: "open", inputSchema: { type: "object", properties: { url: { type: "string" } } } },
+  { name: "agent_browser_eval", description: "eval", inputSchema: { type: "object", properties: { expression: { type: "string" } } } },
+  { name: "agent_browser_tabs", description: "tabs", inputSchema: { type: "object", properties: { action: { type: "string" } } } },
+];
+if (args[0] === "mcp") {
+  createInterface({ input: process.stdin }).on("line", (line) => {
+    let frame; try { frame = JSON.parse(line); } catch { return; }
+    if (!frame || frame.id === undefined || frame.id === null) return;
+    const reply = (result) => process.stdout.write(JSON.stringify({ jsonrpc: "2.0", id: frame.id, result }) + "\n");
+    if (frame.method === "initialize") return reply({ protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "agent-browser", version: "0.37.0" } });
+    if (frame.method === "tools/list") return reply({ tools });
+    if (frame.method === "tools/call") return reply({ content: [{ type: "text", text: "cookies: " }] });
+    return reply({});
+  });
+} else if (args[0] === "session") {
+  process.stdout.write(JSON.stringify({ success: true, data: { sessions: [] } }) + "\n");
+} else {
+  process.stdout.write(JSON.stringify({ success: true, data: {} }) + "\n");
+}
+`);
+  writeFileSync(engine, ["#!/bin/sh", `exec ${JSON.stringify(process.execPath)} ${JSON.stringify(helper)} "$@"`].join("\n"), { mode: 0o755 });
   const lines = () => (existsSync(log) ? readFileSync(log, "utf8") : "").split("\n").filter(Boolean);
   return { dir, engine, lines, sessions: () => lines().map((line) => line.split(" ")[0]!).filter(Boolean) };
 })();
@@ -101,6 +131,7 @@ it.skipIf(!stub || process.platform === "win32")("drives each member's private c
   const ROOM = session(`room:${roomId}`), TEAM = session("team");
   const quietTurn = async (token: string, threadId: string, text: string, room?: string) => browserTurn(token, threadId, text, [], room);
   await quietTurn(ada, adaThread, "Hello from Ada.");
+
   expect(stub!.sessions(), "Ada's private turn prepared her own browser").toContain(ADA);
   expect(stub!.sessions()).not.toContain(CLEO);
   await quietTurn(cleo, cleoThread, "Hello from Cleo.");
@@ -114,9 +145,13 @@ it.skipIf(!stub || process.platform === "win32")("drives each member's private c
   expect([...new Set(viewed)], "Ben's view of Cleo's chat reached nothing; Cleo's reached her browser; Ada's own view, hers").toEqual([CLEO, ADA]);
   // A tool call from Ada's turn goes through the harness to her own browser, the one her turn was given.
   const mark = stub!.lines().length;
-  const called = await browserTurn(ada, adaThread, "Which tabs are open?", [{ server: "browser", name: "agent_browser_tab_list", input: {} }]);
-  expect(stub!.lines().slice(mark), "the tool call ran in Ada's own browser").toContain(`${ADA} mcp`);
-  expect(called).toContain("agent_browser_tab_list");
+  const called = await browserTurn(ada, adaThread, "Which tabs are open?", [browserTool("agent_browser_tabs", { action: "list" })]);
+
+  // pi reaches the browser through the harness's own HTTP endpoint rather than the CLI's `mcp` mode (a turn's proxy),
+  // so the stand-in sees the session's setup (`set`) when the turn connects, and the row above proves the call landed.
+  expect(stub!.lines().slice(mark), "the tool call ran in Ada's own browser").toContain(`${ADA} set`);
+  // The step's row names the tool the turn's model called; pi spells it with its server's prefix.
+  expect(called).toContain("browser_agent_browser_tabs");
 }, hostTimeout(240_000));
 
 it("pairs a member's phone with a code she made: her address and role, her chats, an end no later than her desktop's", async () => {
@@ -162,9 +197,12 @@ const scriptToolCalls = (calls: unknown[] | null) => {
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
 };
 const COOKIE_SITE = "https://example.com/";
+// pi names a mounted MCP tool "<server>_<tool>", lower-cased (server/drivers/pi-mcp-extension.ts); the browser server's
+// tools are the harness's own names (server/browser/tools.ts), so a tab list is browser_agent_browser_tabs.
+const browserTool = (name: string, input: Record<string, unknown>) => ({ server: "browser", name: `browser_${name}`, input });
 const readCookies = [
-  { server: "browser", name: "agent_browser_open", input: { url: COOKIE_SITE } },
-  { server: "browser", name: "agent_browser_eval", input: { script: "'cookies:' + document.cookie" } },
+  browserTool("agent_browser_open", { url: COOKIE_SITE }),
+  browserTool("agent_browser_eval", { script: "'cookies:' + document.cookie" }),
 ];
 async function browserTurn(token: string, threadId: string, text: string, calls: unknown[], room?: string): Promise<string> {
   scriptToolCalls(calls);
@@ -182,7 +220,7 @@ async function browserTurn(token: string, threadId: string, text: string, calls:
 }
 
 it.skipIf(!REAL_BROWSER)("keeps one member's sign-in out of another member's chat and the group chat, and back in her own", async () => {
-  const signIn = [readCookies[0], { server: "browser", name: "agent_browser_eval", input: { script: "document.cookie = 'omb_member=ada; max-age=86400; path=/'; 'cookies:' + document.cookie" } }];
+  const signIn = [readCookies[0], browserTool("agent_browser_eval", { script: "document.cookie = 'omb_member=ada; max-age=86400; path=/'; 'cookies:' + document.cookie" })];
   expect(await browserTurn(ada, adaThread, "Sign in to the test site.", signIn)).toContain("omb_member=ada");
   const cleoSees = await browserTurn(cleo, cleoThread, "What does the test site show you?", readCookies);
   expect(cleoSees, "Cleo's private turn reached the site").toContain("cookies:");

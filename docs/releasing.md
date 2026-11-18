@@ -1,26 +1,28 @@
 # Releasing
 
+Luna Bot publishes its desktop installers on
+[liguan-89/lunabot](https://github.com/liguan-89/lunabot/releases). Installed
+apps do not read those releases: `app-update.yml` in every build points at the
+generic feed this fork controls,
+`https://cloud.dexai.vip/desktop` (see `electron-builder.yml`). A release is
+therefore two things — a GitHub draft carrying the installers, and the
+artifacts plus `latest*.yml` uploaded to that feed directory.
+
 For a normal release, run **Actions → Prepare next release → Run workflow** and
 choose a patch, minor, or custom version. It opens a tiny version-bump PR;
 merging that PR automatically starts **Release** and assembles a draft from the
 exact merge commit. Review and publish the draft when it is ready.
 
 The existing **Actions → Release → Run workflow** button remains available for
-reruns and recovery. It
-builds macOS (arm64 + x64, signed, notarized, stapled), Windows, and Ubuntu
-from a single pinned commit, verifies every artifact the way a user would
-receive it, and assembles the canonical draft in
-[OpenMausBot releases](https://github.com/milind-soni/OpenMausBot/releases).
-The exact same assets are also staged in the public legacy releases repo so
-installed builds from 0.1.46 and earlier can update across the repository
-migration.
+reruns and recovery. It builds macOS arm64, Windows, and Ubuntu from a single
+pinned commit, verifies every artifact the way a user would receive it, and
+assembles the draft release in this repository. It writes to no other
+repository.
 
-Tick **publish** to publish and verify the canonical release first, then make
-the identical legacy updater bridge visible. Leave it unticked to review the
-canonical draft; when you publish that draft in GitHub's UI, the **Sync
-published release** workflow
-verifies and publishes its legacy mirror automatically. Never publish only the
-legacy draft.
+Tick **publish** to publish the draft. Leave it unticked to review it; when you
+publish that draft in GitHub's UI, upload the same assets and `latest*.yml`
+files to `https://cloud.dexai.vip/desktop` (the server's
+`/data/downloads/desktop` directory) so installed apps see the new version.
 
 The release commit must have passed CI on every platform: the **CI passed on
 the release commit** job waits (while the platforms build) for a ci.yml run
@@ -40,12 +42,11 @@ runs still require `package.json`'s version to be bumped on the selected ref.
 A release is rejected if any installer, stable download
 name, updater feed, blockmap, size, or digest is absent or inconsistent.
 
-GitHub generates the release body from pull requests since the previous
-canonical tag. The docs changelog combines published canonical releases with
-the legacy archive into one complete history and caches it for five minutes.
-Configure the optional Vercel hook below to rebuild the docs immediately after
-publication; otherwise the live cache or the next normal docs deployment
-refreshes it.
+GitHub generates the release body from pull requests since the previous tag.
+The docs changelog reads this repository's published releases and caches them
+for five minutes. Configure the optional Vercel hook below to rebuild the docs
+immediately after publication; otherwise the live cache or the next normal docs
+deployment refreshes it.
 
 ## Data format and rollback
 
@@ -122,23 +123,35 @@ held to the same steps and the same promises:
 this; `scripts/testing/deploy-update.test.ts` holds the script to it. A change
 to one side's steps belongs in the other too.
 
-## Updater migration invariant
+## Desktop update feed
 
-`app-update.yml` is baked into every packaged desktop app. Builds through
-0.1.46 point to `milind-soni/lunabot-releases`; newer builds point to
-`milind-soni/Luna Bot`. For that reason:
+`app-update.yml` is baked into every packaged desktop app and names the generic
+provider, `https://cloud.dexai.vip/desktop` (`electron-builder.yml`'s
+`publish`). That is the only source installed apps read, and `release.yml`
+gates every platform build on it:
 
-1. Every new release is published byte-for-byte to both repositories during
-   the bridge period.
-2. `lunabot-releases` must stay public. Do not delete its final bridge
-   release, feeds, or assets.
-3. README and docs downloads point at the canonical repo, while the legacy
-   mirror exists only for installed updater clients and historical releases.
+1. The GitHub release on `liguan-89/lunabot` is the distribution record: the
+   installers, the stable download names (`LUNABOT.dmg`, `LUNABOT-setup.exe`,
+   `LUNABOT-amd64.deb`, `LUNABOT.AppImage`), the blockmaps and `latest*.yml`.
+2. Installed apps update from the generic feed: copy the same assets and the
+   three `latest*.yml` files into the Cloud server's `/data/downloads/desktop`
+   directory, which `/desktop/*` serves.
+3. There is no second repository and no mirror. Nothing in the release pipeline
+   writes outside `liguan-89/lunabot`.
 
 The npm package is published separately and its versioned `.tgz` is attached
-only to the canonical release. It is not a desktop updater artifact; the
-mirror checks permit that one extra file while still verifying the complete,
-byte-identical desktop asset set.
+only to this repository's release. It is not a desktop updater artifact.
+
+## macOS signing
+
+The macOS job produces an unsigned (ad-hoc signed) arm64 build: this fork keeps
+no Developer ID certificate or App Store Connect key in CI, so the workflow has
+no signing or notarization steps. Users see Gatekeeper's "unidentified
+developer" prompt on first launch (`README.md` says so). Windows is unsigned
+for the same reason, and `electron-builder.yml` deliberately writes no
+`publisherName` — electron-updater skips the signature check without one, so
+auto-update keeps working. To start signing later, add the certificate secrets
+below and restore the import/notarize/staple steps before the re-zip step.
 
 ## Why the gates exist
 
@@ -146,41 +159,42 @@ Each verification step in `release.yml` maps to a real incident from the
 hand-cut releases (0.1.15–0.1.25): stale build output breaking the code
 signature, a bare import killing the packaged server on launch while every
 check stayed green, helper paths resolving outside the app after bundling,
-stapling silently invalidating every published hash, and a finished release
-sitting invisible as a draft. Don't remove a gate without reading the comment
-above it.
+stale hashes after the artifacts were rewritten, and a finished release sitting
+invisible as a draft. Don't remove a gate without reading the comment above it.
 
 ## Bundled browser gates
 
 Desktop builds also stage a pinned engine and Chromium Headless Shell before
 packaging. Pre-signing checks validate complete resources and upstream hashes;
-native browser smoke tests and macOS signature checks run on the packaged
-output. See [browser packaging](browser-packaging.md) for update ownership,
-license provenance and Linux sandbox constraints. Missing browser resources
-must fail the build, not ship an installer that downloads them on first use.
+native browser smoke tests run on the packaged output. See
+[browser packaging](browser-packaging.md) for update ownership, license
+provenance and Linux sandbox constraints. Missing browser resources must fail
+the build, not ship an installer that downloads them on first use.
 
 ## One-time setup: release secrets
 
-Set these in **Luna Bot → Settings → Secrets and variables → Actions**.
+Set these in **Luna Bot → Settings → Secrets and variables → Actions**. The
+release workflow currently needs **none** of them: it publishes with the
+workflow's scoped `GITHUB_TOKEN`, and the macOS build is unsigned. The entries
+below are what signing would require if it is turned on later.
 
 The **Prepare next release** workflow also needs
 **Settings → Actions → General → Workflow permissions → Allow GitHub Actions
 to create and approve pull requests** enabled. The workflow only creates the
 version PR; it never approves or merges it.
 
-### 1. `MAC_CERT_P12_BASE64` + `MAC_CERT_PASSWORD`
+### 1. `MAC_CERT_P12_BASE64` + `MAC_CERT_PASSWORD` (only for signed builds)
 
-The Developer ID Application certificate, exported from the Mac that
-currently signs releases:
+The Developer ID Application certificate, exported from a Mac:
 
 ```sh
-# Keychain Access → My Certificates → "Developer ID Application: Milind Soni
-# (993D98NH4J)" → right-click → Export… → .p12 with a strong password, then:
+# Keychain Access → My Certificates → "Developer ID Application: …" →
+# right-click → Export… → .p12 with a strong password, then:
 base64 -i DeveloperID.p12 | pbcopy   # → MAC_CERT_P12_BASE64
 # the export password             → MAC_CERT_PASSWORD
 ```
 
-### 2. `APPLE_API_KEY_P8_BASE64` + `APPLE_API_KEY_ID` + `APPLE_API_ISSUER_ID`
+### 2. `APPLE_API_KEY_P8_BASE64` + `APPLE_API_KEY_ID` + `APPLE_API_ISSUER_ID` (only for notarization)
 
 An App Store Connect API key for notarization (better than an app-specific
 password for CI — revocable, scoped, no 2FA dance):
@@ -193,16 +207,7 @@ password for CI — revocable, scoped, no 2FA dance):
 base64 -i AuthKey_XXXXXXXX.p8 | pbcopy   # → APPLE_API_KEY_P8_BASE64
 ```
 
-### 3. `RELEASES_PAT`
-
-A fine-grained personal access token that lets the workflow write to the
-legacy updater mirror: **GitHub → Settings → Developer settings →
-Fine-grained tokens** → repository access: only `lunabot-releases` →
-permissions: **Contents: Read and write**. Set a long expiry and a calendar
-reminder. The canonical release uses the workflow's scoped `GITHUB_TOKEN` and
-does not need a PAT.
-
-### 4. Optional `DOCS_DEPLOY_HOOK_URL`
+### 3. Optional `DOCS_DEPLOY_HOOK_URL`
 
 In Vercel, open the docs project and create a **Deploy Hook** for its production
 branch. Store that private URL as the `DOCS_DEPLOY_HOOK_URL` repository secret.
@@ -211,11 +216,10 @@ changelog appears immediately. Do not put the hook URL in source control.
 
 ### Local fallback
 
-The hand-cut path still works when Actions is down or a release needs
-surgery: `pnpm package:mac`, gate with `codesign --verify --deep --strict`,
-notarize with the local keychain profile (`xcrun notarytool submit …
---keychain-profile AC_PASSWORD`), staple, re-zip, regenerate blockmaps and
-`node scripts/regenerate-mac-feed.mjs`, upload the identical complete asset set
-to both repositories, publish and verify the canonical release before the
-legacy mirror, and always verify the published bytes against the published feed
-by downloading them back.
+The hand-cut path still works when Actions is down or a release needs surgery:
+`pnpm package:mac` (ad-hoc signed unless a Developer ID certificate is in the
+keychain; notarize with `xcrun notarytool submit … --keychain-profile
+AC_PASSWORD` and staple only if it is), re-zip, regenerate blockmaps and
+`node scripts/regenerate-mac-feed.mjs`, upload the complete asset set to a draft
+release here, and always verify the published bytes against the feed on disk by
+downloading them back.

@@ -1,39 +1,45 @@
 // Each person's inbox on a Team Cloud, end to end (docs/team-cloud.md "One inbox per person"): Acme's Owner Cleo and
-// a member Ben, the synthetic Claude CLI calling message_person through the real agents MCP server, real approval
-// cards through the permission socket, and Ben's own Google Calendar on the fake connected-apps service. A bot's "tell
-// Ben", an @Ben and an approval routed to Ben land in his inbox, his chat with his Chief, with one notification
-// each; his answer reaches the bot that asked, which carries on; his assistant answers when he is free, labelled, and
-// leaves decisions and his private chats alone. The asks waiting on him are counted on his inbox, live, and each stops
-// waiting however he answers it: in the bot's own chat, through either respond route, or with a 👍. It proves where
-// things land and what is read, not a model's judgement.
-import { randomBytes, randomUUID } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
+// a member Ben, the synthetic pi CLI calling message_person through the real agents MCP server, real cards through pi's
+// own dialogs, and Ben's own Google Calendar on the fake connected-apps service. A bot's "tell Ben", an @Ben and an
+// approval routed to Ben land in his inbox, his chat with his Chief, with one notification each; his answer reaches the
+// bot that asked, which carries on. A question a fact Ben shares with the team could answer still waits for him: this
+// build's only engine, pi, has no one-off text call for a person's assistant (server/helper-model.e2e.test.ts), so
+// nothing answers for him. The asks waiting on him are counted on his inbox, live, and each stops waiting however he
+// answers it: in the bot's own chat, through either respond route, or with a 👍. It proves where things land and what is
+// read, not a model's judgement.
+import { randomBytes } from "node:crypto";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { personKey } from "./person-key.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 
 const CLEO = { email: "cleo@acme.test", role: "owner" as const };
 const BEN = { email: "ben@acme.test", role: "member" as const };
 const BEN_KEY = personKey({ id: "", email: BEN.email });
 const SECRET = "interviewing at Globex";
-// Each turn reads its scripted calls again; a conversation's engine stays warm across turns. One started while the
-// hang-mode file exists holds each turn until the release file exists, so a card can be asked through its socket.
-const ENGINE = `const { existsSync } = process.getBuiltinModule("node:fs");
-const dir = process.env.FAKE_CLAUDE_FIXTURE_DIR;
-process.env.FAKE_CLAUDE_DUMP = dir + "/dump.json";
-process.env.FAKE_CLAUDE_TEXT_DUMP = dir + "/text-dump.json";
+// Each turn reads its scripted calls and reply again, and its child ends with the turn, so every turn spawns afresh: that
+// is what lets the question gate below be read per turn. A prompt carrying the approval marker raises pi's own
+// confirmation card, which holds its turn until the person answers it. A prompt carrying the question token raises pi's
+// select card, but only while the test's `question-armed` file exists: the turn that carries the person's answer on has
+// their earlier words in its history, so the test disarms the gate before answering.
+const APPROVES = "Clean the build";
+const ASKS = "CHART-ORDER";
+const ENGINE = `const dir = process.env.FAKE_CLAUDE_FIXTURE_DIR;
+const { existsSync } = process.getBuiltinModule("node:fs");
+process.env.FAKE_PI_DUMP = dir + "/turns.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = dir + "/tool-calls.json";
 process.env.FAKE_CLAUDE_REPLY_FILE = dir + "/reply.txt";
-process.env.FAKE_CLAUDE_TEXT_ROUTES = dir + "/text-routes.json";
-process.env.FAKE_CLAUDE_TEXT_LOG = dir + "/text-log.jsonl";
-if (existsSync(dir + "/hang-mode")) { process.env.FAKE_CLAUDE_MODE = "hang"; process.env.FAKE_CLAUDE_RELEASE = dir + "/release"; }`;
+process.env.FAKE_CLAUDE_EXIT_AFTER_TURN = "1";
+process.env.FAKE_PI_PERMISSION_ON = ${JSON.stringify(APPROVES)};
+if (existsSync(dir + "/question-armed")) process.env.FAKE_PI_QUESTION_ON = ${JSON.stringify(ASKS)};`;
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
 
-type Row = { id: string; role: string; kind: string; text?: string; card?: { requestId?: string; answered?: string }; replyToId?: string;
+type Card = { requestId?: string; requestType?: string; subtitle?: string; options?: string[]; answered?: string; answeredText?: string; stopped?: boolean };
+type Row = { id: string; role: string; kind: string; text?: string; card?: Card; replyToId?: string;
   relay?: { kind: string; email: string; name: string }; peerAsk?: { botId: string; name: string };
   inbox?: { kind: string; from: { name: string; email?: string; botId?: string }; via?: { name: string }; origin?: { botId: string; threadId: string; title: string }; replies?: true; answers?: Array<{ by: string; text: string }> } };
 type Task = { threadId: string; title: string; inbox?: true; private?: true; openAsks?: number; inboxChangedAt?: number };
@@ -45,18 +51,16 @@ let cleo = "", ben = "";
 let scout: Bot, chief: Bot, reporter: Bot;
 let cleoThread = "", benThread = "", inbox = "";
 const streams: AbortController[] = [];
-const sockets: Socket[] = [];
 let bens: Frame[] = [], cleos: Frame[] = [];
 
 const file = (name: string) => join(team.home, name);
+/** Every turn the team's pi processes were given, in order: the log is a JSONL of launches and prompts. */
+const turns = () => piTurns(file("turns.jsonl"));
 const script = (calls: unknown[] | null, reply = "Done.") => {
   if (calls) writeFileSync(file("tool-calls.json"), JSON.stringify(calls)); else rmSync(file("tool-calls.json"), { force: true });
   writeFileSync(file("reply.txt"), reply);
 };
 const tell = (to: string, message: string) => [{ name: "message_person", server: "agents", input: { to, message } }];
-const routes = (answers: Record<string, string>) => writeFileSync(file("text-routes.json"), JSON.stringify(answers));
-const assistantPrompts = () => existsSync(file("text-log.jsonl")) ? readFileSync(file("text-log.jsonl"), "utf8").trim().split("\n").filter(Boolean)
-  .map((line) => (JSON.parse(line) as { prompt: string }).prompt).filter((prompt) => prompt.includes("assistant on Acme")) : [];
 const messages = async (token: string, threadId: string) => {
   const answer = await team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`);
   return { status: answer.status, rows: (answer.body.messages ?? []) as Row[] };
@@ -70,8 +74,14 @@ const inboxTask = async () => (await bots(ben)).find((bot) => bot.id === chief.i
 const inboxFrames = (frames: Frame[]) => frames.filter((frame) => frame.kind === "bot" && frame.bot?.id === chief.id).map((frame) => frame.bot!.tasks?.find((task) => task.inbox));
 const needsYou = async (token: string) => (await team.as(token, "GET", "/api/needs-you")).body.items as Array<{ kind: string; botId?: string; text?: string }>;
 const chiefTurns = async () => (await messages(ben, inbox)).rows.filter((row) => row.role === "bot" && row.kind === "text" && !row.inbox);
+/** The open card a thread asks with, newest first: pi's fake names its dialogs the same from one child to the next, so a
+ * thread can hold more than one card of the same request id. */
+const openCard = async (threadId: string, requestType: "permission" | "question") =>
+  (await messages(cleo, threadId)).rows.findLast((row) => row.card?.requestType === requestType && !row.card.answered);
 
-async function until(done: () => Promise<boolean> | boolean, timeoutMs = 60_000): Promise<void> {
+// 150 s, not 60: a loaded ubuntu shard once missed a turn's prompt line inside 60 s across three attempts
+// (Nov 18 CI rounds); local runs settle in single-digit seconds, so the headroom costs nothing green.
+async function until(done: () => Promise<boolean> | boolean, timeoutMs = hostTimeout(150_000)): Promise<void> {
   const end = Date.now() + timeoutMs;
   while (!(await done())) {
     if (Date.now() > end) throw new Error("timed out waiting");
@@ -80,10 +90,10 @@ async function until(done: () => Promise<boolean> | boolean, timeoutMs = 60_000)
 }
 /** As `token`, one message to `bot` in `threadId`, through the bot's settled turn. */
 async function turn(token: string, bot: Bot, threadId: string, text: string) {
-  rmSync(file("dump.json"), { force: true });
+  const before = turns().length;
   const sent = await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await until(() => existsSync(file("dump.json")));
+  await until(() => turns().length > before);
   await until(async () => await idle() && (await messages(token, threadId)).rows.some((row) => row.role === "bot" && row.kind === "text" && row.text === readFileSync(file("reply.txt"), "utf8")));
 }
 function listen(token: string): Frame[] {
@@ -122,36 +132,34 @@ async function passFromScout(message: string) {
     body: JSON.stringify({ to: "Ben", message }) });
   expect(answer.status, await answer.clone().text()).toBe(200);
 }
-/** Cleo's message holds Reporter's turn in its main chat while it asks Ben's approval through its permission socket. */
-const approvalFromReporter = (command: string) => askedOfBen((id) => ({ t: "ask", id, tool: "Bash", input: { command } }));
-/** Cleo's message holds Reporter's turn in its main chat while it asks Ben a card through its permission socket. Every
- * other turn has ended first, so the turn that writes the dump next is this one. */
-async function askedOfBen(ask: (requestId: string) => Record<string, unknown>) {
+/** Cleo asks Reporter to work in a room of its own, which is the team's: the card it asks there is Reporter's owner's
+ * (Ben's). A room per ask keeps one conversation's cards apart, and each ask holds its own turn. */
+async function askReporterInRoom(title: string, text: string) {
   await until(idle);
-  writeFileSync(file("hang-mode"), "");
-  rmSync(file("release"), { force: true });
-  rmSync(file("dump.json"), { force: true });
-  const sent = await team.as(cleo, "POST", `/api/bots/${reporter.id}/messages`, { text: "Clean the build", threadId: reporter.threadId });
+  const created = await team.as(cleo, "POST", "/api/groups", { name: title, memberIds: [reporter.id],
+    setup: { bulletin: "", defaultResponder: { kind: "member", botId: reporter.id } } });
+  expect(created.status, JSON.stringify(created.body)).toBe(201);
+  const threadId = created.body.group.threadId as string;
+  const sent = await team.as(cleo, "POST", `/api/groups/${created.body.group.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  const socketPath = await expect.poll(() => {
-    try { return JSON.parse(readFileSync(file("dump.json"), "utf8")).mcpConfig?.mcpServers?.ogb?.args?.[1] as string | undefined; } catch { return undefined; }
-  }, { timeout: 20_000 }).toEqual(expect.any(String)).then(() => JSON.parse(readFileSync(file("dump.json"), "utf8")).mcpConfig.mcpServers.ogb.args[1] as string);
-  rmSync(file("hang-mode"), { force: true });
-  const socket = connect(socketPath);
-  sockets.push(socket);
-  socket.on("error", () => {});
-  await new Promise<void>((resolve, reject) => { socket.once("connect", resolve); socket.once("error", reject); });
-  const requestId = randomUUID();
-  socket.write(`${JSON.stringify(ask(requestId))}\n`);
-  await expect.poll(async () => (await messages(cleo, reporter.threadId)).rows.some((row) => row.card?.requestId === requestId), { timeout: 10_000 }).toBe(true);
+  return threadId;
+}
+/** The open approval a room's turn asks with. */
+async function openApproval(threadId: string) {
+  let requestId = "";
+  await until(async () => { requestId = (await openCard(threadId, "permission"))?.card?.requestId ?? ""; return Boolean(requestId); }, 30_000);
   return requestId;
+}
+/** Cleo's message holds Reporter's turn while pi asks the person to approve a command. */
+async function approvalFromReporter(command: string) {
+  const threadId = await askReporterInRoom(`Clean the build: ${command}`, `Clean the build: ${command}`);
+  return { requestId: await openApproval(threadId), threadId };
 }
 
 beforeAll(async () => {
   broker = await startBrokerFake();
-  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE } });
+  fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: { OMB_BOT_BOX: "0" } } });
   team = fx.team!;
-  writeFileSync(file("release"), "");
   cleo = (await team.pair(CLEO)).token!;
   ben = (await team.pair(BEN)).token!;
   await bots(ben);
@@ -187,7 +195,6 @@ beforeAll(async () => {
 }, hostTimeout(180_000));
 
 afterAll(async () => {
-  for (const socket of sockets) socket.destroy();
   for (const stream of streams) stream.abort();
   await fx?.close();
   await broker?.close();
@@ -214,13 +221,12 @@ it("lands a bot's \"tell Ben\" in his inbox, his chat with his Chief, with one n
 it("brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn", async () => {
   const [line] = await inboxLines();
   script(null, "Great, Friday it is.");
-  rmSync(file("dump.json"), { force: true });
   const sent = await team.as(ben, "POST", `/api/bots/${chief.id}/messages`, { text: "Friday works for me.", threadId: inbox, replyToId: line!.id });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
   await until(async () => (await messages(cleo, cleoThread)).rows.some((row) => row.role === "bot" && row.text === "Great, Friday it is."));
   const rows = (await messages(cleo, cleoThread)).rows;
   expect(rows.find((row) => row.relay?.kind === "reply")).toMatchObject({ role: "user", text: 'Ben replied to your message ("The launch moved to Friday."): Friday works for me.', relay: { email: BEN.email, name: "Ben" }, peerAsk: { botId: chief.id } });
-  expect(JSON.stringify(JSON.parse(readFileSync(file("dump.json"), "utf8")).prompt)).toContain("Ben replied to your message");
+  expect(turns().some((one) => one.prompt.includes("Ben replied to your message")), "Scout's turn was told the reply").toBe(true);
   const inboxRows = (await messages(ben, inbox)).rows;
   expect(inboxRows.filter((row) => row.role === "bot" && row.kind === "text" && !row.inbox), "no turn of Ben's Chief").toEqual([]);
   expect(inboxRows.at(-1)).toMatchObject({ kind: "activity", relay: { kind: "told", email: CLEO.email } });
@@ -240,90 +246,103 @@ it("lands an @Ben from a shared chat in his inbox with a link back and one notif
 }, hostTimeout(120_000));
 
 it("copies an approval Ben's bot asks into his inbox, with one notification, and Ben approves it there", async () => {
-  const requestId = await approvalFromReporter("rm -rf ./build");
+  const { requestId, threadId } = await approvalFromReporter("rm -rf ./build");
   await until(async () => (await inboxLines()).some((row) => row.card?.requestId === requestId));
-  const copy = (await inboxLines()).find((row) => row.card?.requestId === requestId)!;
-  expect(copy).toMatchObject({ kind: "options", inbox: { kind: "ask", from: { name: "Reporter" }, origin: { botId: reporter.id, threadId: reporter.threadId } } });
+  const copy = (await inboxLines()).findLast((row) => row.card?.requestId === requestId)!;
+  expect(copy).toMatchObject({ kind: "options", inbox: { kind: "ask", from: { name: "Reporter" }, origin: { botId: reporter.id, threadId } } });
   await until(() => notifiedIn(bens, inbox).length === 3);
   expect(notifiedIn(bens, inbox)[2]!.notification).toMatchObject({ kind: "approval", botId: chief.id, title: "Reporter needs approval", forPerson: BEN_KEY });
   expect(bens.filter((frame) => frame.kind === "notify" && frame.notification?.botId === reporter.id), "one notification, from the inbox").toEqual([]);
   expect(notifiedIn(cleos, inbox)).toEqual([]);
   const answered = await team.as(ben, "POST", `/api/threads/${inbox}/respond`, { requestId, behavior: "allow" });
   expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-  await until(async () => Boolean((await messages(cleo, reporter.threadId)).rows.find((row) => row.card?.requestId === requestId)?.card?.answered));
-  await until(async () => Boolean((await inboxLines()).find((row) => row.card?.requestId === requestId)?.card?.answered));
-  writeFileSync(file("release"), "");
+  await until(async () => Boolean((await messages(cleo, threadId)).rows.findLast((row) => row.card?.requestId === requestId)?.card?.answered));
+  await until(async () => Boolean((await inboxLines()).findLast((row) => row.card?.requestId === requestId)?.card?.answered));
   await until(idle);
 }, hostTimeout(120_000));
 
-it("has Ben's assistant answer a free/busy question itself, labelled, from busy times alone", async () => {
-  routes({ "free on Thursday at 3pm": '{"answer": "Ben is busy for an hour that afternoon and free after it."}' });
+it("leaves a free/busy question for Ben himself: this build's only engine has no one-off text call for an assistant", async () => {
   const before = (await inboxLines()).length;
   await passFromScout("Are you free on Thursday at 3pm?");
-  await until(async () => (await messages(cleo, cleoThread)).rows.some((row) => row.relay?.kind === "assistant"), 60_000);
-  expect((await messages(cleo, cleoThread)).rows.find((row) => row.relay?.kind === "assistant")).toMatchObject({ role: "user",
-    text: 'Ben\'s assistant answered your message ("Are you free on Thursday at 3pm?"), from what Ben shares with the team: Ben is busy for an hour that afternoon and free after it.', relay: { email: BEN.email } });
-  const [prompt] = assistantPrompts();
-  expect(prompt).toMatch(/Busy times in the next 14 days \(free at every other time\): \w{3} \d{1,2} \w{3} \d\d:\d\d–\d\d:\d\d\./u);
-  expect(prompt).not.toMatch(/Globex|Interview|hr@/u);
-  expect(prompt).not.toContain(SECRET);
+  await until(async () => (await inboxLines()).length === before + 1);
   const line = (await inboxLines())[before]!;
-  expect(line).toMatchObject({ text: "Are you free on Thursday at 3pm?", inbox: { answers: [{ by: "assistant", text: "Ben is busy for an hour that afternoon and free after it." }] } });
+  expect(line).toMatchObject({ text: "Are you free on Thursday at 3pm?", inbox: { replies: true } });
+  expect(line.inbox!.answers, "no assistant answered for him").toBeUndefined();
   await until(() => notifiedIn(bens, inbox).length === 4);
-  expect(notifiedIn(bens, inbox)[3]!.notification).toMatchObject({ title: "Message from Cleo via Scout · your assistant answered" });
+  expect(notifiedIn(bens, inbox)[3]!.notification).toMatchObject({ title: "Message from Cleo via Scout", forPerson: BEN_KEY });
   await new Promise((resolve) => setTimeout(resolve, 1_000));
-  expect(notifiedIn(bens, inbox).map((frame) => frame.notification!.title), "one notification for the question and its answer").toHaveLength(4);
+  expect(notifiedIn(bens, inbox).map((frame) => frame.notification!.title), "one notification for the question").toHaveLength(4);
+  expect((await messages(cleo, cleoThread)).rows.filter((row) => row.relay?.kind === "assistant"), "nothing was answered for him").toEqual([]);
+
+  // He answers it himself, and the answer reaches Scout, whose turn carries on.
+  script(null, "Yes, after three.");
+  const sent = await team.as(ben, "POST", `/api/bots/${chief.id}/messages`, { text: "I'm free after three.", threadId: inbox, replyToId: line.id });
+  expect(sent.status, JSON.stringify(sent.body)).toBe(202);
+  await until(async () => (await messages(cleo, cleoThread)).rows.some((row) => row.role === "bot" && row.text === "Yes, after three."));
+  expect((await inboxLines())[before]!.inbox!.answers).toEqual([expect.objectContaining({ by: "person", text: "I'm free after three." })]);
+  await until(idle);
 }, hostTimeout(150_000));
 
-it("never lets the assistant decide or approve for Ben, and never shows it his private chats", async () => {
-  routes({ "budget": '{"answer": "Approved."}', "Q4 report": '{"answer": "The Q4 report is being written now."}' });
-  const asked = assistantPrompts().length;
+it("never answers a decision or a private question for Ben, and never shows an engine his private chats", async () => {
   const before = (await inboxLines()).length;
+  const seen = turns().length;
   await passFromScout("Can you approve the travel budget for me?");
   await passFromScout("What has Ben told Scout in private?");
   await until(() => notifiedIn(bens, inbox).length === 6);
   const lines = (await inboxLines()).slice(before);
   expect(lines.map((row) => row.text)).toEqual(["Can you approve the travel budget for me?", "What has Ben told Scout in private?"]);
   expect(lines.every((row) => !row.inbox!.answers)).toBe(true);
-  expect(assistantPrompts(), "a decision or a private question never reaches the model").toHaveLength(asked);
-  expect((await messages(cleo, cleoThread)).rows.filter((row) => row.relay?.kind === "assistant")).toHaveLength(1);
   expect(notifiedIn(bens, inbox).slice(4).map((frame) => frame.notification!.title)).toEqual(["Message from Cleo via Scout", "Message from Cleo via Scout"]);
+  // Nothing was asked of any engine for him, and no turn that could answer for him was told what he keeps to himself. (His
+  // own private turn, below, is the one that holds the secret: it is his.)
+  expect(turns().slice(seen).filter((one) => one.prompt.includes("'s assistant on Acme")), "no assistant ran").toEqual([]);
+  expect(turns().slice(seen).map((one) => one.prompt).join("\n"), "nothing after his own private turn was told it").not.toContain(SECRET);
+  expect(turns().slice(seen).map((one) => one.prompt).join("\n")).not.toContain("Globex");
 
   await passFromScout("How is your Q4 report going?");
-  await until(() => assistantPrompts().length === asked + 1);
-  const prompt = assistantPrompts().at(-1)!;
-  expect(prompt).toContain("Reporter");
-  expect(prompt).not.toContain(SECRET);
-  expect(prompt).not.toContain("Globex");
+  await until(async () => (await inboxLines()).length === before + 3);
+  expect((await inboxLines()).at(-1)).toMatchObject({ text: "How is your Q4 report going?", inbox: { replies: true } });
+  expect((await inboxLines()).at(-1)!.inbox!.answers, "his report's progress waits for him").toBeUndefined();
+  expect((await messages(cleo, cleoThread)).rows.filter((row) => row.relay?.kind === "assistant"), "nothing was answered for him").toEqual([]);
+  await until(idle);
 }, hostTimeout(180_000));
 
 it("counts the asks waiting on Ben on his inbox, live, and drops one as soon as he answers it in the bot's own chat", async () => {
   expect((await inboxTask()).openAsks, "what came before is answered or only news").toBeUndefined();
   const before = bens.length;
-  const requestId = await approvalFromReporter("rm -rf ./dist");
+  const { requestId, threadId } = await approvalFromReporter("rm -rf ./dist");
   await until(async () => (await inboxTask()).openAsks === 1);
   await until(() => inboxFrames(bens.slice(before)).some((task) => task?.openAsks === 1));
-  const answered = await team.as(ben, "POST", `/api/threads/${reporter.threadId}/respond`, { requestId, behavior: "deny" });
+  const answered = await team.as(ben, "POST", `/api/threads/${threadId}/respond`, { requestId, behavior: "deny" });
   expect(answered.status, JSON.stringify(answered.body)).toBe(200);
   await until(async () => (await inboxTask()).openAsks === undefined);
   await until(() => { const seen = inboxFrames(bens.slice(before)); return seen.length > 1 && seen.at(-1)!.openAsks === undefined; });
-  expect((await inboxLines()).find((row) => row.card?.requestId === requestId)!.card!.answered, "the copy in his inbox follows").toBeTruthy();
+  expect((await inboxLines()).findLast((row) => row.card?.requestId === requestId)!.card!.answered, "the copy in his inbox follows").toBeTruthy();
   expect((await needsYou(ben)).filter((item) => item.botId === reporter.id)).toEqual([]);
-  writeFileSync(file("release"), "");
   await until(idle);
 }, hostTimeout(120_000));
 
 it("brings an answer given through the inbox bot's own respond route to the bot that asked, after its turn ended too", async () => {
-  const requestId = await askedOfBen((id) => ({ t: "ask", kind: "question", id, tool: "AskUserQuestion",
-    input: { questions: [{ question: "Which chart goes first?", options: [{ label: "Revenue" }, { label: "Costs" }] }] } }));
+  // Reporter's turn stops on pi's own question card; the person stops the turn, and the question still waits. The ask is
+  // Reporter's owner's (Ben's), because a room is the team's, so its copy lands in his inbox.
+  writeFileSync(file("question-armed"), "");
+  let threadId = "";
+  let requestId = "";
+  try {
+    threadId = await askReporterInRoom("Which chart goes first", `${ASKS}: which chart goes first?`);
+    await until(async () => { requestId = (await openCard(threadId, "question"))?.card?.requestId ?? ""; return Boolean(requestId); }, 30_000);
+  } finally {
+    rmSync(file("question-armed"), { force: true });
+  }
   await until(async () => (await inboxTask()).openAsks === 1);
-  writeFileSync(file("release"), "");
+  expect((await team.as(cleo, "POST", `/api/bots/${reporter.id}/interrupt`, { threadId })).status).toBe(200);
   await until(idle);
   expect((await inboxTask()).openAsks, "a question nobody answered still waits once its turn is over").toBe(1);
   const answered = await team.as(ben, "POST", `/api/bots/${chief.id}/respond`, { threadId: inbox, requestId, behavior: "answer", message: "Revenue" });
   expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-  const asked = async () => (await messages(cleo, reporter.threadId)).rows.find((row) => row.card?.requestId === requestId)!;
-  await until(async () => { const card = await asked(); return (await messages(cleo, reporter.threadId)).rows.some((row) => row.role === "user" && row.text === "Revenue" && row.replyToId === card.id); });
+  const asked = async () => (await messages(cleo, threadId)).rows.findLast((row) => row.card?.requestId === requestId)!;
+  // In a room the person's answer comes back as their line there, addressed to the bot that asked.
+  await until(async () => { const card = await asked(); return (await messages(cleo, threadId)).rows.some((row) => row.role === "user" && row.text === `@${reporter.name}: Revenue` && row.replyToId === card.id); });
   expect((await asked()).card!.answered, "Reporter got the answer where it asked").toBe("answer");
   await until(async () => (await inboxTask()).openAsks === undefined);
   expect(await chiefTurns(), "Ben's Chief took no turn").toEqual([]);
@@ -360,7 +379,7 @@ it("lists Ben's inbox by tab, settles an ask answered from its row, and keeps ne
   type Listed = { id: string; kind: string; tab: string; text: string; card?: { requestId?: string } };
   const listed = async () => (await team.as(ben, "GET", "/api/inbox")).body as { botId: string; threadId: string; rows: Listed[] };
   const before = bens.length;
-  const requestId = await approvalFromReporter("rm -rf ./tmp");
+  const { requestId, threadId } = await approvalFromReporter("rm -rf ./tmp");
   await until(async () => (await listed()).rows.some((row) => row.card?.requestId === requestId));
   const view = await listed();
   expect(view).toMatchObject({ botId: chief.id, threadId: inbox });
@@ -371,7 +390,7 @@ it("lists Ben's inbox by tab, settles an ask answered from its row, and keeps ne
   const ask = view.rows.find((row) => row.card?.requestId === requestId)!;
   expect((await team.as(ben, "POST", `/api/inbox/${ask.id}/done`)).status, "an ask is settled by its answer").toBe(409);
 
-  const answered = await team.as(ben, "POST", `/api/threads/${inbox}/respond`, { requestId, behavior: "allow" });
+  const answered = await team.as(ben, "POST", `/api/threads/${threadId}/respond`, { requestId, behavior: "allow" });
   expect(answered.status, JSON.stringify(answered.body)).toBe(200);
   await until(async () => (await listed()).rows.find((row) => row.id === ask.id)?.tab === "done");
   expect((await inboxTask()).openAsks).toBeUndefined();
@@ -382,7 +401,6 @@ it("lists Ben's inbox by tab, settles an ask answered from its row, and keeps ne
   expect(marked.status, JSON.stringify(marked.body)).toBe(200);
   expect((marked.body as { rows: Listed[] }).rows.find((row) => row.id === news.id)).toMatchObject({ tab: "done" });
   expect((await team.as(cleo, "POST", `/api/inbox/${news.id}/done`)).status, "only his own").toBe(404);
-  writeFileSync(file("release"), "");
   await until(idle);
 }, hostTimeout(120_000));
 

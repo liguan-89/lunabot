@@ -11,10 +11,12 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
 import { HOST_WHILE_UPDATING, LOCAL_VM_UPDATING, LOCAL_VM_UPDATING_PROBLEM, VPS_OUTDATED_HINT } from "./desktop-updates.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { VPS_CONTAINER_LABEL, VPS_MANAGED_LABEL, vpsContainerName } from "./vps-computer.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const OLD_DESKTOP = { containers: ["shared"], outdated: ["shared"], imageMissing: true, holdPull: true };
 
 // Two VPS hosts that answer like Docker over SSH: neither has the image for this release, old-vps holds a bot's container on
@@ -79,14 +81,26 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
       await new Promise(resolve => setTimeout(resolve, 40));
     }
   }
-  /** The dump is rewritten by every dispatch; this waits for the turn that was sent `text`. */
-  const dumpFor = (text: string) => until<any>(() => {
-    if (!existsSync(dumpFile)) return null;
-    try {
-      const sent = JSON.parse(readFileSync(dumpFile, "utf8"));
-      return JSON.stringify(sent.prompt ?? "").includes(text) ? sent : null;
-    } catch { return null; }
-  }, Boolean, `the turn for "${text}"`);
+  /** The pi launch and prompt a turn ran on; waits for the turn that was sent `text`. */
+  const dumpFor = async (text: string) => {
+    const found = await until(() => {
+      const turns = piTurns(dumpFile);
+      const index = turns.findLastIndex((turn) => turn.prompt.includes(text));
+      if (index < 0) return null;
+      const turn = turns[index]!;
+      const mcpConfig = turn.launch?.mcpConfig;
+      if (!mcpConfig) return null;
+      return {
+        prompt: turn.prompt,
+        systemPrompt: piInstructionsFor(turns, index),
+        mcpConfig,
+        argv: turn.launch?.argv ?? [],
+        pid: turn.launch?.pid,
+      };
+    }, Boolean, `the turn for "${text}"`);
+    if (!found) throw new Error(`the turn for "${text}" never appeared`);
+    return found;
+  };
   const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).body.messages as any[];
   const idle = (botId: string, threadId: string) => until(() => api("GET", "/api/bots?messages=0").then(({ body }) =>
     body.bots.find((bot: any) => bot.id === botId)?.tasks.find((task: any) => task.threadId === threadId)), task => !task?.busy, "the turn ending");
@@ -145,7 +159,7 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
     home = mkdtempSync(join(tmpdir(), "omb-desktop-updates-"));
     data = join(home, "data");
     stateFile = join(home, "vm.json");
-    dumpFile = join(home, "dump.json");
+    dumpFile = join(home, "fake-pi-dump.jsonl");
     finishFile = join(home, "finish");
     fakeBin = join(home, "fakebin");
     mkdirSync(data);
@@ -163,9 +177,9 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
       mode: "embedded", status: "ready", socketPath: join(home, "cua.sock"),
       mcpCommand: "/fixture/cua-driver", mcpArgs: ["mcp"], mcpEnv: {},
     }), { mode: 0o600 });
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+      driver: "piAgent", config: { cli: FAKE_PI },
+      environment: { FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile },
     } } }));
   });
   afterAll(async () => {
@@ -187,7 +201,7 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
     expect(sent.systemPrompt).toContain("This bot's Local VM desktop is being updated to the new version");
     expect(sent.systemPrompt).toContain("do not use another computer");
     expect((await api("GET", "/api/local-computer")).body.problem).toBe(LOCAL_VM_UPDATING_PROBLEM);
-    const token = sent.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN as string;
+    const token = sent.mcpConfig.mcpServers?.agents?.env?.OMB_COMMS_TOKEN as string;
     const offered = await fetch(`${base}/api/internal/computer/select`, { headers: { authorization: `Bearer ${token}` } }).then(r => r.json() as any);
     expect(offered.options.find((option: any) => option.surface === "local")).toMatchObject({ available: false, reason: HOST_WHILE_UPDATING });
     expect(offered.options.find((option: any) => option.surface === "vm")).toMatchObject({ available: false, reason: LOCAL_VM_UPDATING_PROBLEM });
@@ -207,7 +221,8 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
 
     const nextThread = await send(bot.id, "Now check the dashboard again.");
     const next = await dumpFor("Now check the dashboard again.");
-    const computer = next.mcpConfig.mcpServers.computer;
+    const computer = next.mcpConfig.mcpServers?.computer;
+    if (!computer?.args) throw new Error("the new Local VM desktop was not mounted");
     expect(computer.args.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
     expect(computer.args.some((arg: string) => arg.includes("local-computer-proxy"))).toBe(false);
     expect(next.systemPrompt).not.toContain("is being updated");
@@ -225,7 +240,9 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
     expect(actions()).toEqual([]);
     vm({ ...readVm(), holdPull: false });
     const sent = await dumpFor("Fill the form in your desktop.");
-    expect(sent.mcpConfig.mcpServers.computer.args.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
+    const filledOn = sent.mcpConfig.mcpServers?.computer;
+    if (!filledOn?.args) throw new Error("the updating desktop was not mounted");
+    expect(filledOn.args.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
     expect(actions()).toEqual(["pull", "stop", "rescue", "remove", "run"]);
     expect((await messages(threadId)).filter(m => String(m.tool?.name ?? "").startsWith("error:"))).toEqual([]);
     await finish(bot.id, threadId);
@@ -246,7 +263,8 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
     expect(existsSync(dumpFile)).toBe(false);
     vm({ ...readVm(), holdPull: false });
     const sent = await dumpFor("Open the morning report on the desktop.");
-    const computer = sent.mcpConfig.mcpServers.computer;
+    const computer = sent.mcpConfig.mcpServers?.computer;
+    if (!computer?.args) throw new Error("the routine desktop was not mounted");
     expect(computer.args.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
     expect(computer.args.some((arg: string) => arg.includes("local-computer-proxy"))).toBe(false);
     writeFileSync(finishFile, "finish");
@@ -294,7 +312,7 @@ describe.skipIf(process.platform === "win32")("a bot's old desktop after an app 
     expect(sent.mcpConfig?.mcpServers?.computer, "this computer must not stand in for the VPS").toBeUndefined();
     expect(readFileSync(join(fakeBin, "docker.log"), "utf8")).toContain(`-H ssh://old-vps inspect ${vpsContainerName(bot.id)}`);
     // Nor can the bot pick it: select_computer offers this computer to no bot whose own desktop awaits its update.
-    const token = sent.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN as string;
+    const token = sent.mcpConfig.mcpServers?.agents?.env?.OMB_COMMS_TOKEN as string;
     const select = (method: "GET" | "POST") => fetch(`${base}/api/internal/computer/select`, {
       method, headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
       ...(method === "POST" ? { body: JSON.stringify({ surface: "auto" }) } : {}),

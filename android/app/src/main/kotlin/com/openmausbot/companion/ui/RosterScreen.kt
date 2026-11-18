@@ -385,10 +385,15 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 ) {
                     hero?.let { main ->
                         item(key = "hero") {
+                            val duplicateName = connection != null &&
+                                connections.count { it.name == connection?.name } > 1
+                            val chipLabel = connection?.let { bound ->
+                                if (duplicateName) "${bound.name} · ${shortHostLabel(bound.host)}" else bound.name
+                            }
                             RosterHero(
                                 summary = main,
                                 status = status,
-                                computerName = connection?.name,
+                                computerName = chipLabel,
                                 computerCount = connections.size,
                                 onChooseComputer = { choosingComputer = true },
                             ) {
@@ -1186,6 +1191,9 @@ private fun ChatRow(
 ) {
     val chat = summary.chat
     val now = remember(summary.lastActivity) { System.currentTimeMillis() }
+    val hasUnread = chat.unread && !chat.busy
+    val formattedPreview = remember(summary.preview) { RosterPreviewFormat.display(summary.preview) }
+    val isErrorPreview = formattedPreview.startsWith("错误 ") || formattedPreview.startsWith("请求出错")
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -1207,11 +1215,24 @@ private fun ChatRow(
                     fallback = AvatarFallback.PRESET,
                     motion = AvatarMotion.SHEEN,
                 )
-                ConnectionLight(
-                    status = status,
-                    size = 13.dp,
-                    modifier = Modifier.align(Alignment.BottomEnd),
-                )
+                when {
+                    chat.busy -> Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(13.dp)
+                            .background(minisCanvas, CircleShape)
+                            .padding(2.dp)
+                            .background(minisAccent, CircleShape),
+                    )
+                    hasUnread -> Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(13.dp)
+                            .background(minisCanvas, CircleShape)
+                            .padding(2.dp)
+                            .background(minisAccent, CircleShape),
+                    )
+                }
             }
             Spacer(Modifier.width(13.dp))
 
@@ -1235,7 +1256,7 @@ private fun ChatRow(
                         Text(
                             text = chat.name,
                             fontSize = 17.sp,
-                            fontWeight = FontWeight.Medium,
+                            fontWeight = if (hasUnread) FontWeight.SemiBold else FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -1265,16 +1286,13 @@ private fun ChatRow(
                             now,
                         ),
                         fontSize = 13.sp,
-                        color = minisSecondary,
+                        fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
+                        color = if (hasUnread) minisAccent else minisSecondary,
                         maxLines = 1,
                         // 13 sp against a 17 sp name: centring leaves the clock
                         // a couple of dp above the name's baseline.
                         modifier = Modifier.padding(start = 10.dp, top = 2.dp),
                     )
-                    if (chat.unread && !chat.busy) {
-                        Spacer(Modifier.width(6.dp))
-                        Box(Modifier.size(8.dp).background(minisAccent, CircleShape))
-                    }
                 }
 
                 Row(
@@ -1283,9 +1301,13 @@ private fun ChatRow(
                 ) {
                     // One line for every bot, so the rows keep one rhythm.
                     Text(
-                        text = RosterPreviewFormat.display(summary.preview).ifEmpty { " " },
+                        text = formattedPreview.ifEmpty { " " },
                         fontSize = 15.sp,
-                        color = minisSecondary,
+                        color = when {
+                            isErrorPreview -> minisDanger.copy(alpha = 0.86f)
+                            hasUnread -> minisInk.copy(alpha = 0.84f)
+                            else -> minisSecondary
+                        },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -1588,5 +1610,18 @@ private fun cacheAge(savedAtMillis: Long): String {
         minutes < 60 -> "$minutes 分钟前"
         minutes < 60 * 24 -> "${minutes / 60} 小时前"
         else -> "${minutes / (60 * 24)} 天前"
+    }
+}
+
+private fun shortHostLabel(rawHost: String): String {
+    val stripped = rawHost
+        .removePrefix("https://")
+        .removePrefix("http://")
+        .substringBefore('/')
+    val hostOnly = stripped.substringBefore(':')
+    return when {
+        hostOnly.endsWith(".e2e.invalid") -> hostOnly.removeSuffix(".e2e.invalid").take(8)
+        hostOnly.length > 18 -> hostOnly.take(16) + "…"
+        else -> stripped.take(20)
     }
 }

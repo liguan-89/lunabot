@@ -90,10 +90,8 @@ gh release upload v<version> --repo milind-soni/OpenMausBot `
 ```
 
 Prefer the repository's **Release** workflow, which builds all platforms from
-one pinned commit and mirrors the complete, byte-identical asset set safely.
-If this emergency manual path is used, the same four files must also be attached
-to the matching draft in `milind-soni/openmausbot-releases`; never replace the
-bytes of an already-published asset.
+one pinned commit and verifies the complete asset set. If this emergency manual
+path is used, never replace the bytes of an already-published asset.
 
 Both names are required, for different consumers:
 

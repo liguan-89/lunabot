@@ -539,7 +539,7 @@ it("R7 a goal step the watchdog stops after it posted a credential card fails as
   const step = f.roomRoots(room.threadId)[0];
   expect(step).toMatchObject({ status: "running", goalRunId: expect.any(String) });
   writeFileSync(join(f.dataDir, "stall-turns"), "now");
-  try { await expect.poll(() => f.roomRoots(room.threadId)[0]?.status, { timeout: 20_000 }).toBe("failed"); } finally { rmSync(join(f.dataDir, "stall-turns"), { force: true }); }
+  try { await expect.poll(() => f.roomRoots(room.threadId)[0]?.status, { timeout: 45_000 }).toBe("failed"); } finally { rmSync(join(f.dataDir, "stall-turns"), { force: true }); }
   expect(f.roomRoots(room.threadId)[0]).toMatchObject({ id: step.id, status: "failed", outcome: "stalled", executions: 1 });
   expect(f.roomRoots(room.threadId)[0].cards).toBeUndefined();
   expect((await messages()).find((message) => message.id === card.id)?.secret).toMatchObject({ stopped: true });

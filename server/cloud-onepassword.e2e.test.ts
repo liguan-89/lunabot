@@ -3,12 +3,12 @@
 // where the image keeps the real one, in the native-module tree OMB_DUCKDB_DIR names. Disposable home; no network.
 import { randomBytes } from "node:crypto";
 import { type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { spawn } from "node:child_process";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { cloudHomeConfiguration, cloudPairingSignature } from "./cloud-home.ts";
 import { cloudHomeChildEnvironments, spawnWithSecrets } from "./cloud-home-start.ts";
@@ -17,6 +17,7 @@ import { LOGIN_ERRORS } from "./routes/logins.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -88,11 +89,16 @@ exports.createClient = async ({ auth }) => {
 }
 
 async function proxyFor(start: () => Promise<void>) {
-  const dump = join(home, "spawn.json");
+  const dump = piDumpPath(join(home, ".lunabot"));
+  const before = piTurns(dump).length;
   await start();
   let agents: { command: string; args: string[]; env: Record<string, string> } | undefined;
   await expect.poll(() => {
-    try { agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents; return true; } catch { return false; }
+    for (const turn of piTurns(dump).slice(before)) {
+      const found = turn.launch?.mcpConfig?.mcpServers?.agents;
+      if (found) { agents = found as { command: string; args: string[]; env: Record<string, string> }; return true; }
+    }
+    return false;
   }, { timeout: 15_000 }).toBe(true);
   const proxy = spawn(agents!.command, agents!.args, { env: { PATH: process.env.PATH, HOME: home, ...agents!.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
@@ -111,8 +117,10 @@ async function proxyFor(start: () => Promise<void>) {
 async function startCloudHome(at: string, tree: string, port: number, onLog: (chunk: string) => void): Promise<ChildProcess> {
   const contract = { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
     OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}` };
-  // What the image's ENV sets for the native modules, then the supervisor's own allow-list and secrets pipe.
-  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: tree, ...contract };
+  // What the image's ENV sets for the native modules, then the supervisor's own allow-list and secrets pipe. No bot box:
+  // a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi writes its launch
+  // log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+  const imageEnv = { PATH: process.env.PATH, OMB_DUCKDB_DIR: tree, OMB_BOT_BOX: "0", ...contract };
   const { server, secrets } = cloudHomeChildEnvironments(cloudHomeConfiguration(imageEnv)!, imageEnv, at);
   const offline = `data:text/javascript,${encodeURIComponent('const real = globalThis.fetch; globalThis.fetch = async (url, init) => String(url).startsWith("http://127.0.0.1:") ? real(url, init) : new Response("offline fixture", { status: 503 });')}`;
   const started = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
@@ -134,18 +142,17 @@ async function startCloudHome(at: string, tree: string, port: number, onLog: (ch
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-1password-"));
-  const dataDir = join(home, ".openmausbot");
+  // Where a Cloud home keeps its records under this HOME (server/data-dir.ts: `.lunabot`).
+  const dataDir = join(home, ".lunabot");
+  // The engine's own config is the one this home boots with; a `.openmausbot` beside it would be ignored.
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "spawn.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // Each turn holds until the server stops, so its launch and MCP config can be read while it runs.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_MOUNT_TOOLS: "1",
+    } },
   } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -198,7 +205,7 @@ it("connects a 1Password service account on a Cloud home, and says plainly what 
 
 it("a bot asks for the 1Password token through request_credential's own slot, and the card's save through Logins counts", async () => {
   expect((await api("DELETE", "/api/logins/1password")).body.onePassword).toEqual({ connected: false });
-  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   const tools = await proxyFor(async () => {
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Sign in to the CRM with my 1Password." })).status).toBe(202);
   });
@@ -216,6 +223,6 @@ it("a bot asks for the 1Password token through request_credential's own slot, an
   expect((await api("POST", "/api/logins/1password", { token: TOKEN })).status).toBe(200);
   expect(await provided()).toMatchObject({ status: 200, body: { provided: true } });
   expect((await tools.call("request_credential", { credential_id: "onePasswordToken" })).content[0].text).toBe("1Password service account token is already configured. Continue the task.");
-  expect(readFileSync(join(home, ".openmausbot", "config.json"), "utf8")).not.toContain(TOKEN);
+  expect(readFileSync(join(home, ".lunabot", "config.json"), "utf8")).not.toContain(TOKEN);
   for (const where of [...answers, log]) expect(where).not.toContain(TOKEN);
 });

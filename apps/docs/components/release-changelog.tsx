@@ -1,14 +1,13 @@
 import type { Components } from 'react-markdown';
 import ReactMarkdown from 'react-markdown';
 
-const RELEASE_REPOSITORIES = [
-  'milind-soni/Luna Bot',
-  'milind-soni/openmausbot-releases',
-] as const;
+// Luna Bot publishes desktop releases on its own repository; the desktop
+// updater reads the generic feed at cloud.dexai.vip, not GitHub releases.
+const RELEASE_REPOSITORIES = ['liguan-89/lunabot'] as const;
 const RELEASES_PER_PAGE = 100;
 const MAX_RELEASE_PAGES = 10;
 const LEGACY_DRAFT_NOTES =
-  /^Draft assembled by the release workflow from milind-soni\/Luna Bot@([0-9a-f]{40})\. Edit these notes, then publish\.\s*$/i;
+  /^Draft assembled by the release workflow from [\w.-]+\/[\w.-]+@([0-9a-f]{40})\. Edit these notes, then publish\.\s*$/i;
 
 interface GitHubRelease {
   body: string | null;
@@ -99,12 +98,12 @@ async function fetchPublishedReleases(repository: string): Promise<GitHubRelease
 }
 
 async function publishedReleases(): Promise<GitHubRelease[]> {
-  const [canonical, legacy] = await Promise.all(
+  const [own] = await Promise.all(
     RELEASE_REPOSITORIES.map((repository) => fetchPublishedReleases(repository)),
   );
   const byTag = new Map<string, GitHubRelease>();
 
-  for (const release of [...canonical, ...legacy]) {
+  for (const release of own) {
     const tag = release.tag_name.trim().toLowerCase();
     if (!byTag.has(tag)) byTag.set(tag, release);
   }
@@ -129,7 +128,7 @@ export async function ReleaseChangelog() {
     return (
       <p>
         The live release history is temporarily unavailable.{' '}
-        <a href="https://github.com/milind-soni/OpenMausBot/releases">Browse releases on GitHub</a>.
+        <a href="https://github.com/liguan-89/lunabot/releases">Browse releases on GitHub</a>.
       </p>
     );
   }

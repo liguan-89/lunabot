@@ -21,6 +21,90 @@
       "owner": "milind-soni",
       "reason": "Failed 11 times since Oct 26 in browser driver S4 (ubuntu-latest), on the host and in the container; five of the six logged failures are one stall of about 50 s in which navigate through tab-new get no picture. Not reproduced in 72 runs on ubuntu-latest on Oct 29. Each attempt starts its own Chrome.",
       "since": "2026-10-29"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T9 parks the root on a sign-in card and runs it again with the signed-in line on Done",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy ubuntu shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/teammate-follow-ups.e2e.test.ts",
+      "test": "F4 keeps a second assignment Clive hands Mira in the same turn its own job, though the first is already running",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/room-coordination.e2e.test.ts",
+      "test": "runs a room member's turn a restart cut again once, told so, and resumes the sender told so",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-guest-shell.e2e.test.ts",
+      "test": "a run of a guest's routine is the guest's: confined, and so is work it hands a teammate",
+      "owner": "liguan-89",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on ubuntu shards, different sibling tests each time; green locally in every run.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-team-inbox.e2e.test.ts",
+      "test": "brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn",
+      "owner": "liguan-89",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, green in three consecutive local runs each time; the ask-card timing scales with shard load.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/browser-processes.test.ts",
+      "test": "a browser on Windows > lists a real browser under cmd.exe with its daemon, keeps it for that daemon and stops it for another",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a loaded windows shard; cmd.exe listing is windows-only and cannot be reproduced locally.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T12 a turn the watchdog stops after it posted a credential card fails as stalled and stops the card",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a windows shard; a sibling test of this suite flaked in an earlier round and both are green locally and in the other rounds.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/drivers/pi.test.ts",
+      "test": "PiDriver turns (fake CLI) > expires a prewarmed child its turn never claimed, and removes its credential dir",
+      "owner": "liguan-89",
+      "reason": "Failed three times (Nov 17-18 CI rounds), always on loaded windows shards: the spawn's credential dir appears past the waits even at 10 s; green locally every time. Keep raising the headroom or skip on windows if it keeps reporting.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/room-roots.e2e.test.ts",
+      "test": "R7 a goal step the watchdog stops after it posted a credential card fails as stalled and stops the card",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy ubuntu shard: the accelerated stall sweep ran past the 20 s poll; the poll now waits 45 s and the suite is green locally.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/sign-in-request.e2e.test.ts",
+      "test": "a reply in the chat answers the sign-in request: the card settles, nothing waits under Needs you, and Done no longer resumes the old turn",
+      "owner": "liguan-89",
+      "reason": "Failed twice (Nov 18 CI rounds incl. a failed-jobs rerun) on ubuntu: the thread read settled where needs-user was expected; green in every local run.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-team-inbox.e2e.test.ts",
+      "test": "lets a tag Ben answered in the chat it came from leave his Needs you",
+      "owner": "liguan-89",
+      "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1; a sibling test of this suite is already listed and the suite is green in three consecutive local runs each time.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/group-goal-run.e2e.test.ts",
+      "test": "waits for a busy delegated worker, preserves its direct turn, then resumes the goal",
+      "owner": "liguan-89",
+      "reason": "Failed five times across Nov 17-18 CI rounds on busy shards despite the widened busy window (15 s) and end waits (25 s); green in every local run.",
+      "since": "2026-11-18"
     }
   ]
 }

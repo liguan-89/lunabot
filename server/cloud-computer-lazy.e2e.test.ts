@@ -1,8 +1,9 @@
 // One stub plays the Admin's Boat relay and records every request, so each journey can say which calls a person's action cost.
+// The one engine is pi: what each bot's turn does comes from the scripted plan file, not from a separate instance.
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,11 +11,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CONTROL_WAITED } from "./control-client.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piInstructionsAt, piTurns, type PiMcpConfig } from "./testing/pi-dump.ts";
 import { openSse, type SseRecorder } from "./testing/sse.ts";
 import { withoutTurnClock } from "./testing/turn-clock-text.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLAUDE = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const INCLUDED = `box_omb_${randomUUID()}`;
 // A one-pixel JPEG: what the relay hands back as a screen frame.
 const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
@@ -27,6 +29,15 @@ describe("a cloud computer starts only when the bot uses it", () => {
   let data = "";
   let dumpFile = "";
   let finishFile = "";
+  let planFile = "";
+  /** Each bot's turn, as the plan file scripts it: every turn holds on the finish gate unless its plan says otherwise. */
+  const plans: Record<string, unknown> = {};
+  const savePlan = () => writeFileSync(planFile, JSON.stringify(plans));
+  const HOLD = () => ({ gateFile: finishFile });
+  /** A turn that first takes one screenshot through the cloud computer's tools, as a model's first computer call does. */
+  const USES = (extra: Record<string, unknown> = {}) => ({
+    steps: [{ server: "computer", tool: "screenshot", input: {}, expectError: true }], ...extra,
+  });
   let base = "";
   let child: ChildProcess | null = null;
   let output = "";
@@ -81,23 +92,28 @@ describe("a cloud computer starts only when the bot uses it", () => {
   const errorRows = async (threadId: string) =>
     (await apiOk("GET", `/api/threads/${threadId}/messages?limit=60`)).messages
       .filter((message: any) => message.tool?.name?.startsWith("error:"));
-  const selectComputer = (sent: any, surface?: string) => {
-    const agents = sent.mcpConfig.mcpServers.agents;
-    const upstream = agents.env.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents.env;
+  const selectComputer = (sent: { mcpConfig: PiMcpConfig }, surface?: string) => {
+    const agents = sent.mcpConfig.mcpServers!.agents!;
+    const upstream = agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!;
     return fetch(`${base}/api/internal/computer/select`, {
       method: surface ? "POST" : "GET",
       headers: { authorization: `Bearer ${upstream.OMB_COMMS_TOKEN}`, "content-type": "application/json" },
       ...(surface ? { body: JSON.stringify({ surface }) } : {}),
     }).then(response => response.json() as Promise<any>);
   };
-  const dump = (): Promise<any> => until((): any => {
-    if (!existsSync(dumpFile)) return null;
-    try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
+  /** The newest turn's launch, with the instructions in effect on it: pi sends the whole system prompt on a session's
+   * first turn and only the note that replaced part of it afterwards, so the session's own launches rebuild it. */
+  const dump = (): Promise<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig }> => until<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig }>((): any => {
+    const turns = piTurns(dumpFile);
+    const turn = turns.at(-1);
+    if (!turn?.launch) return null;
+    const session = turns.filter((candidate) => candidate.launch === turn.launch);
+    return { cwd: turn.launch.cwd, systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch.mcpConfig ?? {} };
   }, Boolean);
   /** One JSON-RPC request on the mounted cloud computer, exactly as
    * harness-mcp-proxy sends it for the engine. */
-  const computerCall = async (sent: any, method: string, params: unknown = {}) => {
-    const env = sent.mcpConfig.mcpServers.computer.env;
+  const computerCall = async (sent: { mcpConfig: PiMcpConfig }, method: string, params: unknown = {}) => {
+    const env = sent.mcpConfig.mcpServers!.computer!.env!;
     const response = await fetch(new URL("/api/internal/computer/mcp", env.OMB_HARNESS_URL), {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${env.OMB_MCP_TOKEN_COMPUTER}` },
@@ -118,7 +134,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
   const cloudBot = async (name: string, patch: Record<string, unknown> = {}) => {
     const { bot } = await apiOk("POST", "/api/bots", { name });
     await apiOk("PATCH", `/api/bots/${bot.id}`, {
-      modelSelection: { instanceId: "claude", model: "claude-sonnet-5" }, browser: false, computer: "cloud", ...patch,
+      modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, browser: false, computer: "cloud", ...patch,
     });
     return bot as { id: string; name: string; threadId: string };
   };
@@ -194,25 +210,21 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
     home = mkdtempSync(join(tmpdir(), "omb-cloud-lazy-"));
     data = join(home, "data");
-    dumpFile = join(home, "dump.json");
+    dumpFile = piDumpPath(data);
     finishFile = join(home, "finish");
+    planFile = join(home, "room-plan.json");
     mkdirSync(data, { recursive: true });
+    chmodSync(FAKE_PI, 0o755);
+    // Every turn holds on the finish gate, so the test can call its own computer tools while it runs. A bot that should
+    // answer at once gets a reply of its own below; one whose turn uses the computer first gets `USES()`.
+    plans["*"] = HOLD();
+    savePlan();
     writeFileSync(join(data, "config.json"), JSON.stringify({ instances: {
-      claude: {
-        driver: "claudeAgent", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
-      },
-      // The same CLI, whose every turn first takes one screenshot through
-      // the cloud computer's tools, as a model's first computer call does.
-      uses: {
-        driver: "claudeAgent", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
-      },
-      // The same CLI, signed out: what a Cloud with no AI sign-in yet runs.
-      "claude-out": {
-        driver: "claudeAgent", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "not-logged-in", FAKE_CLAUDE_AUTH: "out" },
-      },
+      pi: { driver: "piAgent", config: { cli: FAKE_PI }, environment: {
+        FAKE_PI_DUMP: dumpFile, FAKE_PI_ROOM_PLAN: planFile,
+        // A plan step that names a server calls through the tools the turn really mounted, so mount them at boot.
+        FAKE_PI_MOUNT_TOOLS: "1",
+      } },
     } }));
     const port = await freePortBlock([0, 1]);
     base = `http://127.0.0.1:${port}`;
@@ -236,7 +248,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
       try { return (await fetch(`${base}/api/health`)).ok; } catch { return false; }
     }, Boolean, 30_000);
     // Chief first makes the seeded bot its team's Chief, which answers a teammate's failed run with a Problems to look at
-    // turn of its own on Claude: its dump would stand in for the turn under test. Stepped down, each dump is the test's own.
+    // turn of its own: its launch would stand in for the turn under test. Stepped down, each launch is the test's own.
     const seeded = (await apiOk("GET", "/api/bots?messages=0")).bots.find((bot: any) => bot.chiefOfStaff);
     await apiOk("PATCH", `/api/bots/${seeded.id}`, { chiefOfStaff: false });
     events = await openSse(`${base}/api/events`);
@@ -263,9 +275,11 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
   it("a plain chat on Cloud computer makes no relay call at all", async () => {
     const bot = await cloudBot("Chatter");
+    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi" }] };
+    savePlan();
     const before = requests.length;
     const sent = await startTurn(bot.id, "hi");
-    expect(sent.mcpConfig.mcpServers.computer?.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
+    expect(sent.mcpConfig.mcpServers!.computer!.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(sent.systemPrompt).toContain("assigned cloud computer");
     const listed = await computerCall(sent, "tools/list");
     expect(listed.body.result.tools.map((tool: { name: string }) => tool.name)).toContain("screenshot");
@@ -278,6 +292,8 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
   it("a room message to a member on Cloud computer makes no relay call either", async () => {
     const bot = await cloudBot("Room member");
+    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi" }] };
+    savePlan();
     const { group } = await apiOk("POST", "/api/groups", { name: "Lazy room", memberIds: [bot.id] });
     await apiOk("PATCH", `/api/groups/${group.id}/setup`, { action: "skip" });
     const before = requests.length;
@@ -285,7 +301,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
     rmSync(finishFile, { force: true });
     await apiOk("POST", `/api/groups/${group.id}/messages`, { text: "hi" });
     const sent = await dump();
-    expect(sent.mcpConfig.mcpServers.computer?.args?.at(-1)).toBe("computer");
+    expect(sent.mcpConfig.mcpServers!.computer!.args!.at(-1)).toBe("computer");
     await finish(bot.id);
     expect(requests.slice(before)).toEqual([]);
     await apiOk("DELETE", `/api/groups/${group.id}`);
@@ -325,17 +341,8 @@ describe("a cloud computer starts only when the bot uses it", () => {
     await apiOk("DELETE", `/api/bots/${bot.id}`);
   }, 60_000);
 
-  it("a signed-out engine fails with the existing sign-in row and no relay call", async () => {
-    const bot = await cloudBot("Signed out", { modelSelection: { instanceId: "claude-out", model: "claude-sonnet-5" } });
-    const before = requests.length;
-    await apiOk("POST", `/api/bots/${bot.id}/messages`, { text: "hi" });
-    const row = await failedRow(bot.id);
-    await idle(bot.id);
-    expect(row.tool).toMatchObject({ ok: false, setup: true });
-    expect(row.tool.name).toMatch(/Not logged in/);
-    expect(requests.slice(before)).toEqual([]);
-    await apiOk("DELETE", `/api/bots/${bot.id}`);
-  }, 30_000);
+  // Cut with the engine it needed: this case proved a signed-out engine fails with the existing sign-in row. pi is BYOK
+  // and has no signed-out instance state to reach, so there is no pi expression of "this model can no longer run".
 
   it("a tool selection without the computer is refused before any relay call, and select_computer does not offer it", async () => {
     const bot = await cloudBot("Scribe", { toolScope: { deny: ["mcp:computer:*"] } });
@@ -349,8 +356,8 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
     await apiOk("PATCH", `/api/bots/${bot.id}`, { computer: null });
     const sent = await startTurn(bot.id, "Which computers can you use?");
-    const agents = sent.mcpConfig.mcpServers.agents;
-    const upstream = agents.env.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents.env;
+    const agents = sent.mcpConfig.mcpServers!.agents!;
+    const upstream = agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!;
     const selection = await fetch(`${base}/api/internal/computer/select`, {
       headers: { authorization: `Bearer ${upstream.OMB_COMMS_TOKEN}` },
     }).then(response => response.json() as Promise<any>);
@@ -394,8 +401,8 @@ describe("a cloud computer starts only when the bot uses it", () => {
     const fresh = await cloudBot("Fresh", { computer: null });
     const sender = await cloudBot("Sender", { computer: null });
     const before = { creates: creates(), resumes: resumes() };
-    const agents = (await startTurn(sender.id, "Hand the desktop check over")).mcpConfig.mcpServers.agents;
-    const token = (agents.env.OMB_GATE_UPSTREAM ? JSON.parse(agents.env.OMB_GATE_UPSTREAM).env : agents.env).OMB_COMMS_TOKEN;
+    const agents = (await startTurn(sender.id, "Hand the desktop check over")).mcpConfig.mcpServers!.agents!;
+    const token = (agents.env!.OMB_GATE_UPSTREAM ? JSON.parse(agents.env!.OMB_GATE_UPSTREAM).env : agents.env!).OMB_COMMS_TOKEN;
     const handed = async (botId: string, call: Record<string, unknown>) => {
       rmSync(dumpFile, { force: true });
       const response = await fetch(`${base}/api/internal/coordinate-bots`, {
@@ -408,12 +415,12 @@ describe("a cloud computer starts only when the bot uses it", () => {
       return sent;
     };
     const work = await handed(writer.id, { message: "Check the weather site on your desktop" });
-    expect(work.mcpConfig.mcpServers.computer?.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
+    expect(work.mcpConfig.mcpServers!.computer!.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(work.systemPrompt).toContain("assigned cloud computer");
     const consult = await handed(asked.id, { message: "Which weather site do you use?", consult: true });
-    expect(consult.mcpConfig.mcpServers.computer).toBeUndefined();
+    expect(consult.mcpConfig.mcpServers!.computer).toBeUndefined();
     const none = await handed(fresh.id, { message: "Check the weather site on your desktop" });
-    expect(none.mcpConfig.mcpServers.computer).toBeUndefined();
+    expect(none.mcpConfig.mcpServers!.computer).toBeUndefined();
     writeFileSync(finishFile, "finish");
     for (const bot of [writer, asked, fresh, sender]) await idle(bot.id);
     // Mounting is lazy: nothing was created or woken without a computer call.
@@ -428,7 +435,10 @@ describe("a cloud computer starts only when the bot uses it", () => {
   it("a room member whose cloud computer can't start says why in the room, once, under its own name", async () => {
     refuse.creates = true;
     try {
-      const bot = await cloudBot("Roomie", { modelSelection: { instanceId: "uses", model: "claude-sonnet-5" } });
+      const bot = await cloudBot("Roomie");
+      // Its turn takes one screenshot through the cloud computer's tools, which cannot start here.
+      plans[bot.id] = USES({ reply: "screenshot failed" });
+      savePlan();
       const { group } = await apiOk("POST", "/api/groups", { name: "Refused room", memberIds: [bot.id] });
       await apiOk("PATCH", `/api/groups/${group.id}/setup`, { action: "skip" });
       await apiOk("POST", `/api/groups/${group.id}/messages`, { text: "take a screenshot of your desktop" });
@@ -451,7 +461,9 @@ describe("a cloud computer starts only when the bot uses it", () => {
     refuse.creates = true;
     try {
       const { bot } = await apiOk("POST", "/api/bots", { name: "Runner" });
-      await apiOk("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "uses", model: "claude-sonnet-5" }, browser: false });
+      await apiOk("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, browser: false });
+      plans[bot.id] = USES({ reply: "screenshot failed" });
+      savePlan();
       const { routine } = await apiOk("POST", "/api/routines", {
         name: "Cloud check", botId: bot.id, prompt: "Screenshot the desktop.", runOn: "cloud", enabled: false,
         schedule: { type: "interval", everyMinutes: 60, anchorAt: Date.now() + 3_600_000 },
@@ -482,8 +494,8 @@ describe("a cloud computer starts only when the bot uses it", () => {
     const call = (turn: any, name: string, args: unknown) => computerCall(turn, "tools/call", { name, arguments: args });
     const brought = await call(sent, "copy_from_computer", { path: "/home/user/out/frame.jpg", to: "results/frame.jpg" });
     expect(brought.body.result, JSON.stringify(brought.body)).toEqual({ content: [{ type: "text", text: JSON.stringify({ path: join("results", "frame.jpg"), bytes: FRAME.length }) }] });
-    expect(readFileSync(join(sent.cwd, "results", "frame.jpg"))).toEqual(FRAME);
-    writeFileSync(join(sent.cwd, "query.sql"), "select 1;");
+    expect(readFileSync(join(sent.cwd!, "results", "frame.jpg"))).toEqual(FRAME);
+    writeFileSync(join(sent.cwd!, "query.sql"), "select 1;");
     expect((await call(sent, "copy_to_computer", { from: "query.sql", path: "/tmp/query.sql" })).body.result.isError).toBeFalsy();
     expect(written.get("/tmp/query.sql")).toBe("select 1;");
     expect((await call(sent, "copy_from_computer", { path: "/tmp/x", to: "../escaped" })).body.result.isError).toBe(true);
@@ -500,7 +512,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
     const roomTurn = await dump();
     expect(roomTurn.cwd).not.toBe(sent.cwd);
     expect((await call(roomTurn, "copy_from_computer", { path: "/tmp/frame.jpg" })).body.result.isError).toBeFalsy();
-    expect(readFileSync(join(roomTurn.cwd, "frame.jpg"))).toEqual(FRAME);
+    expect(readFileSync(join(roomTurn.cwd!, "frame.jpg"))).toEqual(FRAME);
     await finish(bot.id);
     await apiOk("DELETE", `/api/groups/${group.id}`);
     await apiOk("DELETE", `/api/bots/${bot.id}`);
