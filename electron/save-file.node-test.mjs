@@ -415,8 +415,10 @@ describe("openLogsFolder", () => {
   // The folder comes from main (app.getPath("logs")); the page asks with no path at all.
   it("is wired in main to its own logs folder, for this computer's page and My Cloud's once it is home", () => {
     const main = fs.readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
-    assert.match(main, /ipcMain\.handle\("desktop:open-logs", localOrHome\("desktop:open-logs", \(\) => openLogsFolder\(LOG_DIR, \{ open: \(folder\) => shell\.openPath\(folder\) \}\)\)\);/);
+    const dialogs = fs.readFileSync(new URL("./file-dialogs.mjs", import.meta.url), "utf8");
+    assert.match(dialogs, /ipcMain\.handle\("desktop:open-logs", localOrHome\("desktop:open-logs", \(\) => openLogsFolder\(logDir, \{ open: \(folder\) => shell\.openPath\(folder\) \}\)\)\);/);
     assert.match(main, /const LOG_DIR = app\.getPath\("logs"\);/);
+    assert.match(main, /installFileDialogs\(\{ ipcMain, localOnly, localOrHome, app, nativeT, logDir: LOG_DIR, /);
   });
 });
 
@@ -471,7 +473,9 @@ describe("openHtmlCopy (#4406)", () => {
 
   it("is wired in main for this computer's page only, with main's own temp folder", () => {
     const main = fs.readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
-    assert.match(main, /ipcMain\.handle\("desktop:open-html", localOnly\("desktop:open-html", \(_event, source, name\) =>\s*openHtmlCopy\(source, name, \{ dir: path\.join\(app\.getPath\("userData"\), "open-html"\)/);
+    const dialogs = fs.readFileSync(new URL("./file-dialogs.mjs", import.meta.url), "utf8");
+    assert.match(dialogs, /ipcMain\.handle\("desktop:open-html", localOnly\("desktop:open-html", \(_event, source, name\) =>\s*openHtmlCopy\(source, name, \{ dir: path\.join\(app\.getPath\("userData"\), "open-html"\)/);
+    assert.match(main, /installFileDialogs\(\{ ipcMain, localOnly, localOrHome, app, nativeT, logDir: LOG_DIR, /);
   });
 });
 
