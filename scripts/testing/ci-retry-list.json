@@ -21,6 +21,41 @@
       "owner": "milind-soni",
       "reason": "Failed 11 times since Oct 26 in browser driver S4 (ubuntu-latest), on the host and in the container; five of the six logged failures are one stall of about 50 s in which navigate through tab-new get no picture. Not reproduced in 72 runs on ubuntu-latest on Oct 29. Each attempt starts its own Chrome.",
       "since": "2026-10-29"
+    },
+    {
+      "file": "server/helper-model.e2e.test.ts",
+      "test": "a helper that names the only connected engine, through the real server > stays config.json's own field: a settings request cannot name or clear it, and an unconnected instance reads as not connected",
+      "owner": "liguan-89",
+      "reason": "Failed twice (Nov 17-18 CI rounds) waiting for the missing-helper log line after a config rewrite, on busy ubuntu shards only; green in every local run and the wait already runs to 120 s.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T9 parks the root on a sign-in card and runs it again with the signed-in line on Done",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy ubuntu shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-team-inbox.e2e.test.ts",
+      "test": "brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn",
+      "owner": "liguan-89",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, green in three consecutive local runs each time; the ask-card timing scales with shard load.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/browser-processes.test.ts",
+      "test": "a browser on Windows > lists a real browser under cmd.exe with its daemon, keeps it for that daemon and stops it for another",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a loaded windows shard; cmd.exe listing is windows-only and cannot be reproduced locally.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-computer-background.test.ts",
+      "test": "background commands with your own Boat key > propagates cancellation during a follow-up status read",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a loaded windows shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
     }
   ]
 }
