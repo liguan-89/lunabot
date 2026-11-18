@@ -77,6 +77,20 @@
       "owner": "liguan-89",
       "reason": "Failed three times (Nov 17-18 CI rounds), always on loaded windows shards: the spawn's credential dir appears past the waits even at 10 s; green locally every time. Keep raising the headroom or skip on windows if it keeps reporting.",
       "since": "2026-11-18"
+    },
+    {
+      "file": "server/room-roots.e2e.test.ts",
+      "test": "R7 a goal step the watchdog stops after it posted a credential card fails as stalled and stops the card",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy ubuntu shard: the accelerated stall sweep ran past the 20 s poll; the poll now waits 45 s and the suite is green locally.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/sign-in-request.e2e.test.ts",
+      "test": "a reply in the chat answers the sign-in request: the card settles, nothing waits under Needs you, and Done no longer resumes the old turn",
+      "owner": "liguan-89",
+      "reason": "Failed twice (Nov 18 CI rounds incl. a failed-jobs rerun) on ubuntu: the thread read settled where needs-user was expected; green in every local run.",
+      "since": "2026-11-18"
     }
   ]
 }
