@@ -68,8 +68,17 @@ it("a key the provider rejects is reported until it changes or works again", asy
       models: ["fixture-model"],
     });
     ({ bot } = await control(["new-bot", "--name", "Rejected key fixture"]));
-    // The fixture's own pi instance runs the custom provider's `dex/fixture-model`.
-    await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", "dex/fixture-model"]);
+    // The fixture's own pi instance runs the custom provider's `dex/fixture-model`. The config PUT above folds the
+    // custom provider's models into pi's catalog asynchronously, so on a slow runner an immediate set-model races
+    // that merge: retry until the catalog offers it.
+    await expect.poll(async () => {
+      try {
+        await control(["set-model", "--bot", bot.id, "--instance", "pi", "--model", "dex/fixture-model"]);
+        return true;
+      } catch {
+        return false;
+      }
+    }, { timeout: 15_000, interval: 500 }).toBe(true);
 
     chat = "limit";
     expect((await turn(true)).status).toBe("failed");
