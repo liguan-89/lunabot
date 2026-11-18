@@ -12,7 +12,7 @@ import { finishSpeech, speechBusy, startSpeech, stopSpeech } from "./speech.mjs"
 import { installTalk, isTalkPanel } from "./talk-main.mjs";
 import { createDesktopMountManager, isDesktopMountPanel } from "./desktop-mount.mjs";
 import { installFileDialogs } from "./file-dialogs.mjs";
-import { linuxDisablesGpu, SOFTWARE_RENDERING_ARG } from "./linux-gpu.mjs";
+import { disableWaylandColorManager, linuxDisablesGpu, SOFTWARE_RENDERING_ARG } from "./linux-gpu.mjs";
 import { contextMenuTemplate, createMediaDownloads } from "./context-menu.mjs";
 import { attachUpdaterWindow, startUpdater, registerUpdaterIpc, sendUpdaterState, reopenedOutOfSight, quietSignals } from "./updater.mjs";
 import {
@@ -188,7 +188,7 @@ function applyUnreadBadge(win = mainWindow) {
 // A launch with --disable-gpu (a desktop entry or a user workaround) renders on the CPU too.
 const linuxSoftwareRendering = process.platform === "linux" && (linuxDisablesGpu() || app.commandLine.hasSwitch("disable-gpu"));
 if (linuxSoftwareRendering) app.disableHardwareAcceleration();
-if (process.platform === "linux") app.setDesktopName(LINUX_DESKTOP_NAME);
+if (process.platform === "linux") { app.setDesktopName(LINUX_DESKTOP_NAME); disableWaylandColorManager(app.commandLine); }
 
 if (!app.requestSingleInstanceLock()) {
   console.log("[desktop] Luna Bot is already running — focusing that window");
