@@ -12,6 +12,15 @@ export function isFormattedReply(text: string): boolean {
   return BLOCK_MARKDOWN.some((pattern) => pattern.test(text));
 }
 
+/** A long simple-mode reply that still carries document structure (headings, code
+ * fences, tables, or more than a handful of list lines) renders transparent. */
+export function isStructuredLongReply(text: string): boolean {
+  if (!isFormattedReply(text)) return false;
+  if (/^ {0,3}(?:#{1,6} \S|```|~~~|\|? *:?-{3,}:? *\|)/m.test(text)) return true;
+  const listLines = text.split(/\r?\n/).filter((line) => /^ {0,3}(?:[-*+]|\d{1,3}[.)]) \S/.test(line));
+  return listLines.length > 4;
+}
+
 /** A formatted reply reads at prose width; one with a table takes the message's full width so every column shows,
  * and its prose stays at reading width (`.chat-wide` in styles.css). */
 export function formattedReplyWidth(text: string): string {

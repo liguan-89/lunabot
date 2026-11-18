@@ -69,6 +69,8 @@ export function pointInInteractiveRects(cursorPoint, windowBounds, rects) {
 export function createDesktopMountManager({
   BrowserWindow,
   screen,
+  ipcMain,
+  localOnly,
   preload,
   args = () => [],
   rendererUrl,
@@ -183,7 +185,7 @@ export function createDesktopMountManager({
     return target;
   }
 
-  return {
+  const manager = {
     mount(nextBotId) {
       const normalized = typeof nextBotId === "string" ? nextBotId.trim() : "";
       if (!normalized) throw new Error("Bot ID is required");
@@ -235,4 +237,12 @@ export function createDesktopMountManager({
       return true;
     },
   };
+  ipcMain.handle("desktop-mount:mount", localOnly("desktop-mount:mount", (_event, botId) => manager.mount(botId)));
+  ipcMain.handle("desktop-mount:unmount", localOnly("desktop-mount:unmount", () => manager.unmount()));
+  ipcMain.handle("desktop-mount:state", localOnly("desktop-mount:state", () => manager.state()));
+  ipcMain.handle("desktop-mount:open-main", localOnly("desktop-mount:open-main", (_event, botId) => manager.openMain(botId)));
+  ipcMain.on("desktop-mount:interactive-rects", (event, rects) => {
+    if (manager.owns(event)) manager.setInteractiveRects(rects);
+  });
+  return manager;
 }

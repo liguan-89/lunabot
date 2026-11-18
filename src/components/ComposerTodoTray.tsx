@@ -299,3 +299,13 @@ export function ComposerTodoTray({
     </div>
   );
 }
+
+/** The quiet row a docked todo leaves behind in the transcript, in place of its card. */
+export function dockedTodoAnchor(messageId: string) {
+  return (
+    <div data-docked-todo-anchor={messageId} className="flex items-center gap-2 px-1 py-1 text-[12px] text-ink-tertiary">
+      <span className="size-1.5 rounded-full bg-accent/70" aria-hidden="true" />
+      <span>{t("todoTray.dockedHint")}</span>
+    </div>
+  );
+}
