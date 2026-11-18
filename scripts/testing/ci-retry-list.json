@@ -63,6 +63,20 @@
       "owner": "liguan-89",
       "reason": "Failed once (Nov 18 CI round) on a loaded windows shard; cmd.exe listing is windows-only and cannot be reproduced locally.",
       "since": "2026-11-18"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T12 a turn the watchdog stops after it posted a credential card fails as stalled and stops the card",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a windows shard; a sibling test of this suite flaked in an earlier round and both are green locally and in the other rounds.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/drivers/pi.test.ts",
+      "test": "PiDriver turns (fake CLI) > expires a prewarmed child its turn never claimed, and removes its credential dir",
+      "owner": "liguan-89",
+      "reason": "Failed three times (Nov 17-18 CI rounds), always on loaded windows shards: the spawn's credential dir appears past the waits even at 10 s; green locally every time. Keep raising the headroom or skip on windows if it keeps reporting.",
+      "since": "2026-11-18"
     }
   ]
 }

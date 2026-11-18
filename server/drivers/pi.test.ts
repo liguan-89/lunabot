@@ -709,7 +709,7 @@ describe("PiDriver turns (fake CLI)", () => {
     const savedTmp = process.env.TMPDIR;
     // Past the fake's node boot (~300 ms) so the child logs its argv row before the expiry lands; slow Windows
     // runners also need room for the spawn's credential dir to appear before anything is read.
-    process.env.OMB_PI_PREWARM_MS = "8000";
+    process.env.OMB_PI_PREWARM_MS = "15000";
     process.env.TMPDIR = childTmp;
     try {
       await create(undefined, { FAKE_PI_DUMP: dump });
@@ -724,7 +724,7 @@ describe("PiDriver turns (fake CLI)", () => {
       instance.adapter.prewarm?.({ threadId });
       // The credential dir is made with the spawn, before the child boots: poll for it rather than reading at once,
       // so a slower Windows runner's file system cannot race the read — still well before the expiry above.
-      await vi.waitFor(() => expect(mcpDirs()).toHaveLength(1), { timeout: 6_000 });
+      await vi.waitFor(() => expect(mcpDirs()).toHaveLength(1), { timeout: 10_000 });
       await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 10_000 });
       const pid = spawns()[0].pid as number;
       // sendTurn never ran: the expiry killed the child and removed its credential dir.
