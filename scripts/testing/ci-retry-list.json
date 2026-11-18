@@ -23,17 +23,31 @@
       "since": "2026-10-29"
     },
     {
-      "file": "server/helper-model.e2e.test.ts",
-      "test": "a helper that names the only connected engine, through the real server > stays config.json's own field: a settings request cannot name or clear it, and an unconnected instance reads as not connected",
-      "owner": "liguan-89",
-      "reason": "Failed twice (Nov 17-18 CI rounds) waiting for the missing-helper log line after a config rewrite, on busy ubuntu shards only; green in every local run and the wait already runs to 120 s.",
-      "since": "2026-11-18"
-    },
-    {
       "file": "server/runtime-roots.e2e.test.ts",
       "test": "T9 parks the root on a sign-in card and runs it again with the signed-in line on Done",
       "owner": "liguan-89",
       "reason": "Failed once (Nov 18 CI round) on a busy ubuntu shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/teammate-follow-ups.e2e.test.ts",
+      "test": "F4 keeps a second assignment Clive hands Mira in the same turn its own job, though the first is already running",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/room-coordination.e2e.test.ts",
+      "test": "runs a room member's turn a restart cut again once, told so, and resumes the sender told so",
+      "owner": "liguan-89",
+      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR.",
+      "since": "2026-11-18"
+    },
+    {
+      "file": "server/cloud-guest-shell.e2e.test.ts",
+      "test": "a run of a guest's routine is the guest's: confined, and so is work it hands a teammate",
+      "owner": "liguan-89",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on ubuntu shards, different sibling tests each time; green locally in every run.",
       "since": "2026-11-18"
     },
     {
