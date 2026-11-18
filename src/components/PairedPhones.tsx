@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { t } from "@/lib/i18n";
@@ -146,21 +146,6 @@ export function steadyAt(shown: { text: string | null; at: number }, since: numb
 }
 
 /** The relay line with PAIRING-UX's timing; until anything shows, the section's own description. */
-export function RelayLine({ state, fallback }: { state: Pick<CompanionState, "enabled" | "e2e">; fallback: string }) {
-  const wanted = relayStatusLine(state);
-  const connecting = state.enabled && state.e2e?.enabled === true && state.e2e.relay === "connecting";
-  const since = useRef({ text: wanted, at: Date.now() });
-  if (since.current.text !== wanted) since.current = { text: wanted, at: Date.now() };
-  const [shown, setShown] = useState<{ text: string | null; at: number }>(() => ({ text: connecting ? null : wanted, at: Date.now() }));
-  useEffect(() => {
-    if (shown.text === wanted) return;
-    const wait = steadyAt(shown, since.current.at, connecting) - Date.now();
-    const timer = setTimeout(() => setShown({ text: wanted, at: Date.now() }), Math.max(0, wait));
-    return () => clearTimeout(timer);
-  }, [wanted, connecting, shown]);
-  return <>{shown.text ?? fallback}</>;
-}
-
 /** The line under Remote access: where phones can reach this computer from, once it is end-to-end encrypted. */
 export function relayStatusLine(state: Pick<CompanionState, "enabled" | "e2e">): string | null {
   if (!state.enabled || state.e2e?.enabled !== true) return null;

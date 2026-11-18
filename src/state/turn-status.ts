@@ -112,10 +112,6 @@ export function useTurnLive(threadId: string | null | undefined): TurnLive {
 
 /** The reply as it streams. Empty before the first token and once the turn
  * ends (the persisted message takes over then). */
-export function useStreamedReply(threadId: string | null | undefined): string {
-  return useTurnLive(threadId).reply ?? "";
-}
-
 /** Tests only. */
 export function resetTurnLive(): void {
   threads.clear();

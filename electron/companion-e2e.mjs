@@ -3,8 +3,6 @@ import { createRelayTokenService } from "./relay-token.mjs";
 
 const RECHECK_MS = 30_000;
 /** A legacy phone (paired before the encrypted connection) still needs the tunnel while it was seen this recently. */
-export const LEGACY_DEVICE_WINDOW_MS = 30 * 24 * 60 * 60 * 1_000;
-
 /** What the control plane counts for its adoption gates: no identifiers. */
 export function deviceCounts(state) {
   const devices = Array.isArray(state?.devices) ? state.devices : [];

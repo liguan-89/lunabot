@@ -5,7 +5,7 @@ import { en, type LocaleKey } from "@/locales";
 import { toolStepLabel } from "@/lib/tool-step-label";
 import { formatUsd, hasFiniteCost, usdText } from "@/lib/usage";
 import type {
-  TraceDetail, TraceGroup, TraceList, TraceNode, TraceStep, TraceTokens, TraceTool, TraceTurn,
+  TraceDetail, TraceGroup, TraceList, TraceNode, TraceTokens, TraceTool, TraceTurn,
 } from "../../shared/usage-trace.ts";
 
 export type UsagePeriod = "today" | "week" | "month" | "lastMonth" | "days30";
@@ -251,6 +251,3 @@ export function threadsOf(turns: readonly TraceTurn[]): Set<string> {
   return threads;
 }
 
-export function isStep(node: TraceNode): node is TraceStep {
-  return node.kind === "step";
-}
