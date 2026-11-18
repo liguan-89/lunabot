@@ -3737,7 +3737,8 @@
       "server.wait.personAway": "694ecd701d9e3f302d7cc5f2c79e76435aa727447f9f46ff01b2026b2eca9883",
       "server.surface.couldNotContinue": "559f15490af7cc4a0e95432d78e2a8c64a125312d5ed3c485f836a71577bceb6",
       "chat.newChatHint": "f50b2919941dfdd3337f86015f98c770cb22ed01d7060235415abe8c39a06ee0",
-      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec"
+      "chat.newChatHintButton": "db18382a249e0206bc28514931d423b77d55dce180c1eb8e4bf35f861c9a50ec",
+      "computer.problem.localMacTooOld": "bf3b76c9975f9e324731f76a694f19ebab0ef4dad5758b77176547c5953fc9ed"
     },
     "es": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",
@@ -34154,7 +34155,8 @@
       "cloudAccount.resetSaved": "276fa85bc75786d143b74c11cbbb9abe1b7908f48011c1d799114024e09c903b",
       "cloudAccount.resetKept": "9243efedc1e40bb499acadf970053efa1b7e3a9fc90e3662b3efdd67b89bf453",
       "cloudAccount.unsaved": "69f16bd2ad4856e040d928ce9482507b14e26f66c500287859c8634ef6117149",
-      "homeScreen.offlineNetwork": "f628e51f2e014252ca9826b7828fb417ad2895267a42716fb41e7140615154c8"
+      "homeScreen.offlineNetwork": "f628e51f2e014252ca9826b7828fb417ad2895267a42716fb41e7140615154c8",
+      "computer.problem.localMacTooOld": "bf3b76c9975f9e324731f76a694f19ebab0ef4dad5758b77176547c5953fc9ed"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
