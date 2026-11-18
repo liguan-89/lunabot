@@ -6272,7 +6272,7 @@
   "settings.import.appsNothing": "Nothing new to bring in from your AI apps.",
   "settings.import.appsLocalOnly": "Only the desktop app on the computer running {app} can bring in that computer's skills and tools.",
   "settings.import.grokTitle": "Move from Grok Bot",
-  "settings.import.grokSubtitle": "Bring a Bot over with its skills, routines, memories and apps.",
+  "settings.import.grokSubtitle": "Bring a Bot over with its skills, routines, memories, apps and chats.",
   "backup.scope": "A password-protected backup of this installation: bots, conversations, instructions, local files, and non-secret settings. Drafts and preferences from this browser are included.",
   "backup.excluded": "Saved account credentials and connections are not included. Reconnect your accounts on a new machine; existing credentials on the destination stay unchanged. Sign-ins to other AI apps and the disks of remote desktops are not included either.",
   "backup.privacy": "Chats, drafts, and user files are not automatically redacted and may contain pasted secrets. Keep this backup private and save its password safely; it cannot be recovered.",

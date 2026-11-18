@@ -6231,7 +6231,7 @@
   "settings.import.appsNothing": "你的 AI 应用里没有可导入的新内容。",
   "settings.import.appsLocalOnly": "只有运行 {app} 的那台电脑上的桌面版，才能导入该电脑上的技能和工具。",
   "settings.import.grokTitle": "从 Grok Bot 迁移",
-  "settings.import.grokSubtitle": "连同技能、例行任务、记忆和应用一起迁移机器人。",
+  "settings.import.grokSubtitle": "连同技能、例行任务、记忆、应用和聊天记录一起迁移机器人。",
   "backup.scope": "这个安装的密码保护备份，涵盖机器人、对话、指示、本机文件与非机密设置。此浏览器的草稿与偏好设置也会一并纳入。",
   "backup.excluded": "不包含已保存的账户凭据和连接。在新机器上重新连接你的账户即可；目标机器上已有的凭据保持不变。其他 AI 应用的登录和远程桌面磁盘也不包含在内。",
   "backup.privacy": "对话、草稿与用户文件不会自动屏蔽，可能含有粘贴的机密。请妥善保管这份备份，并安全保存其密码；密码无法复原。",
