@@ -12,6 +12,16 @@ import type { RuntimeEvent } from "../shared/runtime-events.ts";
 import type { EventBus } from "./harness/bus.ts";
 import type { Store } from "./store.ts";
 
+/** One inbound WeChat picture: the mime the phone decoded it as, a display name, and the bytes as base64. */
+const wechatImage = z.object({
+  mime: z.string().min(1).max(100),
+  name: z.string().min(1).max(200),
+  data: z.string().min(1),
+}).strict();
+
+/** Total base64 one event may carry: the phone caps a picture at 10 MB, so eight of them need a ceiling of their own. */
+export const WECHAT_IMAGES_MAX_BASE64 = 11_000_000;
+
 /** What a paired phone may push through /api/phones/self/events. `sendId` dedupes phone-side retries. */
 export const phoneEvent = z.discriminatedUnion("kind", [
   z.object({
@@ -20,6 +30,16 @@ export const phoneEvent = z.discriminatedUnion("kind", [
     from: z.string().trim().min(1).max(64),
     text: z.string().min(1).max(4000),
   }).strict(),
+  z.object({
+    kind: z.literal("wechat"),
+    sendId: z.string().min(1).max(120),
+    from: z.string().trim().min(1).max(64),
+    // The phone forwards a picture-only message with no words, so the words may be empty only when pictures are not.
+    text: z.string().max(4000),
+    images: z.array(wechatImage).max(8).optional(),
+  }).strict()
+    .refine((event) => event.text.trim() !== "" || (event.images?.length ?? 0) > 0, { message: "text or images is required" })
+    .refine((event) => (event.images ?? []).reduce((total, image) => total + image.data.length, 0) <= WECHAT_IMAGES_MAX_BASE64, { message: "images are too large" }),
 ]);
 export type PhoneEvent = z.infer<typeof phoneEvent>;
 

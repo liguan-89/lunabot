@@ -80,9 +80,12 @@ export const KNOWN_READ_SLUGS: ReadonlySet<string> = new Set([
 /** Driving the phone's screen reaches every app on it, so each control but observing and waiting sends something
  * somewhere and asks the person first, like any outbound call. The Clock app's own alarm and timer intents, a link
  * opened on the controlled display and text handed to another app's compose screen are phone-wide side effects too;
- * so is choosing whether the app a task drove stays open or is finished when the task ends. */
+ * so is choosing whether the app a task drove stays open or is finished when the task ends.
+ *
+ * PHONE_UI_FIND is a write here even though it only reads: it scrolls the screen looking for a target, which is the
+ * same side effect PHONE_UI_SCROLL has, and the person is asked before the phone moves. */
 const PHONE_UI_WRITES: ReadonlySet<string> = new Set([
-  "PHONE_UI_COLLECT", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
+  "PHONE_UI_COLLECT", "PHONE_UI_FIND", "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
   "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_RUN", "PHONE_CLIPBOARD_SET", "PHONE_FILE_SHARE",
   "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_OPEN_LINK", "PHONE_SHARE_TEXT", "PHONE_UI_AFTER_TASK",
 ]);

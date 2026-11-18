@@ -210,6 +210,7 @@
   --chat-bubble-pct: 80%;
   --chat-card-pct: 88%;
   --chat-prose-max: 44rem;
+  --conversation-opposed-inset: clamp(32px, (100% - 480px) * 0.35, 20%);
   /* .chat-column: fills a narrow pane, then stops at this width and centers, so wider windows only grow the gutters. */
   --chat-column-max: 60rem;
   /* Menus; a phone rounds them like its sheets. */

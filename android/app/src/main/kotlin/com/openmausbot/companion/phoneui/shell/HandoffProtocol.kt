@@ -40,6 +40,14 @@ object HandoffProtocol {
     const val KEY_TOKEN = "token"
     const val KEY_REASON = "reason"
 
+    /**
+     * Whether the person's "allow remote unlock" switch was on when this
+     * handoff was accepted. Carried here because the helper cannot read the
+     * app's settings; the switch is not a secret, and the credential it governs
+     * never travels this way.
+     */
+    const val KEY_UNLOCK = "unlock"
+
     fun authority(packageName: String) = "$packageName.phoneui.helper"
 
     /** The helper's process name (app_process --nice-name); also how stale helper instances are recognized. */

@@ -30,7 +30,6 @@ class OnboardingTest {
 
     private fun route(
         pairingState: OnboardingPairingState,
-        hasSeenWelcome: Boolean,
         pairingRequested: Boolean = false,
         hasPendingPairingInvite: Boolean = false,
         notificationOnboardingPending: Boolean = false,
@@ -40,7 +39,6 @@ class OnboardingTest {
     ) = OnboardingRouter.route(
         OnboardingContext(
             pairingState = pairingState,
-            hasSeenWelcome = hasSeenWelcome,
             pairingRequested = pairingRequested,
             hasPendingPairingInvite = hasPendingPairingInvite,
             notificationOnboardingPending = notificationOnboardingPending,
@@ -50,18 +48,10 @@ class OnboardingTest {
     )
 
     @Test
-    fun firstLaunchShowsWelcome() {
-        assertEquals(
-            OnboardingRoute.WELCOME,
-            route(OnboardingPairingState.UNPAIRED, hasSeenWelcome = false),
-        )
-    }
-
-    @Test
-    fun skipShowsUsefulUnpairedHome() {
+    fun unpairedPhoneLandsOnTheHome() {
         assertEquals(
             OnboardingRoute.UNPAIRED_HOME,
-            route(OnboardingPairingState.UNPAIRED, hasSeenWelcome = true),
+            route(OnboardingPairingState.UNPAIRED),
         )
     }
 
@@ -71,7 +61,6 @@ class OnboardingTest {
             OnboardingRoute.PAIRING,
             route(
                 OnboardingPairingState.UNPAIRED,
-                hasSeenWelcome = true,
                 pairingRequested = true,
             ),
         )
@@ -81,7 +70,6 @@ class OnboardingTest {
             OnboardingRoute.PAIRING,
             route(
                 OnboardingPairingState.UNPAIRED,
-                hasSeenWelcome = false,
                 hasPendingPairingInvite = true,
             ),
         )
@@ -91,7 +79,7 @@ class OnboardingTest {
     fun existingPairedUserGoesStraightToChats() {
         assertEquals(
             OnboardingRoute.CHATS,
-            route(OnboardingPairingState.PAIRED, hasSeenWelcome = true),
+            route(OnboardingPairingState.PAIRED),
         )
     }
 
@@ -101,7 +89,6 @@ class OnboardingTest {
             OnboardingRoute.PAIRING,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 pairingRequested = true,
             ),
         )
@@ -109,7 +96,6 @@ class OnboardingTest {
             OnboardingRoute.PAIRING,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 hasPendingPairingInvite = true,
             ),
         )
@@ -121,7 +107,6 @@ class OnboardingTest {
             OnboardingRoute.NOTIFICATION_PROMPT,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 notificationAuthorization = NotificationAuthorizationState.NOT_DETERMINED,
             ),
@@ -131,7 +116,6 @@ class OnboardingTest {
             OnboardingRoute.CHATS,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 hasSeenNotificationPrompt = true,
             ),
@@ -142,7 +126,6 @@ class OnboardingTest {
             OnboardingRoute.CHATS,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 notificationAuthorization = NotificationAuthorizationState.DETERMINED,
             ),
@@ -155,7 +138,6 @@ class OnboardingTest {
             OnboardingRoute.CHATS,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 notificationAuthorization = NotificationAuthorizationState.UNRESOLVED,
             ),
@@ -176,7 +158,6 @@ class OnboardingTest {
             OnboardingRoute.NOTIFICATION_PROMPT,
             route(
                 OnboardingPairingState.PAIRED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 notificationAuthorization = NotificationAuthorizationState.NOT_DETERMINED,
             ),
@@ -243,7 +224,6 @@ class OnboardingTest {
             OnboardingRoute.PAIRING,
             route(
                 OnboardingPairingState.UNPAIRED,
-                hasSeenWelcome = true,
                 hasPendingPairingInvite = true,
             ),
         )
@@ -253,7 +233,6 @@ class OnboardingTest {
             OnboardingRoute.UNPAIRED_HOME,
             route(
                 OnboardingPairingState.UNPAIRED,
-                hasSeenWelcome = true,
                 hasPendingPairingInvite = false,
             ),
         )
@@ -265,7 +244,6 @@ class OnboardingTest {
             OnboardingRoute.REVOKED,
             route(
                 OnboardingPairingState.REVOKED,
-                hasSeenWelcome = false,
                 pairingRequested = true,
                 hasPendingPairingInvite = true,
             ),
@@ -277,7 +255,6 @@ class OnboardingTest {
             OnboardingRoute.REVOKED,
             route(
                 OnboardingPairingState.REVOKED,
-                hasSeenWelcome = true,
                 notificationOnboardingPending = true,
                 notificationAuthorization = NotificationAuthorizationState.NOT_DETERMINED,
             ),
@@ -289,29 +266,24 @@ class OnboardingTest {
      * the cases above passing cannot quietly move a state nobody named.
      */
     @Test
-    fun everyCombinationOfTheThreeUnpairedInputsIsAccountedFor() {
+    fun everyCombinationOfTheUnpairedInputsIsAccountedFor() {
         val expected = mapOf(
-            // hasSeenWelcome, pairingRequested, hasPendingPairingInvite
-            Triple(false, false, false) to OnboardingRoute.WELCOME,
-            Triple(true, false, false) to OnboardingRoute.UNPAIRED_HOME,
-            Triple(false, true, false) to OnboardingRoute.PAIRING,
-            Triple(true, true, false) to OnboardingRoute.PAIRING,
-            Triple(false, false, true) to OnboardingRoute.PAIRING,
-            Triple(true, false, true) to OnboardingRoute.PAIRING,
-            Triple(false, true, true) to OnboardingRoute.PAIRING,
-            Triple(true, true, true) to OnboardingRoute.PAIRING,
+            // pairingRequested, hasPendingPairingInvite
+            Pair(false, false) to OnboardingRoute.UNPAIRED_HOME,
+            Pair(true, false) to OnboardingRoute.PAIRING,
+            Pair(false, true) to OnboardingRoute.PAIRING,
+            Pair(true, true) to OnboardingRoute.PAIRING,
         )
         for ((inputs, want) in expected) {
-            val (seen, requested, invited) = inputs
+            val (requested, invited) = inputs
             assertEquals(
                 want,
                 route(
                     OnboardingPairingState.UNPAIRED,
-                    hasSeenWelcome = seen,
                     pairingRequested = requested,
                     hasPendingPairingInvite = invited,
                 ),
-                "welcome=$seen requested=$requested invite=$invited",
+                "requested=$requested invite=$invited",
             )
         }
     }

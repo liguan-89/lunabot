@@ -1,3 +1,21 @@
+/*
+ * Ported from Mika (https://github.com/wangzan101/Mika), file
+ * core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/AppTools.kt
+ * (AppAfterTask, the phone_app_after_task tool).
+ * Copyright 2026 wangzan101. The original is licensed under the Apache License,
+ * Version 2.0 (third_party/mika/LICENSE in this repository).
+ *
+ * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * translated into English, and reduced to this app's tool surface. One choice
+ * per task replaces Mika's per-package marks; `keep` is unconditional, since
+ * this app has no audio-session surface and so never needs Mika's "close
+ * whatever is playing" default; there is no clone/work-profile `user`
+ * argument and no `reason`; and the package rules live here as pure
+ * functions. Closing is applied by the executor through a new helper AIDL
+ * call, IPhoneUiShell.forceStop, where Mika hands the keep/close sets to the
+ * helper's finishDisplay and moves kept tasks behind the main screen.
+ */
 package com.openmausbot.companion.phoneui
 
 /**

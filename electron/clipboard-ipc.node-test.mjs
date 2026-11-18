@@ -12,6 +12,8 @@ const LOCAL = "http://127.0.0.1:48993";
 const REMOTE = "https://remote.example.test";
 const preloadSource = readFileSync(new URL("./preload.cjs", import.meta.url), "utf8");
 const mainSource = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+// The file/dialog handlers moved out of main.mjs into their own module; the registration lives there now.
+const dialogsSource = readFileSync(new URL("./file-dialogs.mjs", import.meta.url), "utf8");
 
 function loadPreload(origin) {
   let bridge;
@@ -48,11 +50,13 @@ test("the local page's copyText sends only the text, on the one explicit channel
   assert.deepEqual(local.invoked, [["clipboard:write-text", "hello"]]);
 });
 
-// The production registration line from main.mjs, with the real localOnly and writeClipboardText and a fake ipcMain.
+// The production registration line from file-dialogs.mjs (installed by main.mjs), with the real localOnly and
+// writeClipboardText and a fake ipcMain.
 function productionHandler() {
-  const lines = mainSource.split("\n").filter((line) => line.includes('"clipboard:write-text"'));
-  assert.equal(lines.length, 1, "exactly one registration of the channel in main.mjs");
-  assert.match(lines[0], /^ipcMain\.handle\("clipboard:write-text", localOnly\("clipboard:write-text", /);
+  const lines = `${mainSource}\n${dialogsSource}`.split("\n").filter((line) => line.includes('"clipboard:write-text"'));
+  assert.equal(lines.length, 1, "exactly one registration of the channel in main.mjs and file-dialogs.mjs");
+  assert.match(lines[0], /^\s*ipcMain\.handle\("clipboard:write-text", localOnly\("clipboard:write-text", /);
+  assert.match(mainSource, /installFileDialogs\(\{ ipcMain, localOnly, localOrHome, app, nativeT, logDir: LOG_DIR, /, "main installs the file dialogs");
   const handlers = new Map();
   const written = [];
   vm.runInNewContext(lines[0], {

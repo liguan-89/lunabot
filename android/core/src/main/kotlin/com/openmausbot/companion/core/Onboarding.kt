@@ -20,7 +20,6 @@ enum class OnboardingPairingState {
 }
 
 enum class OnboardingRoute {
-    WELCOME,
     PAIRING,
     UNPAIRED_HOME,
     NOTIFICATION_PROMPT,
@@ -108,7 +107,6 @@ object NotificationOnboardingPolicy {
 
 data class OnboardingContext(
     val pairingState: OnboardingPairingState,
-    val hasSeenWelcome: Boolean,
     val pairingRequested: Boolean = false,
     val hasPendingPairingInvite: Boolean = false,
     /**
@@ -145,10 +143,8 @@ object OnboardingRouter {
         OnboardingPairingState.UNPAIRED ->
             if (context.pairingRequested || context.hasPendingPairingInvite) {
                 OnboardingRoute.PAIRING
-            } else if (context.hasSeenWelcome) {
-                OnboardingRoute.UNPAIRED_HOME
             } else {
-                OnboardingRoute.WELCOME
+                OnboardingRoute.UNPAIRED_HOME
             }
     }
 }

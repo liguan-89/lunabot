@@ -31,6 +31,19 @@ function railPage(): Plugin {
   };
 }
 
+/** The desktop mascot mount panel loads /mount: mount.html, its own small page, in development as from the server. */
+function mountPage(): Plugin {
+  const rewrite: Connect.NextHandleFunction = (req, _res, next) => {
+    if (req.url === "/mount" || req.url?.startsWith("/mount?")) req.url = `/mount.html${req.url.slice("/mount".length)}`;
+    next();
+  };
+  return {
+    name: "mount-page",
+    configureServer: (server) => void server.middlewares.use(rewrite),
+    configurePreviewServer: (server) => void server.middlewares.use(rewrite),
+  };
+}
+
 const include = [
   "evals/**/*.test.ts",
   "server/**/*.test.ts",
@@ -45,9 +58,9 @@ const include = [
 ];
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), railPage()],
+  plugins: [react(), tailwindcss(), railPage(), mountPage()],
   build: {
-    rollupOptions: { input: { index: page("./index.html"), rail: page("./rail.html") } },
+    rollupOptions: { input: { index: page("./index.html"), rail: page("./rail.html"), mount: page("./mount.html") } },
   },
   define: {
     __APP_VERSION__: JSON.stringify(version),

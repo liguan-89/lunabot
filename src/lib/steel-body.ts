@@ -1,21 +1,14 @@
-// Luna Bot's chrome as finished pictures, face included: src/assets/dexbot-steel/<body>-<px>.webp, square, framing the
-// mascot's whole SVG viewBox, at <px> device pixels. A body with no pictures keeps the drawn steel finish.
-const files = import.meta.glob<string>("../assets/dexbot-steel/*.{webp,png}", { eager: true, query: "?url", import: "default" });
-
+// Luna Bot's default brand mark (replaces legacy dexbot-steel cursor raster assets).
 export interface SteelImage { body: string; px: number; url: string }
 
-export const STEEL_IMAGES: readonly SteelImage[] = Object.entries(files)
-  .flatMap(([path, url]) => {
-    const match = /\/([a-z]+)-(\d+)\.(?:webp|png)$/.exec(path);
-    return match ? [{ body: match[1]!, px: Number(match[2]), url }] : [];
-  })
-  .sort((a, b) => a.px - b.px);
+export const STEEL_IMAGES: readonly SteelImage[] = [
+  { body: "cursor", px: 512, url: "/app-icon.svg" },
+];
 
-/** The smallest image that still has a device pixel for every pixel drawn, or the largest there is; null when this body
- * has none. */
+/** Returns the smallest image that covers `size * density` (or the largest available), or null when none exists for `body`. */
 export function steelBodyImage(body: string, size: number, density: number, images: readonly SteelImage[] = STEEL_IMAGES): string | null {
-  const own = images.filter((image) => image.body === body);
-  if (!own.length) return null;
-  const wanted = size * Math.max(1, density);
-  return (own.find((image) => image.px >= wanted) ?? own.at(-1)!).url;
+  const candidates = images.filter((image) => image.body === body).toSorted((a, b) => a.px - b.px);
+  if (candidates.length === 0) return null;
+  const need = Math.max(0, size) * (density > 0 ? density : 1);
+  return (candidates.find((image) => image.px >= need) ?? candidates.at(-1))!.url;
 }

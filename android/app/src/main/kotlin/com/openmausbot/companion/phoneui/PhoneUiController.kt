@@ -1,12 +1,15 @@
 package com.openmausbot.companion.phoneui
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import com.dexbot.companion.core.phoneui.adb.AdbConnectionException
 import com.openmausbot.companion.permissions.CompanionPermissions
 import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
 import com.openmausbot.companion.storage.ChatPreferences
+import com.openmausbot.companion.storage.UnlockCredentialStore
+import com.openmausbot.companion.storage.UnlockState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -14,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -69,9 +73,18 @@ enum class PhoneUiStatus {
  * helper's launch. One instance is built by [com.openmausbot.companion.OpenMausApp]
  * and shared with Settings through `CompanionEnvironment`.
  *
- * Security shape: nothing here auto-enables developer options or wireless
- * debugging, nothing prompts, and pairing happens only when the person enters
- * the port and code the system pairing dialog shows. Both ADB endpoints are
+ * Security shape: developer options are still never turned on here, and
+ * pairing happens only when the person enters the port and code the system
+ * pairing dialog shows. Wireless debugging is the one developer switch this
+ * class may turn back on, and only for a phone whose person turned the
+ * phoneUi capability on, only while the helper is absent, and only through
+ * [PhoneUiRepairLoop]: the helper is the sole reason the switch is needed, and
+ * a network Android does not allow still stops the loop at the system's own
+ * per-network dialog. The switch is also the one place the app may hold a
+ * system-write permission, and only when the person turns the separate repair
+ * switch on: the helper then grants `WRITE_SECURE_SETTINGS` once, because an
+ * ordinary app cannot write a global setting and the helper is exactly what
+ * the switch is needed to start. Both ADB endpoints are
  * always the loopback literal — mDNS services for this device resolve on local
  * interfaces only, and [PhoneUiPairingInput] never accepts a host from input.
  * A successful pairing persists only a flag; the port, the pairing code and the
@@ -87,6 +100,29 @@ class PhoneUiController(
     private val adb = PhoneUiAdb(app)
     private val bridge = PhoneUiShellBridge.of(app)
     private val pairingNotification = PhoneUiPairingNotification(app)
+
+    /** The credential the person entered here, and the switch that authorizes remote use of it. */
+    private val unlockStore = UnlockCredentialStore.of(app)
+
+    private val keyguardManager = app.getSystemService(android.app.KeyguardManager::class.java)
+    private val powerManager = app.getSystemService(android.os.PowerManager::class.java)
+
+    /** Mika's unlock order over this phone's own state; the store owns the credential and the block. */
+    val unlocker = PhoneUiUnlocker(
+        store = unlockStore,
+        shell = { bridge.shell.value },
+        keyguard = {
+            KeyguardSnapshot(
+                interactive = powerManager.isInteractive,
+                showing = keyguardManager.isKeyguardLocked,
+                deviceLocked = keyguardManager.isDeviceLocked,
+                secure = keyguardManager.isDeviceSecure,
+            )
+        },
+    )
+
+    /** The non-secret unlock state Settings renders. */
+    val unlockState: StateFlow<UnlockState> = unlockStore.state
 
     private val _status = MutableStateFlow(PhoneUiStatus.Disabled)
 
@@ -107,10 +143,54 @@ class PhoneUiController(
     /** One auto-read loop at a time; a second sheet opening replaces it. */
     private var autoPairingJob: Job? = null
 
+    /**
+     * The background repair loop, or null while the capability is off. Only
+     * [reconcileRepair] starts it, so the person's switch is the one
+     * authorization every effect in this class depends on.
+     */
+    private var repairJob: Job? = null
+
+    /**
+     * Our component exactly as the system lists it. The applicationId and the
+     * namespace differ in this app, so the flattened name is built from the
+     * package name the system sees, not from the source package.
+     */
+    private val accessibilityComponent = "${app.packageName}/${PhoneUiAccessibilityService::class.java.name}"
+
+    /**
+     * The two self-repairs, built once so their states survive a recompute.
+     * The effects are this class's: the accessibility write goes through the
+     * shell helper's allow-listed `putSecureSetting`, and the wireless switch
+     * is written by the app itself once the person's repair switch has had the
+     * helper grant it `WRITE_SECURE_SETTINGS`.
+     */
+    private val repair: PhoneUiRepairLoop by lazy {
+        PhoneUiRepairLoop(
+            component = accessibilityComponent,
+            now = System::currentTimeMillis,
+            switchOff = ::wirelessDebuggingOff,
+            helperAttached = { bridge.shell.value != null },
+            wirelessWrite = ::wirelessWriteNow,
+            wirelessWriter = ::wirelessWriterAvailable,
+            a11yEnabled = ::accessibilityEnabled,
+            a11yConnected = { PhoneUiAccessibilityService.instance.value != null },
+            a11ySetting = ::accessibilityServices,
+            a11yWrite = { value ->
+                bridge.shell.value?.putSecureSetting("enabled_accessibility_services", value) == true
+            },
+            sleep = { delay(it) },
+        )
+    }
+
     private val recomputeMutex = Mutex()
 
     init {
         bridge.setLaunchCallback { command, nonce -> launchHelper(command, nonce) }
+        // The helper is told the switch at handoff time; this lambda is also
+        // what gates every unlock call, so turning the switch off takes effect
+        // on the next call rather than on the next connection.
+        bridge.setUnlockAllowed { unlockStore.state.value.remoteUnlockEnabled }
+        scope.launch(Dispatchers.IO) { unlockStore.refresh() }
         scope.launch {
             bridge.shell.collect { attached ->
                 if (attached != null) {
@@ -120,7 +200,14 @@ class PhoneUiController(
                 }
             }
         }
-        scope.launch { preferences.phoneUi.collect { refresh() } }
+        scope.launch {
+            preferences.phoneUi.collect {
+                // The capability switch is the authorization for the repair
+                // loop too: on starts it, off cancels it.
+                reconcileRepair()
+                refresh()
+            }
+        }
         permissions.refresh()
         scope.launch { recompute() }
     }
@@ -129,8 +216,16 @@ class PhoneUiController(
      * Re-derive the status from system state. Called when the capability switch
      * moves, when the helper attaches or dies, and when Settings reopens — the
      * system pages may have changed while the person was out of the app.
+     *
+     * A refresh is also the person's explicit retry for the wireless repair:
+     * re-opening Settings after allowing this network in Android's dialog
+     * clears a recorded stop, so the switch is tried once more. Only a stopped
+     * episode is cleared; a repair in progress keeps its write count and gap.
      */
     fun refresh() {
+        if (_status.value == PhoneUiStatus.NeedsWirelessDebugging && repair.wirelessStop != null) {
+            repair.cleared(PhoneUiSelfRepair.Trigger.RetryRequested)
+        }
         scope.launch { recompute() }
     }
 
@@ -161,6 +256,10 @@ class PhoneUiController(
                 // The pair marker exists only after the SPAKE2 exchange landed;
                 // it never reflects key state alone.
                 adb.markPaired(true)
+                // A fresh pairing is a fresh authorization: forget() stopped
+                // the repair loop because there was no shell to write through,
+                // and the capability switch may not have moved since.
+                reconcileRepair()
                 recompute()
                 dismissPairingNotification()
             } else {
@@ -261,6 +360,10 @@ class PhoneUiController(
     fun forget() {
         autoPairingJob?.cancel()
         _autoPairing.value = false
+        // No helper identity means no shell to write through, so nothing is
+        // left to repair; a fresh pairing starts a fresh loop.
+        repairJob?.cancel()
+        repairJob = null
         scope.launch(Dispatchers.IO) {
             // Clears the pair marker and the encrypted identity together.
             adb.forget()
@@ -278,8 +381,66 @@ class PhoneUiController(
     fun disable() {
         autoPairingJob?.cancel()
         _autoPairing.value = false
+        repairJob?.cancel()
+        repairJob = null
         _status.value = PhoneUiStatus.Disabled
         scope.launch(Dispatchers.IO) { bridge.detach() }
+    }
+
+    /**
+     * Store the credential the person just typed. It is encrypted on this phone
+     * and never leaves it: no server call, no job argument, no log. A new
+     * credential clears any outstanding attempt block.
+     */
+    suspend fun setUnlockCredential(kind: Int, value: CharArray): Boolean =
+        withContext(Dispatchers.IO) { unlockStore.set(kind, value) }
+
+    /** Forget the credential and the permission that went with it. */
+    suspend fun clearUnlockCredential() = withContext(Dispatchers.IO) { unlockStore.clear() }
+
+    /** The person's remote-unlock switch; off by default, and cleared with the credential. */
+    suspend fun setRemoteUnlockEnabled(enabled: Boolean): Boolean =
+        withContext(Dispatchers.IO) { unlockStore.setRemoteUnlockEnabled(enabled) }
+
+    /**
+     * The Settings "try one unlock" action: the same order the remote path uses,
+     * started by the person, so a wrong PIN is discovered here rather than in a
+     * turn. Still gated on the switch, because the helper refuses keyguard input
+     * when it is off.
+     */
+    suspend fun unlockNow(): UnlockOutcome = withContext(Dispatchers.IO) { unlocker.unlock() }
+
+    /**
+     * Start or stop the repair loop to match the capability switch. Called from
+     * the preference collector and nowhere else, so the person's switch is the
+     * only thing that can start it; a recompute must not, because tearing the
+     * loop down on every status change would reset its backoff.
+     */
+    private fun reconcileRepair() {
+        if (preferences.phoneUi.value) {
+            if (repairJob?.isActive == true) return
+            repairJob = scope.launch(Dispatchers.IO) {
+                // The preference is checked again on every pass: a stop that
+                // races the collector must not leave one write running.
+                var switchWasOn = !wirelessDebuggingOff()
+                while (isActive && preferences.phoneUi.value) {
+                    val wait = repair.step()
+                    // Only the off→on edge recomputes, so a switch the repair
+                    // just turned on moves the status off
+                    // NeedsWirelessDebugging without this loop writing status
+                    // on every pass.
+                    val switchOn = !wirelessDebuggingOff()
+                    if (switchOn && !switchWasOn && _status.value == PhoneUiStatus.NeedsWirelessDebugging) {
+                        refresh()
+                    }
+                    switchWasOn = switchOn
+                    delay(wait.coerceAtLeast(REPAIR_POLL_MS))
+                }
+            }
+        } else {
+            repairJob?.cancel()
+            repairJob = null
+        }
     }
 
     private suspend fun recompute() = recomputeMutex.withLock {
@@ -396,7 +557,62 @@ class PhoneUiController(
     private fun wirelessDebuggingOff(): Boolean =
         Settings.Global.getInt(app.contentResolver, "adb_wifi_enabled", 0) == 0
 
+    /**
+     * Whether the repair may write the wireless switch at all. Two writers are
+     * possible, and the person's switch gates both: with the repair switch on,
+     * either the app already holds `WRITE_SECURE_SETTINGS`, or a helper is
+     * attached and can grant it. With the switch off this is false, so the
+     * repair loop folds no event and reports nothing — no permission is asked
+     * for, and no refusal is recorded.
+     */
+    private fun wirelessWriterAvailable(): Boolean =
+        preferences.phoneRepairWireless.value &&
+            (writeSecureSettingsGranted() || bridge.shell.value != null)
+
+    /** Whether the app, not the helper, may write system settings itself. */
+    private fun writeSecureSettingsGranted(): Boolean =
+        app.checkSelfPermission(WRITE_SECURE_SETTINGS) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * Turn the wireless-debugging switch back on. The app writes it directly
+     * once it holds `WRITE_SECURE_SETTINGS`; before that, and only while the
+     * person's repair switch is on, the attached helper is asked for the grant
+     * (it can only grant that one permission, to the caller's own package).
+     * A false return is the honest answer for a ROM that refuses either step,
+     * and [PhoneUiRepairLoop] folds it into [PhoneUiSelfRepair.Stop.Refused].
+     */
+    private fun wirelessWriteNow(): Boolean {
+        if (!preferences.phoneRepairWireless.value) return false
+        if (!writeSecureSettingsGranted()) {
+            val shell = bridge.shell.value ?: return false
+            if (!shell.grantOwnWriteSecureSettings(app.packageName)) return false
+        }
+        // Checked by the write itself rather than by a second permission read:
+        // a fresh grant can land while this process keeps its cached answer.
+        return runCatching {
+            Settings.Global.putInt(app.contentResolver, "adb_wifi_enabled", 1)
+        }.getOrDefault(false)
+    }
+
+    /**
+     * The system's accessibility master switch and our entry in the service
+     * list, read exactly as PhoneUiProbes reads them. `enabled` alone is not
+     * enough: the repair needs to know that our component is listed, which is
+     * what the accessibility repair's `contains` check answers.
+     */
+    private fun accessibilityEnabled(): Boolean = runCatching {
+        Settings.Secure.getInt(app.contentResolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1 &&
+            PhoneUiAccessibilityRepair.contains(accessibilityServices(), accessibilityComponent)
+    }.getOrDefault(false)
+
+    /** The raw `enabled_accessibility_services` value; null when it was never written. */
+    private fun accessibilityServices(): String? =
+        runCatching {
+            Settings.Secure.getString(app.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
+        }.getOrNull()
+
     private companion object {
+        const val WRITE_SECURE_SETTINGS = "android.permission.WRITE_SECURE_SETTINGS"
         const val HANDOFF_TIMEOUT_MS = 20_000L
         const val HANDOFF_POLL_MS = 200L
         const val CODE_LENGTH = 6
@@ -408,5 +624,9 @@ class PhoneUiController(
         const val AUTO_PAIR_WINDOW_MS = 180_000L
         const val AUTO_PAIR_POLL_MS = 500L
         const val MAX_AUTO_PAIR_ATTEMPTS = 3
+        // Floor between repair steps. The loop's own waits are longer when it
+        // is backing off; this only keeps a "nothing to do" answer from
+        // spinning the coroutine.
+        const val REPAIR_POLL_MS = 2_000L
     }
 }

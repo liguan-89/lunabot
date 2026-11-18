@@ -128,12 +128,12 @@ describe("an automation's line in the chat", () => {
     expect(caption("run-1")?.textContent).not.toContain(t("chat.automation.needsYou"));
   });
 
-  it("labels a copy of a card the run waits on the same way", async () => {
+  it("moves a card the run waits on into the tray, leaving a quiet hint in the transcript", async () => {
     await draw(transcript([{
       id: "c1", parentId: "m2", role: "bot", kind: "options", at: at(3), automation: line("run-1", { needsYou: true }),
       card: { title: "Your bot has a question", subtitle: "Which account should I check?", options: ["Work", "Home"], requestId: "ask-1", requestType: "question" },
     }]));
     expect(caption("run-1")?.textContent).toContain("Inbox brief");
-    expect(document.querySelector('[data-mid="c1"]')?.textContent).toContain("Which account should I check?");
+    expect(document.querySelector('[data-mid="c1"]')?.textContent).toContain("Waiting in the tray below");
   });
 });

@@ -1,22 +1,23 @@
 package com.openmausbot.companion.ui
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -33,15 +34,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
 import com.openmausbot.companion.R
 import com.openmausbot.companion.audio.CallSpeaker
 import com.openmausbot.companion.core.Bot
@@ -65,7 +72,11 @@ import androidx.compose.runtime.mutableIntStateOf
  * announced, not answered by voice; answering them happens in the chat.
  */
 @Composable
-internal fun CallScreen(bot: Bot, onDismiss: () -> Unit) {
+internal fun CallScreen(
+    bot: Bot,
+    bottomClearance: Dp,
+    onDismiss: () -> Unit,
+) {
     val environment = LocalCompanion.current
     val session = environment.session
     val microphone = environment.dictation
@@ -81,6 +92,9 @@ internal fun CallScreen(bot: Bot, onDismiss: () -> Unit) {
 
     var phase by remember { mutableStateOf(CallPhase.LISTENING) }
     var note by remember { mutableStateOf<String?>(null) }
+    // Half-duplex has no open mic to stream over, so "mute" means the
+    // listening turn is parked until unmuted.
+    var muted by remember { mutableStateOf(false) }
     // Everything already on screen when the call starts has been read or
     // ignored — a call must not open by reciting the backlog.
     val spokenIds = remember { mutableSetOf<String>() }
@@ -89,15 +103,22 @@ internal fun CallScreen(bot: Bot, onDismiss: () -> Unit) {
     var sayGeneration by remember { mutableIntStateOf(0) }
 
     fun listen() {
-        phase = CallPhase.LISTENING
+        phase = if (muted) CallPhase.WORKING else CallPhase.LISTENING
         note = null
+        if (muted) return
         microphone.listenForTurn(CallRules.ENDPOINT_GAP_MILLIS) { heard ->
             val said = heard.trim()
             if (said.isEmpty()) {
                 listen()
             } else {
                 phase = CallPhase.SENDING
-                scope.launch { session.send(said, Chat.BotChat(current)) }
+                scope.launch {
+                    val sent = session.send(said, Chat.BotChat(current))
+                    if (!sent) {
+                        note = session.actionError ?: "发送失败，请稍后重试。"
+                        session.actionError = null
+                    }
+                }
             }
         }
     }
@@ -201,112 +222,45 @@ internal fun CallScreen(bot: Bot, onDismiss: () -> Unit) {
         }
     }
 
-    Dialog(
-        onDismissRequest = ::hangUp,
-        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
-    ) {
-        BackHandler { hangUp() }
-        val tint = Color(MausPalette.argb(current.color))
-        val pulse = rememberInfiniteTransition(label = "speaking")
-        val breathe by pulse.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.06f,
-            animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse),
-            label = "breathe",
-        )
-        val (leftIcon, leftLabel, leftEnabled) = Triple(R.drawable.ic_pan_tool, "打断并说话", phase == CallPhase.SPEAKING)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surface)
-                .background(tint.copy(alpha = 0.18f))
-                .systemBarsPadding(),
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(24.dp),
-            ) {
-                Spacer(Modifier.weight(1f))
-                BotAvatar(
-                    bot = current,
-                    size = 160.dp,
-                    state = if (phase == CallPhase.SPEAKING) MausState.HAPPY else MausState.forChat(Chat.BotChat(current), messages.lastOrNull()),
-                    contentDescription = "${current.name} 头像",
-                    modifier = Modifier.graphicsLayer {
-                        val scale = if (phase == CallPhase.SPEAKING) breathe else 1f
-                        scaleX = scale
-                        scaleY = scale
-                    },
-                )
-                Text(
-                    text = current.name,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(text = CallRules.phaseText(phase, current.name), fontSize = 17.sp, color = secondaryTint)
-                if (transcript.isNotEmpty() && phase == CallPhase.LISTENING) {
-                    Text(
-                        text = transcript,
-                        fontSize = 17.sp,
-                        textAlign = TextAlign.Center,
-                        maxLines = 4,
-                        modifier = Modifier.padding(horizontal = 28.dp),
-                    )
-                }
-                note?.let {
-                    Text(
-                        text = it,
-                        fontSize = 14.sp,
-                        color = minisWarning,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 28.dp),
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(40.dp),
-                    modifier = Modifier.padding(bottom = 36.dp),
-                ) {
-                    TouchTarget(
-                        onClick = ::interrupt,
-                        enabled = leftEnabled,
-                        size = 68.dp,
-                        contentDescription = leftLabel,
-                        modifier = Modifier.graphicsLayer { alpha = if (leftEnabled) 1f else 0.35f },
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(68.dp)
-                                .background(secondaryTint.copy(alpha = 0.18f), CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                painter = painterResource(leftIcon),
-                                contentDescription = null,
-                                modifier = Modifier.size(30.dp),
-                            )
-                        }
-                    }
-                    TouchTarget(onClick = ::hangUp, size = 68.dp, contentDescription = "挂断通话") {
-                        Box(
-                            modifier = Modifier
-                                .size(68.dp)
-                                .background(minisDanger, CircleShape),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_call_end),
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(32.dp),
-                            )
-                        }
-                    }
-                }
-            }
+    var expanded by remember { mutableStateOf(false) }
+    val lastBotReply = messages.lastOrNull {
+        it.role == Message.Role.BOT && it.kind == Message.Kind.TEXT && !it.text.isNullOrBlank()
+    }?.text.orEmpty()
+
+    fun toggleMute() {
+        muted = !muted
+        if (muted) {
+            microphone.stop()
+        } else if (phase == CallPhase.WORKING || phase == CallPhase.LISTENING) {
+            listen()
         }
     }
+
+    CallSurface(
+        bot = current,
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        phase = if (muted && phase == CallPhase.LISTENING) "已静音" else CallRules.phaseText(phase, current.name),
+        heard = if (muted) "" else transcript,
+        spoken = when {
+            phase == CallPhase.SPEAKING -> lastBotReply
+            phase == CallPhase.WORKING -> lastBotReply
+            else -> ""
+        },
+        note = note,
+        muted = muted,
+        primaryIcon = R.drawable.ic_pan_tool,
+        primaryLabel = "打断并说话",
+        primaryEnabled = phase == CallPhase.SPEAKING,
+        controlsEnabled = true,
+        bottomClearance = bottomClearance,
+        avatarState = when (phase) {
+            CallPhase.LISTENING -> MausState.LISTENING
+            CallPhase.SENDING, CallPhase.WORKING -> MausState.THINKING
+            CallPhase.SPEAKING -> MausState.HAPPY
+        },
+        onPrimary = ::interrupt,
+        onMute = ::toggleMute,
+        onHangUp = ::hangUp,
+    )
 }

@@ -20,18 +20,18 @@ export function TurnNarrationRun({
   }, [forceOpen]);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1.5">
       <div className="flex justify-start">
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
           aria-expanded={open}
           title={title ?? t(open ? "chat.narration.hide" : "chat.narration.show")}
-          className="ui-pill"
+          className="inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border border-hairline/35 bg-panel/80 px-2.5 text-[12px] font-medium text-ink-tertiary hover:bg-control hover:text-ink-secondary"
         >
-          <Check size={13} className="text-success" />
-          <span>{label}</span>
-          <ChevronRight size={13} className={open ? "rotate-90" : undefined} />
+          <Check size={12} className="shrink-0 text-success" />
+          <span className="truncate">{label}</span>
+          <ChevronRight size={12} className={open ? "shrink-0 rotate-90" : "shrink-0"} />
         </button>
       </div>
       {open && children}

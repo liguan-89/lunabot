@@ -60,9 +60,10 @@ import { ASK_USER_TOOL, MAX_QUESTION_TEXT, parseAskQuestions, parseChoices, ques
 import { appendNative } from "./native.ts";
 import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
+import { PiSessionAllow, readPiApprovalRequest } from "./pi-session-allow.ts";
 import { noticeFailure } from "../chat-notices.ts";
 
-import { decodePiFrame, PiRpcChunks, piLineReader, readPiPromptImages } from "./pi-rpc.ts";
+import { decodePiFrame, PiRpcChunks, piLineReader, piNativeLogMessage, readPiPromptImages } from "./pi-rpc.ts";
 import { PiRunUsage, type PiUsage, type TurnUsage } from "./pi-usage.ts";
 export { decodePiFrame, PiRpcChunks, piLineReader } from "./pi-rpc.ts";
 
@@ -81,21 +82,6 @@ const PI_SESSION_SLOW_MS = 20_000;
 
 /** pi answered success:false: an explicit refusal from a live runtime, not a transport failure. */
 class PiRpcRefusalError extends Error {}
-
-/** Native logs go into bug reports: keep the RPC shape and size, never image bytes. */
-function piNativeLogMessage(message: Record<string, unknown>): Record<string, unknown> {
-  if (!Array.isArray(message.images)) return message;
-  return {
-    ...message,
-    images: message.images.map((image) => {
-      if (!image || typeof image !== "object") return image;
-      const value = image as Record<string, unknown>;
-      return typeof value.data === "string"
-        ? { ...value, data: `[image data: ${value.data.length} base64 chars]` }
-        : value;
-    }),
-  };
-}
 
 export function piThinkingLevel(effort: EffortLevel): (typeof EFFORT_LEVELS)[number] | "off" {
   return effort === "none" ? "off" : effort;
@@ -263,6 +249,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       stop: () => Promise<void>;
       turnId: string;
       pending: Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>;
+      sessionAllow: PiSessionAllow;
       child?: { stdin: { write: (s: string) => void } };
       steer?: (text: string) => Promise<SteerOutcome>;
     }>();
@@ -281,6 +268,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       sessionFile: string | null;
       sessionReady: boolean;
       confirmedModel: string | null;
+      sessionAllow: PiSessionAllow;
       idleTimer: ReturnType<typeof setTimeout> | null;
     }
     const warmSessions = new Map<string, PiWarmSession>();
@@ -508,6 +496,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       let sessionFile: string | null;
       let sessionReady: boolean;
       let confirmedModel: string | null;
+      let sessionAllow: PiSessionAllow;
       if (reuse && warm) {
         const stale = pendingSpawns.get(threadId);
         if (stale) dropPending(threadId, stale);
@@ -515,6 +504,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         sessionFile = warm.sessionFile;
         sessionReady = warm.sessionReady;
         confirmedModel = warm.confirmedModel;
+        sessionAllow = warm.sessionAllow;
         if (warm.idleTimer) {
           clearTimeout(warm.idleTimer);
           warm.idleTimer = null;
@@ -542,6 +532,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         sessionFile = typeof turn.resumeCursor === "string" ? turn.resumeCursor : null;
         sessionReady = false;
         confirmedModel = null;
+        sessionAllow = new PiSessionAllow();
       }
       const freshSpawn = !reuse;
       let assistantText = "";
@@ -604,6 +595,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         for (const timer of askTimers) clearTimeout(timer);
         askTimers.clear();
         pending.clear();
+        sessionAllow.dropTurn();
         // `keep` is decided once: a warm child survives an ordinary completion
         // (that is the whole point), and every other exit — an explicit stop, a
         // dead or unconfirmed child — takes the kill path.
@@ -619,6 +611,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               sessionFile,
               sessionReady,
               confirmedModel,
+              sessionAllow,
               idleTimer: null,
             };
             warm.idleTimer = setTimeout(() => closeWarmSession(threadId, "idle"), SESSION_IDLE_MS);
@@ -714,7 +707,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return error instanceof PiRpcRefusalError ? "refused" : "indeterminate";
         }
       };
-      active.set(threadId, { stop, turnId, pending, child, steer: steerActiveTurn });
+      active.set(threadId, { stop, turnId, pending, sessionAllow, child, steer: steerActiveTurn });
 
       const onEvent = (evt: PiEvent) => {
         appendNative(threadId, { dir: "in", source: "pi.rpc", msg: evt });
@@ -787,13 +780,11 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               const title = String(evt.title ?? (isQuestion ? "pi has a question" : "pi wants confirmation")).slice(0, isQuestion ? MAX_QUESTION_TEXT : 200);
               // A gated confirm carries the call's input JSON as `message` — that is what the card must show.
               const detail = !isQuestion && typeof evt.message === "string" ? evt.message : "";
-              const gated = !isQuestion ? /^Allow (.+)\?$/.exec(title) : null;
-              let commandLine: string | undefined;
-              if (gated?.[1] === "bash" && detail) {
-                try {
-                  const cmd = (JSON.parse(detail) as { command?: unknown }).command;
-                  if (typeof cmd === "string" && cmd) commandLine = cmd;
-                } catch {}
+              const { commandLine, risk } = readPiApprovalRequest(evt, { title, isQuestion, controlsHost });
+              if (!isQuestion && sessionAllow.mayAutoAllow(risk)) {
+                send({ type: "extension_ui_response", id: reqId, confirmed: true });
+                emit({ ...base(threadId, turnId), requestId: reqId, type: "request.resolved", behavior: "allow", source: "auto" });
+                return;
               }
               const summary = detail ? `${title} — ${commandLine ?? detail}`.slice(0, 600) : title;
               const question = isSelect
@@ -803,6 +794,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 : undefined;
               const choices = question?.options.length ? question.options.map((option) => option.label) : undefined;
               let timer: ReturnType<typeof setTimeout> | undefined;
+              if (!isQuestion) sessionAllow.record(reqId, risk);
               // Register BEFORE emitting: the harness may auto-approve inside its synchronous request.opened listener.
               pending.set(reqId, (decision) => {
                 if (timer) {
@@ -826,6 +818,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 timer = setTimeout(() => {
                   if (timer) askTimers.delete(timer);
                   if (!pending.delete(reqId)) return;
+                  sessionAllow.forget(reqId);
                   send({ type: "extension_ui_response", id: reqId, cancelled: true });
                   emit({ ...base(threadId, turnId), requestId: reqId, type: "request.resolved", behavior: "deny", source: "timeout" });
                 }, 15 * 60_000);
@@ -837,8 +830,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
                 requestId: reqId,
                 type: "request.opened",
                 requestType: isQuestion ? "question" : "permission",
-                tool: gated?.[1] ?? String(evt.title ?? "pi"),
+                tool: risk.toolKey,
                 summary,
+                ...(!isQuestion && !risk.dangerous && !risk.controlsHost ? { allowSession: true } : {}),
                 ...(commandLine ? { commandLine } : {}),
                 ...(commandLine && turn.cwd ? { command: { command: commandLine, cwd: turn.cwd } } : {}),
                 ...(choices ? { choices } : {}),
@@ -1195,6 +1189,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           const answer = entry?.pending.get(requestId);
           if (!entry || !answer) return "unavailable";
           entry.pending.delete(requestId);
+          entry.sessionAllow.noteDecision(requestId, decision);
           answer({ behavior: decision.behavior, message: decision.message });
           emit({
             ...base(threadId, entry.turnId),

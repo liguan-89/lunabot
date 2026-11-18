@@ -65,9 +65,9 @@ describe("Simple as the only mode", () => {
     expect(readAdvancedMode()).toBe(false);
   });
 
-  it("keeps a paired remote client's chat menu, model picker and other-activity picker, which this computer's Simple chat leaves out", async () => {
+  it("keeps the model picker and other-activity picker for a paired remote client, which this computer's Simple chat leaves out", async () => {
     await draw();
-    expect(head().querySelector('[data-testid="chat-more"]')).toBeNull();
+    expect(head().querySelector('[data-testid="chat-more"]')).not.toBeNull();
     expect(head().querySelector('[data-test-model-control]')).toBeNull();
     expect(document.querySelector("[data-background-activity]")).toBeNull();
 

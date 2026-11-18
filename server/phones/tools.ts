@@ -2,6 +2,7 @@
 import type { ValidateFunction } from "ajv";
 
 import { PHONE_TOOL_NAMES, type PhonePlatform, type PhoneToolName } from "../../shared/phone-apps.ts";
+import { wrapUntrusted } from "../../shared/untrusted.ts";
 import { compileToolSchema, schemaProblems } from "../mcp-schema-validator.ts";
 
 const ID = { type: "string", minLength: 1, maxLength: 256, description: "An id from an earlier result." };
@@ -67,6 +68,14 @@ const tools: PhoneTool[] = [
     role: TEXT(100, "Full or partial accessibility class or role to find."),
     limit: { type: "integer", minimum: 1, maximum: 100, description: "Most elements to return; default 30." },
   }),
+  tool("PHONE_UI_FIND", "Scroll the phone's current screen until an element matching text, view id or role, at least one of the three, is found or the content stops changing. Scrolls one step at a time in `direction`, up to `maxScrolls`; it stops at the app's edge or when two screens in a row are identical. The refs it returns work with PHONE_UI_TAP and PHONE_UI_TYPE. It scrolls, so it asks the person first like any other screen write.", {
+    text: TEXT(200, "Case-insensitive text or content description to find."),
+    resourceId: TEXT(200, "Full or partial Android view id to find."),
+    role: TEXT(100, "Full or partial accessibility class or role to find."),
+    direction: { type: "string", enum: ["up", "down"], description: "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way." },
+    maxScrolls: { type: "integer", minimum: 1, maximum: 200, description: "Most scrolls to take before returning; default 30." },
+    limit: { type: "integer", minimum: 1, maximum: 100, description: "Most elements to return; default 30." },
+  }, ["direction"]),
   tool("PHONE_LIST_APPS", "List the apps installed on the phone that have a launcher entry, so PHONE_UI_LAUNCH gets the real package name instead of a guess. Read only.", { query: TEXT(120, "Part of an app name or package name to match."), limit: { type: "integer", minimum: 1, maximum: 200, description: "Most apps to return; default 60." } }),
   tool("PHONE_UI_LAUNCH", "Open one app on the person's Android phone by its package name, as an earlier PHONE_UI_OBSERVE named it.", { app: TEXT(200, "The Android app's package name.") }, ["app"]),
   tool("PHONE_UI_TAP", "Tap one element of the phone's current screen by its ref from PHONE_UI_OBSERVE. When the element's own click does nothing, the phone taps its spot and then the smallest clickable element under it; send, pay, delete, confirm and toggle controls are never retried.", { ref: REF }, ["ref"]),
@@ -99,7 +108,11 @@ const tools: PhoneTool[] = [
       },
     },
   }, ["commands"]),
-  tool("PHONE_UI_WAIT", "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.", { mode: { type: "string", enum: ["change", "settle"], description: "change waits for any change; settle waits for the screen to stop." }, timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds." } }),
+  tool("PHONE_UI_WAIT", "Wait for the phone's screen to change, to stop changing, or for a text to appear or disappear, before deciding the next step. Read only.", {
+    mode: { type: "string", enum: ["change", "settle", "appear", "disappear"], description: "change waits for any change; settle waits for the screen to stop; appear waits until the text is on the screen and disappear until it is gone." },
+    text: TEXT(200, "Case-insensitive text or content description to wait for; required for appear and disappear."),
+    timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds." },
+  }),
   tool("PHONE_UI_SCREENSHOT", "Take a JPEG of the phone's screen, for anything the element list cannot describe. Also returns the elements of the same moment with their refs. Read only.", {}),
   tool("PHONE_UI_OCR", "Recognize the text on the phone's screen and return it line by line with each line's box, for image or canvas screens the element list cannot describe. Read only.", { maxLines: { type: "integer", minimum: 1, maximum: 200, description: "Longest list of lines to keep." } }),
   tool("PHONE_CLIPBOARD_GET", "Read the phone's clipboard as plain text. Read only.", {}),
@@ -139,8 +152,10 @@ export const PHONE_TOOLS: ReadonlyArray<PhoneTool> = PHONE_TOOL_NAMES.map((name)
 
 let validators: Map<string, ValidateFunction> | undefined;
 
-/** PHONE_UI_QUERY needs one of these; none is required on its own, so the schema cannot say it. */
+/** PHONE_UI_QUERY and PHONE_UI_FIND each need one of these; none is required on its own, so the schema cannot say it. */
 const QUERY_SELECTORS = ["text", "resourceId", "role"] as const;
+/** Both tools search a screen the same way, so both refuse a call that names no target. */
+const SELECTOR_TOOLS: ReadonlySet<string> = new Set(["PHONE_UI_QUERY", "PHONE_UI_FIND"]);
 
 export function phoneToolCallProblem(name: unknown, args: unknown): string | null {
   validators ??= new Map(PHONE_TOOLS.map((entry) => [entry.name, compileToolSchema(entry.inputSchema as Record<string, unknown>, { allErrors: true })]));
@@ -149,8 +164,16 @@ export function phoneToolCallProblem(name: unknown, args: unknown): string | nul
   if (!args || typeof args !== "object" || Array.isArray(args) || !validate(args)) {
     return `Tool arguments do not match the advertised input schema: ${schemaProblems(validate.errors).join("; ") || "use its required fields and types"}.`;
   }
-  if (name === "PHONE_UI_QUERY" && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
-    return "PHONE_UI_QUERY needs at least one of text, resourceId, or role.";
+  if (typeof name === "string" && SELECTOR_TOOLS.has(name) && !QUERY_SELECTORS.some((key) => typeof (args as Record<string, unknown>)[key] === "string")) {
+    return `${name} needs at least one of text, resourceId, or role.`;
+  }
+  // appear/disappear name a text to watch for; the schema cannot require a field only for some modes.
+  // The phone trims text before matching, so a whitespace-only one is refused here as well.
+  if (name === "PHONE_UI_WAIT") {
+    const { mode, text } = args as { mode?: unknown; text?: unknown };
+    if ((mode === "appear" || mode === "disappear") && (typeof text !== "string" || text.trim().length === 0)) {
+      return `PHONE_UI_WAIT with mode ${mode} needs text.`;
+    }
   }
   // An inverted band would read nothing at all; the schema cannot say one field must stay under another.
   if (name === "PHONE_UI_COLLECT") {
@@ -175,22 +198,92 @@ export function phoneErrorResult(message: string, extra: Record<string, unknown>
   return { content: [{ type: "text", text: message }], structuredContent: { error: message, ...extra }, isError: true };
 }
 
+const asRecord = (value: unknown): Record<string, unknown> | null =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+
+/** Copies a record with the named string fields wrapped, leaving every other field as it was. */
+function wrapFields(value: unknown, keys: readonly string[]): unknown {
+  const record = asRecord(value);
+  if (!record) return value;
+  const copy = { ...record };
+  for (const key of keys) {
+    const text = copy[key];
+    if (typeof text === "string") copy[key] = wrapUntrusted(text);
+  }
+  return copy;
+}
+
+/** One element of a screen: its visible text and its content description are the app's words; its ref, view id,
+ * class and bounds are machine data. */
+const wrapElement = (element: unknown): unknown => wrapFields(element, ["text", "description"]);
+
+function wrapEach(value: unknown, wrap: (item: unknown) => unknown): unknown {
+  return Array.isArray(value) ? value.map(wrap) : value;
+}
+
+/**
+ * Where the phone's own app content sits, and so what gets the untrusted markers. The phone's answers keep these field
+ * names stable, so the wrapper reads the shape rather than being told the tool:
+ *
+ * | tool                    | wrapped                                                       |
+ * | ----------------------- | ------------------------------------------------------------- |
+ * | PHONE_UI_OBSERVE        | elements[].text, elements[].description                       |
+ * | PHONE_UI_QUERY          | elements[].text, elements[].description                       |
+ * | PHONE_UI_FIND           | elements[].text, elements[].description                       |
+ * | PHONE_UI_COLLECT        | lines[], screen.elements[].text, screen.elements[].description |
+ * | PHONE_UI_OCR            | lines[].text                                                  |
+ * | PHONE_UI_RUN            | steps[].matched, screen.elements[].text/.description          |
+ * | PHONE_UI_WAIT           | elements[].text, elements[].description                       |
+ * | any screen write or PHONE_UI_SCREENSHOT | elements[].text, elements[].description       |
+ * | PHONE_NOTIF_LIST        | notifications[].title, notifications[].text                   |
+ * | PHONE_CLIPBOARD_GET     | text (when hasText says there is one)                         |
+ * | PHONE_FILE_LIST         | files[].name                                                  |
+ * | PHONE_FILE_READ         | name, and text for a text file                                |
+ *
+ * Refs, bounds, view ids, class names, counts, package names, urls, mime types, ids, base64 images and every value in
+ * structuredContent are machine data and stay raw. So do our own note and error, a screen's size, and the query an
+ * answer echoes back.
+ */
+function untrustedContent(record: Record<string, unknown>): Record<string, unknown> {
+  const shown: Record<string, unknown> = { ...record };
+  if ("elements" in shown) shown.elements = wrapEach(shown.elements, wrapElement);
+  const screen = asRecord(shown.screen);
+  if (screen) shown.screen = { ...screen, elements: wrapEach(screen.elements, wrapElement) };
+  // COLLECT's lines are plain strings; OCR's are `{ text, bounds }`.
+  if (Array.isArray(shown.lines)) shown.lines = shown.lines.map((line) => (typeof line === "string" ? wrapUntrusted(line) : wrapElement(line)));
+  if (Array.isArray(shown.notifications)) shown.notifications = shown.notifications.map((notice) => wrapFields(notice, ["title", "text"]));
+  if (Array.isArray(shown.files)) shown.files = shown.files.map((file) => wrapFields(file, ["name"]));
+  if (Array.isArray(shown.steps)) shown.steps = shown.steps.map((step) => wrapFields(step, ["matched"]));
+  // A file's own name is the person's, whichever way its bytes came back; the note we write about a saved file is ours
+  // and carries no name of its own, so it is left alone.
+  if (typeof shown.name === "string") shown.name = wrapUntrusted(shown.name);
+  // Clipboard text and a text file's body. WAIT echoes the text the bot asked to watch for, and has neither field.
+  if (typeof shown.text === "string" && (typeof shown.hasText === "boolean" || typeof shown.name === "string")) {
+    shown.text = wrapUntrusted(shown.text);
+  }
+  return shown;
+}
+
 /** The phone's `image` (base64) becomes an MCP image block; the rest travels as text, so a reader that only
- * understands text still gets the metadata. The phone last, so no key in the phone's answer can relabel where it ran. */
+ * understands text still gets the metadata. The phone last, so no key in the phone's answer can relabel where it ran.
+ * Only the text the model reads is marked; `structuredContent` keeps the answer exactly as the phone sent it. */
 export function phoneOkResult(result: unknown, phone: { name: string; platform: PhonePlatform }): PhoneToolResult {
   const body = result && typeof result === "object" && !Array.isArray(result) ? { ...(result as object), phone } : { phone, result };
   const record = body as Record<string, unknown>;
+  const shown = untrustedContent(record);
   const image = typeof record.image === "string" && typeof record.mimeType === "string" && record.image.length > 0
     ? { data: record.image, mimeType: record.mimeType }
     : null;
-  if (!image) return { content: [{ type: "text", text: JSON.stringify(record) }], structuredContent: record };
+  if (!image) return { content: [{ type: "text", text: JSON.stringify(shown) }], structuredContent: record };
   const rest = { ...record };
   delete rest.image;
+  const displayed = { ...shown };
+  delete displayed.image;
   const structured = { ...rest, imageBytes: image.data.length };
   return {
     content: [
       { type: "image", data: image.data, mimeType: image.mimeType },
-      { type: "text", text: JSON.stringify(structured) },
+      { type: "text", text: JSON.stringify({ ...displayed, imageBytes: image.data.length }) },
     ],
     structuredContent: structured,
   };

@@ -55,12 +55,34 @@ class PhoneUiShellBridge(context: Context, scope: CoroutineScope) {
     @Volatile
     private var launchCallback: ((command: String, nonce: String) -> Unit)? = null
 
+    /**
+     * The person's remote-unlock switch, read at handoff time and again on
+     * every unlock call. Off until the owner sets it, so a bridge nobody wired
+     * unlocks nothing.
+     */
+    @Volatile
+    private var unlockAllowed: () -> Boolean = { false }
+
     init {
         // The bridge is the owner of the process-wide singleton: the provider
         // must resolve the same hub, and of(context) must hand back this
         // instance once one exists.
         synchronized(PhoneUiHandoff) { if (PhoneUiHandoff.ownerBridge == null) PhoneUiHandoff.ownerBridge = this }
-        scope.launch { hub.shell.collect { _shell.value = it?.let(::PhoneUiShell) } }
+        hub.setUnlockAllowed { unlockAllowed() }
+        scope.launch {
+            hub.shell.collect { attached ->
+                _shell.value = attached?.let { PhoneUiShell(it) { unlockAllowed() } }
+            }
+        }
+    }
+
+    /**
+     * Point the bridge at the person's switch. The answer travels to the helper
+     * in the handoff that attaches it (no settings write, no credential), and
+     * gates every unlock call made through [shell] in the meantime.
+     */
+    fun setUnlockAllowed(source: () -> Boolean) {
+        unlockAllowed = source
     }
 
     /**
@@ -125,7 +147,11 @@ class PhoneUiShellBridge(context: Context, scope: CoroutineScope) {
 }
 
 /** Typed facade over the helper's AIDL surface; every call can fail with a binder exception. */
-class PhoneUiShell(private val aidl: IPhoneUiShell) {
+class PhoneUiShell(
+    private val aidl: IPhoneUiShell,
+    /** The person's switch, re-read on every unlock call; false when nobody wired one. */
+    private val unlockAllowed: () -> Boolean = { false },
+) {
     /** -1 means the display could not be created (no trusted flags were usable either). */
     fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = aidl.createDisplay(surface, width, height, dpi)
 
@@ -164,4 +190,51 @@ class PhoneUiShell(private val aidl: IPhoneUiShell) {
 
     /** Finish [packageName] as `am force-stop` does; the helper refuses the system, the system UI and itself. */
     fun forceStop(packageName: String): Boolean = aidl.forceStop(packageName)
+
+    /**
+     * Write one of two allow-listed settings as shell: `adb_wifi_enabled`
+     * (global, the wireless debugging switch) or `enabled_accessibility_services`
+     * (secure, the colon separated service list). A null [value] deletes the
+     * setting. The helper owns the allow-list and refuses every other name
+     * without writing, so this is not a general settings writer.
+     */
+    fun putSecureSetting(name: String, value: String?): Boolean = aidl.putSecureSetting(name, value)
+
+    /**
+     * Ask the helper to grant [packageName] WRITE_SECURE_SETTINGS, once, so this
+     * app can keep `adb_wifi_enabled` on after a reboot. The caller must pass
+     * our own package: the helper resolves the calling uid's packages and
+     * refuses anything it does not own, and it can grant only this one
+     * permission. False means the ROM refused the grant or `pm` was
+     * unavailable; nothing was changed.
+     */
+    fun grantOwnWriteSecureSettings(packageName: String): Boolean =
+        aidl.grantOwnWriteSecureSettings(packageName)
+
+    /**
+     * Turn the screen on. Refused while the person's remote-unlock switch is
+     * off: waking the phone is part of unlocking it, and the switch is what
+     * authorizes that.
+     */
+    fun wake(): Boolean = unlockAllowed() && aidl.wakeDevice()
+
+    /** Swipe the keyguard to its credential page; only while the keyguard is up. */
+    fun revealKeyguard(): Boolean = unlockAllowed() && aidl.revealKeyguard()
+
+    /**
+     * Type [bytes] into the keyguard. [kind] is 0 (PIN) or 1 (password), [clear]
+     * the number of DEL presses for a half-entered value. The array is zeroed
+     * here after the call, so a caller need not remember to. The helper
+     * re-checks the switch, the secure keyguard and every key's target.
+     */
+    fun enterDeviceCredential(kind: Int, bytes: ByteArray, clear: Int): Boolean {
+        try {
+            return unlockAllowed() && aidl.enterDeviceCredential(kind, bytes, clear)
+        } finally {
+            bytes.fill(0)
+        }
+    }
+
+    /** One tap on the keyguard's "use PIN" style button; carries no credential. */
+    fun tapKeyguard(x: Int, y: Int): Boolean = unlockAllowed() && aidl.tapKeyguard(x, y)
 }

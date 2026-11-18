@@ -74,7 +74,6 @@ class OnboardingScene(
     /** When set, a redemption suspends here — an attempt held in flight. */
     private val pairSuspendsUntil: kotlinx.coroutines.CompletableDeferred<Unit>? = null,
     notificationOnboardingPending: Boolean = false,
-    welcomeSeen: Boolean = false,
     notificationPromptSeen: Boolean = false,
 ) {
     private val context: Context = RuntimeEnvironment.getApplication() as Application
@@ -188,7 +187,6 @@ class OnboardingScene(
 
     init {
         runBlockingWrite {
-            if (welcomeSeen) onboarding.setWelcomeSeen(true)
             if (notificationPromptSeen) onboarding.setNotificationPromptSeen(true)
             if (notificationOnboardingPending) {
                 onboarding.setNotificationOnboardingPending(true)

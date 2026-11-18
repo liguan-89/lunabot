@@ -39,6 +39,62 @@ class ChatPreferencesTest {
     }
 
     @Test
+    fun `phone pace defaults to fast and survives a new preferences instance`() {
+        val name = "chat-phone-pace"
+        val prefs = store(name)
+        // Fast, not OperatingPace.DEFAULT (standard): an install that upgrades
+        // must keep the touch it had before the setting existed.
+        assertEquals(PhonePace.FAST, prefs.phonePace.value)
+
+        prefs.setPhonePace(PhonePace.HUMAN)
+        assertEquals(PhonePace.HUMAN, store(name).phonePace.value)
+
+        prefs.setPhonePace(PhonePace.FAST)
+        assertEquals(PhonePace.FAST, store(name).phonePace.value)
+
+        // A value from a newer build that named a level this one does not know
+        // must not leave the executor on anything but the old touch.
+        context.getSharedPreferences(name, Context.MODE_PRIVATE)
+            .edit()
+            .putString("companion.prefs.phone.pace", "warp")
+            .commit()
+        assertEquals(PhonePace.FAST, store(name).phonePace.value)
+    }
+
+    @Test
+    fun `phone repair wireless defaults to off and survives a new preferences instance`() {
+        val name = "chat-phone-repair-wireless"
+        val prefs = store(name)
+        // The grant widens what the app itself may write, so it is never
+        // implied by an upgrade: a fresh install and an old one both read off.
+        assertEquals(false, prefs.phoneRepairWireless.value)
+
+        prefs.setPhoneRepairWireless(true)
+        assertEquals(true, store(name).phoneRepairWireless.value)
+
+        prefs.setPhoneRepairWireless(false)
+        assertEquals(false, store(name).phoneRepairWireless.value)
+    }
+
+    @Test
+    fun `a stored value of another type reads as wireless repair off`() {
+        val name = "chat-phone-repair-wireless-garbage"
+        // A build that wrote this key as text, and one that wrote a number: a
+        // type mismatch must not throw while Settings builds the preference.
+        context.getSharedPreferences(name, Context.MODE_PRIVATE)
+            .edit()
+            .putString("companion.prefs.phone.repair.wireless", "yes")
+            .commit()
+        assertEquals(false, store(name).phoneRepairWireless.value)
+
+        context.getSharedPreferences(name, Context.MODE_PRIVATE)
+            .edit()
+            .putInt("companion.prefs.phone.repair.wireless", 1)
+            .commit()
+        assertEquals(false, store(name).phoneRepairWireless.value)
+    }
+
+    @Test
     fun `activity detail survives a new preferences instance`() {
         val name = "chat-activity-detail"
         store(name).setActivityDetail(ActivityDetail.HIDDEN)

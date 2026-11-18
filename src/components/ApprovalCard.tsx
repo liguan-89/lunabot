@@ -1,5 +1,5 @@
 import { useContext, useState, type ReactNode } from "react";
-import { Check, Clock3, ShieldCheck, Undo2, X } from "lucide-react";
+import { Check, Clock3, ShieldCheck, TriangleAlert, Undo2, X } from "lucide-react";
 import { api, ApiError, StoreContext, type Bot, type Message, type OptionCardData } from "@/state/store";
 import { shareLearnedSkillsMode } from "@/lib/feature-flags";
 import { cn } from "@/lib/cn";
@@ -361,6 +361,7 @@ function CompactApprovalRow({
   byVoice,
   waiting,
   answeredBelow,
+  danger = false,
 }: {
   header: string;
   summary?: string;
@@ -372,6 +373,7 @@ function CompactApprovalRow({
   byVoice: ReactNode;
   waiting: boolean;
   answeredBelow: boolean;
+  danger?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = () => setOpen((value) => !value);
@@ -390,7 +392,9 @@ function CompactApprovalRow({
     >
       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1 leading-5">
         {waiting
-          ? <ShieldCheck size={14} className="shrink-0 self-center text-accent" aria-hidden="true" />
+          ? danger
+            ? <TriangleAlert size={14} className="shrink-0 self-center text-danger" aria-hidden="true" />
+            : <ShieldCheck size={14} className="shrink-0 self-center text-accent" aria-hidden="true" />
           : allowed
             ? <Check size={14} className="shrink-0 self-center text-success" aria-hidden="true" />
             : expired
@@ -516,6 +520,7 @@ export function ApprovalCard({
         byVoice={byVoice}
         waiting={waiting}
         answeredBelow={Boolean(card.requestId && card.tool && !card.dismissed)}
+        danger={Boolean(card.danger)}
       />
     );
     return waiting && card.requestId && card.tool ? <div className="flex w-full flex-col gap-1">{row}<CardHint id="spot.approval" /></div> : row;
@@ -526,7 +531,7 @@ export function ApprovalCard({
       data-tour={settled || expired ? undefined : "approval"}
       className={cn(
         "w-full max-w-[840px] rounded-2xl border bg-card p-4",
-        settled || expired ? "border-hairline/30 opacity-70" : "border-accent/40",
+        settled || expired ? "border-hairline/30 opacity-70" : card.danger ? "border-danger/45 bg-danger/[0.03]" : "border-accent/40",
       )}
     >
       <div className="flex items-baseline justify-between gap-3">
@@ -575,7 +580,7 @@ export function ApprovalCard({
           </>
         ) : (
           <>
-            <ShieldCheck size={14} className="text-accent" />
+            {card.danger ? <TriangleAlert size={14} className="text-danger" /> : <ShieldCheck size={14} className="text-accent" />}
             {isRoutineRequest || isSkillRequest || isProfileRequest || titled
               ? t("approval.status.waitingConfirmation")
               : t("approval.status.waitingAnswer")}

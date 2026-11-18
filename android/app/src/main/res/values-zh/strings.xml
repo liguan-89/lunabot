@@ -11,4 +11,18 @@
     <string name="notification_channel_always_on_desc">当 Luna Bot 在后台保持连接时显示</string>
     <string name="always_on_notification_title">Luna Bot 正在后台保持连接</string>
     <string name="always_on_notification_text">即使关闭应用也能实时收到通知</string>
+    <string name="settings_phone_pace">操作节奏</string>
+    <string name="settings_phone_pace_fast">快</string>
+    <string name="settings_phone_pace_fast_caption">不额外等待，整段文字一次写入（当前行为）</string>
+    <string name="settings_phone_pace_standard">标准</string>
+    <string name="settings_phone_pace_standard_caption">操作之间停顿，文字分段输入</string>
+    <string name="settings_phone_pace_human">像人</string>
+    <string name="settings_phone_pace_human_caption">停顿和输入都更慢，所有应用一致</string>
+    <string name="settings_phone_pace_footnote">越慢的档位越不像机器操作，在被限流或识别自动化的应用上更稳；代价是任务耗时更长。</string>
+    <string name="settings_phone_self_check">自检</string>
+    <string name="settings_phone_self_check_caption">检查设备、权限、辅助进程和受控屏幕</string>
+    <string name="settings_phone_self_check_title">自检结果</string>
+    <string name="settings_phone_repair_wireless">重启后自动打开无线调试</string>
+    <string name="settings_phone_repair_wireless_caption">关闭：不授予任何权限，App 也改不了这项设置。</string>
+    <string name="settings_phone_repair_wireless_pending">开启：等助手连接后授权；在此之前尚未获得授权。</string>
 </resources>

@@ -64,7 +64,8 @@ import kotlinx.coroutines.launch
  * The decision itself is not here. It is
  * [com.openmausbot.companion.core.OnboardingRouter], in `:core`, because the
  * orderings that matter are invisible until they are wrong: revocation has to
- * outrank a pending deep link, a deep link has to outrank the welcome, and a
+ * outrank a pending deep link, a deep link has to outrank the unpaired home,
+ * and a
  * pairing someone already had must never be handed first-pair education. This
  * file's job is to hand the router honest inputs and to render what it answers.
  *
@@ -92,7 +93,6 @@ fun CompanionRoot(
     val invite by session.pairingInvite.collectAsState()
     val restoreState by session.restoreState.collectAsState()
     val notificationAccess by environment.notifications.access.collectAsState()
-    val welcomeSeen by onboarding.welcomeSeen.collectAsState()
     val notificationPromptSeen by onboarding.notificationPromptSeen.collectAsState()
     val notificationPending by onboarding.notificationPending.collectAsState()
 
@@ -106,7 +106,6 @@ fun CompanionRoot(
     val route = OnboardingRouter.route(
         OnboardingContext(
             pairingState = onboardingPairingState(status, connection),
-            hasSeenWelcome = welcomeSeen,
             pairingRequested = pairingRequested,
             hasPendingPairingInvite = invite != null,
             notificationOnboardingPending = notificationPending,
@@ -135,7 +134,6 @@ fun CompanionRoot(
     }
 
     fun startPairing() {
-        scope.launch { onboarding.setWelcomeSeen(true) }
         session.beginPairing()
     }
 
@@ -163,20 +161,6 @@ fun CompanionRoot(
         if (route != OnboardingRoute.UNPAIRED_HOME) showingUnpairedSettings = false
     }
 
-    // A pairing that commits answers the welcome and ends the request that
-    // opened the form, wherever the person came in from — the welcome, the
-    // unpaired home, or a deep link on a first launch nobody had answered.
-    //
-    // One place. iOS spreads the same two writes over `ChatListView.onAppear`
-    // and the education step's `onContinue`, which means two copies of "the
-    // request is over" that have to stay in agreement; a stale one is what lets
-    // a much later voluntary unpair walk straight back into the pairing form.
-    LaunchedEffect(connection != null) {
-        if (connection == null) return@LaunchedEffect
-        onboarding.setWelcomeSeen(true)
-        // A new connection can be added while another is already non-null, so
-        // only Session (which knows the redemption result) ends the request.
-    }
     // The only thing that spends the marker. One effect, keyed on every input
     // the policy reads, so it runs at launch and again whenever any of them
     // moves — an answer arriving, the step being answered, a fresh pairing
@@ -234,8 +218,9 @@ fun CompanionRoot(
 
     CompanionTheme(darkTheme = darkTheme) {
         // One place for system insets: the app draws edge to edge, and every
-        // screen wants the same answer — keep content clear of the status bar,
-        // the gesture bar, and the keyboard.
+        // screen keeps clear of the gesture bar and keyboard. Conversation
+        // owns its top inset so the transcript and its haze can reach the
+        // status bar; other destinations keep the shared safe area.
         //
         // The strips outside the inset Surface are painted here, and a screen
         // that is deliberately full-bleed (the computer viewer) may replace
@@ -250,7 +235,7 @@ fun CompanionRoot(
                 modifier = Modifier
                     .fillMaxSize()
                     .windowInsetsPadding(
-                        WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
+                        WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal),
                     )
                     .imePadding(),
             ) {
@@ -266,6 +251,12 @@ fun CompanionRoot(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
+                        .then(
+                            if (route == OnboardingRoute.CHATS) Modifier
+                            else Modifier.windowInsetsPadding(
+                                WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+                            ),
+                        )
                         .onGloballyPositioned { observerOrigin.value = it.positionInWindow() }
                         .pointerInput(faceClock) {
                             val clock = faceClock ?: return@pointerInput
@@ -286,17 +277,6 @@ fun CompanionRoot(
                         },
                 ) {
                     when (route) {
-                        OnboardingRoute.WELCOME -> WelcomeScreen(
-                            onConnect = ::startPairing,
-                            onSkip = {
-                                // "Not now" is an answer, not a postponement of the same
-                                // screen: it is remembered, and it leads to a home that
-                                // can still connect and still reach Settings.
-                                scope.launch { onboarding.setWelcomeSeen(true) }
-                                session.endPairing()
-                            },
-                        )
-
                         OnboardingRoute.PAIRING -> {
                             // Being on this screen *is* the request, and it is what
                             // keeps the screen up after `PairingScreen` consumes the
@@ -304,14 +284,10 @@ fun CompanionRoot(
                             // `hasPendingPairingInvite` goes false and this is the only
                             // thing left holding the route.
                             LaunchedEffect(Unit) {
-                                onboarding.setWelcomeSeen(true)
                                 session.beginPairing()
                             }
                             PairingScreen(
-                                onCancel = {
-                                    scope.launch { onboarding.setWelcomeSeen(true) }
-                                    session.endPairing()
-                                },
+                                onCancel = { session.endPairing() },
                             )
                         }
 
@@ -495,6 +471,16 @@ private const val NAV_MILLIS = 300
 /** The one place a destination becomes a screen. */
 @Composable
 private fun DestinationContent(destination: Destination, navigator: CompanionNavigator) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(
+                if (destination is Destination.Conversation) Modifier
+                else Modifier.windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
+                ),
+            ),
+    ) {
     when (destination) {
         Destination.Roster -> RosterScreen(navigator)
         Destination.Settings -> SettingsScreen(
@@ -541,6 +527,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             onOpenChat = navigator::open,
             botId = destination.botId,
         )
+    }
     }
 }
 

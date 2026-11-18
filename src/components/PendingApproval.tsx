@@ -126,6 +126,14 @@ function isDurable(pending: Pending): boolean {
     titledCard(card) || Boolean(card?.modelRequest);
 }
 
+export function approvalBatchKey(pending: Pending): string {
+  if (pending.allowKey) return `allowKey:${pending.allowKey}`;
+  if (pending.commandAllowlist) {
+    return `cmd:${pending.commandAllowlist.providerInstanceId}:${pending.commandAllowlist.cwd}:${pending.commandAllowlist.command}`;
+  }
+  return `tool:${pending.tool}`;
+}
+
 /** What will happen, in plain words; the command shown whole when it is what will run, and everything the card holds
  * behind Details. */
 function approvalWords(pending: Pending, botName?: string): { line: string; summary?: string; inline?: string; note?: string; detail: string } {
@@ -189,13 +197,16 @@ export const PendingApprovalPanel = memo(function PendingApprovalPanel({
               : t("approval.aria.pending")
       }
       data-ask-card="approval"
-      className="px-4 pb-3.5 pt-3"
+      className={cn("px-4 pb-3.5 pt-3", pending.danger && "bg-danger/[0.03]")}
     >
       <div className="flex min-w-0 items-center gap-2" aria-live="polite">
         <div className="min-w-0 flex-1">
           {asker ? pending.message.inbox?.origin ? <CopyHeader message={pending.message} asker={asker} line={line} /> : <AskHeader asker={asker} line={line} /> : (
             <div className="flex items-center gap-1.5 text-[13px] leading-[18px] text-ink-secondary">
-              <ShieldCheck size={15} className="shrink-0" aria-hidden="true" /><span className="min-w-0 truncate">{line}</span>
+              {pending.danger
+                ? <TriangleAlert size={15} className="shrink-0 text-danger" aria-hidden="true" />
+                : <ShieldCheck size={15} className="shrink-0" aria-hidden="true" />}
+              <span className="min-w-0 truncate">{line}</span>
             </div>
           )}
         </div>
@@ -249,6 +260,7 @@ export const PendingApprovalPanel = memo(function PendingApprovalPanel({
 
 export function PendingApprovalActions({
   pending,
+  approvals,
   threadId,
   bot,
   onCancelTurn,
@@ -256,6 +268,7 @@ export function PendingApprovalActions({
   tag,
 }: {
   pending: Pending;
+  approvals?: Pending[];
   threadId: string;
   bot?: Bot;
   onCancelTurn: () => void;
@@ -316,6 +329,20 @@ export function PendingApprovalActions({
         : !pending.allowKey && pending.allowSession
           ? { name: t("approval.action.alwaysAllowSession"), hint: t("approval.action.alwaysAllowSessionHint"), run: () => decide("allow", true) }
           : null;
+  const batchKey = approvalBatchKey(pending);
+  const matching = !pending.danger && !durableRequest && approvals
+    ? approvals.filter((item) => !item.danger && !isDurable(item) && approvalBatchKey(item) === batchKey)
+    : [];
+  const allowAllMatching = () => {
+    for (const item of matching) {
+      dispatch({
+        type: "decideRequest",
+        threadId,
+        requestId: item.requestId,
+        behavior: "allow",
+      });
+    }
+  };
   const more = showMore && !durableRequest ? [
     <button key="cancel" type="button" onClick={onCancelTurn} className={ASK_QUIET_ANSWER}>
       {t("approval.action.cancelTurn")}
@@ -334,12 +361,23 @@ export function PendingApprovalActions({
         {t("approval.action.alwaysAllow")}
       </button>
     ),
+    matching.length >= 2 && (
+      <button
+        key="allow-all-matching"
+        {...marked("allow-all-matching")}
+        type="button"
+        onClick={allowAllMatching}
+        className={ASK_QUIET_ANSWER}
+      >
+        {t("approval.action.allowAllMatching", { count: matching.length })}
+      </button>
+    ),
     <button
       key="deny"
       {...marked("deny")}
       type="button"
       onClick={() => decide("deny")}
-      autoFocus={titled}
+      autoFocus={titled || Boolean(pending.danger)}
       className={ASK_SECONDARY_BUTTON}
     >
       {pending.message.card?.lendingLift ? pending.message.card.options[1] : isRoutineRequest || isProfileRequest || titled ? t("approval.action.cancel") : t("approval.action.deny")}
@@ -359,7 +397,9 @@ export function PendingApprovalActions({
           : t("approval.action.enable")
         : isRoutineRequest || isProfileRequest
           ? t("approval.action.confirm")
-          : t("approval.action.allowOnce")}
+          : pending.danger
+            ? t("approval.action.allowDanger")
+            : t("approval.action.allowOnce")}
     </button>,
   ].filter(Boolean) : [];
   if (part === "primary") return <>{primary}</>;

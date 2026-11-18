@@ -53,13 +53,9 @@ import androidx.compose.ui.unit.sp
 
 /** The sentences these screens are made of, named so a test can look them up. */
 object OnboardingCopy {
-    const val WELCOME_TITLE = "随身携带您的智能体"
-    const val WELCOME_SUBTITLE =
-        "在手机上打开对话、审批操作并派发新任务。"
-    const val WELCOME_CONNECT = "连接我的电脑"
     const val NOT_NOW = "暂不"
 
-    const val UNPAIRED_HOME_TITLE = "随时准备连接"
+    const val UNPAIRED_HOME_TITLE = "随身携带您的智能体"
     const val UNPAIRED_HOME_BODY =
         "将此手机与 Luna Bot 配对，即可查看对话并回复您的智能体。"
     const val UNPAIRED_HOME_HINT =
@@ -81,60 +77,13 @@ object OnboardingCopy {
 }
 
 /**
- * First launch. Says what the app is, then offers exactly two answers — and the
- * second one is real: "Not now" leads to [UnpairedHomeScreen], not back here.
+ * The one unpaired surface: welcome and home at once. It says what the app is,
+ * how to get a pairing, offers the way in, and — the part iOS puts in a
+ * toolbar and this puts in a header — reaches Settings, so notifications can
+ * be recovered later without first entering a pairing flow.
  *
- * Nothing on this screen asks the system for anything. That is the whole point
- * of it existing.
- */
-@Composable
-fun WelcomeScreen(onConnect: () -> Unit, onSkip: () -> Unit) {
-    OnboardingLayout(
-        actions = {
-            OnboardingPrimaryButton(OnboardingCopy.WELCOME_CONNECT, onConnect)
-            TextButton(onClick = onSkip, modifier = Modifier.fillMaxWidth()) {
-                Text(OnboardingCopy.NOT_NOW, fontSize = 14.sp, color = secondaryTint)
-            }
-        },
-    ) {
-        DexBotMark(92.dp)
-        Text(
-            text = OnboardingCopy.WELCOME_TITLE,
-            fontSize = 23.sp,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { heading() },
-        )
-        Text(
-            text = OnboardingCopy.WELCOME_SUBTITLE,
-            fontSize = 14.sp,
-            color = secondaryTint,
-            textAlign = TextAlign.Center,
-        )
-        Spacer(Modifier.height(4.dp))
-        Benefit(
-            icon = Icons.AutoMirrored.Filled.Send,
-            title = "对话尽在掌握",
-            detail = "在手机上无缝接续电脑上的同一场对话。",
-        )
-        Benefit(
-            icon = Icons.Filled.CheckCircle,
-            title = "在智能体需要时及时响应",
-            detail = "无需回到电脑桌前即可审阅并批准请求。",
-        )
-        Benefit(
-            icon = Icons.Filled.Lock,
-            title = "原生隐私保护",
-            detail = "由您自主选择此手机连接的受信任电脑。",
-        )
-    }
-}
-
-/**
- * Where "Not now" leads. A home that is useful without a pairing: it says how to
- * get one, offers the way in, and — the part iOS puts in a toolbar and this puts
- * in a header — reaches Settings, so notifications can be recovered later
- * without first entering a pairing flow the person just declined.
+ * Nothing on this screen asks the system for anything: the first frame of a
+ * cold launch must not put a permission dialog or a network search on screen.
  */
 @Composable
 fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
@@ -166,10 +115,18 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
                 OnboardingPrimaryButton(OnboardingCopy.UNPAIRED_HOME_CONNECT, onConnect)
             },
         ) {
-            DexBotMark(88.dp)
+            // The brand face itself welcomes: the same crowned Luna the paired
+            // hero shows, breathing and blinking instead of a static mark.
+            PresetBotAvatar(
+                color = "white",
+                size = 96.dp,
+                motion = AvatarMotion.BREATH,
+                drowsy = false,
+                crown = true,
+            )
             Text(
                 text = OnboardingCopy.UNPAIRED_HOME_TITLE,
-                fontSize = 21.sp,
+                fontSize = 23.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.semantics { heading() },
@@ -179,6 +136,22 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
                 fontSize = 14.sp,
                 color = secondaryTint,
                 textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(2.dp))
+            Benefit(
+                icon = Icons.AutoMirrored.Filled.Send,
+                title = "对话尽在掌握",
+                detail = "在手机上无缝接续电脑上的同一场对话。",
+            )
+            Benefit(
+                icon = Icons.Filled.CheckCircle,
+                title = "在智能体需要时及时响应",
+                detail = "无需回到电脑桌前即可审阅并批准请求。",
+            )
+            Benefit(
+                icon = Icons.Filled.Lock,
+                title = "原生隐私保护",
+                detail = "由您自主选择此手机连接的受信任电脑。",
             )
             Text(
                 text = OnboardingCopy.UNPAIRED_HOME_HINT,

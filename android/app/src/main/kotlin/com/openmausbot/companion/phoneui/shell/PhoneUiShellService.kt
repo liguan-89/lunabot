@@ -7,12 +7,14 @@
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
  * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
  * translated into English, and trimmed to the IPhoneUiShell surface. No
- * clipboard, audio muting, device unlock, device files, call audio, devtools
- * sockets, shell command endpoint, orientation watch or IME policy remain;
- * task moving is kept only as a bounded main-display <-> own-display move, and
- * display keep-awake only pokes the helper's own display group. Every
- * display-bound input endpoint requires a display this service created
- * (ownDisplay), which excludes the primary display from all event injection.
+ * clipboard, audio muting, device files, call audio, devtools sockets, shell
+ * command endpoint, orientation watch or IME policy remain; task moving is kept
+ * only as a bounded main-display <-> own-display move, and display keep-awake
+ * only pokes the helper's own display group. Every display-bound input endpoint
+ * requires a display this service created (ownDisplay), which excludes the
+ * primary display from all event injection. The keyguard endpoints are the one
+ * exception, and they name a window uid instead of a display: see
+ * [PhoneUiUnlock].
  */
 package com.openmausbot.companion.phoneui.shell
 
@@ -20,6 +22,7 @@ import android.annotation.SuppressLint
 import android.app.ActivityOptions
 import android.content.ClipData
 import android.content.ComponentName
+import android.content.ContentResolver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -31,6 +34,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.Process
 import android.os.SystemClock
+import android.provider.Settings
 import android.util.Log
 import android.view.Display
 import android.view.InputDevice
@@ -39,6 +43,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
+import com.openmausbot.companion.phoneui.PhoneUiUnlock
 import kotlin.system.exitProcess
 
 /**
@@ -78,6 +83,32 @@ class PhoneUiShellService(
 
     /** Clipboard access as shell; reads skip the framework's Settings query. */
     private val clipboard by lazy { ShellClipboard(context) }
+
+    /**
+     * The person's "allow remote unlock" switch, as the app reported it during
+     * the handoff that attached this helper ([HandoffProtocol.KEY_UNLOCK]).
+     * Off until that says otherwise, so a helper whose handoff carried no
+     * answer unlocks nothing. Flipping the switch off while attached is
+     * enforced by the app, which re-reads the switch before every call; this
+     * snapshot can only ever be as permissive as what the app sent.
+     */
+    @Volatile
+    private var unlockEnabled = false
+
+    /** Called once per accepted handoff, before the app can reach the binder. */
+    fun setUnlockEnabled(enabled: Boolean) {
+        unlockEnabled = enabled
+    }
+
+    /** Wake, keyguard reveal, credential typing and the fallback tap; see [PhoneUiUnlock]. */
+    private val unlock by lazy {
+        PhoneUiUnlock.of(
+            context = context,
+            enabled = { unlockEnabled },
+            inject = { event -> inject(event, Display.DEFAULT_DISPLAY) },
+            injectTo = ::injectToWindow,
+        )
+    }
 
     override fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = try {
         createVirtualDisplay(surface, width, height, dpi, trusted = true)
@@ -441,7 +472,54 @@ class PhoneUiShellService(
             packageName.all { it.isLetterOrDigit() || it == '.' || it == '_' } &&
             packageName !in PROTECTED_PACKAGES
 
+    /**
+     * Write one of [ALLOWED_SECURE_SETTINGS] as shell, or delete it when
+     * [value] is null. Shell holds WRITE_SECURE_SETTINGS, but the allow-list
+     * belongs to this helper, not to the caller: a name outside it is refused
+     * before the system is touched, so the endpoint cannot be turned into a
+     * general secure-settings writer. There is deliberately no `settings put`
+     * fallback, because that command would accept any key.
+     */
+    override fun putSecureSetting(name: String, value: String?): Boolean =
+        writeSecureSetting(context.contentResolver, name, value)
+
+    /**
+     * Grant our own package WRITE_SECURE_SETTINGS, once, so the app itself can
+     * keep the wireless-debugging switch on after a reboot without asking the
+     * helper again. This is the only permission the endpoint can grant, and
+     * only to a package the calling uid owns: [Binder.getCallingUid] is
+     * already gated by [onTransact], and the helper re-resolves that uid's
+     * packages instead of trusting the name. An unowned package, a malformed
+     * name, `pm` refusing or `pm` missing all come back as false.
+     *
+     * Safe to keep in a helper with no shell endpoint: the argv is built here
+     * from a fixed binary, a fixed verb and a fixed permission, so there is
+     * nothing a caller can add to it.
+     */
+    override fun grantOwnWriteSecureSettings(packageName: String): Boolean =
+        grantWriteSecureSettings(
+            packageName,
+            Binder.getCallingUid(),
+            { uid -> context.packageManager.getPackagesForUid(uid) },
+            { argv -> runPmGrant(argv) },
+        )
+
     override fun identity(): IntArray = intArrayOf(Process.myUid(), Process.myPid())
+
+    /**
+     * The four keyguard calls. Each re-reads the person's switch through
+     * [unlock] (whose `enabled` predicate reads [unlockEnabled]) and refuses
+     * when it is off; [PhoneUiUnlock] itself refuses when there is no secure
+     * keyguard, so a swipe-only lock screen is not a typing target.
+     */
+    override fun wakeDevice(): Boolean = unlock.wake()
+
+    override fun revealKeyguard(): Boolean = unlock.reveal()
+
+    override fun enterDeviceCredential(kind: Int, credential: ByteArray, clear: Int): Boolean =
+        unlock.enter(kind, credential, clear)
+
+    override fun tapKeyguard(x: Int, y: Int): Boolean = unlock.tap(x, y)
 
     override fun releaseAll() {
         awake.stopAll()
@@ -481,6 +559,29 @@ class PhoneUiShellService(
     private fun inputManager(): Any = runCatching {
         Class.forName("android.hardware.input.InputManagerGlobal").getMethod("getInstance").invoke(null)
     }.getOrNull() ?: Class.forName("android.hardware.input.InputManager").getMethod("getInstance").invoke(null)!!
+
+    /**
+     * Inject only into a window owned by [targetUid], waiting for the system to
+     * finish dispatch. This is the Android 13+ overload
+     * `injectInputEvent(InputEvent, int, int)`: if the focus is not a window of
+     * that uid — another app over the keyguard, or the app itself after the
+     * phone unlocked mid-sequence — the system refuses the event instead of
+     * delivering it somewhere else. On an older platform, or if the overload is
+     * absent, nothing is injected and the answer is false.
+     *
+     * Failures log the exception class only: the events on this path carry the
+     * device credential.
+     */
+    @SuppressLint("PrivateApi")
+    private fun injectToWindow(event: InputEvent, targetUid: Int): Boolean = try {
+        val manager = inputManager()
+        manager.javaClass
+            .getMethod("injectInputEvent", InputEvent::class.java, Int::class.java, Int::class.java)
+            .invoke(manager, event, INJECT_MODE_WAIT_FOR_FINISH, targetUid) as Boolean
+    } catch (t: Throwable) {
+        Log.w(TAG, "targeted injectInputEvent failed: ${(t.cause ?: t).javaClass.simpleName}")
+        false
+    }
 
     /**
      * A press/lift pair: only an unsuccessful press falls back to a shell
@@ -537,5 +638,190 @@ class PhoneUiShellService(
         private val PROTECTED_PACKAGES = setOf("android", "com.android.systemui", ShellContext.SHELL_PACKAGE)
         private const val VIRTUAL_KEYBOARD = -1 // KeyCharacterMap.VIRTUAL_KEYBOARD
         private const val USER_CURRENT = -2 // UserHandle.USER_CURRENT
+
+        /** InputManager.INJECT_INPUT_EVENT_MODE_WAIT_FOR_FINISH: return only after the window handled it. */
+        private const val INJECT_MODE_WAIT_FOR_FINISH = 2
+
+        /**
+         * The only settings [putSecureSetting] will write, each mapped to its
+         * own namespace. `adb_wifi_enabled` is a global setting (the wireless
+         * debugging switch the self-repair turns back on);
+         * `enabled_accessibility_services` is a secure setting (the colon
+         * separated service list the accessibility repair rewrites). The
+         * namespace is part of the entry, so a name can never fall through to
+         * the wrong table.
+         */
+        private val ALLOWED_SECURE_SETTINGS = mapOf(
+            "adb_wifi_enabled" to SecureSettingNamespace.GLOBAL,
+            "enabled_accessibility_services" to SecureSettingNamespace.SECURE,
+        )
+
+        /** A value longer than this is not a setting any repair needs. */
+        internal const val MAX_SECURE_SETTING_CHARS = 4_096
+
+        /**
+         * Whether [name] may be written at all: it has to be one of
+         * [ALLOWED_SECURE_SETTINGS]. Everything else is refused, so the
+         * endpoint stays a two-key capability rather than a settings writer.
+         */
+        internal fun secureSettingAllowed(name: String): Boolean = name in ALLOWED_SECURE_SETTINGS
+
+        /**
+         * Whether [value] may be stored. A null value is a delete and needs no
+         * shape. Otherwise the value must be bounded and consist of the
+         * characters a component list and a "1" use: ASCII letters, digits,
+         * `_`, `/`, `.`, `:` and `,`. Control characters are therefore
+         * refused, and so is anything that could not name a component.
+         */
+        internal fun secureSettingValueAllowed(value: String?): Boolean =
+            value == null || (value.length <= MAX_SECURE_SETTING_CHARS && value.all {
+                it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' ||
+                    it == '_' || it == '/' || it == '.' || it == ':' || it == ','
+            })
+
+        /**
+         * The write itself, as shell (uid 2000), which holds
+         * WRITE_SECURE_SETTINGS. The allow-list and the value shape are checked
+         * here, before the resolver is touched; a SecurityException is the
+         * system's refusal and comes back as false rather than as a throw
+         * across the binder.
+         */
+        internal fun writeSecureSetting(resolver: ContentResolver, name: String, value: String?): Boolean {
+            val namespace = ALLOWED_SECURE_SETTINGS[name]
+            if (namespace == null) {
+                // The name is caller data and is not echoed: it was not one of
+                // the two keys, so there is nothing useful to log but the fact.
+                Log.w(TAG, "refused a secure setting outside the allow-list")
+                return false
+            }
+            if (!secureSettingValueAllowed(value)) {
+                Log.w(TAG, "refused value for secure setting $name")
+                return false
+            }
+            return try {
+                when (namespace) {
+                    SecureSettingNamespace.GLOBAL -> Settings.Global.putString(resolver, name, value)
+                    SecureSettingNamespace.SECURE -> Settings.Secure.putString(resolver, name, value)
+                }
+            } catch (t: SecurityException) {
+                Log.w(TAG, "putString($name) refused", t)
+                false
+            } catch (t: RuntimeException) {
+                Log.w(TAG, "putString($name) failed", t)
+                false
+            }
+        }
+
+        /** Which Settings table a name lives in; spelled out per key, never guessed. */
+        private enum class SecureSettingNamespace { GLOBAL, SECURE }
+
+        /** `pm grant` gets a shorter leash than the display fallbacks: it either answers quickly or not at all. */
+        internal const val PM_GRANT_TIMEOUT_S = 5L
+
+        /**
+         * The one permission [grantOwnWriteSecureSettings] may grant. Spelled
+         * out as a constant so no caller-supplied string can reach the argv.
+         */
+        internal const val GRANTED_PERMISSION = "android.permission.WRITE_SECURE_SETTINGS"
+
+        /**
+         * Whether [packageName] is a plain package name: ASCII letters, digits,
+         * `.` and `_`, non-empty and bounded. This runs before any ownership
+         * lookup and before any process, so a name that could be read as an
+         * option (`-r`), a path or a second command never gets that far.
+         */
+        internal fun packageNameAllowed(packageName: String): Boolean =
+            packageName.length in 1..200 && packageName.all {
+                it in 'a'..'z' || it in 'A'..'Z' || it in '0'..'9' || it == '.' || it == '_'
+            }
+
+        /**
+         * The exact argv for the grant: a fixed binary, a fixed verb, the
+         * caller's (already validated and ownership-checked) package, and the
+         * one fixed permission. Exists as its own function so tests can pin the
+         * argv without spawning anything.
+         */
+        internal fun pmGrantCommand(packageName: String): Array<String> =
+            arrayOf("/system/bin/pm", "grant", packageName, GRANTED_PERMISSION)
+
+        /**
+         * Grant [packageName] WRITE_SECURE_SETTINGS if, and only if, the
+         * calling [callerUid] owns it.
+         *
+         * Order matters: the name shape is checked first (no ownership lookup,
+         * no process), then [packagesForUid] — never the caller's word — decides
+         * whether this uid may be granted at all, and only then is `pm` run.
+         * A refused or unowned name is logged as a fact without the name itself:
+         * the caller may have sent anything, and it is not worth echoing.
+         *
+         * [run] is injected so tests never execute `pm`; the real one is
+         * [runPmGrant]. Every failure — not owned, interrupted, timed out,
+         * non-zero exit, `pm` missing — is false, never an exception across the
+         * binder.
+         */
+        internal fun grantWriteSecureSettings(
+            packageName: String,
+            callerUid: Int,
+            packagesForUid: (Int) -> Array<String>?,
+            run: (Array<String>) -> Int,
+        ): Boolean {
+            if (!packageNameAllowed(packageName)) {
+                Log.w(TAG, "refused a package name that is not a plain package")
+                return false
+            }
+            val owned = try {
+                packagesForUid(callerUid)?.contains(packageName) == true
+            } catch (t: RuntimeException) {
+                // An unreadable package list is not ownership; fail closed.
+                Log.w(TAG, "cannot resolve the caller's packages", t)
+                false
+            }
+            if (!owned) {
+                Log.w(TAG, "refused a grant for a package the caller does not own")
+                return false
+            }
+            return try {
+                run(pmGrantCommand(packageName)) == 0
+            } catch (t: Throwable) {
+                // A runner that throws (interruption, missing pm, I/O) is a
+                // refusal, not something the caller should see as a crash.
+                Log.w(TAG, "pm grant failed", t)
+                false
+            }
+        }
+
+        /**
+         * The real `pm grant` runner. Bounded at [PM_GRANT_TIMEOUT_S]; on
+         * timeout the process is destroyed and the answer is -1, which
+         * [grantWriteSecureSettings] reads as false. Output is drained and
+         * dropped rather than read: it is `pm`'s diagnostic, it may quote the
+         * package (caller data), and nothing here needs it.
+         */
+        internal fun runPmGrant(argv: Array<String>): Int {
+            val process = try {
+                ProcessBuilder(*argv).redirectErrorStream(true).start()
+            } catch (t: Throwable) {
+                Log.w(TAG, "pm grant could not start", t)
+                return -1
+            }
+            val drain = Thread {
+                runCatching { process.inputStream.use { while (it.read() >= 0) Unit } }
+            }.apply { isDaemon = true; start() }
+            return try {
+                if (process.waitFor(PM_GRANT_TIMEOUT_S, java.util.concurrent.TimeUnit.SECONDS)) {
+                    drain.join(1_000L)
+                    process.exitValue()
+                } else {
+                    process.destroyForcibly()
+                    Log.w(TAG, "pm grant timed out")
+                    -1
+                }
+            } catch (t: InterruptedException) {
+                process.destroyForcibly()
+                Thread.currentThread().interrupt()
+                Log.w(TAG, "pm grant interrupted")
+                -1
+            }
+        }
     }
 }

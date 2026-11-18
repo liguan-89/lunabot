@@ -245,7 +245,7 @@ const featureConfigSchema = z.object({
   /** Room jobs to several members run side by side, each in a thread of its own. Off unless true. */
   parallelRoomJobs: z.boolean().optional(),
   acpPlanLines: z.boolean().optional(), // An ACP agent's plan as activity lines. Off unless true.
-}).extend({ agentsToolBridge: z.boolean().optional(), savedSteps: z.boolean().optional() }); // agentsToolBridge: the find_tool / use_tool bridge, off unless true; savedSteps: repeat a computer task from its saved steps, on unless false
+}).extend({ agentsToolBridge: z.boolean().optional(), savedSteps: z.boolean().optional(), phoneVerify: z.enum(["off", "log"]).optional() }); // agentsToolBridge: the find_tool / use_tool bridge, off unless true; savedSteps: repeat a computer task from its saved steps, on unless false; phoneVerify: check a phone turn's reply against the screens it read, off unless `log`, which only writes the decision log
 const onboardingConfigSchema = z.object({
   completedAt: z.string().trim().max(40).optional(),
   version: z.number().int().min(0).max(1000).optional(),
@@ -477,9 +477,9 @@ const appConfigSchema = z.object({
     address: z.string().trim().max(320).optional(),
     botId: z.string().trim().max(200).optional(),
   }).strict().optional(),
-  /** SMS relay over a paired phone (server/sms-relay.ts): the phone pushes inbound texts to
-   * /api/phones/self/events and one bot answers each sender, replying over PHONE_REPLY_SMS jobs the
-   * phone sends itself. `botId` present = on; empty to disable. */
+  /** SMS relay over a paired phone (server/sms-relay.ts): the phone pushes inbound texts to /api/phones/self/events
+   * and one bot answers each sender, replying over PHONE_REPLY_SMS jobs the phone sends itself. `botId` present = on.
+   * WeChat works the same way over the same route (server/wechat-relay.ts), with PHONE_REPLY_WECHAT; empty disables. */
   sms: z.object({
     botId: z.string().trim().max(200).optional(),
     /** Numbers whose texts count as the owner's own turn. Caller-ID is the whole claim — spoofable,
@@ -488,7 +488,7 @@ const appConfigSchema = z.object({
       z.array(z.string().trim().min(1).max(64)).max(20),
       z.string().transform((value) => value.split(/[,\n;]/).map((entry) => entry.trim()).filter(Boolean)),
     ]).optional(),
-  }).strict().optional(),
+  }).strict().optional(), /** WeChat relay over a paired phone (server/wechat-relay.ts): the phone holds the iLink binding, pushes inbound private messages to /api/phones/self/events, and sends the replies itself as PHONE_REPLY_WECHAT jobs. `botId` present = on; empty to disable. Groups, contacts, moments and payments do not exist in this protocol. */ wechat: z.object({ botId: z.string().trim().max(200).optional() }).strict().optional(),
   /** Presence confirmation (WebAuthn): when `required` and at least one authenticator is enrolled,
    * every "allow" answer on a card must carry a valid assertion — a click alone never grants. */
   webauthn: z.object({
@@ -562,7 +562,7 @@ export interface AppConfig extends HelperConfig {
   /** See the `botMail` field in appConfigSchema. */
   botMail?: { address?: string; botId?: string };
   /** See the `sms` field in appConfigSchema. */
-  sms?: { botId?: string; owners?: string[] };
+  sms?: { botId?: string; owners?: string[] }; /** See the `wechat` field in appConfigSchema. */ wechat?: { botId?: string };
   /** See the `webauthn` field in appConfigSchema. */
   webauthn?: { required?: boolean };
   billing?: { currency?: string; prices?: Record<string, { inputPerMillion: number; outputPerMillion: number; cachedInputPerMillion?: number }> };
@@ -584,7 +584,7 @@ export interface AppConfig extends HelperConfig {
   context?: { rebuildBytes?: number; compactAt?: number; autoCompact?: boolean; roomCompactAt?: number; roomSessions?: boolean; replayToolHistory?: boolean };
   memory?: { captureQuietMs?: number; tidyHour?: number };
   localVm?: { mode?: "shared" | "per-bot" | "pool"; maxInstances?: number; idleTimeoutMinutes?: number; preserveInstalledApps?: boolean; memoryGb?: number; cpus?: number };
-  features?: { skillAuthoring?: boolean; skillReview?: boolean; skillReviewSteps?: number; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; claudeUserSkills?: boolean; llmThreadTitles?: boolean; smartSetupChoices?: boolean; autoRecall?: boolean; skillsLibrary?: boolean; shareLearnedSkills?: "off" | "ask" | "auto"; roomMemoryCapture?: boolean; parallelRoomJobs?: boolean; acpPlanLines?: boolean; agentsToolBridge?: boolean; savedSteps?: boolean };
+  features?: { skillAuthoring?: boolean; skillReview?: boolean; skillReviewSteps?: number; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; claudeUserSkills?: boolean; llmThreadTitles?: boolean; smartSetupChoices?: boolean; autoRecall?: boolean; skillsLibrary?: boolean; shareLearnedSkills?: "off" | "ask" | "auto"; roomMemoryCapture?: boolean; parallelRoomJobs?: boolean; acpPlanLines?: boolean; agentsToolBridge?: boolean; savedSteps?: boolean; phoneVerify?: "off" | "log" };
   onboarding?: { completedAt?: string; version?: number; reelSeen?: boolean; hintsSeen?: string[]; firstTurnAt?: string };
   browserProfiles?: BrowserProfile[];
   browserEngine?: BrowserEngineConfig;
@@ -1019,7 +1019,7 @@ export function saveConfig(
   const keepImageModels = keepKeysOutOfImageModels(disk, checkedPatch.imageGen);
   const storedProfiles = storedBrowserProfilesSchema.safeParse(disk.browserProfiles);
   if (storedProfiles.success) disk.browserProfiles = storedProfiles.data;
-  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "webauthn"] as const) {
+  for (const key of ["xai", "anthropic", "mistral", "cerebras", "treg", "postiz", "groq", "greenference", "modelgo", "meta", "deepseek", "openai", "openrouter", "openaiCompat", "composio", "box", "opencodeGo", "tts", "decider", "imageGen", "live", "profile", "rooms", "mcp", "threads", "context", "memory", "localVm", "features", "budgets", "billing", "decisions", "loopGuard", "onboarding", "browserEngine", "newBots", "safetyFloor", "feishu", "dingtalk", "wecom", "botMail", "sms", "wechat", "webauthn"] as const) {
     const section = checkedPatch[key];
     if (!section) continue;
     const current = jsonObjectSchema.safeParse(disk[key]);

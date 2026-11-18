@@ -49,7 +49,26 @@
     <exclude
         domain="sharedpref"
         path="openmaus.onboarding.xml" />
+    <!--
+      The WeChat binding: an AES/GCM blob whose key is Keystore-bound, so a
+      restored copy could never be read anyway. Excluded so it is not even
+      carried, and the inbound images it downloaded with it.
+    -->
+    <exclude
+        domain="sharedpref"
+        path="lunabot.wechat.xml" />
+    <exclude
+        domain="file"
+        path="wechat-images" />
     <exclude
         domain="file"
         path="roster-cache" />
+    <!--
+      The keyguard credential: Keystore-bound ciphertext that is unreadable off
+      this phone anyway. Excluded so it is not even carried — a restored copy on
+      another phone would be a password nobody could use and nobody deleted.
+    -->
+    <exclude
+        domain="file"
+        path="unlock" />
 </full-backup-content>

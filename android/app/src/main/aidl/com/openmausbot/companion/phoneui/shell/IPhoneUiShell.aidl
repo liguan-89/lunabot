@@ -6,9 +6,11 @@
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
  * original: repackaged and trimmed to the virtual-display, launcher-launch,
- * own-display input, task-move and key-text endpoints. No shell command, file,
- * clipboard, audio, device-unlock, main-display input or system-intent
- * endpoints exist here.
+ * own-display input, task-move, key-text and keyguard-unlock endpoints. No
+ * shell command, file, clipboard, audio, main-display input or system-intent
+ * endpoints exist here. The keyguard endpoints (20-23) are the one place input
+ * leaves the helper's own displays; they target a window uid, never a display,
+ * and only while the keyguard is up.
  */
 
 // Runs in the shell (uid 2000) helper process started via app_process; holds
@@ -62,6 +64,42 @@ interface IPhoneUiShell {
     // bot chose to close the app it drove; the caller refuses our own package,
     // the system UI and the helper, and a name that is not a package.
     boolean forceStop(String packageName) = 17;
+    // Write one of two allow-listed settings as shell: "adb_wifi_enabled" or
+    // "enabled_accessibility_services". A null value deletes the setting, which
+    // is how the accessibility repair clears a list our service was the only
+    // entry in. Shell holds WRITE_SECURE_SETTINGS, but the helper, not the
+    // caller, owns the allow-list: any other name is refused and nothing is
+    // written, so this endpoint cannot become a general settings writer.
+    boolean putSecureSetting(String name, String value) = 18;
+    // Grant [packageName] the one permission that lets it write the wireless
+    // debugging switch after a reboot: WRITE_SECURE_SETTINGS. The helper, not
+    // the caller, validates that the package belongs to the caller's uid; any
+    // other name is refused and nothing is granted. Only this one permission
+    // can be granted, so this is not a general permission granter. False when
+    // the platform refuses the grant or `pm` is unavailable.
+    boolean grantOwnWriteSecureSettings(String packageName) = 19;
+    // Turn the screen on: a wake lock with ACQUIRE_CAUSES_WAKEUP plus
+    // KEYCODE_WAKEUP, not injected anywhere. False when the screen did not
+    // come on.
+    boolean wakeDevice() = 20;
+    // Swipe the keyguard from 85% to 45% of the screen height to reveal the
+    // credential page. Each move is injected to the SystemUI *window uid*
+    // (never to a display), and only while isKeyguardLocked && isDeviceLocked;
+    // a swipe that starts while unlocked injects nothing.
+    boolean revealKeyguard() = 21;
+    // Type the device credential into the keyguard. [kind] is 0 (PIN) or 1
+    // (password); [credential] is ASCII digits for a PIN and printable ASCII for
+    // a password; [clear] is how many DEL presses to send first (the length of
+    // a half-entered value, 0 for an empty field). Every key is injected to the
+    // SystemUI window uid, re-checking the keyguard before each one, under an
+    // 8 s deadline; the byte array is zeroized before returning. Refuses
+    // anything else and injects nothing. Android 13+ only: earlier releases have
+    // no targeted injectInputEvent overload and this returns false.
+    boolean enterDeviceCredential(int kind, in byte[] credential, int clear) = 22;
+    // One tap at (x, y) for the keyguard's "use PIN" style fallback button,
+    // injected to the SystemUI window uid under the same keyguard checks. No
+    // credential crosses this call.
+    boolean tapKeyguard(int x, int y) = 23;
     // Release every display this binder's client created; called when the
     // client dies or detaches.
     void releaseAll() = 9;

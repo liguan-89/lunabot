@@ -97,6 +97,15 @@ describe("controlFor", () => {
     expect(recordsScreen("PHONE_UI_OCR")).toBe(false);
     expect(recordsScreen("PHONE_LIST_EVENTS")).toBe(false);
   });
+
+  it("records a COLLECT or FIND answer as a screen, but not a query's", () => {
+    expect(recordsScreen("PHONE_UI_COLLECT")).toBe(true);
+    // FIND answers with a match list, but carries the whole snapshot beside it
+    // in `screen`; its refs are that snapshot's, so a later tap is judged
+    // against it rather than against a stale screen.
+    expect(recordsScreen("PHONE_UI_FIND")).toBe(true);
+    expect(recordsScreen("PHONE_UI_QUERY")).toBe(false);
+  });
 });
 
 describe("PhoneConfirms", () => {
@@ -165,6 +174,36 @@ describe("PhoneConfirms", () => {
     expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e2" }).result).toBe("allowed");
   });
 
+  it("does not let a grant cross turns in the same thread", () => {
+    const confirms = confirmsWith(deleteScreen);
+    const first = { ...TURN, generation: "gen-1" };
+    const second = { ...TURN, generation: "gen-2" };
+    expect(confirms.declare(first, PHONE, request())).toBe("pending");
+    confirms.decide(first, true);
+    const check = confirms.check(second, PHONE, "PHONE_UI_TAP", { ref: "e2" });
+    expect(check).toMatchObject({ result: "refused", hit: { action: "delete" } });
+    // The grant is gone rather than used up: this is the ordinary unapproved sentence, not the spent one.
+    expect(check.result === "refused" && check.reason).toContain("has not approved this exact step");
+    expect(check.result === "refused" && check.reason).not.toContain("already used in this task");
+  });
+
+  it("does not remember a refusal across turns in the same thread", () => {
+    const confirms = confirmsWith(deleteScreen);
+    const first = { ...TURN, generation: "gen-1" };
+    const second = { ...TURN, generation: "gen-2" };
+    expect(confirms.declare(first, PHONE, request())).toBe("pending");
+    confirms.decide(first, false);
+    expect(confirms.declare(first, PHONE, request())).toBe("declined");
+    expect(confirms.declare(second, PHONE, request())).toBe("pending");
+  });
+
+  it("keeps an approval within a turn that names no generation", () => {
+    const confirms = confirmsWith(deleteScreen);
+    expect(confirms.declare(TURN, PHONE, request())).toBe("pending");
+    confirms.decide(TURN, true);
+    expect(confirms.check(TURN, PHONE, "PHONE_UI_TAP", { ref: "e2" })).toMatchObject({ result: "allowed", hit: { action: "delete" } });
+  });
+
   it("drops the oldest turn rather than growing without bound", () => {
     const confirms = confirmsWith(deleteScreen);
     confirms.declare(TURN, PHONE, request());
@@ -197,6 +236,15 @@ describe("the approved card as the person's approval", () => {
     const again = confirms.approveCard(TURN, PHONE, "PHONE_UI_TAP", { ref: "e2" });
     expect(again.result).toBe("refused");
     expect(again.result === "refused" && again.reason).toContain("Ask the person again");
+  });
+
+  it("does not carry a spent card into the next turn of the same thread", () => {
+    const confirms = confirmsWith(deleteScreen);
+    const first = { ...TURN, generation: "gen-1" };
+    const second = { ...TURN, generation: "gen-2" };
+    expect(confirms.approveCard(first, PHONE, "PHONE_UI_TAP", { ref: "e2" })).toEqual({ result: "approved" });
+    // The card was spent in gen-1; gen-2 has its own, so the same delete is approved again rather than refused as spent.
+    expect(confirms.approveCard(second, PHONE, "PHONE_UI_TAP", { ref: "e2" })).toEqual({ result: "approved" });
   });
 
   it("never approves a payment, whatever the card was for", () => {

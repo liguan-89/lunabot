@@ -126,7 +126,7 @@ import { createCacheKeepWarm, type KeepWarmStatus, type KeepWarmTarget } from ".
 import { createSkillReview, turnToolSteps } from "./skill-review.ts";
 import { deciderDraftEngine, draftSkillProposal, hasPendingSkillProposal, skillWorthProposing } from "./skill-proposal.ts";
 import { createChannels } from "./channels.ts";
-import { createSmsRelay } from "./sms-relay.ts";
+import { createSmsRelay } from "./sms-relay.ts"; import { createWechatRelay } from "./wechat-relay.ts";
 import { createSideJobs, helperSelection } from "./side-jobs.ts";
 import type { CaptureTurn, RoomLine } from "./memory-capture.ts";
 import { createAboutMe } from "./about-me.ts"; import { createPersonPreference } from "./host/person-preference.ts";
@@ -2879,7 +2879,7 @@ const phones = createPhones({
     bot: input.bot, threadId: input.threadId, tool: input.tool,
     calls: [{ slug: input.tool }], opaque: false, fullAccess: input.fullAccess, active: input.active,
   }),
-  approvalMode: sourceApprovalMode,
+  approvalMode: sourceApprovalMode, verify: (botId) => { const owner = store.bot(botId); const instance = owner ? registry.get(owner.modelSelection.instanceId) : null; const call = instance?.generateText?.bind(instance); return call ? (prompt: string) => call(prompt, { timeoutMs: 60_000 }) : null; }, verifyMode: () => (cfg.features?.phoneVerify === "log" ? "log" : "off"), // the answer check's one model call, made only when Settings turns the check on; its mode is read at call time, and absent is off
 });
 const cloudPlanTier = createCloudPlanTier({ dataDir: DATA_DIR, cloudHome: Boolean(CLOUD_HOME), changed: () => broadcast({ kind: "config", ...configStatus() }) }); const starterAwake = createStarterAwake({ dataDir: DATA_DIR, starter: () => cloudPlanTier.starter(), bots: () => store.bots, changed: () => broadcast({ kind: "config", ...configStatus() }) }); const starterCaps = createStarterCaps({ starter: () => cloudPlanTier.starter(), awake: starterAwake, waitsOnOthers: (threadId) => coordinator.outstandingFor(threadId).length > 0, botName: (botId) => store.bot(botId)?.name, pausedLine: (language, limit) => serverLine(language, "server.botPaused", { limit }), refused: () => broadcast({ kind: "config", ...configStatus() }) }); engineMemory.useCap(starterCaps.engine); let cloudPower: CloudPower | null = null; // The sleep handshake of a plan that sleeps (server/cloud-power.ts), made just before the server listens.
 const teamWelcome = createTeamWelcomeStore(DATA_DIR); const { cloudHealth, cloudSigned } = createCloudSignedHost({ cloudHome: CLOUD_HOME, sessions, power: () => cloudPower, box: () => botBox.report(), teamAdmin: teamAdminHost(), policyChanged: nudgeCloudTeamPolicy, invited: (email, by) => teamWelcome.invited(personKey({ id: "", email }), by), memberBrowserOff: () => managedPolicy.remoteAccessRefusal() !== undefined, plan: (cancelled) => routineHolds?.plan(cancelled), planTier: (tier) => cloudPlanTier.set(tier), memberLeft: (email) => leaveTeam ? leaveTeam(email).then((result) => { botApi.manager.revokeMintedBy(personKey({ id: "", email })); teamOwners.left(email); teamMessages.inbox.forget(personKey({ id: "", email })); forgetSetupPresser(store, personKey({ id: "", email })); devsReports.forget(personKey({ id: "", email })); return result; }) : Promise.reject(new Error("not a team")), health: { store, bus, dataDir: DATA_DIR, eventsDir: EVENTS_DIR, version: serverVersion(), image: process.env.OMB_CLOUD_IMAGE,
@@ -5306,7 +5306,7 @@ const smsRelay = createSmsRelay({
   ignoreEvent: shouldIgnoreProviderEvent,
   replySms: (key, to, text) => phones.replySms(key, to, text),
 });
-phones.onSmsEvent((key, event) => smsRelay.push(key, event));
+phones.onSmsEvent((key, event) => smsRelay.push(key, event)); const wechatRelay = createWechatRelay({ store, cfg, dataDir: DATA_DIR, bus, acceptDirectSend: (input) => acceptDirectSend(input), routineRunForThread: (threadId) => routines?.runForThread(threadId), ignoreEvent: shouldIgnoreProviderEvent, replyWechat: (key, to, text) => phones.replyWechat(key, to, text) }); phones.onWechatEvent((key, event) => wechatRelay.push(key, event)); // WeChat over the phone's own iLink binding; cfg.wechat.botId is the on switch, as cfg.sms.botId is for SMS
 bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
   try {
@@ -6969,7 +6969,7 @@ bus.subscribe((event: RuntimeEvent) => {
       if (personStops.stopped(event.threadId, completedTurnId)) pushStoppedTurn(completedTurnId);
       personStops.turnEnded(event.threadId, completedTurnId);
       lastReply.delete(event.threadId);
-      stoppedTurns.delete(event.threadId);
+      stoppedTurns.delete(event.threadId); if (bot) phones.turnEnded({ botId: bot.id, threadId: event.threadId, generation: directTurnGenerationByThread.get(event.threadId) ?? "" }, { reply, stopped });
       // Claude settles a lazy-claim interrupt as exit_before_result, not "interrupted": this generation's marker keeps it from reporting a second incident.
       const lazyClaimAlreadyReported = event.stopReason === "exit_before_result" &&
         turnResourceOwners.get(event.threadId)?.lazyClaimFailureReported === true;
@@ -7583,6 +7583,7 @@ async function acceptDirectSend(
             ...spokenLineFields(via, callId),
           });
           store.setTaskAskedAt(botId, threadId, message.at);
+          const liveGeneration = directTurnGenerationByThread.get(threadId); if (liveGeneration) phones.steer.noteUserMessage({ threadId, botId }, liveGeneration); // the person's words reached this turn, so a phone job being waited on stops waiting
           handoffs.steered(threadId, steerTarget, instance?.instanceId, message.id);
           signInSettle.answerInChat(botId, threadId);
           if (personsOwn) personFirst.wait(threadId, { requeue: (note) => void queueSteeredMessage(current.id, threadId, text, { prompt: note ? `${queuedPrompt}\n\n${note}` : queuedPrompt, rowId: message.id, first: true, queuedAt: message.at, replyToId: replyTo?.id, dataContext, sender, trigger, via, callId, mentions, aheadOfOthers: runOwners.askerFirst(threadId) }) });
@@ -12156,7 +12157,7 @@ function configStatus() {
       autoRecall: autoRecallEnabled(cfg),
       roomMemoryCapture: roomMemoryCaptureEnabled(cfg),
       parallelRoomJobs: parallelRoomJobsEnabled(cfg),
-      llmThreadTitles: llmThreadTitlesEnabled(cfg), savedSteps: savedStepsEnabled(cfg), savedStepsHere: savedSteps.here(),
+      llmThreadTitles: llmThreadTitlesEnabled(cfg), savedSteps: savedStepsEnabled(cfg), savedStepsHere: savedSteps.here(), phoneVerify: cfg.features?.phoneVerify === "log" ? "log" : "off",
     },
     onboarding: {
       completedAt: cfg.onboarding?.completedAt ?? "",

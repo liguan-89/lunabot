@@ -40,6 +40,25 @@ enum class VoiceAsrMode(val wireValue: String) {
 }
 
 /**
+ * How the phone-UI executor paces its actions. [FAST] is the old touch exactly
+ * — no extra waits, the whole text in one write; [STANDARD] and [HUMAN] add
+ * pauses and segmented typing so automation looks less mechanical.
+ */
+enum class PhonePace(val wireValue: String) {
+    FAST("fast"),
+    STANDARD("standard"),
+    HUMAN("human"),
+    ;
+
+    companion object {
+        // Fast, not OperatingPace.DEFAULT: an install that upgrades must keep
+        // the touch it had before this setting existed.
+        fun fromWire(value: String?): PhonePace =
+            entries.firstOrNull { it.wireValue == value } ?: FAST
+    }
+}
+
+/**
  * Phone-local controls for how a conversation is presented.
  *
  * These are intentionally separate from pairing and from the encrypted token
@@ -148,6 +167,55 @@ class ChatPreferences(
         if (_phoneUi.value == enabled && prefs.contains(PHONE_UI)) return
         prefs.edit(commit = true) { putBoolean(PHONE_UI, enabled) }
         _phoneUi.value = enabled
+    }
+
+    /**
+     * How the phone-UI executor paces its actions. Read by the job runner when
+     * it builds the executor and observed while it runs, so a change applies
+     * to the next task without a restart.
+     */
+    private val _phonePace = MutableStateFlow(
+        PhonePace.fromWire(prefs.getString(PHONE_PACE, PhonePace.FAST.wireValue)),
+    )
+    val phonePace: StateFlow<PhonePace> = _phonePace.asStateFlow()
+
+    @Synchronized
+    fun setPhonePace(pace: PhonePace) {
+        if (_phonePace.value == pace && prefs.contains(PHONE_PACE)) return
+        prefs.edit(commit = true) { putString(PHONE_PACE, pace.wireValue) }
+        _phonePace.value = pace
+    }
+
+    /**
+     * Whether the app may re-enable wireless debugging after a reboot, so the
+     * shell helper can start again without the person walking back to developer
+     * options. Opt-in and off by default because it widens the app's own
+     * privileges: to write that switch the app must hold
+     * WRITE_SECURE_SETTINGS, which lets it write any system setting, not only
+     * this one. Turning it off stops future grants; it cannot take back a
+     * permission the system already granted — the person can revoke that in
+     * system settings.
+     */
+    private val _phoneRepairWireless = MutableStateFlow(storedBoolean(PHONE_REPAIR_WIRELESS))
+    val phoneRepairWireless: StateFlow<Boolean> = _phoneRepairWireless.asStateFlow()
+
+    @Synchronized
+    fun setPhoneRepairWireless(enabled: Boolean) {
+        if (_phoneRepairWireless.value == enabled && prefs.contains(PHONE_REPAIR_WIRELESS)) return
+        // Committed: a reboot is exactly when this value must already be on disk.
+        prefs.edit(commit = true) { putBoolean(PHONE_REPAIR_WIRELESS, enabled) }
+        _phoneRepairWireless.value = enabled
+    }
+
+    /**
+     * A boolean as stored, false when the key is absent or holds another type.
+     * `getBoolean` throws on a type mismatch, and Settings builds this
+     * preference while the screen opens — a stored string must not crash it.
+     */
+    private fun storedBoolean(key: String): Boolean = try {
+        prefs.getBoolean(key, false)
+    } catch (_: ClassCastException) {
+        false
     }
 
     /**
@@ -277,6 +345,8 @@ class ChatPreferences(
         private const val PHONE_LOCATION = "companion.prefs.phone.location"
         private const val PHONE_MESSAGES = "companion.prefs.phone.messages"
         private const val PHONE_UI = "companion.prefs.phone.ui"
+        private const val PHONE_PACE = "companion.prefs.phone.pace"
+        private const val PHONE_REPAIR_WIRELESS = "companion.prefs.phone.repair.wireless"
         private const val PHONE_FILES = "companion.prefs.phone.files"
         private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
         private const val PHONE_NOTICES = "companion.prefs.phone.notices"

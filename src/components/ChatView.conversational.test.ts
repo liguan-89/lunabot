@@ -113,11 +113,13 @@ describe("conversational replies", () => {
     expect(items.slice(0, 2)).toEqual(["Reply", "Copy message"]);
   });
 
-  it("puts a formatted reply in the bot's bubble in Simple mode, and on the open page in Advanced", async () => {
+  it("renders a structured reply as a document in Simple mode, and on the open page in Advanced", async () => {
     const bubbleOf = () => document.querySelector("[data-mid='m2'] [data-chat-bubble]")!;
     await draw(profile({}));
     expect(bubbleOf().getAttribute("data-chat-bubble")).toBe("simple");
-    expect([...bubbleOf().classList]).toEqual(expect.arrayContaining(["bg-card", "rounded-[18px]"]));
+    // A reply carrying code (or headings, or a table) renders transparent in Simple, not as a chat bubble.
+    expect(bubbleOf().classList).toContain("bg-transparent");
+    expect(bubbleOf().classList).not.toContain("bg-card");
     setAdvancedMode(true);
     try {
       await draw(profile({}));

@@ -73,6 +73,7 @@ import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -92,14 +93,23 @@ import com.openmausbot.companion.core.ActivityDetail
 import com.openmausbot.companion.account.CloudAccountUi
 import com.openmausbot.companion.core.Connection
 import com.openmausbot.companion.core.Session
+import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
 import com.openmausbot.companion.phoneui.PhoneUiPairingInput
 import com.openmausbot.companion.phoneui.PhoneUiStatus
+import com.openmausbot.companion.phoneui.SelfCheckReport
+import com.openmausbot.companion.phoneui.phoneUiProbes
+import com.openmausbot.companion.phoneui.runSelfCheck
+import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
+import com.openmausbot.companion.storage.PhonePace
 import com.openmausbot.companion.storage.ThemeMode
 import com.openmausbot.companion.storage.VoiceAsrMode
 import com.openmausbot.companion.update.AppUpdater
 import com.openmausbot.companion.update.UpdateState
+import com.openmausbot.companion.wechat.WechatSettingsSection
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.pm.PackageInfoCompat
@@ -146,6 +156,8 @@ fun SettingsScreen(
     val phoneMessages by environment.chatPreferences.phoneMessages.collectAsState()
     val phoneNotifyRelay by environment.chatPreferences.phoneNotifyRelay.collectAsState()
     val phoneUiEnabled by environment.chatPreferences.phoneUi.collectAsState()
+    val phonePace by environment.chatPreferences.phonePace.collectAsState()
+    val phoneRepairWireless by environment.chatPreferences.phoneRepairWireless.collectAsState()
     val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
@@ -237,6 +249,9 @@ fun SettingsScreen(
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
+    var choosingPhonePace by remember { mutableStateOf(false) }
+    var phoneUiCheckReport by remember { mutableStateOf<SelfCheckReport?>(null) }
+    var phoneUiChecking by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
     var pairingPhoneUi by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
@@ -697,6 +712,10 @@ fun SettingsScreen(
                 }
             }
 
+            // 微信: its own card in its own file — binding, the QR, and the
+            // enable/unbind rows. This screen only places it.
+            WechatSettingsSection()
+
             // 手机界面 (wireless debugging + shell helper): default off, the
             // system pages open only from an explicit tap, and pairing needs
             // the port and code the system pairing dialog shows — nothing is
@@ -784,6 +803,68 @@ fun SettingsScreen(
                         PhoneUiStatus.Pairing -> Unit
                     }
                     SettingsDivider()
+                    SettingsRow(
+                        title = stringResource(R.string.settings_phone_pace),
+                        value = phonePaceLabel(phonePace),
+                        chevron = true,
+                        onClick = { choosingPhonePace = true },
+                    )
+                    SettingsDivider()
+                    // The run has a 90 s budget, so the row shows a spinner and
+                    // refuses a second tap while it runs.
+                    SettingsRow(
+                        title = stringResource(R.string.settings_phone_self_check),
+                        subtitle = stringResource(R.string.settings_phone_self_check_caption),
+                        enabled = !phoneUiChecking,
+                        trailing = {
+                            if (phoneUiChecking) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(16.dp),
+                                    strokeWidth = 2.dp,
+                                )
+                            }
+                        },
+                        onClick = {
+                            phoneUiChecking = true
+                            phoneUiCheckReport = null
+                            scope.launch {
+                                // Binder calls and display creation block, so the
+                                // whole run stays off the main thread.
+                                val report = withContext(Dispatchers.IO) {
+                                    runSelfCheck(
+                                        phoneUiProbes(
+                                            phoneUiContext,
+                                            shell = { PhoneUiShellBridge.of(phoneUiContext).shell.value },
+                                            accessibility = { PhoneUiAccessibilityService.instance.value },
+                                        ),
+                                    )
+                                }
+                                phoneUiCheckReport = report
+                                phoneUiChecking = false
+                            }
+                        },
+                    )
+                    SettingsDivider()
+                    // Opt-in, and off by default: the grant it needs is
+                    // WRITE_SECURE_SETTINGS, which is not limited to the one
+                    // switch this feature writes. The screen cannot see whether
+                    // the grant landed, so the caption promises only that the
+                    // helper will be asked, not that it succeeded.
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.settings_phone_repair_wireless),
+                        subtitle = stringResource(
+                            if (phoneRepairWireless) {
+                                R.string.settings_phone_repair_wireless_pending
+                            } else {
+                                R.string.settings_phone_repair_wireless_caption
+                            },
+                        ),
+                        checked = phoneRepairWireless,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneRepairWireless(enabled)
+                        },
+                    )
+                    SettingsDivider()
                     // Files are a separate consent on top of the screen switch:
                     // the media grant plus, optionally, one picked folder.
                     SettingsSwitchRow(
@@ -863,6 +944,11 @@ fun SettingsScreen(
                     }
                 }
             }
+
+            // 手机解锁: the credential stays on this phone, encrypted, and is
+            // typed into the keyguard by the shell helper. Off until the person
+            // saves one and turns the remote switch on.
+            UnlockSettingsSection(phoneUi = environment.phoneUi)
 
             SettingsSection {
                 SettingsRow(
@@ -1260,6 +1346,76 @@ fun SettingsScreen(
                                 }
                             },
                         )
+                    }
+                }
+            }
+        }
+    }
+
+    if (choosingPhonePace) {
+        SettingsSheet(
+            title = stringResource(R.string.settings_phone_pace),
+            onDismiss = { choosingPhonePace = false },
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection(
+                    footer = { SettingsFootnote(stringResource(R.string.settings_phone_pace_footnote)) },
+                ) {
+                    PhonePace.entries.forEachIndexed { index, pace ->
+                        if (index > 0) SettingsDivider()
+                        SettingsRow(
+                            title = phonePaceLabel(pace),
+                            subtitle = phonePaceCaption(pace),
+                            trailing = {
+                                if (pace == phonePace) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = null,
+                                        tint = minisAccent,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                            onClick = {
+                                environment.chatPreferences.setPhonePace(pace)
+                                choosingPhonePace = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    phoneUiCheckReport?.let { report ->
+        SettingsSheet(
+            title = stringResource(R.string.settings_phone_self_check_title),
+            onDismiss = { phoneUiCheckReport = null },
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection {
+                    SelectionContainer {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                text = report.summary(),
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = minisInk,
+                            )
+                            report.rows.forEach { row ->
+                                Text(
+                                    text = report.line(row),
+                                    fontSize = 12.sp,
+                                    lineHeight = 17.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = secondaryTint,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -1985,6 +2141,25 @@ private fun voiceAsrCaption(mode: VoiceAsrMode): String? = when (mode) {
     VoiceAsrMode.DEVICE -> "识别在手机上完成，需先下载模型"
     VoiceAsrMode.ONLINE -> "识别在电脑上完成"
 }
+
+@Composable
+private fun phonePaceLabel(pace: PhonePace): String = stringResource(
+    when (pace) {
+        PhonePace.FAST -> R.string.settings_phone_pace_fast
+        PhonePace.STANDARD -> R.string.settings_phone_pace_standard
+        PhonePace.HUMAN -> R.string.settings_phone_pace_human
+    },
+)
+
+/** Each level says what it costs; the footnote under the sheet says why anyone would pick a slower one. */
+@Composable
+private fun phonePaceCaption(pace: PhonePace): String = stringResource(
+    when (pace) {
+        PhonePace.FAST -> R.string.settings_phone_pace_fast_caption
+        PhonePace.STANDARD -> R.string.settings_phone_pace_standard_caption
+        PhonePace.HUMAN -> R.string.settings_phone_pace_human_caption
+    },
+)
 
 /** The right-hand status of the one update row. */
 private fun updateStatusText(state: UpdateState): String = when (state) {

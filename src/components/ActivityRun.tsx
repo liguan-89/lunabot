@@ -29,10 +29,10 @@ export function ActivityRun({
             type="button"
             onClick={() => setOpen(false)}
             aria-expanded
-            className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-hairline/40 bg-panel px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-control"
+            className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-hairline/35 bg-panel/80 px-2.5 text-[12px] font-medium text-ink-secondary hover:bg-control"
           >
-            <ChevronRight size={13} className="shrink-0 rotate-90" />
-            <span className="min-w-0 truncate font-medium leading-5">{summary}</span>
+            <ChevronRight size={12} className="shrink-0 rotate-90" />
+            <span className="min-w-0 truncate leading-5">{summary}</span>
           </button>
         </div>
         {children}
@@ -46,11 +46,11 @@ export function ActivityRun({
         onClick={() => setOpen(true)}
         aria-expanded={false}
         title={t("chat.run.showSteps")}
-        className="flex min-w-0 max-w-full items-center gap-2 rounded-full border border-hairline/40 bg-panel px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-control"
+        className="inline-flex h-7 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-hairline/35 bg-panel/80 px-2.5 text-[12px] font-medium text-ink-tertiary hover:bg-control hover:text-ink-secondary"
       >
-        <Check size={13} className="shrink-0 text-success" />
-        <span className="min-w-0 max-w-[480px] truncate font-medium leading-5">{summary}</span>
-        <ChevronRight size={13} className="shrink-0" />
+        <Check size={12} className="shrink-0 text-success" />
+        <span className="min-w-0 max-w-[480px] truncate leading-5">{summary}</span>
+        <ChevronRight size={12} className="shrink-0" />
       </button>
     </div>
   );

@@ -78,7 +78,7 @@ describe("the header's right side", () => {
     return { markup, controls: markup.slice(markup.indexOf("data-chathead-controls"), markup.indexOf("role=\"log\"")) };
   };
 
-  it("keeps the bot's computer in view in Simple mode, leaving the model to the bot panel and ⋯ out", () => {
+  it("keeps the bot's computer in view in Simple mode, leaving the model to the bot panel", () => {
     fixture.advanced = false;
     try {
       const { markup, controls } = header();
@@ -86,8 +86,7 @@ describe("the header's right side", () => {
       expect(fixture.model).toBeNull();
       const computer = controls.match(/<button[^>]*data-tour="computer"[^>]*>/)?.[0] ?? "";
       expect(computer.split(" ")).toEqual(expect.arrayContaining(["rounded-full", "size-8"]));
-      expect(markup).not.toContain('data-testid="chat-more"');
-      expect(fixture.menus.find((menu) => menu.ariaLabel === "More")).toBeUndefined();
+      expect(markup).toContain('data-testid="chat-more"');
       expect(markup).toContain("data-chathead-pill");
     } finally {
       fixture.advanced = true;
@@ -161,7 +160,7 @@ describe("the Simple header", () => {
       expect(pill[0].match(/class="([^"]*)"/)![1]!.split(" ")).toEqual(expect.arrayContaining(["rounded-full", "bg-composer", "ring-[0.5px]", "py-[7.5px]", "pr-[13.5px]"]));
       // Away from the bot's main conversation, the pill names the one on screen.
       expect(pill[1]).toContain("data-chathead-conversation");
-      for (const gone of ["data-chathead-role", "data-background-activity", "data-chathead-back", 'data-testid="chat-more"']) {
+      for (const gone of ["data-chathead-role", "data-background-activity", "data-chathead-back"]) {
         expect(simple, gone).not.toContain(gone);
       }
       window.ogb = { remoteClient: { active: true } } as NonNullable<Window["ogb"]>;
@@ -344,7 +343,7 @@ describe("thread control placement", () => {
     fixture.advanced = advanced;
     const markup = renderToStaticMarkup(createElement(ChatView, { bot }));
     expect(markup).not.toContain('aria-label="All threads"');
-    expect(markup.includes('data-testid="chat-more"')).toBe(advanced);
+    expect(markup.includes('data-testid="chat-more"')).toBe(true);
     fixture.advanced = true;
   });
 

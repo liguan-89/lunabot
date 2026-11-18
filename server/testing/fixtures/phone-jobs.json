@@ -1267,7 +1267,7 @@
       },
       {
         "name": "PHONE_UI_WAIT",
-        "description": "Wait for the phone's screen to change, or to stop changing, before deciding the next step. Read only.",
+        "description": "Wait for the phone's screen to change, to stop changing, or for a text to appear or disappear, before deciding the next step. Read only.",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -1275,9 +1275,16 @@
               "type": "string",
               "enum": [
                 "change",
-                "settle"
+                "settle",
+                "appear",
+                "disappear"
               ],
-              "description": "change waits for any change; settle waits for the screen to stop."
+              "description": "change waits for any change; settle waits for the screen to stop; appear waits until the text is on the screen and disappear until it is gone."
+            },
+            "text": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Case-insensitive text or content description to wait for; required for appear and disappear."
             },
             "timeoutMs": {
               "type": "integer",
@@ -1367,6 +1374,59 @@
             }
           },
           "required": [],
+          "additionalProperties": false
+        }
+      },
+      {
+        "name": "PHONE_UI_FIND",
+        "description": "Scroll the phone's current screen until an element matching text, view id or role, at least one of the three, is found or the content stops changing. Scrolls one step at a time in `direction`, up to `maxScrolls`; it stops at the app's edge or when two screens in a row are identical. The refs it returns work with PHONE_UI_TAP and PHONE_UI_TYPE. It scrolls, so it asks the person first like any other screen write.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Case-insensitive text or content description to find."
+            },
+            "resourceId": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Full or partial Android view id to find."
+            },
+            "role": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Full or partial accessibility class or role to find."
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "up",
+                "down"
+              ],
+              "description": "Where the content moves, as PHONE_UI_SCROLL takes it: down follows the list to newer content below, up back towards older content above. The finger travels the other way."
+            },
+            "maxScrolls": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "description": "Most scrolls to take before returning; default 30."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "description": "Most elements to return; default 30."
+            },
+            "phone": {
+              "type": "string",
+              "maxLength": 100,
+              "description": "Which phone, by name, when more than one is paired. Default: the one used most recently."
+            }
+          },
+          "required": [
+            "direction"
+          ],
           "additionalProperties": false
         }
       },

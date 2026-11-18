@@ -46,8 +46,17 @@
             domain="sharedpref"
             path="openmaus.onboarding.xml" />
         <exclude
+            domain="sharedpref"
+            path="lunabot.wechat.xml" />
+        <exclude
+            domain="file"
+            path="wechat-images" />
+        <exclude
             domain="file"
             path="roster-cache" />
+        <exclude
+            domain="file"
+            path="unlock" />
     </cloud-backup>
     <device-transfer>
         <exclude
@@ -75,7 +84,16 @@
             domain="sharedpref"
             path="openmaus.onboarding.xml" />
         <exclude
+            domain="sharedpref"
+            path="lunabot.wechat.xml" />
+        <exclude
+            domain="file"
+            path="wechat-images" />
+        <exclude
             domain="file"
             path="roster-cache" />
+        <exclude
+            domain="file"
+            path="unlock" />
     </device-transfer>
 </data-extraction-rules>

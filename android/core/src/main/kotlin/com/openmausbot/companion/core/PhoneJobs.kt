@@ -55,8 +55,15 @@ data class PhoneLease(val active: Boolean = false)
 
 /**
  * What the phone pushes through `POST /api/phones/self/events`: one inbound
- * text. `sendId` lets the server dedupe the re-broadcasts Android may make
- * for the same message; on Android it is `<from>:<PDU timestamp millis>`.
+ * message from a channel the phone owns. `sendId` lets the server dedupe the
+ * re-broadcasts Android may make for the same message; on Android it is
+ * `<from>:<PDU timestamp millis>` for SMS and the iLink message id for WeChat.
+ *
+ * `kind` is the discriminated union the server switches on. `images` is
+ * WeChat-only: it keeps its default for SMS and the encoder omits a value equal
+ * to its default, so the SMS wire shape is unchanged. There is no `group` field
+ * — Mika's runtime accepts private messages only, so a group message never
+ * becomes an event at all.
  */
 @Serializable
 data class PhoneSmsEvent(
@@ -66,6 +73,20 @@ data class PhoneSmsEvent(
     val sendId: String,
     val from: String,
     val text: String,
+    /** Inbound WeChat images, already downloaded and decrypted on the phone. */
+    val images: List<PhoneEventImage> = emptyList(),
+)
+
+/**
+ * One image travelling with an event. [data] is standard base64 of the bytes
+ * the phone decoded; the server never sees a WeChat CDN URL or key, and the
+ * phone keeps its own copy under its private files directory.
+ */
+@Serializable
+data class PhoneEventImage(
+    val mime: String,
+    val name: String,
+    val data: String,
 )
 
 /**
@@ -99,6 +120,9 @@ enum class PhoneTool(
     // A channel reply the phone sends itself; the server only ever pins `to`
     // to a number that wrote in, unlike the compose-sheet tools above.
     REPLY_SMS("PHONE_REPLY_SMS", "messages", true),
+    // The same shape for WeChat: the phone holds the iLink binding, so it sends
+    // the reply. Arguments are `{ to, text }`, like the SMS reply.
+    REPLY_WECHAT("PHONE_REPLY_WECHAT", "messages", true),
     UI_OBSERVE("PHONE_UI_OBSERVE", "phoneUi", false),
     // Several screens read in one job: it scrolls between reads, so it is a
     // write like any other screen action, unlike the single observe.
@@ -106,6 +130,9 @@ enum class PhoneTool(
     // The read half of observe: the same snapshot, filtered down to the
     // elements a bot asked about, so a long screen costs one answer.
     UI_QUERY("PHONE_UI_QUERY", "phoneUi", false),
+    // Scrolls the screen looking for a target, so it is a write like scroll,
+    // even though it acts on nothing it finds.
+    UI_FIND("PHONE_UI_FIND", "phoneUi", true),
     UI_LAUNCH("PHONE_UI_LAUNCH", "phoneUi", true),
     // The launcher list is what launch() accepts, answered without the helper:
     // a phone that is not paired can still say which apps exist.
@@ -181,9 +208,11 @@ object PhoneToolCatalog {
         "PHONE_SEND_MESSAGE" to "messages",
         "PHONE_SEND_WHATSAPP" to "messages",
         "PHONE_REPLY_SMS" to "messages",
+        "PHONE_REPLY_WECHAT" to "messages",
         "PHONE_UI_OBSERVE" to "phoneUi",
         "PHONE_UI_COLLECT" to "phoneUi",
         "PHONE_UI_QUERY" to "phoneUi",
+        "PHONE_UI_FIND" to "phoneUi",
         "PHONE_UI_LAUNCH" to "phoneUi",
         "PHONE_LIST_APPS" to "phoneUi",
         "PHONE_UI_TAP" to "phoneUi",

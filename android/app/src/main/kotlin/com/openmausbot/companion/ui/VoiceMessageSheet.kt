@@ -1,11 +1,9 @@
 package com.openmausbot.companion.ui
 
+import android.content.Context
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,26 +14,22 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,36 +37,26 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.openmausbot.companion.R
 import com.openmausbot.companion.speech.SherpaTranscriber
 import com.openmausbot.companion.storage.VoiceAsrMode
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.compose.runtime.mutableLongStateOf
 
 /** One minute is the ceiling; the server's own file limit is far above this. */
 private const val VOICE_MAX_MS = 60_000L
@@ -83,71 +67,78 @@ private const val VOICE_MIN_MS = 600L
 private const val VOICE_METER_BARS = 28
 
 /**
- * The hold-to-talk surface: press the big button, speak, release to send, slide
- * up to cancel.
+ * The recording half of a voice message, owned by the chat rather than by the
+ * card that shows it. Splitting it off is what lets one press gesture feed two
+ * flows: the card is open before the finger decides whether this is a tap or a
+ * hold, and either outcome talks to the same capture.
  *
- * A dialog rather than a bottom sheet on purpose: a sheet owns its vertical drag
- * for dismissing, and the same drag is this gesture's cancel. Keeping the sheet
- * out of the pointer path is what makes "slide up to cancel" reliable.
- *
- * The recording stops when the screen backgrounds, when the dialog is dismissed,
- * and at one minute. Nothing is left on disk either way.
+ * Tap: the press releases early, the card stays up and keeps recording until
+ * the person presses send. Hold: the press outlives the long-press threshold,
+ * the release sends and the card is gone. Either way the recorder, the PCM
+ * feed into sherpa, the level meter and the transcription fallback live here.
  */
-@Composable
-fun VoiceMessageSheet(
-    onDismiss: () -> Unit,
-    onSend: (clip: VoiceClip, transcript: String) -> Unit,
+internal class VoiceCapture(
+    context: Context,
+    private val environment: CompanionEnvironment,
+    private val scope: CoroutineScope,
+    private val haptics: Haptics,
+    private val onResult: (clip: VoiceClip, transcript: String) -> Unit,
 ) {
-    val environment = LocalCompanion.current
-    val context = LocalContext.current
-    val recorder = remember { VoiceRecorder(context) }
+    private val recorder = VoiceRecorder(context)
     // The phone-side recognizer: fed the same PCM the recorder writes, so it
-    // needs no second microphone client. Loaded only while the model is on
-    // disk and the person chose device transcription.
-    val sherpa = remember { SherpaTranscriber(environment.speechModels) }
-    val asrMode by environment.chatPreferences.voiceAsrMode.collectAsState()
-    var heard by remember { mutableStateOf("") }
-    var transcribing by remember { mutableStateOf(false) }
-    val haptics = rememberHaptics()
-    val scope = rememberCoroutineScope()
-    val density = LocalDensity.current
-    val cancelThreshold = with(density) { 72.dp.toPx() }
+    // needs no second microphone client.
+    private val sherpa = SherpaTranscriber(environment.speechModels)
+    private val asrMode: VoiceAsrMode
+        get() = environment.chatPreferences.voiceAsrMode.value
 
-    // The PCM the recorder produces also feeds sherpa through this channel;
-    // the consumer job serializes native decode off the capture thread. Both
-    // are null outside a device-mode recording.
-    val pcmChunks = remember { AtomicReference<Channel<ByteArray>?>(null) }
-    val pcmJob = remember { AtomicReference<Job?>(null) }
-
-    // null while the system permission sheet is up, so the button explains
+    // null while the system permission sheet is up, so the card explains
     // itself instead of silently doing nothing.
-    var permission by remember { mutableStateOf<Boolean?>(null) }
-    var recording by remember { mutableStateOf(false) }
-    var cancelling by remember { mutableStateOf(false) }
-    var elapsed by remember { mutableLongStateOf(0L) }
-    var levels by remember { mutableStateOf(List(VOICE_METER_BARS) { 0f }) }
-    var hint by remember { mutableStateOf<String?>(null) }
+    var permission by mutableStateOf<Boolean?>(null)
+    var recording by mutableStateOf(false)
+        private set
+    var transcribing by mutableStateOf(false)
+        private set
+    var elapsed by mutableLongStateOf(0L)
+        private set
+    var levels by mutableStateOf(List(VOICE_METER_BARS) { 0f })
+        private set
+    var heard by mutableStateOf("")
+        private set
+    var hint by mutableStateOf<String?>(null)
+        private set
+    /** Slide-up-to-cancel during a hold; the card reads it to go red. */
+    var cancelling by mutableStateOf(false)
+    /** The recognizer ran once; loaded lazily on the first capture. */
+    private var engineWarmed = false
 
-    LaunchedEffect(Unit) {
-        environment.mic.ensure { granted -> permission = granted }
-    }
+    private val pcmChunks = AtomicReference<Channel<ByteArray>?>(null)
+    private val pcmJob = AtomicReference<Job?>(null)
+    private var meterJob: Job? = null
 
-    // Load the native engine before the hold, not during it: the first
-    // construction reads the three model files through onnxruntime.
-    LaunchedEffect(asrMode) {
+    /** Load the native engine before the hold, not during it. */
+    fun warmUp() {
+        if (engineWarmed) return
+        engineWarmed = true
         if (asrMode == VoiceAsrMode.DEVICE && environment.speechModels.isReady()) {
-            withContext(Dispatchers.Default) { sherpa.ensureEngine() }
+            scope.launch(Dispatchers.Default) { sherpa.ensureEngine() }
         }
     }
 
-    fun stopPcm() {
-        pcmChunks.getAndSet(null)?.close()
-        pcmJob.getAndSet(null)?.cancel()
-        sherpa.cancel()
+    /** Asks permission if needed, then records. Safe to call repeatedly. */
+    fun begin() {
+        if (recording || transcribing) return
+        if (permission != true) {
+            environment.mic.ensure { granted ->
+                permission = granted
+                if (granted) start()
+            }
+            return
+        }
+        start()
     }
 
-    fun startRecording() {
-        if (recording || transcribing || permission != true) return
+    private fun start() {
+        if (recording || transcribing) return
         hint = null
         heard = ""
         val chunks = Channel<ByteArray>(Channel.UNLIMITED)
@@ -172,12 +163,32 @@ fun VoiceMessageSheet(
         elapsed = 0L
         levels = List(VOICE_METER_BARS) { 0f }
         haptics.play(HapticCue.SELECT)
+        meterJob?.cancel()
+        meterJob = scope.launch {
+            while (recording) {
+                delay(80)
+                elapsed = recorder.elapsedMs()
+                levels = (levels.drop(1) + recorder.level()).takeLast(VOICE_METER_BARS)
+                if (elapsed >= VOICE_MAX_MS) {
+                    finish(cancel = false)
+                    break
+                }
+            }
+        }
     }
 
-    fun stopAndSend(cancel: Boolean) {
+    private fun stopPcm() {
+        pcmChunks.getAndSet(null)?.close()
+        pcmJob.getAndSet(null)?.cancel()
+        sherpa.cancel()
+    }
+
+    /** Stops and delivers the clip, or abandons it on cancel / too short. */
+    fun finish(cancel: Boolean) {
         if (!recording) return
         recording = false
         cancelling = false
+        meterJob?.cancel()
         val duration = recorder.elapsedMs()
         if (cancel || duration < VOICE_MIN_MS) {
             recorder.cancel()
@@ -203,253 +214,179 @@ fun VoiceMessageSheet(
                 transcript = environment.session.transcribeVoice(clip.data).orEmpty()
                 transcribing = false
             }
-            onSend(clip, transcript)
+            onResult(clip, transcript)
         }
     }
 
-    // Leaving the screen (or the app) never keeps the microphone open.
-    DisposableEffect(Unit) {
-        onDispose {
-            recorder.release()
-            stopPcm()
-            sherpa.release()
-        }
-    }
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
-                recorder.cancel()
-                stopPcm()
-                recording = false
-                cancelling = false
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    LaunchedEffect(recording) {
-        if (!recording) return@LaunchedEffect
-        while (true) {
-            delay(80)
-            elapsed = recorder.elapsedMs()
-            levels = (levels.drop(1) + recorder.level()).takeLast(VOICE_METER_BARS)
-            if (elapsed >= VOICE_MAX_MS) {
-                stopAndSend(cancel = false)
-                break
-            }
-        }
-    }
-
-    fun dismiss() {
+    /** Abandons whatever is in flight; the card calls this on its way out. */
+    fun cancel() {
         if (recording) {
-            recorder.cancel()
-            stopPcm()
             recording = false
+            cancelling = false
+            meterJob?.cancel()
+            recorder.cancel()
         }
-        onDismiss()
+        stopPcm()
     }
 
-    val primary = if (cancelling) MinisTokens.Danger else minisInk
-    val timer = String.format(Locale.ROOT, "%02d:%02d", elapsed / 1000 / 60, elapsed / 1000 % 60)
+    fun release() {
+        cancel()
+        recorder.release()
+        sherpa.release()
+    }
+}
 
-    Dialog(
-        onDismissRequest = ::dismiss,
-        properties = DialogProperties(
-            usePlatformDefaultWidth = false,
-            decorFitsSystemWindows = false,
-        ),
-    ) {
-        Box(modifier = Modifier.fillMaxSize().safeDrawingPadding()) {
-            // Scrim. A separate sibling behind the sheet, so a press on the
-            // hold button never also means "dismiss".
+/**
+ * The floating voice card: a compact recorder that hovers over the transcript
+ * instead of taking the screen. [hold] is true while the finger that opened it
+ * is still down — the card then just narrates ("release to send, slide up to
+ * cancel"); once released into tap mode it carries the send and cancel buttons
+ * itself.
+ */
+@Composable
+internal fun VoiceCard(
+    capture: VoiceCapture,
+    hold: Boolean,
+    onClose: () -> Unit,
+) {
+    val timer = String.format(Locale.ROOT, "%02d:%02d", capture.elapsed / 1000 / 60, capture.elapsed / 1000 % 60)
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (!hold) {
+            // In tap mode the card is the only recorder control on screen, so
+            // tapping the dimmed space around it cancels like a sheet would.
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.38f))
+                    .background(Color.Black.copy(alpha = 0.24f))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         role = Role.Button,
-                        onClickLabel = "关闭",
-                        onClick = ::dismiss,
+                        onClickLabel = "取消",
+                        onClick = onClose,
                     )
-                    // The scrim is a control, not a blank surface: give the
-                    // full-screen clickable the name the chat's scrim has.
-                    .semantics { contentDescription = "关闭" },
+                    .semantics { contentDescription = "取消" },
             )
-
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .pointerInput(Unit) { detectTapGestures { } }
-                    .background(minisPage, RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                    .padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(14.dp),
+        }
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
+                .chromeSheet(cornerRadius = 24.dp, elevation = 14.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(
-                        text = "语音消息",
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = minisInk,
-                    )
-                    Spacer(Modifier.weight(1f))
-                    ChromeButton(
-                        icon = Icons.Filled.Close,
-                        contentDescription = "关闭语音消息",
-                        onClick = ::dismiss,
-                        size = 40.dp,
-                        glyph = 18.dp,
-                    )
-                }
-
+                Text(
+                    text = "语音消息",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                )
+                Spacer(Modifier.weight(1f))
                 Text(
                     text = timer,
-                    fontSize = 40.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.Medium,
                     fontFamily = FontFamily.Monospace,
-                    color = if (recording) MinisTokens.Danger else minisInk,
+                    color = if (capture.recording) MinisTokens.Danger else minisInk,
                 )
+            }
 
-                VoiceLevels(
-                    levels = levels,
-                    color = if (cancelling) MinisTokens.Danger else minisAccent,
-                )
+            VoiceLevels(
+                levels = capture.levels,
+                color = if (capture.cancelling) MinisTokens.Danger else minisAccent,
+            )
 
-                if (recording && heard.isNotEmpty()) {
-                    Text(
-                        text = heard,
-                        fontSize = 15.sp,
-                        color = minisInk,
-                        maxLines = 2,
-                    )
-                }
-
+            if (capture.recording && capture.heard.isNotEmpty()) {
                 Text(
-                    text = when {
-                        permission == false -> "需要麦克风权限才能发送语音消息"
-                        permission == null -> "正在请求麦克风权限…"
-                        transcribing -> "正在转写…"
-                        recording && cancelling -> "松开取消"
-                        recording -> "上滑取消 · 松开发送"
-                        hint != null -> hint!!
-                        else -> "按住下方按钮说话，松开发送"
-                    },
+                    text = capture.heard,
                     fontSize = 14.sp,
-                    color = if (cancelling) MinisTokens.Danger else minisSecondary,
-                    maxLines = 1,
+                    color = minisInk,
+                    maxLines = 2,
                 )
+            }
 
-                if (permission == false) {
+            Text(
+                text = when {
+                    capture.permission == false -> "需要麦克风权限才能发送语音消息"
+                    capture.permission == null -> "正在请求麦克风权限…"
+                    capture.transcribing -> "正在转写…"
+                    capture.recording && capture.cancelling -> "松开取消"
+                    hold -> "上滑取消 · 松开发送"
+                    capture.recording -> "说完点发送"
+                    capture.hint != null -> capture.hint!!
+                    else -> "正在准备录音…"
+                },
+                fontSize = 13.sp,
+                color = if (capture.cancelling) MinisTokens.Danger else minisSecondary,
+                maxLines = 1,
+            )
+
+            when {
+                capture.permission == false -> {
                     TextButton(onClick = {
-                        permission = null
-                        environment.mic.ensure { granted -> permission = granted }
+                        capture.permission = null
+                        capture.begin()
                     }) {
                         Text("重新授权")
                     }
-                } else {
-                    // The ring answers the microphone; the inner disc is the
-                    // control. Scaling the outer ring is a real level meter,
-                    // not a decorative loop.
-                    val pulse = if (recording) 1f + levels.last() * 0.08f else 1f
-                    Box(
-                        modifier = Modifier
-                            .size(112.dp)
-                            .graphicsLayer {
-                                scaleX = pulse
-                                scaleY = pulse
-                            }
-                            .background(
-                                if (recording) MinisTokens.Danger.copy(alpha = 0.12f) else minisGrouped,
-                                CircleShape,
-                            ),
-                        contentAlignment = Alignment.Center,
+                }
+                !hold -> {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(88.dp)
-                                .background(primary, CircleShape)
-                                .pointerInput(permission) {
-                                    if (permission != true) return@pointerInput
-                                    awaitEachGesture {
-                                        val down = awaitFirstDown(requireUnconsumed = false)
-                                        down.consume()
-                                        startRecording()
-                                        var cancel = false
-                                        // A pointer that lifts normally sends; one
-                                        // that is taken away (system back gesture,
-                                        // a call arriving, the window going away)
-                                        // must not leave the microphone recording
-                                        // forever behind a button nobody is holding.
-                                        var released = false
-                                        while (true) {
-                                            val event = awaitPointerEvent()
-                                            val change = event.changes.firstOrNull { it.id == down.id }
-                                                ?: break
-                                            if (!change.pressed) {
-                                                released = true
-                                                break
-                                            }
-                                            change.consume()
-                                            val next = down.position.y - change.position.y > cancelThreshold
-                                            if (next != cancel) {
-                                                cancel = next
-                                                cancelling = next
-                                                haptics.play(HapticCue.SELECT)
-                                            }
-                                        }
-                                        stopAndSend(cancel = cancel || !released)
-                                    }
-                                }
-                                .semantics {
-                                    contentDescription = "按住说话"
-                                    // TalkBack cannot hold-and-drag; a double
-                                    // tap starts, a second double tap sends.
-                                    onClick(label = if (recording) "停止并发送" else "开始录音") {
-                                        if (recording) stopAndSend(cancel = false) else startRecording()
-                                        true
-                                    }
-                                },
-                            contentAlignment = Alignment.Center,
+                        TouchTarget(
+                            onClick = onClose,
+                            size = 48.dp,
+                            contentDescription = "取消语音消息",
                         ) {
-                            when {
-                                permission == null -> CircularProgressIndicator(
-                                    modifier = Modifier.size(22.dp),
-                                    color = minisPage,
-                                    strokeWidth = 2.dp,
-                                )
-                                cancelling -> Icon(
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(minisGrouped, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
                                     imageVector = Icons.Filled.Close,
                                     contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(30.dp),
+                                    tint = minisInk,
+                                    modifier = Modifier.size(22.dp),
                                 )
-                                else -> Icon(
-                                    painter = painterResource(R.drawable.ic_mic),
+                            }
+                        }
+                        TouchTarget(
+                            onClick = { capture.finish(cancel = false) },
+                            enabled = capture.recording,
+                            size = 48.dp,
+                            contentDescription = "发送语音消息",
+                            modifier = Modifier.semantics(mergeDescendants = true) {},
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .background(
+                                        if (capture.recording) minisInk else minisGrouped,
+                                        CircleShape,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
                                     contentDescription = null,
-                                    // The disc is ink: black on the light page,
-                                    // white on the dark page. The glyph has to
-                                    // be the page colour, not always white.
-                                    tint = minisPage,
-                                    modifier = Modifier.size(30.dp),
+                                    tint = if (capture.recording) minisPage else minisTertiary,
+                                    modifier = Modifier.size(20.dp),
                                 )
                             }
                         }
                     }
                 }
-
-                Text(
-                    text = "最长 60 秒 · 语音会作为音频文件发送给智能体",
-                    fontSize = 12.sp,
-                    color = minisTertiary,
-                )
             }
         }
     }
@@ -461,20 +398,23 @@ private fun VoiceLevels(levels: List<Float>, color: Color) {
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
-            .height(54.dp)
-            .padding(horizontal = 8.dp),
+            .height(40.dp),
     ) {
-        val gap = 3.dp.toPx()
-        val barWidth = (size.width - gap * (levels.size - 1)) / levels.size
-        val minBar = 3.dp.toPx()
-        levels.forEachIndexed { index, level ->
-            val height = minBar + (size.height - minBar) * level
+        if (levels.isEmpty()) return@Canvas
+        val barWidth = 3.dp.toPx()
+        val gap = 4.dp.toPx()
+        val total = levels.size * barWidth + (levels.size - 1) * gap
+        var x = (size.width - total) / 2f
+        val centerY = size.height / 2f
+        for (level in levels) {
+            val barHeight = (4.dp.toPx() + level * (size.height - 8.dp.toPx()))
             drawRoundRect(
                 color = color,
-                topLeft = Offset(index * (barWidth + gap), (size.height - height) / 2f),
-                size = Size(barWidth, height),
-                cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f),
+                topLeft = Offset(x, centerY - barHeight / 2f),
+                size = Size(barWidth, barHeight),
+                cornerRadius = CornerRadius(barWidth / 2f),
             )
+            x += barWidth + gap
         }
     }
 }

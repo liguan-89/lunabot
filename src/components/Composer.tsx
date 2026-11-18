@@ -7,7 +7,7 @@ import { useStore, visibleMessages, currentTaskBot, type Bot, type Group, type I
 import { cn } from "@/lib/cn";
 import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { useMenuMotion } from "./MenuMotion";
-import { ELEVATED_CARD, ELEVATED_FLOAT } from "./elevated";
+import { ELEVATED_FLOAT } from "./elevated";
 import { uploadDraftImage } from "@/lib/composer-uploads";
 import { intakeFilesWithNotice } from "@/lib/attach-notice";
 import { activeLocale, t } from "@/lib/i18n";
@@ -66,7 +66,8 @@ import {
 } from "@/lib/composer-attachments";
 import { goalCoordinatorForComposer, jevRoomRoutingOn, openTaskWorking, roomRouteForComposer } from "@/lib/group-routing";
 import { composerPlaceholder, sendLabels, SIMPLE_COMPOSER, SIMPLE_CONTROL, slotColors } from "./composer-simple"; import { ComposerSendButton } from "./ComposerSendButton";
-import { PendingApprovalActions, PendingApprovalPanel, pendingApprovals } from "./PendingApproval";
+import { pendingApprovals } from "./PendingApproval";
+import { ComposerTodoTray } from "./ComposerTodoTray";
 import { CallButton } from "./CallView";
 import { GroupCallButton } from "./GroupCallView";
 import { ApprovalChip, ComposerPlusMenu, GoalToggle, TeachTaskButton } from "./ComposerPlusMenu";
@@ -147,15 +148,12 @@ export function Composer({
   const canSteer =
     state.instances.find((i) => i.instanceId === steerInstanceId)?.capabilities?.queueing === true;
   const composerTask = profile?.tasks?.find((task) => task.threadId === threadId);
+  const composerMessages = useMemo(() => (group ? group.messages : bot ? visibleMessages(bot) : []), [group, bot]);
   // Visible branch only: an approval left on an abandoned branch must not block the composer.
-  const approvals = pendingApprovals(group ? group.messages : bot ? visibleMessages(bot) : []);
+  const approvals = pendingApprovals(composerMessages);
   const approval = approvals[0];
   // A Turn on card can wait while the person walks to their computer: they can still write meanwhile.
   const blocking = Boolean(approval && !approval.message.card?.computerAsk);
-  const approvalBot = group
-    ? members?.find((member) => member.id === approval?.message.from?.botId) ??
-      members?.find((member) => member.id === groupBusyBotId)
-    : state.bots.find((one) => one.id === approval?.message.inbox?.from.botId) ?? bot;
   const busyName = group
     ? (members?.find((b) => b.id === groupBusyBotId)?.name ??
       (groupWorking ? t("composer.busy.team") : t("composer.busy.aBot")))
@@ -717,20 +715,15 @@ export function Composer({
           onPick={pickCommand} onHighlight={setHighlight} />
         <MentionMenu listRef={mentionListRef} motion={mentionMotion} choices={candidates} highlight={highlight}
           everyoneCount={mentionEveryoneCount} onPick={pickMention} onHighlight={setHighlight} />
-        {approval && (
-          <div className={cn("mb-2 overflow-hidden rounded-[18px]", ELEVATED_CARD)}>
-            <PendingApprovalPanel
-              key={approval.requestId}
-              pending={approval}
-              botName={approvalBot?.name} asker={approvalBot}
-              count={approvals.length}
-              index={0}
-              locale={activeLocale()}
-              actions={<PendingApprovalActions part="primary" pending={approval} threadId={threadId} bot={approvalBot} onCancelTurn={interruptTurn} />}
-              more={approval.message.inbox ? undefined : <PendingApprovalActions part="more" pending={approval} threadId={threadId} bot={approvalBot} onCancelTurn={interruptTurn} />}
-            />
-          </div>
-        )}
+        <ComposerTodoTray
+          messages={composerMessages}
+          threadId={threadId}
+          bot={bot}
+          members={members}
+          bots={state.bots}
+          groupBusyBotId={groupBusyBotId}
+          onCancelTurn={interruptTurn}
+        />
         {!group && <PointedChips threadId={threadId} />}{!group && bot && <SetupRequestChip bot={bot} threadId={threadId} />}
         <ComposerAttachments
           items={attachments}

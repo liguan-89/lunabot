@@ -78,9 +78,10 @@ function harness({ packaged = true, appleSpeech = true, remote = false, register
   return h;
 }
 
-test("every list of the app's windows leaves the talk box out", () => {
+test("every list of the app's windows leaves the talk box and the desktop mount out", () => {
   assert.equal(main.match(/BrowserWindow\.getAllWindows\(\)/g).length, 1);
-  assert.match(main, /function appWindows\(\) \{\s*return BrowserWindow\.getAllWindows\(\)\.filter\(\(win\) => !isTalkPanel\(win\)\);/);
+  assert.match(main, /function appWindows\(\) \{\s*return BrowserWindow\.getAllWindows\(\)\.filter\(\(win\) => !isTalkPanel\(win\) && !isDesktopMountPanel\(win\)\);/);
+  assert.match(main, /import \{ createDesktopMountManager, isDesktopMountPanel \} from "\.\/desktop-mount\.mjs";/);
   assert.match(main, /if \(appWindows\(\)\.length === 0\) openWindowForLink\(\);/);
   assert.match(main, /allWindows: \(\) => appWindows\(\)/);
 });

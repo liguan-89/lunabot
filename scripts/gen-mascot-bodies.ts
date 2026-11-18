@@ -58,6 +58,10 @@ const ALL_CLOUDS = CLOUD_SETS.flat()
 /** The scale cap. 1.0 reproduces the proportions the expressions were drawn at. */
 const CAP = 1
 
+/** The face size every body is drawn at: what the catalog already ships, so no existing bot's
+ * face changes. A new outline that cannot hold it must be widened, never clamped down. */
+const SHIPPED_FACE_SCALE = 0.791
+
 function solveBody(def: BodyDef): Solved {
   // `def.viewBox` is advisory and wrong for two bodies; bounds come from the outline.
   const polylines = flatten(def.d)
@@ -441,14 +445,14 @@ function main(): void {
   }
   console.log("")
 
-  const shared = solved.reduce((min, s) => Math.min(min, s.scale), Infinity)
-  if (shared < cursor.scale) {
+  const shared = Math.min(SHIPPED_FACE_SCALE, solved.reduce((min, s) => Math.min(min, s.scale), Infinity))
+  if (shared < SHIPPED_FACE_SCALE) {
     const tighter = solved
-      .filter(s => s.scale < cursor.scale)
+      .filter(s => s.scale < SHIPPED_FACE_SCALE)
       .map(s => `${s.def.id} (${s.scale})`)
       .join(", ")
     throw new Error(
-      `the shared face scale ${shared} is below ${DEFAULT_ID}'s own ${cursor.scale}: ` +
+      `the shared face scale ${shared} is below the shipped ${SHIPPED_FACE_SCALE}: ` +
         `${tighter} cannot hold the shipped face, so clamping the catalog would shrink ` +
         `the mascot everyone already has. Widen those outlines rather than lowering the floor.`
     )
@@ -481,7 +485,7 @@ function main(): void {
     })
   }
 
-  console.log(`shared face scale ${shared} (${DEFAULT_ID}'s own floor is ${cursor.scale})`)
+  console.log(`shared face scale ${shared} (the shipped floor is ${SHIPPED_FACE_SCALE})`)
   console.log(`${"body".padEnd(width)}  ${"scale".padStart(6)}  ${"clearance".padStart(9)}`)
   for (const body of baked) {
     const scale = body.anchor.scale.toFixed(3).padStart(6)
