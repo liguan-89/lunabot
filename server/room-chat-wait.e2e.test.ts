@@ -2,7 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
@@ -11,7 +11,7 @@ import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 
 const WAIT_CHIP = (name: string) => `${name} is finishing another conversation — will reply here when free`;
 
@@ -20,6 +20,10 @@ let home = "";
 let base = "";
 let stderr = "";
 let patientFinishGate = "";
+/** Which bot is the patient one, and which the summoner: one pi instance holds every flavor, told whose turn it is. */
+let patientBotFile = "";
+let summonerBotFile = "";
+let summonerReplies = "";
 
 type StateMessage = {
   id: string;
@@ -44,13 +48,6 @@ const api = async (
   return { status: response.status, body: await response.json() };
 };
 
-const fixture = (displayName: string, environment: Record<string, string>) => ({
-  driver: "claudeAgent",
-  displayName,
-  environment,
-  config: { cli: FAKE_CLAUDE },
-});
-
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-room-chat-wait-"));
   const data = join(home, ".openmausbot");
@@ -60,18 +57,33 @@ beforeAll(async () => {
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Room chat wait test</title>");
   writeFileSync(join(staticDir, "assets", "smoke.css"), "body{}");
   patientFinishGate = join(home, "patient-finish");
+  patientBotFile = join(home, "patient-bot.txt");
+  summonerBotFile = join(home, "summoner-bot.txt");
+  summonerReplies = join(home, "summoner-replies.txt");
   writeFileSync(patientFinishGate, "initial turns may finish");
+  writeFileSync(patientBotFile, "");
+  writeFileSync(summonerBotFile, "");
+  // One pi child per conversation is told its bot and thread, so a flavor is the bot's own: the patient bot's turn
+  // holds behind a gate until the test observes the room's wait, the summoner's answer names the teammate it pulls in,
+  // and every other bot simply answers.
+  const wrapper = join(home, "room-chat-wait-cli.mjs");
+  writeFileSync(wrapper, [
+    "#!/usr/bin/env node",
+    'import { readFileSync } from "node:fs";',
+    `const read = (path) => { try { return readFileSync(path, "utf8").trim(); } catch { return ""; } };`,
+    `const bot = process.env.OMB_BOT_ID ?? "";`,
+    `if (bot && bot === read(${JSON.stringify(patientBotFile)})) {`,
+    `  process.env.FAKE_PI_MODE = "slow";`,
+    `  process.env.FAKE_PI_SLOW_FINISH_GATE = ${JSON.stringify(patientFinishGate)};`,
+    `} else if (bot && bot === read(${JSON.stringify(summonerBotFile)})) {`,
+    `  process.env.FAKE_PI_CLAUDE_COMPAT = "1";`,
+    `  process.env.FAKE_PI_REPLIES = JSON.stringify(["Let me pull in @Bee for this."]);`,
+    `  process.env.FAKE_PI_REPLY_STATE = ${JSON.stringify(summonerReplies)};`,
+    `}`,
+    `await import(${JSON.stringify(pathToFileURL(FAKE_PI).href)});`,
+  ].join("\n"), { mode: 0o700 });
   writeFileSync(join(data, "config.json"), JSON.stringify({
-    instances: {
-      // A gate keeps a direct turn busy until the test observes the room's wait, rather than racing the fake CLI's 800ms closing reply.
-      patient: fixture("Patient fixture", { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: patientFinishGate }),
-      quick: fixture("Quick fixture", { FAKE_CLAUDE_MODE: "happy" }),
-      summoner: fixture("Summoning fixture", {
-        FAKE_CLAUDE_MODE: "happy",
-        FAKE_CLAUDE_REPLIES: JSON.stringify(["Let me pull in @Bee for this."]),
-        FAKE_CLAUDE_REPLY_STATE: join(home, "summoner-replies.txt"),
-      }),
-    },
+    instances: { pi: { driver: "piAgent", displayName: "Room chat wait fixture", config: { cli: wrapper } } },
   }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -107,12 +119,12 @@ afterAll(async () => {
   if (home) await removeTempDir(home);
 });
 
-const createBot = async (name: string, instanceId: string) =>
-  (await api("POST", "/api/bots", {
-    name,
-    modelSelection: { instanceId, model: "claude-sonnet-5" },
-    requireAvailableModel: true,
-  })).body.bot;
+const createBot = async (name: string, flavor: "patient" | "quick" | "summoner") => {
+  const bot = (await api("POST", "/api/bots", { name })).body.bot as { id: string };
+  if (flavor === "patient") writeFileSync(patientBotFile, bot.id);
+  if (flavor === "summoner") writeFileSync(summonerBotFile, bot.id);
+  return bot;
+};
 
 const snapshot = async (groupId: string) => {
   const state = (await api("GET", "/api/bots?messages=40")).body;
@@ -144,7 +156,7 @@ const roundSummary = (messages: StateMessage[], waitedBotId: string) => {
       message.kind === "activity" && message.from?.botId === waitedBotId && /another conversation/i.test(message.tool?.name ?? "")
     ).length,
     skipped: messages.some((message) => /skipped this round/i.test(message.tool?.name ?? "")),
-    // The slow fixture splits one turn into two text items, so consecutive repeats collapse to the speaker.
+    // A turn's working note and its answer are separate items; consecutive repeats collapse to the speaker.
     speakers: messages
       .filter((message) => message.kind === "text" && message.role === "bot")
       .map((message) => message.from?.name)

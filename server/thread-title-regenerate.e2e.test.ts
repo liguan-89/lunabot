@@ -1,5 +1,8 @@
+// Regenerating a thread's title end to end. The build runs one agent (pi), whose driver has no one-shot text call, so a
+// generated title can never be produced: the route says so, keeps the title the person or the first message gave the
+// thread, and names the switch when generated titles are off. A rename is never overwritten.
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,18 +12,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
-// The fake claude CLI's one-shot text mode answers from a file each test rewrites.
-
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(SERVER_DIR, "..");
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+/** What the route refuses with when the bot's engine has no one-shot text call. */
+const NO_ONE_SHOT = "this bot's model can't generate a title — rename the thread instead";
 
 let child: ChildProcess;
 let home = "";
 let base = "";
 let output = "";
-let titleFile = "";
-let titleDump = "";
 
 const api = async (method: string, path: string, body?: unknown): Promise<{ status: number; body: any }> => {
   const response = await fetch(`${base}${path}`, {
@@ -45,16 +46,9 @@ beforeAll(async () => {
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Regenerate title test</title>");
   writeFileSync(join(staticDir, "assets", "smoke.css"), "body{}");
-  titleFile = join(home, "title.txt");
-  titleDump = join(home, "title-dump.json");
   writeFileSync(join(data, "config.json"), JSON.stringify({
     features: { llmThreadTitles: true },
-    instances: {
-      titled: {
-        driver: "claudeAgent", displayName: "Titled fixture", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_TEXT_DUMP: titleDump, FAKE_CLAUDE_TEXT_FILE: titleFile },
-      },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "Titled fixture", config: { cli: FAKE_PI } } },
   }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -98,14 +92,10 @@ describe("Regenerate title", { timeout: 60_000 }, () => {
     expect((await api("GET", "/api/config")).body.features.llmThreadTitles).toBe(true);
   });
 
-  it("names a renamed thread from its recent conversation, without tool output", async () => {
-    const bot = (await api("POST", "/api/bots", {
-      modelSelection: { instanceId: "titled", model: "claude-sonnet-5" }, requireAvailableModel: true,
-    })).body.bot;
+  it("keeps a renamed thread as the person named it, since the engine has no one-shot text call", async () => {
+    const bot = (await api("POST", "/api/bots", { name: "Titled bot" })).body.bot;
     botId = bot.id;
-    // background memory capture is a one-shot too; keep it off this dump
     expect((await api("PATCH", `/api/bots/${botId}`, { memoryUpkeep: false })).status).toBe(200);
-    rmSync(titleFile, { force: true });
     const sent = await api("POST", `/api/bots/${botId}/messages`, { text: "every login hangs after the session expires" });
     expect(sent.status).toBe(202);
     threadId = sent.body.threadId;
@@ -114,47 +104,29 @@ describe("Regenerate title", { timeout: 60_000 }, () => {
       const current = (await api("GET", "/api/bots?messages=0")).body.bots.find((candidate: { id: string }) => candidate.id === botId);
       return !current?.busy && (page?.messages ?? []).some((message: { role: string; kind: string }) => message.role === "bot" && message.kind === "text");
     }, { timeout: 20_000, interval: 150 }).toBe(true);
-    await expect.poll(() => existsSync(titleDump), { timeout: 10_000 }).toBe(true);
-    rmSync(titleDump, { force: true });
 
     expect((await api("PATCH", `/api/bots/${botId}/tasks/${threadId}`, { title: "My name for it" })).status).toBe(200);
-    writeFileSync(titleFile, "\"Session expiry login hang.\"\n");
     const regenerated = await api("POST", `/api/bots/${botId}/tasks/${threadId}/title`);
-    expect(regenerated.status).toBe(200);
-    expect(regenerated.body.task.title).toBe("Session expiry login hang");
-    expect(await taskTitle(botId, threadId)).toBe("Session expiry login hang");
-
-    const seen = JSON.parse(readFileSync(titleDump, "utf8"));
-    expect(seen.prompt).toContain("Conversation:\n");
-    expect(seen.prompt).toContain("User: every login hangs after the session expires\nBot: hello from fake claude");
-    expect(seen.prompt).not.toContain("echo hi");
-  });
-
-  it("keeps the current title and says so when the one-shot fails or answers something unusable", async () => {
-    writeFileSync(titleFile, "__FAIL__");
-    const failed = await api("POST", `/api/bots/${botId}/tasks/${threadId}/title`);
-    expect(failed.status).toBe(502);
-    expect(failed.body.error).toMatch(/couldn't generate a title/);
-    writeFileSync(titleFile, "This answer rambles on far too long to ever be a thread title");
-    const unusable = await api("POST", `/api/bots/${botId}/tasks/${threadId}/title`);
-    expect(unusable.status).toBe(502);
-    expect(await taskTitle(botId, threadId)).toBe("Session expiry login hang");
+    expect(regenerated.status).toBe(409);
+    expect(regenerated.body.error).toBe(NO_ONE_SHOT);
+    expect(await taskTitle(botId, threadId)).toBe("My name for it");
   });
 
   it("refuses a thread with nothing to name it from, and an unknown one", async () => {
     const fresh = (await api("POST", `/api/bots/${botId}/tasks`, {})).body.task;
+    // The engine's own refusal comes before any look at the conversation: pi can never generate one.
     const empty = await api("POST", `/api/bots/${botId}/tasks/${fresh.threadId}/title`);
     expect(empty.status).toBe(409);
-    expect(empty.body.error).toMatch(/no messages/);
+    expect(empty.body.error).toBe(NO_ONE_SHOT);
     expect((await api("POST", `/api/bots/${botId}/tasks/no-such-thread/title`)).status).toBe(404);
   });
 
-  it("is refused once generated titles are switched off", async () => {
+  it("names the switch once generated titles are turned off", async () => {
     expect((await api("PATCH", "/api/config", { features: { llmThreadTitles: false } })).status).toBe(200);
     expect((await api("GET", "/api/config")).body.features.llmThreadTitles).toBe(false);
-    writeFileSync(titleFile, "Anything at all");
     const off = await api("POST", `/api/bots/${botId}/tasks/${threadId}/title`);
     expect(off.status).toBe(409);
-    expect(await taskTitle(botId, threadId)).toBe("Session expiry login hang");
+    expect(off.body.error).toMatch(/generated thread titles are turned off/);
+    expect(await taskTitle(botId, threadId)).toBe("My name for it");
   });
 });

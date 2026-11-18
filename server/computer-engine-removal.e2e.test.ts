@@ -89,8 +89,9 @@ function install(home: string, boatPort: () => number) {
         OMB_BOAT_API: `http://127.0.0.1:${boatPort()}`,
         OMB_USER_DATA: join(home, "user-data"),
         // A turn's first computer call is what creates the Boat, as with a real model. The fake pi
-        // scripts that call through the turn's real computer MCP server (it has no built-in one).
-        FAKE_PI_CLAUDE_COMPAT: "1",
+        // scripts that call through the turn's real computer MCP server (it has no built-in one); a
+        // slow turn plays its scripted calls and then answers, with no finish gate to wait on.
+        FAKE_PI_MODE: "slow",
         FAKE_PI_MOUNT_TOOLS: "1",
         FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]),
       }, stdio: ["ignore", "pipe", "pipe"],

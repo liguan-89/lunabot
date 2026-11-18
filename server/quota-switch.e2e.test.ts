@@ -1,4 +1,7 @@
-// The fake CLI plays the frames Claude Code 2.1.295 sent past its weekly limit.
+// A turn its engine's usage limit refused, end to end against the real server. This build runs one agent (pi) and no
+// other AI can be set up, so the switch-to-another-AI behaviour has nothing to switch to: the refused turn is reported
+// once with the provider's own words, the message is never resent, no offer card appears, and the conversation stays on
+// pi. OMB_QUOTA_SWITCH=0 reads the same, because there was never a backup to fall back to.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, existsSync, mkdirSync, mkdtempSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,23 +10,46 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { runControlOmb, verificationServerArgs, verificationServerEnvironment } from "../scripts/control-omb.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
-import { readHandoffs } from "./testing/handoff-rows.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
-const LIMITED = "Limited Claude";
-const OTHER_SIGN_IN = "Second Claude sign-in";
-const FAKE_CLI = fileURLToPath(new URL("./testing/fake-claude-cli.ts", import.meta.url));
-const FAKE_CODEX = fileURLToPath(new URL("./testing/fake-codex-app-server.ts", import.meta.url));
-const jsonLines = (path: string): any[] => existsSync(path)
-  ? readFileSync(path, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
+/** A provider's usage-limit refusal, as pi reports it from the model call that failed. */
+const LIMIT_TEXT = "429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"You have reached your 5-hour usage limit. Try again at 7:22 PM.\"}} retry-after-ms=18000000";
 
-async function withQuotaFixture(
-  options: { env?: Record<string, string>; otherSignInOnly?: boolean },
+/** The smallest pi RPC child that answers setup and refuses its one prompt with the engine's own limit words. */
+const LIMIT_CLI = `#!/usr/bin/env node
+import { createInterface } from "node:readline";
+const out = (frame) => process.stdout.write(JSON.stringify(frame) + "\\n");
+if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  process.stdout.write("pi 0.84.2 (fake)\\n");
+  process.exit(0);
+}
+let session = 0;
+createInterface({ input: process.stdin }).on("line", (line) => {
+  let cmd;
+  try { cmd = JSON.parse(line); } catch { return; }
+  const reply = (command, data) => out({ id: cmd.id, type: "response", command, success: true, data });
+  if (cmd.type === "generate_models" || cmd.type === "get_available_models") {
+    return reply("get_available_models", { models: [{ provider: "ollama-cloud", id: "glm-5.2", name: "glm-5.2" }] });
+  }
+  if (cmd.type === "new_session") return reply("new_session", { sessionId: "s-" + (++session), sessionFile: "/fake/limit-session.json" });
+  if (cmd.type === "switch_session") return reply("switch_session", { sessionId: "s-" + session, sessionFile: cmd.sessionPath ?? "/fake/limit-session.json" });
+  if (cmd.type === "set_model") return reply("set_model", { id: cmd.modelId, provider: cmd.provider });
+  if (cmd.type === "set_thinking_level") return reply("set_thinking_level", undefined);
+  if (cmd.type === "get_state") return reply("get_state", { model: null, thinkingLevel: "off", isStreaming: false, isCompacting: false, sessionFile: "/fake/limit-session.json" });
+  if (cmd.type !== "prompt") return;
+  out({ type: "agent_start" });
+  out({ type: "turn_start" });
+  out({ type: "turn_end", message: { stopReason: "error", errorMessage: ${JSON.stringify(LIMIT_TEXT)} }, usage: { input: 0, output: 0 } });
+  out({ type: "agent_end", isTerminal: true });
+});
+`;
+
+async function withLimitFixture(
+  options: { env?: Record<string, string> },
   check: (fixture: {
     api: (method: string, path: string, body?: unknown) => Promise<any>;
     control: (...args: string[]) => Promise<any>;
     respond: (threadId: string, body: unknown) => Promise<{ status: number; body: any }>;
-    backupPrompts: () => any[];
     dataDir: string;
   }) => Promise<void>,
 ) {
@@ -34,16 +60,8 @@ async function withQuotaFixture(
   const evidenceDir = join(tmpdir(), "openmausbot-verification-evidence");
   mkdirSync(evidenceDir, { recursive: true });
   const logPath = join(evidenceDir, `quota-switch-${Date.now()}-${process.pid}.log`);
-  const backupFile = join(dataDir, "backup-prompts.jsonl");
-  const engine = (displayName: string, environment: Record<string, string>) =>
-    ({ driver: "claudeAgent", displayName, config: { cli: FAKE_CLI }, environment });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      claude: engine(LIMITED, { FAKE_CLAUDE_MODE: "usage-limit" }),
-      ...(options.otherSignInOnly
-        ? { backup: engine(OTHER_SIGN_IN, { FAKE_CLAUDE_MODE: "happy", FAKE_CLAUDE_PROMPTS: backupFile, FAKE_CLAUDE_TOOL_CALLS: "[]" }) }
-        : { codex: { driver: "codex", config: { cli: FAKE_CODEX }, environment: { FAKE_CODEX_DUMP: backupFile } } }),
-    },
+    instances: { pi: { driver: "piAgent", displayName: "Limited pi", config: { cli: fileURLToPath(new URL("./testing/fake-pi-cli.ts", import.meta.url)) } } },
   }));
   const evidence: unknown[] = [{ url, options }];
   let server: ChildProcess | undefined;
@@ -80,20 +98,9 @@ async function withQuotaFixture(
     await expect.poll(async () => {
       try { return (await fetch(url + "/api/health", { signal: AbortSignal.timeout(1_000) })).ok; } catch { return false; }
     }, { timeout: 90_000 }).toBe(true);
-    if (!options.otherSignInOnly) {
-      await expect.poll(async () => {
-        const { instances } = await api("GET", "/api/instances") as { instances: any[] };
-        return instances.find((instance) => instance.instanceId === "codex")?.models.options.length > 0;
-      }, { timeout: 30_000 }).toBe(true);
-    }
-    // What the other AI was sent: the fake Claude logs each prompt; the fake Codex keeps its calls in one dump.
-    const sent = () => {
-      if (options.otherSignInOnly) return jsonLines(backupFile);
-      try { return (JSON.parse(readFileSync(backupFile, "utf8")).calls as any[]).filter((call) => call.method === "turn/start"); } catch { return []; }
-    };
-    await check({ api, control, respond, backupPrompts: sent, dataDir });
+    await check({ api, control, respond, dataDir });
   } finally {
-    evidence.push({ backupPrompts: existsSync(backupFile) ? readFileSync(backupFile, "utf8").slice(0, 20_000) : null, roots: readHandoffs(dataDir) });
+    evidence.push({ log: existsSync(logPath) ? readFileSync(logPath, "utf8").slice(-20_000) : null });
     const evidencePath = `${logPath}.quota-switch.json`;
     writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
     await waitForExit(server, { signal: "SIGTERM" });
@@ -102,72 +109,56 @@ async function withQuotaFixture(
   }
 }
 
-/** A bot whose conversation runs on the limited engine, and the turn that meets the limit. `carriedOn`: another AI may
- * already have taken the request over by the time the wait ends. */
-async function meetTheLimit(api: (method: string, path: string, body?: unknown) => Promise<any>, control: (...args: string[]) => Promise<any>, text: string, carriedOn = false) {
+/** A bot whose conversation meets the engine's usage limit on the next turn. */
+async function meetTheLimit(api: (method: string, path: string, body?: unknown) => Promise<any>, control: (...args: string[]) => Promise<any>, text: string, dataDir: string) {
   const { bot } = await control("new-bot", "--name", "Out of quota");
   const threadId = bot.activeTaskId as string;
-  const limited = (await api("GET", "/api/bots")).bots.find((entry: any) => entry.id === bot.id).modelSelection;
-  await api("PATCH", `/api/bots/${bot.id}/tasks/${threadId}`, { modelSelection: { ...limited, instanceId: "claude" }, updateBotDefault: true });
+  // The greeting ran on the ordinary fake; the limit CLI takes over from the person's next turn, as a real account's
+  // limit would between two turns.
+  expect((await control("wait", "--bot", bot.id, "--task", threadId, "--timeout", "30")).status).toBe("settled");
+  const limitCli = join(dataDir, "limit-cli.mjs");
+  writeFileSync(limitCli, LIMIT_CLI, { mode: 0o700 });
+  await api("PATCH", "/api/instances/pi", { cli: limitCli });
   await control("send", "--bot", bot.id, "--task", threadId, "--text", text);
-  expect(carriedOn ? ["failed", "settled"] : ["failed"]).toContain((await control("wait", "--bot", bot.id, "--task", threadId, "--timeout", "30")).status);
+  expect((await control("wait", "--bot", bot.id, "--task", threadId, "--timeout", "30")).status).toBe("failed");
   const messages = async () => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
   const state = async () => (await api("GET", "/api/bots")).bots.find((entry: any) => entry.id === bot.id);
   return { bot, threadId, messages, state };
 }
 
-it("carries the request on with another AI by itself: the exact message once more there, one notice, the failed root left settled", async () => {
-  await withQuotaFixture({}, async ({ api, control, backupPrompts, dataDir }) => {
+it("reports a usage-limit refusal once with the provider's words, resends nothing, and keeps the conversation on pi", async () => {
+  await withLimitFixture({}, async ({ api, control, dataDir }) => {
     const text = "SUMMARISE_THE_QUARTER_4K";
-    const { bot, threadId, messages, state } = await meetTheLimit(api, control, text, true);
+    const { bot, threadId, messages, state } = await meetTheLimit(api, control, text, dataDir);
     const { task: sibling } = await api("POST", `/api/bots/${bot.id}/tasks`, { title: "Sibling keeps its engine" });
 
-    await expect.poll(async () => (await messages()).findLast((message) => message.role === "bot" && message.kind === "text")?.text, { timeout: 30_000 }).toBe("done from fake codex");
     const after = await messages();
     const failures = after.filter((message) => message.tool?.name?.startsWith("error:"));
     expect(failures).toHaveLength(1);
-    expect(failures[0].tool.name).toMatch(/This Claude account has reached its usage limit/);
+    expect(failures[0].tool.name).toContain("You have reached your 5-hour usage limit");
+    // There is no other AI to carry the request to: nothing is offered, and the person's message is sent once.
     expect(after.some((message) => message.card?.quotaSwitch), "nothing to answer").toBe(false);
-    expect(after.filter((message) => message.tool?.name === "notice: continuing on Codex after hitting the usage limit")).toHaveLength(1);
-    // The message whose turn failed, sent once more: twice in the conversation, once to the AI that works.
-    expect(after.filter((message) => message.role === "user" && message.text === text)).toHaveLength(2);
-    expect(backupPrompts()).toHaveLength(1);
-    expect(JSON.stringify(backupPrompts()[0])).toContain(text);
+    expect(after.filter((message) => message.role === "user" && message.text === text)).toHaveLength(1);
 
-    // This conversation moved; the bot's own engine and its other conversation did not.
+    // The conversation never moves: pi is the only engine, and the bot's own engine and other conversation stay put.
     const bots = await state();
-    expect(bots.tasks.find((task: any) => task.threadId === threadId)).toMatchObject({ modelSelection: { instanceId: "codex" }, busy: false });
-    expect(bots.modelSelection.instanceId).toBe("claude");
-    expect(bots.tasks.find((task: any) => task.threadId === sibling.threadId).modelSelection?.instanceId ?? bots.modelSelection.instanceId).toBe("claude");
-    // No job twice: the failed turn's root stayed settled, and the resend is one new root that completed.
-    expect(readHandoffs(dataDir).filter((node) => node.threadId === threadId).map((node) => [node.status, node.executions])).toEqual([["failed", 1], ["completed", 1]]);
-    // One notice for this bot; the Chief, told of the incident, hears its own if its own turn meets the limit too.
+    expect(bots.tasks.find((task: any) => task.threadId === threadId)).toMatchObject({ modelSelection: { instanceId: "pi" }, busy: false });
+    expect(bots.modelSelection.instanceId).toBe("pi");
+    expect(bots.tasks.find((task: any) => task.threadId === sibling.threadId).modelSelection?.instanceId ?? bots.modelSelection.instanceId).toBe("pi");
+    // One notice for this bot, saying plainly that it waits because nothing else can take over.
     const notices = (await api("GET", "/api/notifications")).notifications.filter((entry: any) => entry.kind === "notice" && entry.botId === bot.id);
-    expect(notices.map((entry: any) => entry.body)).toEqual([expect.stringMatching(/^Limited Claude reached its limit.*, so Out of quota is using Codex meanwhile\.$/)]);
+    expect(notices.map((entry: any) => entry.body)).toEqual([expect.stringMatching(/^Limited pi reached its limit.*, so Out of quota waits.*: no other AI you have set up can take over\.$/)]);
   });
 }, 240_000);
 
-it("never moves to another sign-in of the same AI: it says once that the bot waits, and sends nothing again", async () => {
-  await withQuotaFixture({ otherSignInOnly: true }, async ({ api, control, backupPrompts }) => {
-    const { bot, threadId, messages, state } = await meetTheLimit(api, control, "LEAVE_THIS_WHERE_IT_IS_7M");
-    const mine = async () => (await api("GET", "/api/notifications")).notifications.filter((entry: any) => entry.kind === "notice" && entry.botId === bot.id);
-    await expect.poll(async () => (await mine()).length, { timeout: 20_000 }).toBe(1);
-    const [notice] = await mine();
-    expect(notice.body).toMatch(/^Limited Claude reached its limit.*, so Out of quota waits.*: no other AI you have set up can take over\.$/);
-    expect((await messages()).filter((entry) => entry.role === "user")).toHaveLength(1);
-    expect((await state()).tasks.find((task: any) => task.threadId === threadId).modelSelection?.instanceId ?? "claude").toBe("claude");
-    expect(backupPrompts()).toHaveLength(0);
-  });
-}, 240_000);
-
-it("moves nothing when OMB_QUOTA_SWITCH=0 switches it off", async () => {
-  await withQuotaFixture({ env: { OMB_QUOTA_SWITCH: "0" } }, async ({ api, control, backupPrompts }) => {
-    const { bot, threadId, messages, state } = await meetTheLimit(api, control, "NO_MOVE_WHEN_OFF_2B");
+it("reads the same with OMB_QUOTA_SWITCH=0: one notice, nothing resent, nothing moved", async () => {
+  await withLimitFixture({ env: { OMB_QUOTA_SWITCH: "0" } }, async ({ api, control, dataDir }) => {
+    const text = "NO_MOVE_WHEN_OFF_2B";
+    const { bot, threadId, messages, state } = await meetTheLimit(api, control, text, dataDir);
     const mine = async () => (await api("GET", "/api/notifications")).notifications.filter((entry: any) => entry.kind === "notice" && entry.botId === bot.id);
     await expect.poll(async () => (await mine()).length, { timeout: 20_000 }).toBe(1);
     expect((await mine())[0].body).toMatch(/, so Out of quota waits.*: no other AI you have set up can take over\.$/);
     expect((await messages()).filter((message) => message.role === "user")).toHaveLength(1);
-    expect((await state()).tasks.find((task: any) => task.threadId === threadId).modelSelection?.instanceId ?? "claude").toBe("claude");
-    expect(backupPrompts()).toHaveLength(0);
+    expect((await state()).tasks.find((task: any) => task.threadId === threadId).modelSelection?.instanceId ?? "pi").toBe("pi");
   });
 }, 240_000);

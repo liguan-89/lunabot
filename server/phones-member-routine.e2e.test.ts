@@ -3,7 +3,7 @@
 // before any job is queued, so the phone never hears of it, and the desk editing the owner's own routine takes the phone
 // away from that routine until the owner rewrites it. Where sign-in lets several people in, the desktop offers no phone.
 import { spawn, type ChildProcess } from "node:child_process";
-import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
@@ -12,6 +12,7 @@ import { launchVerificationServer, verificationServerEnvironment, type Verificat
 import { PHONE_MCP_SERVER } from "../shared/phone-apps.ts";
 import { PHONE_INTERNAL_MCP_PATH } from "./phones/rpc.ts";
 import { waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 const key = "isolated-phone-member-routine";
 const PHONE_NAME = "Omkar's iPhone";
@@ -24,8 +25,10 @@ let url: string;
 let chief: { id: string; threadId: string };
 let pairing: { token: string; session: { id: string } };
 let desk: { token: string; session: { id: string } };
-/** While this file exists every hanging fake turn ends normally (FAKE_CLAUDE_RELEASE). */
+/** While this file exists every hanging fake turn ends normally (FAKE_PI_RELEASE). */
 let release: string;
+/** The pi launch log: a JSONL of the launch each child was given and every prompt it received. */
+let dumpPath: string;
 
 const api = async (method: string, path: string, body?: unknown, token?: string) => {
   const response = await fetch(url + path, {
@@ -57,19 +60,18 @@ const mint = async (botId: string, threadId: string) => {
   expect(response.status).toBe(201);
   return (await response.json() as any).token as string;
 };
-type Launch = { prompt: unknown; mcpConfig: { mcpServers: Record<string, { env: Record<string, string> }> } | null };
 /** Starts whatever begins a turn and returns the MCP servers of the launch whose prompt carries `marker`. */
 const launched = async (marker: string, start: () => Promise<void>) => {
-  rmSync(fixture.fixtureDumpPath, { force: true });
+  const since = piTurns(dumpPath).length;
   await start();
   const launch = await vi.waitFor(() => {
-    expect(existsSync(fixture.fixtureDumpPath)).toBe(true);
-    const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as Launch;
-    expect(JSON.stringify(dump.prompt)).toContain(marker);
-    expect(dump.mcpConfig).not.toBeNull();
-    return dump as Launch & { mcpConfig: NonNullable<Launch["mcpConfig"]> };
+    const turns = piTurns(dumpPath);
+    const index = turns.findIndex((turn, at) => at >= since && turn.prompt.includes(marker));
+    expect(index, `no pi turn carried "${marker}"`).toBeGreaterThanOrEqual(0);
+    expect(turns[index]!.launch?.mcpConfig).not.toBeNull();
+    return turns[index]!;
   }, { timeout: 15_000 });
-  return Object.keys(launch.mcpConfig.mcpServers);
+  return Object.keys(launch.launch!.mcpConfig!.mcpServers ?? {});
 };
 /** Starts a routine run with `token` (none: this machine): the launch's MCP servers and the run's thread. */
 const run = async (routineId: string, prompt: string, token?: string) => {
@@ -109,7 +111,7 @@ const start = async () => {
   const log = openSync(fixture.info.logPath, "a", 0o600);
   child = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
     cwd: fileURLToPath(new URL("..", import.meta.url)),
-    env: { ...verificationServerEnvironment({ FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_RELEASE: release, FAKE_CLAUDE_TEXT_DUMP: join(fixture.info.dataDir, "one-shot-dump.json") }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
+    env: { ...verificationServerEnvironment({ FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: release }, fixture.info.dataDir, Number(new URL(url).port)), OMB_TEST_INTERNAL_CAPABILITY_KEY: key },
     stdio: ["ignore", log, log],
   });
   closeSync(log);
@@ -121,9 +123,10 @@ const start = async () => {
 };
 
 beforeAll(async () => {
-  fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "hang" });
+  fixture = await launchVerificationServer({});
   url = fixture.info.url;
   release = join(fixture.info.dataDir, "release-hanging-turns");
+  dumpPath = piDumpPath(fixture.info.dataDir);
   await waitForExit(fixture.child, { signal: "SIGTERM" });
   await start();
   const found = (await api("GET", "/api/bots")).body.bots.find((bot: { chiefOfStaff?: boolean }) => bot.chiefOfStaff);

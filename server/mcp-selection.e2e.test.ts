@@ -1,16 +1,18 @@
 import { request } from "node:http";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const FAKE_MCP = fileURLToPath(new URL("./testing/fake-mcp-server.ts", import.meta.url));
 const command = { command: process.execPath, args: ["--experimental-strip-types", FAKE_MCP] };
 type Bot = { id: string; threadId: string; mcpServers?: string[] };
-type Dump = { pid: number; systemPrompt: string | null; mcpConfig: { mcpServers: Record<string, unknown> } };
+/** The launch a turn ran on, read from the pi log: the servers it mounted and the child that ran it. */
+type Dump = { pid: number | undefined; systemPrompt: string; mcpConfig: { mcpServers: Record<string, unknown> } };
 
-async function withFixture(mode: string, run: (helpers: {
+async function withFixture(engine: Record<string, string>, run: (helpers: {
   api: (method: string, path: string, body?: unknown, headers?: Record<string, string>) => Promise<{ status: number; body: any }>;
   control: (args: string[]) => Promise<any>;
   dump: () => Promise<Dump>;
@@ -18,8 +20,11 @@ async function withFixture(mode: string, run: (helpers: {
   url: string;
   evidence: unknown[];
 }) => Promise<void>) {
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: mode });
+  const fixture = await launchVerificationServer({ ...process.env, ...engine });
   const evidence: unknown[] = [{ fixture: fixture.info }];
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  /** The turn sent since `since` (or the last one), as the launch it ran on. */
+  let seen = 0;
   try {
     await run({
       url: fixture.info.url,
@@ -40,12 +45,24 @@ async function withFixture(mode: string, run: (helpers: {
         return result;
       },
       dump: async () => {
-        await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 15_000 }).toBe(true);
-        const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as Dump;
-        evidence.push({ mounted: Object.keys(dump.mcpConfig.mcpServers), pid: dump.pid, system: dump.systemPrompt });
-        return dump;
+        let found: Dump | null = null;
+        await expect.poll(() => {
+          const turns = piTurns(dumpPath);
+          const index = turns.findLastIndex((turn) => turn.prompt.length > 0);
+          if (index < seen) return false;
+          seen = index + 1;
+          const launch = turns[index]!.launch;
+          found = {
+            pid: launch?.pid,
+            systemPrompt: piInstructionsFor(turns, index),
+            mcpConfig: { mcpServers: (launch?.mcpConfig?.mcpServers ?? {}) as Record<string, unknown> },
+          };
+          return true;
+        }, { timeout: 15_000 }).toBe(true);
+        evidence.push({ mounted: Object.keys(found!.mcpConfig.mcpServers), pid: found!.pid, system: found!.systemPrompt });
+        return found!;
       },
-      clearDump: () => rmSync(fixture.fixtureDumpPath, { force: true }),
+      clearDump: () => { seen = piTurns(dumpPath).length; },
     });
   } finally {
     await fixture.close();
@@ -57,7 +74,7 @@ async function withFixture(mode: string, run: (helpers: {
 }
 
 it("imports atomically and mounts the selected MCP servers in fresh direct and room sessions", async () => {
-  await withFixture("happy", async ({ api, control, dump, clearDump }) => {
+  await withFixture({}, async ({ api, control, dump, clearDump }) => {
     const secret = "fixture-only-mcp-secret";
     const imported = await api("POST", "/api/mcp/servers/import", { json: JSON.stringify({ mcpServers: {
       notes: { ...command, enabled: true, env: { TOKEN: secret } },
@@ -111,7 +128,7 @@ it("imports atomically and mounts the selected MCP servers in fresh direct and r
 }, 90_000);
 
 it("validates MCP grants, refuses live changes and client sessions, and rechecks delayed imports after revocation", async () => {
-  await withFixture("hang", async ({ api, control, dump, clearDump, url, evidence }) => {
+  await withFixture({ FAKE_PI_HOLD_ON: "Stay active." }, async ({ api, control, dump, clearDump, url, evidence }) => {
     const { bot } = await control(["new-bot", "--name", "Working fixture"]) as { bot: Bot };
     const { bot: idle } = await control(["new-bot", "--name", "Idle fixture"]) as { bot: Bot };
     for (const mcpServers of ["notes", [""], ["bad.name"], ["agents"], [1], Array.from({ length: 21 }, (_, i) => `server-${i}`)]) {

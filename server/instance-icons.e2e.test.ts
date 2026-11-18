@@ -1,4 +1,7 @@
-// Real server: the engine list carries each OpenAI-compatible server's mark, so every client shows it without the address.
+// Real server: the one instance this build runs (pi) shows the mark stored for it in the engine list, so every client
+// shows it without asking again. The custom OpenAI-compatible provider is no longer an instance of its own: it lives in
+// config.json's openaiCompat slot and pi's picker, so a server's host mark (server/provider-icon.ts) is covered by its
+// unit tests rather than an instance the route would list.
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -18,21 +21,13 @@ afterEach(async () => {
   for (const home of homes.splice(0)) await removeTempDir(home);
 });
 
-// No key and a fixed model list: the server never asks these hosts for anything.
-const server = (url: string, extra: object = {}) => ({ driver: "openai-compat", ...extra, config: { url, managedModels: ["fixture-model"] } });
-
-it("lists an OpenAI-compatible server with its provider's mark, and a stored icon over it", async () => {
+it("lists the pi engine with the mark stored for it, and refuses a mark that is not one of the presets", async () => {
   const home = mkdtempSync(join(tmpdir(), "omb-instance-icons-"));
   homes.push(home);
   mkdirSync(join(home, "tmp"), { recursive: true });
   writeFileSync(join(home, "config.json"), JSON.stringify({
-    instances: {
-      deepseekServer: server("https://api.deepseek.com/v1", { displayName: "DeepSeek" }),
-      qwenWorkspace: server("https://workspace-123.cn-beijing.maas.aliyuncs.com/compatible-mode/v1", { displayName: "Qwen" }),
-      qwenLookalike: server("https://workspace-123.cn-beijing.maas.aliyuncs.com.evil.test/compatible-mode/v1"),
-      lookalike: server("https://api.openai.com.evil.test/v1"),
-      ownIcon: server("https://api.x.ai/v1", { icon: { kind: "preset", preset: "cohere" } }),
-    },
+    // The custom provider a person saves in Settings → API keys: not an engine, so never an instance here.
+    openaiCompat: { key: "fixture-key", url: "https://api.deepseek.com/v1", model: "deepseek-chat" },
   }));
   const port = await freePortBlock([0, 1]);
   const base = `http://127.0.0.1:${port}`;
@@ -48,13 +43,28 @@ it("lists an OpenAI-compatible server with its provider's mark, and a stored ico
     try { return (await fetch(`${base}/api/health`)).ok; } catch { return false; }
   }, { timeout: 20_000, interval: 50 }).toBe(true);
 
-  const response = await fetch(`${base}/api/instances`, { headers: { origin: base } });
-  expect(response.status).toBe(200);
-  const { instances } = await response.json() as { instances: Array<{ instanceId: string; icon?: unknown }> };
-  const icon = (id: string) => instances.find((instance) => instance.instanceId === id)!.icon;
-  expect(icon("deepseekServer")).toEqual({ kind: "preset", preset: "deepseek" });
-  expect(icon("qwenWorkspace")).toEqual({ kind: "preset", preset: "qwen" });
-  expect(icon("qwenLookalike")).toBeUndefined();
-  expect(icon("lookalike")).toBeUndefined();
-  expect(icon("ownIcon")).toEqual({ kind: "preset", preset: "cohere" });
+  const listed = async () => {
+    const response = await fetch(`${base}/api/instances`, { headers: { origin: base } });
+    expect(response.status).toBe(200);
+    return (await response.json() as { instances: Array<{ instanceId: string; icon?: unknown }> }).instances;
+  };
+  const before = await listed();
+  expect(before.map((instance) => instance.instanceId)).toEqual(["pi"]);
+  expect(before[0]!.icon).toBeUndefined();
+
+  const patched = await fetch(`${base}/api/instances/pi/icon`, {
+    method: "PATCH", headers: { origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ icon: { kind: "preset", preset: "cohere" } }),
+  });
+  expect(patched.status).toBe(200);
+  const after = (await patched.json() as { instances: Array<{ instanceId: string; icon?: unknown }> }).instances;
+  expect(after.find((instance) => instance.instanceId === "pi")!.icon).toEqual({ kind: "preset", preset: "cohere" });
+  expect((await listed()).find((instance) => instance.instanceId === "pi")!.icon).toEqual({ kind: "preset", preset: "cohere" });
+
+  const refused = await fetch(`${base}/api/instances/pi/icon`, {
+    method: "PATCH", headers: { origin: base, "content-type": "application/json" },
+    body: JSON.stringify({ icon: { kind: "preset", preset: "not-a-mark" } }),
+  });
+  expect(refused.status).toBe(400);
+  expect((await listed()).find((instance) => instance.instanceId === "pi")!.icon).toEqual({ kind: "preset", preset: "cohere" });
 }, 60_000);

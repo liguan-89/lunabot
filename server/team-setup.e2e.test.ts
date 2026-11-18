@@ -1,14 +1,18 @@
+// A Chief plans a team from the engines the server really offers: this build ships one (pi), so the plan picks between
+// its models. At Ask the setup applies at once with no card of its own, existing threads keep their models, and a
+// specialist the Chief picks itself is added at once with an Undo. The engine is the synthetic pi, parked on a gate.
 import { existsSync, mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
-it("Clive sets up multi-provider teams at Ask with no card, keeps existing threads through setup and deletion, and adds a specialist it picked itself at once, with an Undo", async () => {
+it("Clive sets up multi-model teams at Ask with no card, keeps existing threads through setup and deletion, and adds a specialist it picked itself at once, with an Undo", async () => {
   const gates = mkdtempSync(join(tmpdir(), "omb-team-setup-gates-"));
   const gate = join(gates, "finish");
-  const fixture = await launchVerificationServer({ FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate }, undefined, undefined, undefined, undefined, undefined, ["codex"]);
+  const fixture = await launchVerificationServer({ FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate });
   const evidence: unknown[] = [{ fixture: fixture.info }];
   const api = async (method: string, path: string, body?: unknown, expected = 200, token?: string, fromApp = true) => {
     const response = await fetch(fixture.info.url + path, { method, headers: { "content-type": "application/json",
@@ -23,28 +27,32 @@ it("Clive sets up multi-provider teams at Ask with no card, keeps existing threa
     const result = await runControlOmb([...args, "--url", fixture.info.url]) as any;
     evidence.push({ command: args, result }); return result;
   };
+  const dump = () => piDumpPath(fixture.info.dataDir);
   try {
     const catalog = (await api("GET", "/api/instances")).instances;
-    const claude = catalog.find((item: any) => item.instanceId === "claude");
-    const codex = catalog.find((item: any) => item.instanceId === "codex");
-    expect(codex).toBeDefined();
-    const selection = (instance: any) => ({ instanceId: instance.instanceId, model: instance.models.default });
-    const chief = (await api("POST", "/api/bots", { name: "Clive", title: "Chief of Staff", section: "Operations", modelSelection: selection(claude) }, 201)).bot;
-    // At Ask: team setup applies at once, since OpenMausBot adds no card of its own.
+    // This build runs one engine: a plan chooses between the models pi offers, which is what the multi-engine plan used
+    // to prove (each new bot gets an exact model selection of its own).
+    const pi = catalog.find((item: any) => item.instanceId === "pi");
+    expect(pi).toBeDefined();
+    const models = (pi.models.options as Array<{ id: string }>).map((option) => option.id);
+    expect(models.length).toBeGreaterThanOrEqual(2);
+    const selection = (model: string) => ({ instanceId: pi.instanceId, model });
+    const first = selection(models[0]!);
+    const second = selection(models[1]!);
+    const chief = (await api("POST", "/api/bots", { name: "Clive", title: "Chief of Staff", section: "Operations", modelSelection: first }, 201)).bot;
+    // At Ask: team setup applies at once, since Luna Bot adds no card of its own.
     await api("PATCH", `/api/bots/${chief.id}`, { chiefOfStaff: true, approvalMode: "ask", connectorTools: { slack: { tools: ["SLACK_SEND_MESSAGE"] } } });
     const state = async () => (await api("GET", "/api/bots")).bots;
     // The fixture pins its starter's name, but identity is the honest comparison: a name once collided with a random starter.
     const initialBotIds = new Set((await state()).map((bot: any) => bot.id));
-    let previousPid: number | undefined;
+    /** Start a turn the fake pi holds on the gate, and return the agents capability its launch mounted. A warm pi
+     * child keeps its pid across turns, so the new turn is the new prompt row in the log, not a new process. */
     const start = async (text: string) => {
       if (existsSync(gate)) unlinkSync(gate);
+      const before = piTurns(dump()).length;
       await control("send", "--bot", chief.id, "--task", chief.threadId, "--text", text);
-      await expect.poll(() => {
-        if (!existsSync(fixture.fixtureDumpPath)) return false;
-        return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).pid !== previousPid;
-      }, { timeout: 15_000 }).toBe(true);
-      const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); previousPid = dump.pid;
-      return dump.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN as string;
+      await expect.poll(() => piTurns(dump()).length > before, { timeout: 15_000 }).toBe(true);
+      return piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.OMB_COMMS_TOKEN as string;
     };
     const finish = async () => {
       writeFileSync(gate, "finish");
@@ -54,15 +62,15 @@ it("Clive sets up multi-provider teams at Ask with no card, keeps existing threa
       name, title: `${team} specialist`, soul: `Own ${team.toLowerCase()} work. Return evidence and state uncertainty.`, section: team, modelSelection,
     } });
     const plan = { reason: "Set up Research, Engineering and Growth specialists as requested", newTeams: ["Research", "Engineering", "Growth"], operations: [
-      build("Mira", "Research", selection(claude)), build("Patch", "Engineering", selection(codex)), build("Quill", "Growth", selection(claude)),
+      build("Mira", "Research", first), build("Patch", "Engineering", second), build("Quill", "Growth", first),
       { action: "create", key: "Patch", fields: { title: "Implementation and verification engineer", chiefOfStaff: true } },
     ] };
     const decisionReplies = async (requestId: string) => ((await api("GET", `/api/threads/${chief.threadId}/messages`)).messages as any[])
       .filter((message) => message.text?.includes(`team setup decision ${requestId}:`)).length;
     let token = await start("Clive, set up Research, Engineering and Growth specialists with suitable engines and models.");
     const tools = await api("GET", "/api/internal/team-setup-catalog", undefined, 200, token);
-    expect(tools.instances.map((item: any) => item.instanceId)).toEqual(expect.arrayContaining(["claude", "codex"]));
-    await api("POST", "/api/internal/team-setup-requests", { plan: { ...plan, operations: [build("Bad", "Research", { instanceId: "codex", model: "invented-model" })] } }, 400, token);
+    expect(tools.instances.map((item: any) => item.instanceId)).toEqual(["pi"]);
+    await api("POST", "/api/internal/team-setup-requests", { plan: { ...plan, operations: [build("Bad", "Research", selection("invented-model"))] } }, 400, token);
     await api("POST", "/api/internal/team-setup-requests", { fromBotId: "foreign", plan }, 403, token);
     const applied = await api("POST", "/api/internal/team-setup-requests", { plan }, 201, token);
     expect(applied).toMatchObject({ state: "applied", applied: true });
@@ -70,7 +78,7 @@ it("Clive sets up multi-provider teams at Ask with no card, keeps existing threa
     const created = saved.filter((bot: any) => !initialBotIds.has(bot.id));
     expect(created.map((bot: any) => bot.name).sort()).toEqual(["Mira", "Patch", "Quill"]);
     const engineer = created.find((bot: any) => bot.name === "Patch");
-    expect(engineer).toMatchObject({ title: "Implementation and verification engineer", section: "Engineering", chiefOfStaff: true, modelSelection: selection(codex), approvalMode: "full", autoApprove: false });
+    expect(engineer).toMatchObject({ title: "Implementation and verification engineer", section: "Engineering", chiefOfStaff: true, modelSelection: second, approvalMode: "full", autoApprove: false });
     for (const bot of created) expect(bot.connectorTools, bot.name).toEqual({ slack: { tools: ["SLACK_SEND_MESSAGE"] } });
     expect(engineer.managedSections).toBeUndefined();
     expect(saved.find((bot: any) => bot.id === chief.id).managedSections).toEqual(expect.arrayContaining(plan.newTeams));
@@ -81,17 +89,17 @@ it("Clive sets up multi-provider teams at Ask with no card, keeps existing threa
     await finish();
     expect(await decisionReplies(applied.requestId)).toBe(0);
 
-    token = await start("Move Patch to Growth and switch its default engine to Claude; retain its existing thread.");
+    token = await start("Move Patch to Growth and switch its default model; retain its existing thread.");
     const updated = await api("POST", "/api/internal/team-setup-requests", { plan: { reason: "Requested default and team change", operations: [
-      { action: "update", botId: engineer.id, fields: { section: "Growth", modelSelection: selection(claude) } },
+      { action: "update", botId: engineer.id, fields: { section: "Growth", modelSelection: first } },
       { action: "update", botId: engineer.id, fields: { description: "Shared delivery specialist" } },
     ] } }, 201, token);
     expect(updated.state).toBe("applied");
     await finish();
     const changed = (await state()).find((bot: any) => bot.id === engineer.id);
-    expect(changed).toMatchObject({ section: "Growth", modelSelection: selection(claude), description: "Shared delivery specialist" });
+    expect(changed).toMatchObject({ section: "Growth", modelSelection: first, description: "Shared delivery specialist" });
     expect(changed.tasks.find((task: any) => task.threadId === engineer.threadId))
-      .toMatchObject({ modelSelection: selection(claude), followsBotModel: true });
+      .toMatchObject({ modelSelection: first, followsBotModel: true });
     // Patch changed since the first setup, so its Undo changes nothing.
     expect((await api("POST", `/api/threads/${chief.threadId}/undo`, { requestId: applied.requestId }, 409)).code).toBe("changed-since");
     expect((await state()).some((bot: any) => bot.name === "Mira")).toBe(true);
@@ -116,11 +124,11 @@ it("Clive sets up multi-provider teams at Ask with no card, keeps existing threa
     expect((await state()).some((bot: any) => bot.name === "Scout")).toBe(false);
     const room = (await control("new-channel", "--name", "Chief review", "--members", chief.id)).channel;
     unlinkSync(gate);
+    const beforeRoom = piTurns(dump()).length;
     await control("send-channel", "--channel", room.id, "--task", room.activeTaskId, "--text", "@Clive Add a helper for this room.");
-    await expect.poll(() => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).pid, { timeout: 15_000 }).not.toBe(previousPid);
-    const groupDump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); previousPid = groupDump.pid;
+    await expect.poll(() => piTurns(dump()).length, { timeout: 15_000 }).toBeGreaterThan(beforeRoom);
     const roomPick = await api("POST", "/api/internal/create-bot", { name: "RoomHelper", role: "Room helper", instructions: "Help the room.", suggestion: true },
-      201, groupDump.mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN);
+      201, piTurns(dump()).at(-1)!.launch!.mcpConfig!.mcpServers!.agents!.env!.OMB_COMMS_TOKEN as string);
     expect(roomPick).toMatchObject({ state: "applied", applied: true });
     writeFileSync(gate, "finish");
     await control("wait", "--channel", room.id, "--task", room.activeTaskId, "--timeout", "15");

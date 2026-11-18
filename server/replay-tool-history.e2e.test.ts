@@ -1,22 +1,23 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
 import { expect, it } from "vitest";
 
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { request } from "../scripts/mcp-server.ts";
 import type { WireMessage } from "../shared/wire.ts";
+import { piDumpPath, piTurnText, piTurns } from "./testing/pi-dump.ts";
 import { withoutTurnClock } from "./testing/turn-clock-text.ts";
 
 it("names earlier tool calls in a rebuilt session only when switched on", async () => {
   const fixture = await launchVerificationServer({
-    // The launcher keeps only OS launch variables and FAKE_CLAUDE_* knobs.
     ...process.env,
-    // every turn runs a failing command and a read before it replies
+    // every turn runs a failing command and a read before it replies. Scripted calls ride the fake pi's compat bridge,
+    // which the launcher turns on when a caller sets one of the retired Claude knob names.
     FAKE_CLAUDE_TOOL_CALLS: JSON.stringify([
       { name: "Bash", input: { command: "pnpm test", description: "INPUT_PREVIEW_ONLY" }, output: "RESULT_BODY 3 failed", ok: false },
       { name: "Read", input: { file_path: "/fixture/notes.md", limit: 40 }, output: "RESULT_BODY notes", ok: true },
     ]),
-  }, undefined, undefined, undefined, undefined, undefined, ["codex"]);
+  });
+  const dumpPath = piDumpPath(fixture.info.dataDir);
   const evidence: unknown[] = [{ fixture: fixture.info }];
   const control = async (...args: string[]) => {
     const result = await runControlOmb([...args, "--url", fixture.info.url]) as any;
@@ -30,9 +31,11 @@ it("names earlier tool calls in a rebuilt session only when switched on", async 
       (await request(`/api/threads/${thread}/messages?limit=100`, {}, fixture.info.url) as { messages: WireMessage[] }).messages;
     const settled = async () =>
       expect((await control("wait", "--bot", bot.id, "--task", thread, "--timeout", "30")).status).toBe("settled");
-    /** The text the provider received for the turn that just settled. */
+    /** The last pi turn's own words as the provider received them: the replay when the turn rebuilt the session, and
+     * only the new line when it resumed one (pi sends the standing prompt once, on a session's first turn). */
     const prompt = () => {
-      const text = withoutTurnClock(String(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")).prompt.message.content));
+      const turn = piTurns(dumpPath).at(-1);
+      const text = withoutTurnClock(turn ? piTurnText(turn) : "");
       evidence.push({ prompt: text });
       return text;
     };
@@ -81,33 +84,24 @@ it("names earlier tool calls in a rebuilt session only when switched on", async 
     expect(on.split("\n").filter(line => !line.startsWith("Assistant: [ran: ")).join("\n"))
       .toBe(off.replace("SECOND_REQUEST, edited", "SECOND_REQUEST, edited again"));
 
-    // Still on, a turn that resumes its session is sent no replay.
-    expect(await send("THIRD_REQUEST thanks")).toBe("THIRD_REQUEST thanks");
+    // A rewind throws the recorded session away, so the turn right after it rebuilds the branch as well: the same
+    // replay, now from the rewound leaf. (The engine-switched-in-mid-thread case this recipe once covered went with the
+    // other engines: this build runs one, and a rebuilt session is the same path a switched-in engine took.)
+    const rebuilt = await send("THIRD_REQUEST thanks");
+    expect(rebuilt.endsWith("THIRD_REQUEST thanks")).toBe(true);
+    // Both surviving turns on the branch are named, each with the calls it ran.
+    expect(toolLines(rebuilt)).toEqual([...toolLines(on), ...toolLines(on)]);
+    expect(rebuilt).not.toContain("RESULT_BODY");
 
-    // An engine switched in mid-thread joins through the same replay: Codex
-    // is told what each of Claude's three turns on this branch ran.
-    const codex = (await control("models")).instances.find((item: any) => item.instanceId === "codex");
-    await request(`/api/bots/${bot.id}/tasks/${thread}`, { method: "PATCH", body: JSON.stringify({
-      modelSelection: { instanceId: "codex", model: codex.models.options[0].id }, requireAvailableModel: true,
-    }) }, fixture.info.url);
-    await control("send", "--bot", bot.id, "--task", thread, "--text", "FOURTH_REQUEST carry on");
-    await settled();
-    // the harness's own record of what it sent that engine
-    const sent = readFileSync(join(fixture.info.dataDir, "native", `${thread}.ndjson`), "utf8").trim().split("\n")
-      .map(line => JSON.parse(line)).findLast(entry => entry.dir === "out" && entry.msg?.method === "turn/start");
-    const joined = withoutTurnClock((sent.msg.params.input as Array<{ text?: string }>).map(part => part.text ?? "").join("\n"));
-    evidence.push({ codex: joined });
-    expect(joined).toContain("joining this conversation mid-thread");
-    expect(toolLines(joined)).toEqual([...toolLines(on), ...toolLines(on), ...toolLines(on)]);
-    expect(joined).not.toContain("RESULT_BODY");
-    expect(joined.endsWith("FOURTH_REQUEST carry on")).toBe(true);
+    // Then the new session continues normally: the next turn is sent its own line and no replay.
+    expect(await send("FOURTH_REQUEST carry on")).toBe("FOURTH_REQUEST carry on");
 
     // The lines are built for the replay; the stored conversation has none.
     expect(JSON.stringify(await messages())).not.toContain("[ran: ");
   } finally {
     try {
-      writeFileSync(`${fixture.info.logPath}.replay-tools.json`, JSON.stringify(evidence, null, 2), { mode: 0o600 });
-      console.info(`Replay tool-history evidence: ${fixture.info.logPath}.replay-tools.json`);
+      evidence.push({ turns: piTurns(dumpPath).length });
+      console.info(`Replay tool-history evidence: ${JSON.stringify(evidence.at(-1))}`);
     } finally { await fixture.close(); }
     expect(existsSync(fixture.info.dataDir)).toBe(false);
   }

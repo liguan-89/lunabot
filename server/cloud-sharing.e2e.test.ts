@@ -4,15 +4,16 @@
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, expect, it } from "vitest";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns, type PiTurn } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -20,7 +21,7 @@ const MACHINE_ID = "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93";
 const secret = randomBytes(32).toString("base64url");
 const home = mkdtempSync(join(tmpdir(), "omb-cloud-sharing-"));
 const dataDir = join(home, ".openmausbot");
-const dump = join(home, "claude.json");
+const dump = () => piDumpPath(dataDir);
 let base = "";
 let port = 0;
 let cloud = true;
@@ -55,6 +56,9 @@ async function boot(asCloud: boolean) {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+      // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+      OMB_BOT_BOX: "0",
       ...(asCloud ? { OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE_ID, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
         OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}` } : {}),
     },
@@ -94,8 +98,29 @@ const release = async (botId: string, token?: string) => {
   rmSync(join(home, "release"), { force: true });
 };
 
-async function agentTools() {
-  const agents = JSON.parse(readFileSync(dump, "utf8")).mcpConfig.mcpServers.agents;
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
+  const env = agents?.env ?? {};
+  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
+};
+
+/** The first turn at or after `before` that `wanted` accepts. */
+const turnAfter = async (before: number, wanted: (turn: PiTurn) => boolean, _what: string): Promise<PiTurn> => {
+  let found: PiTurn | undefined;
+  await expect.poll(() => {
+    found = piTurns(dump()).slice(before).find(wanted);
+    return Boolean(found);
+  }, { timeout: hostTimeout(15_000) }).toBe(true);
+  return found!;
+};
+
+/** The agents tools of the turn `start` sets off, as the engine's own process would spawn them. */
+async function agentToolsFor(start: () => Promise<void>, botId: string) {
+  const before = piTurns(dump()).length;
+  await start();
+  const turn = await turnAfter(before, (candidate) => agentsEnv(candidate.launch?.mcpConfig?.mcpServers?.agents).OMB_BOT_ID === botId, `a turn of ${botId}`);
+  const agents = turn.launch!.mcpConfig!.mcpServers!.agents! as { command: string; args: string[]; env: Record<string, string> };
   const proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
   const replies = new Map<number, (value: any) => void>();
@@ -112,39 +137,43 @@ async function agentTools() {
 /** In a new conversation, the bot makes itself a routine from what this person asked. */
 async function routineFrom(botId: string, name: string, token?: string) {
   const threadId = (await api("POST", `/api/bots/${botId}/tasks`, { token, body: { title: name } })).body.task.threadId as string;
-  rmSync(dump, { force: true });
-  expect((await api("POST", `/api/bots/${botId}/messages`, { token, body: { text: `Every hour: ${name}.`, threadId } })).status).toBe(202);
-  await expect.poll(() => existsSync(dump), { timeout: hostTimeout(15_000) }).toBe(true);
-  const applied = await (await agentTools())("create_trigger", { when: "schedule", name, instructions: `${name}.`, schedule: { type: "interval", every_minutes: 60 } });
+  const tools = await agentToolsFor(async () => {
+    expect((await api("POST", `/api/bots/${botId}/messages`, { token, body: { text: `Every hour: ${name}.`, threadId } })).status).toBe(202);
+  }, botId);
+  const applied = await tools("create_trigger", { when: "schedule", name, instructions: `${name}.`, schedule: { type: "interval", every_minutes: 60 } });
   await release(botId, token);
   const id = /trigger id ([\w-]+)/.exec(applied)?.[1];
   expect(id, applied).toBeTruthy();
   return id!;
 }
 
-async function runArgv(routineId: string, token: string) {
-  rmSync(dump, { force: true });
+/** A confined turn mounts no pi-native tool at all: its scope denies `native:*`. */
+const confined = (turn: PiTurn) => {
+  const deny = (turn.launch?.mcpConfig?.toolScope as { deny?: unknown } | undefined)?.deny;
+  return Array.isArray(deny) && deny.includes("native:*");
+};
+
+/** The turn a routine's run starts, as its engine was given it. */
+async function runTurn(routineId: string, token: string): Promise<PiTurn> {
+  const before = piTurns(dump()).length;
   expect((await api("POST", `/api/routines/${routineId}/run`, { token })).status).toBe(201);
-  await expect.poll(() => existsSync(dump), { timeout: hostTimeout(15_000) }).toBe(true);
-  return JSON.parse(readFileSync(dump, "utf8")).argv as string[];
+  return turnAfter(before, (candidate) => Boolean(candidate.launch), "the routine's turn");
 }
 const record = () => JSON.parse(readFileSync(join(dataDir, "cloud-owner.json"), "utf8"));
 const writers = () => JSON.parse(readFileSync(join(dataDir, "lending-routines.json"), "utf8")).writers as Record<string, string>;
 
 it("keeps what the owner made alone at the bot's level once a second person has used the Cloud, confines what that person's conversation made, and stays shared", async () => {
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "held-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(dump)}; process.env.FAKE_CLAUDE_MODE = "hang"; process.env.FAKE_CLAUDE_RELEASE = ${JSON.stringify(join(home, "release"))}; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // Every turn holds until the test writes the release file, so its launch and MCP config can be read while it runs.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: dump(), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: join(home, "release"),
+      // Mount the turn's MCP servers through the real extension at boot: a confined launch must leave its scope-ready
+      // receipt or the driver never sends the prompt.
+      FAKE_PI_MOUNT_TOOLS: "1",
+    } } },
   }));
   port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -152,7 +181,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   // 1. The owner's Cloud, used by nobody else.
   await boot(true);
   let owner = await ownersDevice();
-  const bot = (await api("POST", "/api/bots", { token: owner, body: { name: "Brief", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { token: owner, body: { name: "Brief", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
   await shutdown();
   expect(record()).toMatchObject({ peopleChecked: true });
 
@@ -172,18 +201,18 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   expect(shared.revokedKeys).toHaveLength(1);
   expect(writers()[desktop]).toBe(`p_${(await import("node:crypto")).createHash("sha256").update(`cloud-owner:${MACHINE_ID}`).digest("base64url").slice(0, 22)}`);
   expect(writers()[guests]).toBeUndefined();
-  expect(await runArgv(desktop, owner)).not.toContain("--restricted");
+  expect(confined(await runTurn(desktop, owner))).toBe(false);
   await release(bot.id, owner);
-  expect(await runArgv(guests, owner)).toContain("--restricted");
+  expect(confined(await runTurn(guests, owner))).toBe(true);
   await release(bot.id, owner);
 
   // 4. With the guest long gone, a restart keeps it shared.
   await shutdown();
   await boot(true);
   expect(record().sharedSince).toBe(shared.sharedSince);
-  expect(await runArgv(guests, owner)).toContain("--restricted");
+  expect(confined(await runTurn(guests, owner))).toBe(true);
   await release(bot.id, owner);
-  const kept = await runArgv(desktop, owner);
-  expect(kept[kept.indexOf("--permission-mode") + 1]).toBe("bypassPermissions");
+  const kept = await runTurn(desktop, owner);
+  expect(kept.launch?.mcpConfig?.approvalMode).toBe("full");
   await release(bot.id, owner);
 }, hostTimeout(180_000));

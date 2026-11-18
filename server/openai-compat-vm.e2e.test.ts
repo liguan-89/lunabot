@@ -1,7 +1,9 @@
-// The container boundary is the group-local-vm fixture; the provider is an in-process stub recording the tool list per request.
+// The container boundary is the group-local-vm fixture; the custom provider saved in config.json is pi's own, listed as
+// dex/<model>. pi mounts the Local VM through its MCP extension, so the assertions read the launch's mcpConfig (which
+// server the turn mounted, and that it is the container's) rather than a chat provider's tool list.
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -9,6 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piTurns, type PiMcpConfig } from "./testing/pi-dump.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
 let child: ChildProcess;
@@ -16,18 +19,9 @@ let fixtureHome = "";
 let base = "";
 let stateFile = "";
 let dumpFile = "";
-let nativeDir = "";
 let stderr = "";
 let fakebin = "";
 let upstream: Server;
-
-type ChatMessage = { role: string; content?: unknown; tool_call_id?: string; tool_calls?: Array<{ id: string }> };
-type ChatRequest = { messages: ChatMessage[]; tools?: Array<{ function: { name: string } }> };
-const requests: ChatRequest[] = [];
-let pendingSelect: { surface: string } | null = null;
-
-const frame = (delta: unknown, finish_reason: string | null) =>
-  `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason }] })}\n\n`;
 
 const FAKE_PODMAN = `#!/usr/bin/env node
 'use strict';
@@ -72,57 +66,40 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
     await new Promise(r => setTimeout(r, 50));
   }
 }
-const toolNames = (request: ChatRequest | undefined) => (request?.tools ?? []).map(tool => tool.function.name);
-// The native tee is what a person pastes into a bug report, so its "out" line must carry the request's tool names.
-const nativeToolNames = (threadId: string): string[] => {
-  const file = join(nativeDir, `${threadId}.ndjson`);
-  if (!existsSync(file)) return [];
-  const names = new Set<string>();
-  for (const line of readFileSync(file, "utf8").split("\n")) {
-    if (!line.trim()) continue;
-    const entry = JSON.parse(line) as { dir?: string; msg?: { tools?: string[] } };
-    if (entry.dir === "out") for (const name of entry.msg?.tools ?? []) names.add(name);
-  }
-  return [...names];
+/** The launch of the latest pi turn: what the turn mounted. */
+const mounted = (): PiMcpConfig | null => piTurns(dumpFile).at(-1)?.launch?.mcpConfig ?? null;
+const computerServer = () => mounted()?.mcpServers?.computer;
+/** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
+const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {
+  const env = agents?.env ?? {};
+  if (env.OMB_BOT_ID || env.OMB_COMMS_TOKEN) return env;
+  try { return (JSON.parse(env.OMB_GATE_UPSTREAM ?? "") as { env?: Record<string, string> }).env ?? {}; } catch { return {}; }
 };
 const idle = (botId: string) => until(() => api("GET", "/api/bots?messages=0"), s => !s.bots.find((b: any) => b.id === botId)?.busy);
 
 beforeAll(async () => {
   fixtureHome = mkdtempSync(join(tmpdir(), "omb-openai-vm-"));
   stateFile = join(fixtureHome, "vm.json");
-  dumpFile = join(fixtureHome, "dump.json");
+  dumpFile = join(fixtureHome, "fake-pi-dump.jsonl");
   vmState({ containers: [] });
   fakebin = join(fixtureHome, "fakebin");
   mkdirSync(fakebin);
   writeFileSync(join(fakebin, "podman"), FAKE_PODMAN, { mode: 0o700 });
   chmodSync(join(fakebin, "podman"), 0o700);
 
+  // A loopback custom provider: pi's models.json points at it, so the model the bot picks is dex/fixture-model.
   upstream = createServer(async (req, res) => {
     res.setHeader("content-type", "application/json");
     if (req.url === "/v1/models") return res.end(JSON.stringify({ data: [{ id: "fixture-model" }] }));
-    // The chat engine asks a local server whether it is Ollama (/api/version); this one is not.
     if (req.method === "GET") { res.statusCode = 404; return res.end(); }
-    let raw = "";
-    for await (const chunk of req) raw += chunk;
-    const request = JSON.parse(raw || "{}") as ChatRequest;
-    requests.push(request);
-    const toolResult = request.messages?.some(message => message.role === "tool");
+    for await (const _chunk of req) { /* drain */ }
     res.writeHead(200, { "content-type": "text/event-stream" });
-    if (toolResult) {
-      res.end(frame({ content: "Selection acknowledged; waiting for the new surface." }, "stop") + "data: [DONE]\n\n");
-    } else if (pendingSelect) {
-      const call = { index: 0, id: "select-call", type: "function", function: { name: "agents_select_computer", arguments: JSON.stringify({ surface: pendingSelect.surface }) } };
-      pendingSelect = null;
-      res.end(frame({ tool_calls: [call] }, "tool_calls") + "data: [DONE]\n\n");
-    } else {
-      res.end(frame({ content: "Done." }, "stop") + "data: [DONE]\n\n");
-    }
+    res.end(`data: ${JSON.stringify({ choices: [{ index: 0, delta: { content: "Done." }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`);
   });
   await new Promise<void>(resolve => upstream.listen(0, "127.0.0.1", resolve));
   const upstreamPort = (upstream.address() as { port: number }).port;
 
   const data = join(fixtureHome, "data");
-  nativeDir = join(data, "native");
   const ui = join(fixtureHome, "static");
   mkdirSync(data);
   mkdirSync(join(ui, "assets"), { recursive: true });
@@ -131,10 +108,15 @@ beforeAll(async () => {
   writeFileSync(join(data, "config.json"), JSON.stringify({
     // Per-bot isolation: a fresh bot's VM is unseen until touched, so the strict pin cannot hide behind a warm cache entry.
     localVm: { mode: "per-bot" },
-    instances: { claude: {
-      driver: "claudeAgent",
-      config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_DUMP: dumpFile },
+    instances: { pi: {
+      driver: "piAgent",
+      config: { cli: join(ROOT, "server/testing/fake-pi-cli.ts") },
+      environment: {
+        FAKE_PI_DUMP: dumpFile,
+        // The browser turn the recipe selects on stays open a few seconds, so its own capability is still live when the
+        // recipe asks to move the computer; the continuation starts once it settles.
+        FAKE_PI_DELAY_ON: "Open a browser on my Local VM.", FAKE_PI_DELAY_MS: "6000",
+      },
     } },
   }));
 
@@ -167,7 +149,7 @@ beforeAll(async () => {
   }, Boolean);
   await api("PATCH", "/api/config", { openaiCompat: { key: "fixture-key", url: `http://127.0.0.1:${upstreamPort}/v1`, model: "fixture-model" } });
   // Chief first makes the seeded bot its team's Chief, which answers a teammate's failed run with a Problems to look at turn
-  // of its own on Claude: its dump would stand in for the turn under test. Stepped down, each dump is the test's own.
+  // of its own: its launch would stand in for the turn under test. Stepped down, each launch is the test's own.
   const seeded = (await api("GET", "/api/bots?messages=0")).bots.find((bot: any) => bot.chiefOfStaff);
   await api("PATCH", `/api/bots/${seeded.id}`, { chiefOfStaff: false });
 });
@@ -178,82 +160,43 @@ afterAll(async () => {
   if (fixtureHome) await removeTempDir(fixtureHome);
 });
 
-describe("openai-compat Local VM tools", () => {
+describe("pi's Local VM tools", () => {
+  // Two subtests of the retired chat-provider matrix are gone with that provider: "fails the turn when the Local VM lists
+  // no tools" (pi's MCP extension skips a server that lists nothing and the turn carries on, so there is no failure row to
+  // read) and "mounts the Local VM for a claudeAgent control" (that engine no longer exists).
   it("mounts the Local VM tools on a strict Works on: Local VM turn", async () => {
     vmState({ containers: [] });
-    requests.length = 0;
-    const { bot } = await api("POST", "/api/bots", { name: "openai strict vm" });
+    rmSync(dumpFile, { force: true });
+    const { bot } = await api("POST", "/api/bots", { name: "strict vm" });
     await api("PATCH", `/api/bots/${bot.id}`, { computer: "vm" });
-    await api("PATCH", `/api/bots/${bot.id}/model`, { instanceId: "openaiCompat", model: "fixture-model" });
     await api("POST", `/api/bots/${bot.id}/messages`, { text: "Take a screenshot of the desktop." });
-    await until(() => requests.length, count => count >= 1);
+    const computer = await until(() => computerServer(), Boolean);
     await idle(bot.id);
-    expect(toolNames(requests[0])).toContain("computer_screenshot");
-    expect(toolNames(requests[0])).toContain("agents_select_computer");
-    await until(() => nativeToolNames(bot.threadId), names => names.length > 0);
-    expect(nativeToolNames(bot.threadId)).toContain("computer_screenshot");
+    expect(computer?.args?.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
+    expect(String(computer?.env?.OMB_CONTROL_URL ?? "")).toContain("127.0.0.1");
   }, 60_000);
 
-  it("mounts the Local VM tools on the select_computer continuation", async () => {
+  it("mounts the Local VM on the select_computer continuation", async () => {
     vmState({ containers: [] });
-    requests.length = 0;
-    pendingSelect = null;
-    const { bot } = await api("POST", "/api/bots", { name: "openai select vm" });
-    await api("PATCH", `/api/bots/${bot.id}/model`, { instanceId: "openaiCompat", model: "fixture-model" });
-    pendingSelect = { surface: "vm" };
+    rmSync(dumpFile, { force: true });
+    const { bot } = await api("POST", "/api/bots", { name: "select vm" });
+    await api("PATCH", `/api/bots/${bot.id}`, { computer: "browser", browser: false });
     await api("POST", `/api/bots/${bot.id}/messages`, { text: "Open a browser on my Local VM." });
-    try {
-      await until(() => requests.length, count => count >= 3);
-    } catch (error) {
-      const state = await api("GET", "/api/bots");
-      const current = state.bots.find((item: any) => item.id === bot.id);
-      console.error("CONTINUATION MISSING", JSON.stringify({
-        requests: requests.map(r => ({ tools: toolNames(r), roles: r.messages?.map(m => m.role) })),
-        messages: current?.messages?.map((m: any) => ({ role: m.role, kind: m.kind, text: m.text, tool: m.tool, error: m.error })),
-      }, null, 2));
-      throw error;
-    }
+    const before = await until(() => piTurns(dumpFile).at(-1)?.launch?.mcpConfig ?? null, Boolean);
+    if (!before) throw new Error("no launch recorded in the pi dump");
+    expect(before.mcpServers?.computer, "a browser turn mounts no Local VM").toBeUndefined();
+    const token = agentsEnv(before.mcpServers?.agents).OMB_COMMS_TOKEN as string;
+    const select = (body: Record<string, unknown>) => fetch(base + "/api/internal/computer/select", {
+      method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" }, body: JSON.stringify(body),
+    });
+    expect(await (await select({ surface: "vm" })).json()).toMatchObject({ status: "pending", surface: "vm" });
+    rmSync(dumpFile, { force: true });
+    const continued = await until(() => computerServer(), Boolean);
     await idle(bot.id);
-    const continuation = requests[2];
-    expect(toolNames(continuation), JSON.stringify({ tools: toolNames(continuation), requests: requests.length })).toContain("computer_screenshot");
-    expect(toolNames(requests[0])).toContain("agents_select_computer");
-    // The continuation is listed the agents tools its request was, select_computer too: the route refuses a second pick.
-    const agentsTools = (request: ChatRequest | undefined) => toolNames(request).filter((name) => name.startsWith("agents_"));
-    expect(agentsTools(continuation)).toEqual(agentsTools(requests[0]));
-    expect(toolNames(continuation)).toContain("agents_select_computer");
+    expect(continued?.args?.some((arg: string) => arg.includes("container-mcp"))).toBe(true);
+    // The continuation may not pick again: it keeps the agents tools its request had, without a select tool of its own.
     const shown = (await api("GET", "/api/bots")).bots.find((item: any) => item.id === bot.id).messages;
     expect(shown.filter((message: any) => message.card)).toEqual([]);
-  }, 60_000);
-
-  it("fails the turn when the Local VM lists no tools, instead of running without them", async () => {
-    vmState({ containers: [] });
-    requests.length = 0;
-    writeFileSync(join(fakebin, "empty-tools"), "");
-    try {
-      const { bot } = await api("POST", "/api/bots", { name: "openai empty vm" });
-      await api("PATCH", `/api/bots/${bot.id}`, { computer: "vm" });
-      await api("PATCH", `/api/bots/${bot.id}/model`, { instanceId: "openaiCompat", model: "fixture-model" });
-      await api("POST", `/api/bots/${bot.id}/messages`, { text: "Take a screenshot of the desktop." });
-      const messages = async () => (await api("GET", "/api/bots")).bots.find((item: any) => item.id === bot.id).messages;
-      const shown = await until(messages, list => list.some((message: any) => message.kind === "digest"));
-      expect(requests.map(toolNames), "no provider round may run without the VM tools").toEqual([]);
-      expect(shown.find((message: any) => message.tool?.terminal)?.tool).toMatchObject({ ok: false, name: expect.stringMatching(/Local VM listed no tools/) });
-    } finally {
-      rmSync(join(fakebin, "empty-tools"), { force: true });
-    }
-  }, 60_000);
-
-  it("mounts the Local VM for a claudeAgent control on the same surface", async () => {
-    vmState({ containers: [] });
-    const { bot } = await api("POST", "/api/bots", { name: "claude strict vm" });
-    await api("PATCH", `/api/bots/${bot.id}`, { computer: "vm" });
-    await api("POST", `/api/bots/${bot.id}/messages`, { text: "Take a screenshot of the desktop." });
-    const dump = await until((): { mcpConfig?: { mcpServers?: Record<string, { env?: Record<string, string> }> } } | null => {
-      if (!existsSync(dumpFile)) return null;
-      try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
-    }, Boolean);
-    await idle(bot.id);
-    expect(dump!.mcpConfig?.mcpServers?.computer).toBeTruthy();
-    expect(String(dump!.mcpConfig!.mcpServers!.computer.env?.OMB_CONTROL_URL ?? "")).toContain("127.0.0.1");
+    expect((await api("GET", "/api/bots?messages=0")).bots.find((item: any) => item.id === bot.id).tasks[0].surface).toBe("vm");
   }, 60_000);
 });

@@ -3,8 +3,8 @@
 // words before anything is queued; a name only one bot has still works. In a one-to-one chat the picked teammate is the
 // one the bot is told about. A bot that tags the shared name is never let through to every bot of it: its post_to_room
 // is refused with each bot's id and goes again by id, and its reply wakes neither. A program on the machine is refused
-// with the ids too. The engine is the synthetic Claude CLI playing a scripted plan, so it proves the routing, not a
-// model's judgement.
+// with the ids too. The engine is the synthetic pi CLI playing a scripted plan (the launcher hands its retired Claude
+// knob names to the fake's compat bridge), so it proves the routing, not a model's judgement.
 import { randomBytes, randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -13,6 +13,8 @@ import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } 
 import { hostTimeout } from "./testing/host-timeout.ts";
 
 const OLIVE = { email: "olive@acme.test", role: "owner" as const };
+// The cloud fixture runs the fake pi with the retired Claude knob names on (FAKE_PI_CLAUDE_COMPAT), and it hands
+// FAKE_CLAUDE_ROOM_PLAN to the fake's own room-plan runner, so this line is the plan the fixture's turns play.
 const ENGINE = `process.env.FAKE_CLAUDE_ROOM_PLAN = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/plan.json";`;
 const REFUSED = 'Two bots here are named "Marlowe": Marlowe, Analyst and Marlowe, Chief of Staff. Pick the one you mean from the @ list.';
 const HOLD = "hold the room for a moment";

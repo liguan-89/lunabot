@@ -1,17 +1,18 @@
 // A Team Cloud (OMB_CLOUD_ROLE=team) with an MCP server behind a gateway that checks two service-token headers, as
 // Cloudflare Access does. An admin pastes the `claude mcp add` command into Add MCP server and fills in the two values
-// its variables stood for; the server is added for the whole team through the panel's own routes. A member's turn on
-// the synthetic Claude CLI then lists and calls its tool, and neither value reaches the engine's environment, the logs or
-// anything a route answers. The bot box is Linux-only, so here the engine is the MCP client and its MCP config holds
-// the headers, as Claude Code's own `claude mcp add --header` keeps them.
+// its variables stood for; the server is added for the whole team through the panel's own routes. A member's turn on the
+// synthetic pi CLI then lists and calls its tool, and neither value reaches the engine's environment, the logs or
+// anything a route answers. The bot box is Linux-only, so here the engine is the MCP client: pi's launch carries a proxy
+// descriptor for the URL server (server/mcp-gate-config.ts), and its environment holds the headers as the proxy's spec.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { readMcpPaste } from "../src/lib/mcp-paste.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
@@ -19,7 +20,8 @@ const ADMIN = { email: "ben@acme.test", role: "admin" as const };
 const ADA = { email: "ada@acme.test", role: "member" as const };
 const CLIENT_ID = `${randomBytes(8).toString("hex")}.access`;
 const CLIENT_SECRET = randomBytes(24).toString("hex");
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+// The fixture's pi log (a JSONL of launches and prompts) goes to dump.json; the scripted calls are re-read each turn.
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
 
 let fx: CloudSendFixture, team: CloudTeamFixture, gateway: FakeHttpMcp;
@@ -93,7 +95,20 @@ it("adds the pasted command for the whole team, tests it through the gateway and
   expect((await as(ada, "POST", "/api/mcp/servers", { name: "mine", type: "http", url: gateway.url })).status).toBe(403);
 }, hostTimeout(60_000));
 
-type Engine = { env: Record<string, string>; argv: string[]; mcpConfig: { mcpServers: Record<string, unknown> } };
+/** The pi launch a turn ran on: what it was handed, and the names of the environment it was given. */
+type Engine = { argv: string[]; envConfigured: string[]; mcpConfig: { mcpServers: Record<string, unknown> } };
+/** A URL server is mounted through the remote proxy (server/mcp-gate-config.ts), whose descriptor carries the address and
+ * its headers; pi never gets a bare { type, url, headers } entry. */
+const remoteSpec = (server: unknown) => {
+  const env = (server as { env?: Record<string, string> } | undefined)?.env ?? {};
+  return JSON.parse(env.OMB_REMOTE_MCP_SERVER ?? "{}") as { type?: string; url?: string; headers?: Record<string, string> };
+};
+const dumpPath = () => join(team.home, "dump.json");
+/** The launch of the last turn whose prompt carried `text`. */
+const launchOf = (text: string): Engine | undefined => {
+  const turn = piTurns(dumpPath()).filter((entry) => entry.launch && entry.prompt.includes(text)).at(-1);
+  return turn?.launch as Engine | undefined;
+};
 
 /** One turn in `token`'s own chat with Scout, with these scripted tool calls; what the engine was launched with. */
 async function turn(token: string, text: string, calls: unknown[], until: string): Promise<Engine> {
@@ -101,13 +116,12 @@ async function turn(token: string, text: string, calls: unknown[], until: string
   expect(thread.status, JSON.stringify(thread.body)).toBe(201);
   const threadId = thread.body.task.threadId as string;
   writeFileSync(join(team.home, "tool-calls.json"), JSON.stringify(calls));
-  rmSync(join(team.home, "dump.json"), { force: true });
   const sent = await as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
   const messages = async () => (await as(token, "GET", `/api/threads/${threadId}/messages?limit=200`)).body;
-  await expect.poll(async () => JSON.stringify(await messages()).includes(until) && existsSync(join(team.home, "dump.json")),
+  await expect.poll(async () => JSON.stringify(await messages()).includes(until) && Boolean(launchOf(text)),
     { timeout: 60_000, interval: 200 }).toBe(true);
-  return JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as Engine;
+  return launchOf(text)!;
 }
 
 it("lets a member's turn list and call the gateway's tool, with both values sent only to the gateway", async () => {
@@ -116,10 +130,11 @@ it("lets a member's turn list and call the gateway's tool, with both values sent
 
   expect(gateway.calls.slice(calledBefore)).toEqual([{ name: "lookup_order", arguments: { id: "1042" } }]);
   expect(gateway.toolsLists).toBeGreaterThan(0);
-  expect(engine.mcpConfig.mcpServers.orders).toEqual({ type: "http", url: gateway.url, headers: { "CF-Access-Client-Id": CLIENT_ID, "CF-Access-Client-Secret": CLIENT_SECRET } });
+  expect(remoteSpec(engine.mcpConfig.mcpServers.orders)).toEqual({ type: "http", url: gateway.url, headers: { "CF-Access-Client-Id": CLIENT_ID, "CF-Access-Client-Secret": CLIENT_SECRET } });
 
   for (const secret of [CLIENT_ID, CLIENT_SECRET]) {
-    expect(JSON.stringify(engine.env), "the engine's environment").not.toContain(secret);
+    // The pi log records which environment names the turn got, never their values: a value could only be in argv.
+    expect(JSON.stringify(engine.envConfigured), "the engine's environment").not.toContain(secret);
     expect(JSON.stringify(engine.argv), "the engine's arguments").not.toContain(secret);
     expect(fx.logs(), "the servers' logs").not.toContain(secret);
     expect(answers.join("\n"), "what the routes answered").not.toContain(secret);
@@ -214,9 +229,11 @@ it("keeps a one-key server Only for me: the admin's own chat gets it with their 
     expect(saved().mcpServers.mail.headers).toEqual({ Authorization: "" });
 
     const bens = await turn(admin, "Check my inbox.", [{ name: "read_inbox", server: "mail", input: {} }], "remote execution recorded");
-    expect(bens.mcpConfig.mcpServers.mail).toMatchObject({ url: mail.url, headers: { Authorization: own } });
+    expect(remoteSpec(bens.mcpConfig.mcpServers.mail)).toMatchObject({ url: mail.url, headers: { Authorization: own } });
     expect(mail.calls).toHaveLength(1);
-    const adas = await turn(ada, "Check the inbox.", [{ name: "read_inbox", server: "mail", input: {} }], "no mail MCP server was launched for this turn");
+    // Her turn mounts no mail server: the scripted call finds no such tool, and the turn still answers (the compat
+    // fixture's default reply).
+    const adas = await turn(ada, "Check the inbox.", [{ name: "read_inbox", server: "mail", input: {} }], "hello from fake claude");
     expect(Object.keys(adas.mcpConfig.mcpServers)).not.toContain("mail");
     expect(JSON.stringify(adas)).not.toContain(own);
     expect(mail.calls).toHaveLength(1);

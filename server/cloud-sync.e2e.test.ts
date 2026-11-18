@@ -57,19 +57,10 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-sync-e2e-"));
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") {
-  console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" }));
-  process.exit(0);
-}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli } } },
   }));
   mkdirSync(join(home, "web"));
   writeFileSync(join(home, "web", "index.html"), "<!doctype html><title>Luna Bot</title>");
@@ -84,7 +75,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
       ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
+      // tmpfs; the desktop service reads the home's own files, so the box stays off here.
+      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`, OMB_SYNC_ROOT: join(home, "Synced"),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -124,7 +117,7 @@ it("shares a PC folder as a read-only copy: changes go to My Cloud, a bot's edit
   const project = join(pcHome, "Clients");
   mkdirSync(project, { recursive: true });
   writeFileSync(join(project, "brief.md"), "the brief");
-  const created = await api("POST", "/api/bots", { body: { name: "Files fixture", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } });
+  const created = await api("POST", "/api/bots", { body: { name: "Files fixture", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
   const service = desktop(pcHome);
   try {
@@ -165,7 +158,7 @@ it("shares a PC folder as a read-only copy: changes go to My Cloud, a bot's edit
 
 it("a bot's turn wakes the desktop, and its new work comes down to Documents/Luna Bot/<bot>/<conversation>", async () => {
   const pcHome = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-pc-")));
-  const created = await api("POST", "/api/bots", { body: { name: "Report Owl", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } });
+  const created = await api("POST", "/api/bots", { body: { name: "Report Owl", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } });
   const bot = created.body.bot as { id: string; threadId: string };
   const service = desktop(pcHome);
   try {

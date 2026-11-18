@@ -1,8 +1,8 @@
 // A real Team Cloud (OMB_CLOUD_ROLE=team) beside the cloud fixture's two servers: three people paired with the Admin's
 // signed member claims, the audience rule on chats, memory, recall and files, the team's connected apps, and a My Cloud
-// that refuses a team claim. The engine is the synthetic Claude CLI, so this proves the plumbing, not a model's judgement.
+// that refuses a team claim. The engine is the synthetic pi CLI, so this proves the plumbing, not a model's judgement.
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
@@ -10,15 +10,15 @@ import { TEAM_SESSION_MAX_MS } from "./cloud-team.ts";
 import { personKey } from "./person-key.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const TOKEN = `ops_fake-team-${randomBytes(8).toString("hex")}`;
 const OWNER = { email: "olive@acme.test", role: "owner" as const };
 const ADMIN = { email: "ben@acme.test", role: "admin" as const };
 const MEMBER_A = { email: "ada@acme.test", role: "member" as const };
 const MEMBER_C = { email: "cleo@acme.test", role: "member" as const };
-const ENGINE = `import { readFileSync as readToolCalls } from "node:fs";
-process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
-try { process.env.FAKE_CLAUDE_TOOL_CALLS = readToolCalls(process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json", "utf8"); } catch {}`;
+// The synthetic pi reads its scripted calls from that file again on every turn, so one warm child's turns can differ.
+const ENGINE = `process.env.FAKE_PI_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
 
 let fx: CloudSendFixture, team: CloudTeamFixture, broker: BrokerFake;
 let owner = "", admin = "", ada = "", cleo = "";
@@ -43,7 +43,21 @@ afterAll(async () => {
   await broker?.close();
 });
 
-const dump = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { systemPrompt: string; prompt: unknown; mcpConfig: { mcpServers: Record<string, unknown> } };
+const dumpPath = () => piDumpPath(join(team.home, ".openmausbot"));
+/** The last turn this team's pi processes were given whose prompt holds `text`, with the launch it ran on: what the
+ * retired Claude fixture's per-turn dump said (its instructions, the turn's words, its mount and its folder). */
+const turnIn = (text: string, since = 0) => {
+  const turns = piTurns(dumpPath());
+  const index = turns.findIndex((turn, at) => at >= since && turn.prompt.includes(text));
+  const turn = index >= 0 ? turns[index] : undefined;
+  if (!turn) return null;
+  return {
+    systemPrompt: piInstructionsFor(turns, index),
+    prompt: turn.prompt,
+    cwd: turn.launch?.cwd,
+    mcpConfig: (turn.launch?.mcpConfig ?? { mcpServers: {} }) as { mcpServers: Record<string, unknown> },
+  };
+};
 const scriptToolCalls = (calls: unknown[] | null) => {
   const file = join(team.home, "tool-calls.json");
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
@@ -54,15 +68,17 @@ const messages = async (token: string, threadId: string) => team.as(token, "GET"
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ id: string; activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
 async function turn(token: string, threadId: string, text: string, room?: string) {
-  rmSync(join(team.home, "dump.json"), { force: true });
+  const since = piTurns(dumpPath()).length;
   const before = ((await messages(token, threadId)).body.messages as unknown[]).length;
   const sent = room
     ? await team.as(token, "POST", `/api/groups/${room}/messages`, { text, ...(threadId ? { threadId } : {}) })
     : await team.as(token, "POST", `/api/bots/${bot.id}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as Array<{ role: string; kind: string }>).length >= before + 2 && existsSync(join(team.home, "dump.json")),
-    { timeout: 60_000, interval: 100 }).toBe(true);
-  return dump();
+  await expect.poll(async () => await idle(token) && ((await messages(token, threadId)).body.messages as Array<{ role: string; kind: string }>).length >= before + 2
+    && piTurns(dumpPath()).length > since, { timeout: 60_000, interval: 100 }).toBe(true);
+  const seen = turnIn(text, since);
+  expect(seen, `no pi turn carried "${text}"`).not.toBeNull();
+  return seen!;
 }
 const newThread = async (token: string, title: string) => {
   const created = await team.as(token, "POST", `/api/bots/${bot.id}/tasks`, { title });

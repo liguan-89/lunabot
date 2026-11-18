@@ -139,6 +139,7 @@ describe("t", () => {
 describe("activePackComplete", () => {
   it("is true only for a pack other than English that has every English key", () => {
     expect(activePackComplete()).toBe(false);
+    // This fork ships Simplified Chinese complete; upstream's test pins its own pt-br pack.
     expect(setLocale("zh")).toBe("zh");
     expect(activePackComplete()).toBe(true);
     locales["zz"] = { "approval.held.native": "x" };

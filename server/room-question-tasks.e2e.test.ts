@@ -1,25 +1,23 @@
+// A live room question fences its own task but not the room's other work, and the question outlives the turn that asked
+// it: after the turn settles and the server starts again it still waits, and the person's answer then reaches the bot
+// as a new turn. The engine is the synthetic pi, which raises a real question card for the prompt carrying its marker.
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
-import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, writeFileSync } from "node:fs";
-import { connect, type Socket } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { closeSync, existsSync, openSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { z } from "zod";
 
 import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-omb.ts";
 import type { GroupTask, WireBot, WireGroup, WireMessage } from "../shared/wire.ts";
-import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { waitForExit } from "./testing/cleanup.ts";
+
+/** The prompt's own words that make the fake pi raise its question card. */
+const ASKS = "Ask one question";
+const env = { FAKE_PI_QUESTION_ON: ASKS };
 
 it("keeps live room questions fenced but allows task changes after their turn settles and restarts", async () => {
-  const gates = mkdtempSync(join(tmpdir(), "omb-room-question-gates-"));
-  const finishGate = join(gates, "finish");
-  const env = { FAKE_CLAUDE_MODE: "hang", FAKE_CLAUDE_FINISH_GATE: finishGate };
   const fixture = await launchVerificationServer(env);
   const evidence: unknown[] = [{ fixture: fixture.info }];
   let restarted: ChildProcess | undefined;
-  let questionSocket: Socket | undefined;
   const api = async <T = unknown>(method: string, path: string, body?: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, {
       method, headers: { "content-type": "application/json" },
@@ -43,35 +41,20 @@ it("keeps live room questions fenced but allows task changes after their turn se
     expect(spare.status).toBe(201);
     const spareThreadId = spare.body.task.threadId;
     expect((await api("POST", `/api/groups/${room.id}/tasks/${room.threadId}`, {})).status).toBe(200);
+    // The prompt carries the marker, so the turn asks a question and waits on the person (a real extension-UI select).
     expect((await api("POST", `/api/groups/${room.id}/messages`, {
       threadId: room.threadId, text: "Ask one question and finish without its answer.",
     })).status).toBe(202);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 10_000 }).toBe(true);
-    const dump = z.object({ mcpConfig: z.object({ mcpServers: z.object({
-      ogb: z.object({ args: z.array(z.string()) }),
-    }) }) }).parse(JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")));
-    questionSocket = connect(dump.mcpConfig.mcpServers.ogb.args[1]!);
-    let socketBuffer = "";
-    let providerReply: unknown;
-    questionSocket.on("data", (chunk) => {
-      socketBuffer += chunk.toString();
-      const newline = socketBuffer.indexOf("\n");
-      if (newline !== -1) providerReply = JSON.parse(socketBuffer.slice(0, newline));
-    });
-    await new Promise<void>((resolve, reject) => {
-      questionSocket!.once("connect", resolve);
-      questionSocket!.once("error", reject);
-    });
-    const requestId = randomUUID();
-    questionSocket.write(JSON.stringify({
-      t: "ask", kind: "question", id: requestId, tool: "AskUserQuestion",
-      input: { questions: [{ question: "Which file?", options: [{ label: "README" }, { label: "Guide" }] }] },
-    }) + "\n");
-    const question = async () => (await api<{ messages: WireMessage[] }>("GET", `/api/threads/${room.threadId}/messages`)).body.messages
-      .find((message) => message.card?.requestId === requestId)?.card;
+    const cards = async () => (await api<{ messages: WireMessage[] }>("GET", `/api/threads/${room.threadId}/messages`)).body.messages
+      .map((message) => message.card).filter((card): card is NonNullable<typeof card> => Boolean(card?.requestId));
+    const cardOf = async (id: string) => (await cards()).find((card) => card.requestId === id);
+    /** The question the room still waits on: the fake pi names its dialog "ask-question" every turn. */
+    const question = async () => (await cards()).find((card) => card.requestType === "question" && !card.answered);
     const roomState = async () => (await api<{ groups: WireGroup[] }>("GET", "/api/bots?messages=0")).body.groups
       .find((group) => group.id === room.id)!;
-    await expect.poll(question, { timeout: 5_000 }).toMatchObject({ requestType: "question", requestId });
+    let requestId = "";
+    await expect.poll(async () => { requestId = (await question())?.requestId ?? ""; return Boolean(requestId); }, { timeout: 15_000 }).toBe(true);
+    expect(await question()).toMatchObject({ requestType: "question", requestId });
     expect((await roomState()).working).toBe(true);
     const changes: Array<[string, string, unknown?]> = [
       ["POST", `/api/groups/${room.id}/tasks`, { title: "New task" }],
@@ -97,9 +80,9 @@ it("keeps live room questions fenced but allows task changes after their turn se
     expect(await question()).toMatchObject({ requestType: "question", requestId });
     expect((await roomState()).working).toBe(true);
 
-    writeFileSync(finishGate, "finish");
-    await expect.poll(async () => (await roomState()).working, { timeout: 5_000 }).toBe(false);
-    await expect.poll(() => providerReply, { timeout: 5_000 }).toMatchObject({ behavior: "answer" });
+    // The person stops the turn instead of answering: the question itself is not the turn, so it stays open.
+    expect((await api("POST", `/api/groups/${room.id}/interrupt`, { threadId: room.threadId })).status).toBe(200);
+    await expect.poll(async () => (await roomState()).working, { timeout: 15_000 }).toBe(false);
     expect(await question()).toMatchObject({ requestType: "question", requestId });
     expect((await question())!.answered).toBeUndefined();
     expect((await question())!.dismissed).toBeUndefined();
@@ -113,8 +96,6 @@ it("keeps live room questions fenced but allows task changes after their turn se
     expect((await api("DELETE", `/api/groups/${room.id}/tasks/${settledTask.body.task.threadId}`)).status).toBe(200);
 
     await waitForExit(fixture.child, { signal: "SIGTERM" });
-    questionSocket.destroy();
-    questionSocket = undefined;
     const log = openSync(fixture.info.logPath, "a", 0o600);
     restarted = spawn(process.execPath, ["--experimental-strip-types", fileURLToPath(new URL("./index.ts", import.meta.url))], {
       cwd: fileURLToPath(new URL("../", import.meta.url)),
@@ -133,15 +114,14 @@ it("keeps live room questions fenced but allows task changes after their turn se
     }
     expect((await question())!.answered).toBeUndefined();
     expect((await question())!.dismissed).toBeUndefined();
+    // Its turn is over, so the answer is a new turn of the room's bot carrying the person's words.
     expect((await api("POST", `/api/threads/${room.threadId}/respond`, {
-      requestId, behavior: "answer", message: "README",
+      requestId, behavior: "answer", message: "Blue",
     }))).toMatchObject({ status: 200, body: { ok: true, outcome: "answered", late: true } });
-    await expect.poll(question, { timeout: 5_000 }).toMatchObject({ answered: "answer", answeredText: "README", dismissed: false });
+    await expect.poll(() => cardOf(requestId), { timeout: 5_000 }).toMatchObject({ answered: "answer", answeredText: "Blue", dismissed: false });
   } finally {
-    questionSocket?.destroy();
     if (restarted) await waitForExit(restarted, { signal: "SIGTERM" });
     await fixture.close();
-    await removeTempDir(gates);
     const evidencePath = `${fixture.info.logPath}.room-question-tasks.json`;
     try {
       writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
@@ -152,4 +132,4 @@ it("keeps live room questions fenced but allows task changes after their turn se
     expect.soft(fixtureRemoved).toBe(true);
     console.info(JSON.stringify({ ...fixture.info, evidencePath, fixtureRemoved }));
   }
-}, 45_000);
+}, 60_000);

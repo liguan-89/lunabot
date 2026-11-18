@@ -102,7 +102,7 @@ it("reports each run into the main chat as the bot's own line, writes nothing fo
     expect(each.resultsThreadId).toBe(s.main);
     expect(saved.tasks.find((task: any) => task.threadId === each.threadId)).toMatchObject({ routineRunId: each.id, unread: false });
   }
-  expect(saved.tasks.find((task: any) => task.threadId === s.main).unread).toBe(true);
+  expect(saved.tasks.find((task: any) => task.threadId === s.main).unread, "a report that needs nothing from the person leaves the chat out of To review").toBe(false);
   const done = s.notified().filter((notification) => notification.kind === "done");
   expect(done).toEqual([expect.objectContaining({ threadId: s.main, body: "Inbox watch: Acme replied: they need the invoice by Friday." })]);
   for (const key of ["first", "second", "third"]) expect(s.toldOnlyReplyLeaves(key)).toBe(true);
@@ -402,6 +402,11 @@ it("brings the files a run sent with attach_file into its report", async () => {
   expect(await s.lines()).toEqual([expect.objectContaining({
     text: "Today's brief is attached.", attachments: [expect.objectContaining({ kind: "file", name: "brief.pdf" })],
   })]);
+  const inRun = await s.messages((await s.run(id)).threadId);
+  const reply = inRun.findLast((message) => message.role === "bot" && message.turnTerminal);
+  const sentLine = inRun.find((message) => message.attachments?.some((file: any) => file.name === "brief.pdf"));
+  expect(sentLine).toMatchObject({ sentInTurn: reply.turnId });
+  expect(sentLine).not.toHaveProperty("turnId");
 }, 120_000);
 
 it("leaves the images a run's tools returned in the run, and reports the files it sent", async () => {

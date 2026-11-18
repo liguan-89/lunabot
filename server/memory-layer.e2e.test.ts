@@ -1,28 +1,22 @@
-// The model steps are scripted with FAKE_CLAUDE_TEXT_ROUTES, so this proves the plumbing, not a model's judgement.
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+// The read side of memory (recall, the prompt preview, tidy's model-free parts) against the real server. pi's driver has
+// no one-shot text call, so the model steps memory upkeep used to script (capture, organize, contradictions) never run:
+// this recipe proves the recall plumbing and what upkeep does without them, and that a turn's own memory_update tool —
+// the one way anything reaches memory now — still writes through the real agents proxy.
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import type { WireBot } from "../shared/wire.ts";
-import { CAPTURE_MARKER } from "./memory-capture.ts";
-import { TIDY_MARKER } from "./memory-tidy.ts";
+import { NO_TEXT_ENGINE } from "./memory-upkeep.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
-it("recalls, captures, suggests, forgets and tidies a bot's memory", async () => {
+it("recalls, previews and tidies a bot's memory, and says why the model steps never run", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-memory-layer-"));
-  const routes = join(scratch, "routes.json");
-  const prompts = join(scratch, "prompts.jsonl");
-  const future = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
-  writeFileSync(routes, JSON.stringify({
-    [CAPTURE_MARKER]: JSON.stringify([
-      { text: "The person is vegetarian", kind: "preference", evidence: "I'm vegetarian", aboutUser: true, confidence: 0.9 },
-      { text: "The person has exams this weekend", kind: "fact", evidence: "I have exams this weekend", until: future, aboutUser: true, confidence: 0.9 },
-      { text: "The account balance is -10", kind: "fact", evidence: "The account balance is -10", confidence: 0.9 },
-      { text: "The person loves Irani cafes", kind: "preference", evidence: "I love Irani cafes", topic: "food", topicAliases: ["restaurants", "cafes"], confidence: 0.9 },
-    ]),
-    [TIDY_MARKER]: '{"pairs": []}',
-  }));
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_TEXT_ROUTES: routes, FAKE_CLAUDE_PROMPTS: prompts });
+  const calls = join(scratch, "tool-calls.json");
+  // FAKE_PI_CLAUDE_COMPAT routes the fake's turns through the scripted-calls bridge, which is how a turn runs the calls
+  // a recipe writes into FAKE_PI_TOOL_CALLS_FILE; FAKE_PI_MOUNT_TOOLS mounts the turn's own agents proxy so one reaches it.
+  const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS_FILE: calls });
   const control = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]);
   const api = async <T = any>(path: string, method = "GET", body?: unknown, status = 200): Promise<T> => {
     const response = await fetch(fixture.info.url + path, {
@@ -33,12 +27,14 @@ it("recalls, captures, suggests, forgets and tidies a bot's memory", async () =>
     expect(response.status, `${method} ${path}`).toBe(status);
     return response.json() as Promise<T>;
   };
+  const dumpPath = piDumpPath(fixture.info.dataDir);
   const turn = async (botId: string, threadId: string, text: string) => {
     await control("send", "--bot", botId, "--task", threadId, "--text", text);
     expect(await control("wait", "--bot", botId, "--task", threadId, "--timeout", "30")).toMatchObject({ status: "settled" });
   };
-  const sentSince = (count: number) => readFileSync(prompts, "utf8").trim().split("\n").slice(count).join("\n");
-  const sentCount = () => { try { return readFileSync(prompts, "utf8").trim().split("\n").filter(Boolean).length; } catch { return 0; } };
+  /** Every prompt the pi turns were given since `count`, as one text: recall rides in front of a turn's own words. */
+  const sentSince = (count: number) => piTurns(dumpPath).slice(count).map((entry) => entry.prompt).join("\n");
+  const sentCount = () => piTurns(dumpPath).length;
   const memoryFile = async (botId: string, path = "MEMORY.md") => (await api<{ text: string; hash: string }>(`/api/bots/${botId}/memory/file?path=${encodeURIComponent(path)}`));
   try {
     const { bot } = await api<{ bot: WireBot }>("/api/bots", "POST", { name: "Memo" }, 201);
@@ -47,6 +43,8 @@ it("recalls, captures, suggests, forgets and tidies a bot's memory", async () =>
     expect(await api(`/api/bots/${bot.id}/memory/upkeep`)).toMatchObject({ enabled: true });
     await api(`/api/bots/${bot.id}`, "PATCH", { memoryUpkeep: false });
 
+    // A routine's run is never captured, and pi has no background call to capture with in any case: a person's own turn
+    // is what proves the call was reached, and it stops at the engine check and says why.
     const { bot: scheduled } = await api<{ bot: WireBot }>("/api/bots", "POST", { name: "Scheduled memory" }, 201);
     const { routine } = await api("/api/routines", "POST", {
       name: "Automated report", prompt: "Report the work status.", botId: scheduled.id, enabled: false,
@@ -55,7 +53,9 @@ it("recalls, captures, suggests, forgets and tidies a bot's memory", async () =>
     const { run } = await api(`/api/routines/${routine.id}/run`, "POST", undefined, 201);
     await expect.poll(async () => (await api("/api/routines")).runs.find((entry: any) => entry.id === run.id)?.status,
       { timeout: 20_000 }).toBe("completed");
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
+    await turn(scheduled.id, scheduled.threadId, "Just so you know, I'm vegetarian and I have exams this weekend.");
+    await expect.poll(async () => (await api(`/api/bots/${scheduled.id}/memory/upkeep`)).lastCapture?.note ?? null,
+      { timeout: 20_000 }).toBe(NO_TEXT_ENGINE);
     expect((await memoryFile(scheduled.id)).text).not.toContain("The person is vegetarian");
     expect((await api("/api/profile/learned")).learned).toEqual([]);
 
@@ -73,7 +73,7 @@ it("recalls, captures, suggests, forgets and tidies a bot's memory", async () =>
     before = sentCount();
     await turn(bot.id, second, "What was the project codename again?");
     expect(sentSince(before)).toContain("Bluebird");
-    expect(sentSince(before)).toMatch(/your main chat|chat \\"[^"\\]+\\"/);
+    expect(sentSince(before)).toMatch(/your main chat|chat "[^"]+"/);
 
     await api(`/api/bots/${bot.id}/memory/file`, "PUT", { path: "memory/home.md", text: "- 净水器的滤芯每六个月更换一次，上次是五月初换的。\n" });
     before = sentCount();
@@ -101,64 +101,27 @@ it("recalls, captures, suggests, forgets and tidies a bot's memory", async () =>
     expect(withExpired).not.toContain("Dentist appointment on Monday");
     expect(withExpired).toContain("Prefers short replies");
 
+    // A turn's own memory_update is how a fact reaches memory now: it goes through the real agents proxy.
+    writeFileSync(calls, JSON.stringify([
+      { name: "memory_update", server: "agents", input: { action: "append", text: "The person is vegetarian" } },
+    ]));
+    await turn(bot.id, bot.threadId, "Just so you know, I'm vegetarian.");
+    expect((await memoryFile(bot.id)).text).toContain("The person is vegetarian");
+
+    // With upkeep off, the tidy route refuses.
     await api(`/api/bots/${bot.id}/memory/tidy`, "POST", undefined, 409);
-    await turn(bot.id, bot.threadId, "Just so you know, I'm vegetarian and I have exams this weekend. The account balance is -10. I love Irani cafes.");
-    await new Promise((resolve) => setTimeout(resolve, 2_500));
-    expect((await memoryFile(bot.id)).text).not.toContain("The person is vegetarian");
 
-    await api("/api/config", "PUT", { memory: { captureQuietMs: 5_000 } });
+    // Tidy without a model still expires and archives notes, and says the contradiction check had no engine to ask.
     await api(`/api/bots/${bot.id}`, "PATCH", { memoryUpkeep: true });
-    await turn(bot.id, bot.threadId, "Just so you know, I'm vegetarian and I have exams this weekend. The account balance is -10. I love Irani cafes.");
-    expect((await memoryFile(bot.id)).text).not.toContain("The person is vegetarian");
-    await api(`/api/bots/${bot.id}`, "PATCH", { memoryUpkeep: false, browser: "invalid" }, 400);
-    expect(await api(`/api/bots/${bot.id}/memory/upkeep`)).toMatchObject({ enabled: true });
-    await expect.poll(async () => (await memoryFile(bot.id)).text, { timeout: 20_000 }).toContain("The person is vegetarian");
-    await api("/api/config", "PUT", { memory: { captureQuietMs: 1_000 } });
-    const captured = (await memoryFile(bot.id)).text;
-    expect(captured).toMatch(/- \d{4}-\d{2}-\d{2} · from chat "[^"]*" \(noticed\) · The person is vegetarian/);
-    expect(captured).toContain(`The person has exams this weekend · until ${future}`);
-    expect(captured).toContain("The account balance is -10");
-    const food = (await memoryFile(bot.id, "memory/food.md")).text;
-    expect(food).toContain("title: food");
-    expect(food).toContain("aliases: [restaurants, cafes]");
-    expect(food).toContain("The person loves Irani cafes");
-    expect(captured).not.toContain("Irani cafes");
-    const journal = await api<{ entries: Array<{ actor: string; via: string }> }>(`/api/bots/${bot.id}/memory/journal`);
-    expect(journal.entries.some((row) => row.actor === "upkeep" && row.via === "capture")).toBe(true);
-
-    writeFileSync(routes, JSON.stringify({
-      [CAPTURE_MARKER]: JSON.stringify([
-        { text: "The account balance is -10", kind: "fact", evidence: "The account balance is -10" },
-        { text: "The account balance is 10", kind: "fact", evidence: "the account balance is 10" },
-      ]),
-      [TIDY_MARKER]: '{"pairs": []}',
-    }));
-    await turn(bot.id, bot.threadId, "The balance changed today: the account balance is 10.");
-    await expect.poll(async () => (await memoryFile(bot.id)).text, { timeout: 20_000 }).toContain("The account balance is 10\n");
-    expect((await memoryFile(bot.id)).text.match(/The account balance is -10/g)).toHaveLength(1);
-
-    const { learned } = await api<{ learned: Array<{ id: string; text: string; botName: string }> }>("/api/profile/learned");
-    expect(learned.map((f) => f.text)).toEqual(["The person is vegetarian"]);
-    expect((await api("/api/config")).profile.aboutMe).toMatch(/- \d{4}-\d{2}-\d{2} · learned by Memo · The person is vegetarian/);
-    expect(JSON.stringify(await api(`/api/bots/${bot.id}/system-prompt`))).toContain("learned by Memo · The person is vegetarian");
-    const removed = await api<{ aboutMe: string }>(`/api/profile/learned/${learned[0]!.id}/remove`, "POST");
-    expect(removed.aboutMe).not.toContain("vegetarian");
-    await api(`/api/profile/learned/${learned[0]!.id}/remove`, "POST", undefined, 404);
-
-    const current = (await memoryFile(bot.id)).text.split("\n").filter((line) => /^- \d{4}/.test(line));
-    const minus = current.findIndex((line) => line.includes("balance is -10"));
-    const plus = current.findIndex((line) => line.includes("balance is 10"));
-    expect(current.length).toBeGreaterThanOrEqual(5);
-    const live = current.filter((line) => !line.includes("Dentist"));
-    writeFileSync(routes, JSON.stringify({ [TIDY_MARKER]: JSON.stringify({ pairs: [{ a: live.indexOf(current[minus]!), b: live.indexOf(current[plus]!), keep: "b" }] }) }));
-    const { report } = await api<{ report: { expired: number; superseded: number; contradictionsChecked: boolean } }>(`/api/bots/${bot.id}/memory/tidy`, "POST");
-    expect(report).toMatchObject({ expired: 1, superseded: 1, contradictionsChecked: true });
+    const { report } = await api<{ report: { expired: number; superseded: number; contradictionsChecked: boolean; note?: string } }>(`/api/bots/${bot.id}/memory/tidy`, "POST");
+    expect(report).toMatchObject({ expired: 1, superseded: 0, contradictionsChecked: false });
+    expect(report.note).toBe(NO_TEXT_ENGINE);
     const tidied = (await memoryFile(bot.id)).text;
-    expect(tidied).toMatch(/~~The account balance is -10~~ · superseded \d{4}-\d{2}-\d{2}/);
     expect(tidied).not.toContain("Dentist appointment");
+    expect(tidied).toContain("Prefers short replies");
     expect((await memoryFile(bot.id, "memory/archive.md")).text).toContain("Dentist appointment on Monday · until 2026-01-05 · expired");
     const status = await api(`/api/bots/${bot.id}/memory/upkeep`);
-    expect(status).toMatchObject({ enabled: true, modelSteps: true, lastTidy: { expired: 1, superseded: 1 } });
+    expect(status).toMatchObject({ enabled: true, modelSteps: false, lastTidy: { expired: 1, superseded: 0 } });
 
     const rows = await api<{ entries: Array<{ id: string; actor: string; via: string; path: string }> }>(`/api/bots/${bot.id}/memory/journal`);
     const tidyRow = rows.entries.find((row) => row.actor === "upkeep" && row.via === "tidy" && row.path === "MEMORY.md")!;

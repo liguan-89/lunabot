@@ -1,6 +1,6 @@
 // The page of a Cloud home on a plan that sleeps, against a real Cloud-mode server whose idle windows are a quarter
 // second: the home agrees to sleep, the person clicks Wake it now, and the page stays awake and shows the bot's reply.
-// A disposable home and a synthetic Claude CLI; nothing leaves loopback.
+// A disposable home and the fake pi CLI; nothing leaves loopback.
 import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -90,7 +90,7 @@ beforeAll(async () => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   home = mkdtempSync(join(tmpdir(), "omb-cloud-sleep-wake-"));
   writeFileSync(join(home, "config.json"), JSON.stringify({
-    instances: { claude: { driver: "claudeAgent", displayName: "Fixture", config: { cli: join(SERVER_DIR, "testing", "fake-claude-cli.ts") } } },
+    instances: { pi: { driver: "piAgent", displayName: "Fixture", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts") } } },
   }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -99,8 +99,8 @@ beforeAll(async () => {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: home, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`, FAKE_CLAUDE_MODE: "happy",
+      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
       OMB_TEST_POWER_CLOCK: "1", OMB_SSE_HEARTBEAT_MS: "250",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -132,7 +132,7 @@ afterAll(async () => {
 });
 
 it("after Wake it now the page stays awake, the home's pending sleep ends, and the bot's reply shows", async () => {
-  const bot = (await api("POST", "/api/bots", { name: "Wren", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { name: "Wren", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   expect(bot?.id, log.slice(-2000)).toBeTruthy();
 
   // The page's own requests go where a browser sends them, with its session.

@@ -1,10 +1,9 @@
 // Work that came in from outside stays with that work, on a real Team Cloud, a personal Cloud someone else has used and a
 // desktop, with the fake pi: the level each turn really got, read from the MCP config its process was started with.
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { delimiter, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
@@ -17,9 +16,18 @@ import { piInstructionsAt, piTurns, piTurnText, type PiLaunch } from "./testing/
 const tag = randomBytes(6).toString("hex");
 const dump = join(tmpdir(), `outside-${tag}.jsonl`), release = join(tmpdir(), `outside-${tag}.release`), failing = join(tmpdir(), `outside-${tag}.fail`),
   holding = join(tmpdir(), `outside-${tag}.holding`), held = join(tmpdir(), `outside-${tag}.held`);
-const FAKE_PI = fileURLToPath(new URL("./testing/fake-pi-cli.ts", import.meta.url));
 const KEY = randomBytes(16).toString("hex");
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+/** The fixture's own synthetic CLI is what every home runs (scripts/testing/cloud-send-fixture.ts writes its
+ * config.json), so the gate and the launch log go into that CLI's lines, as the suite did before the pi migration.
+ * The lines run inside `fixture-pi.mjs`, an ES module: `import`, never `require`. */
+const engine = [
+  'const { existsSync } = await import("node:fs");',
+  `process.env.FAKE_PI_MODE = existsSync(${JSON.stringify(failing)}) ? "exit-early" : "hang";`,
+  // Only a turn's spawn carries the MCP config: model probes and --version calls must not enter the launch log.
+  `if (process.env.OMB_MCP_CONFIG) process.env.FAKE_PI_DUMP = ${JSON.stringify(dump)};`,
+  `process.env.FAKE_PI_RELEASE = existsSync(${JSON.stringify(holding)}) ? ${JSON.stringify(held)} : ${JSON.stringify(release)};`,
+].join("\n");
 async function until<V>(what: string, fn: () => Promise<V> | V, ms = hostTimeout(30_000)): Promise<NonNullable<V>> {
   const end = Date.now() + ms;
   for (;;) {
@@ -49,28 +57,12 @@ const confined = (turn: Turn) => {
 const atFull = (turn: Turn) => turn.launch?.mcpConfig?.approvalMode === "full";
 const skillNamed = (name: string) => ({ name, description: "Write the digest.", source: "local:test", enabled: true, text: `---\nname: ${name}\ndescription: Write the digest.\n---\n\nWrite the digest.\n` });
 
-let fx: CloudSendFixture, team: CloudTeamFixture, ada: string, binDir = "", priorPath = "";
+let fx: CloudSendFixture, team: CloudTeamFixture, ada: string;
 beforeAll(async () => {
-  // Every home resolves the one pi instance from PATH; a stand-in `pi` runs the repository's fake in its retired-Claude
-  // compatibility mode, so each turn waits on this file's gate and each launch's config lands in one shared log.
-  binDir = mkdtempSync(join(tmpdir(), `omb-outside-pi-${tag}-`));
-  writeFileSync(join(binDir, "pi"), [
-    "#!/usr/bin/env node",
-    'const { existsSync } = require("node:fs");',
-    `process.env.FAKE_PI_CLAUDE_COMPAT = "1";`,
-    // Mount the turn's MCP servers through the real extension at boot: a scoped launch must leave its scope-ready
-    // receipt or the driver never sends the prompt.
-    `process.env.FAKE_PI_MOUNT_TOOLS = "1";`,
-    `process.env.FAKE_PI_MODE = existsSync(${JSON.stringify(failing)}) ? "exit-early" : "hang";`,
-    // Only a turn's spawn carries the MCP config: model probes and --version calls must not enter the launch log.
-    `if (process.env.OMB_MCP_CONFIG) process.env.FAKE_PI_DUMP = ${JSON.stringify(dump)};`,
-    `process.env.FAKE_PI_RELEASE = existsSync(${JSON.stringify(holding)}) ? ${JSON.stringify(held)} : ${JSON.stringify(release)};`,
-    `import(${JSON.stringify(pathToFileURL(FAKE_PI).href)}).catch((error) => { process.stderr.write(String(error) + "\\n"); process.exit(1); });`,
-  ].join("\n"), { mode: 0o755 });
-  priorPath = process.env.PATH ?? "";
-  process.env.PATH = [binDir, priorPath].filter(Boolean).join(delimiter);
+  // Every home runs the fixture's own synthetic pi CLI (fixture-pi.mjs, the repository's fake in its retired-Claude
+  // compatibility mode), so each turn waits on this file's gate and each launch's config lands in one shared log.
   fx = await launchCloudSendFixture({ onePasswordToken: `ops_fake-${randomBytes(8).toString("hex")}`, env: { OMB_TEST_INTERNAL_CAPABILITY_KEY: KEY, OMB_BOT_BOX: "0" },
-    team: { id: "team-acme-1", name: "Acme" } });
+    cloudEngine: engine, desktopEngine: engine, team: { id: "team-acme-1", name: "Acme", engine } });
   team = fx.team!;
   ada = (await team.pair({ email: "ada@acme.test", role: "admin" })).token!;
 }, hostTimeout(180_000));
@@ -80,8 +72,6 @@ afterAll(async () => {
   await sleep(500);
   await fx?.close?.();
   for (const file of [dump, release, failing, holding, held]) rmSync(file, { force: true });
-  if (priorPath) process.env.PATH = priorPath;
-  if (binDir) rmSync(binDir, { recursive: true, force: true });
 });
 
 const newBot = async (name: string, level = "full") => {

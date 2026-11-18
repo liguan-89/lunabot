@@ -87,6 +87,10 @@ const MCP_MAX_FRAME_BYTES = 32 * 1024 * 1024;
 const TOOL_OUTPUT_MAX_BYTES = 50 * 1024;
 const TOOL_OUTPUT_MAX_LINES = 2_000;
 const TOOL_NAME_MAX_LENGTH = 64;
+// Pi's native shell tools take `timeout` in seconds and set no default: a model writing 90000 (meaning milliseconds)
+// would wait 25 hours, past the running-tool watchdog's two-hour silence limit. Long services run in the background.
+const SHELL_DEFAULT_TIMEOUT_SECONDS = 120;
+const SHELL_MAX_TIMEOUT_SECONDS = 900;
 
 export class StdioMcp {
   private child: ChildProcessWithoutNullStreams;
@@ -608,22 +612,32 @@ export default async function (pi: PiExtensionApi): Promise<void> {
     : config.approvalMode === "edits" ? PI_SHELL_TOOLS
     : undefined;
 
-  if (scope !== undefined || gatedNative) {
-    pi.on("tool_call", async (event, ctx) => {
-      const toolName = event?.toolName;
-      if (scope !== undefined && (enforcementFailed || typeof toolName !== "string" || !allowed(toolName))) {
-        return { block: true, reason: "Tool selection excludes this tool" };
+  // Registered always: an unbounded shell timeout must be refused whatever the selection or approval mode.
+  pi.on("tool_call", async (event, ctx) => {
+    const toolName = event?.toolName;
+    if (toolName === "bash" || toolName === "powershell") {
+      const input = event?.input;
+      if (input && typeof input === "object" && !Array.isArray(input)) {
+        const args = input as Record<string, unknown>;
+        // Pi 1.5 runs the mutated tool_call.input; its native shell timeout is seconds and has no default.
+        if (args.timeout === undefined) args.timeout = SHELL_DEFAULT_TIMEOUT_SECONDS;
+        if (typeof args.timeout !== "number" || !Number.isFinite(args.timeout) || args.timeout <= 0 || args.timeout > SHELL_MAX_TIMEOUT_SECONDS) {
+          return { block: true, reason: `Shell timeout must be in seconds, greater than 0 and at most ${SHELL_MAX_TIMEOUT_SECONDS}. Use 90 for 90 seconds, not 90000. Run longer services in the background and check them with bounded commands.` };
+        }
       }
-      if (typeof toolName === "string" && gatedNative?.has(toolName)) {
-        const detail = summarizeParams(event?.input);
-        const confirmed = typeof ctx?.ui?.confirm === "function"
-          ? await ctx.ui.confirm(`Allow ${toolName}?`, detail || `Run ${toolName}`)
-          : false;
-        if (!confirmed) return { block: true, reason: "Blocked by the user" };
-      }
-      return undefined;
-    });
-  }
+    }
+    if (scope !== undefined && (enforcementFailed || typeof toolName !== "string" || !allowed(toolName))) {
+      return { block: true, reason: "Tool selection excludes this tool" };
+    }
+    if (typeof toolName === "string" && gatedNative?.has(toolName)) {
+      const detail = summarizeParams(event?.input);
+      const confirmed = typeof ctx?.ui?.confirm === "function"
+        ? await ctx.ui.confirm(`Allow ${toolName}?`, detail || `Run ${toolName}`)
+        : false;
+      if (!confirmed) return { block: true, reason: "Blocked by the user" };
+    }
+    return undefined;
+  });
 
   if (scope !== undefined) {
     const intersect = () => {

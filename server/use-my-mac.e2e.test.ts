@@ -203,6 +203,10 @@ async function boot() {
     env: {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), and the box replaces the data dir
+      // with a tmpfs: the fake pi's launch log, which every recipe below reads, would be written where this test cannot
+      // see it. The box has its own suites; this one proves the Mac's connection, so it stays off here.
+      OMB_BOT_BOX: "0",
       OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
       OMB_AGENT_BROWSER_PATH: join(home, "agent-browser"),

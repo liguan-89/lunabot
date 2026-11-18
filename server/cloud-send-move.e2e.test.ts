@@ -4,7 +4,7 @@
 // own account. Disposable homes; no network.
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -15,6 +15,7 @@ import { itemKey } from "../electron/cloud-send-parts.mjs";
 import { launchCloudSendFixture, type CloudSendFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 // Obvious fakes only.
 const hex = (bytes: number) => randomBytes(bytes).toString("hex");
@@ -40,12 +41,22 @@ const proxies: ChildProcess[] = [];
 beforeAll(async () => {
   scratch = mkdtempSync(join(tmpdir(), "omb-cloud-move-"));
   release = join(scratch, "release");
-  mkdirSync(join(scratch, "turns"));
   writeFileSync(release, "");
   broker = await startBrokerFake();
+  // My Cloud's synthetic pi holds each turn until the release file exists, and appends every launch and prompt to one
+  // JSONL (server/testing/pi-dump.ts), so a background one-shot only adds rows and never overwrites a turn's. Each reply
+  // is its own, keyed by what the turn was asked: one generic line would make every conversation's "you said" the same.
+  writeFileSync(join(scratch, "marker-replies.json"), JSON.stringify({
+    "Draft the launch memo.": "The launch memo is drafted.",
+    "Where are we?": "Where we are: the launch memo is drafted.",
+    "Read plan.md from my Mac.": "Read the plan from the Mac.",
+    "Read the report.": "The report is read.",
+    "Plan the trip.": "The trip is planned.",
+  }));
   fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, broker, toolCalls: 36,
     cloudEngine: `process.env.FAKE_CLAUDE_MODE = "hang"; process.env.FAKE_CLAUDE_RELEASE = ${JSON.stringify(release)};
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(scratch, "turns"))} + "/" + process.pid + ".json"; process.env.FAKE_CLAUDE_TEXT_DUMP = ${JSON.stringify(join(scratch, "one-shot.json"))}; }` });
+process.env.FAKE_CLAUDE_MARKER_REPLIES = ${JSON.stringify(join(scratch, "marker-replies.json"))};
+process.env.FAKE_PI_DUMP = ${JSON.stringify(join(scratch, "turns.jsonl"))};` });
   signIns = createServer((req, res) => {
     let body = "";
     req.on("data", (chunk) => { body += chunk; });
@@ -92,7 +103,7 @@ async function turn(side: Side, bot: { id: string; threadId: string }, text: str
   expect((await side("POST", `/api/bots/${bot.id}/messages`, { text, threadId: bot.threadId })).status).toBe(202);
   await expect.poll(async () => await idle(side) && (await history(side, bot.threadId)).stored >= before + 2, { timeout: 60_000, interval: 100 }).toBe(true);
 }
-const newBot = async (name: string) => (await fx.local("POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+const newBot = async (name: string) => (await fx.local("POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot as { id: string; threadId: string };
 
 /** Everything arrived, the bots' daily logs too: the check finds nothing missing. */
 function everythingArrived(report: Awaited<ReturnType<CloudSendFixture["check"]>>): boolean {
@@ -117,19 +128,21 @@ let archie: { id: string; threadId: string }, cleo: { id: string; threadId: stri
 let kai: { id: string; threadId: string };
 let room: { id: string; threadId: string };
 
-/** The latest turn on My Cloud of a bot in a conversation, as its engine got it (fake-claude-cli.ts's dump). */
-async function turnDump(botId: string, threadId: string, seen: Set<string>) {
-  let dump: { systemPrompt?: string; mcpConfig?: { mcpServers?: { agents?: { command: string; args: string[]; env: Record<string, string> } } } } | undefined;
+/** My Cloud's pi log, a JSONL of launches and prompts (server/testing/pi-dump.ts). */
+const dumpPath = () => join(scratch, "turns.jsonl");
+/** The first turn in that log after `since` that one bot ran in one conversation, with what its engine was handed: the
+ * retired Claude dump's systemPrompt (the instructions in effect) and mcpConfig (the servers it mounted). */
+async function turnDump(botId: string, threadId: string, since: number) {
+  let found: { systemPrompt?: string; mcpConfig?: { mcpServers?: { agents?: { command: string; args: string[]; env: Record<string, string> } } } } | undefined;
   await expect.poll(() => {
-    for (const name of readdirSync(join(scratch, "turns")).filter((entry) => entry.endsWith(".json") && !seen.has(entry))) {
-      let found: typeof dump;
-      try { found = JSON.parse(readFileSync(join(scratch, "turns", name), "utf8")); } catch { continue; }
-      const env = found?.mcpConfig?.mcpServers?.agents?.env;
-      if (env?.OMB_BOT_ID === botId && env.OMB_THREAD_ID === threadId) { dump = found; return true; }
-    }
-    return false;
+    const turns = piTurns(dumpPath());
+    const index = turns.findIndex((turn, at) => at >= since && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID === botId
+      && turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID === threadId);
+    if (index < 0) return false;
+    found = { systemPrompt: piInstructionsFor(turns, index), mcpConfig: turns[index]!.launch!.mcpConfig as typeof found extends undefined ? never : NonNullable<typeof found>["mcpConfig"] };
+    return true;
   }, { timeout: 30_000 }).toBe(true);
-  return dump!;
+  return found!;
 }
 
 it("lines My Cloud already held of this computer's become its owner's when the move names them, at once for what its bots recall", async () => {
@@ -155,9 +168,9 @@ it("lines My Cloud already held of this computer's become its owner's when the m
   const said = `you said: ${JSON.stringify(latest.text!.replace(/\s+/gu, " ").trim().slice(0, 40)).slice(0, -1)}`;
   const recentWork = async () => {
     const task = (await onCloud("POST", `/api/bots/${lux.id}/tasks`, { title: "Follow-up" })).body.task as { threadId: string };
-    const seen = new Set(readdirSync(join(scratch, "turns")));
+    const since = piTurns(dumpPath()).length;
     expect((await onCloud("POST", `/api/bots/${lux.id}/messages`, { text: "Where are we?", threadId: task.threadId })).status).toBe(202);
-    const prompt = (await turnDump(lux.id, task.threadId, seen)).systemPrompt ?? "";
+    const prompt = (await turnDump(lux.id, task.threadId, since)).systemPrompt ?? "";
     await expect.poll(() => idle(onCloud), { timeout: 30_000, interval: 100 }).toBe(true);
     return prompt;
   };
@@ -263,8 +276,8 @@ it("a move run again changes nothing on My Cloud, and its check still finds ever
 }, hostTimeout(300_000));
 
 /** The latest turn on My Cloud of a bot in a conversation: its agents tools, as the engine got them. */
-async function agentsFor(botId: string, threadId: string, seen: Set<string>) {
-  const agents = (await turnDump(botId, threadId, seen)).mcpConfig!.mcpServers!.agents!;
+async function agentsFor(botId: string, threadId: string, since: number) {
+  const agents = (await turnDump(botId, threadId, since)).mcpConfig!.mcpServers!.agents!;
   const proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: scratch, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
   const replies = new Map<number, (value: any) => void>();
@@ -296,9 +309,9 @@ it("a moved conversation may use the lent Mac and feeds its bot's memory on My C
 
     // Pip's conversation came with the move: its owner goes on there, and the turn may read the lent Mac.
     rmSync(release, { force: true });
-    const seen = new Set(readdirSync(join(scratch, "turns")));
+    const since = piTurns(dumpPath()).length;
     expect((await fx.onCloud("POST", `/api/bots/${pip.id}/messages`, { text: "Read plan.md from my Mac.", threadId: pip.threadId })).status).toBe(202);
-    const call = await agentsFor(pip.id, pip.threadId, seen);
+    const call = await agentsFor(pip.id, pip.threadId, since);
     const listing = JSON.parse((await call("list_shared_computers")).content[0].text);
     expect(listing.unavailable).toBeUndefined();
     expect(listing.computers.map((entry: { id: string }) => entry.id)).toEqual([lent[0].id]);
@@ -314,9 +327,9 @@ it("a moved conversation may use the lent Mac and feeds its bot's memory on My C
 
     // Kai's conversation, there before My Cloud kept its owner's lines as theirs, may use the lent Mac too.
     rmSync(release, { force: true });
-    const seenBefore = new Set(readdirSync(join(scratch, "turns")));
+    const sinceBefore = piTurns(dumpPath()).length;
     expect((await fx.onCloud("POST", `/api/bots/${kai.id}/messages`, { text: "Read plan.md from my Mac.", threadId: kai.threadId })).status).toBe(202);
-    const kaiCall = await agentsFor(kai.id, kai.threadId, seenBefore);
+    const kaiCall = await agentsFor(kai.id, kai.threadId, sinceBefore);
     const kaiListing = JSON.parse((await kaiCall("list_shared_computers")).content[0].text);
     expect(kaiListing.unavailable).toBeUndefined();
     expect(kaiListing.computers.map((entry: { id: string }) => entry.id)).toEqual([lent[0].id]);

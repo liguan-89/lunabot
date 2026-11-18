@@ -1,7 +1,7 @@
 // pi's model plumbing: the `get_available_models` catalog, model-id splitting, and the rows this
 // app upserts into ~/.pi/agent/models.json so `set_model` can reach a custom provider or a live
 // local host.
-import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -92,7 +92,56 @@ export async function applyPiLocalCatalog(
 }
 
 function piAgentDir(env: Record<string, string | undefined>): string {
+  if (env.PI_CODING_AGENT_DIR) return env.PI_CODING_AGENT_DIR;
   return join(env.HOME || env.USERPROFILE || homedir(), ".pi", "agent");
+}
+
+/** The environment one pi instance's spawns and catalog reads get: an explicit PI_CODING_AGENT_DIR wins; otherwise the
+ *  instance's own dir (seeded with auth and models only) keeps the operator's AGENTS.md, skills and extensions out of a
+ *  bot's turn. `providerEnv` keeps the custom-provider variables the spawn itself needs. */
+export function piInstanceEnvs(
+  instanceId: string,
+  baseEnv: Record<string, string | undefined>,
+  providerEnv: Record<string, string | undefined> = baseEnv,
+): { dir: string; catalogEnv: Record<string, string | undefined>; piEnv: Record<string, string | undefined> } {
+  const dir = baseEnv.PI_CODING_AGENT_DIR
+    ?? ensurePiInstanceAgentDir(instanceId, join(baseEnv.HOME || baseEnv.USERPROFILE || homedir(), ".pi", "agent"), baseEnv);
+  return {
+    dir,
+    catalogEnv: { ...baseEnv, PI_CODING_AGENT_DIR: dir },
+    piEnv: { ...providerEnv, PI_CODING_AGENT_DIR: dir },
+  };
+}
+
+/** Create DEX BOT's own pi agent dir for this instance and link `auth.json` + `models.json` from the operator's
+ * `~/.pi/agent`, so a bot's turn does not inherit the operator's AGENTS.md, skills or extensions. The dir sits under
+ * the real HOME (`~/.pi/instances/<id>`) rather than the data folder, which a bot box hides behind a tmpfs. */
+export function ensurePiInstanceAgentDir(
+  instanceId: string,
+  operatorAgentDir: string,
+  env: Record<string, string | undefined> = process.env,
+): string {
+  // The id comes from the instance registry; keep it to a single path segment whatever a caller passes.
+  const safe = instanceId.replace(/[^A-Za-z0-9._-]/g, "_");
+  const dir = join(env.HOME || env.USERPROFILE || homedir(), ".pi", "instances", safe);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  for (const file of ["auth.json", "models.json"] as const) {
+    const link = join(dir, file);
+    const target = join(operatorAgentDir, file);
+    if (!existsSync(link) && existsSync(target)) {
+      try {
+        symlinkSync(target, link);
+      } catch {
+        // Symlinks need elevated privileges on Windows; a copy keeps sign-in working there.
+        try {
+          copyFileSync(target, link);
+        } catch (error) {
+          throw new Error(`pi: could not seed ${file} into ${dir}: ${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+    }
+  }
+  return dir;
 }
 
 function piModelsRoot(path: string): Record<string, unknown> | null {
@@ -124,6 +173,27 @@ function modelRows(existing: Record<string, unknown>): Array<Record<string, unkn
     : [];
 }
 
+/** A models.json seeded as a symlink to the operator's file becomes this instance's own copy before any write, so a
+ *  bot's custom provider or local host never edits the operator's shared pi config. */
+function ownPiModelsFile(path: string): void {
+  let isSymlink = false;
+  try {
+    isSymlink = lstatSync(path).isSymbolicLink();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  if (!isSymlink) return;
+  let content: string | null = null;
+  try {
+    content = readFileSync(path, "utf8");
+  } catch (error) {
+    // A dangling link (the operator deleted the file after seeding) drops and starts from an owned file.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  unlinkSync(path);
+  if (content !== null) writeFileSync(path, content, { mode: 0o600 });
+}
+
 /** Upsert the custom provider into ~/.pi/agent/models.json, so pi lists its models and `set_model` can reach them. */
 export function ensurePiCustomProvider(env: Record<string, string | undefined>): void {
   const custom = piCustomProviderFromEnv(env);
@@ -131,6 +201,7 @@ export function ensurePiCustomProvider(env: Record<string, string | undefined>):
   const dir = piAgentDir(env);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "models.json");
+  ownPiModelsFile(path);
   const root = piModelsRoot(path);
   if (!root) return;
   const providers = providersOf(root);
@@ -179,6 +250,7 @@ export function ensurePiInjectModel(
   const dir = piAgentDir(env);
   mkdirSync(dir, { recursive: true });
   const path = join(dir, "models.json");
+  ownPiModelsFile(path);
   const root = piModelsRoot(path);
   if (!root) return split;
 
@@ -219,9 +291,8 @@ export function ensurePiInjectModel(
 }
 
 export function readPiDefaultModel(env: Record<string, string | undefined>): string {
-  const home = env.HOME || env.USERPROFILE || homedir();
   try {
-    const s = JSON.parse(readFileSync(`${home}/.pi/agent/settings.json`, "utf8")) as {
+    const s = JSON.parse(readFileSync(join(piAgentDir(env), "settings.json"), "utf8")) as {
       defaultProvider?: string;
       defaultModel?: string;
     };

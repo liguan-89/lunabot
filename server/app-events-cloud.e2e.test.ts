@@ -52,7 +52,7 @@ beforeAll(async () => {
   const dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: { claude: { driver: "claudeAgent", displayName: "Fixture", config: { cli: join(SERVER_DIR, "testing", "fake-claude-cli.ts") } } },
+    instances: { pi: { driver: "piAgent", displayName: "Fixture", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts") } } },
   }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -62,8 +62,10 @@ beforeAll(async () => {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
-      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`, FAKE_CLAUDE_MODE: "happy",
+      // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
+      // tmpfs and hides the fake pi's dump; the box has its own suites, so it stays off here.
+      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
       OMB_COMPOSIO_BROKER_URL: broker.url, OMB_CLOUD_CONNECTED_APPS_GRANT: broker.cloudGrant(MACHINE),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -92,7 +94,7 @@ it("registers the Cloud, holds the paid limit from the Admin's grant, and runs a
   await expect.poll(() => broker.installationIds().find((id) => broker.cloudMachine(id) === MACHINE), { timeout: 20_000 }).toBeTruthy();
   const installation = broker.installationIds().find((id) => broker.cloudMachine(id) === MACHINE)!;
   const gmail = broker.account(broker.userFor(installation), "gmail");
-  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const bot = (await api("POST", "/api/bots", { name: "Ledger", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
   expect(bot?.id, log.slice(-2000)).toBeTruthy();
 
   const created = await api("POST", "/api/app-triggers", { botId: bot.id, name: "Invoices", prompt: "File the invoice in the event data.", app: "gmail", event: "GMAIL_NEW_GMAIL_MESSAGE", filter: { subject: "invoice" } });

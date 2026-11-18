@@ -13,10 +13,12 @@ import { CONTROL_BUSY, CONTROL_REFUSAL_PLAIN, controlRefusal, createControlClien
 import { freePortBlock } from "./testing/ports.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piInstructionsAt, piTurns } from "./testing/pi-dump.ts";
 import { appHandsItOver } from "./testing/your-computer.ts";
 import { THIS_COMPUTER_NOT_READY } from "../shared/your-computer.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const CALL_WAIT_MS = 3_000;
 let child: ChildProcess;
 let startServer: (computerWaitMaxMs?: number) => Promise<void>;
@@ -49,10 +51,36 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
     await new Promise(r => setTimeout(r, 40));
   }
 }
-// A poll can land mid-write (macOS CI read truncated JSON): a parse error means "not yet".
+// The latest pi turn, in the shape the retired Claude dump had: its launch (what it mounted, its argv, its pid) and the
+// instructions in effect. A prompt row lands when the turn starts, so this resolves while the turn runs.
 const dump = () => until(() => {
-  if (!existsSync(dumpFile)) return null;
-  try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
+  const turns = piTurns(dumpFile);
+  const turn = turns.at(-1);
+  if (!turn?.launch) return null;
+  const session = turns.slice(0, turns.length).filter((candidate) => candidate.launch === turn.launch);
+  return {
+    mcpConfig: turn.launch.mcpConfig,
+    argv: turn.launch.argv,
+    pid: turn.launch.pid,
+    systemPrompt: piInstructionsAt(session, session.length - 1),
+    prompt: { message: { content: turn.prompt } },
+  };
+}, Boolean);
+/** Whether any turn has been dispatched since the dump was last cleared (a model catalog probe writes no prompt row). */
+const dispatched = (): boolean => piTurns(dumpFile).length > 0;
+/** The latest turn whose own words hold `text`: its prompt, and the launch it ran on when that launch is still in the log
+ * (a warm pi child writes its launch line once, at spawn, so a cleared log has only the prompt). */
+const turnWith = (text: string) => until(() => {
+  const turns = piTurns(dumpFile);
+  const index = turns.findLastIndex((turn) => turn.prompt.includes(text));
+  const turn = index >= 0 ? turns[index] : undefined;
+  if (!turn) return null;
+  return {
+    mcpConfig: turn.launch?.mcpConfig ?? null,
+    argv: turn.launch?.argv ?? [],
+    pid: turn.launch?.pid,
+    prompt: { message: { content: turn.prompt } },
+  };
 }, Boolean);
 // The seeded Chief answers a failed run with a Problems to look at turn on this same engine, and that turn writes the dump.
 async function stepDownSeededChief() {
@@ -70,7 +98,7 @@ const roomOutcome = (groupId: string) => until(() => readHandoffs(join(fixtureHo
 beforeAll(async () => {
   fixtureHome = mkdtempSync(join(tmpdir(), "omb-group-vm-"));
   stateFile = join(fixtureHome, "vm.json");
-  dumpFile = join(fixtureHome, "dump.json");
+  dumpFile = piDumpPath(join(fixtureHome, "data"));
   finishFile = join(fixtureHome, "finish");
   cuaDescriptor = join(fixtureHome, "user-data", "cua-connection.json");
   vmState();
@@ -108,10 +136,15 @@ beforeAll(async () => {
   });
   await new Promise<void>(resolve => boatServer.listen(0, "127.0.0.1", resolve));
   const boatPort = (boatServer.address() as { port: number }).port;
-  writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-    driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-    // Its first computer call is what creates or wakes the Boat, as with a real model.
-    environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile, FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
+  writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+    driver: "piAgent", config: { cli: FAKE_PI },
+    // A gated slow turn; its first computer call is what creates or wakes the Boat, as with a real model, so the fake
+    // runs that call through the turn's mounted computer server.
+    environment: {
+      FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile,
+      FAKE_PI_MOUNT_TOOLS: "1",
+      FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]),
+    },
   } } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -535,11 +568,13 @@ describe("Group Local VM ownership on the real isolated server", () => {
       expect(boatCalls.every(call => call.method === "GET")).toBe(true);
       if (state === "removed") boatRow = null;
       const harnessComputer = (sent: any) => computer(sent)?.args?.at(-1) === "computer" && /harness-mcp-proxy/.test(computer(sent).args[0]);
+      const selectionBefore = (await api("GET", "/api/bots?messages=0")).bots.find((entry: any) => entry.id === bot.id).modelSelection;
       rmSync(dumpFile, { force: true });
       writeFileSync(finishFile, "finish");
       const continued: any = await dump();
       expect(harnessComputer(continued)).toBe(true);
-      expect(continued.argv[continued.argv.indexOf("--model") + 1]).toBe(before.argv[before.argv.indexOf("--model") + 1]);
+      // The continuation keeps the model its request ran on; pi is told it over RPC, so the bot's record is the proof.
+      expect((await api("GET", "/api/bots?messages=0")).bots.find((entry: any) => entry.id === bot.id).modelSelection).toEqual(selectionBefore);
       await idle(bot.id);
       expect(boatPrompts).toHaveLength(0);
       expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(state === "wake" ? 0 : 1);
@@ -663,14 +698,16 @@ describe("Group Local VM ownership on the real isolated server", () => {
         const queued = await api("POST", `/api/bots/${bot.id}/messages`, { text });
         expect(queued.queued).toBe(true);
         writeFileSync(finishFile, "finish");
-        const next: any = await dump();
-        expect(computer(next)).toBeUndefined();
-        expect(next.mcpConfig.mcpServers.agents.env.OMB_THREAD_ID).toBe(bot.threadId);
+        // A warm pi child keeps the launch it was spawned with (and writes no second launch line), so the new turn is
+        // found by its own words and the mount it ran on is the one captured above: no computer, its own thread.
+        const next: any = await turnWith(text);
+        expect(computer({ mcpConfig: sent.mcpConfig })).toBeUndefined();
+        expect(sent.mcpConfig.mcpServers.agents.env.OMB_THREAD_ID).toBe(bot.threadId);
         expect(next.prompt.message.content).toContain(text);
         expect(next.prompt.message.content).not.toContain("The computer selection is now");
       } else await api("POST", `/api/bots/${bot.id}/interrupt`, {});
       await idle(bot.id);
-      if (failure !== "new-request") expect(existsSync(dumpFile)).toBe(false);
+      if (failure !== "new-request") expect(dispatched()).toBe(false);
       const state = await api("GET", "/api/bots?messages=0");
       expect(state.bots.find((b: any) => b.id === bot.id).tasks[0].surface).toBe(failure === "manual-selection" ? "browser" : undefined);
       if (failure === "new-request") {
@@ -745,6 +782,9 @@ describe("Group Local VM ownership on the real isolated server", () => {
     }
   }, 40_000);
 
+  // These four wait on the shared fixture's late-completion seam, which holds a turn's `turn.completed` until a release
+  // file exists. That seam (server/testing/group-local-vm-hooks.mjs) patches the pi driver's event fan-out, so a
+  // completion that lands after the replacement turn took the VM cannot take it back.
   it.each([["shared", false], ["shared", true], ["per-bot", false], ["per-bot", true]] as const)("keeps a replacement %s VM turn after a late completion (new task: %s)", async (mode, newTask) => {
     vmState();
     await api("PATCH", "/api/config", { localVm: { mode, maxInstances: 2 } });
@@ -816,7 +856,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
     await send(group.id);
     await until(() => api("GET", "/api/bots?messages=30"), state => JSON.stringify(state).includes(THIS_COMPUTER_NOT_READY));
     await idle(bots[0].id);
-    expect(existsSync(dumpFile)).toBe(false);
+    expect(dispatched()).toBe(false);
   });
 
   it.skipIf(process.platform === "linux")("carries the recorded macOS permission failure into the failed turn", async () => {
@@ -832,7 +872,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
         value => JSON.stringify(value).includes(reason));
       if (process.platform === "darwin") expect(JSON.stringify(state)).toContain("Relaunch Luna Bot after granting the missing macOS permission");
       await idle(bots[0].id);
-      expect(existsSync(dumpFile)).toBe(false);
+      expect(dispatched()).toBe(false);
     } finally {
       rmSync(cuaDescriptor, { force: true });
       await appHandsItOver();
@@ -892,7 +932,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
     await stop(group.id);
     vmState();
     await idle(bots[0].id);
-    expect(existsSync(dumpFile)).toBe(false);
+    expect(dispatched()).toBe(false);
     await send(group.id);
     expect(computer(await dump())).toBeTruthy();
     await stop(group.id); await idle(bots[0].id);
@@ -909,7 +949,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
     await until(() => api("GET", "/api/bots?messages=30"), r => JSON.stringify(r).includes("the turn was stopped"));
     vmState();
     await idle(bots[0].id);
-    expect(existsSync(dumpFile)).toBe(false);
+    expect(dispatched()).toBe(false);
     // The watchdog stopped the turn before dispatch: a stall, not a provider error.
     expect(await roomOutcome(group.id)).toBe("stalled");
     // Wait out the stall's VM-lease grace so a later turn can take the VM.
@@ -933,7 +973,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
     await until(() => api("GET", "/api/bots?messages=30"), r => JSON.stringify(r).includes("the turn was stopped"));
     vmState();
     await idle(bots[0].id);
-    expect(existsSync(dumpFile)).toBe(false);
+    expect(dispatched()).toBe(false);
     const root = await until(() => readHandoffs(join(fixtureHome, "data")).findLast(node => node.groupId === group.id), node => node?.outcome !== undefined);
     expect(root).toMatchObject({ outcome: "stalled", restarts: 1 });
     expect(root?.result).toContain("No activity for 20 minutes — the turn was stopped");
@@ -949,7 +989,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
     await until(() => api("GET", "/api/bots?messages=30"), r => JSON.stringify(r).includes("the turn was stopped"));
     vmState();
     await idle(bots[0].id);
-    expect(existsSync(dumpFile)).toBe(false);
+    expect(dispatched()).toBe(false);
     const root = await until(() => readHandoffs(join(fixtureHome, "data")).findLast(node => node.groupId === group.id), node => node?.outcome !== undefined);
     expect(root).toMatchObject({ outcome: "stalled" });
     expect(root?.result).toContain("No activity for 20 minutes — the turn was stopped");
@@ -1013,11 +1053,11 @@ describe("Group Local VM ownership on the real isolated server", () => {
         .includes("Parked — it continues automatically when the computer is free"), Boolean);
       const parked = await until(() => api("GET", "/api/bots?messages=0"), state => {
         const task = state.bots.find((bot: any) => bot.id === auto.id)?.tasks.find((task: any) => task.threadId === auto.threadId);
-        return task?.activity === "parked.computer" || existsSync(dumpFile);
+        return task?.activity === "parked.computer" || dispatched();
       });
       const task = parked.bots.find((bot: any) => bot.id === auto.id).tasks.find((task: any) => task.threadId === auto.threadId);
       expect(task).toMatchObject({ busy: false, activity: "parked.computer" });
-      expect(existsSync(dumpFile)).toBe(false);
+      expect(dispatched()).toBe(false);
       expect(JSON.parse(readFileSync(stateFile, "utf8")).actions ?? []).toEqual([]);
       await api("POST", `/api/bots/${holder.id}/interrupt`, { threadId: holder.threadId });
       await idle(holder.id);

@@ -1,7 +1,7 @@
 // What a turn already running keeps when the team's rules change under it, and what it loses at once. A stand-in Admin
-// holds the document; the synthetic Claude CLI waits inside its turn while the rule lands, then calls what it was launched
+// holds the document; the synthetic pi CLI waits inside its turn while the rule lands, then calls what it was launched
 // with. Disposable homes, fake connected-apps service and MCP server; nothing leaves this machine.
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { rmSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -12,15 +12,17 @@ import { TEAM_POLICY_ADMIN_PATH, teamPolicyFingerprint } from "./cloud-team-poli
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurnHolding, piTurns } from "./testing/pi-dump.ts";
 
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";
 process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";
 process.env.FAKE_CLAUDE_RELEASE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/release";
 process.env.FAKE_CLAUDE_REPLY_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/reply.txt";`;
 const FINISHED = "Finished with what it had.";
 const WAIT = { name: "Read", input: { file_path: "notes.txt" }, hold: true, output: "the notes" };
 const ORDERS = { name: "lookup_order", server: "orders", input: {} };
-const GMAIL = { name: "COMPOSIO_MULTI_EXECUTE_TOOL", server: "composio", input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } };
+// pi names a mounted MCP tool "<server>_<tool>" (server/testing/fake-pi-cli.ts), so the scripted call names that.
+const GMAIL = { name: "composio_composio_multi_execute_tool", server: "composio", input: { tools: [{ tool_slug: "GMAIL_FETCH_EMAILS", arguments: { max_results: 1 } }] } };
 
 let adminServer: Server, relay: Server, gateway: FakeHttpMcp, broker: BrokerFake, fx: CloudSendFixture, team: CloudTeamFixture;
 let owner = "", botId = "", teamUser = "";
@@ -36,9 +38,20 @@ async function rules(limits: Record<string, unknown> | null) {
   await expect.poll(() => reports.at(-1)?.loaded?.fingerprint ?? null, { timeout: 15_000, interval: 50 }).toBe(fingerprint);
 }
 
-type Dump = { pid: number; mcpConfig?: { mcpServers?: Record<string, unknown> } };
-const dumpPath = () => join(team.home, "dump.json");
-const dump = () => JSON.parse(readFileSync(dumpPath(), "utf8")) as Dump;
+/** The pi log, a JSONL of launches and prompts (server/testing/pi-dump.ts): the launch a turn ran on carries the pid it
+ * kept warm with and the MCP config it was handed, the retired Claude dump's own fields. */
+const dumpPath = () => join(team.home, "dump.jsonl");
+const turnCount = () => piTurns(dumpPath()).length;
+/** The launch the last turn whose own words hold `text` ran on: the pid it kept warm and the servers it was handed. */
+const launchHolding = (text: string) => {
+  const turns = piTurns(dumpPath());
+  const index = turns.findLastIndex((turn) => turn.prompt.includes(text));
+  expect(index, `no pi turn carried "${text}"`).toBeGreaterThanOrEqual(0);
+  expect(turns[index]!.launch, `the turn carrying "${text}" has no launch`).not.toBeNull();
+  return turns[index]!.launch!;
+};
+/** Turns already run when the turn under test was sent: the log only ever grows, so "the engine ran" is a later row. */
+let marked = 0;
 const script = (calls: unknown[]) => writeFileSync(join(team.home, "tool-calls.json"), JSON.stringify(calls));
 const orderCalls = () => (gateway.calls as { name?: string }[]).filter((call) => call.name === "lookup_order").length;
 const thread = async (id: string) => JSON.stringify((await team.as(owner, "GET", `/api/threads/${id}/messages?limit=200`)).body);
@@ -49,7 +62,7 @@ async function newThread(title: string) {
   return created.body.task.threadId as string;
 }
 async function send(threadId: string, text: string) {
-  rmSync(dumpPath(), { force: true });
+  marked = turnCount();
   rmSync(join(team.home, "release"), { force: true });
   return team.as(owner, "POST", `/api/bots/${botId}/messages`, { text, threadId });
 }
@@ -59,8 +72,8 @@ async function fullTurn(threadId: string, text: string) {
   script([]);
   const sent = await send(threadId, text);
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => existsSync(dumpPath()) && (await thread(threadId)).includes(FINISHED) && await idle(), { timeout: 60_000, interval: 100 }).toBe(true);
-  return dump();
+  await expect.poll(async () => turnCount() > marked && (await thread(threadId)).includes(FINISHED) && await idle(), { timeout: 60_000, interval: 100 }).toBe(true);
+  return launchHolding(text);
 }
 /** Starts a turn that waits inside itself, with no rules in force; the rule lands while it waits; then it carries on. */
 async function ruleLandsMidTurn(limits: Record<string, unknown>, calls: unknown[], title: string, { ended = FINISHED, ready = () => true }: { ended?: string; ready?: () => boolean } = {}) {
@@ -69,8 +82,8 @@ async function ruleLandsMidTurn(limits: Record<string, unknown>, calls: unknown[
   script(calls);
   const sent = await send(threadId, title);
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(() => existsSync(dumpPath()), { timeout: 60_000, interval: 50 }).toBe(true);
-  const launched = dump();
+  await expect.poll(() => turnCount() > marked, { timeout: 60_000, interval: 50 }).toBe(true);
+  const launched = launchHolding(title);
   await expect.poll(ready, { timeout: 60_000, interval: 50 }).toBe(true);
   await rules(limits);
   writeFileSync(join(team.home, "release"), "");
@@ -127,8 +140,8 @@ it("keeps its engine and the MCP servers it began with, and finishes, though the
   expect(words).not.toMatch(/Acme (does not allow|allows only)/);
   const next = await send(threadId, "and the next one");
   expect(next.status, JSON.stringify(next.body)).toBe(409);
-  expect(next.body.error).toMatch(/^Acme does not allow the Claude engine\./);
-  expect(existsSync(dumpPath())).toBe(false);
+  expect(next.body.error).toMatch(/^Acme does not allow the pi engine\./);
+  expect(turnCount()).toBe(marked);
 }, hostTimeout(120_000));
 
 it("the next turn in the same chat gets the new rules, even with the engine's process still warm", async () => {
@@ -136,11 +149,11 @@ it("the next turn in the same chat gets the new rules, even with the engine's pr
   const threadId = await newThread("stays warm");
   const first = await fullTurn(threadId, "first");
   const second = await fullTurn(threadId, "second");
-  expect(second.pid).toBe(first.pid);
+  expect(second.pid, "the warm child keeps its pid across the two turns").toBe(first.pid);
   expect(Object.keys(second.mcpConfig?.mcpServers ?? {})).toContain("orders");
   await rules({ allowedMcpServers: ["approved"] });
   const third = await fullTurn(threadId, "third");
-  expect(third.pid).not.toBe(first.pid);
+  expect(third.pid, "a new spawn contract boots a fresh child").not.toBe(first.pid);
   expect(Object.keys(third.mcpConfig?.mcpServers ?? {})).not.toContain("orders");
 }, hostTimeout(180_000));
 
@@ -150,19 +163,18 @@ it("a hand-off it starts after the change gets the new rules", async () => {
   script([WAIT, { name: "coordinate_bots", server: "agents", input: { bot_ids: ["Helper"], message: "Please check the stock.", reason: "It asked for the stock" } }]);
   const sent = await send(threadId, "hands on");
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(() => existsSync(dumpPath()), { timeout: 60_000, interval: 50 }).toBe(true);
-  expect(Object.keys(dump().mcpConfig?.mcpServers ?? {})).toContain("orders");
+  await expect.poll(() => turnCount() > marked, { timeout: 60_000, interval: 50 }).toBe(true);
+  expect(Object.keys(launchHolding("hands on").mcpConfig?.mcpServers ?? {})).toContain("orders");
   await rules({ allowedMcpServers: ["approved"] });
   script([]);
-  rmSync(dumpPath(), { force: true });
   writeFileSync(join(team.home, "release"), "");
-  await expect.poll(() => existsSync(dumpPath()), { timeout: 60_000, interval: 50 }).toBe(true);
-  const helper = dump() as Dump & { prompt?: unknown };
-  expect(JSON.stringify(helper.prompt)).toContain("Please check the stock.");
-  expect(Object.keys(helper.mcpConfig?.mcpServers ?? {})).not.toContain("orders");
+  await expect.poll(() => piTurnHolding(dumpPath(), "Please check the stock.") !== undefined, { timeout: 60_000, interval: 50 }).toBe(true);
+  const helper = piTurnHolding(dumpPath(), "Please check the stock.")!;
+  expect(helper.launch, "the hand-off's own spawn").not.toBeNull();
+  expect(Object.keys(helper.launch!.mcpConfig?.mcpServers ?? {})).not.toContain("orders");
   // Helper's answer then wakes Scout for one more turn in this chat. Wait for that turn here: started after this test,
   // it would play the next test's scripted calls, and its Gmail call would count as that test's own.
-  await expect.poll(async () => existsSync(dumpPath()) && JSON.stringify(dump()).includes("own account, not verification") && await idle(),
+  await expect.poll(async () => piTurns(dumpPath()).some((turn) => turn.prompt.includes("own account, not verification")) && await idle(),
     { timeout: 60_000, interval: 100 }).toBe(true);
 }, hostTimeout(120_000));
 

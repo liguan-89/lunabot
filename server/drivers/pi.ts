@@ -9,6 +9,7 @@ import {
   ensurePiCustomProvider,
   ensurePiInjectModel,
   piCatalogFromFrame,
+  piInstanceEnvs,
   readPiDefaultModel,
   splitPiModel,
 } from "./pi-model-catalog.ts";
@@ -226,7 +227,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
   async create(input: DriverCreateInput<PiConfig>): Promise<ProviderInstance> {
     const { instanceId, config } = input;
     const providerEnv = { ...process.env, ...input.environment };
-    const catalogEnv = piEnvironment(providerEnv, { keepCustom: true });
+    const { catalogEnv, piEnv } = piInstanceEnvs(instanceId, piEnvironment(providerEnv, { keepCustom: true }), providerEnv);
     let models = EMPTY;
     const readModels = async () => {
       let base = models, listed = false;
@@ -366,10 +367,10 @@ export const PiDriver: ProviderDriver<PiConfig> = {
     const spawnFresh = (contract: ReturnType<typeof spawnContract>, turn: PrewarmInput) => {
       // Before any credential-bearing temp file, so a model setup failure leaves nothing to clean up.
       try {
-        ensurePiCustomProvider({ ...process.env, ...input.environment });
+        ensurePiCustomProvider(piEnv);
       } catch {}
       if (typeof turn.model === "string" && turn.model) {
-        ensurePiInjectModel(turn.model, { ...process.env, ...input.environment });
+        ensurePiInjectModel(turn.model, piEnv);
       }
       const mcpTempDir = mkdtempSync(join(tmpdir(), "omb-pi-mcp-"));
       const scopeReadyPath = contract.toolScope !== undefined ? join(mcpTempDir, "scope-ready.json") : undefined;
@@ -385,11 +386,12 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       // spawnCli can throw synchronously, before the caller could remove the credential file.
       try {
         const child = spawnCli(config.cli, [...PI_ARGS, "-e", SPAWNED_PROXIES.piMcpExtension], {
+          // The box has its own /tmp: mount the turn's MCP config (and its scope receipt) so pi's extension can read them.
+          box: { rw: [mcpTempDir] },
           stdio: ["pipe", "pipe", "pipe"],
           cwd: turn.cwd,
           env: piEnvironment({
-            ...process.env,
-            ...input.environment,
+            ...piEnv,
             // The same identity the agents server sees, so an extension or a fixture can tell whose turn this is.
             ...(turn.botId ? { OMB_BOT_ID: turn.botId } : {}),
             OMB_THREAD_ID: turn.threadId,

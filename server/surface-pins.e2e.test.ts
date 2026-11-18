@@ -2,17 +2,36 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { writeFileAtomic } from "./atomic.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { decodeCuaConnection } from "./local-computer.ts";
+import { appHandsItOver } from "./testing/your-computer.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
+
+/** Writes a wrapper around the fake pi that gives one bot its own dump and finish gate, so its slow turn can be held
+ * while the asker's own turn ends. Which bot is the teammate is read from a file the recipe writes once it knows. */
+function writeTeammateCli(home: string, teammateBotFile: string, teammateDump: string, teammateFinish: string): string {
+  const cli = join(home, "teammate-pi.mjs");
+  writeFileSync(cli, `#!/usr/bin/env node
+import { readFileSync } from "node:fs";
+let teammate = "";
+try { teammate = readFileSync(${JSON.stringify(teammateBotFile)}, "utf8").trim(); } catch {}
+if (teammate && process.env.OMB_BOT_ID === teammate) {
+  process.env.FAKE_PI_DUMP = ${JSON.stringify(teammateDump)};
+  process.env.FAKE_PI_SLOW_FINISH_GATE = ${JSON.stringify(teammateFinish)};
+}
+await import(${JSON.stringify(pathToFileURL(join(ROOT, "server/testing/fake-pi-cli.ts")).href)});
+`, { mode: 0o755 });
+  return cli;
+}
 
 describe("surface pin provenance against the real server", () => {
   let home = "";
@@ -53,11 +72,21 @@ describe("surface pin provenance against the real server", () => {
       await new Promise(resolve => setTimeout(resolve, 40));
     }
   }
+
+  /** The latest pi turn, in the shape the retired Claude dump had: its launch (what it mounted) and its instructions. */
   const dump = (): Promise<any> => until((): any => {
-    if (!existsSync(dumpFile)) return null;
-    try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
+    const turns = piTurns(dumpFile);
+    const turn = turns.at(-1);
+    if (!turn?.launch) return null;
+    return {
+      mcpConfig: turn.launch.mcpConfig,
+      argv: turn.launch.argv,
+      pid: turn.launch.pid,
+      systemPrompt: piInstructionsFor(turns, turns.length - 1),
+      prompt: { message: { content: turn.prompt } },
+    };
   }, Boolean);
-  const mountedComputer = (sent: any) => sent.mcpConfig.mcpServers.computer;
+  const mountedComputer = (sent: any) => sent.mcpConfig?.mcpServers?.computer;
   // The first screen tools/call, exactly as the mounted proxy issues it: a claim and its pin land on use, not on mount.
   const gate = (c: any) => fetch(c.env.OMB_CONTROL_URL, {
     headers: { authorization: `Bearer ${c.env.OMB_CONTROL_TOKEN}` },
@@ -99,8 +128,11 @@ describe("surface pin provenance against the real server", () => {
       if (proc.exitCode !== null) throw new Error(`server exited during boot:\n${output}`);
       try { return (await fetch(base + "/api/health")).ok; } catch { return false; }
     }, Boolean);
+    // The fixture's one engine learns its models from the fake pi's catalog at boot, and the new-bot default is chosen
+    // from them; until it has been, a new bot is made with no model and every turn is refused.
+    await until(async () => (await apiOk("GET", "/api/bot-defaults")).modelSelection?.instanceId, Boolean);
     // Chief first makes the seeded bot its team's Chief, which answers a teammate's failed run with a Problems to look at
-    // turn of its own on the same slow Claude: its dump would stand in for the turn under test. Stepped down, each dump
+    // turn of its own on the same slow engine: its dump would stand in for the turn under test. Stepped down, each dump
     // is the test's own. Only the first boot finds it a Chief.
     const seeded = (await apiOk("GET", "/api/bots?messages=0")).bots.find((bot: any) => bot.chiefOfStaff);
     if (seeded) await apiOk("PATCH", `/api/bots/${seeded.id}`, { chiefOfStaff: false });
@@ -118,7 +150,7 @@ describe("surface pin provenance against the real server", () => {
     data = join(home, "data");
     ui = join(home, "static");
     stateFile = join(home, "vm.json");
-    dumpFile = join(home, "dump.json");
+    dumpFile = piDumpPath(data);
     finishFile = join(home, "finish");
     cuaDescriptor = join(home, "user-data", "cua-connection.json");
     inertBrowser = join(home, "agent-browser");
@@ -137,13 +169,17 @@ describe("surface pin provenance against the real server", () => {
     });
     await new Promise<void>(resolve => boatServer.listen(0, "127.0.0.1", resolve));
     boatApi = `http://127.0.0.1:${(boatServer.address() as { port: number }).port}`;
-    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { claude: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      // The first computer call is what reaches the Boat, as with a real model.
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile, FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
-    }, teammate: {
-      driver: "claudeAgent", config: { cli: join(ROOT, "server/testing/fake-claude-cli.ts") },
-      environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: join(home, "teammate-dump.json"), FAKE_CLAUDE_SLOW_FINISH_GATE: join(home, "teammate-finish"), FAKE_CLAUDE_USES_CLOUD_COMPUTER: "1" },
+    // One pi instance serves every bot. A bot's own slow turn needs its own dump and gate, so the wrapper reads the
+    // teammate's id from a file the recipe writes; every other bot's turn lands in the shared dump below.
+    const cli = writeTeammateCli(home, join(home, "teammate-bot.txt"), join(home, "teammate-dump.jsonl"), join(home, "teammate-finish"));
+    writeFileSync(join(data, "config.json"), JSON.stringify({ instances: { pi: {
+      driver: "piAgent", config: { cli },
+      // The first computer call is what reaches the Boat, as with a real model: the fake runs it through the mounted
+      // computer server.
+      environment: {
+        FAKE_PI_MODE: "slow", FAKE_PI_DUMP: dumpFile, FAKE_PI_SLOW_FINISH_GATE: finishFile,
+        FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS: JSON.stringify([{ server: "computer", name: "screenshot", input: {} }]),
+      },
     } } }));
   });
   afterAll(async () => {
@@ -366,6 +402,9 @@ describe("surface pin provenance against the real server", () => {
       mode: "embedded", status: "ready", socketPath: join(home, "cua.sock"),
       mcpCommand: "/fixture/cua-driver", mcpArgs: ["mcp"], mcpEnv: {},
     }), { mode: 0o600 });
+    // The app hands its driver record over as it changes (desktop-parent.mjs polls the file), so the turn must not start
+    // before the server has it: without it the pinned computer reads as unusable and the turn is refused.
+    await appHandsItOver();
     try {
       // Validate the fixture on every host before waiting for a provider; Windows cannot emulate the POSIX ownership check.
       const platforms: NodeJS.Platform[] = process.platform === "win32" ? ["win32"] : ["darwin", "win32"];
@@ -465,14 +504,15 @@ describe("surface pin provenance against the real server", () => {
   });
 
   it("lets a teammate's hand-off move to the built-in browser only, and returns the result from there", async () => {
-    // The teammate runs on its own fixture engine, so its turn waits on its own gate while the asker's turn ends.
-    const teammateDump = join(home, "teammate-dump.json"), teammateFinish = join(home, "teammate-finish");
+    // The teammate's turn waits on its own gate while the asker's turn ends: the wrapper above gives that bot its own
+    // dump and finish gate, chosen from the id file the recipe writes once it knows the bot.
+    const teammateDump = join(home, "teammate-dump.jsonl"), teammateFinish = join(home, "teammate-finish");
     rmSync(teammateDump, { force: true });
     rmSync(teammateFinish, { force: true });
     await start(true);
     const asker = (await apiOk("POST", "/api/bots", { name: "Asker" })).bot;
     const tester = (await apiOk("POST", "/api/bots", { name: "Tester" })).bot;
-    await apiOk("PATCH", `/api/bots/${tester.id}`, { modelSelection: { ...tester.modelSelection, instanceId: "teammate" } });
+    writeFileSync(join(home, "teammate-bot.txt"), tester.id);
     await stop();
     editSavedBot(tester.id, saved => { saved.browserProfile = "guest"; });
     await start(true);
@@ -486,8 +526,9 @@ describe("surface pin provenance against the real server", () => {
     expect(handed.status).toBeLessThan(400);
     writeFileSync(finishFile, "finish");
     const teammateTurn = (): Promise<any> => until((): any => {
-      if (!existsSync(teammateDump)) return null;
-      try { return JSON.parse(readFileSync(teammateDump, "utf8")); } catch { return null; }
+      const turn = piTurns(teammateDump).at(-1);
+      if (!turn?.launch?.mcpConfig) return null;
+      return { prompt: { message: { content: turn.prompt } }, mcpConfig: turn.launch.mcpConfig };
     }, Boolean);
     const token = (await teammateTurn()).mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN;
     const select = (body?: unknown) => fetch(base + "/api/internal/computer/select", { method: body ? "POST" : "GET",
@@ -520,8 +561,7 @@ describe("surface pin provenance against the real server", () => {
     // The asker hears back from the browser turn, never from the turn that only asked to move.
     const replies = async () => JSON.stringify((await apiOk("GET", `/api/threads/${own.threadId}/messages?limit=60`)).messages);
     // "reply to: ..." is the fixture engine's own answer from the browser turn, not the prompt that started it.
-    expect(await until(replies, (text) => /reply to: [^"]*The computer selection is now the built-in browser/.test(text))).toBeTruthy();
-    await idle(tester.id, workThread);
+    expect(await until(replies, (text) => /reply to: [^"]*The computer selection is now the built-in browser/.test(text))).toBeTruthy();    await idle(tester.id, workThread);
     await idle(asker.id, own.threadId);
     await stop();
   }, 60_000);

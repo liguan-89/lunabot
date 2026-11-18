@@ -42,7 +42,7 @@ const ROUTINE_SCHEDULE_SCHEMA = {
     timeZone: {
       type: "string",
       maxLength: 128,
-      description: "Required for cron: the person's IANA timezone, such as Asia/Kolkata or UTC; never a numeric offset or an abbreviation.",
+      description: "Only for cron, and required there: the person's IANA timezone, such as Asia/Kolkata or UTC; never a numeric offset or an abbreviation.",
     },
     at: {
       type: "string",
@@ -432,7 +432,7 @@ const TOOL_DEFINITIONS = [
   {
     name: "attach_file",
     description:
-      `Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass its path: a path inside your computer's /home/cua/workspace (for example /home/cua/workspace/report.pdf), or a file in your working folder. Do this instead of pasting a VM path as a link; a path inside a VM cannot be opened from chat. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, and csv, tsv, txt, md, json, rtf. Up to ${limitMegabytes(FILE_MAX_BYTES)} MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.`,
+      `Attach a finished file to the chat so the user can preview and download it: an image, video, audio clip, PDF, spreadsheet, slide deck or other document you made. Pass its path: a path inside your computer's /home/cua/workspace (for example /home/cua/workspace/report.pdf), or a file in your working folder. Do this instead of pasting a VM path as a link; a path inside a VM cannot be opened from chat. Supported: images (png, jpg, gif, webp), video (mp4, webm, mov), audio (mp3, m4a, aac, wav, ogg, opus, flac), pdf, Word/Excel/PowerPoint and OpenDocument files, csv, tsv, txt, md, json, rtf, and archives (zip, rar, 7z, tar, gz, tgz, bz2, xz). Up to ${limitMegabytes(FILE_MAX_BYTES)} MB (images 10 MB). Finish writing the file first, then call this directly: it reports an error if the file is missing, so you do not need to list or open the folder to check.`,
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -757,7 +757,7 @@ const TOOL_DEFINITIONS = [
       additionalProperties: false,
       properties: {
         action: { type: "string", enum: ["list", "events"] },
-        trigger_id: { type: "string", description: "list: one trigger's details and recent fires." },
+        trigger_id: { type: "string", description: "Full instructions and fires; edit redactions in Automations." },
         include_address: { type: "boolean", description: "list, with a webhook's trigger_id: also its private address. For the bot that owns it, or a Chief of Staff." },
         for_bot_id: { type: "string", description: "list: ANOTHER bot's triggers in your section, from list_bots." },
         app: { type: "string", description: "events: optional app slug, e.g. gmail." },
@@ -924,7 +924,7 @@ const TOOL_DEFINITIONS = [
           type: "array",
           maxItems: 8,
           description:
-            "Optional detail files (32KB each) for when SKILL.md would pass 32KB: keep the core steps in SKILL.md, move long rules or examples here, and link each from SKILL.md. On update, omitted references stay; empty content removes one.",
+            "Optional detail files (32KB each) for when SKILL.md would pass 64KB: keep the core steps in SKILL.md, move long rules or examples here, and link each from SKILL.md. On update, omitted references stay; empty content removes one.",
           items: {
             type: "object",
             additionalProperties: false,

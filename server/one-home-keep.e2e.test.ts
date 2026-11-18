@@ -57,11 +57,11 @@ it("turned on after the move, this computer's bots come home with what they did 
   const air = fx.local, imac = studio.local;
   const add = async (side: Side, body: Record<string, unknown>) => { const made = (await side("POST", "/api/routines", body)).body; return (made.routine ?? made).id as string; };
   const later = { type: "interval", everyMinutes: 1_440, anchorAt: Date.now() + 2 * 86_400_000 };
-  const scout = (await air("POST", "/api/bots", { name: "Scout", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const scout = (await air("POST", "/api/bots", { name: "Scout" })).body.bot;
   await turn(air, scout, "Plan the week.");
   await add(air, { name: "Air at every start", prompt: "Say hello from the Air.", botId: scout.id, runOnStartup: true, schedule: later, durationMinutes: 15 });
   expect((await air("POST", "/api/webhooks", { name: "Air orders", prompt: "File the order.", botId: scout.id })).status).toBeLessThan(300);
-  const pip = (await imac("POST", "/api/bots", { name: "Pip", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  const pip = (await imac("POST", "/api/bots", { name: "Pip" })).body.bot;
   await turn(imac, pip, "Hello Pip.");
   await add(imac, { name: "iMac at every start", prompt: "Say hello from the iMac.", botId: pip.id, runOnStartup: true, schedule: later, durationMinutes: 15 });
   expect((await imac("POST", "/api/webhooks", { name: "iMac orders", prompt: "File the order.", botId: pip.id })).status).toBeLessThan(300);

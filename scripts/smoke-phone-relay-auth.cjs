@@ -59,7 +59,7 @@ app.whenReady().then(async () => {
   while (ports.size < 4) ports.add(await freePort());
   const [harnessPort, webhookPort, phonePort, controlPort] = [...ports];
   writeFileSync(join(home, "config.json"), JSON.stringify({ instances: {
-    claude: { driver: "claudeAgent", config: { cli: join(root, "server/testing/fake-claude-cli.ts") } },
+    pi: { driver: "piAgent", config: { cli: join(root, "server/testing/fake-pi-cli.ts") } },
   } }));
   const env = {
     HOME: home, USERPROFILE: home, OMB_DATA_DIR: home, PATH: "",
@@ -90,7 +90,7 @@ app.whenReady().then(async () => {
   })).status, 403);
   sidecar.postMessage({ type: "openmausbot:companion-mutation-token", token: relay });
   await until(async () => (await phone("/api/bots")).status === 200);
-  const created = await phone("/api/bots", "POST", { modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } }, {
+  const created = await phone("/api/bots", "POST", { modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } }, {
     "x-openmausbot-companion-auth": "forged", "x-openmausbot-desktop-owner": "forged",
     "x-openmausbot-companion-device": "forged-device",
   });
@@ -101,7 +101,7 @@ app.whenReady().then(async () => {
   const bot = await until(async () => {
     const result = await phone("/api/bots");
     const current = result.body.bots.find((b) => b.id === id);
-    return current && !current.busy && current.messages.some((m) => m.text?.includes("hello from fake claude")) && current;
+    return current && !current.busy && current.messages.some((m) => m.text?.includes("Hello from pi")) && current;
   });
   assert.ok(bot.messages.some((m) => m.text?.includes("Hello from the paired phone")));
   // An app restart must not make an existing phone pair again. The registry

@@ -45,7 +45,7 @@ const moveSessions = (fx: CloudSendFixture) => fx.sessions.filter((session) => s
 
 /** A bot with a chat and a routine, on this computer only. */
 async function seed(fx: CloudSendFixture, name: string) {
-  const bot = (await fx.local("POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+  const bot = (await fx.local("POST", "/api/bots", { name })).body.bot as { id: string; threadId: string };
   expect((await fx.local("POST", `/api/bots/${bot.id}/messages`, { text: "Plan the week.", threadId: bot.threadId })).status).toBe(202);
   await expect.poll(() => idle(fx.local), { timeout: 60_000, interval: 100 }).toBe(true);
   expect((await fx.local("POST", "/api/routines", { name: "Morning report", prompt: "Report.", botId: bot.id,

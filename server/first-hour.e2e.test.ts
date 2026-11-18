@@ -104,7 +104,9 @@ describe("a new Cloud's first hour", () => {
       cwd: join(SERVER_DIR, ".."),
       env: {
         PATH: process.env.PATH, HOME: home, USERPROFILE: home, TZ: ZONE, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
-        OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+        // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
+        // tmpfs and hides the fake pi's dump; this suite reads that dump, so the box (which has its own suites) stays off.
+        OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: MACHINE, OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
         OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
         OMB_COMPOSIO_BROKER_URL: broker.url, OMB_CLOUD_CONNECTED_APPS_GRANT: broker.cloudGrant(MACHINE),
       },

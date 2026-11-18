@@ -7,6 +7,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb, verificationServerEnvironment } from "../../scripts/control-omb.ts";
 import { DATA_ROUTES, DATA_TOOL_NAMES, type DataCard, type DataSheet } from "../../shared/data-surface.ts";
 import { waitForExit } from "../testing/cleanup.ts";
+import { piDumpPath, piTurns } from "../testing/pi-dump.ts";
 
 const CAPABILITY_KEY = "data-surface-e2e-capability";
 
@@ -106,10 +107,15 @@ it("loads, queries, shows, pages, renders and exports through the real server", 
     expect(receipts.map((message) => [message.tool.name, message.dataResult.title, message.dataResult.cardId]))
       .toEqual([["data_show", "Totals", tableCard.data.id], ["data_show", "By region", chartCard.data.id]]);
 
-    const dump = join(dataDir, "fake-claude-dump.json");
+    // The pi launch log: a JSONL whose prompt rows are what each turn was told.
+    const dump = piDumpPath(dataDir);
     const providerPrompt = async () => {
-      await expect.poll(() => existsSync(dump), { timeout: 20_000 }).toBe(true);
-      return JSON.parse(readFileSync(dump, "utf8")).prompt.message.content as string;
+      let prompt = "";
+      await expect.poll(() => {
+        prompt = piTurns(dump).at(-1)?.prompt ?? "";
+        return prompt.length > 0;
+      }, { timeout: 20_000 }).toBe(true);
+      return prompt;
     };
     const envelope = (prompt: string) => prompt.match(/<data-context>.*?<\/data-context>/g) ?? [];
     const settled = async () => {

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { piDumpPath, piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 function dailyLogs(root: string): Array<{ path: string; text: string }> {
   const out: Array<{ path: string; text: string }> = [];
@@ -33,21 +34,14 @@ it("carries a bot's recent 1:1 work into a room turn, tells the room, logs the t
     expect(response.ok, JSON.stringify(result)).toBe(true);
     return result;
   };
-  const dump = () => {
-    try {
-      // SAFETY: the fake CLI writes exactly this shape; a missing or partial file reads as no dump yet
-      return JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { systemPrompt?: string; prompt?: unknown };
-    } catch {
-      return undefined;
-    }
-  };
-  // A warm process keeps its launch-time instructions; a part that changed since arrives in the turn's own message.
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  // Everything the last pi turn was given: the instructions in effect on it, then its own words (the time line and what
+  // the person wrote). pi sends the whole system prompt on a session's first turn and only the note that replaced part
+  // of it afterwards, so both halves are read as the model saw them.
   const given = () => {
-    const sent = dump();
-    const content = (sent?.prompt as { message?: { content?: unknown } } | undefined)?.message?.content;
-    const text = typeof content === "string" ? content
-      : Array.isArray(content) ? content.map((part: { text?: unknown }) => typeof part?.text === "string" ? part.text : "").join("\n") : "";
-    return `${sent?.systemPrompt ?? ""}\n${text}`;
+    const turns = piTurns(dumpPath);
+    const index = turns.length - 1;
+    return index < 0 ? "" : `${piInstructionsFor(turns, index)}\n${piTurnText(turns[index]!)}`;
   };
   try {
     // SAFETY: control-omb returns the created bot record under `bot`
@@ -70,10 +64,7 @@ it("carries a bot's recent 1:1 work into a room turn, tells the room, logs the t
       setup: { bulletin: "", defaultResponder: { kind: "member", botId: lead.id } },
     }) as { group: { id: string; threadId: string } };
     await api("POST", `/api/groups/${group.id}/messages`, { text: "Lead, what did you do today?" });
-    await expect.poll(() => {
-      const text = dump()?.systemPrompt ?? "";
-      return text.includes("Reply to the conversation above as") || JSON.stringify(dump()?.prompt ?? "").includes("Reply to the conversation above as");
-    }, { timeout: 30_000 }).toBe(true);
+    await expect.poll(() => piTurns(dumpPath).some((turn) => turn.prompt.includes("what did you do today")), { timeout: 30_000 }).toBe(true);
     await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const room = given();
     expect(room).toContain("Your recent work");

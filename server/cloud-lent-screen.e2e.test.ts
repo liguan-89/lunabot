@@ -1,14 +1,14 @@
-// The real Cloud home server with a synthetic engine and a synthetic lent PC (Windows, apps and screen and Chrome lent,
+// The real Cloud home server with the fake pi and a synthetic lent PC (Windows, apps and screen and Chrome lent,
 // no terminal). A conversation on Auto that an earlier turn pinned to the cloud computer: its turn is told the PC is
 // reached through shared_computer, never that everything on screen happens on the cloud computer, and the PC's apps and
 // screen answer it. A conversation the lending rules refuse is told why by list_shared_computers, never the PC's tools.
 import { randomBytes, randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { spawnWithSecrets } from "./cloud-home-start.ts";
 import { cloudPairingSignature } from "./cloud-home.ts";
@@ -16,6 +16,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { markLeftBehind } from "./testing/cloud-left-behind.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piInstructionsAt, piTurns, piTurnText, type PiMcpConfig } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -83,16 +84,16 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-lent-screen-"));
   dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const claude = join(home, "claude-cli.mjs");
-  writeFileSync(claude, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "claude.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; process.env.FAKE_CLAUDE_RELEASE = ${JSON.stringify(join(home, "release"))}; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // Each turn holds until the test writes the release file, so its launch and prompt can be read while it runs.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-    ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-    claude: { driver: "claudeAgent", displayName: "Claude", config: { cli: claude } },
+    pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang", FAKE_PI_RELEASE: join(home, "release"),
+      // Mount the turn's MCP servers through the real extension at boot: a confined launch must leave its
+      // scope-ready receipt or the driver never sends the prompt.
+      FAKE_PI_MOUNT_TOOLS: "1",
+    } },
   } }));
   const port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -101,6 +102,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     child = spawnWithSecrets(process.execPath, ["--import", offline, join(SERVER_DIR, "index.ts")], {
       PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+      // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+      OMB_BOT_BOX: "0",
       OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_PUBLIC_URL: `https://${HOST}`, OMB_CLOUD_BOAT_URL: "https://cloud.example.test/api/cloud/services/boat/api/box/v1",
       OMB_CLOUD_SECRETS_FD: "3",
@@ -125,19 +129,32 @@ afterAll(async () => {
   if (home) await removeTempDir(home);
 });
 
-const dump = () => join(home, "claude.json");
-type Turn = { systemPrompt?: string; mcpConfig: { mcpServers: { agents: { command: string; args: string[]; env: Record<string, string> } } } };
+const dump = () => piDumpPath(dataDir);
+type Turn = { systemPrompt: string; mcpConfig: PiMcpConfig };
 
+/** The turn `start` set off in `threadId`: the pi launch it ran on and the instructions in effect there. */
 async function ownerAsks(botId: string, threadId: string, text: string): Promise<Turn> {
-  rmSync(dump(), { force: true });
+  const before = piTurns(dump()).length;
   const sent = await api("POST", `/api/bots/${botId}/messages`, { token: owner, body: { text, threadId } });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(() => existsSync(dump()), { timeout: hostTimeout(15_000) }).toBe(true);
-  return JSON.parse(readFileSync(dump(), "utf8")) as Turn;
+  let found: Turn | undefined;
+  await expect.poll(() => {
+    const turns = piTurns(dump());
+    for (let index = before; index < turns.length; index++) {
+      const turn = turns[index]!;
+      if (!piTurnText(turn).includes(text)) continue;
+      if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_THREAD_ID !== threadId) continue;
+      const session = turns.slice(0, index + 1).filter((candidate) => candidate.launch === turn.launch);
+      found = { systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch?.mcpConfig ?? {} };
+      return true;
+    }
+    return false;
+  }, { timeout: hostTimeout(15_000) }).toBe(true);
+  return found!;
 }
 
 async function agentTools(turn: Turn) {
-  const agents = turn.mcpConfig.mcpServers.agents;
+  const agents = turn.mcpConfig.mcpServers!.agents! as { command: string; args: string[]; env: Record<string, string> };
   const proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
   const replies = new Map<number, (value: any) => void>();
@@ -152,7 +169,7 @@ async function agentTools(turn: Turn) {
 }
 
 it("lets an Auto conversation pinned to the cloud computer use the person's lent PC, and says how", async () => {
-  const created = (await api("POST", "/api/bots", { token: owner, body: { name: "Office", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } } })).body.bot as { id: string; threadId: string };
+  const created = (await api("POST", "/api/bots", { token: owner, body: { name: "Office", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot as { id: string; threadId: string };
   const guestThread = (await api("POST", `/api/bots/${created.id}/tasks`, { token: owner, body: { title: "Guest's" } })).body.task.threadId as string;
   // Stopped: an earlier Auto turn selected the cloud computer in this conversation (the pin a turn makes on its own), and
   // a guest opened the other one before the Cloud was personal.
@@ -168,7 +185,7 @@ it("lets an Auto conversation pinned to the cloud computer use the person's lent
   await lendPc();
 
   const turn = await ownerAsks(created.id, created.threadId, "Open Notepad on my PC.");
-  const prompt = turn.systemPrompt ?? "";
+  const prompt = turn.systemPrompt;
   // The cloud computer is what this turn mounts, as the pin says…
   expect(prompt).toContain("This conversation is pinned to the cloud computer");
   expect(prompt).toContain("The screen tools mounted this turn work on the cloud computer, web pages included");

@@ -161,14 +161,28 @@ posixOnly("a helper that names the only connected engine, through the real serve
       writeFileSync(file, JSON.stringify(config));
     };
 
+    // The resolver says its answer once per change and only when a side job asks it; the tidy route is
+    // the desktop's own "tidy now" and asks it at once. The upkeep tick would too, but it fires at 60 s
+    // and every 10 min and skips every bot until the local hour reaches memory.tidyHour (default 3), so
+    // a CI runner whose clock reads 00:xx UTC never asks within a test's wait.
+    const tidy = async () => expect((await api("POST", `/api/bots/${bot.id}/memory/tidy`)).status).toBe(200);
+
+    // A retry reuses this server (beforeAll runs once), so put the boot's own helper back and let the
+    // resolver say so again: what follows then proves a fresh read of the file, not an earlier attempt's
+    // leftover line or its leftover helper.
+    write((config) => { config.helper = { instanceId: "pi" }; });
+    await tidy();
+
     // alone it is nothing to save, and beside a real setting it is dropped while the file keeps its helper
     expect(await api("PATCH", "/api/config", { helper: { instanceId: "" } })).toMatchObject({ status: 400, body: { error: "nothing to save" } });
     expect((await api("PATCH", "/api/config", { helper: { instanceId: "" }, language: "en" })).status).toBe(200);
     expect(JSON.parse(readFileSync(file, "utf8"))).toMatchObject({ helper: { instanceId: "pi" }, language: "en" });
 
+    const said = server.log().length;
     write((config) => { config.helper = { instanceId: "missing" }; });
-    await waitFor(() => server.log().includes('helper model: the helper instance "missing" is not connected, so bots whose engine has no one-off text call keep their fallback'),
-      "the missing helper instance to be reported, not used");
+    await tidy();
+    await waitFor(() => server.log().slice(said).includes('helper model: the helper instance "missing" is not connected, so bots whose engine has no one-off text call keep their fallback'),
+      "the missing helper instance to be reported, not used", 30_000);
     expect((await api("GET", `/api/bots/${bot.id}/memory/upkeep`)).body.modelSteps).toBe(false);
 
     // with the entry gone the fallback is the same honest one: excerpts, no helper calls

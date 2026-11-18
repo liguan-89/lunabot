@@ -9,7 +9,9 @@ import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } 
 import { hostTimeout } from "./testing/host-timeout.ts";
 
 const OWNER = { email: "olive@acme.test", role: "owner" as const }, MEMBER = { email: "mara@acme.test", role: "member" as const };
-const ENGINE = `process.env.FAKE_CLAUDE_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
+// The synthetic pi reads its scripted calls from that file again on every turn (FAKE_CLAUDE_FIXTURE_DIR is the home
+// the shared fixture hands it).
+const ENGINE = `process.env.FAKE_PI_TOOL_CALLS_FILE = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/tool-calls.json";`;
 const REFUSED = "Rooms couldn't hand this to Bookkeeping, because they're shared with different people. Nothing was sent.";
 const ONLY_MARA = { everyone: "none", people: { [MEMBER.email]: "chat" } };
 type Bot = { id: string; name: string; threadId: string; mainThreadId?: string };

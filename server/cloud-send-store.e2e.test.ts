@@ -18,7 +18,7 @@ afterAll(async () => { await fx?.close(); });
 const idle = async () => (await fx.local("GET", "/api/bots")).body.bots.every((entry: { activity?: string; busy?: boolean }) => entry.activity !== "working" && !entry.busy);
 
 it("a full attachment store refuses the attachment in plain words, the chat still goes, and no partial file is left", async () => {
-  const bot = (await fx.local("POST", "/api/bots", { name: "Ivy", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+  const bot = (await fx.local("POST", "/api/bots", { name: "Ivy", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot as { id: string; threadId: string };
   const small = await fx.picture(randomBytes(1024));
   const big = await fx.picture(randomBytes(LIMIT * 2));
   const folder = join(fx.root, "desktop", ".openmausbot", "attachments");

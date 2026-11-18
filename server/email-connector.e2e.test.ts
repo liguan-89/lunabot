@@ -8,10 +8,11 @@ import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFile
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { createInterface } from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { ImapFlow } from "imapflow";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piDumpPath, piTurns, type PiTurn } from "./testing/pi-dump.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +31,13 @@ describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
   let child: ChildProcess;
   const said: string[] = [];
   const proxies: ChildProcess[] = [];
-  const dump = () => JSON.parse(readFileSync(join(home, "spawn.json"), "utf8")) as { mcpConfig: { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> }; argv: string[] };
+  /** The launch and prompt of the latest pi turn: the fake appends one launch line per process and one per prompt. */
+  const turn = (): PiTurn | undefined => piTurns(piDumpPath(join(home, ".openmausbot"))).at(-1);
+  const dump = () => {
+    const latest = turn();
+    if (!latest?.launch?.mcpConfig) throw new Error("no pi launch yet");
+    return { mcpConfig: latest.launch.mcpConfig as { mcpServers: Record<string, { command: string; args: string[]; env: Record<string, string> }> }, argv: latest.launch.argv };
+  };
 
   async function api(method: string, path: string, body?: unknown) {
     const response = await fetch(`${base}${path}`, { method, headers: { origin: base, ...(body === undefined ? {} : { "content-type": "application/json" }) }, body: body === undefined ? undefined : JSON.stringify(body) });
@@ -66,16 +73,11 @@ describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
     home = mkdtempSync(join(tmpdir(), "omb-email-e2e-"));
     const dataDir = join(home, ".openmausbot");
     mkdirSync(dataDir, { recursive: true });
-    const cli = join(home, "fixture-claude.mjs");
-    writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(join(home, "spawn.json"))}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+    // The fake pi keeps a turn open until its release file exists, so the recipe can call the turn's own agents and
+    // email proxies while it runs. The compat turn is the retired fixture's `hang` shape: it says nothing until released.
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({ instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "grok"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
+      pi: { driver: "piAgent", displayName: "pi", config: { cli: join(SERVER_DIR, "testing", "fake-pi-cli.ts") },
+        environment: { FAKE_PI_DUMP: piDumpPath(dataDir), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang" } },
     } }));
     const port = await freePortBlock([0, 1]);
     base = `http://127.0.0.1:${port}`;
@@ -114,7 +116,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   }
 
   it("from a bot's ask to real mail read and sent, with the password in no record", async () => {
-    const bot = (await api("POST", "/api/bots", { name: "Postmeister", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+    const bot = (await api("POST", "/api/bots", { name: "Postmeister", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot as { id: string; threadId: string };
     const prompt = async () => (await api("GET", `/api/bots/${bot.id}/system-prompt`)).body.sections.find((section: { id: string }) => section.id === "email")?.text as string;
     expect(await prompt(), "before a mailbox: how to ask").toContain("credential_id email");
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Hol meine Mails." })).status).toBe(202);
@@ -143,9 +145,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     expect((await api("POST", `/api/bots/${bot.id}/messages`, { text: "Und jetzt?", threadId: task.threadId })).status).toBe(202);
     await expect.poll(() => Boolean(dump().mcpConfig.mcpServers.email), { timeout: 20_000, interval: 200 }).toBe(true);
     expect(JSON.stringify(dump()), "the box gets a capability, never the password").not.toContain(PASSWORD);
-    const allowed = dump().argv[dump().argv.indexOf("--allowedTools") + 1]!.split(",");
-    expect(allowed).toContain("mcp__email__EMAIL_READ_MESSAGE");
-    expect(allowed).not.toContain("mcp__email__EMAIL_SEND_MESSAGE");
+    // pi is told its tools by its own MCP extension, not by an `--allowedTools` argv: the retired engine's "reads are
+    // pre-allowed, a send asks" split has no argv here. What still holds is that the mount carries a capability and no
+    // password, and that the email host's own verdict decides each call (asserted through the proxy below).
 
     const mail = await proxy("email");
     expect((await mail.list()).tools.map((tool: { name: string }) => tool.name)).toEqual(["EMAIL_LIST_MAILBOXES", "EMAIL_LIST_MESSAGES", "EMAIL_SEARCH_MESSAGES", "EMAIL_READ_MESSAGE", "EMAIL_SEND_MESSAGE"]);
