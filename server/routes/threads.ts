@@ -190,6 +190,7 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
 
       const message = store.messagesFor(threadId).find((candidate) => candidate.id === m![2]);
       if (!message) return json(res, 404, { error: "no such message" });
+      if (!visible.thread(threadId)) return json(res, 404, { error: "no such conversation" });
       if (message.kind !== "text" || (!message.text && !message.attachments?.length)) {
         return json(res, 403, { error: "that message does not share this file" });
       }
