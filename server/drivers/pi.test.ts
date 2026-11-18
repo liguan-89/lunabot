@@ -667,8 +667,9 @@ describe("PiDriver turns (fake CLI)", () => {
     const threadId = "t-pi-prewarm-" + randomUUID();
 
     instance.adapter.prewarm?.({ threadId, model: "ollama-cloud/glm-5.2" });
-    // The boot really overlapped setup: the child exists before its turn arrives.
-    await vi.waitFor(() => expect(spawns()).toHaveLength(1));
+    // The boot really overlapped setup: the child exists before its turn arrives. The fake's node boot is ~300 ms on
+    // an idle machine and longer on a shard running several files at once, so wait past the 1 s default.
+    await vi.waitFor(() => expect(spawns()).toHaveLength(1), { timeout: 10_000 });
     const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi", model: "ollama-cloud/glm-5.2" });
     await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
     expect(spawns()).toHaveLength(1);

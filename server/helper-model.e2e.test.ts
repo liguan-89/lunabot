@@ -168,7 +168,7 @@ posixOnly("a helper that names the only connected engine, through the real serve
 
     write((config) => { config.helper = { instanceId: "missing" }; });
     await waitFor(() => server.log().includes('helper model: the helper instance "missing" is not connected, so bots whose engine has no one-off text call keep their fallback'),
-      "the missing helper instance to be reported, not used");
+      "the missing helper instance to be reported, not used", 120_000);
     expect((await api("GET", `/api/bots/${bot.id}/memory/upkeep`)).body.modelSteps).toBe(false);
 
     // with the entry gone the fallback is the same honest one: excerpts, no helper calls
