@@ -203,9 +203,9 @@ describe("the model picker in Simple mode", () => {
     fixture.instances = [codex, grok, cursor, openaiKey, claudeKey, local, claude()];
     const opened = open(bot());
     expect(list(opened).groups.map((entry) => entry.label))
-      .toEqual(["Claude", "OpenAI", "Grok", "Cursor", "OpenAI · API key", "Claude · API key", "pi"]);
+      .toEqual(["Claude", "OpenAI", "Grok", "Cursor", "OpenAI · API key", "Claude · API key", "Custom model provider"]);
     const html = menu(opened.html);
-    for (const name of ["OpenAI", "Grok", "Cursor", "OpenAI · API key", "Claude · API key", "pi"]) expect(html).toContain(`>${name}</span>`);
+    for (const name of ["OpenAI", "Grok", "Cursor", "OpenAI · API key", "Claude · API key", "Custom model provider"]) expect(html).toContain(`>${name}</span>`);
     expect(html).not.toContain("data-simple-key");
     expect(html).not.toContain("(API key)");
     expect(labels(opened, "codex")).toEqual(["GPT-5.6"]);

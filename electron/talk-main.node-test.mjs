@@ -78,9 +78,9 @@ function harness({ packaged = true, appleSpeech = true, remote = false, register
   return h;
 }
 
-test("every list of the app's windows leaves the talk box out", () => {
+test("every list of the app's windows leaves the talk box and the desktop mount out", () => {
   assert.equal(main.match(/BrowserWindow\.getAllWindows\(\)/g).length, 1);
-  assert.match(main, /function appWindows\(\) \{\s*return BrowserWindow\.getAllWindows\(\)\.filter\(\(win\) => !isTalkPanel\(win\)\);/);
+  assert.match(main, /function appWindows\(\) \{\s*return BrowserWindow\.getAllWindows\(\)\.filter\(\(win\) => !isTalkPanel\(win\) && !isDesktopMountPanel\(win\)\);/);
   assert.match(main, /if \(appWindows\(\)\.length === 0\) openWindowForLink\(\);/);
   assert.match(main, /allWindows: \(\) => appWindows\(\)/);
 });
@@ -95,7 +95,7 @@ test("main hands the talk wiring its speech sinks, this computer's own server an
 
 test("main tells the talk wiring when home changes and which skin the app painted, and counts a talk ask as busy for a quiet update", () => {
   assert.match(main, /const homeWindow = createHomeWindow\(\{[^]*?rehomed: \(\) => talk\.homeChanged\(\),[^]*?\}\);\ninstallHomeWindowIpc/);
-  assert.match(main, /ipcMain\.handle\("desktop:skin", \(event, skin\) => \{\s*if \(!isKnownSkin\(skin\)\) return false;\s*if \(chromeRail\.owns\(event\)\) return true;\s*try \{\s*talk\.skin\(skin\);/);
+  assert.match(main, /ipcMain\.handle\("desktop:skin", \(event, skin\) => \{\s*if \(!isKnownSkin\(skin\)\) return false;\s*if \(chromeRail\.owns\(event\) \|\| desktopMount\.owns\(event\)\) return true;\s*try \{\s*talk\.skin\(skin\);/);
   assert.match(main, /busy: \(\) => \(\(oneHome\.oneHome\.busy\(\) \|\| ownHome\?\.busy\(\)\) && "move"\) \|\| \(computerSharing\?\.busy\(\) && "lending"\) \|\| \(talk\.busy\(\) && "talk"\) \|\|/);
 });
 

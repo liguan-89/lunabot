@@ -1,6 +1,6 @@
 export const DESKTOP_MOUNT = Object.freeze({
-  width: 320,
-  height: 176,
+  width: 360,
+  height: 420,
   margin: 24,
   hitTestMs: 50,
   maxInteractiveRects: 16,
@@ -74,7 +74,9 @@ export function createDesktopMountManager({
   preload,
   args = () => [],
   rendererUrl,
+  captureScreen = async () => ({ ok: false, error: "Screen capture unavailable" }),
   onOpenMain = () => {},
+  onStartCall = () => {},
   onState = () => {},
   log = () => {},
 }) {
@@ -131,12 +133,11 @@ export function createDesktopMountManager({
   function createWindow(targetBotId) {
     const workArea = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
     const target = new BrowserWindow({
-      type: "panel",
       ...desktopMountBounds(workArea),
       frame: false,
       transparent: true,
-      backgroundColor: "#00000000",
       hasShadow: false,
+      roundedCorners: false,
       resizable: false,
       movable: false,
       minimizable: false,
@@ -236,11 +237,34 @@ export function createDesktopMountManager({
       onOpenMain(typeof targetBotId === "string" && targetBotId.trim() ? targetBotId.trim() : botId);
       return true;
     },
+    startCall(targetBotId) {
+      onStartCall(typeof targetBotId === "string" && targetBotId.trim() ? targetBotId.trim() : botId);
+      return true;
+    },
+    async capture() {
+      const target = win;
+      const wasVisible = Boolean(live(target) && target.isVisible());
+      if (wasVisible) target.hide();
+      try {
+        if (wasVisible) await new Promise((resolve) => setTimeout(resolve, 90));
+        return await captureScreen();
+      } finally {
+        if (wasVisible && live(target)) {
+          target.showInactive();
+          updateHitTest();
+        }
+      }
+    },
   };
   ipcMain.handle("desktop-mount:mount", localOnly("desktop-mount:mount", (_event, botId) => manager.mount(botId)));
   ipcMain.handle("desktop-mount:unmount", localOnly("desktop-mount:unmount", () => manager.unmount()));
   ipcMain.handle("desktop-mount:state", localOnly("desktop-mount:state", () => manager.state()));
   ipcMain.handle("desktop-mount:open-main", localOnly("desktop-mount:open-main", (_event, botId) => manager.openMain(botId)));
+  ipcMain.handle("desktop-mount:start-call", localOnly("desktop-mount:start-call", (_event, botId) => manager.startCall(botId)));
+  ipcMain.handle("desktop-mount:capture-screen", localOnly("desktop-mount:capture-screen", (event) => {
+    if (!manager.owns(event)) return { ok: false, error: "Unauthorized" };
+    return manager.capture();
+  }));
   ipcMain.on("desktop-mount:interactive-rects", (event, rects) => {
     if (manager.owns(event)) manager.setInteractiveRects(rects);
   });

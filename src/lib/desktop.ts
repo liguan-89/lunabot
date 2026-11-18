@@ -48,6 +48,7 @@ export function initialDesktopCapabilities(): DesktopCapabilities {
       label: platform === "darwin" ? "macOS" : platform === "linux" ? "Linux" : platform === "win32" ? "Windows" : "Desktop",
     },
     windowChrome: isMac ? "mac-inset" : platform === "win32" ? "win-caption" : "native",
+    windowFrame: false,
     dictation,
   };
 }

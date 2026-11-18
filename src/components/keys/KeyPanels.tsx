@@ -76,7 +76,7 @@ const COMPAT_PROTOCOLS = [
   ["anthropic", "keys.openaiCompat.protocol.anthropic"],
 ] as const;
 
-export function OpenAiCompatUrl() {
+export function OpenAiCompatUrl({ models: showModels = true }: { models?: boolean } = {}) {
   const { state, dispatch } = useStore();
   const savedUrl = state.config?.openaiCompat?.url ?? "";
   const savedProtocol = state.config?.openaiCompat?.protocol ?? "openai";
@@ -139,21 +139,25 @@ export function OpenAiCompatUrl() {
         {saving && <Loader2 size={13} aria-hidden="true" className="absolute right-2.5 top-1/2 -translate-y-1/2 animate-spin text-ink-secondary" />}
       </div>
       <p className="text-[12px] leading-4 text-ink-secondary">{t("keys.openaiCompat.urlHint")}</p>
-      <label className="flex flex-col gap-1 text-[13px] leading-[18px] text-ink">
-        {t("keys.openaiCompat.models")}
-        <input
-          type="text"
-          value={models}
-          onChange={(e) => setModels(e.target.value)}
-          onBlur={save}
-          onKeyDown={(e) => e.key === "Enter" && save()}
-          placeholder="gpt-5, claude-sonnet-4-5"
-          aria-label={t("keys.openaiCompat.models")}
-          spellCheck={false}
-          className={KEY_FIELD}
-        />
-      </label>
-      <p className="text-[12px] leading-4 text-ink-secondary">{t("keys.openaiCompat.modelsHint")}</p>
+      {showModels && (
+        <>
+          <label className="flex flex-col gap-1 text-[13px] leading-[18px] text-ink">
+            {t("keys.openaiCompat.models")}
+            <input
+              type="text"
+              value={models}
+              onChange={(e) => setModels(e.target.value)}
+              onBlur={save}
+              onKeyDown={(e) => e.key === "Enter" && save()}
+              placeholder="gpt-5, claude-sonnet-4-5"
+              aria-label={t("keys.openaiCompat.models")}
+              spellCheck={false}
+              className={KEY_FIELD}
+            />
+          </label>
+          <p className="text-[12px] leading-4 text-ink-secondary">{t("keys.openaiCompat.modelsHint")}</p>
+        </>
+      )}
       {error && <div role="alert" className="text-[12px] leading-4 text-danger">{error}</div>}
     </div>
   );

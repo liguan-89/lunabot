@@ -16,7 +16,8 @@ import { AttachmentStorageSettings } from "./AttachmentStorageSettings";
 import { DiagnosticsRow } from "./DiagnosticsRow";
 import { DecisionModelSettings } from "./DecisionModelSettings";
 import { ImageGenerationSettings } from "./ImageGenerationSettings";
-import { EnginesSettings } from "./EnginesSettings";
+import { EngineMaintenance } from "./EnginesSettings";
+import { ModelManagement } from "./ModelManagement";
 import { LocalComputerSection } from "./LocalComputerSection";
 import { PhoneDevicesSection } from "./PhoneDevicesSection";
 import { pageIsThisComputer } from "@/lib/companion-bridge";
@@ -126,7 +127,8 @@ function SearchResultButton({ result, className }: { result: SettingsSearchResul
 }
 
 function keySearchResults(query: string): KeyEntry[] {
-  return query ? KEY_CATALOG.filter((entry) => keyMatches(entry, query)).slice(0, 8) : [];
+  // The custom model provider moved to AI → Luna Bot models; its key row is no longer in API keys.
+  return query ? KEY_CATALOG.filter((entry) => entry.id !== "openaiCompat" && keyMatches(entry, query)).slice(0, 8) : [];
 }
 
 const openKeyResult = (entry: KeyEntry) => entry.uses ? openKeySettings(entry.uses, entry.id) : openKeySettings(entry.id);
@@ -408,7 +410,7 @@ function SettingsDialog() {
         return <AdminOnly><KeysPage /></AdminOnly>;
       case "decisionModel": return <AdminOnly><DecisionModelSettings /></AdminOnly>;
       case "imageGeneration": return <AdminOnly><ImageGenerationSettings /></AdminOnly>;
-      case "engines": return <AdminOnly><EnginesSettings /></AdminOnly>;
+      case "engines": return <AdminOnly><div className="flex flex-col gap-6"><ModelManagement /><EngineMaintenance /></div></AdminOnly>;
       case "backups": return <AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly>;
       case "import": return <AdminOnly><ImportSettings /></AdminOnly>;
       case "companion":

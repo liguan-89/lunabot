@@ -11,7 +11,7 @@ const localOrigin = require("./local-origin.cjs");
 const LOCAL = "http://127.0.0.1:48993";
 const REMOTE = "https://remote.example.test";
 const preloadSource = readFileSync(new URL("./preload.cjs", import.meta.url), "utf8");
-const mainSource = readFileSync(new URL("./main.mjs", import.meta.url), "utf8");
+const fileDialogsSource = readFileSync(new URL("./file-dialogs.mjs", import.meta.url), "utf8");
 
 function loadPreload(origin) {
   let bridge;
@@ -50,12 +50,13 @@ test("the local page's copyText sends only the text, on the one explicit channel
 
 // The production registration line from main.mjs, with the real localOnly and writeClipboardText and a fake ipcMain.
 function productionHandler() {
-  const lines = mainSource.split("\n").filter((line) => line.includes('"clipboard:write-text"'));
-  assert.equal(lines.length, 1, "exactly one registration of the channel in main.mjs");
-  assert.match(lines[0], /^ipcMain\.handle\("clipboard:write-text", localOnly\("clipboard:write-text", /);
+  const lines = fileDialogsSource.split("\n").filter((line) => line.includes('"clipboard:write-text"'));
+  assert.equal(lines.length, 1, "exactly one registration of the channel in file-dialogs.mjs");
+  const line = lines[0].trim();
+  assert.match(line, /^ipcMain\.handle\("clipboard:write-text", localOnly\("clipboard:write-text", /);
   const handlers = new Map();
   const written = [];
-  vm.runInNewContext(lines[0], {
+  vm.runInNewContext(line, {
     ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) },
     localOnly: localOrigin.localOnly,
     writeClipboardText,

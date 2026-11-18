@@ -324,6 +324,8 @@ const appConfigSchema = z.object({
     computer: defaultModelSelectionSchema.optional(),
   }).strict().optional(),
   automaticRecovery: automaticRecoverySchema.optional(),
+  /** Model ids hidden from Luna Bot's model lists; the providers and pi still serve them. */
+  hiddenModels: z.array(z.string().min(1).max(300)).max(1000).optional(),
   cacheKeepWarm: cacheKeepWarmSchema.optional(),
   newBotDefaults: newBotDefaultsSchema.optional(),
   newBots: newBotsConfigSchema.optional(),
@@ -522,6 +524,8 @@ export interface AppConfig extends HelperConfig {
   signIn?: { admins?: string[]; members?: string[] };
   /** Preferred selection for newly created bots; existing bots keep theirs. */
   defaultModelSelection?: ModelSelection;
+  /** Model ids hidden from Luna Bot's model lists; the providers and pi still serve them. */
+  hiddenModels?: string[];
   roleModels?: { routines?: ModelSelection; computer?: ModelSelection };
   /** Off by default; one backup attempt only before any work starts. */
   automaticRecovery?: { enabled: boolean; backup?: ModelSelection };
@@ -1039,6 +1043,7 @@ export function saveConfig(
   // Replace the section so clearing a backup cannot revive the old selection.
   if (checkedPatch.automaticRecovery !== undefined) disk.automaticRecovery = checkedPatch.automaticRecovery;
   if (checkedPatch.cacheKeepWarm !== undefined) disk.cacheKeepWarm = checkedPatch.cacheKeepWarm;
+  if (checkedPatch.hiddenModels !== undefined) disk.hiddenModels = checkedPatch.hiddenModels;
   if (checkedPatch.defaultModelSelection !== undefined) {
     disk.defaultModelSelection = checkedPatch.defaultModelSelection;
     if (disk.newBotDefaults) {

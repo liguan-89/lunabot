@@ -45,7 +45,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
   // The rail's page didn't load (this app's server was restarting): it loads again at the next refresh, or it stays a blank strip.
   let unloaded = false;
   // Whether the page beside draws the frame; the window opens as if it does (windowChromeOptions).
-  let framed = true, frameGrace = null;
+  let framed = false, frameGrace = null;
   // The document beside the rail offered its button; a new one may still (`grace`); the page stopped responding.
   let offered = false, grace = null, hung = false, told = "";
   const alive = () => Boolean(win && !win.isDestroyed());
@@ -118,7 +118,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
     attach(next) {
       win = next;
       shown = false; expanded = false; held = false; offered = false; hung = false; told = "";
-      framed = prefs()?.windowFrame?.() !== false;
+      framed = prefs()?.windowFrame?.() === true;
       // The window's first document has the same time as any other to offer the button and to draw the frame.
       if (choseHidden()) startGrace(); else stopGrace();
       awaitFrame();

@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { api, useStore, type ConfigStatus } from "@/state/store";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import { Card, Switch } from "./SettingsPrimitives";
 import { Select } from "./Select";
 
@@ -60,7 +61,7 @@ export function AutomaticRecoverySettings() {
             <option value="">{t("settings.recovery.chooseEngine")}</option>
             {value.backup && !engine && <option value={value.backup.instanceId} disabled>{t("settings.recovery.unavailable", { name: value.backup.instanceId })}</option>}
             {engines.map((instance) => <option key={instance.instanceId} value={instance.instanceId}
-              disabled={!instance.models.options.some((model) => instance.snapshot.authenticated !== false || model.custom)}>{instance.displayName}</option>)}
+              disabled={!instance.models.options.some((model) => instance.snapshot.authenticated !== false || model.custom)}>{engineDisplayName(instance)}</option>)}
           </Select>
         </div>
         <div className="min-w-0">

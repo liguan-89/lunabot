@@ -550,17 +550,17 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // A child that died before this waiter was registered has nobody left
           // to reject it: answer from the death the handlers already recorded.
           if (child.exitCode !== null || child.signalCode !== null) {
-            reject(new Error(prePromptFailure ?? "pi process exited before replying"));
+            reject(new Error(prePromptFailure ?? "The AI exited before replying"));
             return;
           }
           const timer = timeoutMs === Infinity ? undefined : setTimeout(() => {
             responseWaiters.delete(key);
-            reject(new Error(`pi ${command} timed out`));
+            reject(new Error(`The AI's ${command} timed out`));
           }, timeoutMs);
           timer?.unref?.();
           responseWaiters.set(key, { resolve, reject, timer });
         });
-      const onStdinError = () => rejectWaiters(new Error("pi stdin closed"));
+      const onStdinError = () => rejectWaiters(new Error("The AI's input closed"));
       child.stdin.on("error", onStdinError);
       const send = (obj: Record<string, unknown>) => {
         appendNative(threadId, { dir: "out", source: "pi.rpc", msg: piNativeLogMessage(obj) });
@@ -599,7 +599,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         // dead or unconfirmed child — takes the kill path.
         const keep = keepChild && child.exitCode === null && child.signalCode === null;
         completion = (async () => {
-          rejectWaiters(new Error("pi turn ended"));
+          rejectWaiters(new Error("The turn ended"));
           if (keep) {
             detachHandlers();
             flushAssistantText();
@@ -669,7 +669,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           emit({
             ...base(threadId, turnId),
             type: "runtime.error",
-            message: String(endErrorMessage ?? "pi turn failed").slice(0, 2_000),
+            message: String(endErrorMessage ?? "The turn failed").slice(0, 2_000),
           });
           settle(false, "failed", runUsage.usage);
           return;
@@ -775,7 +775,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
               const isQuestion = isSelect || evt.method === "input";
               const selectOptions: string[] = isSelect && Array.isArray(evt.options)
                 ? evt.options.filter((option): option is string => typeof option === "string") : [];
-              const title = String(evt.title ?? (isQuestion ? "pi has a question" : "pi wants confirmation")).slice(0, isQuestion ? MAX_QUESTION_TEXT : 200);
+              const title = String(evt.title ?? (isQuestion ? "The AI has a question" : "The AI wants confirmation")).slice(0, isQuestion ? MAX_QUESTION_TEXT : 200);
               // A gated confirm carries the call's input JSON as `message` — that is what the card must show.
               const detail = !isQuestion && typeof evt.message === "string" ? evt.message : "";
               const { commandLine, risk } = readPiApprovalRequest(evt, { title, isQuestion, controlsHost });
@@ -921,8 +921,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         settle(false);
       };
       const onChildClose = () => {
-        prePromptFailure ??= "pi process exited before replying";
-        rejectWaiters(new Error("pi process exited before replying"));
+        prePromptFailure ??= "The AI exited before replying";
+        rejectWaiters(new Error("The AI exited before replying"));
         settle(false);
       };
       child.stdout.setEncoding("utf8");
@@ -966,7 +966,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         // start-up failure, so the dispatch rejects and the harness replays it.
         // A Stop in the same window settled ok and stays a cancellation.
         if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
         }
         return { turnId };
       }
@@ -1006,7 +1006,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         // start-up failure, so the dispatch rejects and the harness replays it.
         // A Stop in the same window settled ok and stays a cancellation.
         if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
         }
         return { turnId };
       }
@@ -1025,7 +1025,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         // start-up failure, so the dispatch rejects and the harness replays it.
         // A Stop in the same window settled ok and stays a cancellation.
         if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "pi exited before the turn started");
+          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
         }
         return { turnId };
       }

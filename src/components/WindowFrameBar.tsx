@@ -1,10 +1,7 @@
-import { Settings } from "lucide-react";
 import { useEffect } from "react";
 
 import { sayFrameDrawn } from "@/lib/chrome-rail";
 import { cn } from "@/lib/cn";
-import { t } from "@/lib/i18n";
-import { useStore } from "@/state/store";
 import { ChromeRailToggle } from "./ChromeRailToggle";
 import { captionChrome, useDesktopCapabilities, windowFrameable, windowFramed } from "./DesktopCapabilities";
 import { NotificationBell } from "./NotificationsPanel";
@@ -22,7 +19,6 @@ export const FRAME_BAR_BUTTON = "flex size-[22px] shrink-0 items-center justify-
  * is the window's middle. */
 export function WindowFrameBar({ notifications = false }: { notifications?: boolean }) {
   const { capabilities } = useDesktopCapabilities();
-  const { dispatch } = useStore();
   const frameable = windowFrameable(capabilities), framed = windowFramed(capabilities);
   useEffect(() => { if (frameable) sayFrameDrawn(framed); }, [frameable, framed]);
   if (!framed) return null;
@@ -42,16 +38,6 @@ export function WindowFrameBar({ notifications = false }: { notifications?: bool
       <div data-frame-bar-end className={cn("flex items-center justify-end gap-0.5", mac ? "pr-2" : "pr-[140px]")}>
         <UpdateIndicator bar={FRAME_BAR_BUTTON} />
         {notifications && <NotificationBell bar={FRAME_BAR_BUTTON} />}
-        <button
-          type="button"
-          data-frame-settings
-          aria-label={t("sidebar.appSettings")}
-          title={t("sidebar.appSettings")}
-          onClick={() => dispatch({ type: "toggleAppSettings", open: true })}
-          className={FRAME_BAR_BUTTON}
-        >
-          <Settings size={15} strokeWidth={1.75} aria-hidden="true" />
-        </button>
       </div>
     </div>
   );

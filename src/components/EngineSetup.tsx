@@ -8,6 +8,7 @@ import { copyText } from "@/lib/copy-text";
 import { DEVICE_SIGN_IN_COPY, DeviceSignIn, deviceSignInProvider } from "./DeviceSignIn";
 import { ClaudeSignIn } from "./ClaudeSignIn";
 import { RefreshEngines } from "./EngineLibrary";
+import { OpenAiCompatUrl } from "./keys/KeyPanels";
 import { AppCopyNotice, AppCopySetup } from "./EngineAppCopy";
 import { installCommandFor, noteAppCopySwitch } from "@/state/engine-install";
 
@@ -423,7 +424,10 @@ function inlineKey(instance: InstanceInfo): KeyId | undefined {
 }
 
 export const openKeysFor = (instance?: InstanceInfo) =>
-  openKeySettings(instance ? keyForInstance(instance.instanceId) ?? (instance.driverKind === "openai-compat" ? "openaiCompat" : undefined) : undefined);
+  instance?.driverKind === "piAgent"
+    // The custom provider moved out of API keys into AI → Luna Bot models.
+    ? ({ type: "toggleAppSettings", open: true, section: "engines" } as const)
+    : openKeySettings(instance ? keyForInstance(instance.instanceId) ?? (instance.driverKind === "openai-compat" ? "openaiCompat" : undefined) : undefined);
 
 export function ApiKeyHint({ instance }: { instance: InstanceInfo }) {
   const key = window.ogb?.remoteClient?.active === true ? undefined : inlineKey(instance);
@@ -444,7 +448,7 @@ export function InstanceAccountNotes({ instance, listsModels }: { instance: Inst
       {account !== null && <p className="mt-1 truncate text-[12px] leading-4 text-ink-tertiary" title={account}>{account}</p>}
       {instance.modelsUnconfirmed && listsModels && (
         <p data-models-unconfirmed className="mt-1 text-[12px] leading-4 text-ink-tertiary">
-          {t("model.unconfirmed", { name: instance.displayName })}
+          {t("model.unconfirmed", { name: engineDisplayName(instance) })}
         </p>
       )}
     </>
@@ -484,6 +488,11 @@ function ApiKeyEngineSetup({ instance, className, unframed, configured = false }
           {copy.description && <p className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">{t(copy.description)}</p>}
         </div>
       </div>
+      {instance.driverKind === "piAgent" && (
+        <div data-engine-provider className="mt-3">
+          <OpenAiCompatUrl models={false} />
+        </div>
+      )}
       {/* An API-only engine is available only with a saved key, so unauthenticated means rejected.
           A key engine with its own CLI (DeepSeek Harness) is unauthenticated simply when no key is saved yet. */}
       {!inline && isApiKeyEngine(instance) && needsSignIn(instance) && (
@@ -569,7 +578,7 @@ export function EngineSetup({
     return (
       <div data-engine-setup-on-host className={cn(!unframed && "rounded-xl border border-hairline/40 bg-control/30 p-3", className)}>
         <div className="text-[13px] font-semibold text-ink">{title}</div>
-        <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("remote.client.setUpOnHost", { name: instance.displayName })}</p>
+        <p className="mt-1 text-[12px] leading-relaxed text-ink-secondary">{t("remote.client.setUpOnHost", { name: engineDisplayName(instance) })}</p>
       </div>
     );
   }
@@ -652,7 +661,7 @@ export function EngineSetup({
       ) : cloudCantInstall ? (
         // A Cloud has no terminal: a command to copy, or a path to set, only invites pasting it where it can't run.
         <p data-cloud-cant-install className="mt-3 rounded-lg bg-inset px-2.5 py-2 text-[12px] leading-relaxed text-ink-secondary">
-          {t("engineSetup.cloudCantInstall", { name: instance.displayName })}
+          {t("engineSetup.cloudCantInstall", { name: engineDisplayName(instance) })}
         </p>
       ) : command ? (
         <CommandRow
