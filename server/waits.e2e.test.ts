@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
+import { mkdtempSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { WAIT_MESSAGES } from "./routes/waits.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { piAgentsToken, piTurns, piTurnText } from "./testing/pi-dump.ts";
 
 async function scout(name: string) {
   const folder = mkdtempSync(join(tmpdir(), `omb-waits-${name}-`));
@@ -22,20 +23,20 @@ async function scout(name: string) {
     expect(response.status, JSON.stringify(result)).toBe(expected);
     return result;
   };
-  const dump = () => JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8"));
+  // The fake pi's log (server/testing/pi-dump.ts): one launch row per process with the MCP config it booted on, one
+  // prompt row per turn. The newest prompt is what the model was told on the last turn.
+  const turns = () => piTurns(fixture.fixtureDumpPath);
   const turnPrompt = (): string => {
-    try {
-      const content = dump().prompt?.message?.content;
-      return Array.isArray(content) ? content.map((block: { text?: string }) => block.text ?? "").join("\n") : String(content ?? "");
-    } catch { return ""; }
+    const turn = turns().at(-1);
+    return turn ? piTurnText(turn) : "";
   };
   const turnToken = async () => {
-    let token = "";
+    let token: string | undefined;
     await expect.poll(() => {
-      try { token = dump().mcpConfig.mcpServers.agents.env.OMB_COMMS_TOKEN; } catch { return false; }
+      token = piAgentsToken(turns().at(-1));
       return Boolean(token);
     }, { timeout: 15_000 }).toBe(true);
-    return token;
+    return token!;
   };
   const close = async () => {
     writeFileSync(`${fixture.info.logPath}.waits-${name}.json`, JSON.stringify(evidence, null, 2));

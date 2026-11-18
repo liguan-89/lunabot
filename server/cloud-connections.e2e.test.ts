@@ -131,7 +131,7 @@ it("moves the MCP servers with their secrets and sign-ins, the keys and the conn
   expect(servers.find((server) => server.name === "notes")).toMatchObject({ enabled: true, runsOn: collected.computer });
   expect(servers.find((server) => server.name === "easy"), "a mail connector stays with its accounts, whatever programs My Cloud has").toMatchObject({ enabled: true, runsOn: collected.computer });
   const notesTest = await onCloud("POST", "/api/mcp/servers/notes/test");
-  expect(notesTest).toMatchObject({ status: 409, body: { error: `notes runs on ${collected.computer.label}, which isn't lent to My Cloud: it works once OpenMausBot is open on that computer and signed in to My Cloud.` } });
+  expect(notesTest).toMatchObject({ status: 409, body: { error: `notes runs on ${collected.computer.label}, which isn't lent to My Cloud: it works once Luna Bot is open on that computer and signed in to My Cloud.` } });
 
   // The sign-in moved: My Cloud refreshes it with the refresh token and the app's secret that came over...
   await onCloud("POST", "/api/mcp/servers/linear/test");
@@ -141,9 +141,10 @@ it("moves the MCP servers with their secrets and sign-ins, the keys and the conn
   expect(JSON.parse(readFileSync(desktopSignIns, "utf8")).servers.linear).toBeUndefined();
   expect((await local("GET", "/api/mcp/servers")).body.servers.find((server: { name: string }) => server.name === "linear").auth).toBeUndefined();
 
-  // The key arrived, and so did its engine, before anything that follows it.
+  // The key arrived, and My Cloud names the one engine this build runs: the key is a model in pi's catalog now, not an
+  // engine of its own.
   expect((await onCloud("GET", "/api/config")).body.openrouter).toMatchObject({ configured: true });
-  expect((await onCloud("GET", "/api/cloud-connections")).body.engines).toContain("openrouter");
+  expect((await onCloud("GET", "/api/cloud-connections")).body.engines).toEqual(["pi"]);
 
   // My Cloud acts as this computer's connected-apps user: Gmail, connected here, is connected there with no sign-in.
   expect(broker.actingUser(cloudInstallation)).toBe(fx.desktopInstallation!.userId);

@@ -1,5 +1,7 @@
-// Unattended routine runs that recover by themselves: the real server and Claude driver, with the fake engine's mode
-// read from a file at each launch, and the stall watchdog's twenty minutes brought forward by a marker file.
+// Unattended routine runs that recover by themselves: the real server and the fake pi, with the engine's mode read from
+// a file at each launch, and the stall watchdog's twenty minutes brought forward by a marker file. pi keeps a warm child
+// per conversation and a warm child keeps the mode it booted with, so the wrapper exits after every turn: each launch
+// reads engine.json again, as the retired Claude fixture's per-turn process did.
 import { type ChildProcess, spawn } from "node:child_process";
 import { closeSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -10,11 +12,45 @@ import { launchVerificationServer, runControlOmb, verificationServerArgs, verifi
 import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 import { openSse, type SseRecorder } from "./testing/sse.ts";
 
 const STALLED = "No activity for 20 minutes — the routine was stopped";
 const SIGN_IN = "This bot's AI is signed out. Sign in again in Settings → AI.";
 const ROUTINE_HEADER = '[Routine "Inbox brief" — do this now:]';
+/** A provider's usage-limit refusal, as pi reports it from the model call that failed: pi names no reset of its own. */
+const LIMIT_TEXT = "429 {\"type\":\"error\",\"error\":{\"type\":\"rate_limit_error\",\"message\":\"You have reached your 5-hour usage limit. Try again at 7:22 PM.\"}}";
+
+/** The smallest pi RPC child that answers setup and refuses its one prompt with `FAKE_PI_REFUSAL`, the engine's words. */
+const REFUSE_CLI = `#!/usr/bin/env node
+import { createInterface } from "node:readline";
+const out = (frame) => process.stdout.write(JSON.stringify(frame) + "\\n");
+if (process.argv.includes("--version") || process.argv.includes("-v")) {
+  process.stdout.write("pi 0.84.2 (fake)\\n");
+  process.exit(0);
+}
+const refusal = process.env.FAKE_PI_REFUSAL ?? "refused";
+let session = 0;
+createInterface({ input: process.stdin }).on("line", (line) => {
+  let cmd;
+  try { cmd = JSON.parse(line); } catch { return; }
+  const reply = (command, data) => out({ id: cmd.id, type: "response", command, success: true, data });
+  if (cmd.type === "generate_models" || cmd.type === "get_available_models") {
+    return reply("get_available_models", { models: [{ provider: "ollama-cloud", id: "glm-5.2", name: "glm-5.2" }] });
+  }
+  if (cmd.type === "new_session") return reply("new_session", { sessionId: "s-" + (++session), sessionFile: "/fake/refused-session.json" });
+  if (cmd.type === "switch_session") return reply("switch_session", { sessionId: "s-" + session, sessionFile: cmd.sessionPath ?? "/fake/refused-session.json" });
+  if (cmd.type === "set_model") return reply("set_model", { id: cmd.modelId, provider: cmd.provider });
+  if (cmd.type === "set_thinking_level") return reply("set_thinking_level", undefined);
+  if (cmd.type === "get_state") return reply("get_state", { model: null, thinkingLevel: "off", isStreaming: false, isCompacting: false, sessionFile: "/fake/refused-session.json" });
+  if (cmd.type !== "prompt") return;
+  out({ type: "agent_start" });
+  out({ type: "turn_start" });
+  out({ type: "turn_end", message: { stopReason: "error", errorMessage: refusal }, usage: { input: 0, output: 0 } });
+  out({ type: "agent_end", isTerminal: true });
+  if (process.env.FAKE_PI_EXIT_AFTER_TURN) setTimeout(() => process.exit(0), 50);
+});
+`;
 
 let fixture: VerificationServer | undefined;
 let restarted: ChildProcess | undefined;
@@ -35,18 +71,32 @@ async function server(env: NodeJS.ProcessEnv = {}) {
     expect(response.status, `${method} ${path}: ${JSON.stringify(value)}`).toBeLessThan(300);
     return value;
   };
-  const dump = join(dataDir, "claude-turn.json");
-  const engine = (mode: string, extra: Record<string, string> = {}) =>
-    writeFileSync(join(dataDir, "engine.json"), JSON.stringify({ FAKE_CLAUDE_MODE: mode, FAKE_CLAUDE_DUMP: dump, ...extra }));
-  const wrapper = join(dataDir, "claude-scripted.mjs");
+  // The fake pi appends its launches and prompts to the fixture's JSONL log: a turn whose prompt has arrived is a turn
+  // under way, where the retired fixture waited for its per-turn dump file.
+  const turns = () => piTurns(fixture!.fixtureDumpPath);
+  const engineFile = join(dataDir, "engine.json");
+  const refuseCli = join(dataDir, "refuse-cli.mjs");
+  writeFileSync(refuseCli, REFUSE_CLI, { mode: 0o700 });
+  /** The engine's mode for its next launch. A refusal is the provider's own words; pi reports no reset time. */
+  const engine = (mode: string, extra: Record<string, string> = {}) => writeFileSync(engineFile, JSON.stringify({
+    FAKE_PI_MODE: mode,
+    ...(mode === "signed-out" ? { FAKE_PI_REFUSAL: "Not logged in · Please run /login" } : {}),
+    ...(mode === "usage-limit" ? { FAKE_PI_REFUSAL: LIMIT_TEXT } : {}),
+    ...extra,
+  }));
+  const wrapper = join(dataDir, "pi-scripted.mjs");
   writeFileSync(wrapper, [
     "#!/usr/bin/env node",
     'import { readFileSync } from "node:fs";',
-    `Object.assign(process.env, JSON.parse(readFileSync(${JSON.stringify(join(dataDir, "engine.json"))}, "utf8")));`,
-    `await import(${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-claude-cli.ts")).href)});`,
+    `Object.assign(process.env, JSON.parse(readFileSync(${JSON.stringify(engineFile)}, "utf8")));`,
+    // One fresh launch per turn, so engine.json's mode is the one this turn runs; a refusal CLI needs the same.
+    'process.env.FAKE_PI_EXIT_AFTER_TURN = "1";',
+    'process.env.FAKE_PI_CLAUDE_COMPAT = "1";',
+    'const refusing = process.env.FAKE_PI_MODE === "signed-out" || process.env.FAKE_PI_MODE === "usage-limit";',
+    `await import(refusing ? ${JSON.stringify(pathToFileURL(refuseCli).href)} : ${JSON.stringify(pathToFileURL(join(process.cwd(), "server/testing/fake-pi-cli.ts")).href)});`,
   ].join("\n"), { mode: 0o700 });
   engine("happy");
-  await api("PATCH", "/api/instances/claude", { cli: wrapper });
+  await api("PATCH", "/api/instances/pi", { cli: wrapper });
   // Chief first makes the starter its team's Chief, which answers a teammate's failed run with a Problems to look at turn of
   // its own on the same engine. Stepped down, what these runs tell the owner is theirs alone.
   const starter = (await api("GET", "/api/bots")).bots.find((candidate: any) => candidate.chiefOfStaff);
@@ -63,20 +113,19 @@ async function server(env: NodeJS.ProcessEnv = {}) {
   const runNow = async (routineId: string) => (await api("POST", `/api/routines/${routineId}/run`)).run;
   const notified = () => events!.frames.filter((frame) => frame.kind === "notify").map((frame) => frame.notification as { kind: string; title: string; body: string });
   /** The engine has the turn, so the stall marker can find it watched; with `text`, the turn whose prompt says it. */
-  const engineHas = (text = "Summarise my inbox.") => expect.poll(() => {
-    try { return JSON.stringify(JSON.parse(readFileSync(dump, "utf8")).prompt).includes(text); } catch { return false; }
-  }, { timeout: hostTimeout(30_000) }).toBe(true);
+  const engineHas = (text = "Summarise my inbox.") => expect.poll(() => turns().some((turn) => turn.prompt.includes(text)),
+    { timeout: hostTimeout(30_000) }).toBe(true);
   /** The server has read the engine's announcement of its `turns`th turn in this thread: a hanging turn sends nothing
    * after it, and a frame read once the stall marker exists starts that turn's stall window over. */
   const engineAnnounced = (threadId: string, turns: number) => expect.poll(() => {
     try {
       return readFileSync(join(dataDir, "native", `${threadId}.ndjson`), "utf8").split("\n")
-        .filter((line) => line.includes('"dir":"in"') && line.includes('"subtype":"init"')).length;
+        .filter((line) => line.includes('"dir":"in"') && line.includes('"type":"turn_start"')).length;
     } catch { return 0; }
   }, { timeout: hostTimeout(30_000) }).toBeGreaterThanOrEqual(turns);
   const prompts = async (threadId: string) => ((await api("GET", `/api/threads/${threadId}/messages?limit=200`)).messages as any[])
     .filter((message) => message.role === "user").map((message) => String(message.text ?? ""));
-  return { url, dataDir, logPath, api, bot, engine, dump, engineHas, engineAnnounced, routine, runs, run, runNow, notified, prompts };
+  return { url, dataDir, logPath, api, bot, engine, turns, engineHas, engineAnnounced, routine, runs, run, runNow, notified, prompts };
 }
 
 it("never starts a routine again that the turn watchdog stopped as stalled: it fails at once, and its owner hears once", async () => {
@@ -109,7 +158,7 @@ it("starts a routine that crashed again once, and it completes in the same conve
 
   await expect.poll(async () => (await s.run(id))?.status, { timeout: hostTimeout(60_000) }).toBe("completed");
   expect(await s.run(id)).toMatchObject({ retried: "failed", threadId });
-  expect(JSON.stringify(JSON.parse(readFileSync(s.dump, "utf8")).prompt)).toContain("this run's first start failed before it finished");
+  expect(s.turns().some((turn) => turn.prompt.includes("this run's first start failed before it finished"))).toBe(true);
   expect((await s.prompts(threadId)).filter((text) => text.includes(ROUTINE_HEADER))).toHaveLength(2);
   expect(s.notified().filter((notification) => notification.kind === "routine-failed")).toEqual([]);
 }, hostTimeout(120_000));
@@ -129,12 +178,12 @@ it("fails a routine that crashes again on its retry, says so, and never retries 
 
 it("picks a run that a restart cut off up again once on the next start, and never runs it twice", async () => {
   const s = await server();
-  // Exiting slowly, as taskkill does on Windows, the engine ends its turn while the server is still shutting down.
-  s.engine("hang", { FAKE_CLAUDE_EXIT_DELAY_MS: "1500" });
+  s.engine("hang");
   const { id } = await s.runNow((await s.routine()).id);
   await expect.poll(async () => (await s.run(id))?.status, { timeout: hostTimeout(15_000) }).toBe("running");
   const { threadId } = await s.run(id);
 
+  // The driver stops every engine it started on shutdown, so the cut turn leaves its run as it was.
   await waitForExit(fixture!.child, { signal: "SIGTERM" });
   expect(JSON.parse(readFileSync(join(s.dataDir, "routines.json"), "utf8")).runs).toMatchObject([{ id, status: "running" }]);
   s.engine("happy");
@@ -146,7 +195,7 @@ it("picks a run that a restart cut off up again once on the next start, and neve
   await expect.poll(async () => (await s.run(id))?.retried, { timeout: hostTimeout(20_000) }).toBe("restarted");
   await expect.poll(async () => (await s.run(id))?.status, { timeout: hostTimeout(60_000) }).toBe("completed");
   expect(await s.runs()).toMatchObject([{ id, threadId, retried: "restarted", status: "completed" }]);
-  expect(JSON.stringify(JSON.parse(readFileSync(s.dump, "utf8")).prompt)).toContain("this run's first start was cut off when Luna Bot restarted");
+  expect(s.turns().some((turn) => turn.prompt.includes("this run's first start was cut off when Luna Bot restarted"))).toBe(true);
   await new Promise((resolve) => setTimeout(resolve, 3_000));
   const sent = await s.prompts(threadId);
   expect(sent.filter((text) => text.includes(ROUTINE_HEADER))).toHaveLength(2);
@@ -157,61 +206,27 @@ it("picks a run that a restart cut off up again once on the next start, and neve
   expect(roots.map((node) => node.status)).toEqual(["cancelled", "completed"]);
 }, hostTimeout(120_000));
 
-it("keeps an ACP engine's run that a graceful shutdown cut off, and starts it once more on the next start", async () => {
-  fixture = await launchVerificationServer({}, undefined, undefined, undefined, undefined, undefined, ["cline"]);
-  const { url, dataDir, logPath } = fixture.info;
-  const configPath = join(dataDir, "config.json");
-  const acpMode = (mode: string) => {
-    const config = JSON.parse(readFileSync(configPath, "utf8"));
-    config.instances.cline.environment.FAKE_ACP_MODE = mode;
-    writeFileSync(configPath, JSON.stringify(config));
-  };
-  const restart = async () => {
-    const env = verificationServerEnvironment({}, dataDir, Number(new URL(url).port));
-    const log = openSync(logPath, "a", 0o600);
-    restarted = spawn(process.execPath, verificationServerArgs(env), { cwd: process.cwd(), env, stdio: ["ignore", log, log] });
-    closeSync(log);
-    await expect.poll(async () => { try { return (await fetch(`${url}/api/health`)).ok; } catch { return false; } }, { timeout: hostTimeout(30_000) }).toBe(true);
-  };
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
-  const api = async (method: string, path: string, body?: unknown) => (await fetch(url + path, {
-    method, headers: { "content-type": "application/json", origin: url }, ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  })).json() as Promise<any>;
-  await waitForExit(fixture.child, { signal: "SIGTERM" });
-  acpMode("hang");
-  await restart();
-  const { bot } = await cli("new-bot", "--name", "Inbox bot");
-  await cli("set-model", "--bot", bot.id, "--instance", "cline", "--model", "cline-default");
-  const { routine } = await api("POST", "/api/routines", { name: "Inbox brief", prompt: "Summarise my inbox.", botId: bot.id,
-    schedule: { type: "cron", expression: "0 7 * * *", timeZone: "Europe/London" } });
-  const { run } = await api("POST", `/api/routines/${routine.id}/run`);
-  const read = async () => ((await api("GET", "/api/routines").catch(() => ({ runs: [] }))).runs as any[]).find((candidate) => candidate.id === run.id);
-  await expect.poll(async () => (await read())?.status, { timeout: hostTimeout(15_000) }).toBe("running");
-  await new Promise((resolve) => setTimeout(resolve, 1_000));
-
-  await waitForExit(restarted, { signal: "SIGTERM" });
-  expect(JSON.parse(readFileSync(join(dataDir, "routines.json"), "utf8")).runs).toMatchObject([{ id: run.id, status: "running" }]);
-  acpMode("happy");
-  await restart();
-  await expect.poll(async () => (await read())?.status, { timeout: hostTimeout(60_000) }).toBe("completed");
-  expect(await read()).toMatchObject({ retried: "restarted" });
-}, hostTimeout(120_000));
+// The retired "keeps an ACP engine's run that a graceful shutdown cut off" recipe is gone with its engine: this build runs
+// pi alone, and the restart recovery above covers the same run.
 
 it("waits for the conversation it joins to be free instead of failing, then runs there", async () => {
   const s = await server();
-  s.engine("hang", { FAKE_CLAUDE_RELEASE: join(s.dataDir, "release") });
+  const release = join(s.dataDir, "release");
+  const replies = join(s.dataDir, "marker-replies.json");
+  writeFileSync(replies, JSON.stringify({ "Draft the weekly update.": "released", "Summarise my inbox.": "released" }));
+  s.engine("hang", { FAKE_PI_RELEASE: release, FAKE_PI_MARKER_REPLIES: replies });
   await runControlOmb(["send", "--bot", s.bot.id, "--task", s.bot.activeTaskId, "--text", "Draft the weekly update.", "--url", s.url]);
   await expect.poll(async () => (await s.api("GET", "/api/bots")).bots.find((bot: any) => bot.id === s.bot.id)?.busy, { timeout: hostTimeout(15_000) }).toBe(true);
 
   const { routine } = await s.api("POST", "/api/routines", {
-    name: "Inbox brief", prompt: "Summarise my inbox.", botId: s.bot.id, schedule: { type: "limit_reset", engine: "claude" },
+    name: "Inbox brief", prompt: "Summarise my inbox.", botId: s.bot.id, schedule: { type: "limit_reset", engine: "pi" },
   });
   const { id } = await s.runNow(routine.id);
   await expect.poll(() => s.run(id), { timeout: hostTimeout(15_000) }).toMatchObject({
     status: "queued", threadId: s.bot.activeTaskId, deferredAt: expect.any(Number),
     attention: "Waiting to start: this thread is already working — interrupt it first",
   });
-  writeFileSync(join(s.dataDir, "release"), "");
+  writeFileSync(release, "");
 
   await expect.poll(async () => (await s.run(id))?.status, { timeout: hostTimeout(60_000) }).toBe("completed");
   const done = await s.run(id);
@@ -222,7 +237,7 @@ it("waits for the conversation it joins to be free instead of failing, then runs
 
 it("never retries a signed-out engine, and tells the owner exactly once what to do", async () => {
   const s = await server();
-  s.engine("not-logged-in");
+  s.engine("signed-out");
   const first = await s.runNow((await s.routine()).id);
   await expect.poll(async () => (await s.run(first.id))?.status, { timeout: hostTimeout(15_000) }).toBe("failed");
   const second = await s.runNow((await s.routine("Calendar check")).id);
@@ -240,20 +255,21 @@ it("never retries a signed-out engine, and tells the owner exactly once what to 
   expect((await s.prompts(first.threadId ?? (await s.run(first.id)).threadId)).filter((text) => text.includes(ROUTINE_HEADER))).toHaveLength(1);
 }, hostTimeout(90_000));
 
-it("waits for a usage limit that says when it resets, instead of failing", async () => {
+it("fails a run its AI's usage limit refuses, says the provider's words, and tells the owner once what to do", async () => {
   const s = await server();
-  const resetsAt = Math.floor(Date.now() / 1000) + 2 * 60 * 60;
-  s.engine("usage-limit", { FAKE_CLAUDE_RATE_LIMIT: JSON.stringify({ status: "rejected", rateLimitType: "five_hour", resetsAt }) });
+  s.engine("usage-limit");
   const { id } = await s.runNow((await s.routine()).id);
 
-  await expect.poll(() => s.run(id), { timeout: hostTimeout(15_000) }).toMatchObject({
-    status: "queued", retried: "usage_limit", retryAt: resetsAt * 1000 + 60_000,
-    attention: expect.stringMatching(/^Waiting for the AI's usage limit to reset; this run starts again at /),
-  });
+  // pi reports no reset time, so there is none to wait for: the run fails at once with the provider's own words.
+  await expect.poll(async () => (await s.run(id))?.status, { timeout: hostTimeout(15_000) }).toBe("failed");
+  const failed = await s.run(id);
+  expect(failed.error).toContain("You have reached your 5-hour usage limit");
+  expect(failed.retried).toBeUndefined();
+  expect(failed.retryAt).toBeUndefined();
   await expect.poll(() => s.notified(), { timeout: hostTimeout(15_000) }).toEqual([
-    expect.objectContaining({ kind: "routine-deferred", title: "Inbox bot's routine is waiting",
-      body: expect.stringMatching(/^Inbox brief: This bot's AI reached its usage limit\. This run starts again at /) }),
+    expect.objectContaining({ kind: "routine-failed", title: "Inbox bot's routine failed",
+      body: "Inbox brief: This bot's AI reached its usage limit. Its routines work again once it resets, or choose another AI for this bot now." }),
   ]);
-  expect((await s.run(id)).error).toBeUndefined();
-  expect((await s.api("GET", "/api/routines")).routines[0].failureStreak).toBeUndefined();
+  // A failed run counts against the routine's health: one failed run, one in the streak.
+  expect((await s.api("GET", "/api/routines")).routines[0].failureStreak).toBe(1);
 }, hostTimeout(90_000));

@@ -2,11 +2,11 @@
 // sidebar by its switch, and still holding a Chief's tools once another bot is the Chief. The fake engine holds its turn
 // open so this test can start the agents server that turn was handed and call create_bot the way the engine would.
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { childEnv } from "./testing/omb-env.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };
 type Answer = { id: number; result?: { content?: Array<{ text: string }>; isError?: boolean }; error?: { code: number; message: string } };
@@ -31,7 +31,7 @@ async function callTool(server: McpServer, name: string, args: unknown): Promise
 }
 
 it("makes Luna Bot a new install's first bot, never deleted, hidden by its switch, with a Chief's tools after the Chief moves on", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: "hang" });
+  const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_HOLD_ON: "Stay active." });
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json" },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10_000) });
@@ -39,6 +39,21 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
   };
   const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
   const bots = async () => (await api("GET", "/api/bots")).body.bots as any[];
+  /** The launch the turn carrying `marker` ran on (its MCP servers) and the instructions in effect on it. */
+  const launchHolding = async (marker: string) => {
+    const dumpPath = piDumpPath(fixture.info.dataDir);
+    let found: { mcpServers: Record<string, McpServer>; systemPrompt: string } | null = null;
+    await expect.poll(() => {
+      const turns = piTurns(dumpPath);
+      const index = turns.findLastIndex((turn) => turn.prompt.includes(marker));
+      if (index < 0) return false;
+      const mcpServers = turns[index]!.launch?.mcpConfig?.mcpServers as Record<string, McpServer> | undefined;
+      if (!mcpServers?.agents) return false;
+      found = { mcpServers, systemPrompt: piInstructionsFor(turns, index) };
+      return true;
+    }, { timeout: 30_000 }).toBe(true);
+    return found!;
+  };
   try {
     const [maus] = await bots();
     // The fixture renames its starter; it is still the new install's MausBot.
@@ -72,10 +87,8 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
     expect((await bots()).find((bot) => bot.id === maus.id)?.chiefOfStaff).toBeFalsy();
 
     await control(["send", "--bot", maus.id, "--text", "Stay active."]);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 30_000 }).toBe(true);
-    const launched = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { systemPrompt: string; mcpConfig: { mcpServers: Record<string, McpServer> } };
-    rmSync(fixture.fixtureDumpPath, { force: true });
-    const agents = launched.mcpConfig.mcpServers.agents!;
+    const launched = await launchHolding("Stay active.");
+    const agents = launched.mcpServers.agents!;
     expect(agents.env.OMB_CHIEF_OF_STAFF).toBe("1");
     expect(launched.systemPrompt).toContain("You are also this person's Luna Bot");
     expect(launched.systemPrompt).toContain("but you are not the Chief");
@@ -93,15 +106,22 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
 }, 120_000);
 
 it("lets Luna Bot read the unread notifications and mark finished work read, not once sign-in members share the workspace, and gives no other bot the tools", async () => {
-  const fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_MODE: "hang" });
+  const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_HOLD_ON: "Stay active." });
   const api = async (path: string) => (await (await fetch(`${fixture.info.url}${path}`, { signal: AbortSignal.timeout(10_000) })).json()) as any;
   const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  /** The agents server the bot's held turn was launched with: the identity its tools answer under. */
   const launch = async (botId: string) => {
+    const since = piTurns(piDumpPath(fixture.info.dataDir)).length;
     await control(["send", "--bot", botId, "--text", "Stay active."]);
-    await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 30_000 }).toBe(true);
-    const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as { mcpConfig: { mcpServers: Record<string, McpServer> } };
-    rmSync(fixture.fixtureDumpPath, { force: true });
-    return dump.mcpConfig.mcpServers.agents!;
+    let found: McpServer | null = null;
+    await expect.poll(() => {
+      const turns = piTurns(piDumpPath(fixture.info.dataDir)).slice(since);
+      const agents = turns.findLast((turn) => turn.prompt.includes("Stay active."))?.launch?.mcpConfig?.mcpServers?.agents;
+      if (!agents) return false;
+      found = agents as McpServer;
+      return true;
+    }, { timeout: 30_000 }).toBe(true);
+    return found!;
   };
   const text = (answer: Answer) => answer.result?.content?.[0]?.text ?? "";
   try {

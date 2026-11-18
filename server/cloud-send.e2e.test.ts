@@ -19,7 +19,7 @@ it("when My Cloud refuses this computer's 1Password token, the move says what fa
   const refusing = await launchCloudSendFixture({ onePasswordToken: TOKEN, cloudOnePasswordToken: `ops_fake-other-${randomBytes(8).toString("hex")}` });
   try {
     const { local, onCloud } = refusing;
-    const ember = (await local("POST", "/api/bots", { name: "Ember", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+    const ember = (await local("POST", "/api/bots", { name: "Ember", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot;
     await local("PATCH", `/api/bots/${ember.id}`, { soul: "You are Ember." });
     expect((await local("POST", "/api/logins", { site: "accounts.example.test", username: "alice", password: PASSWORD, bots: [ember.id] })).status).toBe(201);
     expect((await local("POST", "/api/logins/1password", { token: TOKEN })).status).toBe(200);
@@ -83,7 +83,7 @@ describe("a long conversation, carried in pages by the move", () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
   };
-  const newBot = async (name: string) => (await heavy.local("POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+  const newBot = async (name: string) => (await heavy.local("POST", "/api/bots", { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot as { id: string; threadId: string };
   const sendAll = () => heavy.move();
   const sameOnBoth = async (bot: { threadId: string }) => {
     const [here, there] = [await history(heavy.local, bot.threadId), await history(heavy.onCloud, bot.threadId)];

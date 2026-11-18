@@ -1,15 +1,15 @@
 // Set me up on a real Team Cloud, where a bot's main chat is the whole team's: the press is the presser's alone. Another
 // member's line in that chat runs as typed and leaves the request waiting; only the presser's next line sets the bot up,
-// and only they can stop it. The engine is the synthetic Claude CLI.
+// and only they can stop it. The engine is the synthetic pi CLI, whose launch log is a JSONL of launches and prompts.
 import { randomBytes } from "node:crypto";
-import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture, type CloudTeamFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { personKey } from "./person-key.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";`;
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";`;
 const OWNER = { email: "olive@acme.test", role: "owner" as const };
 const ADMIN = { email: "ben@acme.test", role: "admin" as const };
 const MEMBER = { email: "ada@acme.test", role: "member" as const };
@@ -30,22 +30,28 @@ afterAll(async () => {
   await fx?.close();
 });
 
-const dump = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { systemPrompt: string; prompt: unknown };
+/** The last turn the team's pi processes were given whose own words (the person's line as the turn saw it) hold `own`:
+ * its instructions in effect and those words, the retired Claude dump's systemPrompt and prompt. */
+const dump = (own: string) => {
+  const turns = piTurns(join(team.home, "dump.jsonl"));
+  const index = turns.findLastIndex((turn) => piTurnText(turn).includes(own));
+  expect(index, `no pi turn carried "${own}"`).toBeGreaterThanOrEqual(0);
+  return { systemPrompt: piInstructionsFor(turns, index), prompt: piTurnText(turns[index]!) };
+};
 const messages = async (token: string, threadId: string) => (await team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`)).body.messages as any[];
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ activity?: string; busy?: boolean }>)
   .every((entry) => entry.activity !== "working" && !entry.busy);
 const waiting = async (token: string, botId: string, threadId: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as any[])
   .find((entry) => entry.id === botId)?.tasks?.find((task: { threadId: string }) => task.threadId === threadId)?.setupRequest;
 async function turn(token: string, botId: string, threadId: string, text: string, editing?: string) {
-  rmSync(join(team.home, "dump.json"), { force: true });
   const before = (await messages(token, threadId)).length;
   const sent = editing
     ? await team.as(token, "POST", `/api/bots/${botId}/messages/${editing}/edit`, { text, threadId })
     : await team.as(token, "POST", `/api/bots/${botId}/messages`, { text, threadId });
   expect(sent.status, JSON.stringify(sent.body)).toBe(202);
-  await expect.poll(async () => await idle(token) && (await messages(token, threadId)).length >= before + 2 && existsSync(join(team.home, "dump.json")),
+  await expect.poll(async () => await idle(token) && (await messages(token, threadId)).length >= before + 2,
     { timeout: 60_000, interval: 100 }).toBe(true);
-  return dump();
+  return dump(text);
 }
 
 it("in the team's shared main chat, only the person who pressed Set me up sets the bot up, and only they can stop it", async () => {

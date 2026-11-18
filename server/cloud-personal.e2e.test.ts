@@ -5,14 +5,15 @@ import { createHash, randomBytes } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createInterface } from "node:readline";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns, type PiMcpConfig } from "./testing/pi-dump.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
 const HOST = "omb-t-0123456789ab.fly.dev";
@@ -48,7 +49,8 @@ async function adminPairing(): Promise<string> {
   const granted = await response.json() as { code: string };
   return (await api("POST", "/api/auth/pair", { body: { code: granted.code } })).body.token;
 }
-const held = () => join(home, "held.json");
+/** The fake pi's launch log: one row per process, one per prompt it is given. */
+const dump = () => piDumpPath(dataDir);
 let lastBusy = "";
 const proxies: ChildProcess[] = [];
 async function until(check: () => boolean | Promise<boolean>, what: string, timeout = 15_000) {
@@ -58,16 +60,28 @@ async function until(check: () => boolean | Promise<boolean>, what: string, time
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }
+/** A confined turn mounts no pi-native tool at all: its scope denies `native:*`. */
+const confined = (config: PiMcpConfig | null | undefined) => {
+  const deny = (config?.toolScope as { deny?: unknown } | undefined)?.deny;
+  return Array.isArray(deny) && deny.includes("native:*");
+};
+/** The level a turn ran at, in this suite's own words: pi carries the app's own level on the launch. */
+const modeOf = (config: PiMcpConfig | null | undefined) => config?.approvalMode ?? null;
+
+/** A turn `start` sets off, as the engine was given it: the level it ran at, the folder it ran in, and whether it was
+ * confined. The fake pi writes a prompt row once the turn's prompt reaches it, and that row names its own launch. */
 async function turn(start: () => Promise<unknown>) {
-  rmSync(held(), { force: true });
+  const before = piTurns(dump()).length;
   await start();
-  // The engine writes its dump as it starts: wait until it is whole.
-  let dump: any;
+  let found: { launch: NonNullable<ReturnType<typeof piTurns>[number]["launch"]> } | undefined;
   await until(() => {
-    try { dump = JSON.parse(readFileSync(held(), "utf8")); return true; } catch { return false; }
+    const next = piTurns(dump()).slice(before).find((candidate) => candidate.launch);
+    if (!next?.launch) return false;
+    found = { launch: next.launch };
+    return true;
   }, "a turn to start", 30_000);
-  const argv = dump.argv as string[];
-  return { mode: argv[argv.indexOf("--permission-mode") + 1], cwd: realpathSync(dump.cwd), restricted: argv.includes("--restricted") };
+  const launch = found!.launch;
+  return { mode: modeOf(launch.mcpConfig), cwd: realpathSync(launch.cwd!), restricted: confined(launch.mcpConfig) };
 }
 const idle = (bot: { id: string }, token?: string) => until(async () =>
   (await api("GET", "/api/bots", { token })).body.bots.find((candidate: any) => candidate.id === bot.id)?.busy === false, "the bot to settle");
@@ -80,6 +94,9 @@ async function boot(asCloud: boolean) {
     cwd: join(SERVER_DIR, ".."),
     env: {
       PATH: process.env.PATH, HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+      // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+      // writes its launch log to (server/testing/pi-dump.ts). The box has its own suites (server/bot-box/*.linux.test.ts).
+      OMB_BOT_BOX: "0",
       ...(asCloud ? {
         OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
         OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
@@ -104,18 +121,16 @@ beforeAll(async () => {
   dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(project(), { recursive: true });
-  const cli = join(home, "held-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") { console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" })); process.exit(0); }
-process.env.FAKE_CLAUDE_VERSION = "2.1.284";
-if (process.argv[2] !== "--version") { process.env.FAKE_CLAUDE_DUMP = ${JSON.stringify(held())}; process.env.FAKE_CLAUDE_MODE = "hang"; }
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
+  // Every turn holds until the test stops it, so its launch and prompt can be read while it runs.
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi", "claude"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      held: { driver: "claudeAgent", displayName: "Held", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli }, environment: {
+      FAKE_PI_DUMP: dump(), FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MODE: "hang",
+      // Mount the turn's MCP servers through the real extension at boot: a confined launch must leave its
+      // scope-ready receipt or the driver never sends the prompt.
+      FAKE_PI_MOUNT_TOOLS: "1",
+    } } },
   }));
   port = await freePortBlock([0, 1]);
   base = `http://127.0.0.1:${port}`;
@@ -131,7 +146,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   before.deviceId = (await api("GET", "/api/auth/session", { token: before.device })).body.id;
   before.chatOnly = await pair(["client"]);
   const newBot = async (name: string) => {
-    const bot = (await api("POST", "/api/bots", { token: before.device, body: { name, modelSelection: { instanceId: "held", model: "claude-sonnet-5" } } })).body.bot;
+    const bot = (await api("POST", "/api/bots", { token: before.device, body: { name, modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
     expect((await api("PATCH", `/api/bots/${bot.id}`, { token: before.device, body: { cwd: project(), approvalMode: "auto" } })).status).toBe(200);
     return bot as { id: string; threadId: string };
   };
@@ -181,7 +196,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
     await api("POST", `/api/bots/${before.bot.id}/interrupt`, { token: before.device, body: { threadId } });
     await idle(before.bot, before.device);
   }
-  before.full = (await api("POST", "/api/bots", { token: before.device, body: { name: "Full bot", modelSelection: { instanceId: "held", model: "claude-sonnet-5" } } })).body.bot;
+  before.full = (await api("POST", "/api/bots", { token: before.device, body: { name: "Full bot", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
   // A routine the bot made for itself in the owner's conversation (it applies
   // at once; answering its receipt again changes nothing).
   const asking = (await api("POST", `/api/bots/${before.bot.id}/tasks`, { token: before.device, body: { title: "Schedule it" } })).body.task.threadId;
@@ -248,9 +263,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-cl
   await boot(true);
 }, 120_000);
 
-/** `dump`: this turn's own engine dump; every held engine writes the one file, so another bot's turn can replace it. */
-async function agentTools(dump: any = JSON.parse(readFileSync(held(), "utf8"))) {
-  const agents = dump.mcpConfig.mcpServers.agents;
+/** `config`: this turn's own launch config; the newest turn's is the one under test unless a caller names its own. */
+async function agentTools(config: PiMcpConfig | null | undefined = piTurns(dump()).at(-1)?.launch?.mcpConfig) {
+  const agents = config!.mcpServers!.agents! as { command: string; args: string[]; env: Record<string, string> };
   const proxy = spawn(agents.command, agents.args, { env: { PATH: process.env.PATH, HOME: home, ...agents.env }, stdio: ["pipe", "pipe", "pipe"] });
   proxies.push(proxy);
   const replies = new Map<number, (value: any) => void>();
@@ -316,7 +331,7 @@ it("the owner's room turn runs at the bot's own level, whichever of its conversa
   expect((await api("POST", `/api/groups/${room.id}/interrupt`, { token: owner, body: {} })).status).toBe(200);
   await idle(before.roomBot, owner);
   const theirs = await turn(async () => expect((await api("POST", `/api/bots/${before.roomBot.id}/messages`, { token: owner, body: { text: "Hello.", threadId: before.theirs } })).status).toBe(202));
-  expect(theirs.mode).toBe("default");
+  expect(theirs.mode).toBe("ask");
   expect(theirs.cwd).not.toBe(realpathSync(project()));
   expect((await api("POST", `/api/bots/${before.roomBot.id}/interrupt`, { token: owner, body: { threadId: before.theirs } })).status).toBe(200);
 }, 60_000);
@@ -410,7 +425,7 @@ it("routines fail closed: one from before with no proof runs confined; one the o
     return again;
   };
   const old = await routineRun(before.routine);
-  expect(old.run).toMatchObject({ mode: "default", restricted: true });
+  expect(old.run).toMatchObject({ mode: "ask", restricted: true });
   expect(old.run.cwd).not.toBe(realpathSync(project()));
   expect((await routineRun(before.approved)).run).toMatchObject({ mode: "auto", restricted: false });
   const mine = (await api("POST", "/api/routines", { token: owner, body: { name: "Mine", prompt: "Run the build script.", botId: before.bot.id,
@@ -421,7 +436,7 @@ it("routines fail closed: one from before with no proof runs confined; one the o
   expect((await api("PUT", "/api/config", { token: owner, body: { newBotDefaults: { profile: {}, memory: {}, skills: [], routines: [
     { name: "Templated", prompt: "Check the site.", schedule: { type: "interval", everyMinutes: 60, anchorAt: Date.now() + 3_600_000 }, enabled: false },
   ] } } })).status).toBe(200);
-  const templated = (await api("POST", "/api/bots", { token: owner, body: { name: "Templated bot", modelSelection: { instanceId: "held", model: "claude-sonnet-5" } } })).body.bot;
+  const templated = (await api("POST", "/api/bots", { token: owner, body: { name: "Templated bot", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
   expect((await api("PATCH", `/api/bots/${templated.id}`, { token: owner, body: { cwd: project(), approvalMode: "auto" } })).status).toBe(200);
   const routineId = (await api("GET", "/api/routines", { token: owner })).body.routines.find((candidate: any) => candidate.botId === templated.id).id;
   const made = await turn(async () => expect((await api("POST", `/api/routines/${routineId}/run`, { token: owner })).status).toBe(201));
@@ -577,18 +592,18 @@ it("a follow-up from the same conversation continues the teammate's thread inste
   // A teammate in the lead's own project folder: the owner's chat and the
   // teammate's work thread run there at the same time, as a bot's threads do
   // in one folder everywhere (desktop, headless server, Cloud home).
-  const writer = (await api("POST", "/api/bots", { token: owner, body: { name: "Writer", modelSelection: { instanceId: "held", model: "claude-sonnet-5" } } })).body.bot;
+  const writer = (await api("POST", "/api/bots", { token: owner, body: { name: "Writer", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
   expect((await api("PATCH", `/api/bots/${writer.id}`, { token: owner, body: { cwd: project() } })).status).toBe(200);
   const bots = async () => (await api("GET", "/api/bots", { token: owner })).body.bots as any[];
   const writerTasks = async () => (await bots()).find((bot) => bot.id === writer.id).tasks as any[];
   const opened = (await writerTasks()).length;
   const send = async (text: string, message: string) => {
     expect((await turn(async () => expect((await api("POST", `/api/bots/${before.lead.id}/messages`, { token: owner, body: { text, threadId: chat } })).status).toBe(202))).cwd).toBe(realpathSync(project()));
-    // The lead's own tools, from its own turn's dump: the writer's engine writes the same file and can start meanwhile.
-    let lead: any;
+    // The lead's own tools, from its own turn's launch: the writer's turn can start meanwhile.
+    let lead: PiMcpConfig | null | undefined;
     await until(() => {
-      try { lead = JSON.parse(readFileSync(held(), "utf8")); } catch { return false; }
-      return JSON.stringify(lead.prompt ?? "").includes(text);
+      lead = piTurns(dump()).findLast((candidate) => candidate.prompt.includes(text))?.launch?.mcpConfig;
+      return Boolean(lead);
     }, "the lead's turn to start", 30_000);
     const result = await (await agentTools(lead))("coordinate_bots", { bot_ids: [writer.id], message });
     expect(JSON.stringify(result)).not.toContain("isError\":true");
@@ -597,10 +612,10 @@ it("a follow-up from the same conversation continues the teammate's thread inste
   const first = await send("Get the writer drafting.", "Draft the launch post.");
   expect(first).toMatchObject({ outcome: "queued", threadId: expect.any(String) });
   await until(async () => (await writerTasks()).find((task) => task.threadId === first.threadId)?.busy === true, "the writer to start");
-  // Every held engine writes the one dump: wait for the writer's, so turn() below cannot read it as the lead's.
-  const engine = () => { try { return JSON.parse(readFileSync(held(), "utf8")); } catch { return undefined; } };
-  await until(() => JSON.stringify(engine()?.prompt ?? "").includes("Draft the launch post"), "the writer's engine to start");
-  expect(realpathSync(engine().cwd)).toBe(realpathSync(project()));
+  // Every turn lands in one log: wait for the writer's, so turn() below cannot read it as the lead's.
+  const engine = () => piTurns(dump()).findLast((candidate) => candidate.prompt.includes("Draft the launch post"))?.launch;
+  await until(() => Boolean(engine()), "the writer's engine to start");
+  expect(realpathSync(engine()!.cwd!)).toBe(realpathSync(project()));
   expect((await writerTasks()).find((task) => task.threadId === first.threadId)?.cwd).toBe(project());
   expect((await bots()).find((bot) => bot.id === before.lead.id)?.tasks.find((task: any) => task.threadId === chat)).toMatchObject({ busy: true, cwd: project() });
   expect((await api("POST", `/api/bots/${before.lead.id}/interrupt`, { token: owner, body: { threadId: chat } })).status).toBe(200);

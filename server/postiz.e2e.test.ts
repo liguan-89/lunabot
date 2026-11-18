@@ -2,15 +2,23 @@
 // both ways of connecting end to end, the bot's turn gets the postiz tools and calls one, the token and the key reach
 // Postiz and nothing else (no answer, transcript, prompt, log or data file), a refused key or address is said plainly,
 // a revoked credential shows as such, and disconnecting takes the tools away.
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
 import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
 import { FAKE_POSTIZ_KEY, startFakePostiz, type FakePostiz } from "./testing/fake-postiz.ts";
+import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
-type Dump = { prompt?: string; systemPrompt: string | null; mcpConfig: { mcpServers: Record<string, { url?: string; alwaysLoad?: boolean }> } };
+type Mounted = { url?: string; alwaysLoad?: boolean; command?: string; args?: string[]; env?: Record<string, string> };
+type Dump = { prompt: string; systemPrompt: string; mcpConfig: { mcpServers: Record<string, Mounted> } };
+/** pi mounts a URL server behind the remote proxy, which carries the address (and the token) in its own environment. */
+const mountedUrl = (server: Mounted | undefined) => {
+  const spec = server?.env?.OMB_REMOTE_MCP_SERVER;
+  if (!spec) return undefined;
+  try { return (JSON.parse(spec) as { url?: string }).url; } catch { return undefined; }
+};
 
 let cloud: FakePostiz;
 let own: FakePostiz;
@@ -35,13 +43,21 @@ const newBot = async (name: string): Promise<{ id: string; threadId: string }> =
   return created.body.bot;
 };
 
-/** One turn of the bot with these scripted tool calls, and what the engine was given for it. */
+/** One turn of the bot with these scripted tool calls, and what the engine was given for it: the pi log's launch line
+ * carries the servers it mounted, and its prompt row the words and instructions in effect. */
 async function turn(botId: string, calls: unknown[]): Promise<Dump> {
   writeFileSync(toolCalls(), JSON.stringify(calls));
-  rmSync(fixture.fixtureDumpPath, { force: true });
+  const dumpPath = piDumpPath(fixture.info.dataDir);
+  const since = piTurns(dumpPath).length;
   await control(["send", "--bot", botId, "--text", "Draft a post about our launch."]);
-  await expect.poll(() => existsSync(fixture.fixtureDumpPath), { timeout: 20_000 }).toBe(true);
-  const dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")) as Dump;
+  await expect.poll(() => piTurns(dumpPath).length > since, { timeout: 20_000 }).toBe(true);
+  const turns = piTurns(dumpPath);
+  const index = turns.length - 1;
+  const dump: Dump = {
+    prompt: turns[index]!.prompt,
+    systemPrompt: piInstructionsFor(turns, index),
+    mcpConfig: { mcpServers: (turns[index]!.launch?.mcpConfig?.mcpServers ?? {}) as Record<string, { url?: string; alwaysLoad?: boolean }> },
+  };
   expect(await control(["wait", "--bot", botId, "--timeout", "40"])).toMatchObject({ status: "settled" });
   return dump;
 }
@@ -54,7 +70,7 @@ function filesHolding(secret: string): string[] {
       const path = join(dir, name);
       const stat = statSync(path);
       if (stat.isDirectory()) walk(path);
-      else if (stat.isFile() && stat.size < 20_000_000 && path !== fixture.fixtureDumpPath && readFileSync(path).includes(secret)) found.push(relative(fixture.info.dataDir, path));
+      else if (stat.isFile() && stat.size < 20_000_000 && path !== piDumpPath(fixture.info.dataDir) && readFileSync(path).includes(secret)) found.push(relative(fixture.info.dataDir, path));
     }
   };
   walk(fixture.info.dataDir);
@@ -69,7 +85,8 @@ beforeAll(async () => {
   own = await startFakePostiz();
   scratch = mkdtempSync(join(tmpdir(), "omb-postiz-e2e-"));
   writeFileSync(join(scratch, "tool-calls.json"), "[]");
-  fixture = await launchVerificationServer({ ...process.env, OMB_POSTIZ_CLOUD_URL: cloud.url, FAKE_CLAUDE_TOOL_CALLS_FILE: join(scratch, "tool-calls.json") });
+  // The fake pi's compatibility turns run the scripted calls a tool-calls file lists before they reply.
+  fixture = await launchVerificationServer({ ...process.env, OMB_POSTIZ_CLOUD_URL: cloud.url, FAKE_PI_CLAUDE_COMPAT: "1", FAKE_PI_MOUNT_TOOLS: "1", FAKE_PI_TOOL_CALLS_FILE: join(scratch, "tool-calls.json") });
 }, 60_000);
 
 afterAll(async () => {
@@ -104,9 +121,10 @@ it("signs in with Postiz Cloud, gives the bot the postiz tools behind a hidden t
   expect(token).toMatch(/^pos_/u);
 
   const bot = await newBot("Buzz");
-  const mounted = await turn(bot.id, [{ server: "postiz", name: "schedulePostTool", input: draft }]);
-  expect(mounted.mcpConfig.mcpServers.postiz).toMatchObject({ url: signInUrl });
-  // A third-party server: Claude Code loads its tools on demand through tool search.
+  // pi names a mounted tool `<server>_<tool>`; a scripted call names that tool, so it runs through the mounted server.
+  const mounted = await turn(bot.id, [{ server: "postiz", name: "postiz_scheduleposttool", input: draft }]);
+  expect(mountedUrl(mounted.mcpConfig.mcpServers.postiz)).toBe(signInUrl);
+  // A third-party server keeps its native connection: pi mounts its tools directly, with no load-on-demand flag.
   expect(mounted.mcpConfig.mcpServers.postiz?.alwaysLoad).toBeUndefined();
   expect(cloud.calls).toEqual([{ name: "schedulePostTool", arguments: draft, authorization: `Bearer ${token}` }]);
   const messages = JSON.stringify((await api("GET", `/api/threads/${bot.threadId}/messages?limit=50`)).body);
@@ -154,8 +172,8 @@ it("connects a person's own Postiz with an API key, refuses a wrong key or addre
   expect((await api("POST", "/api/mcp/servers/postiz/test")).body).toMatchObject({ ok: true });
 
   const bot = await newBot("Buzz with a key");
-  const mounted = await turn(bot.id, [{ server: "postiz", name: "schedulePostTool", input: draft }]);
-  expect(mounted.mcpConfig.mcpServers.postiz).toMatchObject({ url: `${own.url}/mcp` });
+  const mounted = await turn(bot.id, [{ server: "postiz", name: "postiz_scheduleposttool", input: draft }]);
+  expect(mountedUrl(mounted.mcpConfig.mcpServers.postiz)).toBe(`${own.url}/mcp`);
   expect(own.calls).toEqual([{ name: "schedulePostTool", arguments: draft, authorization: `Bearer ${FAKE_POSTIZ_KEY}` }]);
   expect(cloud.calls.length).toBe(1);
   const messages = JSON.stringify((await api("GET", `/api/threads/${bot.threadId}/messages?limit=50`)).body);

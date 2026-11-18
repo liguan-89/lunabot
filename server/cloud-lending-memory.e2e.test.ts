@@ -289,6 +289,10 @@ beforeAll(async () => {
       env: {
         PATH: process.env.PATH, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
         HOME: dataDir(), USERPROFILE: dataDir(), OMB_DATA_DIR: dataDir(), OMB_TEST_MEMORY_GATE: "1", OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1),
+        // No bot box: a Cloud home boxes its turns on Linux, and the box hides the data folder this fixture's fake pi
+        // writes its launch log to (server/testing/pi-dump.ts), which every turn here is read from. The box has its own
+        // suites (server/bot-box/*.linux.test.ts).
+        OMB_BOT_BOX: "0",
         OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
         OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
       },

@@ -49,7 +49,9 @@ describe("internal mac-app route", () => {
   });
 });
 
-describe("runMacApp", () => {
+// runMacApp answers "mac_app needs macOS" before it spawns anything, so the script-and-answer tests need a Mac; they
+// run on the macOS shard (host-tests) and are skipped where osascript cannot exist.
+describe.skipIf(process.platform !== "darwin")("runMacApp", () => {
   const execOk: MacAppExec = async () => ({ stdout: JSON.stringify([{ name: "a" }]), stderr: "" });
 
   it("parses the JXA JSON result and surfaces osascript errors", async () => {

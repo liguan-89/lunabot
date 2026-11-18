@@ -17,7 +17,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
-const FAKE_CLAUDE = join(SERVER_DIR, "testing", "fake-claude-cli.ts");
+const FAKE_PI = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
 const HOST = "omb-t-0123456789ab.fly.dev";
 const REMOTE = { host: HOST, "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" };
 const ENDPOINT = "https://fixture.openai.azure.com";
@@ -35,7 +35,7 @@ afterEach(async () => {
 });
 
 async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}) {
-  chmodSync(FAKE_CLAUDE, 0o755);
+  chmodSync(FAKE_PI, 0o755);
   const home = mkdtempSync(join(tmpdir(), "omb-live-azure-"));
   const dataDir = join(home, ".openmausbot");
   const fetches = join(home, "fetches.log");
@@ -43,10 +43,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
   mkdirSync(join(home, "web"));
   writeFileSync(join(home, "web", "index.html"), "<!doctype html><title>Luna Bot</title>");
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", config: { cli: FAKE_CLAUDE, permissionMode: "bypassPermissions" } },
-    },
+    instances: { pi: { driver: "piAgent", config: { cli: FAKE_PI } } },
     live: { provider: "azure", azureEndpoint: ENDPOINT, azureDeployment: "fixture-dep", key: "fixture-not-a-key", keyFor: "azure:fixture.openai.azure.com" },
     // There to fall back on: a refused caller must not get a call through OpenAI instead.
     openai: { key: "fixture-not-a-key-either" },
@@ -99,7 +96,7 @@ async function boot(env: NodeJS.ProcessEnv, config: Record<string, unknown> = {}
     return redeem(granted.code);
   };
   const newBot = async (headers: Headers = {}) => {
-    const created = await call("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "claude", model: "claude-fake" } }, headers);
+    const created = await call("POST", "/api/bots", { name: "Ada", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } }, headers);
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     return created.body.bot.id as string;
   };
@@ -151,8 +148,10 @@ it("on a self-hosted server with a sign-in list: an admin's session gets through
   expect(await s.start(botId, admin)).toEqual(THROUGH);
 }, 90_000);
 
+// A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a tmpfs
+// and hides the fake pi's dump; the box has its own suites, so it stays off in these two boots.
 it("on a person's own Cloud: their session gets through, a bot's shell does not", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "home", ...CLOUD_ENV });
+  const s = await boot({ OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", ...CLOUD_ENV });
   const owner = await s.signedSession();
   const botId = await s.newBot(owner);
   expect(await s.start(botId, owner)).toEqual(THROUGH);
@@ -162,7 +161,7 @@ it("on a person's own Cloud: their session gets through, a bot's shell does not"
 }, 90_000);
 
 it("on a Team Cloud: a Super admin and an Admin get through; a User is refused in plain words, on the app or their phone, and a bot's shell does not get through", async () => {
-  const s = await boot({ OMB_CLOUD_ROLE: "team", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
+  const s = await boot({ OMB_CLOUD_ROLE: "team", OMB_BOT_BOX: "0", OMB_CLOUD_TEAM_ID: TEAM.id, OMB_CLOUD_TEAM_NAME: TEAM.name, ...CLOUD_ENV });
   const session = (email: string, role: string) => s.signedSession({ team: TEAM, member: { email, role } });
   const owner = await session("olive@acme.test", "owner");
   const admin = await session("ben@acme.test", "admin");

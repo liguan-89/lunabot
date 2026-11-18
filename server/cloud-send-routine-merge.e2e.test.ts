@@ -38,7 +38,7 @@ async function changed(side: Side, id: string, text: string) {
 
 it("a routine changed on both sides is one routine with the definition changed last and both sides' runs; the check passes, and runs made here later never undo My Cloud's", async () => {
   const { local, onCloud } = fx;
-  const nova = (await local("POST", "/api/bots", { name: "Nova", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot as { id: string; threadId: string };
+  const nova = (await local("POST", "/api/bots", { name: "Nova", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } })).body.bot as { id: string; threadId: string };
   const add = async (name: string) => {
     const made = (await local("POST", "/api/routines", { name, prompt: `${name}.`, botId: nova.id, schedule: { type: "daily", time: "09:00", weekdays: [1, 2, 3, 4, 5] }, durationMinutes: 15 })).body;
     return (made.routine ?? made).id as string;

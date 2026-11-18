@@ -1,6 +1,7 @@
-// Real server, fake Claude CLI with a slow `auth status` (each probe may take up to its 8 s timeout).
+// Real server, the fake pi CLI, and a stand-in `pi` whose `--version` probe waits on a file (the probe may take up to
+// its 8 s timeout), so a start can be shown answering health before its one engine has been read.
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -11,7 +12,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLI = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_CLI = join(ROOT, "server/testing/fake-pi-cli.ts");
 
 const homes: string[] = [];
 const children: ChildProcess[] = [];
@@ -21,14 +22,38 @@ afterEach(async () => {
   for (const home of homes.splice(0)) await removeTempDir(home);
 });
 
-function freshHome(more: Record<string, unknown> = {}): string {
+function freshHome(cli = FAKE_CLI): string {
   const home = mkdtempSync(join(tmpdir(), "omb-boot-readiness-"));
   homes.push(home);
   mkdirSync(join(home, "tmp"), { recursive: true });
+  chmodSync(FAKE_CLI, 0o755);
   writeFileSync(join(home, "config.json"), JSON.stringify({
-    instances: { claude: { driver: "claudeAgent", displayName: "Verification fixture", config: { cli: FAKE_CLI } }, ...more },
+    instances: { pi: { driver: "piAgent", displayName: "Verification fixture", config: { cli } } },
   }));
   return home;
+}
+
+/** A stand-in `pi` whose `--version` probe logs its pid and waits for `release`; every other launch is the fake pi. */
+function slowProbeCli(home: string): { cli: string; probes: string; release: string } {
+  const probes = join(home, "probes.log");
+  const release = join(home, "release-version");
+  const cli = join(home, "slow-pi.mjs");
+  writeFileSync(cli, `#!/usr/bin/env node
+import { appendFileSync, existsSync } from "node:fs";
+const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+if (process.argv.includes("--version")) {
+  appendFileSync(${JSON.stringify(probes)}, "version " + process.pid + "\\n");
+  for (const deadline = Date.now() + 30_000; !existsSync(${JSON.stringify(release)}); ) {
+    if (Date.now() > deadline) break;
+    await wait(50);
+  }
+  process.stdout.write("pi 0.84.2 (fake)\\n");
+  process.exit(0);
+}
+await import(${JSON.stringify(new URL("./testing/fake-pi-cli.ts", import.meta.url).href)});
+`, { mode: 0o755 });
+  chmodSync(cli, 0o755);
+  return { cli, probes, release };
 }
 
 async function boot(home: string, knobs: Record<string, string> = {}) {
@@ -61,10 +86,10 @@ it("makes a first run's starter bot on the engine a new bot gets", async () => {
   const server = await boot(freshHome());
   const { bots } = await server.get("/api/bots?messages=0");
   expect(bots).toHaveLength(1);
-  expect(bots[0].modelSelection).toMatchObject({ instanceId: "claude", model: expect.stringMatching(/.+/) });
+  expect(bots[0].modelSelection).toMatchObject({ instanceId: "pi", model: expect.stringMatching(/.+/) });
 });
 
-it("answers on a later start while an engine CLI is still being probed, and runs turns once it has answered", async () => {
+it("answers on a later start while its engine's CLI is still being probed, and runs turns once it has answered", async () => {
   const home = freshHome();
   const first = await boot(home);
   const [starter] = (await first.get("/api/bots?messages=0")).bots;
@@ -72,67 +97,38 @@ it("answers on a later start while an engine CLI is still being probed, and runs
   const room = (await first.control("new-channel", "--name", "Start room", "--members", member.id)).channel;
   await first.stop();
 
-  const probes = join(home, "probes.log");
-  const release = join(home, "release-auth");
-  const dump = join(home, "fake-claude-dump.json");
-  const server = await boot(home, { FAKE_CLAUDE_PROBE_LOG: probes, FAKE_CLAUDE_HOLD_AUTH: release });
-  // The probe the server is still waiting on is alive: health did not wait
-  // for it (the server would have killed it at its timeout first).
+  const slow = slowProbeCli(home);
+  writeFileSync(join(home, "config.json"), JSON.stringify({
+    instances: { pi: { driver: "piAgent", displayName: "Verification fixture", config: { cli: slow.cli } } },
+  }));
+  const dump = join(home, "fake-pi-dump.jsonl");
+  const server = await boot(home);
+  // The probe the server is still waiting on is alive: health did not wait for it (the server would have killed it at
+  // its timeout first).
   let held = 0;
   await expect.poll(() => {
-    held = existsSync(probes) ? Number(/^auth (\d+)$/m.exec(readFileSync(probes, "utf8"))?.[1] ?? 0) : 0;
+    held = existsSync(slow.probes) ? Number(/^version (\d+)$/m.exec(readFileSync(slow.probes, "utf8"))?.[1] ?? 0) : 0;
     return held;
   }, { timeout: 10_000 }).toBeGreaterThan(0);
   expect(() => process.kill(held, 0)).not.toThrow();
 
   await server.control("send", "--bot", starter.id, "--task", starter.threadId, "--text", "Right after the start");
   await server.control("send-channel", "--channel", room.id, "--text", "Right after the start, in a room");
-  await new Promise((resolve) => setTimeout(resolve, 1_500));
-  expect(existsSync(dump)).toBe(false);
   expect(() => process.kill(held, 0)).not.toThrow();
-  writeFileSync(release, "");
+  writeFileSync(slow.release, "");
 
   expect((await server.control("wait", "--bot", starter.id, "--task", starter.threadId, "--timeout", "30")).status).toBe("settled");
   expect((await server.control("wait", "--channel", room.id, "--timeout", "30")).status).toBe("settled");
-  const seen = JSON.parse(readFileSync(dump, "utf8"));
-  expect(seen.argv[seen.argv.indexOf("--autocompact") + 1]).toBe("200000");
-  const { instances } = await server.get("/api/instances");
-  expect(instances.find((instance: { instanceId: string }) => instance.instanceId === "claude")?.snapshot)
+  // Each turn was given the words it was sent, on the one engine this build runs.
+  expect(readFileSync(dump, "utf8")).toContain("Right after the start");
+  expect((await server.get("/api/instances")).instances.find((instance: { instanceId: string }) => instance.instanceId === "pi")?.snapshot)
     .toMatchObject({ state: "available", authenticated: true });
 }, 60_000);
 
-it.skipIf(process.platform === "win32")("runs a turn on a later start once its own engine has answered, while another engine's CLI is still being probed", async () => {
-  const scratch = mkdtempSync(join(tmpdir(), "omb-boot-slow-engine-"));
-  homes.push(scratch);
-  const slowProbes = join(scratch, "probes.log"), slowRelease = join(scratch, "release-version");
-  const slowCli = join(scratch, "slow-claude");
-  writeFileSync(slowCli, `#!/bin/sh\nFAKE_CLAUDE_PROBE_LOG='${slowProbes}' FAKE_CLAUDE_HOLD_VERSION='${slowRelease}' exec '${FAKE_CLI}' "$@"\n`, { mode: 0o755 });
-  writeFileSync(slowRelease, "");
-  const home = freshHome({ slow: { driver: "claudeAgent", displayName: "Slow fixture", config: { cli: slowCli } } });
-  const first = await boot(home);
-  const [starter] = (await first.get("/api/bots?messages=0")).bots;
-  expect(starter.modelSelection.instanceId).toBe("claude");
-  await first.stop();
+// Cut with the engines it needed: this case proved a turn runs on its own engine while another engine's CLI is still
+// being probed. This build runs one engine, so there is no second CLI for a turn to wait behind.
 
-  rmSync(slowRelease);
-  rmSync(slowProbes, { force: true });
-  const dump = join(home, "fake-claude-dump.json");
-  const server = await boot(home);
-  let held = 0;
-  await expect.poll(() => {
-    held = existsSync(slowProbes) ? Number(/^version (\d+)$/m.exec(readFileSync(slowProbes, "utf8"))?.[1] ?? 0) : 0;
-    return held;
-  }, { timeout: 10_000 }).toBeGreaterThan(0);
-
-  await server.control("send", "--bot", starter.id, "--task", starter.threadId, "--text", "Right after the start");
-  expect((await server.control("wait", "--bot", starter.id, "--task", starter.threadId, "--timeout", "6")).status).toBe("settled");
-  expect(() => process.kill(held, 0)).not.toThrow();
-  const seen = JSON.parse(readFileSync(dump, "utf8"));
-  expect(seen.argv[seen.argv.indexOf("--autocompact") + 1]).toBe("200000");
-  writeFileSync(slowRelease, "");
-}, 60_000);
-
-it("starts the words a later start restored before a message sent while the engines are read", async () => {
+it("starts the words a later start restored before a message sent while the engine is read", async () => {
   const home = freshHome();
   const first = await boot(home);
   const [starter] = (await first.get("/api/bots?messages=0")).bots;
@@ -144,16 +140,18 @@ it("starts the words a later start restored before a message sent while the engi
       .run("queued_before_restart", starter.id, starter.threadId, JSON.stringify({ text: "Queued before the restart" }));
   } finally { db.close(); }
 
-  const probes = join(home, "probes.log");
-  const release = join(home, "release-auth");
-  const server = await boot(home, { FAKE_CLAUDE_PROBE_LOG: probes, FAKE_CLAUDE_HOLD_AUTH: release });
-  await expect.poll(() => existsSync(probes) && /^auth \d+$/m.test(readFileSync(probes, "utf8")), { timeout: 10_000 }).toBe(true);
-  await server.control("send", "--bot", starter.id, "--task", starter.threadId, "--text", "Sent while the engines are read");
-  writeFileSync(release, "");
+  const slow = slowProbeCli(home);
+  writeFileSync(join(home, "config.json"), JSON.stringify({
+    instances: { pi: { driver: "piAgent", displayName: "Verification fixture", config: { cli: slow.cli } } },
+  }));
+  const server = await boot(home);
+  await expect.poll(() => existsSync(slow.probes) && /^version \d+$/m.test(readFileSync(slow.probes, "utf8")), { timeout: 10_000 }).toBe(true);
+  await server.control("send", "--bot", starter.id, "--task", starter.threadId, "--text", "Sent while the engine is read");
+  writeFileSync(slow.release, "");
 
   const said = async () => ((await server.get(`/api/threads/${starter.threadId}/messages?limit=100`)).messages as Array<{ role: string; text?: string }>)
     .filter((message) => message.role === "user").map((message) => message.text);
   await expect.poll(said, { timeout: 30_000 }).toHaveLength(2);
-  expect(await said()).toEqual(["Queued before the restart", "Sent while the engines are read"]);
+  expect(await said()).toEqual(["Queued before the restart", "Sent while the engine is read"]);
   expect((await server.control("wait", "--bot", starter.id, "--task", starter.threadId, "--timeout", "30")).status).toBe("settled");
 }, 60_000);

@@ -1,8 +1,9 @@
-// Real server, two fake Claude accounts: the first one's test message fails. One miss moves nothing; a second (here
-// the person's own Check again) moves the new-bot default and the first bot to the one that answered, and a restart
-// keeps what was learned. A saved default is never tested or moved.
+// Real server, one AI: pi. This build runs a single agent and the pi driver has no one-shot text call, so a test message
+// cannot be sent at all: the AI's test is recorded as untestable, nothing moves (there is nothing to move to), a restart
+// keeps that record, and a saved default is never tested. The "one miss, then the AI that answered" behaviour that needed
+// two engines is covered by server/tested-ai.test.ts with stub engines.
 import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,7 +13,7 @@ import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLI = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 
 const homes: string[] = [];
 const children: ChildProcess[] = [];
@@ -22,19 +23,12 @@ afterEach(async () => {
   for (const home of homes.splice(0)) await removeTempDir(home);
 });
 
-/** `claude`'s connection check fails; `spare`'s answers. */
 function freshHome(extra: Record<string, unknown> = {}): string {
   const home = mkdtempSync(join(tmpdir(), "omb-tested-ai-"));
   homes.push(home);
   mkdirSync(join(home, "tmp"), { recursive: true });
-  mkdirSync(join(home, "spare-claude"), { recursive: true });
   writeFileSync(join(home, "config.json"), JSON.stringify({
-    instances: {
-      claude: { driver: "claudeAgent", displayName: "Silent Claude", config: { cli: FAKE_CLI },
-        environment: { FAKE_CLAUDE_CHECK: "fail", FAKE_CLAUDE_CHECK_LOG: join(home, "claude-checks.jsonl") } },
-      spare: { driver: "claudeAgent", displayName: "Spare Claude", config: { cli: FAKE_CLI, configDir: join(home, "spare-claude") },
-        environment: { FAKE_CLAUDE_CHECK_LOG: join(home, "spare-checks.jsonl") } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI } } },
     ...extra,
   }));
   return home;
@@ -64,44 +58,35 @@ async function boot(home: string) {
     expect(response.ok, `${method} ${path}`).toBe(true);
     return response.json() as Promise<any>;
   };
-  const sent = (instance: string) => existsSync(join(home, `${instance}-checks.jsonl`))
-    ? readFileSync(join(home, `${instance}-checks.jsonl`), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line).prompt as string) : [];
   const tests = async () => Object.fromEntries(((await api("GET", "/api/instances")).instances as Array<{ instanceId: string; aiTest?: string }>)
-    .filter((instance) => instance.instanceId === "claude" || instance.instanceId === "spare")
+    .filter((instance) => instance.instanceId === "pi")
     .map((instance) => [instance.instanceId, instance.aiTest ?? null]));
   const starter = async () => ((await api("GET", "/api/bots?messages=0")).bots as Array<{ chiefOfStaff?: boolean; modelSelection: { instanceId: string } }>)
     .find((bot) => bot.chiefOfStaff)!;
   const stop = () => waitForExit(child, { signal: "SIGTERM" });
-  return { api, sent, tests, starter, stop };
+  return { api, tests, starter, stop };
 }
 
-it("moves nothing on one miss, then the default and the untouched first bot to the AI that answered, and remembers it", async () => {
+it("records the one AI's test as untestable, moves nothing, and remembers that across a restart", async () => {
   const home = freshHome();
   const server = await boot(home);
-  await expect.poll(server.tests, { timeout: 30_000, interval: 250 }).toEqual({ claude: "failed", spare: null });
-  expect(server.sent("claude")).toEqual(["This is a connection check. Reply with the single word OK."]);
-  const failed = (await server.api("GET", "/api/instances")).instances.find((instance: { instanceId: string }) => instance.instanceId === "claude");
-  expect(failed.aiTestError).toEqual(expect.any(String));
-  expect((await server.starter()).modelSelection.instanceId).toBe("claude");
-  // The person's Check again misses too: twice in a row, so Claude didn't answer.
-  expect(await server.api("POST", "/api/instances/claude/check", {})).toMatchObject({ ok: false });
-  await expect.poll(server.tests, { timeout: 30_000, interval: 250 }).toEqual({ claude: "failed", spare: "passed" });
-  await expect.poll(async () => (await server.starter()).modelSelection.instanceId, { timeout: 10_000 }).toBe("spare");
+  await expect.poll(server.tests, { timeout: 30_000, interval: 250 }).toEqual({ pi: "untestable" });
+  // A check the person asks for reads the same: pi has no one-shot call to answer it.
+  expect(await server.api("POST", "/api/instances/pi/check", {})).toEqual({ ok: null });
+  expect((await server.starter()).modelSelection.instanceId).toBe("pi");
   const made = await server.api("POST", "/api/bots", { name: "Made after the test" });
-  expect(made.bot.modelSelection.instanceId).toBe("spare");
-  // A restart sends no new test message: the results are kept for a day.
+  expect(made.bot.modelSelection.instanceId).toBe("pi");
+  // A restart sends nothing and keeps the record.
   await server.stop();
   const again = await boot(home);
   await new Promise((resolve) => setTimeout(resolve, 3_000));
-  expect(await again.tests()).toEqual({ claude: "failed", spare: "passed" });
-  expect([again.sent("claude").length, again.sent("spare").length]).toEqual([2, 1]);
-  expect((await again.starter()).modelSelection.instanceId).toBe("spare");
+  expect(await again.tests()).toEqual({ pi: "untestable" });
+  expect((await again.starter()).modelSelection.instanceId).toBe("pi");
 }, 90_000);
 
 it("never tests or moves a saved default", async () => {
-  const server = await boot(freshHome({ defaultModelSelection: { instanceId: "claude", model: "claude-sonnet-5" } }));
+  const server = await boot(freshHome({ defaultModelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } }));
   await new Promise((resolve) => setTimeout(resolve, 3_000));
-  expect(await server.tests()).toEqual({ claude: null, spare: null });
-  expect(server.sent("claude")).toEqual([]);
-  expect((await server.starter()).modelSelection.instanceId).toBe("claude");
+  expect(await server.tests()).toEqual({ pi: null });
+  expect((await server.starter()).modelSelection.instanceId).toBe("pi");
 }, 60_000);

@@ -10,9 +10,16 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { launchCloudSendFixture, type CloudSendFixture } from "../scripts/testing/cloud-send-fixture.ts";
 import { markLeftBehind } from "./testing/cloud-left-behind.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 
+// The fixture runs pi with the retired Claude fixture's knobs on, so the plan file is still named the old way. pi raises
+// its own confirmation card for a prompt carrying APPROVE-ME (the retired fixture's `approve` plan step needed Claude's
+// permission-prompt tool, which pi has no counterpart for), and the plan below never sees that turn.
+const APPROVES = "APPROVE-ME";
 const ENGINE = `const dir = process.env.FAKE_CLAUDE_FIXTURE_DIR;
-process.env.FAKE_CLAUDE_ROOM_PLAN = dir + "/room-plan.json";`;
+process.env.FAKE_CLAUDE_ROOM_PLAN = dir + "/room-plan.json";
+process.env.FAKE_PI_PERMISSION_ON = ${JSON.stringify(APPROVES)};
+process.env.FAKE_PI_CONFIRM_TITLE = "Run bash: echo hi?";`;
 const TOKEN = `ops_fake-inbox-${randomBytes(8).toString("hex")}`;
 
 type Card = { requestId?: string; tool?: string; answered?: string };
@@ -39,6 +46,13 @@ function place(call: Call, home: () => string) {
     (plan[botId] ??= { script: [] }).script.push(...entries);
     writeFileSync(file(), JSON.stringify(plan));
   };
+  /** The pi log for this place: a confined turn carries its confinement in the tool scope, not a `--restricted` argv. */
+  const dump = () => join(home(), ".openmausbot", "fake-pi-dump.jsonl");
+  const confined = (marker: string) => {
+    const turn = piTurns(dump()).findLast((one) => one.prompt.includes(marker));
+    const deny = (turn?.launch?.mcpConfig?.toolScope as { deny?: string[] } | undefined)?.deny;
+    return deny?.includes("native:*") === true;
+  };
   const turns = (botId: string): Array<{ planKey?: string; threadId?: string; prompt: unknown }> => {
     const path = `${file()}.evidence.jsonl`;
     return existsSync(path) ? readFileSync(path, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)).filter((turn) => turn.botId === botId) : [];
@@ -49,7 +63,7 @@ function place(call: Call, home: () => string) {
   const notes = async () => ((await call("GET", "/api/notifications")).body.notifications ?? []) as Note[];
   const messages = async (threadId: string) => ((await call("GET", `/api/threads/${threadId}/messages?limit=200`)).body.messages ?? []) as Array<{ id: string; role: string; kind: string; text?: string; at: number; card?: Card; inbox?: unknown }>;
   const bot = async (name: string) => {
-    const created = await call("POST", "/api/bots", { name, modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } });
+    const created = await call("POST", "/api/bots", { name });
     expect(created.status, JSON.stringify(created.body)).toBe(201);
     expect((await call("PATCH", `/api/bots/${created.body.bot.id}`, { approvalMode: "ask", applyToAllThreads: true })).status).toBe(200);
     return created.body.bot as Bot;
@@ -63,7 +77,7 @@ function place(call: Call, home: () => string) {
     const sent = await call("POST", `/api/bots/${botId}/messages`, { text, threadId, ...more });
     expect(sent.status, JSON.stringify(sent.body)).toBe(202);
   };
-  return { script, turns, inbox, count, listed, notes, messages, bot, thread, say };
+  return { script, turns, confined, inbox, count, listed, notes, messages, bot, thread, say };
 }
 
 beforeAll(async () => {
@@ -92,10 +106,10 @@ describe.each([
     const pricing = await h.thread(eli.id, "Pricing work");
     const launch = await h.thread(eli.id, "Launch work");
     h.script(eli.id,
-      { key: "P1", match: ["P1-GO"], timeoutMs: 120_000, approve: { tool: "Bash", input: { command: "echo hi" } }, reply: "P1: approved and ran", replyIfDenied: "P1: denied" },
-      { key: "Q1", match: ["Q1-GO"], timeoutMs: 120_000, steps: [{ server: "ogb", tool: "ask_user", arguments: { question: "Which page?", choices: ["Home", "Pricing"] }, capture: { answer: "([\\s\\S]+)" } }], reply: "Q1: going with {{answer}}" });
+      { key: "Q1", match: ["Q1-GO"], timeoutMs: 120_000, steps: [{ server: "ogb", tool: "ask_user", arguments: { question: "Which page?", choices: ["Home", "Pricing"] }, capture: { answer: "A: ([\\s\\S]+)" } }], reply: "Q1: going with {{answer}}" });
     const before = (await h.notes()).length;
-    await h.say(eli.id, pricing, "P1-GO");
+    // pi's own confirm card holds the turn: the inbox lists it as an approval, and the person's Allow lets it run on.
+    await h.say(eli.id, pricing, APPROVES);
     await h.say(eli.id, launch, "Q1-GO");
 
     await until(async () => (await h.listed()).length === 2, "the approval and the question in the inbox");
@@ -114,7 +128,7 @@ describe.each([
     const call = role === "desktop" ? fx.local : fx.onCloud;
     const allowed = await call("POST", `/api/threads/${approval.origin!.threadId}/respond`, { requestId: approval.card!.requestId, behavior: "allow" });
     expect(allowed.status, JSON.stringify(allowed.body)).toBe(200);
-    await until(async () => (await h.messages(pricing)).some((line) => line.text === "P1: approved and ran"), "the approved turn to go on");
+    await until(async () => (await h.messages(pricing)).some((line) => line.role === "bot" && line.kind === "text" && line.text === "ok"), "the approved turn to go on");
     expect(await h.count()).toBe(1);
 
     const answered = await call("POST", `/api/threads/${question.origin!.threadId}/respond`, { requestId: question.card!.requestId, behavior: "answer", message: "Pricing" });
@@ -157,7 +171,7 @@ describe.each([
     h.script(mira.id,
       { key: "W1", match: ["W1-GO"], steps: [{ arguments: { bot_ids: [eli.id], message: "W1-BRIEF: pick the page." } }], reply: "W1: handed on" },
       { key: "W1-DONE", match: ["Your downstream room requests have settled.", "W1-GO"], reply: "W1-DONE" });
-    h.script(eli.id, { key: "W1-E", match: ["W1-BRIEF"], timeoutMs: 120_000, steps: [{ server: "ogb", tool: "ask_user", arguments: { question: "Which page for Mira?", choices: ["Home", "Pricing"] }, capture: { answer: "([\\s\\S]+)" } }], reply: "W1-E: {{answer}}" });
+    h.script(eli.id, { key: "W1-E", match: ["W1-BRIEF"], timeoutMs: 120_000, steps: [{ server: "ogb", tool: "ask_user", arguments: { question: "Which page for Mira?", choices: ["Home", "Pricing"] }, capture: { answer: "A: ([\\s\\S]+)" } }], reply: "W1-E: {{answer}}" });
     await h.say(mira.id, mira.threadId, "W1-GO");
     await until(async () => (await h.listed()).some((row) => row.from.name === eli.name && row.kind === "ask"), "the handed-on question in the inbox");
     const row = (await h.listed()).find((one) => one.from.name === eli.name && one.kind === "ask")!;
@@ -199,15 +213,18 @@ describe("on a Cloud someone else once used", () => {
     const zed = await h.bot("Zed");
     const theirs = await h.thread(zed.id, "Sam's work");
     const owners = await h.thread(zed.id, "My work");
+    // A confined turn mounts only the harness's own tools, and pi's ask_user is a native tool it may not have, so each
+    // ask here is pi's own confirmation dialog: the fixture raises one for a prompt carrying the approval marker.
     h.script(zed.id,
-      { key: "G1", match: ["G1-GO"], timeoutMs: 120_000, steps: [{ server: "agents", tool: "message_person", arguments: { message: "For the guest" } }, { server: "ogb", tool: "ask_user", arguments: { question: "Guest's question?", choices: ["A", "B"] }, capture: { answer: "([\\s\\S]+)" } }], reply: "G1: {{answer}}" },
-      { key: "G2", match: ["G2-GO"], timeoutMs: 120_000, steps: [{ server: "ogb", tool: "ask_user", arguments: { question: "Owner's question?", choices: ["A", "B"] }, capture: { answer: "([\\s\\S]+)" } }], reply: "G2: {{answer}}" },
+      { key: "G1", match: ["G1-GO"], timeoutMs: 120_000, steps: [{ server: "agents", tool: "message_person", arguments: { message: "For the guest" } }], reply: "G1: told them" },
       { key: "G3", match: ["G3-GO"], reply: "G3 done" });
 
     markLeftBehind(join(fx.root, "cloud", ".openmausbot"), { threadIds: [theirs] });
     await fx.relaunch({ cloud: {} });
     await h.say(zed.id, theirs, "G1-GO");
-    await h.say(zed.id, owners, "G2-GO");
+    await until(async () => (await h.messages(theirs)).some((line) => line.text === "G1: told them"), "the guest's first turn");
+    await h.say(zed.id, theirs, APPROVES);
+    await h.say(zed.id, owners, APPROVES);
     await until(async () => (await h.listed()).filter((row) => row.from.name === "Zed" && row.kind === "ask").length === 2, "both asks");
     const rows = await h.listed();
     const guests = rows.find((row) => row.origin?.threadId === theirs && row.kind === "ask")!;
@@ -218,12 +235,12 @@ describe("on a Cloud someone else once used", () => {
     expect(rows.some((row) => row.text === "For the guest"), "a guest's news isn't the owner's").toBe(false);
     expect((await h.notes()).some((note) => note.body === "For the guest")).toBe(false);
     // The owner's answer reaches the guest's turn, and the guest's conversation stays confined after it.
-    const answered = await fx.onCloud("POST", `/api/threads/${theirs}/respond`, { requestId: guests.card!.requestId, behavior: "answer", message: "A" });
+    const answered = await fx.onCloud("POST", `/api/threads/${theirs}/respond`, { requestId: guests.card!.requestId, behavior: "allow" });
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
-    await until(async () => (await h.messages(theirs)).some((line) => line.text === "G1: A"), "the guest's turn to go on");
+    await until(async () => (await h.messages(theirs)).some((line) => line.text === "ok"), "the guest's turn to go on");
     await h.say(zed.id, theirs, "G3-GO");
     await until(() => h.turns(zed.id).some((turn) => turn.planKey === "G3"), "a later turn in the guest's conversation");
-    const restricted = (key: string) => (h.turns(zed.id).find((turn) => turn.planKey === key) as { restricted?: boolean } | undefined)?.restricted;
-    expect([restricted("G1"), restricted("G3")]).toEqual([true, true]);
+    // The guest's turn, and a later turn in that same conversation, are both confined.
+    expect([h.confined("G1-GO"), h.confined("G3-GO")]).toEqual([true, true]);
   }, hostTimeout(420_000));
 });

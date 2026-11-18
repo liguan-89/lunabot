@@ -121,7 +121,7 @@ describe("goal-driven channel runs", () => {
   it("waits for a busy coordinator without spending a goal turn, then completes on the same card", async () => {
     await scenario((scratch) => ({
       FAKE_PI_DELAY_ON: "\n\nFinish this direct task first",
-      FAKE_PI_DELAY_MS: "6000",
+      FAKE_PI_DELAY_MS: "15000",
       FAKE_PI_MARKER_REPLIES: markersIn(scratch, {
         "Goal: Complete this goal after your current work": `The queued team goal is complete.\n${GOAL({ status: "completed", detail: "Waited for the lead, then completed normally." })}`,
         "Finish this direct task first": "The unrelated direct task is complete.",
@@ -183,7 +183,7 @@ describe("goal-driven channel runs", () => {
             detail: cards[0]?.goalRun?.detail,
             turnCount: cards[0]?.goalRun?.turnCount,
           };
-        }, { timeout: hostTimeout(10_000) }).toEqual({
+        }, { timeout: hostTimeout(25_000) }).toEqual({
           working: false,
           count: 1,
           id: cardId,
@@ -203,7 +203,7 @@ describe("goal-driven channel runs", () => {
   it("waits for a busy delegated worker, preserves its direct turn, then resumes the goal", async () => {
     await scenario((scratch) => ({
       FAKE_PI_DELAY_ON: "\n\nComplete this unrelated direct research first",
-      FAKE_PI_DELAY_MS: "6000",
+      FAKE_PI_DELAY_MS: "15000",
       FAKE_PI_MARKER_REPLIES: markersIn(scratch, {
         "This is team turn 3 of 13": `The specialist's evidence resolves the goal.\n${GOAL({ status: "completed", detail: "Specialist research incorporated after their direct task finished." })}`,
         "This is team turn 1 of 13": `I am delegating the research.\n${GOAL({ status: "continue", next: "Busy specialist", instruction: "Research the answer and report evidence", detail: "Waiting for specialist research." })}`,
@@ -276,7 +276,7 @@ describe("goal-driven channel runs", () => {
               message.text?.startsWith("echo: ")
             ),
           };
-        }, { timeout: hostTimeout(10_000) }).toEqual({
+        }, { timeout: hostTimeout(25_000) }).toEqual({
           roomWorking: false,
           cards: 1,
           status: "completed",

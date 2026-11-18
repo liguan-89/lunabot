@@ -1,6 +1,12 @@
 // Warm summaries end to end: the real server, the fake Claude Code. The fake's conversation grows 20k tokens a turn from
 // 110k and Claude Code's own compaction (at 162k, as measured on a Team trial) takes FAKE_CLAUDE_COMPACT_MS, standing in for
 // the 35-58 s a real one takes on Opus. Warm summaries run at 1/100 of their real delays (OMB_WARM_SUMMARY_TIME_SCALE).
+//
+// Skipped: this build runs pi only. Every case here drives a `claude` instance and reads Claude Code's own `/compact` on a
+// `--fork-session` fork (an argv and a session cursor pi has none of; pi's driver exposes no `cacheKeepWarm` at all), so
+// the setup fails with "model instance not found: claude" before a turn runs. Luna Bot's own fold for engines without
+// their own compaction, and the warm-summary scheduling around it, are covered by server/warm-summary.test.ts and
+// server/host/warm-summary-host.test.ts. Kept for the day an engine with its own compaction returns.
 import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -66,7 +72,7 @@ const record = (entry: Record<string, unknown>) => {
   appendFileSync(join(dir, "warm-summary-timings.jsonl"), `${JSON.stringify({ at: new Date().toISOString(), compactMs: COMPACT_MS, ...entry })}\n`);
 };
 
-it("before: the next turn waits for Claude Code to summarize a conversation past its point", () => fixture({ OMB_WARM_SUMMARY: "0" }, async (f) => {
+it.skip("before: the next turn waits for Claude Code to summarize a conversation past its point", () => fixture({ OMB_WARM_SUMMARY: "0" }, async (f) => {
   for (const text of ["MSG-1 build the landing page", "MSG-2 make the title bold", "MSG-3 and the subtitle"]) await f.send(text);
   await sleep(COMPACT_MS + 3_000);
   const before = await f.send("MSG-4 what changed?");
@@ -75,7 +81,7 @@ it("before: the next turn waits for Claude Code to summarize a conversation past
   expect(f.compactDump()).toBeNull();
 }), 120_000);
 
-it("after: the conversation is summarized while idle, so the next turn starts small and fast and keeps the last messages word for word", () => fixture({}, async (f) => {
+it.skip("after: the conversation is summarized while idle, so the next turn starts small and fast and keeps the last messages word for word", () => fixture({}, async (f) => {
   for (const text of ["MSG-1 build the landing page", "MSG-2 make the title bold", "MSG-3 and the subtitle"]) await f.send(text);
   const before = f.task().resumeCursors.claude;
   await sleep(COMPACT_MS + 3_000);
@@ -101,7 +107,7 @@ it("after: the conversation is summarized while idle, so the next turn starts sm
   expect(prompt).not.toContain("MSG-1 build the landing page");
 }), 120_000);
 
-it("a message sent while the summary it needs is being written waits for it rather than starting a second one", () => fixture({}, async (f) => {
+it.skip("a message sent while the summary it needs is being written waits for it rather than starting a second one", () => fixture({}, async (f) => {
   for (const text of ["MSG-1 build the landing page", "MSG-2 make the title bold", "MSG-3 and the subtitle"]) await f.send(text);
   await sleep(1_000);
   const waited = await f.send("MSG-4 what changed?");
@@ -114,7 +120,7 @@ it("a message sent while the summary it needs is being written waits for it rath
   expect(words(f.lastPrompt())).toContain("MSG-3 and the subtitle");
 }), 120_000);
 
-it("a message sent during a summary the turn did not need is never held up by it", () => fixture({ FAKE_CLAUDE_CONTEXT_GROWTH: "100000:10000" }, async (f) => {
+it.skip("a message sent during a summary the turn did not need is never held up by it", () => fixture({ FAKE_CLAUDE_CONTEXT_GROWTH: "100000:10000" }, async (f) => {
   for (const text of ["MSG-1 build the landing page", "MSG-2 make the title bold", "MSG-3 and the subtitle"]) await f.send(text);
   const session = f.task().resumeCursors.claude;
   // 1/100 of 3 minutes: the summary starts after 1.8 s and runs for 6 s.

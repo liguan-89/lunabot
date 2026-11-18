@@ -1,5 +1,5 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -7,6 +7,7 @@ import { expect, it } from "vitest";
 
 import { launchVerificationServer } from "../scripts/control-omb.ts";
 import { startFakeConnectedApps } from "./testing/fake-connected-apps.ts";
+import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 
 type Bridge = { command: string; args: string[]; env: Record<string, string> };
 
@@ -43,18 +44,18 @@ const apiOn = (url: string) => async (method: string, path: string, body?: unkno
   return result;
 };
 
-const acpBridge = (entry: { command: string; args: string[]; env: Array<{ name: string; value: string }> }): Bridge =>
-  ({ command: entry.command, args: entry.args, env: Object.fromEntries(entry.env.map(({ name, value }) => [name, value])) });
-
-it("a bot given Gmail by its app switch reaches gmail.search_emails by name on Claude and on an ACP engine alike", async () => {
+it("a bot given Gmail by its app switch reaches gmail.search_emails by name through the mounted bridge", async () => {
   const apps = await startFakeConnectedApps();
   apps.emails.push({ messageId: "m-ada", threadId: "t-ada", messageTimestamp: new Date().toISOString(), subject: "Q3 numbers", sender: "Ada <ada@example.test>", preview: { body: "Here they are" } });
   const scratch = mkdtempSync(join(tmpdir(), "omb-app-tools-"));
   const gate = join(scratch, "finish");
+  // The fake pi's `slow` turn answers once the gate exists, so the turn's launch can be read while it runs. This build
+  // runs one engine, so the second half of this recipe (the same tools under an ACP engine's own names) has no engine to
+  // compare against; what remains is that the bridge lists the app's reads under the names a model calls.
   const fixture = await launchVerificationServer({
     ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token,
-    FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate, FAKE_ACP_HANG_ON: "Find Ada's mail again",
-  }, undefined, undefined, undefined, undefined, undefined, ["cline"]);
+    FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
+  });
   const api = apiOn(fixture.info.url);
   try {
     const bot = (await api("POST", "/api/bots", { name: "Paul" }, 201)).bot;
@@ -65,30 +66,35 @@ it("a bot given Gmail by its app switch reaches gmail.search_emails by name on C
 
     const send = async (text: string, sendId: string) => api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text, sendId }, 202);
     await send("Find Ada's mail", "app-tools-e2e-send-0001");
-    let claudeDump: any;
+    // The connected-apps bridge the turn mounted, from the pi launch line in the log.
+    let onPi: Bridge | undefined;
     await expect.poll(() => {
-      try { claudeDump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); } catch { return false; }
-      return Boolean(claudeDump.mcpConfig?.mcpServers?.composio);
+      onPi = piTurns(piDumpPath(fixture.info.dataDir)).findLast((turn) => turn.prompt.includes("Find Ada's mail"))?.launch?.mcpConfig?.mcpServers?.composio as Bridge | undefined;
+      return Boolean(onPi);
     }, { timeout: 20_000 }).toBe(true);
-    const onClaude = await ask(claudeDump.mcpConfig.mcpServers.composio, { name: "gmail.search_emails", arguments: { query: "from:ada@example.test" } });
-    expect(onClaude.names).toEqual(expect.arrayContaining(["gmail.search_emails", "gmail.read_email", "gmail.read_email_thread", "googlecalendar.list_events"]));
-    expect(onClaude.names, "a read-only app offers no tool that writes").not.toContain("gmail.send_email");
-    expect(JSON.parse(onClaude.answer.result.content[0].text).messages[0]).toMatchObject({ messageId: "m-ada", subject: "Q3 numbers" });
+    // pi names a tool with underscores (an engine's tool names carry no dots), which is also the ACP engine's spelling.
+    const onPiTools = await ask(onPi!, { name: "gmail_search_emails", arguments: { query: "from:ada@example.test" } });
+    expect(onPiTools.names).toEqual(expect.arrayContaining(["gmail_search_emails", "gmail_read_email", "gmail_read_email_thread", "googlecalendar_list_events"]));
+    expect(onPiTools.names, "a read-only app offers no tool that writes").not.toContain("gmail_send_email");
+    expect(JSON.parse(onPiTools.answer.result.content[0].text).messages[0]).toMatchObject({ messageId: "m-ada", subject: "Q3 numbers" });
     expect(apps.calls.at(-1)).toMatchObject({ tool: "GMAIL_FETCH_EMAILS", arguments: { user_id: "me", query: "from:ada@example.test" } });
     writeFileSync(gate, "");
     await expect.poll(async () => (await api("GET", `/api/threads/${bot.threadId}/messages`)).messages
       .some((message: any) => message.role === "bot" && String(message.text).startsWith("reply to:")), { timeout: 20_000 }).toBe(true);
 
-    await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "cline", model: "cline-default" } });
+    // A later turn keeps the same bridge: the app's reads, under the same names, with its write still absent.
     await send("Find Ada's mail again", "app-tools-e2e-send-0002");
-    const mounts = `${join(fixture.info.dataDir, "cline-launch.json")}.mcp.json`;
-    await expect.poll(() => existsSync(mounts), { timeout: 20_000 }).toBe(true);
-    const composio = (JSON.parse(readFileSync(mounts, "utf8")) as any[]).find((entry) => entry.name === "composio");
-    const onAcp = await ask(acpBridge(composio), { name: "gmail_search_emails", arguments: { query: "from:ada@example.test" } });
+    let again: Bridge | undefined;
+    await expect.poll(() => {
+      again = piTurns(piDumpPath(fixture.info.dataDir)).findLast((turn) => turn.prompt.includes("Find Ada's mail again"))?.launch?.mcpConfig?.mcpServers?.composio as Bridge | undefined;
+      return Boolean(again);
+    }, { timeout: 20_000 }).toBe(true);
+    const onAgain = await ask(again!, { name: "gmail_search_emails", arguments: { query: "from:ada@example.test" } });
     const plain = (names: string[]) => names.filter((name) => /^(gmail|googlecalendar)[._]/.test(name)).map((name) => name.replace(".", "_")).sort();
-    expect(plain(onAcp.names), "the same tools under the same names").toEqual(plain(onClaude.names));
-    expect(onAcp.names).toContain("gmail_search_emails");
-    expect(JSON.parse(onAcp.answer.result.content[0].text).messages[0]).toMatchObject({ messageId: "m-ada" });
+    expect(plain(onAgain.names), "the same tools under the same names").toEqual(plain(onPiTools.names));
+    expect(onAgain.names).toContain("gmail_search_emails");
+    // The second call goes through the same bridge: the app itself was asked again, and the tool is no refusal.
+    expect(apps.calls.at(-1)).toMatchObject({ tool: "GMAIL_FETCH_EMAILS", arguments: { user_id: "me", query: "from:ada@example.test" } });
   } finally {
     await fixture.close();
     await apps.close();
@@ -102,19 +108,19 @@ it("a bot with HighLevel read only runs HighLevel's reads, which name the resour
   const scratch = mkdtempSync(join(tmpdir(), "omb-app-tools-"));
   const gate = join(scratch, "finish");
   const fixture = await launchVerificationServer({
-    ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token, FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_SLOW_FINISH_GATE: gate,
+    ...process.env, OMB_COMPOSIO_BROKER_URL: apps.url, OMB_COMPOSIO_BROKER_TOKEN: apps.token, FAKE_PI_MODE: "slow", FAKE_PI_SLOW_FINISH_GATE: gate,
   });
   const api = apiOn(fixture.info.url);
   try {
     const bot = (await api("POST", "/api/bots", { name: "Boomer" }, 201)).bot;
     await api("PATCH", `/api/bots/${bot.id}`, { composio: true, connectorTools: { highlevel_mcp: { tools: "*" } }, connectorScopes: { apps: { highlevel_mcp: "read" } } });
     await api("POST", `/api/bots/${bot.id}/messages`, { threadId: bot.threadId, text: "List the pipelines", sendId: "highlevel-read-e2e-0001" }, 202);
-    let dump: any;
+    let bridge: Bridge | undefined;
     await expect.poll(() => {
-      try { dump = JSON.parse(readFileSync(fixture.fixtureDumpPath, "utf8")); } catch { return false; }
-      return Boolean(dump.mcpConfig?.mcpServers?.composio);
+      bridge = piTurns(piDumpPath(fixture.info.dataDir)).findLast((turn) => turn.prompt.includes("List the pipelines"))?.launch?.mcpConfig?.mcpServers?.composio as Bridge | undefined;
+      return Boolean(bridge);
     }, { timeout: 20_000 }).toBe(true);
-    const run = (tool_slug: string) => ask(dump.mcpConfig.mcpServers.composio, { name: "COMPOSIO_MULTI_EXECUTE_TOOL", arguments: { tools: [{ tool_slug, arguments: {} }] } });
+    const run = (tool_slug: string) => ask(bridge!, { name: "COMPOSIO_MULTI_EXECUTE_TOOL", arguments: { tools: [{ tool_slug, arguments: {} }] } });
     for (const slug of ["HIGHLEVEL_MCP_CONTACTS_GET_CONTACTS", "HIGHLEVEL_MCP_OPPORTUNITIES_GET_PIPELINES", "HIGHLEVEL_MCP_OPPORTUNITIES_SEARCH_OPPORTUNITY"]) {
       const { answer } = await run(slug);
       expect(JSON.stringify(answer), slug).not.toContain("would write");

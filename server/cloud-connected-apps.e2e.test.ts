@@ -5,10 +5,10 @@ import { randomBytes } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { cloudPairingSignature } from "./cloud-home.ts";
 import { CLOUD_CONNECTED_APPS_FILE } from "./cloud-connected-apps.ts";
@@ -62,7 +62,9 @@ globalThis.fetch = async (input, init) => {
       ...(process.env.PATHEXT ? { PATHEXT: process.env.PATHEXT } : {}),
       ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
       HOME: home, USERPROFILE: home, OMB_DATA_DIR: dataDir, OMB_PORT: String(port), OMB_WEBHOOK_PORT: String(port + 1), OMB_STATIC_DIR: join(home, "web"),
-      OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
+      // A Cloud home boxes its turns on Linux by default (server/bot-box/detect.ts), which swaps the data folder for a
+      // tmpfs and hides the fake pi's dump; the box has its own suites, so it stays off here.
+      OMB_CLOUD_ROLE: "home", OMB_BOT_BOX: "0", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
       OMB_CLOUD_BOOTSTRAP_SECRET: secret, OMB_PUBLIC_URL: `https://${HOST}`,
       // From source the server registers nowhere unless told where, as here.
       OMB_COMPOSIO_BROKER_URL: brokerUrl,
@@ -128,19 +130,10 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-connected-apps-"));
   dataDir = join(home, ".openmausbot");
   mkdirSync(dataDir, { recursive: true });
-  const cli = join(home, "fixture-claude.mjs");
-  writeFileSync(cli, `#!/usr/bin/env node
-if (process.argv[2] === "auth") {
-  console.log(JSON.stringify({ loggedIn: true, email: "person@example.test" }));
-  process.exit(0);
-}
-await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-claude-cli.ts")).href)});
-`, { mode: 0o755 });
+  const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
+  chmodSync(cli, 0o755);
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: {
-      ...Object.fromEntries(["codex", "cursor", "githubCopilot", "openaiCompat", "qwen", "hermes", "pi"].map((id) => [id, { driver: "not-a-real-driver" }])),
-      claude: { driver: "claudeAgent", displayName: "Claude", config: { cli } },
-    },
+    instances: { pi: { driver: "piAgent", displayName: "pi", config: { cli } } },
   }));
   mkdirSync(join(home, "web"));
   writeFileSync(join(home, "web", "index.html"), "<!doctype html><title>Luna Bot</title>");

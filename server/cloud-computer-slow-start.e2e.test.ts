@@ -1,18 +1,19 @@
-// The real server, the fake Claude CLI and a stub of the Admin's Boat relay, with the call wait and the start budget
+// The real server, the fake pi CLI and a stub of the Admin's Boat relay, with the call wait and the start budget
 // shortened; disposable home, no network.
 import { randomUUID } from "node:crypto";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createServer, type Server, type ServerResponse } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
+import { piDumpPath, piTurns, type PiLaunch } from "./testing/pi-dump.ts";
 
 const ROOT = fileURLToPath(new URL("..", import.meta.url));
-const FAKE_CLAUDE = join(ROOT, "server/testing/fake-claude-cli.ts");
+const FAKE_PI = join(ROOT, "server/testing/fake-pi-cli.ts");
 const INCLUDED = `box_omb_${randomUUID()}`;
 const FRAME = Buffer.from("/9j/4AAQSkZJRgABAQEAYABgAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==", "base64");
 /** One computer call waits this long on a start; the whole start, this long. */
@@ -24,6 +25,7 @@ describe("a slow cloud computer start", () => {
   let home = "";
   let dumpFile = "";
   let finishFile = "";
+  let planFile = "";
   let base = "";
   let child: ChildProcess | null = null;
   let output = "";
@@ -57,17 +59,26 @@ describe("a slow cloud computer start", () => {
   const creates = () => requests.filter(request => request === "POST /boxes").length;
   const task = async (botId: string) => (await api("GET", "/api/bots?messages=40")).bots.find((bot: any) => bot.id === botId);
   const failedRows = async (botId: string) => (await task(botId))?.messages.filter((message: any) => message.tool?.name?.startsWith("error:")) ?? [];
+  /** The turn `start` set off: its pi launch, holding on the plan's gate so the test can call its computer tools. The
+   * bot's own turn, never one a previous test left holding with the same words. */
   const startTurn = async (botId: string, text: string, threadId?: string) => {
-    rmSync(dumpFile, { force: true });
+    const before = piTurns(dumpFile).length;
     if (!threadId) rmSync(finishFile, { force: true });
     await api("POST", `/api/bots/${botId}/messages`, { text, ...(threadId ? { threadId } : {}) });
-    return until((): any => {
-      if (!existsSync(dumpFile)) return null;
-      try { return JSON.parse(readFileSync(dumpFile, "utf8")); } catch { return null; }
+    let launch: PiLaunch | undefined;
+    await until(() => {
+      for (const turn of piTurns(dumpFile).slice(before)) {
+        if (!turn.prompt.includes(text)) continue;
+        if (turn.launch?.mcpConfig?.mcpServers?.agents?.env?.OMB_BOT_ID !== botId) continue;
+        launch = turn.launch;
+        return Boolean(launch?.mcpConfig);
+      }
+      return false;
     }, Boolean);
+    return { mcpConfig: launch!.mcpConfig! };
   };
-  const screenshot = async (sent: any) => {
-    const env = sent.mcpConfig.mcpServers.computer.env;
+  const screenshot = async (sent: { mcpConfig: NonNullable<PiLaunch["mcpConfig"]> }) => {
+    const env = sent.mcpConfig.mcpServers!.computer!.env!;
     const response = await fetch(new URL("/api/internal/computer/mcp", env.OMB_HARNESS_URL), {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${env.OMB_MCP_TOKEN_COMPUTER}` },
@@ -79,7 +90,7 @@ describe("a slow cloud computer start", () => {
   };
   const cloudBot = async (name: string) => {
     const { bot } = await api("POST", "/api/bots", { name });
-    await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "claude", model: "claude-sonnet-5" }, browser: false, computer: "cloud" });
+    await api("PATCH", `/api/bots/${bot.id}`, { modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" }, browser: false, computer: "cloud" });
     return bot as { id: string; threadId: string };
   };
 
@@ -134,14 +145,17 @@ describe("a slow cloud computer start", () => {
 
     home = mkdtempSync(join(tmpdir(), "omb-cloud-slow-"));
     const data = join(home, "data");
-    dumpFile = join(home, "dump.json");
+    dumpFile = piDumpPath(data);
     finishFile = join(home, "finish");
+    planFile = join(home, "room-plan.json");
     mkdirSync(data, { recursive: true });
+    chmodSync(FAKE_PI, 0o755);
+    // Every turn holds until the test writes the finish file, so it can call the turn's computer tools while it runs.
+    writeFileSync(planFile, JSON.stringify({ "*": { gateFile: finishFile } }));
     writeFileSync(join(data, "config.json"), JSON.stringify({ instances: {
-      claude: {
-        driver: "claudeAgent", config: { cli: FAKE_CLAUDE },
-        environment: { FAKE_CLAUDE_MODE: "slow", FAKE_CLAUDE_DUMP: dumpFile, FAKE_CLAUDE_SLOW_FINISH_GATE: finishFile },
-      },
+      pi: { driver: "piAgent", config: { cli: FAKE_PI }, environment: {
+        FAKE_PI_DUMP: dumpFile, FAKE_PI_ROOM_PLAN: planFile,
+      } },
     } }));
     const port = await freePortBlock([0, 1]);
     base = `http://127.0.0.1:${port}`;

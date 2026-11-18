@@ -62,12 +62,12 @@ let hook: { endpointId: string; secret: string };
 
 it("a new buyer: every phase, the app killed at each one, ends with home on My Cloud, everything checked there, and nothing run twice", async () => {
   const { local, onCloud } = fx;
-  scout = (await local("POST", "/api/bots", { name: "Scout", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  scout = (await local("POST", "/api/bots", { name: "Scout" })).body.bot;
   const project = join(fx.root, "desktop", "code", "shop");
   mkdirSync(project, { recursive: true });
   expect((await local("PATCH", `/api/bots/${scout.id}`, { soul: "You are Scout.", cwd: project })).status).toBe(200);
   await turn(local, scout, "Plan the week.");
-  ember = (await local("POST", "/api/bots", { name: "Ember", modelSelection: { instanceId: "claude", model: "claude-sonnet-5" } })).body.bot;
+  ember = (await local("POST", "/api/bots", { name: "Ember" })).body.bot;
   await turn(local, ember, "Hello Ember.");
   const old = (await local("POST", "/api/bots", { name: "Old" })).body.bot as { id: string };
   expect((await local("PATCH", `/api/bots/${old.id}`, { soul: "Retired soon." })).status).toBe(200);

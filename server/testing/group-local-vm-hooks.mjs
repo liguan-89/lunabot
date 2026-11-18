@@ -110,7 +110,10 @@ registerHooks({
       return { ...result, source: `import { readFileSync as readVmClock } from 'node:fs';\n` +
         String(result.source).replaceAll('Date.now()', `(Date.now() + (JSON.parse(readVmClock(${JSON.stringify(state)}, 'utf8')).clockOffset || 0))`) };
     }
-    if (url.endsWith('/drivers/claude.ts')) {
+    if (url.endsWith('/drivers/pi.ts')) {
+      // The pi driver's one fan-out for a turn's events (its `emit`): dropCompletion swallows a turn's completion, and
+      // holdCompletion keeps it back until a release file exists, so a recipe can see a late completion land after a
+      // replacement turn took the VM.
       return { ...result, source: `import { existsSync as existsVmRelease, readFileSync as readVmEvents, writeFileSync as writeVmEvent } from 'node:fs';\n` +
         String(result.source).replace('for (const l of Array.from(listeners)) l(event);',
           `if (event.type === 'turn.completed') {\n        const fixture = JSON.parse(readVmEvents(${JSON.stringify(state)}, 'utf8'));\n        if (fixture.dropCompletion) return;\n        if (fixture.holdCompletion) { writeVmEvent(${JSON.stringify(state)} + '.completionheld', event.turnId ?? ''); const timer = setInterval(() => { if (!existsVmRelease(${JSON.stringify(state)} + '.releasecompletion')) return; clearInterval(timer); writeVmEvent(${JSON.stringify(state)} + '.latecompleted', event.turnId ?? ''); for (const l of Array.from(listeners)) l(event); }, 10); return; }\n      }\n      for (const l of Array.from(listeners)) l(event);`) };

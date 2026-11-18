@@ -63,6 +63,9 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     this.child = spawn(process.execPath, ["--import", prelude, join(SERVER_DIR, "index.ts")], {
       cwd: join(SERVER_DIR, ".."),
       env: { PATH: process.env.PATH, HOME: this.home, USERPROFILE: this.home, OMB_DATA_DIR: this.dataDir, OMB_PORT: String(this.port), OMB_WEBHOOK_PORT: String(this.port + 1),
+        // No bot box: a Cloud home boxes its turns on Linux, and a boxed server may not run a program from its own HOME
+        // (server/bot-box/program-trust.ts), where this fixture keeps its pi CLI. The box has its own suites.
+        OMB_BOT_BOX: "0",
         OMB_CLOUD_ROLE: "home", OMB_CLOUD_MACHINE_ID: "3f9c2a4e-8b1d-4c6e-9a7f-2d5e8c1b0a93", OMB_CLOUD_ADMIN_URL: "https://cloud.example.test",
         OMB_CLOUD_BOOTSTRAP_SECRET: this.secret, OMB_PUBLIC_URL: `https://${HOST}` },
       stdio: ["ignore", "pipe", "pipe"],

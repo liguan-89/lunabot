@@ -1,9 +1,9 @@
 // A Team Cloud with its team's rules, from the Admin's signed answer to the turn. A stand-in Admin holds the document and
 // checks each request's signature. A chat turn, a routine, one bot asking another, a person connecting something and
 // a lent computer all meet the same refusal, for an Admin as for a User, and all pass again once the rule lifts, with no
-// restart. Disposable homes, a synthetic Claude CLI; nothing leaves this machine.
+// restart. Disposable homes, a synthetic pi CLI; nothing leaves this machine.
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { join } from "node:path";
@@ -14,10 +14,11 @@ import { TEAM_POLICY_ADMIN_PATH, TEAM_POLICY_FILE, teamPolicyFingerprint } from 
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 import { startFakeHttpMcp, type FakeHttpMcp } from "./testing/fake-http-mcp-server.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
+import { piTurns } from "./testing/pi-dump.ts";
 
 const OWNER = { email: "owner@acme.test", role: "owner" as const };
 const ADA = { email: "ada@acme.test", role: "member" as const };
-const ENGINE = `process.env.FAKE_CLAUDE_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.json";`;
+const ENGINE = `process.env.FAKE_PI_DUMP = process.env.FAKE_CLAUDE_FIXTURE_DIR + "/dump.jsonl";`;
 
 type Limits = Record<string, unknown>;
 const admin = {
@@ -48,24 +49,30 @@ async function rules(limits: Limits | null) {
   await nudged(policy?.fingerprint ?? null);
 }
 
+/** The pi log, a JSONL of launches and prompts (server/testing/pi-dump.ts), and the turn count each case starts from:
+ * the log only ever grows, so "the engine ran" is a new turn since that mark. */
+const dumpPath = () => join(team.home, "dump.jsonl");
+const turnCount = () => piTurns(dumpPath()).length;
+let marked = 0;
 async function dumped(token: string, text: string, until: (messages: string) => boolean) {
   const thread = await team.as(token, "POST", `/api/bots/${botId}/tasks`, { title: text });
   expect(thread.status, JSON.stringify(thread.body)).toBe(201);
   const threadId = thread.body.task.threadId as string;
-  rmSync(join(team.home, "dump.json"), { force: true });
+  marked = turnCount();
   const sent = await team.as(token, "POST", `/api/bots/${botId}/messages`, { text, threadId });
   const messages = async () => JSON.stringify((await team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`)).body);
   if (sent.status === 202) await expect.poll(async () => until(await messages()), { timeout: 60_000, interval: 150 }).toBe(true);
   return { sent, threadId, messages: await messages() };
 }
-const engineRan = () => existsSync(join(team.home, "dump.json"));
-const engineSaw = () => JSON.parse(readFileSync(join(team.home, "dump.json"), "utf8")) as { mcpConfig?: { mcpServers?: Record<string, unknown> } };
+const engineRan = () => turnCount() > marked;
+/** The launch of the last turn: the servers and the approval level it ran with, as the retired dump's mcpConfig said. */
+const engineSaw = () => ({ mcpConfig: (piTurns(dumpPath()).at(-1)?.launch?.mcpConfig ?? undefined) as { mcpServers?: Record<string, unknown> } | undefined });
 
 /** One routine run by hand, as an Admin starts one: what it answered, and the finished run's words. */
 async function routineRun(name: string) {
   const created = await team.as(owner, "POST", "/api/routines", { name, prompt: `Run ${name}.`, botId, schedule: { type: "interval", everyMinutes: 60, anchorAt: Date.now() + 3_600_000 } });
   expect(created.status, JSON.stringify(created.body)).toBe(201);
-  rmSync(join(team.home, "dump.json"), { force: true });
+  marked = turnCount();
   const started = await team.as(owner, "POST", `/api/routines/${created.body.routine.id}/run`);
   if (started.status !== 201) return { status: started.status, words: JSON.stringify(started.body) };
   const runId = started.body.run.id as string, deadline = Date.now() + 60_000;
@@ -141,16 +148,16 @@ it("a blocked engine is refused for a chat turn and a routine, for an Admin and 
   for (const token of [owner, ada]) {
     const { sent } = await dumped(token, "blocked engine", () => true);
     expect(sent.status, JSON.stringify(sent.body)).toBe(409);
-    expect(sent.body.error).toMatch(/^Acme does not allow the Claude engine\. .*ask a team admin\.$/);
+    expect(sent.body.error).toMatch(/^Acme does not allow the pi engine\. .*ask a team admin\.$/);
     expect(engineRan()).toBe(false);
   }
   const routine = await routineRun("Blocked engine");
-  expect(routine.words).toMatch(/Acme does not allow the Claude engine/);
+  expect(routine.words).toMatch(/Acme does not allow the pi engine/);
   expect(engineRan()).toBe(false);
   // One bot asking another: the same refusal, and the engine never starts.
   const thread = await team.as(owner, "POST", `/api/bots/${botId}/tasks`, { title: "asks a teammate" });
   const capability = await team.capability(botId, thread.body.task.threadId);
-  rmSync(join(team.home, "dump.json"), { force: true });
+  marked = turnCount();
   const asked = await fetch(`${team.base}/api/internal/coordinate-bots`, { method: "POST", headers: { authorization: `Bearer ${capability}`, "content-type": "application/json" }, body: JSON.stringify({ botIds: [peerId], message: "Please check this.", reply: "none", thread: "fresh" }) });
   const askedWords = await asked.text();
   expect(asked.status, askedWords).toBeLessThan(500);
@@ -160,11 +167,11 @@ it("a blocked engine is refused for a chat turn and a routine, for an Admin and 
     const lines = await Promise.all(threads.map(async (id) => JSON.stringify((await team.as(owner, "GET", `/api/threads/${id}/messages?limit=200`)).body)));
     return lines.join(" ") + askedWords;
   };
-  await expect.poll(peerWords, { timeout: 15_000, interval: 200 }).toMatch(/Acme does not allow the Claude engine/);
+  await expect.poll(peerWords, { timeout: 15_000, interval: 200 }).toMatch(/Acme does not allow the pi engine/);
   expect(engineRan()).toBe(false);
   // The engine stays listed, with the reason: never hidden.
-  const claude = (await team.as(owner, "GET", "/api/instances")).body.instances.find((instance: { instanceId: string }) => instance.instanceId === "claude");
-  expect(claude.policy).toMatchObject({ organizationName: "Acme", team: true });
+  const pi = (await team.as(owner, "GET", "/api/instances")).body.instances.find((instance: { instanceId: string }) => instance.instanceId === "pi");
+  expect(pi.policy).toMatchObject({ organizationName: "Acme", team: true });
 
   await rules(null);
   expect((await team.as(ada, "GET", "/api/config")).body.managedPolicy).toBeNull();
