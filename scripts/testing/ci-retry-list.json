@@ -98,6 +98,13 @@
       "owner": "liguan-89",
       "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1; a sibling test of this suite is already listed and the suite is green in three consecutive local runs each time.",
       "since": "2026-11-18"
+    },
+    {
+      "file": "server/group-goal-run.e2e.test.ts",
+      "test": "waits for a busy delegated worker, preserves its direct turn, then resumes the goal",
+      "owner": "liguan-89",
+      "reason": "Failed five times across Nov 17-18 CI rounds on busy shards despite the widened busy window (15 s) and end waits (25 s); green in every local run.",
+      "since": "2026-11-18"
     }
   ]
 }
