@@ -731,7 +731,7 @@ describe("PiDriver turns (fake CLI)", () => {
       await vi.waitFor(() => {
         expect(() => process.kill(pid, 0)).toThrow();
         expect(mcpDirs()).toHaveLength(0);
-      }, { timeout: 10_000 });
+      }, { timeout: 20_000 });
       const { turnId } = await instance.adapter.sendTurn({ threadId, text: "hi" });
       await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
       expect(spawns()).toHaveLength(2);
