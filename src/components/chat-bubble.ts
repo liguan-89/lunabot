@@ -19,8 +19,8 @@ export const SIMPLE_BOT_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-card text-ink`;
 /** Simple mode's own bubble; the bot's colour, when on, comes from its inline style. */
 export const SIMPLE_USER_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-bubble-user font-normal`;
 
-/** At most 560 wide, 80% of the column, and always 82px short of it, so a reply never meets the far edge. */
-export const SIMPLE_BUBBLE_MAX = "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct),calc(100%-82px))]";
+/** At most 560 wide, 80% of the column, and responsive opposed inset, so a reply never meets the far edge. */
+export const SIMPLE_BUBBLE_MAX = "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct),calc(100%-var(--conversation-opposed-inset,82px)))]";
 
 /** A plain-text bot bubble drawn outside the transcript's own Bubble: a widget's text fallback or a row that failed. */
 export function plainBotBubble(simple: boolean): string {

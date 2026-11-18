@@ -407,6 +407,18 @@ const bridge = {
       return () => ipcRenderer.removeListener("desktop-workspace:state", handler);
     },
   },
+  desktopMount: {
+    mount: (botId) => ipcRenderer.invoke("desktop-mount:mount", String(botId)),
+    unmount: () => ipcRenderer.invoke("desktop-mount:unmount"),
+    state: () => ipcRenderer.invoke("desktop-mount:state"),
+    openMain: (botId) => ipcRenderer.invoke("desktop-mount:open-main", typeof botId === "string" ? botId : undefined),
+    setInteractiveRects: (rects) => ipcRenderer.send("desktop-mount:interactive-rects", rects),
+    onState: (cb) => {
+      const handler = (_event, state) => cb(state);
+      ipcRenderer.on("desktop-mount:state", handler);
+      return () => ipcRenderer.removeListener("desktop-mount:state", handler);
+    },
+  },
   pickFolder: (current) => ipcRenderer.invoke("desktop:pick-folder", current),
   exportDiagnostics: () => ipcRenderer.invoke("desktop:export-diagnostics"),
   saveFile: (filePath) => invokeWithPlainError("desktop:save-file", filePath),

@@ -10,6 +10,7 @@ import { startCua, stopCua, registerCuaIpc, requestComputerUse, setCuaStateListe
 import { createAndroidDeviceController } from "./android-device.mjs";
 import { finishSpeech, speechBusy, startSpeech, stopSpeech } from "./speech.mjs";
 import { installTalk, isTalkPanel } from "./talk-main.mjs";
+import { createDesktopMountManager, isDesktopMountPanel } from "./desktop-mount.mjs";
 import { openBlankTerminal } from "./terminal-launch.mjs";
 import { linuxDisablesGpu, SOFTWARE_RENDERING_ARG } from "./linux-gpu.mjs";
 import { pasteMenuItem } from "./paste-menu-item.mjs";
@@ -148,7 +149,7 @@ let desktopWorkspaceManager = null;
 let desktopWorkspaceOwner = null;
 let pendingOrganizationEntry = takeOrganizationDeepLink(process.argv);
 function appWindows() {
-  return BrowserWindow.getAllWindows().filter((win) => !isTalkPanel(win));
+  return BrowserWindow.getAllWindows().filter((win) => !isTalkPanel(win) && !isDesktopMountPanel(win));
 }
 const cloudEntry = createCloudEntry({
   reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); },
@@ -2378,6 +2379,37 @@ ipcMain.handle("desktop:relaunch", localOnly("desktop:relaunch", (event) => {
 const talk = installTalk({ ipcMain, localOnly, localOrHome, BrowserWindow, appleSpeech: nativeActions.appleSpeech,
   speech: { start: startSpeech, stop: stopSpeech, finish: finishSpeech, busy: speechBusy }, packaged: app.isPackaged, devUrl: DEV_URL, nativeImage, iconPath: APP_ICON, openLink: queueChatLink, reveal: revealForLink, log: slog, t: nativeT });
 
+const desktopMount = createDesktopMountManager({
+  BrowserWindow,
+  screen,
+  preload: path.join(__dirname, "preload.cjs"),
+  args: () => [
+    ...desktopCompanionRendererArguments(rendererOrigin(), desktopRemoteAccess),
+    ...(app.isPackaged && !desktopRemoteAccess ? ["--omb-company-desktop=1"] : []),
+    `--omb-app-version=${app.getVersion()}`,
+    ...(linuxSoftwareRendering ? [SOFTWARE_RENDERING_ARG] : []),
+  ],
+  rendererUrl: (botId) => `${rendererOrigin()}/mount?botId=${encodeURIComponent(botId)}`,
+  onOpenMain: (botId) => {
+    revealForLink();
+    if (botId) queueChatLink(`lunabot://bot/${encodeURIComponent(botId)}`);
+  },
+  onState: (state) => {
+    if (mainWindow && !mainWindow.isDestroyed() && senderIsLocal({ sender: mainWindow.webContents })) {
+      mainWindow.webContents.send("desktop-mount:state", state);
+    }
+  },
+  log: slog,
+});
+
+ipcMain.handle("desktop-mount:mount", localOnly("desktop-mount:mount", (_event, botId) => desktopMount.mount(botId)));
+ipcMain.handle("desktop-mount:unmount", localOnly("desktop-mount:unmount", () => desktopMount.unmount()));
+ipcMain.handle("desktop-mount:state", localOnly("desktop-mount:state", () => desktopMount.state()));
+ipcMain.handle("desktop-mount:open-main", localOnly("desktop-mount:open-main", (_event, botId) => desktopMount.openMain(botId)));
+ipcMain.on("desktop-mount:interactive-rects", (event, rects) => {
+  if (desktopMount.owns(event)) desktopMount.setInteractiveRects(rects);
+});
+
 ipcMain.handle("companion:state", localOnly("companion:state", () => desktopCompanionState()));
 function managedRemoteAccessRefusal() {
   const policy = managedDesktop?.policy?.();
@@ -3125,6 +3157,7 @@ process.once("SIGTERM", requestSignalQuit);
 
 app.on("before-quit", (e) => {
   talk.close();
+  desktopMount.close();
   desktopShutdownStarted = true;
   startupScreen?.dispose();
   companyBackupSchedule?.close();

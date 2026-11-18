@@ -431,6 +431,14 @@ const __APP_VERSION__: string;
         close(contextId?: string): Promise<boolean>;
         onState(cb: (state: DesktopWorkspaceState) => void): () => void;
       };
+      desktopMount?: {
+        mount(botId: string): Promise<{ mounted: boolean; botId: string | null }>;
+        unmount(): Promise<{ mounted: boolean; botId: string | null }>;
+        state(): Promise<{ mounted: boolean; botId: string | null }>;
+        openMain(botId?: string): Promise<boolean>;
+        setInteractiveRects(rects: Array<{ x: number; y: number; width: number; height: number }>): void;
+        onState(cb: (state: { mounted: boolean; botId: string | null }) => void): () => void;
+      };
       /** Native folder picker; resolves null when the user cancels. */
       pickFolder?(current?: string): Promise<string | null>;
       /** Writes the redacted diagnostics report to a user-chosen file;

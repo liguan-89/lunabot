@@ -134,6 +134,7 @@ import { formattedReplyWidth, isFormattedReply, splitReplyBlocks } from "@/lib/f
 import { otherSpeaker } from "@/lib/own-profile"; import { useSharedRun } from "./SharedQueueLine";
 import { latestFailure, latestReply, type TranscriptSnapshot } from "@/lib/transcript-announcer";
 import { pendingApprovals } from "./PendingApproval";
+import { pendingTodoItems } from "./ComposerTodoTray";
 import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
 import { JumpToLatestButton } from "./JumpToLatestButton";
 import { isBotTextRow, joinedCorners, needsStamp, quietRow, simpleRowLayout, SIMPLE_BOT_BUBBLE, SIMPLE_BUBBLE_MAX, SIMPLE_BUBBLE_TEXT, SIMPLE_STACKED, SIMPLE_USER_BUBBLE, type BubbleJoin } from "./chat-bubble";
@@ -156,6 +157,7 @@ interface ChatRows {
   onBranch: (messageId: string) => boolean;
   conversational: boolean; simple?: boolean; canReact: boolean;
   openedAt: number;
+  dockedTodoIds?: ReadonlySet<string>;
 }
 
 const ChatRowsContext = createContext<ChatRows | null>(null);
@@ -164,6 +166,13 @@ function useChatRows(): ChatRows {
   const rows = useContext(ChatRowsContext);
   if (!rows) throw new Error("a chat row outside ChatView");
   return rows;
+}
+
+function isStructuredLongReply(text: string): boolean {
+  if (!isFormattedReply(text)) return false;
+  if (/^ {0,3}(?:#{1,6} \S|```|~~~|\|? *:?-{3,}:? *\|)/m.test(text)) return true;
+  const listLines = text.split(/\r?\n/).filter((line) => /^ {0,3}(?:[-*+]|\d{1,3}[.)]) \S/.test(line));
+  return listLines.length > 4;
 }
 
 const drawnBot = (bot: Bot) =>
@@ -392,6 +401,7 @@ const Bubble = memo(function Bubble({
   const blocks = useMemo(() => simple && !user && !peer && !viewRaw && !split && text ? splitReplyBlocks(text) : null, [simple, user, peer, viewRaw, split, text]);
   const tabled = Boolean(blocks?.some((block) => block.kind === "table"));
   const formatted = !simple && !user && !split && isFormattedReply(text);
+  const structuredSimple = simple && !user && !peer && !viewRaw && !split && !tabled && isStructuredLongReply(text);
   const webhookView = user ? webhookMessageView(text) : null;
   const cited = user && !webhookView ? splitTranscriptCitations(text) : null;
   const attachments = user && !webhookView ? splitTranscriptAttachments(cited?.display ?? text) : null;
@@ -466,8 +476,10 @@ const Bubble = memo(function Bubble({
                   ? cn("whitespace-pre-wrap [overflow-wrap:anywhere] text-ink", simple ? SIMPLE_USER_BUBBLE : "bg-bubble-user px-4 py-2.5", ownBubbleStyle && "user-bubble-colored", simple && ownBubbleStyle && "antialiased")
                   : formatted
                     ? cn(formattedReplyWidth(text), "px-1 text-ink")
-                    : simple ? SIMPLE_BOT_BUBBLE : "bg-card px-4 py-2.5 text-ink",
-            simple && join && !split && !attachmentsOnly && !tabled && joinedCorners(user ? "end" : "start", join),
+                    : structuredSimple
+                      ? cn(formattedReplyWidth(text), "bg-transparent px-1 py-0.5 text-ink")
+                      : simple ? SIMPLE_BOT_BUBBLE : "bg-card px-4 py-2.5 text-ink",
+            simple && join && !split && !attachmentsOnly && !tabled && !structuredSimple && joinedCorners(user ? "end" : "start", join),
           )}
           style={user && !webhookView && !attachmentsOnly ? ownBubbleStyle : undefined}
           title={workedFor === undefined ? new Date(message.at).toLocaleString(intlLocale()) : `${workedLabel(workedFor)} · ${new Date(message.at).toLocaleString(intlLocale())}`}
@@ -680,7 +692,7 @@ const MessagesList = memo(function MessagesList({
   onRegenerate: () => void;
   onReply: (message: Message) => void;
 }) {
-  const { botId, threadId, botName, botColor, bots, hasMore, focus, showToolCalls, locale, simple = false } = useChatRows(), busy = use(ChatBusyContext);
+  const { botId, threadId, botName, botColor, bots, hasMore, focus, showToolCalls, locale, simple = false, dockedTodoIds } = useChatRows(), busy = use(ChatBusyContext);
   // A finished turn keeps the bot's progress lines and folds only its tool steps under "Worked for", in both modes.
   const items = useMemo(() => groupTranscript(messages), [messages, locale]);
   const newestMessageId = messages.at(-1)?.id;
@@ -732,12 +744,36 @@ const MessagesList = memo(function MessagesList({
           }
           switch (richRowKind(m)) {
             case "secret":
+              if (dockedTodoIds?.has(m.id)) {
+                return (
+                  <div data-docked-todo-anchor={m.id} className="flex items-center gap-2 px-1 py-1 text-[12px] text-ink-tertiary">
+                    <span className="size-1.5 rounded-full bg-accent/70" aria-hidden="true" />
+                    <span>{t("todoTray.dockedHint")}</span>
+                  </div>
+                );
+              }
               return m.secret ? <SecretRequestCard botId={botId} botName={botName} color={botColor} threadId={threadId} message={m} /> : null;
             case "signin":
+              if (dockedTodoIds?.has(m.id)) {
+                return (
+                  <div data-docked-todo-anchor={m.id} className="flex items-center gap-2 px-1 py-1 text-[12px] text-ink-tertiary">
+                    <span className="size-1.5 rounded-full bg-accent/70" aria-hidden="true" />
+                    <span>{t("todoTray.dockedHint")}</span>
+                  </div>
+                );
+              }
               return m.signIn ? <SignInRequestCard botId={botId} botName={botName} color={botColor} threadId={threadId} message={m} /> : null;
             case "connector":
               return m.connector ? <ConnectorCard botId={botId} color={botColor} threadId={threadId} message={m} /> : null;
             case "options":
+              if (dockedTodoIds?.has(m.id)) {
+                return (
+                  <div data-docked-todo-anchor={m.id} className="flex items-center gap-2 px-1 py-1 text-[12px] text-ink-tertiary">
+                    <span className="size-1.5 rounded-full bg-accent/70" aria-hidden="true" />
+                    <span>{t("todoTray.dockedHint")}</span>
+                  </div>
+                );
+              }
               return optionsCardRow({ message: m, transcript, botId, botName, botColor: bots.find((one) => one.id === m.inbox?.from.botId)?.color ?? botColor, threadId, asker: bots.find((one) => one.id === (m.inbox?.from.botId ?? botId)) });
             case "widget":
             case "app":
@@ -911,9 +947,13 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
   const hasMore = Boolean(bot.hasMore);
   const reactor = useReactor();
   const speakerViewer = state.config?.team && reactor !== "user" ? reactor : null;
+  const dockedTodoIds = useMemo(
+    () => (canWrite === false ? new Set<string>() : new Set(pendingTodoItems(messages).map((item) => item.messageId))),
+    [canWrite, messages],
+  );
   const rows = useMemo<ChatRows>(
-    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, botColor: bot.color, voiceId: bot.voice, tts, localVoice, hasMore, bots, mentionPeers, mentionPerson: { profileName: state.config?.profile?.name }, focus, showToolCalls, locale, dispatch, onBranch, bubbleStyle, conversational: isConversational(bot.replyStyle), simple: !advanced, canReact: canWrite !== false, openedAt, speakerViewer }),
-    [bot.id, bot.threadId, bot.name, bot.color, bot.voice, tts, localVoice, hasMore, bots, mentionPeers, state.config?.profile?.name, focus, showToolCalls, locale, dispatch, onBranch, bubbleStyle, bot.replyStyle, advanced, canWrite, openedAt, speakerViewer],
+    () => ({ botId: bot.id, threadId: bot.threadId, botName: bot.name, botColor: bot.color, voiceId: bot.voice, tts, localVoice, hasMore, bots, mentionPeers, mentionPerson: { profileName: state.config?.profile?.name }, focus, showToolCalls, locale, dispatch, onBranch, bubbleStyle, conversational: isConversational(bot.replyStyle), simple: !advanced, canReact: canWrite !== false, openedAt, speakerViewer, dockedTodoIds }),
+    [bot.id, bot.threadId, bot.name, bot.color, bot.voice, tts, localVoice, hasMore, bots, mentionPeers, state.config?.profile?.name, focus, showToolCalls, locale, dispatch, onBranch, bubbleStyle, bot.replyStyle, advanced, canWrite, openedAt, speakerViewer, dockedTodoIds],
   );
   const currentTask = bot.tasks?.find((task) => task.threadId === bot.threadId), place = effectivePlace(bot, currentTask), team = state.config?.team, privateChat = Boolean(team) && (currentTask?.private === true || ownChatStarted(bot.threadId)), ownHelper = Boolean(team) && !privateChat && Boolean(bot.defaultBot?.person), sharedChat = Boolean(team) && !privateChat && !ownHelper;
 
@@ -1130,7 +1170,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           >
             <Monitor size={16} />{busy && place === "browser" && <span aria-hidden="true" className="absolute right-1 top-1 size-1.5 animate-pulse rounded-full bg-success" data-testid="computer-button-live" />}
           </button>}
-          {phoneMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />}
+          {phoneMenu ? <ChatMoreMenu bot={bot} phoneHeader /> : simpleHead ? <ChatMoreMenu bot={bot} /> : (advanced || remoteClient) && <ChatHeaderMenu key={`menu:${bot.threadId}`} bot={bot} />}
         </div>
         </div>
       </div>

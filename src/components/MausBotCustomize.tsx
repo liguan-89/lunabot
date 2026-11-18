@@ -63,7 +63,7 @@ export function MausBotCustomize({ preview, name, nameRef, image, onName, onPatc
       <div>
         <span className={LABEL}>{t("mausbotWelcome.look")}</span>
         <div className="mt-1.5 grid grid-cols-5 gap-1">
-          {MASCOT_BODY_IDS.map((id) => (
+          {MASCOT_BODY_IDS.filter((id) => id !== "cursor").map((id) => (
             <button
               key={id}
               type="button"

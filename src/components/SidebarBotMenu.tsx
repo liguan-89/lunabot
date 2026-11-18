@@ -73,7 +73,15 @@ export function BotContextMenu({
   const mayMove = useMayMoveBots();
   const clearThreads = useDeleteAllThreads(simpleMenu), moveToTeam = useMoveToTeam({ blocked: (bot) => (bot.defaultBot ? t("teamMove.blockedDefault", { name: bot.name }) : bot.chiefOfStaff ? t("teamMove.blockedChief") : state.bots.filter((candidate) => !candidate.hidden).length <= 1 ? t("teamMove.blockedLast") : undefined) });
   const remoteClient = window.ogb?.remoteClient?.active === true;
+  const [mountState, setMountState] = useState<{ mounted: boolean; botId: string | null }>({ mounted: false, botId: null });
+  useEffect(() => {
+    const bridge = window.ogb?.desktopMount;
+    if (!bridge || remoteClient) return;
+    void bridge.state().then(setMountState).catch(() => {});
+    return bridge.onState(setMountState);
+  }, [remoteClient]);
   const bot = shown ? state.bots.find((b) => b.id === shown.botId) : undefined;
+  const mountedHere = Boolean(bot && mountState.mounted && mountState.botId === bot.id);
   const team = useTeamPeople();
   const menuRef = useRef<HTMLDivElement>(null);
   const latestMenu = useRef(menu);
@@ -314,6 +322,13 @@ export function BotContextMenu({
             bot.pinned ? t("sidebar.bot.unpin") : t("sidebar.bot.pin"),
             () => dispatch({ type: "updateBot", botId: bot.id, patch: { pinned: !bot.pinned } }),
           ),
+          ...(window.ogb?.desktopMount ? [
+            item(
+              mountedHere ? <PinOff size={16} className="text-ink-secondary" /> : <Pin size={16} className="text-ink-secondary" />,
+              t(mountedHere ? "desktopMount.unpin" : "desktopMount.pin"),
+              () => { void (mountedHere ? window.ogb?.desktopMount?.unmount() : window.ogb?.desktopMount?.mount(bot.id)); },
+            ),
+          ] : []),
           moveToSection,
           readState,
           ...threads,
@@ -395,6 +410,13 @@ export function BotContextMenu({
           bot.pinned ? t("sidebar.bot.unpin") : t("sidebar.bot.pin"),
           () => dispatch({ type: "updateBot", botId: bot.id, patch: { pinned: !bot.pinned } }),
         ),
+        ...(window.ogb?.desktopMount ? [
+          item(
+            mountedHere ? <PinOff size={16} className="text-ink-secondary" /> : <Pin size={16} className="text-ink-secondary" />,
+            t(mountedHere ? "desktopMount.unpin" : "desktopMount.pin"),
+            () => { void (mountedHere ? window.ogb?.desktopMount?.unmount() : window.ogb?.desktopMount?.mount(bot.id)); },
+          ),
+        ] : []),
         team ? null : chiefItem(),
         mayMove && item(<FolderPlus size={16} className="text-ink-secondary" />, t("sidebar.bot.moveToSection"), () => {
           onClose();

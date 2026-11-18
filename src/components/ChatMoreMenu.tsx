@@ -1,5 +1,5 @@
-import { useMemo, useState, type JSX } from "react";
-import { Bug, Copy, Cpu, Download, Gauge, ListChecks, MessagesSquare, Monitor, MoreHorizontal, RotateCcw, Search, Share, SquarePen, UserRound } from "lucide-react";
+import { useEffect, useMemo, useState, type JSX } from "react";
+import { Bug, Copy, Cpu, Download, Gauge, ListChecks, MessagesSquare, Monitor, MoreHorizontal, Pin, PinOff, RotateCcw, Search, Share, SquarePen, UserRound } from "lucide-react";
 import { currentTaskBot, openBotThread, useStore, visibleMessages, type Bot } from "@/state/store";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useShowThreads } from "@/lib/thread-preferences";
@@ -35,7 +35,15 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
   const showThreads = useShowThreads();
   const findOpen = useChatFindOpen(bot.threadId);
   const [copyStatus, setCopyStatus] = useState<"copied" | "failed" | null>(null);
+  const [mountState, setMountState] = useState<{ mounted: boolean; botId: string | null }>({ mounted: false, botId: null });
   const remoteClient = window.ogb?.remoteClient?.active === true;
+  useEffect(() => {
+    const bridge = window.ogb?.desktopMount;
+    if (!bridge || remoteClient) return;
+    void bridge.state().then(setMountState).catch(() => {});
+    return bridge.onState(setMountState);
+  }, [remoteClient]);
+  const mountedHere = Boolean(mountState.mounted && mountState.botId === profile.id);
   const usage = usageSummary(bot, state.instances);
   const hasMessages = messages.length > 0;
   const contextAction = useContextAction();
@@ -140,6 +148,13 @@ export function useChatMoreItems(profile: Bot, phoneHeader = false): { items: Si
       separatorBefore: true,
       trailing: <span title={usage.detail} data-testid="usage-chip" className={cn("tabular-nums text-[12px]", usage.tone === "danger" ? "text-danger" : usage.tone === "warning" ? "text-warning" : "text-ink-secondary")}>{usage.short}</span>,
       onSelect: () => advanced ? openBotSettings(dispatch, "usage") : dispatch({ type: "toggleAppSettings", open: true, section: "usage" }),
+    } satisfies SidebarMenuItem] : []),
+    ...(window.ogb?.desktopMount && !remoteClient ? [{
+      key: "desktop-mount",
+      label: t(mountedHere ? "desktopMount.unpin" : "desktopMount.pin"),
+      icon: mountedHere ? <PinOff size={16} /> : <Pin size={16} />,
+      active: mountedHere,
+      onSelect: () => { void (mountedHere ? window.ogb?.desktopMount?.unmount() : window.ogb?.desktopMount?.mount(profile.id)); },
     } satisfies SidebarMenuItem] : []),
     ...(remoteClient ? [] : [{
       key: "activity",
