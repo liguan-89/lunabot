@@ -88,10 +88,12 @@ it("denies a never-list command a grant would have allowed, at a saved command a
     const wipe = "rm -rf /";
 
     // Off by default. A person answers the card and saves the command; the
-    // saved command then answers the next request, exactly as before.
+    // saved command then answers the next request, exactly as before. A
+    // never-list command is a danger card, so the card itself offers no
+    // "Always allow this command": the rule below is saved through the API.
     const first = await start(bot, wipe);
     expect(first?.requestType).toBe("permission");
-    expect(first.commandAllowlist).toBeTruthy();
+    expect(first.commandAllowlist).toBeUndefined();
     expect((await api("POST", `/api/threads/${bot.threadId}/respond`, { requestId: first.requestId, behavior: "allow", rememberCommand: true })).outcome).toBe("allowed-once");
     await idle(bot);
     await answered(bot, wipe, { decision: "auto-approved", source: "command-allowlist" });

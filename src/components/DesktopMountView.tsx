@@ -190,7 +190,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
               </button>
             </div>
           </div>
-          {lastReply && <p className="line-clamp-2 text-[11.5px] leading-snug text-ink-secondary">{lastReply}</p>}
+          {lastReply && <p className="line-clamp-2 text-[11px] leading-snug text-ink-secondary">{lastReply}</p>}
         </div>
       )}
 

@@ -1080,7 +1080,7 @@ function canManageCommandAllowlist(auth: RequestAuth): boolean {
   return auth.kind === "loopback" ? auth.trust !== "service" : auth.scopes.includes("admin");
 }
 
-const COMMAND_ALLOWLIST_DRIVERS = new Set<string>(["piAgent"]);
+const COMMAND_ALLOWLIST_DRIVERS = new Set<string>();
 
 function commandAllowlistResponse(bot: BotRecord): CommandAllowlistResponse {
   const instance = registry.get(bot.modelSelection.instanceId);

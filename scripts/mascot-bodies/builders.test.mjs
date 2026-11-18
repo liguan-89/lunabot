@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { BODY_DEFS, BODY_IDS } from "./builders.ts";
+import { MASCOT_BODIES } from "../../shared/mascot-bodies.ts";
 
 const EXPECTED_IDS = [
   "cursor", "blob", "circle", "squircle", "capsule",
@@ -38,7 +39,10 @@ describe("body builders", () => {
 
   it("keeps the cursor outline byte-identical to the shipped artwork", () => {
     const cursor = BODY_DEFS.find(s => s.id === "cursor");
-    expect(cursor.d.startsWith("M0 0 C1.12815992 0.94880479")).toBe(true);
-    expect(cursor.d.trimEnd().endsWith("-21.34867451 -18.24899383 0 0 Z")).toBe(true);
+    // Luna Bot's squircle (the same outline as /app-icon.svg's tile): the legacy triangle
+    // cursor artwork is gone, and the shipped catalog carries exactly this path.
+    expect(cursor.d.startsWith("M50 0C83.33333 0 116.66667 0 150 0")).toBe(true);
+    expect(cursor.d.trimEnd().endsWith("0 50C0 22.38576 22.38576 0 50 0Z")).toBe(true);
+    expect(MASCOT_BODIES.cursor.body).toContain(cursor.d);
   });
 });

@@ -147,10 +147,12 @@ describe("PhoneRoutes", () => {
     const routes = new PhoneRoutes({ root, enabled: true });
     const saved = recordMessaging(routes)!;
     const dir = join(root, ownerDirectoryName(OWNER));
-    expect(statSync(dir).mode & 0o777).toBe(0o700);
+    // Windows has no POSIX permission bits: mkdir's mode and the file's 0600 are emulated away, so only the
+    // one-file-per-route half of this test means anything there.
+    if (process.platform !== "win32") expect(statSync(dir).mode & 0o777).toBe(0o700);
     const files = readdirSync(dir);
     expect(files).toEqual([`${saved.id}.json`]);
-    expect(statSync(join(dir, files[0]!)).mode & 0o777).toBe(0o600);
+    if (process.platform !== "win32") expect(statSync(join(dir, files[0]!)).mode & 0o777).toBe(0o600);
   });
 
   it("stores nothing when the run is not learnable", () => {
