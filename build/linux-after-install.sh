@@ -34,7 +34,7 @@ else
   else
     # Quoted: the product name has a space, and an unquoted assignment runs
     # "Bot" as a command under dash (exit 127 in the in-place upgrade smoke).
-    APP_ROOT="/opt/Luna Bot"
+    APP_ROOT="/opt/LunaBot"
   fi
   EXPECTED_OWNER=root:root
   TEST_MODE=0

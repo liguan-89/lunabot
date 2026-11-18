@@ -33,7 +33,7 @@ const executables = [
   path.join(root, "release", appImage),
 ];
 if (process.env.OMB_SMOKE_INSTALLED_DEB === "1") {
-  executables.push("/opt/Luna Bot/lunabot");
+  executables.push("/opt/LunaBot/lunabot");
 }
 
 for (const executable of executables) {

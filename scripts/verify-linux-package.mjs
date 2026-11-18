@@ -471,7 +471,7 @@ try {
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     "Name=Luna Bot",
-    'Exec="/opt/Luna Bot/lunabot" %U',
+    'Exec="/opt/LunaBot/lunabot" %U',
     "Icon=lunabot",
     "StartupWMClass=com.lunabot.app",
     "Categories=Utility;",
