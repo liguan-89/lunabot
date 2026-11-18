@@ -16,4 +16,11 @@ describe("engineDisplayName", () => {
     setLocale("en");
     expect(engineDisplayName({ instanceId: "claudeApi", displayName: "Claude (API key)" })).toBe("Claude (API key)");
   });
+
+  it("names the only engine by the provider it uses, never by pi", () => {
+    setLocale("en");
+    expect(engineDisplayName({ instanceId: "pi", displayName: "pi", driverKind: "piAgent" })).toBe("Custom model provider");
+    expect(engineDisplayName({ instanceId: "pi-work", displayName: "pi", driverKind: "piAgent" })).toBe("Custom model provider");
+    expect(engineDisplayName({ instanceId: "pi-work", displayName: "Work account", driverKind: "piAgent" })).toBe("Work account");
+  });
 });

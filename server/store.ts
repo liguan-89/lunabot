@@ -93,8 +93,6 @@ type AssertExact<A, B> = [A] extends [B] ? ([B] extends [A] ? true : never) : ne
 type AssertSameKeys<A, B> = [keyof A] extends [keyof B] ? ([keyof B] extends [keyof A] ? true : never) : never;
 /** TS lets an optional extra field through (a type without it still extends {field?: T}), so keys are checked too. */
 export type TaskWireProjectionIsExact = AssertExact<WireTask, TaskWireProjection> & AssertSameKeys<WireTask, TaskWireProjection>;
-export const taskWireProjectionIsExact: TaskWireProjectionIsExact = true;
-
 export function toWireTask(task: TaskRecord, botModel: ModelSelection): WireTask {
   const { resumeCursors: _resumeCursors, lastInstanceId: _lastInstanceId, handedMessages: _handedMessages,
     appliedCompactionId: _appliedCompactionId, contextFloor: _contextFloor, lastContextModel: _lastContextModel,

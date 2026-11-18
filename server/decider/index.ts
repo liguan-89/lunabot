@@ -156,12 +156,6 @@ export interface DeciderKeyCheck { key: string; provider: Exclude<DeciderProvide
 /** What Settings says when a save's key check is refused: a fixed sentence, never the vendor's body. */
 export const DECIDER_KEY_ERROR = { jev: "serverError.decider.jevRejected", workersai: "serverError.decider.workersRejected", openrouter: "serverError.decider.routerRejected" } as const;
 
-export const DECIDER_KEY_REJECTED: Partial<Record<DeciderProvider, string>> = {
-  jev: "Jev rejected this key. Check it at typesafe.ai and paste it again.",
-  workersai: "Cloudflare rejected this token. Check that it has Workers AI permission and belongs to this account ID.",
-  openrouter: "OpenRouter rejected this key. Check it at openrouter.ai/keys and paste it again.",
-};
-
 /** The key a save brings, to be tested before it is kept: Jev's, then Workers AI's, then OpenRouter's. */
 export function deciderPatchKey(
   patch: Partial<DeciderConfig>,

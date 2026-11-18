@@ -80,15 +80,6 @@ export async function readJson(req, limit = BODY_LIMIT) {
   return value;
 }
 
-export function clientIp(req, trustProxy) {
-  if (trustProxy) {
-    const header = req.headers["x-forwarded-for"];
-    const first = (Array.isArray(header) ? header[0] : header ?? "").split(",")[0].trim();
-    if (first) return first;
-  }
-  return req.socket.remoteAddress ?? "0.0.0.0";
-}
-
 export function bearer(req) {
   const header = req.headers.authorization;
   if (typeof header !== "string") return null;
@@ -125,17 +116,6 @@ export function parseCookies(req) {
     }
   }
   return cookies;
-}
-
-export function cookieHeader(name, value, options = {}) {
-  const parts = [];
-  parts.push(`${name}=${encodeURIComponent(value)}`);
-  parts.push(`Path=${options.path ?? "/"}`);
-  parts.push(`SameSite=${options.sameSite ?? "Lax"}`);
-  parts.push("HttpOnly");
-  if (options.secure !== false) parts.push("Secure");
-  if (options.maxAge !== undefined) parts.push(`Max-Age=${Math.max(0, Math.floor(options.maxAge))}`);
-  return parts.join("; ");
 }
 
 /** Fixed-window limiter, keyed by IP and by a second bucket (email or account). */

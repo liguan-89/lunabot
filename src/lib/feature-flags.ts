@@ -1,4 +1,5 @@
 import { t } from "./i18n";
+import { engineDisplayName } from "./engine-name";
 
 export interface FeatureFlagConfig {
   features?: { skillAuthoring?: boolean; skillReview?: boolean; skillReviewSteps?: number; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; claudeUserSkills?: boolean; llmThreadTitles?: boolean; skillsLibrary?: boolean; shareLearnedSkills?: "off" | "ask" | "auto"; roomMemoryCapture?: boolean; savedSteps?: boolean; savedStepsHere?: boolean; phoneVerify?: "off" | "log" };
@@ -36,13 +37,13 @@ export function skillReviewSteps(config: FeatureFlagConfig | null | undefined): 
 
 export function skillReviewUnavailableEngines(
   bots: ReadonlyArray<{ modelSelection?: { instanceId?: string } }>,
-  instances: ReadonlyArray<{ instanceId: string; displayName: string; capabilities?: { backgroundText?: boolean; agentsMcp?: boolean } }>,
+  instances: ReadonlyArray<{ instanceId: string; displayName: string; driverKind?: string; capabilities?: { backgroundText?: boolean; agentsMcp?: boolean } }>,
 ): string[] {
   const used = new Set(bots.map((bot) => bot.modelSelection?.instanceId).filter(Boolean));
   return [...new Set(instances
     .filter((instance) => used.has(instance.instanceId))
     .filter((instance) => instance.capabilities?.backgroundText !== true || instance.capabilities?.agentsMcp !== true)
-    .map((instance) => instance.displayName))];
+    .map((instance) => engineDisplayName(instance)))];
 }
 
 export function parseSkillReviewSteps(value: string): number | null {

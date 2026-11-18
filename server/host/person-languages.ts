@@ -80,4 +80,3 @@ export function createPersonLanguages(deps: PersonLanguagesDeps) {
   };
 }
 
-export type PersonLanguages = ReturnType<typeof createPersonLanguages>;

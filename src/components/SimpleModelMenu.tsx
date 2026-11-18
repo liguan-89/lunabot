@@ -7,7 +7,7 @@ import { modelOptionLabel } from "@/lib/model-label";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { BotAvatar } from "./Avatar";
-import { InstanceProviderMark } from "./ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "./ProviderIcons";
 import { MENU_GUTTER, MENU_ICON, MENU_LABEL, MENU_LINE, MENU_NOTE, MENU_ROW, MENU_SEPARATOR, MENU_STROKE, MENU_TRAILING, SIMPLE_MENU_META, SIMPLE_MENU_ROW } from "./menu-recipe";
 import { effortLabel } from "./ModelPicker";
 
@@ -252,7 +252,7 @@ export function SimpleModelMenu(props: SimpleModelMenuProps) {
             >
               <Gutter>
                 {current.instance
-                  ? <InstanceProviderMark instance={current.instance} size={14} subtle />
+                  ? hasProviderMark(current.instance) && <InstanceProviderMark instance={current.instance} size={14} subtle />
                   : <span className="size-3.5 rounded-full bg-ink/[0.08]" aria-hidden="true" />}
               </Gutter>
               <RowLines label={current.label}>
@@ -280,7 +280,7 @@ export function SimpleModelMenu(props: SimpleModelMenuProps) {
               <div key={group.instance.instanceId} role="group" aria-labelledby={labelId} data-simple-provider={group.instance.instanceId}
                 className={cn("flex flex-col gap-0.5", index > 0 && "mt-1")}>
                 <div id={labelId} className={cn(MENU_LABEL, expanded && "sticky top-0 z-[1] -mx-1.5 bg-menu px-3.5")}>
-                  <Gutter><InstanceProviderMark instance={group.instance} size={14} subtle /></Gutter>
+                  <Gutter>{hasProviderMark(group.instance) && <InstanceProviderMark instance={group.instance} size={14} subtle />}</Gutter>
                   <span className="min-w-0 truncate">{group.label}</span>
                 </div>
                 {group.note && <p className={cn(MENU_NOTE, "pl-8 pt-0")}>{group.note}</p>}

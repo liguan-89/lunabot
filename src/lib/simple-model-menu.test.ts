@@ -102,7 +102,7 @@ describe("the Simple model menu", () => {
 
   it("lists every ready provider at once: the current one first, then sign-ins, API keys and local engines", () => {
     const built = menu([codex, openaiKey, pi, claude(), claudeKey]);
-    expect(built.groups.map((group) => group.label)).toEqual(["Claude", "OpenAI", "OpenAI · API key", "Claude · API key", "pi"]);
+    expect(built.groups.map((group) => group.label)).toEqual(["Claude", "OpenAI", "OpenAI · API key", "Claude · API key", "Custom model provider"]);
     expect(rows(built, 1)).toEqual(["GPT-5.6", "GPT-5.6 mini", "GPT-5.5"]);
     expect(rows(built, 3)).toEqual(["Sonnet 5", "Fable 5.1"]);
   });

@@ -533,4 +533,3 @@ export function createDevsReports(deps: DevsReportsDeps) {
   };
 }
 
-export type DevsReports = ReturnType<typeof createDevsReports>;

@@ -1,5 +1,6 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { DesktopCapabilitiesProvider } from "./components/DesktopCapabilities";
 import { DesktopMountView } from "./components/DesktopMountView";
 import { PageBoundary } from "./components/PageBoundary";
 import { bootstrapBrand } from "./lib/brand";
@@ -20,9 +21,11 @@ if (window.ogb?.desktopMount) {
     createRoot(document.getElementById("root")!).render(
       <StrictMode>
         <PageBoundary>
-          <StoreProvider>
-            <DesktopMountView botId={botId} />
-          </StoreProvider>
+          <DesktopCapabilitiesProvider>
+            <StoreProvider>
+              <DesktopMountView botId={botId} />
+            </StoreProvider>
+          </DesktopCapabilitiesProvider>
         </PageBoundary>
       </StrictMode>,
     );

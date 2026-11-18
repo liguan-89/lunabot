@@ -96,19 +96,3 @@ export function isDeviceSignInCode(provider: DeviceSignInProvider, value: string
  * code, so the last, unfinished line is never read. A CLI can print a new
  * pair when its code expires (kimi-code 2.4.1 does). `text` is already free
  * of terminal styling. */
-export function deviceSignInPrompt(provider: DeviceSignInProvider, text: string): { authorizationUrl: string; userCode?: string } | null {
-  const { page, label } = RULES[provider];
-  const lines = text.split(/\r?\n/).slice(0, -1).map((line) => (label ? line.trim().replace(label, "") : line.trim()));
-  let prompt: { authorizationUrl: string; userCode?: string } | null = null;
-  for (const [at, line] of lines.entries()) {
-    if (page(line) === null) continue;
-    if (!deviceSignInHasCode(provider)) {
-      prompt = { authorizationUrl: page(line)! };
-      continue;
-    }
-    const userCode = lines.slice(at + 1).map((next) => next.replace(/^code:\s*/i, "")).find((next) => isDeviceSignInCode(provider, next));
-    const authorizationUrl = userCode ? deviceSignInLink(provider, line, userCode) : null;
-    if (authorizationUrl && userCode) prompt = { authorizationUrl, userCode };
-  }
-  return prompt;
-}

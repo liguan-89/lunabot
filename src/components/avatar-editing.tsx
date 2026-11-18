@@ -11,7 +11,6 @@ import {
   botAvatarUrlFromStoredPath,
   clampAvatarFocus,
   clampAvatarZoom,
-  type BotAvatarCrop,
 } from "../../shared/bot-avatar";
 import { BotAvatar } from "./Avatar";
 import { useBotEditor } from "./bot-settings/BotEditorContext";
@@ -23,13 +22,6 @@ export type AvatarPatch = Partial<
 /** Reset returns the bot to its own colour and the app's flat face: no body, no expression override, no image. It does
  * not recolor the bot — a preset face follows the colour the bot already wears. */
 export const RESET_MASCOT_PATCH: AvatarPatch = { avatarCrop: "mascot", mascotExpression: null, mascotBody: null, mascotFaceColor: null };
-
-export const CROP_LABEL = {
-  mascot: "Mascot",
-  circle: "Circle",
-  rounded: "Rounded",
-  square: "Square",
-} satisfies Record<BotAvatarCrop, string>;
 
 const FRAME_SIZE = 168;
 

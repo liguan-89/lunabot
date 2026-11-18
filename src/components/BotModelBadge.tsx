@@ -2,7 +2,7 @@ import type { Bot, InstanceInfo } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 import { engineDisplayName } from "@/lib/engine-name";
-import { InstanceProviderMark } from "./ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "./ProviderIcons";
 
 export function botModel(bot: Pick<Bot, "modelSelection">, instances: InstanceInfo[]): { instance: InstanceInfo; label: string } | null {
   const instance = instances.find((item) => item.instanceId === bot.modelSelection.instanceId);
@@ -18,7 +18,7 @@ export function botTooltip(bot: Pick<Bot, "name" | "title" | "chiefOfStaff" | "m
     bot.name,
     bot.title.trim(),
     bot.chiefOfStaff ? t("sidebar.bot.chiefOfStaff") : "",
-    model ? t("sidebar.bot.modelBadge", { model: model.label, engine: model.instance.displayName }) : "",
+    model ? t("sidebar.bot.modelBadge", { model: model.label, engine: engineDisplayName(model.instance) }) : "",
   ].filter(Boolean).join(" · ");
 }
 
@@ -28,7 +28,8 @@ export function BotModelBadge({ bot, instances, avatarSize }: {
   avatarSize: number;
 }) {
   const model = botModel(bot, instances);
-  if (!model) return null;
+  // pi is the only engine, so an unconfigured pi has no mark; a saved provider icon still shows.
+  if (!model || !hasProviderMark(model.instance)) return null;
   const size = Math.max(14, Math.round(avatarSize * 0.4));
   const description = t("sidebar.bot.modelBadge", { model: model.label, engine: engineDisplayName(model.instance) });
   return (
@@ -43,9 +44,9 @@ export function BotModelBadge({ bot, instances, avatarSize }: {
 /** Simple mode's faded engine mark. It has no title of its own, so hovering it still shows the row's tooltip with the model and engine. */
 export function BotEngineMark({ bot, instances, className }: { bot: Pick<Bot, "modelSelection">; instances: InstanceInfo[]; className?: string }) {
   const model = botModel(bot, instances);
-  if (!model) return null;
+  if (!model || !hasProviderMark(model.instance)) return null;
   return (
-    <span data-testid="model-badge" role="img" aria-label={t("sidebar.bot.modelBadge", { model: model.label, engine: model.instance.displayName })}
+    <span data-testid="model-badge" role="img" aria-label={t("sidebar.bot.modelBadge", { model: model.label, engine: engineDisplayName(model.instance) })}
       className={cn("flex shrink-0", className)}>
       <InstanceProviderMark instance={model.instance} size={14} subtle />
     </span>

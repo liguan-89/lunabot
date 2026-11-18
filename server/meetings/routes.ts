@@ -151,4 +151,3 @@ export function createMeetingRoutes(deps: MeetingRouteDeps) {
   };
 }
 
-export const MEETING_ROUTES = (["join", "status", "chat", "leave", "notes"] as const).map((action) => `POST ${PREFIX}${action}`);

@@ -28,6 +28,7 @@ import { queuedBehindPersonText, turnWaitedOnPerson, UnansweredApprovals } from 
 import { createPersonWaits } from "./host/person-waits.ts"; import { askToolName, createAskCards } from "./host/ask-cards.ts"; import { createQuestionRouting } from "./host/question-routing.ts"; import { workThreadFor } from "./host/work-thread.ts"; import { anyCardLive, closedByStop, expireOrphanedHolds, resumableCards as cardsWaitedOn } from "./host/resumable-cards.ts"; import { createMcpChat } from "./host/mcp-chat.ts"; import { isCardOwnerLive, isMcpSignInCard } from "./host/mcp-sign-in-cards.ts";
 import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput } from "./guarded-requests.ts";
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
+import { withoutHiddenModels } from "../shared/model-management.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
 import { CLOUD_COMPUTER_BUSY_ERROR } from "../shared/computer-contention.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
@@ -190,7 +191,7 @@ import { ComputerControl } from "./computer-control.ts";
 import { resetPathCache } from "./env-path.ts";
 import { registerEnginesBinDir } from "./engine-install.ts"; import { engineUpdatesFor } from "./engine-updates-host.ts"; import { workAttribution } from "./engine-limits.ts";
 import { PI_INSTANCE } from "./instance-fleets.ts";
-import { piCustomModelId } from "./drivers/pi-custom-provider.ts";
+import { PI_CUSTOM_PROVIDER_ID, piCustomModelId } from "./drivers/pi-custom-provider.ts";
 import { appendUsage, flushUsageLedger, queuedTurnTrigger, usageTriggerFor, type UsageRow, type UsageTrigger } from "./usage-ledger.ts"; import { createUsageAttribution } from "./usage-attribution.ts";
 import { createTraceRecorder } from "./usage-trace/recorder.ts";
 import { GroupUsageReader } from "./group-thread-usage.ts";
@@ -12105,7 +12106,9 @@ function configStatus() {
     billing: { currency: cfg.billing?.currency ?? "USD", prices: cfg.billing?.prices ?? {} },
     decisions: { retentionDays: decisionRetentionDays(cfg.decisions?.retentionDays) },
     safetyFloor: { enabled: safetyFloorOn() },
-    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "", protocol: cfg.openaiCompat?.protocol ?? "openai", models: cfg.openaiCompat?.models ?? (cfg.openaiCompat?.model ? [cfg.openaiCompat.model] : []) },
+    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "", protocol: cfg.openaiCompat?.protocol ?? "openai", models: cfg.openaiCompat?.models ?? (cfg.openaiCompat?.model ? [cfg.openaiCompat.model] : []), providerId: PI_CUSTOM_PROVIDER_ID },
+    defaultModelSelection: cfg.defaultModelSelection ?? null,
+    hiddenModels: cfg.hiddenModels ?? [],
     composio: {
       ...(composio.connectionMode(cfg) === "self-hosted" ? keyHint(cfg.composio?.apiKey) : {}),
       configured: composio.configured(cfg), mode: composio.connectionMode(cfg),
@@ -12213,6 +12216,7 @@ function persistMcpServers(next: Record<string, unknown>): void {
 
 async function describeInstances() {
   const configs = providerConfigs();
+  const hiddenModels = new Set(cfg.hiddenModels ?? []);
   void retryComputerEngineMove();
   const read = testedAi.read(), engines = selectableInstances(await registry.describe({ known: true, reuse: { ms: ENGINE_LIST_REUSE_MS, changed: () => broadcast({ kind: "config", ...configStatus() }) } }));
   await refreshUnsetModelSelections(engines, read);
@@ -12220,7 +12224,7 @@ async function describeInstances() {
   return engines.map((instance) => {
     const entry = configs[instance.instanceId];
     const described = {
-      ...instance, ...testedAi.info(instance), ...engineUpdates.shown(instance.driverKind),
+      ...instance, models: withoutHiddenModels(instance.models, hiddenModels), ...testedAi.info(instance), ...engineUpdates.shown(instance.driverKind),
       ...instanceLook(entry),
       ...(entry?.access ? { access: entry.access } : {}), ...(entry?.driver === "openai-compat" && typeof (entry.config as { replyWaitMinutes?: unknown } | undefined)?.replyWaitMinutes === "number" ? { replyWaitMinutes: (entry.config as { replyWaitMinutes: number }).replyWaitMinutes } : {}), ...(heldKeys?.refusal(instance.instanceId) ? { snapshot: { state: "unavailable" as const, reason: TRIAL_KEY_HELD } } : {}),
     };

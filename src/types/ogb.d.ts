@@ -436,8 +436,11 @@ const __APP_VERSION__: string;
         unmount(): Promise<{ mounted: boolean; botId: string | null }>;
         state(): Promise<{ mounted: boolean; botId: string | null }>;
         openMain(botId?: string): Promise<boolean>;
+        startCall?(botId?: string): Promise<boolean>;
+        captureScreen(): Promise<{ ok: boolean; dataUrl?: string; name?: string; error?: string }>;
         setInteractiveRects(rects: Array<{ x: number; y: number; width: number; height: number }>): void;
         onState(cb: (state: { mounted: boolean; botId: string | null }) => void): () => void;
+        onStartCall?(cb: (botId: string) => void): () => void;
       };
       /** Native folder picker; resolves null when the user cancels. */
       pickFolder?(current?: string): Promise<string | null>;

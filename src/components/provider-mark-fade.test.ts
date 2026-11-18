@@ -37,7 +37,7 @@ describe("the faded provider mark", () => {
     expect(brand).toMatch(/^<span data-provider-mark="brand" class="[^"]*\bopacity-60\b[^"]*\bgroup-hover:opacity-100\b/);
     expect(brand).toContain("group-focus-within:opacity-100 touch:opacity-60");
     expect(brand).toContain('style="width:14px;height:14px"');
-    const mono = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: { driverKind: "piAgent" }, size: 14, subtle: true }));
+    const mono = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: { driverKind: "codex" }, size: 14, subtle: true }));
     expect(mono).toContain('data-provider-mark="mono"');
     expect(mono).toContain("[--color-ink:var(--color-ink-tertiary)]");
     expect(mono).toContain("group-hover:[--color-ink:inherit]");
@@ -46,9 +46,14 @@ describe("the faded provider mark", () => {
     expect(FADED_PROVIDER_MARK.mono).not.toContain("opacity");
   });
 
-  it("leaves the full-strength mark alone without subtle", () => {
-    const html = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: { driverKind: "piAgent" }, size: 14 }));
+  it("leaves a provider icon at full strength without subtle", () => {
+    const html = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: { driverKind: "piAgent", icon: { kind: "preset", preset: "mistral" } }, size: 14 }));
     expect(html).toMatch(/^<svg/);
     expect(html).not.toContain("data-provider-mark");
+  });
+
+  it("draws no mark for the only engine until it has a provider icon", () => {
+    expect(renderToStaticMarkup(createElement(ProviderMark, { driverKind: "piAgent", size: 14 }))).toBe("");
+    expect(renderToStaticMarkup(createElement(InstanceProviderMark, { instance: { driverKind: "piAgent" }, size: 14 }))).toBe("");
   });
 });

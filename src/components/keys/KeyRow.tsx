@@ -4,6 +4,8 @@ import { useStore } from "@/state/store";
 import { installCommandFor } from "@/state/engine-install";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
+import type { LocaleKey } from "@/locales";
 import type { KeyResult, KeyVia } from "@/lib/analytics-allowlist";
 import { keyRemoved, keySaved, keySaveFailure, savedKeyResult } from "@/lib/product-events";
 import { InstanceProviderMark } from "../ProviderIcons";
@@ -85,6 +87,7 @@ export function KeyRow({
   onSaved,
   bare = false,
   rejected: rejectedHere,
+  labelKey,
   className,
   children,
 }: {
@@ -94,6 +97,8 @@ export function KeyRow({
   onSaved?: (configured: boolean) => void;
   bare?: boolean;
   rejected?: boolean;
+  /** What this field is called here, when the key row is embedded under a different name. */
+  labelKey?: LocaleKey;
   className?: string;
   children?: ReactNode;
 }) {
@@ -128,7 +133,7 @@ export function KeyRow({
   const target = entry.target;
   if (!target) throw new Error(`${id} is not saved by a key row`);
   const pointer = row.id !== entry.id;
-  const label = t(entry.labelKey);
+  const label = t(labelKey ?? entry.labelKey);
   const saved = savedState(entry, state.config);
   const engineRejected = (state.instances ?? []).some((instance) => instance.access === "api" && keyForInstance(instance.instanceId) === entry.id
     && instance.snapshot.state === "available" && instance.snapshot.authenticated === false);
@@ -380,7 +385,7 @@ export function KeyRow({
               <div data-key-engine-missing className="flex flex-col gap-1">
                 <p className="flex gap-1.5 text-warning">
                   <TriangleAlert size={13} aria-hidden="true" className="mt-px shrink-0" />
-                  <span>{t("keys.row.engineMissing", { engine: missingEngine.displayName })}</span>
+                  <span>{t("keys.row.engineMissing", { engine: engineDisplayName(missingEngine) })}</span>
                 </p>
                 <code className="select-all break-all rounded-md bg-inset px-2 py-1 font-mono text-[12px] text-ink">{installCommand}</code>
                 <button type="button" data-key-engine-check className="cursor-pointer self-start text-ink-secondary hover:text-ink hover:underline disabled:opacity-50" disabled={enginesChecking}

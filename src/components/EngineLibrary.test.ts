@@ -19,13 +19,13 @@ describe("engine library", () => {
       expect(html).toContain("ink");
     }
   });
-  it("uses an instance icon without changing the driver's default mark", () => {
+  it("uses an instance icon, and draws nothing for the only engine without one", () => {
     const preset = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: instance({ icon: { kind: "preset", preset: "azure" } }) }));
     const custom = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: instance({ icon: { kind: "custom", dataUrl: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=" } }) }));
     const fallback = renderToStaticMarkup(createElement(InstanceProviderMark, { instance: instance() }));
     expect(preset).toContain("#0089D6");
     expect(custom).toContain("data:image/png;base64,iVBORw0KGgo");
-    expect(fallback).toContain("viewBox=\"0 0 800 800\"");
+    expect(fallback).toBe("");
   });
   it("preserves readiness semantics without mistaking installation for sign-in", () => {
     expect(engineReady(instance())).toBe(true);

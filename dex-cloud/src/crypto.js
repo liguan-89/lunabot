@@ -42,11 +42,9 @@ export function sameSecret(left, right) {
 }
 
 const USER_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const PAIR_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 const VERSION = /^[0-9A-Za-z][0-9A-Za-z.+-]{0,39}$/;
 const EMAIL = /^[^\s@]{1,64}@[^\s@.]+(?:\.[^\s@.]+)+$/;
 const CLOUD_ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
-const TEAM_ID = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 const INSTALLATION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PLAN_TIER = /^[a-z][a-z0-9-]{0,23}$/;
 
@@ -58,8 +56,6 @@ function pick(alphabet, length) {
 }
 
 export const newUserCode = () => `${pick(USER_CODE_ALPHABET, 5)}-${pick(USER_CODE_ALPHABET, 5)}`;
-export const newPairCode = () => `${pick(PAIR_CODE_ALPHABET, 4)}-${pick(PAIR_CODE_ALPHABET, 4)}-${pick(PAIR_CODE_ALPHABET, 4)}`;
-export const newSixDigit = () => String(randomBytes(4).readUInt32BE(0) % 1_000_000).padStart(6, "0");
 export const newEightDigit = () => String(randomBytes(4).readUInt32BE(0) % 100_000_000).padStart(8, "0");
 export const newUuid = () => cryptoRandomUuid();
 
@@ -73,7 +69,6 @@ function cryptoRandomUuid() {
 
 export const isVersion = (value) => typeof value === "string" && VERSION.test(value);
 export const isCloudId = (value) => typeof value === "string" && CLOUD_ID.test(value);
-export const isTeamId = (value) => typeof value === "string" && TEAM_ID.test(value);
 export const isInstallationId = (value) => typeof value === "string" && INSTALLATION_ID.test(value);
 export const isPlanTier = (value) => typeof value === "string" && PLAN_TIER.test(value);
 

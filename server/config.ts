@@ -324,6 +324,8 @@ const appConfigSchema = z.object({
     computer: defaultModelSelectionSchema.optional(),
   }).strict().optional(),
   automaticRecovery: automaticRecoverySchema.optional(),
+  /** Model ids hidden from Luna Bot's model lists; the providers and pi still serve them. */
+  hiddenModels: z.array(z.string().min(1).max(300)).max(1000).optional(),
   cacheKeepWarm: cacheKeepWarmSchema.optional(),
   newBotDefaults: newBotDefaultsSchema.optional(),
   newBots: newBotsConfigSchema.optional(),
@@ -522,6 +524,8 @@ export interface AppConfig extends HelperConfig {
   signIn?: { admins?: string[]; members?: string[] };
   /** Preferred selection for newly created bots; existing bots keep theirs. */
   defaultModelSelection?: ModelSelection;
+  /** Model ids hidden from Luna Bot's model lists; the providers and pi still serve them. */
+  hiddenModels?: string[];
   roleModels?: { routines?: ModelSelection; computer?: ModelSelection };
   /** Off by default; one backup attempt only before any work starts. */
   automaticRecovery?: { enabled: boolean; backup?: ModelSelection };
@@ -1039,6 +1043,7 @@ export function saveConfig(
   // Replace the section so clearing a backup cannot revive the old selection.
   if (checkedPatch.automaticRecovery !== undefined) disk.automaticRecovery = checkedPatch.automaticRecovery;
   if (checkedPatch.cacheKeepWarm !== undefined) disk.cacheKeepWarm = checkedPatch.cacheKeepWarm;
+  if (checkedPatch.hiddenModels !== undefined) disk.hiddenModels = checkedPatch.hiddenModels;
   if (checkedPatch.defaultModelSelection !== undefined) {
     disk.defaultModelSelection = checkedPatch.defaultModelSelection;
     if (disk.newBotDefaults) {
@@ -1171,51 +1176,6 @@ const CLAUDE_ROUTING_ENV = [
 /** The workspace Anthropic key must never reach a Claude instance with its own routing: it would go as x-api-key to that host. */
 export function claudeInstanceOwnsRouting(environment: Record<string, string> | undefined): boolean {
   return CLAUDE_ROUTING_ENV.some((key) => typeof environment?.[key] === "string" && environment[key] !== "");
-}
-
-const sameUrl = (a: string, b: string) => a.trim().replace(/\/+$/u, "") === b.trim().replace(/\/+$/u, "");
-
-/** An instance with its own endpoint or credential never gets the workspace key, which would go to its host. */
-export function instanceOwnsRouting(
-  cfg: AppConfig,
-  entry: { driver: string; config?: unknown; environment?: Record<string, string> },
-  routingDefaults?: { url?: string; apiKeyEnv?: string },
-): boolean {
-  const config = typeof entry.config === "object" && entry.config !== null && !Array.isArray(entry.config)
-    ? entry.config as Record<string, unknown>
-    : {};
-  const own = (value: unknown) => typeof value === "string" && value.trim() !== "";
-  const ownUrl = (...workspace: Array<string | undefined>) => own(config.url)
-    && !workspace.some((url) => url !== undefined && sameUrl(config.url as string, url));
-  const compatKeyEnv = routingDefaults?.apiKeyEnv ?? "OPENAI_COMPAT_API_KEY";
-  switch (entry.driver) {
-    case "claudeAgent":
-      return claudeInstanceOwnsRouting(entry.environment);
-    case "openai-compat":
-      return own(config.key) || own(entry.environment?.OPENAI_COMPAT_API_KEY)
-        || own(entry.environment?.[compatKeyEnv])
-        || (own(config.apiKeyEnv) && config.apiKeyEnv !== compatKeyEnv)
-        || ownUrl(routingDefaults?.url || cfg.openaiCompat?.url || process.env.OPENAI_COMPAT_URL || "https://openrouter.ai/api/v1");
-    case "mistral":
-      return own(entry.environment?.MISTRAL_API_KEY) || ownUrl("https://api.mistral.ai/v1");
-    case "cerebras":
-      return own(entry.environment?.CEREBRAS_API_KEY) || ownUrl("https://api.cerebras.ai/v1");
-    case "groq":
-      return own(entry.environment?.GROQ_API_KEY) || ownUrl("https://api.groq.com/openai/v1", cfg.groq?.url);
-    case "greenference":
-      return own(entry.environment?.GREENFERENCE_API_KEY) || ownUrl("https://llm.eu.greenference.com/v1");
-    case "modelgo": return own(entry.environment?.MODELGO_API_KEY) || ownUrl("https://api.modelgo.ai/v1");
-    case "meta":
-      return own(entry.environment?.META_API_KEY) || ownUrl("https://api.meta.ai/v1", cfg.meta?.url);
-    case "deepseekAgent":
-      // A second DeepSeek Harness account brings its own key; the workspace key fills only an instance without one.
-      return own(entry.environment?.DEEPSEEK_API_KEY);
-    case "grok":
-      return own(entry.environment?.XAI_API_KEY) || (own(config.apiKeyEnv) && config.apiKeyEnv !== "XAI_API_KEY")
-        || ownUrl("https://api.x.ai/v1", cfg.xai?.url);
-    default:
-      return false;
-  }
 }
 
 /** Each secret goes only to the driver that reads it; the Boat token reaches no engine. */

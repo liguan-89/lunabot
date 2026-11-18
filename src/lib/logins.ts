@@ -9,10 +9,6 @@ export interface LoginFieldsInput {
   totp: string;
 }
 
-export async function listLogins(): Promise<{ logins: LoginSummary[]; onePassword: OnePasswordStatus }> {
-  return await api<{ logins: LoginSummary[]; onePassword: OnePasswordStatus }>("/api/logins");
-}
-
 /** The server checks the token reaches 1Password before keeping it, and never sends it back. */
 export async function connectOnePassword(token: string): Promise<OnePasswordStatus> {
   return (await api<{ onePassword: OnePasswordStatus }>("/api/logins/1password", { method: "POST", body: JSON.stringify({ token }) })).onePassword;

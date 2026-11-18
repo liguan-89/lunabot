@@ -33,6 +33,17 @@ ipcRenderer.on("desktop-notifications:open", (_event, target) => {
   for (const listener of notificationOpenListeners) listener(target);
 });
 
+let pendingMountCallBotId = null;
+const mountCallListeners = new Set();
+ipcRenderer.on("desktop-mount:start-call", (_event, botId) => {
+  if (typeof botId !== "string" || !botId) return;
+  if (!mountCallListeners.size) {
+    pendingMountCallBotId = botId;
+    return;
+  }
+  for (const listener of mountCallListeners) listener(botId);
+});
+
 // Only fixed actions are retained, never a destination supplied by a renderer.
 const FIXED_SETTINGS_ACTIONS = new Set(["organization", "cloud", "cloud-settings", "cloud-add", "cloud-add-howto"]);
 let pendingSettingsAction = null;
@@ -412,11 +423,22 @@ const bridge = {
     unmount: () => ipcRenderer.invoke("desktop-mount:unmount"),
     state: () => ipcRenderer.invoke("desktop-mount:state"),
     openMain: (botId) => ipcRenderer.invoke("desktop-mount:open-main", typeof botId === "string" ? botId : undefined),
+    startCall: (botId) => ipcRenderer.invoke("desktop-mount:start-call", typeof botId === "string" ? botId : undefined),
+    captureScreen: () => ipcRenderer.invoke("desktop-mount:capture-screen"),
     setInteractiveRects: (rects) => ipcRenderer.send("desktop-mount:interactive-rects", rects),
     onState: (cb) => {
       const handler = (_event, state) => cb(state);
       ipcRenderer.on("desktop-mount:state", handler);
       return () => ipcRenderer.removeListener("desktop-mount:state", handler);
+    },
+    onStartCall: (cb) => {
+      mountCallListeners.add(cb);
+      if (pendingMountCallBotId) {
+        const botId = pendingMountCallBotId;
+        pendingMountCallBotId = null;
+        cb(botId);
+      }
+      return () => mountCallListeners.delete(cb);
     },
   },
   pickFolder: (current) => ipcRenderer.invoke("desktop:pick-folder", current),

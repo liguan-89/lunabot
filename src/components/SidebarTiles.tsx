@@ -80,7 +80,7 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
     >
-      <span className="relative flex">
+      <span className={cn("relative flex rounded-full transition-shadow duration-150", selected && "ring-2 ring-accent/70 ring-offset-2 ring-offset-[var(--tile)]")}>
         <BotAvatar
           bot={bot}
           state={stateForBot({ ...bot, messages: visible })}

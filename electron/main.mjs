@@ -160,6 +160,7 @@ const cloudEntry = createCloudEntry({
 cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: async (message, detail, button) => (await dialog.showMessageBox({ type: "question", buttons: [button, nativeT("native.common.cancel")], defaultId: 0, cancelId: 1, message, detail })).response === 0, t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
 let pendingPackageInstallUrl = pendingOrganizationEntry ? null : packageUrlFromCommandLine(process.argv);
 let pendingChatLink = pendingOrganizationEntry ? null : chatLinkFromCommandLine(process.argv);
+let pendingMountCallBotId = null;
 let organizationEntryReady = false;
 let mainWindow = null;
 const serverUnavailableWindows = new WeakSet();
@@ -217,6 +218,10 @@ function deliverPackageInstall(win = mainWindow) {
 
 function deliverChatLink(win = mainWindow) {
   if (pendingChatLink && sendToPage(win, "chat:open", pendingChatLink)) pendingChatLink = null;
+}
+
+function deliverMountCall(win = mainWindow) {
+  if (pendingMountCallBotId && sendToPage(win, "desktop-mount:start-call", pendingMountCallBotId)) pendingMountCallBotId = null;
 }
 
 let openWindowForLink = null;
@@ -1973,7 +1978,7 @@ function createWindow({ deferNavigation = false } = {}) {
     icon: APP_ICON,
     backgroundColor: windowBackground(nativeTheme.shouldUseDarkColors),
     autoHideMenuBar: process.platform !== "darwin",
-    ...windowChromeOptions(process.platform, windowFrameMade = desktopPrefs?.windowFrame() !== false),
+    ...windowChromeOptions(process.platform, windowFrameMade = desktopPrefs?.windowFrame() === true),
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, "preload.cjs"),
@@ -2072,7 +2077,7 @@ function createWindow({ deferNavigation = false } = {}) {
   // Not did-finish-load: Electron still reports the main frame as loading then.
   win.webContents.on("did-stop-loading", () => {
     deliverPackageInstall(win);
-    deliverChatLink(win); desktopNotifications.arrived();
+    deliverChatLink(win); deliverMountCall(win); desktopNotifications.arrived();
   });
   win.webContents.on("did-finish-load", () => void serverLending.offer(win));
 
@@ -2205,7 +2210,7 @@ function createWindow({ deferNavigation = false } = {}) {
 installFileDialogs({ ipcMain, localOnly, localOrHome, app, nativeT, logDir: LOG_DIR, remoteAccess: () => desktopRemoteAccess, diagnostics: gatherDiagnostics });
 ipcMain.handle("desktop:skin", (event, skin) => {
   if (!isKnownSkin(skin)) return false;
-  if (chromeRail.owns(event)) return true;
+  if (chromeRail.owns(event) || desktopMount.owns(event)) return true;
   try {
     talk.skin(skin); const { color } = skinChrome(skin);
     const win = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
@@ -2315,9 +2320,31 @@ const desktopMount = createDesktopMountManager({
     ...(linuxSoftwareRendering ? [SOFTWARE_RENDERING_ARG] : []),
   ],
   rendererUrl: (botId) => `${rendererOrigin()}/mount?botId=${encodeURIComponent(botId)}`,
+  captureScreen: async () => {
+    try {
+      const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+      const sources = await desktopCapturer.getSources({
+        types: ["screen"],
+        thumbnailSize: { width: Math.min(1600, display.size.width), height: Math.min(1000, display.size.height) },
+      });
+      const source = sources.find((item) => item.display_id === String(display.id)) ?? sources[0];
+      const png = source?.thumbnail?.toPNG?.();
+      if (!png || png.length === 0) return { ok: false, error: "No screen capture available" };
+      return { ok: true, dataUrl: `data:image/png;base64,${png.toString("base64")}`, name: `screenshot-${Date.now()}.png` };
+    } catch (error) {
+      return { ok: false, error: error?.message ?? "Screen capture failed" };
+    }
+  },
   onOpenMain: (botId) => {
     revealForLink();
     if (botId) queueChatLink(`lunabot://bot/${encodeURIComponent(botId)}`);
+  },
+  onStartCall: (botId) => {
+    revealForLink();
+    if (botId) {
+      pendingMountCallBotId = botId;
+      deliverMountCall();
+    }
   },
   onState: (state) => {
     if (mainWindow && !mainWindow.isDestroyed() && senderIsLocal({ sender: mainWindow.webContents })) {
@@ -2752,7 +2779,7 @@ ipcMain.handle("approvals:set-trusted-mode", localOnly("approvals:set-trusted-mo
 }));
 
 // Electron fixes a Windows window's title bar when the window is made; on macOS the choice applies at once.
-const windowFrameNow = () => (process.platform === "win32" ? windowFrameMade : null) ?? desktopPrefs?.windowFrame() !== false;
+const windowFrameNow = () => (process.platform === "win32" ? windowFrameMade : null) ?? desktopPrefs?.windowFrame() === true;
 async function broadcastDesktopCapabilities() {
   const localConnection = await cuaReady;
   const build = (remote) =>

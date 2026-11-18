@@ -11,25 +11,6 @@ export type ProviderIcon =
 
 export const PROVIDER_ICON_MAX_BYTES = 128 * 1024;
 export const PROVIDER_ICON_MAX_DIMENSION = 1024;
-export const PROVIDER_ICON_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
-
-export const PROVIDER_ICON_LABELS: Record<ProviderIconPreset, string> = {
-  openai: "OpenAI",
-  anthropic: "Anthropic",
-  google: "Google Gemini",
-  azure: "Microsoft Azure",
-  aws: "Amazon Bedrock (AWS)",
-  xai: "xAI",
-  deepseek: "DeepSeek",
-  meta: "Meta",
-  mistral: "Mistral AI",
-  qwen: "Qwen",
-  moonshot: "Moonshot AI",
-  cohere: "Cohere",
-  openrouter: "OpenRouter",
-  ollama: "Ollama",
-};
-
 function decodedBase64Bytes(value: string): number {
   const padding = value.endsWith("==") ? 2 : value.endsWith("=") ? 1 : 0;
   return Math.floor(value.length * 3 / 4) - padding;
