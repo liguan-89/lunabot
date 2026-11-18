@@ -21,7 +21,8 @@ export function vpsAliasLeftBehindNotice(done: "Saved" | "Removed", alias: strin
     `When ${alias} is back, list them with: docker -H ssh://${alias} ps -a --filter ${environmentFilter} ` +
     `and remove any you no longer need with: docker -H ssh://${alias} rm -f <name>. ` +
     `Computers made by older versions have no installation label: docker -H ssh://${alias} ps -a --filter ${managedFilter} lists every managed one, ` +
-    `so remove one of those only once you know it is this installation's (named openmausbot-vps-<bot>-… for one of its bots).`;
+    `so remove one of those only when you have its exact name from this installation, such as the one in a bot's move or delete notice. ` +
+    `A name that only starts with openmausbot-vps- does not prove it is this installation's: if you have nothing more, leave it.`;
 }
 
 export function cloudBackendChangeError(botBusy: boolean, activeVpsThread: boolean): string | null {
