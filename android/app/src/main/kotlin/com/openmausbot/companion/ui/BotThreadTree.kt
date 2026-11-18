@@ -1,5 +1,6 @@
 package com.openmausbot.companion.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
@@ -164,15 +166,24 @@ private fun ThreadLinks(
     tasks.forEach { task ->
         val projected = bot.forTask(task.threadId)
         if (projected != null) {
+            val active = task.threadId == bot.threadId
             BotThreadRow(
                 task,
+                selected = active,
                 now = now,
                 queued = task.threadId in queuedThreadIds,
                 modifier = Modifier
                     .testTag("thread.${task.threadId}")
+                    .then(
+                        if (active) {
+                            Modifier.background(minisCard.copy(alpha = 0.72f), RoundedCornerShape(12.dp))
+                        } else {
+                            Modifier
+                        },
+                    )
                     .clickable(role = Role.Button) { onOpen(Chat.BotChat(projected)) }
                     .heightIn(min = 48.dp)
-                    .padding(vertical = 8.dp),
+                    .padding(horizontal = if (active) 10.dp else 4.dp, vertical = 7.dp),
             )
         }
     }

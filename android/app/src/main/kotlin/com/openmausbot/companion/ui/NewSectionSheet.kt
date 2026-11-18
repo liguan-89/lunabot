@@ -14,7 +14,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -154,33 +153,32 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                 )
             }
 
-            OutlinedTextField(
+            MinisSheetField(
                 value = name,
                 onValueChange = { name = it },
-                label = { Text("分组名称") },
+                placeholder = "分组名称",
                 isError = trimmed.length > SectionRules.MAX_NAME_LENGTH,
-                supportingText = {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = if (joinsExisting) "添加到现有分组" else "创建新分组",
-                            fontSize = 13.sp,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = "${trimmed.length}/${SectionRules.MAX_NAME_LENGTH}",
-                            fontSize = 13.sp,
-                            color = if (trimmed.length > SectionRules.MAX_NAME_LENGTH) {
-                                MaterialTheme.colorScheme.error
-                            } else {
-                                secondaryTint
-                            },
-                        )
-                    }
-                },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             )
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+                Text(
+                    text = if (joinsExisting) "添加到现有分组" else "创建新分组",
+                    fontSize = 13.sp,
+                    color = secondaryTint,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "${trimmed.length}/${SectionRules.MAX_NAME_LENGTH}",
+                    fontSize = 13.sp,
+                    color = if (trimmed.length > SectionRules.MAX_NAME_LENGTH) {
+                        MaterialTheme.colorScheme.error
+                    } else {
+                        secondaryTint
+                    },
+                )
+            }
 
             if (chiefConflict) {
                 SectionNote(

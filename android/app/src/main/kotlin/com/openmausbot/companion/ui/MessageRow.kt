@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -57,12 +58,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -107,6 +105,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import com.openmausbot.companion.core.Chat
 import com.openmausbot.companion.core.ConnectorCardAction
 import com.openmausbot.companion.core.ConnectorCardData
@@ -331,67 +331,84 @@ fun MessageRow(
             }
         }
 
-        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-            if (!isPendingEdit) Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)) {
-                Reactions.CHOICES.forEach { emoji ->
-                    TouchTarget(
-                        onClick = {
-                            menuOpen = false
-                            haptics.play(TactileAction.TOGGLE_REACTION)
-                            scope.launch { session.react(message, chat.threadId, emoji) }
-                        },
-                        size = 40.dp,
-                        contentDescription = "用 $emoji 回应",
-                    ) {
-                        Text(text = emoji, fontSize = 22.sp)
+        if (menuOpen) {
+            // The long-press menu is chrome, not a list: the same frosted glass
+            // card the composer's `+` sheet draws, anchored over the message.
+            Popup(
+                alignment = Alignment.Center,
+                onDismissRequest = { menuOpen = false },
+                properties = PopupProperties(focusable = true),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .widthIn(min = 190.dp, max = 250.dp)
+                        .chromeSheet(cornerRadius = 18.dp, elevation = 14.dp)
+                        .padding(vertical = 6.dp),
+                ) {
+                    if (!isPendingEdit) {
+                        Row(modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)) {
+                            Reactions.CHOICES.forEach { emoji ->
+                                TouchTarget(
+                                    onClick = {
+                                        menuOpen = false
+                                        haptics.play(TactileAction.TOGGLE_REACTION)
+                                        scope.launch { session.react(message, chat.threadId, emoji) }
+                                    },
+                                    size = 40.dp,
+                                    contentDescription = "用 $emoji 回应",
+                                ) {
+                                    Text(text = emoji, fontSize = 22.sp)
+                                }
+                            }
+                        }
                     }
-                }
-            }
-            MessageActions.copyableText(message)?.let { text ->
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("复制") },
-                    onClick = {
-                        menuOpen = false
-                        scope.launch {
-                            clipboard.setClipEntry(
-                                ClipEntry(ClipData.newPlainText(MESSAGE_CLIP_LABEL, text)),
+                    MessageActions.copyableText(message)?.let { text ->
+                        MessageMenuDivider()
+                        MessageMenuRow(
+                            title = "复制",
+                            onClick = {
+                                menuOpen = false
+                                scope.launch {
+                                    clipboard.setClipEntry(
+                                        ClipEntry(ClipData.newPlainText(MESSAGE_CLIP_LABEL, text)),
+                                    )
+                                }
+                            },
+                        )
+                        MessageMenuRow(
+                            title = "选择文本",
+                            onClick = {
+                                menuOpen = false
+                                selectingText = text
+                            },
+                        )
+                        if (onQuote != null) {
+                            MessageMenuRow(
+                                title = "引用回复",
+                                onClick = {
+                                    menuOpen = false
+                                    haptics.play(HapticCue.SELECT)
+                                    onQuote(message)
+                                },
                             )
                         }
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("选择文本") },
-                    onClick = {
-                        menuOpen = false
-                        selectingText = text
-                    },
-                )
-                if (onQuote != null) {
-                    DropdownMenuItem(
-                        text = { Text("引用回复") },
-                        onClick = {
-                            menuOpen = false
-                            haptics.play(HapticCue.SELECT)
-                            onQuote(message)
-                        },
-                    )
+                    }
+                    // Attachment messages cannot be reconstructed by a text-only edit.
+                    // The policy also keeps their private transport paths out of the UI.
+                    val editableText = MessageActions.editableText(message)
+                    if (editableText != null && bot != null && !isPendingEdit) {
+                        MessageMenuDivider()
+                        MessageMenuRow(
+                            title = "编辑并重试",
+                            enabled = bot.busy != true && editPending == null,
+                            onClick = {
+                                menuOpen = false
+                                editText = editableText
+                                editing = true
+                            },
+                        )
+                    }
                 }
-            }
-            // Attachment messages cannot be reconstructed by a text-only edit.
-            // The policy also keeps their private transport paths out of the UI.
-            val editableText = MessageActions.editableText(message)
-            if (editableText != null && bot != null && !isPendingEdit) {
-                HorizontalDivider()
-                DropdownMenuItem(
-                    text = { Text("编辑并重试") },
-                    enabled = bot.busy != true && editPending == null,
-                    onClick = {
-                        menuOpen = false
-                        editText = editableText
-                        editing = true
-                    },
-                )
             }
         }
     }
@@ -399,14 +416,17 @@ fun MessageRow(
     if (editing && bot != null) {
         AlertDialog(
             onDismissRequest = { editing = false },
+            containerColor = minisCanvas,
             title = { Text("编辑并重试") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("这将创建一个新版本并从此处继续对话。", fontSize = 14.sp)
-                    OutlinedTextField(
+                    MinisSheetField(
                         value = editText,
                         onValueChange = { editText = it },
-                        label = { Text("消息") },
+                        placeholder = "消息",
+                        singleLine = false,
+                        minLines = 2,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -437,6 +457,35 @@ fun MessageRow(
     }
 }
 
+@Composable
+private fun MessageMenuDivider() {
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        thickness = 0.5.dp,
+        color = minisSeparator,
+    )
+}
+
+@Composable
+private fun MessageMenuRow(title: String, onClick: () -> Unit, enabled: Boolean = true) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 46.dp)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            fontSize = 15.sp,
+            color = minisInk.copy(alpha = if (enabled) 1f else 0.45f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 /**
  * Raw message text in a separate surface where Android can own the long-press
  * selection gesture. The bubble's long press is intentionally reserved for
@@ -449,6 +498,7 @@ private fun SelectableTextDialog(text: String, onDismiss: () -> Unit) {
     var copied by remember(text) { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = minisCanvas,
         title = { Text("选择文本") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -710,11 +760,7 @@ private fun TextBubble(
                             }
                         }
                         if (attached.text.isNotEmpty()) {
-                            Text(
-                                text = attached.text,
-                                fontSize = 17.sp,
-                                color = BubbleColor.userBubbleText,
-                            )
+                            UserMessageText(attached.text)
                         }
                     }
                 } else {
@@ -740,6 +786,54 @@ private fun TextBubble(
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Your bubble stays plain text — except the blockquote "引用回复" puts at the
+ * head of a draft, which reads as one clipped reference, not as literal
+ * ">" runes in front of your words.
+ */
+@Composable
+private fun UserMessageText(text: String) {
+    val color = BubbleColor.userBubbleText
+    if (!text.startsWith(">")) {
+        Text(text = text, fontSize = 17.sp, color = color)
+        return
+    }
+    val lines = text.lines()
+    val quote = lines.takeWhile { it.startsWith(">") }
+        .joinToString("\n") { it.removePrefix(">").trimStart() }
+        .trim()
+    val body = lines.dropWhile { it.startsWith(">") }
+        .dropWhile { it.isBlank() }
+        .joinToString("\n")
+    if (quote.isEmpty()) {
+        Text(text = text, fontSize = 17.sp, color = color)
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(
+            modifier = Modifier.height(IntrinsicSize.Min),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Box(
+                Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(color.copy(alpha = 0.35f), RoundedCornerShape(1.5.dp)),
+            )
+            Text(
+                text = quote,
+                fontSize = 14.sp,
+                color = color.copy(alpha = 0.72f),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        if (body.isNotEmpty()) {
+            Text(text = body, fontSize = 17.sp, color = color)
         }
     }
 }
@@ -1098,13 +1192,16 @@ private fun VoiceNoteAttachmentView(
                 }
             },
         )
-        Text(
-            // The length, not a clock pair: while a note plays the bar already
-            // says where it is, and "0:00 / 0:01" was the widest thing here.
-            text = durationMs?.let(::voiceNoteClock) ?: "--:--",
-            fontSize = 12.sp,
-            color = foreground.copy(alpha = 0.75f),
-        )
+        // The length, not a clock pair: while a note plays the bar already
+        // says where it is, and "0:00 / 0:01" was the widest thing here. A note
+        // the wire never timed keeps its bar and drops the dead "--:--".
+        durationMs?.let {
+            Text(
+                text = voiceNoteClock(it),
+                fontSize = 12.sp,
+                color = foreground.copy(alpha = 0.75f),
+            )
+        }
     }
 }
 
@@ -1249,8 +1346,18 @@ internal fun readableActivityName(name: String): String {
         ?.groupValues?.getOrNull(1)
     if (detail != null) {
         val prefix = body.substringBefore("{").trim().trimEnd(':', '：').trim()
-        val clean = cleanActivityText(detail)
-        return if (prefix.isEmpty()) clean else "$prefix: $clean"
+        val clean = RosterPreviewFormat.humanizeErrorMessage(cleanActivityText(detail))
+        return when {
+            prefix.isEmpty() -> clean
+            prefix.matches(Regex("\\d{3}")) -> "错误 $prefix：$clean"
+            else -> "$prefix: $clean"
+        }
+    }
+    val coded = Regex("^(\\d{3})\\s*[:：]\\s*([\\s\\S]+)$").matchEntire(body)
+    if (coded != null) {
+        return "错误 ${coded.groupValues[1]}：${
+            RosterPreviewFormat.humanizeErrorMessage(cleanActivityText(coded.groupValues[2]))
+        }"
     }
     return cleanActivityText(body)
 }

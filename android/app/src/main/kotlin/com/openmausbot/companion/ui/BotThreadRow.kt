@@ -108,7 +108,11 @@ internal fun BotThreadRow(
                 }
             }
             val byline = listOfNotNull(
-                RelativeStamp.updated(task.listStamp).takeIf { it.isNotEmpty() },
+                RelativeStamp.updated(
+                    atMillis = task.listStamp,
+                    locale = java.util.Locale.SIMPLIFIED_CHINESE,
+                    nowMillis = now,
+                ).takeIf { it.isNotEmpty() },
                 "已置顶".takeIf { task.pinned == true },
                 task.bylineLabel(now),
             ).joinToString(" · ")
