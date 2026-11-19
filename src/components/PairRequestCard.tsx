@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Laptop, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Laptop } from "lucide-react";
 
 import { companionBridge } from "@/lib/companion-bridge";
 import { companionPairingRoute } from "@/lib/companion-pairing";
@@ -21,6 +22,13 @@ interface PairRequest {
  * window, mints the same link a QR carries — endpoints, encrypted route and all
  * — and hands that link back to the control plane for the waiting phone. That
  * keeps one pairing protocol for scans, codes and account requests alike.
+ *
+ * It is a dialog and not a corner toast. The question is "may this stranger's
+ * phone reach this computer", it has a person's name on it, and it waits on the
+ * one person who can answer — a card that can be scrolled past, covered by the
+ * window it lives in, or mistaken for a notification is how the answer never
+ * comes. The system notification (main process) is what finds that person when
+ * the window is behind something; this is what they find when they arrive.
  */
 export function PairRequestCard() {
   const [queue, setQueue] = useState<PairRequest[]>([]);
@@ -95,52 +103,53 @@ export function PairRequestCard() {
     }
   };
 
-  return (
+  return createPortal(
     <div
-      role="alertdialog"
-      aria-label={t("pairRequest.title")}
-      data-pair-request-card
-      className="glass-popup animate-pop-in fixed bottom-6 right-6 z-[60] flex w-[360px] flex-col gap-3 rounded-2xl p-4 text-ink shadow-xl"
+      className="fixed inset-0 z-[75] flex items-center justify-center bg-black/35 p-6"
+      // The question is about this computer, not about whatever is underneath:
+      // a click outside must not dismiss it without an answer.
+      onMouseDown={(event) => event.stopPropagation()}
     >
-      <div className="flex items-start gap-3">
-        <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
-          <Laptop size={18} aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[14px] font-medium leading-5">{t("pairRequest.title")}</div>
-          <div className="mt-0.5 truncate text-[13px] text-ink-secondary">
-            {t("pairRequest.body", { device: request.deviceName })}
+      <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={t("pairRequest.title")}
+        data-pair-request-card
+        className="glass-popup animate-pop-in flex w-[min(440px,100%)] flex-col gap-4 rounded-2xl p-6 text-ink shadow-2xl"
+      >
+        <div className="flex items-start gap-3">
+          <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
+            <Laptop size={22} aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px] font-semibold leading-6">{t("pairRequest.title")}</h2>
+            <p className="mt-1 text-[14px] leading-6 text-ink-secondary">
+              {t("pairRequest.body", { device: request.deviceName })}
+            </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={deny}
-          disabled={busy}
-          aria-label={t("pairRequest.deny")}
-          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full text-ink-secondary hover:bg-ink/[0.06] hover:text-ink disabled:opacity-40"
-        >
-          <X size={14} aria-hidden="true" />
-        </button>
+        {error && <p role="alert" className="text-[13px] leading-relaxed text-danger">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={deny}
+            disabled={busy}
+            aria-label={t("pairRequest.deny")}
+            className="cursor-pointer rounded-lg px-4 py-2 text-[14px] text-ink-secondary hover:bg-ink/[0.06] disabled:opacity-40"
+          >
+            {t("pairRequest.deny")}
+          </button>
+          <button
+            type="button"
+            onClick={allow}
+            disabled={busy}
+            className="cursor-pointer rounded-lg bg-ink px-5 py-2 text-[14px] font-medium text-card hover:opacity-90 disabled:opacity-40"
+          >
+            {busy ? t("pairRequest.waiting") : t("pairRequest.allow")}
+          </button>
+        </div>
       </div>
-      {error && <p className="text-[12px] leading-relaxed text-danger">{error}</p>}
-      <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={deny}
-          disabled={busy}
-          className="cursor-pointer rounded-lg px-3 py-1.5 text-[13px] text-ink-secondary hover:bg-ink/[0.06] disabled:opacity-40"
-        >
-          {t("pairRequest.deny")}
-        </button>
-        <button
-          type="button"
-          onClick={allow}
-          disabled={busy}
-          className="cursor-pointer rounded-lg bg-ink px-3 py-1.5 text-[13px] font-medium text-card hover:opacity-90 disabled:opacity-40"
-        >
-          {busy ? t("pairRequest.waiting") : t("pairRequest.allow")}
-        </button>
-      </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

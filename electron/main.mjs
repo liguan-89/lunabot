@@ -28,7 +28,7 @@ import { activateExistingWindow, releaseSingleInstanceLock } from "./single-inst
 import { bootFailureMessage, listeningSignal, pollServerIdentity, SERVER_BOOT_TIMEOUT_MS, SERVER_LISTENING_GRACE_MS } from "./server-boot-probe.mjs";
 import { createServerSupervisor } from "./server-supervisor.mjs";
 import { serverChildLaunch } from "./server-child-launch.mjs";
-import { watchPairRequests } from "./companion-pair-watch.mjs";
+import { watchPairRequests, createPairRequestNotice } from "./companion-pair-watch.mjs";
 import { packageUrlFromCommandLine, packageUrlFromDeepLink } from "./package-link.mjs";
 import { chatLinkFrom, chatLinkFromCommandLine } from "./chat-link.mjs"; import { installDesktopNotifications } from "./desktop-notifications.mjs";
 import { createOrganizationEntry, isOrganizationDeepLink, ORGANIZATION_DEEP_LINK, takeOrganizationDeepLink, organizationRestartIntent, withOrganizationRestartIntent, withoutOrganizationRestartIntent } from "./organization-entry.mjs";
@@ -2907,6 +2907,12 @@ app.whenReady().then(async () => {
   watchPairRequests(
     () => ensureCompanionAccountService().pairRequests(),
     () => mainWindow,
+    {
+      // A card in a window nobody is looking at asks nobody: raise the system
+      // notification too, unless the window is already in front.
+      notify: createPairRequestNotice({ Notification, t: nativeT, reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); } }),
+      focused: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()),
+    },
   );
   desktopRemoteAccess = desktopCompanionAccess(secureCredentials);
   const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();

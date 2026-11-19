@@ -115,9 +115,15 @@ fun PairingScreen(onCancel: () -> Unit) {
     // attempt is in flight is the secret store's answer, not this flag's —
     // `PairingSecrets` is the one object that can refuse to replace the slot.
     var pairing by remember { mutableStateOf(false) }
-    // The handle a Cloud hand-off opened, while its one automatic submit is
-    // still owed. Process memory only, like everything else secret here.
-    var cloudAutoSubmit by remember { mutableStateOf<String?>(null) }
+    // The handle an account hand-off opened (a Cloud code, or a computer that
+    // just approved this phone), while its one automatic submit is still owed.
+    // Process memory only, like everything else secret here.
+    var autoSubmit by remember { mutableStateOf<String?>(null) }
+    // The credential of the invite a computer approved in answer to a request
+    // made from Settings. Compared, never guessed at: the screen opens a slot
+    // for whatever invite arrives next, and only the one this phone asked for
+    // may be redeemed without a tap.
+    var approvedCredential by remember { mutableStateOf<String?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     var showingScanner by remember { mutableStateOf(false) }
     // "Looking…" forever is not an answer. After a few seconds with nothing
@@ -153,6 +159,26 @@ fun PairingScreen(onCancel: () -> Unit) {
         return true
     }
 
+    /**
+     * Redeem without a second tap when the invite is the answer to a request
+     * this phone made from Settings.
+     *
+     * A scan still waits for the person to check the name and address (§6),
+     * because the phone found that computer by itself and the QR only proves
+     * the computer's own identity. This link is different: the person chose the
+     * computer in Settings under an authenticated account, and a human in front
+     * of that computer pressed Allow. Asking for a third confirmation after
+     * those two is what made the phone look like it had not connected.
+     *
+     * The credential is compared, not assumed: any invite may arrive next, and
+     * only the one that was approved may skip the confirmation.
+     */
+    fun takeApprovedInvite(next: PendingPairing?, invite: PairingInvite) {
+        if (!invite.isApprovedBy(approvedCredential)) return
+        approvedCredential = null
+        autoSubmit = next?.handle
+    }
+
     // A Cloud pairing arrives with its code already in hand: Settings minted it
     // for this account a moment ago. Open the ordinary confirmation and submit
     // once through the same attempt transaction a typed code uses — that
@@ -167,20 +193,28 @@ fun PairingScreen(onCancel: () -> Unit) {
             return@LaunchedEffect
         }
         if (openPending(connection, fromScan = false, initialCode = request.code)) {
-            cloudAutoSubmit = pending?.handle
+            autoSubmit = pending?.handle
         }
     }
 
     // A computer answered a connect request made from Settings: the link is a
-    // QR's twin, so it enters through the same door a scan does.
+    // QR's twin, so it enters through the same door a scan does. The one
+    // difference is who did the confirming. A scan still waits for the person
+    // to check the name and address (§6), because the phone found that
+    // computer by itself. This link answers a question the person asked from
+    // an authenticated account and the computer's own operator approved, so
+    // making them tap a third time — after "连接" here and "允许" there — is
+    // the whole of what this flag removes.
     val computerRequest by ComputerPairingInbox.pending
     LaunchedEffect(computerRequest) {
         val request = computerRequest ?: return@LaunchedEffect
         ComputerPairingInbox.consume()
-        if (PairingInvite.parse(request.link) == null) {
+        val parsed = PairingInvite.parse(request.link)
+        if (parsed == null) {
             failure = "「${request.name}」返回的配对信息无效。"
             return@LaunchedEffect
         }
+        approvedCredential = parsed.credential
         session.receivePairingURL(request.link)
     }
 
@@ -199,7 +233,12 @@ fun PairingScreen(onCancel: () -> Unit) {
             pending = next
             code = ""
             failure = null
+            takeApprovedInvite(next, accepted)
         }
+        // A refusal leaves the invite queued; `endAttemptTaking` in submit's
+        // `finally` takes it when the running attempt settles, and that path
+        // calls `takeApprovedInvite` too — so the approval is never lost, and
+        // never spent on a pairing the person did not ask for.
     }
 
     // Session raises pairing problems through actionError; on this screen they
@@ -281,16 +320,21 @@ fun PairingScreen(onCancel: () -> Unit) {
                 // the window before Session marked this attempt was published
                 // rather than deferred, and refused above; this is where it is
                 // finally taken, in the same step that frees the slot.
+                val waiting = session.pairingInvite.value
                 val next = secrets.endAttemptTaking(
                     handle = selectedHandle,
                     current = pending,
-                    invite = session.pairingInvite.value,
+                    invite = waiting,
                     consume = session::consumePairingInvite,
                 )
                 if (next !== pending) {
                     pending = next
                     code = ""
                     failure = null
+                    // The invite taken here may be the computer's approval that
+                    // arrived while this attempt held the slot; it is owed the
+                    // same automatic submit the direct path gets.
+                    if (waiting != null) takeApprovedInvite(next, waiting)
                 }
                 pairing = false
             }
@@ -298,14 +342,21 @@ fun PairingScreen(onCancel: () -> Unit) {
     }
 
     // The tap in Settings that started this flow is the confirmation: the code
-    // was minted for this account and this Cloud, not read off a screen. Submit
-    // once, here, so a refusal lands on this form where Retry lives instead of
-    // disappearing with a coroutine in another screen.
-    LaunchedEffect(pending?.handle, cloudAutoSubmit) {
+    // was minted for this account and this Cloud, or the computer answered a
+    // request this phone made. Submit once, here, so a refusal lands on this
+    // form where Retry lives instead of disappearing with a coroutine in
+    // another screen. The credential comes from the same confirmation the
+    // button would submit, so there is one answer to "what gets redeemed".
+    LaunchedEffect(pending?.handle, autoSubmit) {
         val selected = pending ?: return@LaunchedEffect
-        if (cloudAutoSubmit != selected.handle) return@LaunchedEffect
-        cloudAutoSubmit = null
-        submit(selected.connection, code, cameFromScanner = false)
+        if (autoSubmit != selected.handle) return@LaunchedEffect
+        autoSubmit = null
+        val credential = when (val step = PairingConfirmation.of(selected, secrets).step) {
+            is PairingConfirmation.Step.Confirm -> step.credential
+            PairingConfirmation.Step.EnterCode -> code
+            PairingConfirmation.Step.Rescan -> return@LaunchedEffect
+        }
+        submit(selected.connection, credential, cameFromScanner = selected.fromScan)
     }
 
     Column(

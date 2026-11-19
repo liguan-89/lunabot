@@ -265,6 +265,17 @@ internal fun PairingSecretStore.takeInvite(
 }
 
 /**
+ * True when this invite is the answer to a connect request a computer approved.
+ *
+ * The screen opens a slot for whichever invite arrives next, and a scan may
+ * land in that window too. Comparing the credential — a one-time secret the
+ * approval carries — is what keeps the automatic redemption to the pairing the
+ * person asked for, and leaves a scanned QR waiting for its confirmation (§6).
+ */
+internal fun PairingInvite.isApprovedBy(approvedCredential: String?): Boolean =
+    approvedCredential != null && credential == approvedCredential
+
+/**
  * Release the slot this attempt claimed and, in the same step, take any invite
  * that is waiting for it.
  *

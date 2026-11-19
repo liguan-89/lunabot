@@ -409,6 +409,19 @@ class PairingInviteTransactionTest {
     private val activeCredential = "omb_pair_" + "a".repeat(43)
     private val arriving = "omb_pair_" + "b".repeat(43)
 
+    /**
+     * The one invite that may skip the confirmation is the one a computer
+     * approved. A QR scanned in the meantime carries a different credential and
+     * still waits for the person to check the name and address (§6).
+     */
+    @Test
+    fun `only the approved credential skips the confirmation`() {
+        assertTrue(PairingInvite(other, arriving).isApprovedBy(arriving))
+        assertFalse(PairingInvite(other, arriving).isApprovedBy(activeCredential))
+        assertFalse(PairingInvite(other, arriving).isApprovedBy(null), "no approval means no shortcut")
+        assertFalse(PairingInvite(other, arriving).isApprovedBy(""), "an empty approval is not one")
+    }
+
     /** A slot mid-redemption: what the screen looks like while Connect is spinning. */
     private fun redeeming(): Pair<PairingSecretStore, PendingPairing> {
         val secrets = PairingSecretStore()

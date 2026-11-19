@@ -9,17 +9,25 @@
  * The poll is one authenticated GET every ten seconds and only runs while a
  * window exists. A request already shown is not re-sent, so a slow tap cannot
  * stack two cards for the same ask.
+ *
+ * A request is also worth a system notification. The card lives in the page, so
+ * a minimised, hidden or covered window shows nothing at all — and the person
+ * being asked is by definition not looking at this app. The notification only
+ * goes out when the window is not focused, so a visible card is not doubled.
  */
 const POLL_MS = 10_000;
 
 /**
- * @param {() => Promise<Array<{ id: string }>>} listRequests the service's own
- *   `pairRequests`, already authenticated by the caller.
+ * @param {() => Promise<Array<{ id: string, deviceName?: string }>>} listRequests
+ *   the service's own `pairRequests`, already authenticated by the caller.
  * @param {() => any} currentWindow the window to deliver to, read on every tick
  *   so a window that closed and reopened is not skipped.
+ * @param {{ notify?: (request: { id: string, deviceName?: string }) => void,
+ *   focused?: () => boolean }} [deps] `focused`: false while the window is
+ *   behind, minimised or hidden. `notify`: raises the system notification.
  * @returns {{ stop: () => void }} the handle a shutdown path can clear.
  */
-export function watchPairRequests(listRequests, currentWindow) {
+export function watchPairRequests(listRequests, currentWindow, { notify = () => {}, focused = () => true } = {}) {
   let shown = new Set();
   let timer = null;
 
@@ -42,6 +50,7 @@ export function watchPairRequests(listRequests, currentWindow) {
     for (const id of shown) if (!live.has(id)) shown.delete(id);
     for (const request of fresh) shown.add(request.id);
     window.webContents.send("companion-account:pair-request", fresh);
+    if (!focused()) for (const request of fresh) notify(request);
   };
 
   timer = setInterval(tick, POLL_MS);
@@ -53,5 +62,26 @@ export function watchPairRequests(listRequests, currentWindow) {
       timer = null;
       shown = new Set();
     },
+  };
+}
+
+/**
+ * "A phone wants to connect", raised by the system rather than drawn in a page.
+ *
+ * The card can only speak to someone already looking at this window, and the
+ * person who has to tap Allow is by definition somewhere else. A click brings
+ * the window forward, where the card is waiting.
+ */
+export function createPairRequestNotice({ Notification, t, reveal }) {
+  return (request) => {
+    if (!Notification.isSupported()) return false;
+    const device = typeof request?.deviceName === "string" && request.deviceName.trim() ? request.deviceName.trim() : "";
+    const note = new Notification({
+      title: t("native.pairRequest.title"),
+      body: device ? t("native.pairRequest.body", { device }) : t("native.pairRequest.bodyNoDevice"),
+    });
+    note.on("click", () => reveal());
+    note.show();
+    return true;
   };
 }
