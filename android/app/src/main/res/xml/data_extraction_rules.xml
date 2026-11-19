@@ -13,7 +13,9 @@
 
   Both files have been renamed twice (`openmaus.*` → `dexbot.*` → `lunabot.*`),
   so every name is excluded in both blocks: an install that has not yet run the
-  rename chain still has the older file on disk.
+  rename chain still has the older file on disk. The Cloud session file was
+  renamed once (`dex_cloud_account` → `luna_cloud_account`) and is listed under
+  both names for the same reason.
 
   The roster cache is excluded too: device-local convenience the next live
   hydrate replaces wholesale, and a restored copy would show the new device a
@@ -27,6 +29,12 @@
         <exclude
             domain="sharedpref"
             path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude
+            domain="sharedpref"
+            path="luna_cloud_account.xml" />
+        <exclude
+            domain="sharedpref"
+            path="dex_cloud_account.xml" />
         <exclude
             domain="sharedpref"
             path="lunabot.permissions.xml" />
@@ -65,6 +73,12 @@
         <exclude
             domain="sharedpref"
             path="__androidx_security_crypto_encrypted_prefs__.xml" />
+        <exclude
+            domain="sharedpref"
+            path="luna_cloud_account.xml" />
+        <exclude
+            domain="sharedpref"
+            path="dex_cloud_account.xml" />
         <exclude
             domain="sharedpref"
             path="lunabot.permissions.xml" />

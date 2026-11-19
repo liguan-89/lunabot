@@ -115,6 +115,7 @@ class OpenMausApp : Application() {
             "dexbot.chat-preferences" to "lunabot.chat-preferences",
             "dexbot.always_on" to "lunabot.always_on",
             "dexbot.phoneui.adb" to "lunabot.phoneui.adb",
+            "dex_cloud_account" to "luna_cloud_account",
         )
         for ((legacy, current) in names) {
             val source = File(directory, "$legacy.xml")

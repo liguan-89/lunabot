@@ -410,7 +410,7 @@ class CloudAccountStore(context: Context) {
     }
 
     companion object {
-        const val PREFS_NAME = "dex_cloud_account"
+        const val PREFS_NAME = "luna_cloud_account"
         private const val KEY_TOKEN = "session"
         private const val KEY_EMAIL = "email"
         private const val KEY_CLIENT = "client_instance"
