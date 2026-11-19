@@ -216,3 +216,10 @@
 - 跳：`e0eab4bd37`（落点 `composio-files.ts`/`connector-files.ts` 已删）；`fe171fbea2`（`LiveBot.voice` 消费链 `bot.liveVoice`+`botCallVoice`+ElevenLabs session 俱不在 fork，落即为死数据——随 P2 ElevenLabs 评审重议）；`368f7d2651`（fork 无 Hermes 导入源）；`9c0e7438b5`（fork 刻意保留无备份时自动选默认模型策略）；quiet-status 四连+merge `02f35ac556` `eddc9381d2` `88bc088a59` `9591a02a12` `8710007447`（全改 `describeQuiet` 通知文案——fork 该函数不存在，`live-steps.ts` 把 quiet 状态映射为通用 kind，文案链不成立）。
 - index.ts 撞点专项三连随本组判完：`b806f7f731` 摘、`fe171fbea2` 跳、`e0eab4bd37` 跳。
 - 验证：limit-takeover/sign-in-mail/plain-time-zone/MentionTextarea/mcp-gate/mcp-remote-proxy 114 测试 + typecheck 绿 + oxlint 净 + update.sh `bash -n` 通过。
+
+## 执行状态十二（2026-11-21 续批，B4 macOS 进程基座）
+
+**B4 完结：摘 2（含基座手术），跳 2**——
+- 摘：`5e5ae9e305` **手术**——按上游终态形状把 macOS `ps` 基座拼进 fork 版 `server/procs.ts`：`psProcesses(pids?)`（`/bin/ps -p 列表|-A`，`pid=,ppid=,stat=,lstart=`，`LC_ALL=C`，2s 超时，lstart 空白折叠）、`treeReader`（一轮一次 ps）、`linuxProcess`/`captureCliTree`/`addDescendantsFromEveryProcess`/`signalLinuxDescendants` 开 darwin 支路、`spawnCli`/`execCli` 非 win32 均注册初始树（execCli 超时也能收逃逸后代）。**未引入**上游 `engine-owners`/`engine-records`/`crash-guard`/`process-room`/`process-shortage` 依赖与 `linuxGroupOnlyExited` 架构；fork 特有 `execCliBoxed`/`sharedBoxScope`/`outsideBoxOptions`/`botBox`/UTF-8 `setEncoding` 全保留。新测试 `server/kill-tree-escaped.test.ts`：execCli 超时杀脱组 SIGTERM 免疫孙进程；`c28277c06a`（C locale+空格折叠+zombie 计停——源码部分随上者终态手术已含，pick 落为测试 `alive` 僵尸态修正）。
+- 跳：`c693d4c33e`（`treeReader` 一轮一 ps 部分已在手术里按终态落地；`engineOwners.track` 依赖上游独有模块，余量为空 pick）；`d4f404fc90`（merge 壳，含已摘两提交）。
+- 验证：`kill-tree-escaped.test.ts` darwin 实测通过（孙进程被 SIGKILL）+ typecheck 绿 + oxlint 净。
