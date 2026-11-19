@@ -410,7 +410,6 @@ private fun Marker(checked: Boolean, multi: Boolean) {
 @Composable
 private fun AnswerLine(text: String) {
     Row(
-        modifier = Modifier.heightIn(min = MIN_TOUCH_TARGET),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

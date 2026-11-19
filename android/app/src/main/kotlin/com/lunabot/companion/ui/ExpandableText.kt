@@ -2,6 +2,7 @@ package com.lunabot.companion.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.text.selection.SelectionContainer
@@ -11,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
@@ -91,14 +93,21 @@ fun ExpandableText(
             )
         }
         if (!toggle) return@Column
-        Text(
-            text = if (expanded) showLess else showMore,
-            fontSize = 13.sp,
-            color = minisAccent,
+        // A 32dp target with the label centred in it: the text is 18dp tall, and
+        // letting it sit at the top of the box left the space below it reading as
+        // a gap between the question and its answer.
+        Box(
             modifier = Modifier
                 .heightIn(min = 32.dp)
                 .clickable(role = Role.Button) { expanded = !expanded }
                 .semantics { stateDescription = if (expanded) "已展开" else "已收起" },
-        )
+            contentAlignment = Alignment.CenterStart,
+        ) {
+            Text(
+                text = if (expanded) showLess else showMore,
+                fontSize = 13.sp,
+                color = minisAccent,
+            )
+        }
     }
 }
