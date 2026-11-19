@@ -2310,7 +2310,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (action.type !== "send") return undefined;
         return botBeforeSend ? openOnboardingCard(botBeforeSend) : undefined;
       })();
-      const threadOf = (s: AppState) => s.groups.find((g) => g.id === s.selectedId)?.threadId ?? s.bots.find((b) => b.id === s.selectedId)?.threadId, previousOpened = threadOf(stateRef.current);
+      const threadOf = (s: AppState) => { const bot = s.bots.find((b) => b.id === s.selectedId); return s.groups.find((g) => g.id === s.selectedId)?.threadId ?? bot?.switchingTo ?? bot?.threadId; }, previousOpened = threadOf(stateRef.current);
+      if (action.type === "notice" && action.notice?.threadId !== undefined && action.notice.threadId !== previousOpened) return;
       const dispatched = action.type !== "cancelQueued" && action.type !== "cancelGroupQueued" && action.type !== "deleteBot";
       if (dispatched) rawDispatch(action);
       const cur = dispatched ? reducer(stateRef.current, action) : stateRef.current, opened = threadOf(cur);
