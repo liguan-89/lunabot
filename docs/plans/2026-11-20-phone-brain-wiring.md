@@ -41,16 +41,36 @@ Deliberately not in this batch: miss/success bookkeeping after a replay
 job the phone could run while the server is unreachable (a real on-device
 executor — separate work).
 
-## Phase 2 — intent gate
+## Phase 2 — intent gate (this batch)
 
-`server/intent-gate.ts` (`assessIntent`, DISCUSS/READ/ACT at 0.85, 10 s
-budget) is tested and dead. Wiring needs one product decision first: what
-ACT means here — in Mika it gates whether the phone may be driven at all;
-in our split the honest seat is before the first phone *write* call, where
-a DISCUSS verdict declines the call cheaply. It is not a safety mechanism
-(the outbound card is stricter), its value is cost: refusing to offer
-screen-write tools when the person is only chatting. Deferred until that
-decision is made; the module stays as is.
+Mika's gate is lazy, once a turn, and fail-open: `AgentLoop` assesses intent
+only at two places — before replaying a route, and before the first outside
+tool call — and only for a request the person themselves put in the chat.
+The port lands the same shape:
+
+- `PhonesDeps.decider` is the decision leg (`botDecide` seam, the same
+  relay-taken shape as app-picks); `PhonesDeps.verify` doubles as the judge
+  — a plain one-off text call on the bot's engine answering the gate's
+  question in one word, exactly Mika's fallback when the decision call
+  cannot answer. With neither wired there is no gate, and everything runs
+  as before.
+- `intentFor(turn)` in `server/host/phones.ts` memoizes one promise per
+  `threadId:botId:generation`; `originIsUser` scopes it to the person's own
+  turns, `endTurn`/`turnEnded` drop the entry.
+- **Route part**: `promptParts` became async. When exactly one route fits
+  it awaits the verdict and passes it to `host.parts` — `discuss` or an
+  unreadable answer keeps the path out (fail-closed on the hint, as Mika
+  keeps replay out); `read`/`act`/no-gate are told it.
+- **Call gate**: `run` in `server/phones/host.ts` asks `deps.intent` before
+  the loop guard and the outbound card — a `discuss` verdict refuses the
+  call (and, through the cached verdict, every later call this turn) with
+  Mika's "answer in text, touch nothing outside" notice as the tool result.
+  Every other verdict and every failure runs as before (fail-open).
+
+Not ported: Mika's `DISCUSSION_LOOKUP_VERBS` exemption — its memory and
+knowledge reads are not phone tools here, so no phone call needs exempting;
+and the `conversation_intent` notice row — the refusal's own text carries
+the same instruction to the model.
 
 ## Phase 3 — notification learning ingress
 

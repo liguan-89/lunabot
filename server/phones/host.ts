@@ -11,6 +11,7 @@ import { hit } from "../../shared/sensitive.ts";
 import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type VerifyMessage } from "../answer-verify.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
+import type { Intent } from "../intent-gate.ts";
 import { elementAtPoint, elementByRef, screenFromAnswer, type PhoneRoutes, type RouteTurn } from "../phone-routes.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { BotRecord } from "../store.ts";
@@ -263,6 +264,12 @@ export interface PhoneHostDeps {
    * the next turn. Absent is `off`: nothing is checked and no model call is made.
    */
   verifyMode?(): PhoneVerifyMode;
+  /**
+   * Mika's per-turn verdict on the person's own request, asked lazily once and shared by the route part and the
+   * call gate: an intent — the verdict; null — asked and unreadable; undefined — not the person's turn or nothing
+   * to judge with. Absent is no gate at all: every call runs as before.
+   */
+  intent?(turn: TurnCapability): Promise<Intent | null | undefined>;
 }
 
 export interface PhoneOutboundHoldInput {
@@ -284,8 +291,10 @@ export interface PhoneHost {
   integration(bot: PhoneBot, owner: string | null, mint: () => string, harnessUrl: string): { command: string; args: string[]; env: Record<string, string> } | null;
   prompt(bot: PhoneBot, owner: string | null): string;
   /** The phone part and, only beside a non-empty one, where the person is and the one fitting route: sections of
-   * their own, volatile, so a turn from the phone or a repeated request does not change the cached system prompt. */
-  parts(bot: PhoneBot, owner: string | null, place: PhonePlace, request?: string): [PromptPart, PromptPart, PromptPart];
+   * their own, volatile, so a turn from the phone or a repeated request does not change the cached system prompt.
+   * `intent` is the gate's answer when the caller asked it, and like Mika's replay a discussion — or an answer the
+   * gate could not read — keeps the route out. */
+  parts(bot: PhoneBot, owner: string | null, place: PhonePlace, request?: string, intent?: Intent | null): [PromptPart, PromptPart, PromptPart];
   /** For a turn that may not use the phone although the owner's phone would serve this bot: say so, so it does not guess. */
   withheld(bot: PhoneBot, owner: string | null): string;
   /**
@@ -410,6 +419,8 @@ export async function verifyPhoneTurn(options: PhoneVerifyOptions): Promise<Veri
 
 const NOT_OWNER_TEXT = "This conversation can't use a phone: only the owner's own turns can.";
 const GONE_TEXT = "This bot no longer exists.";
+/** The tool answer a discussion verdict leaves: the person was talking, so the call never ran and the model answers in text. */
+const PHONE_DISCUSS_TEXT = "The person is discussing or reviewing, not asking anything to be done. Answer their message directly in text — do not read or operate apps, websites or other outside content this turn.";
 
 /** The default phone: used ones first, the latest use first; then never-used ones, the newest pairing first. The poll
  * heartbeat (`seen`) never ranks: a phone that merely polled must not take a send meant for the one in use. */
@@ -503,12 +514,13 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       };
     },
     prompt,
-    parts(bot, owner, place, request?: string) {
+    parts(bot, owner, place, request?: string, intent?: Intent | null) {
       const text = prompt(bot, owner);
       // One fitting route is told to the bot so it can replay it; a shortlist it would have to choose between is
-      // not offered, because a classifier has to pick and nothing here may call a model.
+      // not offered, because a classifier has to pick and nothing here may call a model. A gate that answered keeps
+      // the path out too: a discussion, or an answer it could not read, means nothing was asked to be done.
       const matched = request && owner !== null && routes ? routes.match(owner, request) : [];
-      const route = needsDecision(matched) ? null : (matched[0] ?? null);
+      const route = intent === "discuss" || intent === null ? null : needsDecision(matched) ? null : (matched[0] ?? null);
       return [
         { id: "device", label: "Phone", text },
         { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] },
@@ -617,6 +629,9 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             noteEvidence(turn, phone.key, name, args, before, outcome);
             return outcome;
           };
+          // Mika's gate stands at the turn's first outside call: a discussion verdict refuses this call and, through
+          // the cached verdict, every later one — the person was talking, so the model answers in text instead.
+          if ((await deps.intent?.(turn)) === "discuss") return refuse({ ok: false, code: "denied", error: PHONE_DISCUSS_TEXT });
           // A bot looping on a phone is caught before the card asks the person anything: the same action on a screen that
           // did not move earns a nudge in the answer, and then a refusal, so a stuck task ends instead of running on.
           const advice = isPhoneUiWrite(name) ? confirms.advise(turn, phone.key, name, args) : { result: "proceed" as const };

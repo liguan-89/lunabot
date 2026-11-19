@@ -14,7 +14,7 @@ import type { BotRecord } from "../store.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
 import type { PhoneBot } from "./access.ts";
 import { MAX_CONFIRM_TURNS, PhoneConfirms } from "./confirm.ts";
-import { createPhoneHost, verifyPhoneTurn } from "./host.ts";
+import { createPhoneHost, verifyPhoneTurn, type PhoneHostDeps } from "./host.ts";
 import { PhoneJobs, type PhoneJobDelivery, type PhoneJobOutcome } from "./jobs.ts";
 import { PhoneRegistry, type PhoneRegistration } from "./registry.ts";
 import type { PhoneToolsList } from "./rpc.ts";
@@ -54,7 +54,7 @@ const DELETE = {
   ],
 };
 
-function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: () => "off" | "log" } = {}) {
+function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: () => "off" | "log"; intent?: PhoneHostDeps["intent"] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-phone-host-"));
   dirs.push(dir);
   const registry = new PhoneRegistry(join(dir, "phones.json"));
@@ -70,6 +70,7 @@ function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: (
     approvalMode: () => "ask",
     ...(options.verifyMode ? { verifyMode: options.verifyMode } : {}),
     ...(options.steer ? { steer: options.steer } : {}),
+    ...(options.intent ? { intent: options.intent } : {}),
     ...(routes ? { routes } : {}),
   });
   registry.register(PIXEL, OWNER, registration({ phoneUi: "full" }));
@@ -506,6 +507,37 @@ describe("the route a matching request is told about", () => {
     await record(h);
     expect(h.host.parts(BOT, OWNER, "computer").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
     expect(h.host.parts(BOT, OWNER, "computer", "把手机关机").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+  });
+
+  it("keeps the route out on a discussion or an unreadable verdict, and tells it on read or act", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    for (const intent of ["discuss", null] as const) {
+      expect(h.host.parts(BOT, OWNER, "computer", REQUEST, intent).find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    }
+    for (const intent of ["read", "act"] as const) {
+      expect(h.host.parts(BOT, OWNER, "computer", REQUEST, intent).find((entry) => entry.id === "device-route")?.text).toContain("帮我在备忘录里打开{1}");
+    }
+  });
+});
+
+describe("Mika's intent gate at the first phone call", () => {
+  it("refuses the call in a discussion, before any job reaches the phone", async () => {
+    const h = harness({ intent: async () => "discuss" as const });
+    const request = vi.spyOn(h.jobs, "request");
+    const refused = await h.handle(call("PHONE_UI_OBSERVE")) as PhoneToolResult;
+    expect(refused).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
+    expect(text(refused)).toContain("discussing or reviewing");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("lets the call through on a read verdict, and when the gate answered nothing", async () => {
+    for (const intent of [async () => "read" as const, async () => null]) {
+      const h = harness({ intent });
+      const pending = h.handle(call("PHONE_UI_OBSERVE"));
+      await answerNext(h.jobs, { ok: true, result: PAY });
+      expect((await pending as PhoneToolResult).isError).toBeUndefined();
+    }
   });
 });
 

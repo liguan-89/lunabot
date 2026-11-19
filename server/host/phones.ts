@@ -8,6 +8,8 @@ import { Readable } from "node:stream";
 import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
+import type { Decider } from "../decider/index.ts";
+import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TURNS, type Intent } from "../intent-gate.ts";
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
 import { createPhoneHost, verifyPhoneTurn, verifyPrompt, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput, type PhoneTurnEnd, type PhoneTurnEnded } from "../phones/host.ts";
@@ -80,8 +82,14 @@ export interface PhonesDeps {
   /** The turn's effective approval mode, read at call time; absent is `ask`, so every screen write waits. */
   approvalMode?(botId: string, threadId: string): string;
   /**
-   * The answer check's one model call, per bot, as a plain one-off text call; null when its engine cannot make one.
-   * Only called when the check is on; the mode itself lives beside the check in server/phones/host.ts.
+   * The intent gate's decision call (server/intent-gate.ts). With neither this nor `verify` wired there is no gate,
+   * exactly as Mika without an IntentGate: a fitting route is offered and every call runs.
+   */
+  decider?: Pick<Decider, "choose">;
+  /**
+   * A plain one-off text call on the bot's engine; null when the engine cannot make one. The answer check calls it
+   * only when that check is on (its mode beside it in server/phones/host.ts); the intent gate calls it as its judge
+   * when the decision call could not answer.
    */
   verify?(botId: string): ((prompt: string) => Promise<string>) | null;
   /** The check's mode, read at call time from Settings; absent is `off`, so nothing is checked. */
@@ -99,6 +107,9 @@ export function createPhones(deps: PhonesDeps) {
   const steer = new PhoneSteer();
   /** The routes a turn's phone calls walked: recorded on by default, offered for reuse only where a caller asks. */
   const phoneRoutes = new PhoneRoutes({ root: join(deps.dataDir, "phone-routes"), enabled: true });
+  /** A person's own request, judged at most once a turn — Mika's gate: the verdict, null when the answer could not
+   * be read, undefined when the gate does not apply. The route part and the call gate share one lazy promise. */
+  const intents = new Map<string, Promise<Intent | null | undefined>>();
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
     try { registry.remove(key); } catch {}
@@ -166,6 +177,7 @@ export function createPhones(deps: PhonesDeps) {
     steer,
     routes: phoneRoutes,
     verifyMode: deps.verifyMode ?? (() => "off"),
+    intent: (turn) => intentFor(turn),
   });
 
   /** The line the thread's latest direct request answers, as the route recorder and the route part both read it. */
@@ -174,6 +186,57 @@ export function createPhones(deps: PhonesDeps) {
     const line = request?.messageId ? store.messagesFor(threadId).find((message) => message.id === request.messageId) : undefined;
     return line?.text ?? "";
   };
+
+  const intentKey = (turn: Turn): string => `${turn.threadId}${turn.botId}${turn.generation}`;
+
+  /**
+   * Mika's scope for the question: only the person's own line is judged — a routine, an automation or a handoff is
+   * never a discussion — and only where a decision model or a judge exists to answer. The judge prompt is the
+   * gate's own question asked in prose, so either leg alone is a working gate.
+   */
+  async function assessTurn(turn: Turn): Promise<Intent | null | undefined> {
+    if (!deps.originIsUser(turn)) return undefined;
+    const decide = deps.decider;
+    const complete = deps.verify?.(turn.botId) ?? null;
+    if (!decide && !complete) return undefined;
+    const request = deps.request(turn.threadId);
+    const messages = request?.messageId === undefined ? [] : store.messagesFor(turn.threadId);
+    const at = messages.findIndex((message) => message.id === request?.messageId);
+    const message = (at < 0 ? "" : messages[at]?.text ?? "").trim();
+    if (!message) return undefined;
+    const recentContext = messages.slice(Math.max(0, at - MAX_CONTEXT_TURNS), at)
+      .map((entry) => {
+        const text = entry.text?.trim();
+        return text ? `${entry.role}: ${text}` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+    const { state, question } = intentGateRequest({ message, recentContext });
+    const judgeText = `${question.instructions}\n\ncurrentMessage: ${state.currentMessage}\n${state.recentContext ? `${state.recentContext}\n` : ""}\nAnswer with exactly one word: DISCUSS, READ, or ACT.`;
+    try {
+      const { intent } = await assessIntent(
+        () => decide?.choose("botDecide", state, question, { timeoutMs: INTENT_GATE_TIMEOUT_MS })
+          ?? { ok: false as const, reason: "disabled" as const },
+        () => (complete ? complete(judgeText).catch(() => null) : null),
+      );
+      return intent;
+    } catch {
+      return null;
+    }
+  }
+
+  function intentFor(turn: Turn): Promise<Intent | null | undefined> {
+    const key = intentKey(turn);
+    const cached = intents.get(key);
+    if (cached) return cached;
+    const promise = assessTurn(turn);
+    intents.set(key, promise);
+    for (const stale of intents.keys()) {
+      if (intents.size <= 64) break;
+      intents.delete(stale);
+    }
+    return promise;
+  }
 
   return {
     routineAuthors,
@@ -201,9 +264,14 @@ export function createPhones(deps: PhonesDeps) {
       return host.integration(bot, turnOwner({ botId: bot.id, ...turn }), () => deps.mint(bot.id, turn), deps.harnessUrl);
     },
     /** A turn's phone parts: what it may use and where the person is, or (unmounted) why the owner's phone is not here. */
-    promptParts(bot: PhoneBot, input: { mounted: boolean; offered: boolean; turn: Turn; place: PhonePlace }): PromptPart[] {
-      if (input.mounted) return host.parts(bot, turnOwner(input.turn), input.place, goalFor(input.turn.threadId));
-      return [{ id: "device", label: "Phone", text: input.offered ? host.withheld(bot, owner()) : "" }];
+    async promptParts(bot: PhoneBot, input: { mounted: boolean; offered: boolean; turn: Turn; place: PhonePlace }): Promise<PromptPart[]> {
+      if (!input.mounted) return [{ id: "device", label: "Phone", text: input.offered ? host.withheld(bot, owner()) : "" }];
+      const phoneOwner = turnOwner(input.turn);
+      const request = goalFor(input.turn.threadId);
+      // Mika's order: the intent question is spent only where a route could actually be told — one fitting candidate.
+      const matched = phoneOwner !== null && request !== "" ? phoneRoutes.match(phoneOwner, request) : [];
+      const intent = matched.length === 1 ? await intentFor(input.turn) : undefined;
+      return host.parts(bot, phoneOwner, input.place, request, intent);
     },
     /** The bot settings preview: the owner's phone as a turn at the computer would see it. */
     previewParts(bot: PhoneBot, offered: boolean): PromptPart[] {
@@ -219,6 +287,7 @@ export function createPhones(deps: PhonesDeps) {
      * behind, so the caller can check the reply and log the route; never throws.
      */
     endTurn: (turn: Turn, input: PhoneTurnEnd): PhoneTurnEnded => {
+      intents.delete(intentKey(turn));
       // The owner is only worked out when there is something to learn, since that reads the thread's messages.
       const ownerKey = input.ownerKey ?? (host.evidenceFor(turn).length ? turnOwner(turn) : null);
       return host.endTurn(turn, { ...input, ownerKey });
@@ -229,6 +298,7 @@ export function createPhones(deps: PhonesDeps) {
      * reply or throws; the goal comes from the thread's latest direct request, and only the person's own line counts.
      */
     turnEnded(turn: Turn, input: { reply: string; stopped: boolean }): void {
+      intents.delete(intentKey(turn));
       if (!store.bot(turn.botId)) return;
       const request = deps.request(turn.threadId);
       const goal = goalFor(turn.threadId);

@@ -2879,7 +2879,7 @@ const phones = createPhones({
     bot: input.bot, threadId: input.threadId, tool: input.tool,
     calls: [{ slug: input.tool }], opaque: false, fullAccess: input.fullAccess, active: input.active,
   }),
-  approvalMode: sourceApprovalMode, verify: (botId) => { const owner = store.bot(botId); const instance = owner ? registry.get(owner.modelSelection.instanceId) : null; const call = instance?.generateText?.bind(instance); return call ? (prompt: string) => call(prompt, { timeoutMs: 60_000 }) : null; }, verifyMode: () => (cfg.features?.phoneVerify === "log" ? "log" : "off"), // the answer check's one model call, made only when Settings turns the check on; its mode is read at call time, and absent is off
+  approvalMode: sourceApprovalMode, decider, verify: (botId) => { const owner = store.bot(botId); const instance = owner ? registry.get(owner.modelSelection.instanceId) : null; const call = instance?.generateText?.bind(instance); return call ? (prompt: string) => call(prompt, { timeoutMs: 60_000 }) : null; }, verifyMode: () => (cfg.features?.phoneVerify === "log" ? "log" : "off"), // the answer check's one model call, made only when Settings turns the check on; its mode is read at call time, and absent is off
 });
 const cloudPlanTier = createCloudPlanTier({ dataDir: DATA_DIR, cloudHome: Boolean(CLOUD_HOME), changed: () => broadcast({ kind: "config", ...configStatus() }) }); const starterAwake = createStarterAwake({ dataDir: DATA_DIR, starter: () => cloudPlanTier.starter(), bots: () => store.bots, changed: () => broadcast({ kind: "config", ...configStatus() }) }); const starterCaps = createStarterCaps({ starter: () => cloudPlanTier.starter(), awake: starterAwake, waitsOnOthers: (threadId) => coordinator.outstandingFor(threadId).length > 0, botName: (botId) => store.bot(botId)?.name, pausedLine: (language, limit) => serverLine(language, "server.botPaused", { limit }), refused: () => broadcast({ kind: "config", ...configStatus() }) }); engineMemory.useCap(starterCaps.engine); let cloudPower: CloudPower | null = null; // The sleep handshake of a plan that sleeps (server/cloud-power.ts), made just before the server listens.
 const teamWelcome = createTeamWelcomeStore(DATA_DIR); const { cloudHealth, cloudSigned } = createCloudSignedHost({ cloudHome: CLOUD_HOME, sessions, power: () => cloudPower, box: () => botBox.report(), teamAdmin: teamAdminHost(), policyChanged: nudgeCloudTeamPolicy, invited: (email, by) => teamWelcome.invited(personKey({ id: "", email }), by), memberBrowserOff: () => managedPolicy.remoteAccessRefusal() !== undefined, plan: (cancelled) => routineHolds?.plan(cancelled), planTier: (tier) => cloudPlanTier.set(tier), memberLeft: (email) => leaveTeam ? leaveTeam(email).then((result) => { botApi.manager.revokeMintedBy(personKey({ id: "", email })); teamOwners.left(email); teamMessages.inbox.forget(personKey({ id: "", email })); forgetSetupPresser(store, personKey({ id: "", email })); devsReports.forget(personKey({ id: "", email })); return result; }) : Promise.reject(new Error("not a team")), health: { store, bus, dataDir: DATA_DIR, eventsDir: EVENTS_DIR, version: serverVersion(), image: process.env.OMB_CLOUD_IMAGE,
@@ -8659,6 +8659,10 @@ async function beginTurn(
         threadId, botId: bot.id, cwd, toolScope, approvalMode: turnApprovalMode, model, integrations,
         sessionReset: dispatchContext.sessionReset, resumeCursor: dispatchContext.resumeCursor, guestConfined,
       });
+      const phoneParts = await phones.promptParts(liveBot ?? bot, {
+        mounted: Boolean(integrations.device), offered: instance.adapter.capabilities.deviceMcp === true, turn: { botId: bot.id, threadId, generation: dispatchClaimId },
+        place: phones.place(threadId, !(commsDepth > 0 || opts?.automationSource !== undefined || opts?.unattended || opts?.peerAsk || opts?.coordination)),
+      });
       const prompt = buildSystemPrompt(persona, liveBot?.soul ?? bot.soul ?? "", [
         { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(teamHost.profileFor(threadId, cfg.profile)) }, { id: "people", label: "People", text: teamMessages.prompt(bot.id, threadId, Boolean(integrations.agents)) }, { id: "long-waits", label: "Waiting on the person", text: teammatePrompts.personBehind(bot.id, threadId) ? teamMessages.longWaits(threadId) : "" },
         { id: "setup", label: "Setup", text: setupSystemPrompt(setupMode, {
@@ -8677,10 +8681,7 @@ async function beginTurn(
         { id: "browser", label: "Browser", text: integrations.browser ? browserPromptFor(bot, Boolean(integrations.agents)) : "" },
         { id: "data", label: "Data", text: integrations.data ? BUILT_IN_DATA_SYSTEM_PROMPT : "" },
         { id: "email", label: "Email", text: instance.adapter.capabilities.emailMcp === true ? emailHost.prompt(liveBot ?? bot) : "" }, { id: "meetings", label: "Meetings", text: meetingsUnavailablePrompt({ agentsTools: Boolean(integrations.agents), cloudComputer: boat.boatConfigured(cfg) }) },
-        ...phones.promptParts(liveBot ?? bot, {
-          mounted: Boolean(integrations.device), offered: instance.adapter.capabilities.deviceMcp === true, turn: { botId: bot.id, threadId, generation: dispatchClaimId },
-          place: phones.place(threadId, !(commsDepth > 0 || opts?.automationSource !== undefined || opts?.unattended || opts?.peerAsk || opts?.coordination)),
-        }),
+        ...phoneParts,
         { id: "coordination", label: "Team and who is speaking", text: PROVENANCE_PROMPT + (coordinationPrompt && !apiFenced ? ` ${coordinationPrompt}` : "") },
         { id: "assignment", label: "Teammate task", text: coordinationNode?.parentId ? `\n${coordinationSystemInstructions()}` : "" },
         { id: "outstanding", label: "Outstanding teammate work", text: teammatePrompts.outstanding(threadId) },
@@ -10488,6 +10489,10 @@ integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretN
   // The start-up probe of this engine is part of setup, and the bridge decision needs the engine's version.
   const engineRead = registry.engineRead(instance.instanceId); if (engineRead) await engineRead;
   applyAgentsBridge(threadId, integrations, cfg, bot, turnEngine(instance, providerConfigs(), registry.lastSnapshot(instance.instanceId), cwd));
+  const roomPhoneParts = await phones.promptParts(readyBot, {
+    mounted: Boolean(integrations.device), offered: instance.adapter.capabilities.deviceMcp === true,
+    turn: { botId: readyBot.id, threadId, generation: internalGeneration }, place: "computer",
+  });
   const roomSystem = buildSystemPrompt(system, store.bot(bot.id)?.soul ?? bot.soul ?? "", [
     { id: "user-profile", label: "About the user", text: userProfileSystemPrompt(teamHost.profileFor(threadId, cfg.profile)) }, { id: "people", label: "People", text: teamMessages.prompt(bot.id, threadId, Boolean(integrations.agents)) },
     { id: "files", label: "File locations", text: workspace ? workspaceLocationsPrompt(bot.id, cwd, readyBot.cwd, { attachFile: Boolean(integrations.agents) && !CLOUD_HOME && !HOSTED_WORKSPACE }) : "" },
@@ -10500,10 +10505,7 @@ integrations.agents && (CREDENTIAL_PROMPT + savedSecretsPrompt(botLogins.secretN
     { id: "browser", label: "Browser", text: integrations.browser ? browserPromptFor(bot, Boolean(integrations.agents)) : "" },
     { id: "data", label: "Data", text: integrations.data ? BUILT_IN_DATA_SYSTEM_PROMPT : "" },
     { id: "email", label: "Email", text: instance.adapter.capabilities.emailMcp === true ? emailHost.prompt(readyBot) : "" },
-    ...phones.promptParts(readyBot, {
-      mounted: Boolean(integrations.device), offered: instance.adapter.capabilities.deviceMcp === true,
-      turn: { botId: readyBot.id, threadId, generation: internalGeneration }, place: "computer",
-    }),
+    ...roomPhoneParts,
     { id: "recall", label: "Recall", text: integrations.agents && bot.memoryEnabled !== false ? SESSION_SEARCH_SYSTEM_PROMPT : "" }, { id: "just-do-it", label: "Just do it", text: preparedApprovalMode === "full" && !isUnattended(bot.id, threadId) ? JUST_DO_IT_PROMPT : "" },
     teamAvailabilityPart(outsideRoom),
     { id: "recent", label: "Recent work", text: recentWorkPrompt(recentLines) },
