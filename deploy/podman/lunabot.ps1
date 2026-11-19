@@ -1,8 +1,8 @@
 # Windows/WSL2 entry point. Run setup once, then pass Compose arguments verbatim.
 $ErrorActionPreference = 'Stop'
 if (-not $args.Count -or $args[0] -in @('--help', '-h', 'help')) {
-    Write-Output 'Usage: .\deploy\podman\maus.ps1 setup | <compose arguments>'
-    Write-Output 'Example: .\deploy\podman\maus.ps1 up -d --build'
+    Write-Output 'Usage: .\deploy\podman\lunabot.ps1 setup | <compose arguments>'
+    Write-Output 'Example: .\deploy\podman\lunabot.ps1 up -d --build'
     Write-Output 'Options: OMB_PODMAN_MACHINE (default openmausbot), OMB_PODMAN_ENV_FILE (default .env)'
     exit 0
 }
