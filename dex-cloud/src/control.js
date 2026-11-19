@@ -39,6 +39,9 @@ function installationShape(row) {
     id: row.id,
     clientInstanceId: row.client_instance_id,
     name: row.name,
+    // A phone needs this to tell a computer it can ask from one it cannot:
+    // the account lists every installation, its own phones included.
+    kind: row.kind ?? "desktop",
     ...(row.platform ? { platform: row.platform } : {}),
     ...(row.app_version ? { appVersion: row.app_version } : {}),
     ...(lastSeenAt > 0 ? { lastSeenAt, online: Date.now() - lastSeenAt < ONLINE_WINDOW_MS } : {}),

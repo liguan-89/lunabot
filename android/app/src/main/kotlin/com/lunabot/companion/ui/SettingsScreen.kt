@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lunabot.companion.R
 import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.account.AccountComputer
 import com.lunabot.companion.account.CloudAccountUi
 import com.lunabot.companion.core.Connection
 import com.lunabot.companion.core.Session
@@ -107,6 +108,7 @@ import com.lunabot.companion.update.AppUpdater
 import com.lunabot.companion.update.UpdateState
 import com.lunabot.companion.wechat.WechatSettingsSection
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -246,6 +248,10 @@ fun SettingsScreen(
     var reconnecting by remember { mutableStateOf(false) }
     var confirmingUnpair by remember { mutableStateOf(false) }
     var pendingComputerRemoval by remember { mutableStateOf<Connection?>(null) }
+    /** The account's own computer row awaiting removal — a different list from [pendingComputerRemoval]. */
+    var pendingAccountComputerRemoval by remember { mutableStateOf<AccountComputer?>(null) }
+    /** The wait for a computer's approval, held so the same row can cancel it. */
+    var pairingComputerJob by remember { mutableStateOf<Job?>(null) }
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
@@ -508,22 +514,40 @@ fun SettingsScreen(
                         // The computers this account signed in, next to the
                         // Clouds. Asking one opens a card on that computer; the
                         // link it answers with is redeemed by the pairing screen.
-                        if (accountUi.computers.isNotEmpty()) {
+                        //
+                        // Only desktops appear: the account lists this phone's
+                        // own installation too, and a row that can only ever
+                        // fail to connect is worse than no row.
+                        val accountComputers = accountUi.computers.filter { it.connectable }
+                        if (accountComputers.isNotEmpty()) {
                             SettingsDivider()
-                            SettingsRow(title = "我的电脑", value = "${accountUi.computers.size} 台")
-                            accountUi.computers.forEach { computer ->
+                            SettingsRow(title = "我的电脑", value = "${accountComputers.size} 台")
+                            accountComputers.forEach { computer ->
+                                val waiting = accountUi.pairingComputerId == computer.id
                                 SettingsDivider()
                                 SettingsRow(
-                                    title = if (accountUi.busy) "正在请求…" else "连接 ${computer.name}",
+                                    title = if (waiting) "取消连接 ${computer.name}" else "连接 ${computer.name}",
                                     value = when {
-                                        accountUi.busy -> null
+                                        waiting -> "等待电脑允许…"
                                         computer.online -> "在线"
                                         else -> "离线"
                                     },
-                                    chevron = true,
-                                    enabled = !accountUi.busy,
+                                    chevron = !waiting,
+                                    // A waiting request is the one row that stays
+                                    // tappable: the wait can be two minutes, and
+                                    // tapping again is how it is called off.
+                                    enabled = if (waiting) true else accountUi.pairingComputerId == null && !accountUi.busy,
+                                    trailing = {
+                                        TextButton(onClick = { pendingAccountComputerRemoval = computer }) {
+                                            Text("移除", fontSize = 13.sp, color = minisDanger)
+                                        }
+                                    },
                                     onClick = {
-                                        scope.launch {
+                                        if (waiting) {
+                                            pairingComputerJob?.cancel()
+                                            return@SettingsRow
+                                        }
+                                        pairingComputerJob = scope.launch {
                                             val link = environment.cloudAccount.pairComputer(computer) ?: return@launch
                                             ComputerPairingInbox.offer(
                                                 ComputerPairingRequest(link = link, name = computer.name),
@@ -1257,6 +1281,30 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingComputerRemoval = null }) { Text("取消") }
+            },
+        )
+    }
+
+    pendingAccountComputerRemoval?.let { computer ->
+        AlertDialog(
+            onDismissRequest = { pendingAccountComputerRemoval = null },
+            title = { Text("从账号移除 ${computer.name}？") },
+            text = {
+                Text(
+                    "这条记录会从你的 DEX 账号里删除，所有登录了这个账号的手机都不再看到它。" +
+                        "电脑本身不受影响，它下次登录会重新出现。",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingAccountComputerRemoval = null
+                        environment.cloudAccount.forgetComputer(computer)
+                    },
+                ) { Text("移除", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAccountComputerRemoval = null }) { Text("取消") }
             },
         )
     }

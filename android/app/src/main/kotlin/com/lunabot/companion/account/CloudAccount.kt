@@ -9,6 +9,7 @@ import java.io.BufferedReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -28,13 +29,24 @@ data class CloudMachine(
     val origin: String?,
 )
 
-/** One computer the account has signed the desktop app into, as the control plane lists it. */
+/**
+ * One installation the account owns, as the control plane lists it.
+ *
+ * The list holds every installation, this phone's own included, so [kind] is
+ * what separates a computer a phone can ask to connect from a phone row that
+ * can only be forgotten. [clientInstanceId] is how this app recognises itself.
+ */
 data class AccountComputer(
     val id: String,
     val name: String,
     val platform: String?,
     val online: Boolean,
-)
+    val kind: String = "desktop",
+    val clientInstanceId: String? = null,
+) {
+    /** A computer is something a phone can connect to; a phone or server row is not. */
+    val connectable: Boolean get() = kind == "desktop"
+}
 
 /** The phone's ask, waiting for the computer to answer on its own screen. */
 data class ComputerPairRequest(val requestId: String, val expiresAt: Long)
@@ -55,7 +67,21 @@ data class CloudAccountUi(
     val email: String? = null,
     val clouds: List<CloudMachine> = emptyList(),
     val computers: List<AccountComputer> = emptyList(),
+    /**
+     * This install's own client instance id, so the list can tell the person's
+     * phones from their computers and refuse to delete the row that is itself.
+     */
+    val ownClientInstanceId: String? = null,
     val busy: Boolean = false,
+    /**
+     * The computer this phone is waiting on, by id.
+     *
+     * Kept apart from [busy] on purpose: a request can wait two minutes for a
+     * person to walk to their desk, and locking the whole section that long
+     * leaves 我的电脑 looking frozen — which is exactly how it was reported.
+     * Only that one row shows the wait, and tapping it again cancels.
+     */
+    val pairingComputerId: String? = null,
     val codeSentTo: String? = null,
     /** A neutral line such as "waiting for the computer to approve"; not a failure. */
     val notice: String? = null,
@@ -152,6 +178,10 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
                         name = row.optString("name").ifBlank { "My computer" },
                         platform = row.optString("platform").takeIf { it.isNotBlank() },
                         online = row.optBoolean("online", false),
+                        // A server from before this field existed answered without
+                        // `kind`; those rows are all computers, so that default holds.
+                        kind = row.optString("kind").ifBlank { "desktop" },
+                        clientInstanceId = row.optString("clientInstanceId").takeIf { it.isNotBlank() },
                     ),
                 )
             }
@@ -186,6 +216,22 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
             status = body.optString("status").ifBlank { "pending" },
             link = body.optString("link").takeIf { it.startsWith("lunabot://pair") },
         )
+    }
+
+    /**
+     * Drops one installation from the account.
+     *
+     * This is the account's own record, not this phone's saved connection: a
+     * computer signed out or reinstalled leaves a row behind that no one can
+     * connect to any more, and it would otherwise sit in 我的电脑 forever.
+     * Deleting a row whose credential is still live is safe — the desktop signs
+     * in again and re-registers under the same client instance id.
+     */
+    suspend fun forgetComputer(token: String, installationId: String) {
+        val answer = call("/v1/installations/$installationId", "DELETE", null, token)
+        if (answer.status == 401) throw CloudAccountException("登录已过期，请重新登录。", unauthorized = true)
+        if (answer.status == 404) return
+        if (answer.status !in 200..299) throw problem(answer)
     }
 
     /** Registers this phone so the desktop's device list shows it. Best effort: sign-in stands if it fails. */
@@ -354,6 +400,16 @@ class CloudAccountController(
     private val _state = MutableStateFlow(CloudAccountUi())
     val state: StateFlow<CloudAccountUi> = _state.asStateFlow()
 
+    /**
+     * This install's own client instance id, read once.
+     *
+     * The account lists every installation, this phone included. Without the id
+     * the list cannot refuse to delete its own row — which would take away the
+     * record the desktop's device list is built from.
+     */
+    private suspend fun ownClientInstanceId(): String? =
+        runCatching { store.clientInstanceId() }.getOrNull()
+
     /** Reads the stored session once at launch. */
     fun start() {
         scope.launch { restore() }
@@ -412,7 +468,7 @@ class CloudAccountController(
                     return@launch
                 }
                 runCatching {
-                    api.registerInstallation(token, store.clientInstanceId(), deviceName, appVersion)
+                    api.registerInstallation(token, ownClientInstanceId().orEmpty(), deviceName, appVersion)
                 }
                 load(token, justSignedIn = true)
             } catch (error: CloudAccountException) {
@@ -454,8 +510,12 @@ class CloudAccountController(
             _state.update { it.copy(error = "请先登录 DEX 账号。") }
             return null
         }
+        if (!computer.connectable) {
+            _state.update { it.copy(error = "「${computer.name}」不是电脑，无法连接。") }
+            return null
+        }
         _state.update {
-            it.copy(busy = true, error = null, notice = "已请求连接「${computer.name}」，请在电脑上点「允许」。")
+            it.copy(pairingComputerId = computer.id, error = null, notice = "已请求连接「${computer.name}」，请在电脑上点「允许」。")
         }
         return try {
             val request = api.requestComputerPairing(token, computer.id, deviceName)
@@ -467,35 +527,75 @@ class CloudAccountController(
                     "allowed" -> {
                         val link = answer.link
                         if (link == null) {
-                            _state.update { it.copy(busy = false, notice = null, error = "电脑批准的配对信息无效。") }
+                            _state.update { it.copy(pairingComputerId = null, notice = null, error = "电脑批准的配对信息无效。") }
                             return null
                         }
-                        _state.update { it.copy(busy = false, notice = null) }
+                        _state.update { it.copy(pairingComputerId = null, notice = null) }
                         return link
                     }
                     "denied" -> {
-                        _state.update { it.copy(busy = false, notice = null, error = "电脑上拒绝了这次连接。") }
+                        _state.update { it.copy(pairingComputerId = null, notice = null, error = "电脑上拒绝了这次连接。") }
                         return null
                     }
                     "expired" -> {
-                        _state.update { it.copy(busy = false, notice = null, error = "连接请求已过期，请重试。") }
+                        _state.update { it.copy(pairingComputerId = null, notice = null, error = "连接请求已过期，请重试。") }
                         return null
                     }
                 }
             }
-            _state.update { it.copy(busy = false, notice = null, error = "电脑没有回应，请确认那台电脑已登录并打开。") }
+            _state.update { it.copy(pairingComputerId = null, notice = null, error = "电脑没有回应，请确认那台电脑已登录并打开。") }
             null
+        } catch (cancelled: CancellationException) {
+            // The person stopped waiting. The request stays on the computer for
+            // its own five minutes and is simply never redeemed.
+            _state.update { it.copy(pairingComputerId = null, notice = null, error = null) }
+            throw cancelled
         } catch (error: CloudAccountException) {
             if (error.unauthorized) {
                 runCatching { store.clear() }
                 _state.value = CloudAccountUi(phase = CloudAccountUi.Phase.SIGNED_OUT, error = error.message)
             } else {
-                _state.update { it.copy(busy = false, error = error.message) }
+                _state.update { it.copy(pairingComputerId = null, error = error.message) }
             }
             null
         }
     }
 
+    /**
+     * Removes one installation from the account, then reloads the list.
+     *
+     * Only the account's own record goes: a computer that signed out, was
+     * reinstalled, or was never really this person's leaves a row no one can
+     * connect to, and without this it sits in 我的电脑 forever. This phone's
+     * own row is refused here, because deleting it would drop the record the
+     * desktop's device list is built from.
+     */
+    fun forgetComputer(computer: AccountComputer) {
+        val ownId = _state.value.ownClientInstanceId
+        if (ownId != null && computer.clientInstanceId == ownId) {
+            _state.update { it.copy(error = "这台手机自己的记录不能在这里移除。") }
+            return
+        }
+        scope.launch {
+            val token = storedToken() ?: run {
+                _state.update { it.copy(error = "请先登录 DEX 账号。") }
+                return@launch
+            }
+            _state.update { it.copy(busy = true, error = null, notice = null) }
+            try {
+                api.forgetComputer(token, computer.id)
+                _state.update { it.copy(busy = false) }
+                load(token)
+            } catch (error: CloudAccountException) {
+                if (error.unauthorized) {
+                    runCatching { store.clear() }
+                    _state.value = CloudAccountUi(phase = CloudAccountUi.Phase.SIGNED_OUT, error = error.message)
+                } else {
+                    _state.update { it.copy(busy = false, error = error.message) }
+                }
+            }
+        }
+    }
     /** Mints a one-time pairing code for [cloud]; null (with the section's error
      * set) when the account session is gone or the server refused. The caller
      * redeems the grant with the ordinary pairing flow. */
@@ -553,6 +653,7 @@ class CloudAccountController(
                 email = email,
                 clouds = clouds,
                 computers = computers,
+                ownClientInstanceId = ownClientInstanceId(),
                 busy = false,
                 codeSentTo = codeSentTo,
             )

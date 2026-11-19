@@ -385,6 +385,10 @@ test("a signed-in phone asks a computer to connect and the computer answers with
     assert.equal(listed.status, 200);
     assert.equal(listed.body.installations[0].name, "Studio Mac");
     assert.equal(listed.body.installations[0].online, true);
+    // The phone tells a computer it can ask from one it cannot by `kind`: the
+    // account lists every installation, the phone's own included.
+    assert.equal(listed.body.installations[0].kind, "desktop");
+    assert.equal(listed.body.installations[0].clientInstanceId, "9d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b");
 
     const asked = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "OnePlus 15T" }, accountToken);
     assert.equal(asked.status, 201);
