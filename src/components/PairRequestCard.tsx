@@ -53,7 +53,21 @@ export function PairRequestCard() {
     return unsubscribe;
   }, [bridge]);
 
+  // The plane forgets an unanswered request after five minutes. The card has to
+  // forget it at the same moment, or it sits on screen offering Allow for a
+  // question that no longer exists — and a click would answer 409 into a dialog
+  // that never closes.
   const request = queue[0];
+  const expiresAt = request?.expiresAt;
+  useEffect(() => {
+    if (expiresAt === undefined) return;
+    const drop = () => setQueue((current) => current.filter((one) => one.expiresAt > Date.now()));
+    const wait = expiresAt - Date.now();
+    if (wait <= 0) { drop(); return; }
+    const timer = setTimeout(drop, wait + 1_000);
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
+
   if (!request) return null;
 
   const next = () => {
@@ -106,9 +120,8 @@ export function PairRequestCard() {
   return createPortal(
     <div
       className="fixed inset-0 z-[75] flex items-center justify-center bg-black/35 p-6"
-      // The question is about this computer, not about whatever is underneath:
-      // a click outside must not dismiss it without an answer.
-      onMouseDown={(event) => event.stopPropagation()}
+      // No click-to-dismiss: the question is about this computer, and the answer
+      // is one of the two buttons. It leaves on its own when the request expires.
     >
       <div
         role="alertdialog"
