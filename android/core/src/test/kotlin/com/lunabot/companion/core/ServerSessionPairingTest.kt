@@ -185,9 +185,52 @@ class ServerSessionPairingTest {
         assertNull(old.serverScopes)
     }
 
+    @Test
+    fun aServerPairingLearnsItsNewAddressAndKeepsItsOwnTransport() = runBlocking<Unit> {
+        // Paired over HTTPS at the origin its link carried; the server later answers on another one.
+        val saved = assertNotNull(Connection.parse("https://mini.example"))
+            .copy(serverEnvironmentId = "env-fixture", serverScopes = listOf("client"))
+        // A descriptor the snapshot carries: a server pairing must not adopt it, because that key is the relay's.
+        val transportKey = com.lunabot.companion.core.e2e.P256.generateKeyPair(java.security.SecureRandom())
+        val descriptor = com.lunabot.companion.core.e2e.E2eDescriptor(
+            k = com.lunabot.companion.core.e2e.E2eBase64.encode(transportKey.publicKey),
+            h = com.lunabot.companion.core.e2e.E2eBase64.encode(ByteArray(16) { 3 }),
+            relays = listOf("relay1.lunabot.com"),
+        )
+        Fixture(
+            saved = saved,
+            metadata = {
+                """{"serverName":"headless mini","endpoints":[{"url":"https://mini2.example","kind":"hosted","priority":0}],"e2e":${descriptorObject(descriptor)}}"""
+            },
+            events = {
+                flow {
+                    emit(StreamFrame(Frame.Hello(cursor = "s:1", resumed = true), seq = 1))
+                    awaitCancellation()
+                }
+            },
+        ).use { f ->
+            f.session.awaitRestored()
+            f.session.connect()
+            withTimeout(5_000) {
+                while (f.store.saved?.orderedEndpoints?.any { it.url == "https://mini2.example" } != true) delay(10)
+            }
+            val refreshed = assertNotNull(f.store.saved)
+            // The new address is learned; the transport is not silently switched to the relay's key.
+            assertNull(refreshed.e2e)
+            assertEquals("env-fixture", refreshed.serverEnvironmentId)
+        }
+    }
+
+    /** The descriptor's own JSON, as `/api/companion/endpoints` writes it. */
+    private fun descriptorObject(descriptor: com.lunabot.companion.core.e2e.E2eDescriptor): String =
+        """{"v":1,"k":"${descriptor.k}","h":"${descriptor.h}","r":["relay1.lunabot.com"]}"""
+
     private class Fixture(
         val saved: Connection? = null,
         val extraSaved: Connection? = null,
+        val metadata: () -> String = { """{"serverName":"headless mini","endpoints":[]}""" },
+        /** Overrides the event stream; `response` stays last so a trailing lambda is still a stub answer. */
+        val events: ((CompanionClient) -> kotlinx.coroutines.flow.Flow<StreamFrame>)? = null,
         val response: (Request) -> Pair<Int, String>? = { null },
     ) : AutoCloseable {
         val requests = CopyOnWriteArrayList<Request>()
@@ -200,6 +243,8 @@ class ServerSessionPairingTest {
             requests += request
             val (status, body) = response(request) ?: if (request.url.encodedPath == "/api/auth/pair") {
                 200 to """{"token":"omb_sess_fixture","session":{"id":"s1","label":"Pixel","scopes":["client"]},"environment":{"environmentId":"env-fixture","label":"headless mini"}}"""
+            } else if (request.url.encodedPath == "/api/companion/endpoints") {
+                200 to metadata()
             } else {
                 200 to """{"environmentId":"env-fixture","label":"headless mini"}"""
             }
@@ -209,7 +254,7 @@ class ServerSessionPairingTest {
         val invite = assertNotNull(PairingInvite.parse("https://mini.example/pair#code=ABCD-EFGH-JKLM"))
         val session = Session(
             scope, store, tokens, InMemoryOnboardingStore(), { "Pixel" }, httpClient = http,
-            eventsFn = { _, _, _ -> flow { streamStarts++; awaitCancellation() } },
+            eventsFn = { client, _, _ -> events?.invoke(client) ?: flow { streamStarts++; awaitCancellation() } },
         )
         override fun close() { session.disconnect(); scope.cancel() }
     }

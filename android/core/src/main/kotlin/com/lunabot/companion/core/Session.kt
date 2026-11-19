@@ -1286,7 +1286,6 @@ class Session(
         source: CompanionClient,
         snapshot: CompanionConnectionMetadata? = null,
     ) {
-        if (source.connection.pairedWithServer) return
         val connectionId = _connection.value?.id ?: return
         val workingEndpoint = rotation.currentEndpoint ?: source.connection.activeEndpoint
         endpointRefreshJob?.cancel()
@@ -1303,7 +1302,15 @@ class Session(
                     // would reorder a walk that no longer belongs to this client.
                     if (current.id != connectionId) return@withLock
                     if (client?.connection?.baseUrl != source.connection.baseUrl) return@withLock
-                    val updated = current.reconciling(metadata)
+                    // A server pairing learns routes under the consent its link carried (`applyingPairingAdvertisement`
+                    // filters through that policy), so a moved origin or a new address of the same kind is adopted.
+                    // It never adopts a descriptor: that key is the relay's, and taking it would move the phone's
+                    // traffic onto an encrypted route the owner never agreed to at pairing.
+                    val updated = if (current.pairedWithServer) {
+                        current.applyingPairingAdvertisement(metadata.hosts, metadata.endpoints)
+                    } else {
+                        current.reconciling(metadata)
+                    }
                     persistActiveConnectionLocked(updated)
                     rotation = CandidateRotation(liveRoutes(updated, workingEndpoint))
                 }

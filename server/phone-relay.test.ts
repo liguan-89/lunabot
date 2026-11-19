@@ -107,18 +107,20 @@ async function startServer(input: Partial<PhoneRelayOptions> & { dir?: string; r
   // relay hands it the stream itself rather than an accepted socket.
   upgrades.attach(createServer(), (req, res) => serverHandler(sessions, () => phoneRelay, upgrades)(req, res));
   phoneRelay = startPhoneRelay({
-    env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url },
     dataDir: dir,
     sessions,
     handle: serverHandler(sessions, () => phoneRelay, upgrades),
     upgrades,
     serverName: () => "VPS",
     publicOrigin: () => null,
+    // A fixed interface set: the endpoint list must not depend on this machine's network.
+    addresses: () => ({ lan: ["192.168.31.175"], tailscale: ["100.101.102.103"] }),
     version: "0.1.152",
     refusal: null,
     fetchGrant: async () => grantFor(hostId),
     log: (line) => logs.push(line),
     ...overrides,
+    env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url, ...overrides.env },
   });
   if (!phoneRelay) throw new Error(`the relay did not start: ${logs.join("; ")}`);
   const started = phoneRelay;
@@ -233,6 +235,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // A token inside the session must be the one whose key opened it.
     const other = server.sessions.issue({ label: "Laptop", scopes: ["admin", "client"] });
     expect(await http(session, "GET", "/api/auth/session", { token: other.token }).then((r) => [r.status, json(r).error])).toEqual([401, "this connection belongs to another device"]);
+    // No public origin and no `OMB_LAN`: the relay is the only way in, and the list says so.
     expect(json(await http(session, "GET", "/api/companion/endpoints", { token: reply.token }))).toEqual({ serverName: "VPS", endpoints: [], version: SERVER_VERSION, e2e: descriptor });
     session.shutdown();
 
@@ -344,6 +347,24 @@ describe("phones through Luna Bot Relay on a server", () => {
     const lan = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://192.168.31.175:8799")!);
     expect(lan.searchParams.get("address")).toBe("192.168.31.175:8799");
     expect(JSON.parse(fromB64u(lan.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "http://192.168.31.175:8799", kind: "lan", priority: 200 }]);
+    // A tailnet name reached through `tailscale serve` is HTTPS, and the QR builder accepts `https:` only for a hosted
+    // route; both are protected to a phone, so it travels as one.
+    const tailnet = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "https://vps.tail1234.ts.net")!);
+    expect(JSON.parse(fromB64u(tailnet.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "https://vps.tail1234.ts.net", kind: "hosted", priority: 0 }]);
+  });
+
+  it("answers the endpoint list a paired phone re-reads, so a new LAN address needs no new QR", async () => {
+    // `--lan` publishes the machine's private address; the list the phone re-reads carries it, and the tailnet one.
+    const server = await startServer({ env: { OMB_PHONE_RELAY: "1", OMB_LAN: "1" }, port: 8799 });
+    await connected(server);
+    const list = server.phoneRelay.endpoints();
+    expect(list.serverName).toBe("VPS");
+    expect(list.endpoints).toEqual([
+      { url: "http://100.101.102.103:8799", kind: "tailnet", priority: 100 },
+      { url: "http://192.168.31.175:8799", kind: "lan", priority: 200 },
+    ]);
+    expect(list.e2e).toMatchObject({ v: 1, h: b64u(server.hostId), r: [NODE] });
+    expect(list.version).toBe(SERVER_VERSION);
   });
 
   it("never asks for a relay token on a machine that holds or needs a tunnel", async () => {

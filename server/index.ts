@@ -547,7 +547,7 @@ import {
 } from "./request-auth.ts";
 import { cookieMaxAgeSeconds, formatPairingCode, pairingRequest, SessionRegistry, type SessionRecord } from "./sessions.ts";
 import { ThreadStarters } from "./thread-starters.ts";
-import { startPhoneRelay } from "./phone-relay.ts";
+import { startPhoneRelay, serverEndpoints } from "./phone-relay.ts";
 import {
   appendAdminAction,
   BOT_AUDIT_FIELDS,
@@ -13221,6 +13221,12 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, loadBrand());
     }
     if (!gate.auth) return json(res, gate.status, { error: gate.error });
+    // The companion apps' route list, answered over HTTPS as the desktop sidecar answers it: a paired phone re-reads the
+    // ways in on every reconnect, so a new LAN address or a later `--lan` reaches it without a new QR.
+    if (method === "GET" && path === "/api/companion/endpoints") {
+      res.setHeader("cache-control", "no-store");
+      return json(res, 200, phoneRelay?.endpoints() ?? { serverName: cfg.computerName || "", endpoints: serverEndpoints(publicUrl(), PORT, process.env) });
+    }
     if (cloudPower && gate.auth.kind === "session") cloudPower.request(path, req.headers, res); // someone using a Cloud home keeps it awake
     const auth = gate.auth;
     if (HOSTED_WORKSPACE && auth.kind === "session") {
@@ -15947,7 +15953,7 @@ if (TUNNEL_SOCKET) {
 }
 // `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request. A phone's
 // WebSocket goes through the same gate as its HTTP requests (`upgrades`), not a blanket refusal.
-const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, upgrades, version: serverVersion(), publicOrigin: publicUrl,
+const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, upgrades, version: serverVersion(), publicOrigin: publicUrl, port: PORT,
   serverName: () => cfg.computerName || environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED }).label,
   refusal: CLOUD_HOME ? "a Luna Bot Cloud home" : HOSTED_WORKSPACE ? "a hosted workspace" : DESKTOP_MANAGED ? "the desktop app, whose companion carries phones" : null });
 // Wi-Fi and Tailscale: the QR names this server's own address, and the phone dials `ws://<host>/v1/e2e` here. The

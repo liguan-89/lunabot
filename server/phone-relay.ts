@@ -24,6 +24,8 @@ import { MANAGED_COMPANION_ENDPOINT_FIELD } from "../electron/managed-companion-
 import { createRelayTokenService, validRelayGrant, type RelayGrant } from "../electron/relay-token.mjs";
 import { isLoopbackHost } from "../electron/server-address.mjs";
 import { isPrivateHost } from "../shared/private-host.ts";
+import { reachableAddresses, type ReachableAddresses } from "./lan-address.ts";
+import { MAX_COMPANION_ENDPOINTS } from "../companion/src/endpoints.ts";
 import { writeFileAtomic } from "./atomic.ts";
 import { reportableServerVersion } from "./environment.ts";
 import { bearerToken, PROXY_HEADERS } from "./request-auth.ts";
@@ -67,7 +69,9 @@ export interface PhoneRelay {
   /** The phone-app link for one pairing credential, or null until the relay identity is known. */
   invite(credential: string, name: string | undefined, publicOrigin: string | null): string | null;
   /** What `POST /api/pair` adds for a phone that paired through the relay. */
-  pairedOver(req: IncomingMessage): { e2e?: E2EDescriptor };
+  pairedOver(req: IncomingMessage): { e2e?: E2EDescriptor; endpoints?: CompanionEndpoint[] };
+  /** The endpoint list for `GET /api/companion/endpoints`, the same body the desktop's sidecar answers. */
+  endpoints(): { serverName: string; endpoints: CompanionEndpoint[]; version?: string; e2e?: E2EDescriptor };
   /** Why `POST /api/pair` refuses this input, or null: through the relay only the QR's credential pairs, never a code. */
   pairingRefusal(req: IncomingMessage, input: string): string | null;
   /**
@@ -87,6 +91,10 @@ export interface PhoneRelayOptions {
   handle: Handler;
   serverName(): string;
   publicOrigin(): string | null;
+  /** The port this server answers on; the LAN and tailnet routes in the endpoint list name it. */
+  port?: number;
+  /** Tests: this machine's private addresses, instead of reading the interfaces. */
+  addresses?: () => ReachableAddresses;
   version: string;
   /** Why this server never runs the relay (a Cloud home, a hosted workspace, the desktop app), or null. */
   refusal: string | null;
@@ -145,7 +153,9 @@ function readPhones(dataDir: string): Set<string> {
 function qrRoute(publicOrigin: string | null): { address: string; port: number; hosts?: string[]; endpoints?: CompanionEndpoint[] } {
   try {
     const url = publicOrigin ? new URL(publicOrigin) : null;
-    if (url?.protocol === "https:" && !isLoopbackHost(url.host)) {
+    if (url?.protocol === "https:" && !isLoopbackHost(url.hostname)) {
+      // A `.ts.net` name is the person's own tailnet, not vendor infrastructure. The QR builder accepts `https:` only
+      // for a hosted route, and both are protected routes to a phone, so the kind stays `hosted` here.
       return { address: url.hostname, port: url.port ? Number(url.port) : 443, hosts: [url.hostname], endpoints: [{ url: url.origin, kind: "hosted", priority: 0 }] };
     }
     // `OMB_LAN=1` makes `publicUrl` this machine's LAN address. The server answers `/v1/e2e` there, so a phone on the
@@ -158,6 +168,26 @@ function qrRoute(publicOrigin: string | null): { address: string; port: number; 
     // A malformed address is no way in.
   }
   return { address: RELAY_ONLY_ADDRESS, port: 443 };
+}
+
+/** Every complete route a phone may dial on this machine, best first: the public origin the QR names, then each private
+ * address the server answers `/v1/e2e` on. Those private addresses exist only with `OMB_LAN=1`: without it the server
+ * binds loopback and a tailnet reaches it through `tailscale serve`, whose `.ts.net` origin `qrRoute` already names. */
+export function serverEndpoints(
+  publicOrigin: string | null,
+  port: number,
+  env: NodeJS.ProcessEnv = process.env,
+  addresses: ReachableAddresses = reachableAddresses(),
+): CompanionEndpoint[] {
+  const out: CompanionEndpoint[] = [...(qrRoute(publicOrigin).endpoints ?? [])];
+  if (env.OMB_LAN !== "1") return out;
+  const add = (url: string, kind: CompanionEndpoint["kind"], priority: number) => {
+    if (!out.some((endpoint) => endpoint.url === url)) out.push({ url, kind, priority });
+  };
+  for (const [index, address] of addresses.lan.entries()) add(`http://${address}:${port}`, "lan", 200 + index);
+  // A tailnet address is encrypted by Tailscale itself, so plain HTTP there is the same protection as a hosted route.
+  for (const address of addresses.tailscale) add(`http://${address}:${port}`, "tailnet", 100);
+  return out.sort((left, right) => left.priority - right.priority).slice(0, MAX_COMPANION_ENDPOINTS);
 }
 
 function reply(res: ServerResponse, status: number, body: unknown): void {
@@ -184,6 +214,7 @@ function offForTunnel(reason: string): PhoneRelay {
     status: () => ({ relay: "off", node: null, grant: "tunnel", reason, phones: 0, maxPhones: MAX_RELAY_PHONES }),
     invite: () => null,
     pairedOver: () => ({}),
+    endpoints: () => ({ serverName: "", endpoints: [] }),
     pairingRefusal: () => null,
     directUpgrade: () => false,
     stop: () => {},
@@ -279,6 +310,18 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
 
   const origin = createE2EOrigin((req, res) => relayed(req, res), (req, socket, head) => upgraded(req, socket, head), options.streamDeadlines ?? STREAM_DEADLINES);
 
+  /** The endpoint list, read fresh on every ask: a new DHCP lease, a later `--lan` or a changed public origin reaches an
+   * already-paired phone instead of leaving it on the routes its QR carried. */
+  const endpointsBody = () => {
+    const current = descriptor();
+    return {
+      serverName: options.serverName(),
+      endpoints: serverEndpoints(options.publicOrigin(), options.port ?? 8799, options.env, options.addresses?.()),
+      ...(version ? { version } : {}),
+      ...(current ? { e2e: current } : {}),
+    };
+  };
+
   /** A WebSocket opened inside a phone's session. It reaches the same gate as the phone's HTTP requests, so a route
    * that authorizes over HTTPS authorizes here too; only a device session may open one (a pairing window may not). */
   function upgraded(req: IncomingMessage, socket: Duplex, head: Buffer): void {
@@ -373,8 +416,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
       if (ticket && sessions.ticketOwner(ticket) !== peer.id) return reply(res, 401, { error: "this connection belongs to another device" });
       if (method === "GET" && path === "/api/companion/endpoints") {
         if (!bearer) return reply(res, 401, { error: "pair this device first" });
-        const route = qrRoute(options.publicOrigin());
-        return reply(res, 200, { serverName: options.serverName(), endpoints: route.endpoints ?? [], ...(version ? { version } : {}), ...(descriptor() ? { e2e: descriptor() } : {}) });
+        return reply(res, 200, endpointsBody());
       }
     }
     void pairing.run(context, () => Promise.resolve(options.handle(req, res))).catch(() => {
@@ -409,9 +451,14 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
       return phonePairingLink({ ...qrRoute(publicOrigin), token: credential, name, e2e: current });
     },
     pairedOver: (req) => {
-      const current = e2eContextOf(req.socket) ? descriptor() : null;
-      return current ? { e2e: current } : {};
+      if (!e2eContextOf(req.socket)) return {};
+      const current = descriptor();
+      // The routes this server can offer right now, so a phone that paired through the relay learns its LAN and tailnet
+      // ways in at once instead of waiting for the next `GET /api/companion/endpoints`.
+      const routes = serverEndpoints(options.publicOrigin(), options.port ?? 8799, options.env, options.addresses?.());
+      return { ...(current ? { e2e: current } : {}), ...(routes.length ? { endpoints: routes } : {}) };
     },
+    endpoints: () => endpointsBody(),
     pairingRefusal: (req, input) => (e2eContextOf(req.socket) && !isPairingCredential(input) ? "pair a phone with its QR code" : null),
     directUpgrade(req, socket, head) {
       if (!isE2EUpgrade(req)) return false;
