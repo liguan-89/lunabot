@@ -100,6 +100,21 @@ export function PhoneRow({ device, connected, state, c, onRemoved, defaultOpen =
               onClick={() => void c.act((companion) => companion.browserControl(device.id, !device.browserControlAccess))}
             />
           </div>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <div className="text-[12px] text-ink">{t("remote.devices.allowDesktopScreen")}</div>
+              <div className="mt-0.5 text-[11px] text-ink-secondary">{t("remote.devices.allowDesktopScreenDetail")}</div>
+            </div>
+            <Switch
+              checked={device.desktopScreenAccess === true}
+              aria-label={t("remote.devices.desktopScreenAria", { name: device.name })}
+              disabled={c.busy}
+              onClick={() => void c.act((companion) =>
+                companion.desktopScreen
+                  ? companion.desktopScreen(device.id, !device.desktopScreenAccess)
+                  : companion.state())}
+            />
+          </div>
           <button
             disabled={c.busy}
             onClick={() => void c.act((companion) => companion.revoke(device.id)).then(() => onRemoved(device.name))}

@@ -19,6 +19,7 @@ import {
   denyReason,
   isBrowserControlAccess,
   isCloudDesktopAccess,
+  isDesktopScreenAccess,
   isMessageFileDownload,
 } from "./routes.ts";
 import { createJsonScrubber } from "./json-scrub.ts";
@@ -32,7 +33,7 @@ export interface ProxyOptions {
   mutationToken?: () => string | null;
   authenticate: (
     token: string | undefined,
-  ) => { id?: string; cloudDesktopAccess: boolean; browserControlAccess: boolean; e2eAt?: number } | null;
+  ) => { id?: string; cloudDesktopAccess: boolean; browserControlAccess: boolean; desktopScreenAccess?: boolean; e2eAt?: number } | null;
   /** Pairing is handled here and never forwarded: the harness has no such route. */
   redeem: (
     code: string,
@@ -444,6 +445,13 @@ export function createProxyHandler(options: ProxyOptions) {
     if (isBrowserControlAccess(method, path) && !device?.browserControlAccess) {
       return sendJson(res, 403, {
         error: "browser control is off for this device — open Remote access on the computer and turn on \"Allow browser control\" for it",
+      });
+    }
+
+    // The broadest grant of the three: the person's own desktop, not a disposable VM. Never implied by either other one.
+    if (isDesktopScreenAccess(method, path) && device?.desktopScreenAccess !== true) {
+      return sendJson(res, 403, {
+        error: "this computer's own screen is off for this device — open Remote access on the computer and turn on \"Allow this computer's screen\" for it",
       });
     }
 

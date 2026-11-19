@@ -625,6 +625,8 @@ import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { teamAdminSummary } from "./cloud-team-admin.ts"; import { createConnectionHealthHost } from "./host/connection-health-host.ts";
 import { createSetupImportRoutes } from "./routes/setup-import.ts";
 import { createComputerRoutes } from "./routes/computers.ts";
+import { createDesktopScreenRoutes } from "./routes/desktop-screen.ts";
+import { captureDesktopScreen } from "./desktop-screen.ts";
 import { createStatusRoutes } from "./routes/status.ts";
 import { createLiveRoutes } from "./routes/live.ts";
 import { liveRelayResolver, LiveRelays } from "./live-relay.ts";
@@ -8530,6 +8532,14 @@ async function beginTurn(
       ) {
         const cua = desktopComputer.connection();
         if (cua) {
+          // The phone's viewer and this turn's preview both read the same capture, so the person watching sees the
+          // screen the bot is acting on rather than a second, independently timed grab.
+          const thisComputerCapture = async () => {
+            const live = desktopComputer.connection();
+            if (!live) throw new Error("this computer is no longer available");
+            const frame = await captureDesktopScreen(live, { maxImageDimension: 1280 });
+            return { png: frame.png, format: frame.mime === "image/jpeg" ? "jpeg" : "png" };
+          };
           autoVmClaims.set(threadId, {
             owner: resourceOwner,
             lazy: true,
@@ -8538,6 +8548,8 @@ async function beginTurn(
             claim: async (call) => {
               await claimWithYourComputerConsent(() => liveApprovalMode(bot, threadId, commsDepth > 0) !== "full", () => askToUseYourComputer(approvalBus, bot, resourceOwner, call), () => bindTurnComputer(resourceOwner, "computer:host", true));
               pinAutoSurface("local"); recordTurnPlace(bot.id, threadId, "local");
+              // Only now is this turn the one driving the Mac, so only now may its picture be published as the turn's.
+              adoptClaimedCapture(thisComputerCapture);
             },
           });
           integrations.localComputer = gatedLocalComputer(cua, controlIntegration(bot.id, threadId, dispatchClaimId, "this computer"), savedSteps.journals(directRequestOwners.get(threadId)));
@@ -12790,6 +12802,9 @@ ROUTES.push(createComputerRoutes({
   computerPreviewBot, computerPreviewSurface, claimTeamComputerLifecycle, claimBotComputerLifecycle,
   claimBoatInventoryRequest, claimManagedBoatMutation, claimManagedVpsMutation, cloudComputerUsed: owner => cloudComputerPower.used(owner),
 }));
+// This computer's own screen for a paired phone. Its own module because it needs the desktop's Cua Driver rather than
+// any of the computer lifecycles above, and because the two routes it serves answer even when no turn is running.
+ROUTES.push(createDesktopScreenRoutes({ store, computerControl, botComputerControlKey }));
 ROUTES.push(createStatusRoutes({
   store, cfg,
   staticDir: STATIC_DIR,

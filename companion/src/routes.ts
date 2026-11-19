@@ -62,6 +62,18 @@ export const LOCAL_VM_SCREENSHOT_ROUTE = {
   path: /^\/api\/bots\/[\w-]+\/local-computer\/screenshot$/,
 } as const;
 
+/** This computer's OWN screen — the person's mail and bank, not a disposable VM — so it is its own grant and its own
+ * two routes. Watching needs only the grant; acting also needs the control lease, checked in the handler. */
+export const DESKTOP_SCREEN_VIEW_ROUTE = {
+  method: "POST",
+  path: /^\/api\/bots\/[\w-]+\/desktop\/screenshot$/,
+} as const;
+
+export const DESKTOP_SCREEN_ACTION_ROUTE = {
+  method: "POST",
+  path: /^\/api\/bots\/[\w-]+\/desktop\/action$/,
+} as const;
+
 export function isCloudDesktopJoin(method: string, path: string): boolean {
   return method === CLOUD_DESKTOP_JOIN_ROUTE.method && CLOUD_DESKTOP_JOIN_ROUTE.path.test(path);
 }
@@ -76,6 +88,12 @@ export function isCloudDesktopAccess(method: string, path: string): boolean {
     || (method === CLOUD_DESKTOP_CONTROL_ROUTE.method && CLOUD_DESKTOP_CONTROL_ROUTE.path.test(path))
     || (method === LOCAL_VM_SCREENSHOT_ROUTE.method && LOCAL_VM_SCREENSHOT_ROUTE.path.test(path))
     || (method === LOCAL_VM_JOIN_ROUTE.method && LOCAL_VM_JOIN_ROUTE.path.test(path));
+}
+
+/** This computer's own screen: its own grant, never the VM's. */
+export function isDesktopScreenAccess(method: string, path: string): boolean {
+  return (method === DESKTOP_SCREEN_VIEW_ROUTE.method && DESKTOP_SCREEN_VIEW_ROUTE.path.test(path))
+    || (method === DESKTOP_SCREEN_ACTION_ROUTE.method && DESKTOP_SCREEN_ACTION_ROUTE.path.test(path));
 }
 
 /** Watching and driving are one permission: seeing a logged-in session is
@@ -165,6 +183,10 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   LOCAL_VM_SCREENSHOT_ROUTE,
   // Behind the same capability, while a person holds the computer.
   LOCAL_VM_JOIN_ROUTE,
+  // This computer's own screen: a separate grant in the proxy, because it is
+  // the person's real desktop rather than a disposable VM.
+  DESKTOP_SCREEN_VIEW_ROUTE,
+  DESKTOP_SCREEN_ACTION_ROUTE,
   { method: "POST", path: /^\/api\/groups$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/messages$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/interrupt$/ },

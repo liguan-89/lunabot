@@ -460,3 +460,11 @@ export async function companionBrowserControlAccess(deviceId, allowed) {
   await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/browser-control`);
   return companionState();
 }
+
+/** The person's own screen: its own grant, never inherited from either of the other two. */
+export async function companionDesktopScreenAccess(deviceId, allowed) {
+  if (!proc) return companionState();
+  if (!/^[\w-]{1,64}$/.test(String(deviceId ?? ""))) return companionState();
+  await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/desktop-screen`).catch(() => {});
+  return companionState();
+}

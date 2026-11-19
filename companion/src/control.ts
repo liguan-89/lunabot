@@ -341,6 +341,19 @@ export function createControlServer(options: ControlOptions): Server {
       options.disconnectDevice?.(browserControl[1]);
       return json(res, 200, companionState(options));
     }
+    const desktopScreen = path.match(/^\/devices\/([\w-]+)\/desktop-screen$/);
+    if (desktopScreen && (method === "POST" || method === "DELETE")) {
+      try {
+        if (!options.devices.setDesktopScreenAccess(desktopScreen[1], method === "POST")) {
+          return json(res, 404, { error: "no such device" });
+        }
+      } catch {
+        return json(res, 500, { error: "could not save this computer's screen access" });
+      }
+      // A viewer already open must stop when the grant is withdrawn.
+      options.disconnectDevice?.(desktopScreen[1]);
+      return json(res, 200, companionState(options));
+    }
     const routes = path.match(/^\/devices\/([\w-]+)\/routes$/);
     if (routes && method === "PUT") {
       readSmallJson(req).then(

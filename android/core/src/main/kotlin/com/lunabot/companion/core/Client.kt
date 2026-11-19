@@ -1041,15 +1041,26 @@ class CompanionClient(
      * One fresh capture, for the computer viewer when no live frame is arriving.
      *
      * Cloud/Box and VPS answer `{ png, format }`; the Local VM answers
-     * `{ image }` from its own route. A "this Mac" surface has no HTTP capture
-     * at all — its picture comes only from the live turn stream — so callers
-     * choose the method from the bot's computer surface rather than guessing.
+     * `{ image }` from its own route. "This Mac" answers its own frame shape
+     * (`desktop/screenshot`), which also carries the screen size a tap has to be
+     * expressed in, so it has its own call rather than sharing [screenshot].
      */
     suspend fun computerScreenshot(botId: String, threadId: String?): ScreenFrame =
         screenshot("/api/bots/${segment(botId)}/computer/screenshot", threadId)
 
     suspend fun localComputerScreenshot(botId: String, threadId: String?): ScreenFrame =
         screenshot("/api/bots/${segment(botId)}/local-computer/screenshot", threadId)
+
+    /**
+     * This computer's own screen. The frame is drawn in [DesktopScreenFrame.imageWidth] pixels but a tap must be sent in
+     * [DesktopScreenFrame.screenWidth] points, so the sizes travel with the picture instead of being guessed.
+     */
+    suspend fun desktopScreenScreenshot(botId: String): DesktopScreenFrame =
+        send(makeRequest("POST", "/api/bots/${segment(botId)}/desktop/screenshot", body = jsonBody()))
+
+    /** One tap, key or typed run on this computer; needs the lease taken with [takeLocalComputer]. */
+    suspend fun desktopScreenAction(botId: String, body: JsonObject): Unit =
+        sendUnit(makeRequest("POST", "/api/bots/${segment(botId)}/desktop/action", body = body))
 
     /**
      * Take the bot's Local VM under a lease this phone names. The same lease is

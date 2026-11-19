@@ -9,6 +9,8 @@ export interface PhoneDevice {
   cloudDesktopAccess: boolean;
   /** Absent (older sidecars) means no browser access. */
   browserControlAccess?: boolean;
+  /** This computer's own screen — the broadest grant of the three. Absent means off. */
+  desktopScreenAccess?: boolean;
   /** "local": Wi-Fi and Tailscale only. Absent on older sidecars. */
   routes?: "any" | "local";
   /** Its first end-to-end session; a device without one is on the old, unencrypted connection. */
@@ -63,6 +65,8 @@ export type CompanionBridge = {
   pairing: (open: boolean, expectedToken?: string) => Promise<CompanionState>;
   cloudDesktop: (deviceId: string, allowed: boolean) => Promise<CompanionState>;
   browserControl: (deviceId: string, allowed: boolean) => Promise<CompanionState>;
+  /** Absent on an app build before this computer's own screen was a switch. */
+  desktopScreen?: (deviceId: string, allowed: boolean) => Promise<CompanionState>;
   revoke: (deviceId: string) => Promise<CompanionState>;
   /** Absent on an app build before the encrypted connection. */
   renewPairing?: () => Promise<CompanionState>;

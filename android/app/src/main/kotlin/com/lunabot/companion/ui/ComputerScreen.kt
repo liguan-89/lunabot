@@ -48,6 +48,7 @@ import androidx.core.view.WindowCompat
 import androidx.activity.compose.BackHandler
 import com.lunabot.companion.core.Message
 import com.lunabot.companion.vnc.LocalVmViewerScreen
+import com.lunabot.companion.vnc.ThisComputerViewerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -80,6 +81,13 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
     // this screen (and stops the still watcher below from running at all).
     var takingOver by remember(botId) { mutableStateOf(false) }
     var confirmingTakeover by remember(botId) { mutableStateOf(false) }
+    // This computer's own screen has no VNC behind it, so it is its own screen from the start: it polls the desktop's
+    // capture route and stays read-only until the person taps 接管控制 there.
+    if (ComputerPolicy.isThisComputer(bot)) {
+        BackHandler(onBack = onBack)
+        ThisComputerViewerScreen(botId = botId, title = bot.name, onExit = onBack)
+        return
+    }
     if (takingOver) {
         BackHandler { takingOver = false }
         LocalVmViewerScreen(botId = botId, title = bot.name, onExit = { takingOver = false })

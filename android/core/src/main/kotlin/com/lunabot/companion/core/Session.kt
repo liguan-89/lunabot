@@ -924,10 +924,9 @@ class Session(
     /**
      * One fresh frame for the computer viewer, outside the live turn stream.
      *
-     * Only surfaces with an HTTP capture route can answer: cloud/Box and the
-     * Local VM. A "this Mac" surface is captured by the desktop itself and
-     * reaches phones only as a live SSE frame while a turn is running, so this
-     * returns null and the viewer shows the last transcript still instead.
+     * Every surface with an HTTP capture route answers here: cloud/Box, the Local VM, and this computer's own screen.
+     * The last one is the person's real Mac, so it is its own route and its own grant on the computer; the shape it
+     * returns also carries the screen size a tap must be expressed in, which is why [captureDesktopScreen] exists.
      */
     suspend fun captureScreen(bot: Bot): ScreenFrame? {
         val activeClient = client ?: return null
@@ -935,6 +934,7 @@ class Session(
             when (bot.computer) {
                 "cloud" -> activeClient.computerScreenshot(bot.id, bot.threadId)
                 "vm" -> activeClient.localComputerScreenshot(bot.id, bot.threadId)
+                "local" -> activeClient.desktopScreenScreenshot(bot.id).let { ScreenFrame(it.png, it.mime) }
                 // Auto leaves `computer` to the desktop, but a configured cloud
                 // backend is still a remote surface the phone may ask for.
                 null -> if (bot.cloudBackend != null) {
@@ -949,6 +949,24 @@ class Session(
         } catch (_: Exception) {
             null
         }
+    }
+
+    /** This computer's own screen, with the sizes a tap has to be scaled against. Null when it cannot answer. */
+    suspend fun captureDesktopScreen(botId: String): DesktopScreenFrame? {
+        val activeClient = client ?: return null
+        return try {
+            activeClient.desktopScreenScreenshot(botId)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** One tap, key or typed run on this computer. Throws what the server said, so the view can show it. */
+    suspend fun desktopScreenAction(botId: String, body: JsonObject) {
+        val activeClient = client ?: throw IllegalStateException("not connected")
+        activeClient.desktopScreenAction(botId, body)
     }
 
     /** A bot's browser as the view sees it: the stream itself, and the actions it posts back. Both go through the

@@ -86,14 +86,23 @@ class ComputerPolicyTest {
     }
 
     @Test
-    fun `only remote surfaces can be captured outside a live turn`() {
+    fun `every remote surface can be captured outside a live turn`() {
         assertTrue(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = "cloud")))
         assertTrue(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = "vm")))
         // Auto with a configured cloud backend still has the route.
         assertTrue(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = null, cloudBackend = "vps")))
-        // "This Mac" is captured by the desktop, not by an HTTP route.
-        assertFalse(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = "local")))
+        // This Mac has its own route now (`desktop/screenshot`), so it polls like the others.
+        assertTrue(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = "local")))
         assertFalse(ComputerPolicy.hasRemoteCapture(bot(id = "b").copy(computer = null)))
+    }
+
+    @Test
+    fun `this computer is its own screen, not a Local VM takeover`() {
+        assertTrue(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = "local")))
+        assertFalse(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = "vm")))
+        assertFalse(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = "cloud")))
+        // Its screen opens on its own viewer, which is why it never needs the VNC join button.
+        assertFalse(ComputerPolicy.showsCloudDesktop(bot(id = "b").copy(computer = "local")))
     }
 }
 

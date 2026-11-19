@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { denyReason, isBrowserControlAccess, isCloudDesktopAccess, isCompanionNotice } from "../src/routes.ts";
+import { denyReason, isBrowserControlAccess, isCloudDesktopAccess, isCompanionNotice, isDesktopScreenAccess } from "../src/routes.ts";
 
 const ask = (method: string, path: string, authenticated = true) =>
   denyReason({ method, path, authenticated });
@@ -270,6 +270,21 @@ describe("what it may not", () => {
     expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/local-computer/join")).toBe(true);
     expect(allowed("GET", "/api/bots/bot_123/local-computer/join")).toBe(false);
     expect(allowed("POST", "/api/local-computer/join")).toBe(false);
+  });
+
+  it("watches and drives this computer's own screen behind its own grant", () => {
+    expect(allowed("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(true);
+    expect(allowed("POST", "/api/bots/bot_123/desktop/action")).toBe(true);
+    // Its own capability, never the VM's: the person's real desktop is a different risk from a disposable container.
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(true);
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/desktop/action")).toBe(true);
+    expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(false);
+    expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/desktop/action")).toBe(false);
+    // Read-only verbs, other bots' paths and other actions stay closed.
+    expect(allowed("GET", "/api/bots/bot_123/desktop/screenshot")).toBe(false);
+    expect(allowed("POST", "/api/desktop/screenshot")).toBe(false);
+    expect(allowed("POST", "/api/bots/bot_123/desktop/launch")).toBe(false);
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/local-computer/screenshot")).toBe(false);
   });
 
   it("allows only the exact encrypted credential submission verb", () => {

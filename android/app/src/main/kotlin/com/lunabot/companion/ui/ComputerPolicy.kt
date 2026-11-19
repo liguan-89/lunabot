@@ -51,10 +51,19 @@ object ComputerPolicy {
         else -> "空闲"
     }
 
-    /** Cloud and Local VM expose an HTTP capture; "this Mac" does not. */
+    /**
+     * Cloud and Local VM expose an HTTP capture; "this Mac" has its own route
+     * now (`/desktop/screenshot`), so it polls like the others.
+     */
     fun hasRemoteCapture(bot: Bot): Boolean =
-        bot.computer == "cloud" || bot.computer == "vm" ||
+        bot.computer == "cloud" || bot.computer == "vm" || bot.computer == "local" ||
             (bot.computer == null && bot.cloudBackend != null)
+
+    /** This computer's own screen: watched and driven through its own two routes, never the VM's. */
+    fun isThisComputer(bot: Bot): Boolean = bot.computer == "local"
+
+    /** Acting on this Mac needs a control lease first, exactly like the Local VM. */
+    fun showsThisComputerTakeover(bot: Bot): Boolean = isThisComputer(bot)
 
     fun waitingHeadline(bot: Bot): String =
         if (bot.busy == true) "正在等待画面…" else "暂无画面"

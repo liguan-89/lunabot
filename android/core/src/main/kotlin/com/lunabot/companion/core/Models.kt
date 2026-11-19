@@ -1528,6 +1528,33 @@ data class ScreenFrame(val png: String, val mime: String) {
         }
 }
 
+/**
+ * This computer's own screen. [imageWidth]/[imageHeight] are the pixels in [png]; [screenWidth]/[screenHeight] are the
+ * logical points an action's x/y must be in, so a tap on the picture is scaled before it is sent.
+ */
+@Serializable
+data class DesktopScreenFrame(
+    val png: String,
+    val mime: String = "image/png",
+    val imageWidth: Int,
+    val imageHeight: Int,
+    val screenWidth: Int,
+    val screenHeight: Int,
+) {
+    val data: ByteArray?
+        get() = try {
+            Base64.getDecoder().decode(png)
+        } catch (_: IllegalArgumentException) {
+            null
+        }
+
+    /** A point on the drawn picture, in the screen points the server takes. */
+    fun toScreen(x: Float, y: Float): Pair<Float, Float> {
+        if (imageWidth <= 0 || imageHeight <= 0) return x to y
+        return (x * screenWidth / imageWidth) to (y * screenHeight / imageHeight)
+    }
+}
+
 @Serializable
 data class CreatedBot(val bot: Bot)
 
