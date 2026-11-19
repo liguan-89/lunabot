@@ -421,6 +421,7 @@ jobs:
           docker rm -f home-bad >/dev/null
           docker volume rm omb-bad-ci >/dev/null
 
+          set -x  # trace on: the block below exits silently somewhere
           # Fly: the proxy's private address names the client in Fly-Client-IP, exactly as before.
           run_home fly omb-fly-ci 18082 -e FLY_APP_NAME=omb-t-ci
           healthy fly 18082
@@ -430,6 +431,7 @@ jobs:
           want 401 18082 -H 'Fly-Client-IP: 203.0.113.8'
           docker rm -f fly >/dev/null
           docker volume rm omb-fly-ci >/dev/null
+          set +x
 
           # A SIGKILL leaves the server's lease behind; the same container starts again, and so does a new one.
           docker kill -s KILL own >/dev/null
