@@ -79,7 +79,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
@@ -102,9 +101,14 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
@@ -682,50 +686,53 @@ private fun TextBubble(
         startsRun = startsRun,
         endsRun = endsRun,
     )
-    // A white bubble on the #F4F4F5 canvas differs by 11/255 a channel: the
-    // fill alone barely reads as a shape. The rim and the soft drop under it are
-    // what make it one, and both are the design's own values.
-    val bubbleShadow = minisBubbleShadow
+    // The rim is what makes a bubble a shape. No drop shadow: a run sits 4dp
+    // apart, and a 3dp shadow spreads wider than that gap, so the bubbles'
+    // shadows landed on each other and the run read as one smudged block.
     val bubbleRim = minisBubbleRim
     val bubbleFill = if (mine) BubbleColor.userBubble else BubbleColor.botBubble
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        // iOS spaces the far side with `Spacer(minLength:)`; a non-filling weight
-        // lets the bubble shrink to its text while never crossing that gutter.
-        if (mine) Spacer(Modifier.width(56.dp))
-        Column(
-            modifier = Modifier
-                .weight(1f, fill = false)
-                // The bot uses the width it needs (up to the reading measure);
-                // your card stays a card rather than becoming a page.
-                .widthIn(max = if (mine) 360.dp else 640.dp)
-                .then(
-                    if (bubble) {
-                        Modifier
-                            // The shadow sits outside the fill, so it is applied
-                            // before the background and never clipped by it.
-                            .shadow(
-                                elevation = 3.dp,
-                                shape = bubbleShape,
-                                clip = false,
-                                ambientColor = bubbleShadow.first,
-                                spotColor = bubbleShadow.second,
-                            )
-                            .background(
-                                bubbleFill,
-                                bubbleShape,
-                            )
-                            .border(0.5.dp, bubbleRim, bubbleShape)
-                            .padding(horizontal = 13.dp, vertical = 10.dp)
-                    } else {
-                        Modifier
-                    },
-                ),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+    // What the bubble will actually lay out, which is what the gutter is
+    // measured against: a diff or a table draws its own card and never reaches
+    // here.
+    val bubbleText = attached.text.takeIf { it.isNotEmpty() } ?: message.text
+    // The bot's gutter depends on how many lines the answer takes at the narrow
+    // width, so the column's own width has to be known before the Row is built.
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val columnWidth = maxWidth
+        val botGutter = if (mine) 0.dp else botBubbleGutter(
+            text = bubbleText,
+            columnWidth = columnWidth,
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
+            verticalAlignment = Alignment.Bottom,
         ) {
+            // iOS spaces the far side with `Spacer(minLength:)`; a non-filling
+            // weight lets the bubble shrink to its text while never crossing that
+            // gutter. Both sides keep one: yours on the left, the bot's right.
+            if (mine) Spacer(Modifier.width(USER_BUBBLE_GUTTER))
+            Column(
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    // The bot uses the width it needs (up to the reading measure);
+                    // your card stays a card rather than becoming a page.
+                    .widthIn(max = if (mine) 360.dp else 640.dp)
+                    .then(
+                        if (bubble) {
+                            Modifier
+                                .background(
+                                    bubbleFill,
+                                    bubbleShape,
+                                )
+                                .border(0.5.dp, bubbleRim, bubbleShape)
+                                .padding(horizontal = 13.dp, vertical = 10.dp)
+                        } else {
+                            Modifier
+                        },
+                    ),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
             // Rooms attribute each line to the member who said it. Only theirs:
             // your own bubble is already on your side.
             if (!mine) {
@@ -819,6 +826,11 @@ private fun TextBubble(
                     }
                 }
             }
+            }
+            // The bot's bubble stops short of the far edge. Without this it grows
+            // to the column and a long answer reads as a page of text rather
+            // than as something that arrived in the conversation.
+            if (!mine) Spacer(Modifier.width(botGutter))
         }
     }
 }
@@ -2313,7 +2325,6 @@ fun StreamingBubble(text: String?, reasoning: String?) {
     // with nothing but reasoning has no text yet, and a bubble around the
     // chamber would be a bubble around a loading state.
     val bubbleShape = joinedBubbleShape(mine = false, startsRun = true, endsRun = true)
-    val bubbleShadow = minisBubbleShadow
     val bubbleRim = minisBubbleRim
     Entrance {
         Column(
@@ -2338,13 +2349,6 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                 Box(
                     modifier = Modifier
                         .widthIn(max = 640.dp)
-                        .shadow(
-                            elevation = 3.dp,
-                            shape = bubbleShape,
-                            clip = false,
-                            ambientColor = bubbleShadow.first,
-                            spotColor = bubbleShadow.second,
-                        )
                         .background(BubbleColor.botBubble, bubbleShape)
                         .border(0.5.dp, bubbleRim, bubbleShape)
                         .padding(horizontal = 13.dp, vertical = 10.dp),
@@ -2402,6 +2406,47 @@ private fun revealed(text: String): String {
 
 /** Past this many characters the reply is shown at once; see [revealed]. */
 private const val TYPEWRITER_LIMIT = 2_000
+
+/** The gutter your own bubble keeps from the left edge. */
+private val USER_BUBBLE_GUTTER = 56.dp
+
+/** A bubble's own horizontal padding, needed to know how wide its text may be. */
+private val BUBBLE_HORIZONTAL_PADDING = 13.dp
+
+/**
+ * How much room the bot's bubble leaves on its far side, measured rather than
+ * guessed.
+ *
+ * The answer is laid out at the widest width the bubble may take, and the lines
+ * that produces decide the gutter: a short answer keeps [BotBubbleGutter.SHORT]
+ * so the two sides read as two speakers, a long one gets [BotBubbleGutter.LONG]
+ * because every dp taken from the right is a word pushed to the next line.
+ *
+ * Measured here rather than inside the bubble because the gutter is a `Spacer`
+ * beside the bubble: by the time the text knows how tall it is, the space next to
+ * it has already been handed out.
+ */
+@Composable
+private fun botBubbleGutter(text: String?, columnWidth: Dp): Dp {
+    if (text.isNullOrBlank()) return BotBubbleGutter.SHORT
+    val measurer = rememberTextMeasurer()
+    val widest = (columnWidth - BotBubbleGutter.SHORT - BUBBLE_HORIZONTAL_PADDING * 2)
+        .coerceAtLeast(1.dp)
+    val widestPx = with(LocalDensity.current) { widest.roundToPx() }
+    val lines = remember(text, widestPx, measurer) {
+        // The raw markdown source is what gets measured, so a table or a heavy
+        // list counts a little long: its syntax characters never reach the
+        // screen. That errs toward the wide bubble, which is the harmless
+        // direction — the cost is a few dp of margin, not a clipped line.
+        measurer.measure(
+            text = AnnotatedString(text),
+            style = TextStyle(fontSize = 17.sp, lineHeight = 24.sp),
+            maxLines = BotBubbleGutter.LONG_ANSWER_LINES + 1,
+            constraints = Constraints(maxWidth = widestPx),
+        ).lineCount
+    }
+    return BotBubbleGutter.of(lines)
+}
 
 /**
  * A gentle arrival: the reply rises the last few dp and fades in, so the

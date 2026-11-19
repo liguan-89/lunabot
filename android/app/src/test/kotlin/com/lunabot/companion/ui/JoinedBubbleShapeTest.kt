@@ -29,8 +29,9 @@ class JoinedBubbleShapeTest {
         bottomStart = bottomStart.dp,
     )
 
-    private val round = 18
-    private val tuck = 6
+    // The standing corner and the tucked one, from the design tokens.
+    private val round = MinisBubbleCorner.value.toInt()
+    private val tuck = MinisBubbleJoinedCorner.value.toInt()
 
     @Test
     fun `a bubble alone in its run keeps all four corners`() {

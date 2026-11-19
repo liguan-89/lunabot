@@ -1591,12 +1591,14 @@ private val CHAT_CONTENT_MAX_WIDTH = 840.dp
  * The transcript's vertical rhythm: one gap between turns, a tighter one inside a
  * run of the same person's lines.
  *
- * The design's `.row.tight` is 4px inside a run against 9px between turns, and
- * that difference is the whole reason three short lines read as one block. The
- * gap is carried as the top padding of the row that starts, so the list itself
- * needs no verticalArrangement and the first row keeps the list's own padding.
+ * 16dp between turns and 4dp inside one. The design's `.row.tight` is 4px
+ * against 9px, but 9dp was measured with the bot's answers as bare page text;
+ * now that both sides are bubbles, a 9dp gap between two filled shapes reads as
+ * a stack rather than a break, so the turn gap grew with the change. The gap is
+ * carried as the top padding of the row that starts, so the list itself needs no
+ * verticalArrangement and the first row keeps the list's own padding.
  */
-private val TURN_GAP = 9.dp
+private val TURN_GAP = 16.dp
 private val RUN_GAP = 4.dp
 
 /**

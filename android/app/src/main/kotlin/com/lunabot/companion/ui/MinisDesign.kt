@@ -80,16 +80,15 @@ object MinisTokens {
     // relationship, brighter against darker.
     val UserBubbleLight = Color(0xFFFFFFFF)
     val UserBubbleDark = Color(0xFF2C2C2E)
-    // A white bubble on the #F4F4F5 canvas differs by 11/255 a channel, so the
-    // fill alone is nearly invisible: what makes it a shape is the hairline rim
-    // and the soft drop under it. Both come from the design's `.bubble`
-    // (`border: .5px solid var(--rim)`, `box-shadow: var(--shadow-bubble)`).
+    // A bubble is told apart by its fill and one hairline rim, and by nothing
+    // else. It had a soft drop too, taken from the design's `.bubble`, until a
+    // run of bubbles 4dp apart showed what a 3dp shadow does at that spacing:
+    // each bubble's shadow landed on the next one and the run read as a single
+    // smudged block. The rim alone is enough to make the edge, so the shadow is
+    // gone rather than tuned — a shadow that has to be shrunk below the gap it
+    // sits in is not doing the job a shadow does.
     val BubbleRimLight = Color(0x17000000)
     val BubbleRimDark = Color(0x24FFFFFF)
-    val BubbleShadowAmbientLight = Color(0x0D000000)
-    val BubbleShadowSpotLight = Color(0x4D000000)
-    val BubbleShadowAmbientDark = Color(0x66000000)
-    val BubbleShadowSpotDark = Color(0xCC000000)
     // The bot's bubble: 22/255 below white and 11/255 below the canvas, which
     // is the narrow band where it reads as a surface without competing with
     // your own words for attention.
@@ -162,17 +161,9 @@ val minisCanvas: Color
 val minisCard: Color
     @Composable get() = if (minisIsDark()) MinisTokens.CardDark else MinisTokens.CardLight
 
-/** The hairline that makes a white bubble a shape on the grey canvas. */
+/** The hairline that makes a bubble a shape on the canvas. */
 val minisBubbleRim: Color
     @Composable get() = if (minisIsDark()) MinisTokens.BubbleRimDark else MinisTokens.BubbleRimLight
-
-/** The soft drop under a bubble, as (ambient, spot) — Compose takes both. */
-val minisBubbleShadow: Pair<Color, Color>
-    @Composable get() = if (minisIsDark()) {
-        MinisTokens.BubbleShadowAmbientDark to MinisTokens.BubbleShadowSpotDark
-    } else {
-        MinisTokens.BubbleShadowAmbientLight to MinisTokens.BubbleShadowSpotLight
-    }
 
 /** Muted foreground, like iOS `secondaryLabel`. */
 val minisSecondary: Color
@@ -253,8 +244,11 @@ val MinisCardShape = RoundedCornerShape(16.dp)
  * A bubble's standing corner. The shape a bubble actually draws comes from
  * [joinedBubbleShape], which tucks the corners that touch a neighbour in the
  * same run; this is the round one it falls back to.
+ *
+ * 21dp rather than 18: at a 45dp bubble the smaller radius read as a rounded
+ * rectangle, and the reference this transcript is measured against uses 21.
  */
-val MinisBubbleCorner = 18.dp
+val MinisBubbleCorner = 21.dp
 val MinisComposerShape = RoundedCornerShape(24.dp)
 
 /** The corner a bubble tucks in where it touches the next line of its run. */

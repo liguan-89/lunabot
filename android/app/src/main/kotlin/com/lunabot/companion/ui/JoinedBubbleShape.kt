@@ -10,7 +10,7 @@ import androidx.compose.ui.unit.dp
  * Two adjacent bubbles that both kept all four corners round read as two cards;
  * tucking the corners that touch turns a run into one block, which is what every
  * messaging app the transcript is imitating does. The tucked corner is
- * [MinisBubbleJoinedCorner] (6dp) against the standing 18dp.
+ * [MinisBubbleJoinedCorner] (6dp) against the standing [MinisBubbleCorner].
  *
  * The rule is about geometry, not sides: the corners that face the page stay
  * round and the ones that face a neighbour tuck in. A bubble alone in its run
