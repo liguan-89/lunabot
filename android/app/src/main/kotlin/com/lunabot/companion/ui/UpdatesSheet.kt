@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
@@ -51,7 +51,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Chat
+import com.lunabot.companion.core.Chat
 import kotlinx.coroutines.launch
 
 /**

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.Manifest
 import android.content.ContentUris
@@ -7,9 +7,9 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
 import androidx.core.content.ContextCompat
-import com.openmausbot.companion.core.CalendarAccess
-import com.openmausbot.companion.core.PhoneCalendarRules
-import com.openmausbot.companion.core.PhoneTool
+import com.lunabot.companion.core.CalendarAccess
+import com.lunabot.companion.core.PhoneCalendarRules
+import com.lunabot.companion.core.PhoneTool
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId

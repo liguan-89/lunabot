@@ -1,9 +1,9 @@
-package com.openmausbot.companion.dictation
+package com.lunabot.companion.dictation
 
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
-import com.openmausbot.companion.core.Dictation
+import com.lunabot.companion.core.Dictation
 import java.util.Locale
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test

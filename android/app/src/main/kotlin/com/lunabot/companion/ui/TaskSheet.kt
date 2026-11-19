@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -53,18 +53,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.launch
-import com.openmausbot.companion.core.ChatTarget
-import com.openmausbot.companion.core.target
-import com.openmausbot.companion.core.forTask
-import com.openmausbot.companion.core.BotThreadGroup
-import com.openmausbot.companion.core.isSnoozed
-import com.openmausbot.companion.core.threadGroups
-import com.openmausbot.companion.core.isArchived
+import com.lunabot.companion.core.ChatTarget
+import com.lunabot.companion.core.target
+import com.lunabot.companion.core.forTask
+import com.lunabot.companion.core.BotThreadGroup
+import com.lunabot.companion.core.isSnoozed
+import com.lunabot.companion.core.threadGroups
+import com.lunabot.companion.core.isArchived
 
 /**
  * Separate contexts for an agent or channel — the port of

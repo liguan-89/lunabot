@@ -1,9 +1,9 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.storage.UnlockCredentialStore
-import com.openmausbot.companion.storage.UnlockSecretCipher
-import com.openmausbot.companion.storage.UnlockState
+import com.lunabot.companion.storage.UnlockCredentialStore
+import com.lunabot.companion.storage.UnlockSecretCipher
+import com.lunabot.companion.storage.UnlockState
 import java.io.File
 import java.nio.file.Files
 import kotlin.test.AfterTest

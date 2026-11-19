@@ -1,4 +1,4 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -6,8 +6,8 @@ import android.content.Intent
 import android.os.Handler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.openmausbot.companion.OpenMausApp
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

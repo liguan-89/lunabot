@@ -1,8 +1,8 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.RosterSnapshot
-import com.openmausbot.companion.core.RosterSnapshotStore
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.RosterSnapshot
+import com.lunabot.companion.core.RosterSnapshotStore
 import java.io.File
 import java.security.MessageDigest
 import kotlinx.coroutines.CancellationException
@@ -19,7 +19,7 @@ import kotlinx.serialization.encodeToString
  * - **The filename is a SHA-256 of the connection id**, never the id itself.
  *   Ids are remote-supplied strings; hashing means an id containing `/` or
  *   `..` cannot steer a write out of the cache directory, and two computers
- *   with colliding ids would collide in [com.openmausbot.companion.core.TokenStore]
+ *   with colliding ids would collide in [com.lunabot.companion.core.TokenStore]
  *   long before they could collide here.
  * - **The write is atomic** — bytes land in a `.tmp` sibling that is renamed
  *   over the target — so a process killed mid-save leaves either the old

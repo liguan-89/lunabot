@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.AvatarCrop
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotProfilePatch
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.Voice
-import com.openmausbot.companion.core.VoiceProvider
+import com.lunabot.companion.core.AvatarCrop
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotProfilePatch
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.Voice
+import com.lunabot.companion.core.VoiceProvider
 
 /**
  * The paired-safe agent profile, as rules — the decision half of

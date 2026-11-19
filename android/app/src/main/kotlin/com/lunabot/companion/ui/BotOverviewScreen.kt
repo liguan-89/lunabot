@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -48,12 +48,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotOverview
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.McpServerEntry
-import com.openmausbot.companion.core.Routine
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotOverview
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.McpServerEntry
+import com.lunabot.companion.core.Routine
 import kotlinx.coroutines.launch
 
 /**

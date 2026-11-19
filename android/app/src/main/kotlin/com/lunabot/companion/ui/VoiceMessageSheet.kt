@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.Context
 import androidx.compose.foundation.Canvas
@@ -45,9 +45,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.speech.SherpaTranscriber
-import com.openmausbot.companion.storage.VoiceAsrMode
+import com.lunabot.companion.R
+import com.lunabot.companion.speech.SherpaTranscriber
+import com.lunabot.companion.storage.VoiceAsrMode
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope

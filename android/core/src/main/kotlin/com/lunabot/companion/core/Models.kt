@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import java.net.URI
 import java.util.Base64
@@ -904,7 +904,7 @@ data class CompanionConnectionMetadata(
      * before this feature adopts it once from here — trust on first use — and
      * pins it from then on (spec §3).
      */
-    val e2e: com.openmausbot.companion.core.e2e.E2eDescriptor? = null,
+    val e2e: com.lunabot.companion.core.e2e.E2eDescriptor? = null,
 )
 
 /**
@@ -942,8 +942,8 @@ object CompanionConnectionMetadataSerializer : KSerializer<CompanionConnectionMe
             )
         }
         val e2e = (value["e2e"] as? JsonObject)?.let { element ->
-            (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parseObject(element)
-                as? com.openmausbot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
+            (com.lunabot.companion.core.e2e.E2eDescriptorParser.parseObject(element)
+                as? com.lunabot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
         }
         return CompanionConnectionMetadata(serverName, hosts, endpoints, e2e)
     }

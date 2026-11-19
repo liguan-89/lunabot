@@ -4,14 +4,14 @@
  * GaveUp, each of the four triggers clears a stop, and the gap between writes
  * grows so a phone that keeps losing the switch is not written to in a loop.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Decision
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Event
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.SkipReason
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.State
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Stop
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Trigger
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Decision
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Event
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.SkipReason
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.State
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Stop
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Trigger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

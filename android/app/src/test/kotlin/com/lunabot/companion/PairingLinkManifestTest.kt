@@ -1,7 +1,7 @@
-package com.openmausbot.companion
+package com.lunabot.companion
 
-import com.openmausbot.companion.ui.PairingHandoff
-import com.openmausbot.companion.ui.PairingLink
+import com.lunabot.companion.ui.PairingHandoff
+import com.lunabot.companion.ui.PairingLink
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory
 import kotlin.test.Test

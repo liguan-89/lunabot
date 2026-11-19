@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -39,10 +39,10 @@ data class Connection(
     val pairedWithServer: Boolean get() = serverEnvironmentId != null
 
     /** The pinned descriptor, or null for a plain connection or an unreadable value. */
-    val e2eDescriptor: com.openmausbot.companion.core.e2e.E2eDescriptor?
+    val e2eDescriptor: com.lunabot.companion.core.e2e.E2eDescriptor?
         get() = e2e?.let { raw ->
-            (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parse(raw)
-                as? com.openmausbot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
+            (com.lunabot.companion.core.e2e.E2eDescriptorParser.parse(raw)
+                as? com.lunabot.companion.core.e2e.DescriptorParse.Ok)?.descriptor
         }
 
     /** A direct encrypted route (`ws://host:port/v1/e2e`) from the advertised endpoints. */
@@ -470,8 +470,8 @@ data class PairingInvite(val connection: Connection, val credential: String) {
                 // A malformed descriptor, or one from a newer app, refuses the
                 // whole invite: a phone must never fall back to plain pairing
                 // when the owner asked for the encrypted connection.
-                when (com.openmausbot.companion.core.e2e.E2eDescriptorParser.parse(raw)) {
-                    is com.openmausbot.companion.core.e2e.DescriptorParse.Ok -> connection = connection.copy(e2e = raw)
+                when (com.lunabot.companion.core.e2e.E2eDescriptorParser.parse(raw)) {
+                    is com.lunabot.companion.core.e2e.DescriptorParse.Ok -> connection = connection.copy(e2e = raw)
                     else -> return null
                 }
             }

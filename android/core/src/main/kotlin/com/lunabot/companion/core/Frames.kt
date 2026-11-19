@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -55,21 +55,21 @@ data class RuntimeEvent(
 @Serializable(with = FrameSerializer::class)
 sealed interface Frame {
     data class Hello(val cursor: String, val resumed: Boolean) : Frame
-    data class Message(val threadId: String, val message: com.openmausbot.companion.core.Message) : Frame
-    data class MessagePatch(val threadId: String, val message: com.openmausbot.companion.core.Message) : Frame
+    data class Message(val threadId: String, val message: com.lunabot.companion.core.Message) : Frame
+    data class MessagePatch(val threadId: String, val message: com.lunabot.companion.core.Message) : Frame
     data class Thread(val threadId: String, val activeLeafId: String?) : Frame
-    data class Bot(val bot: com.openmausbot.companion.core.Bot) : Frame
+    data class Bot(val bot: com.lunabot.companion.core.Bot) : Frame
     data class BotDeleted(val botId: String) : Frame
     /** The desktop reordered the sidebar; ids not named here keep relative order. */
     data class BotsOrder(val botIds: List<String>) : Frame
     /** Something is waiting in this phone's job queue; the phone polls now. */
     data class DeviceJob(val phone: String, val id: String) : Frame
     data class BotQueued(val queues: Map<String, List<QueuedSend>>) : Frame
-    data class Room(val room: com.openmausbot.companion.core.Room) : Frame
+    data class Room(val room: com.lunabot.companion.core.Room) : Frame
     data class RoomDeleted(val groupId: String) : Frame
     data class Notify(val notification: NotificationFrame) : Frame
-    data class Routine(val routine: com.openmausbot.companion.core.Routine) : Frame
-    data class RoutineRunFrame(val run: com.openmausbot.companion.core.RoutineRun) : Frame
+    data class Routine(val routine: com.lunabot.companion.core.Routine) : Frame
+    data class RoutineRunFrame(val run: com.lunabot.companion.core.RoutineRun) : Frame
     data class RoutineDeleted(val routineId: String) : Frame
     data class Screen(val botId: String, val png: String, val mime: String) : Frame
     data class Computer(val botId: String, val state: String) : Frame
@@ -78,7 +78,7 @@ sealed interface Frame {
     data class LiveCall(
         val botId: String,
         val threadId: String,
-        val call: com.openmausbot.companion.core.LiveCallRecord?,
+        val call: com.lunabot.companion.core.LiveCallRecord?,
     ) : Frame
     /** The computer lease changed, possibly from another device. */
     data class ComputerControl(val botId: String, val held: Boolean, val helpReason: String?) : Frame
@@ -123,14 +123,14 @@ object FrameSerializer : KSerializer<Frame> {
             "message" -> Frame.Message(
                 threadId = objectValue.requiredString("threadId"),
                 message = input.json.decodeFromJsonElement(
-                    com.openmausbot.companion.core.Message.serializer(),
+                    com.lunabot.companion.core.Message.serializer(),
                     objectValue.required("message"),
                 ),
             )
             "message.patch" -> Frame.MessagePatch(
                 threadId = objectValue.requiredString("threadId"),
                 message = input.json.decodeFromJsonElement(
-                    com.openmausbot.companion.core.Message.serializer(),
+                    com.lunabot.companion.core.Message.serializer(),
                     objectValue.required("message"),
                 ),
             )
@@ -139,7 +139,7 @@ object FrameSerializer : KSerializer<Frame> {
                 activeLeafId = objectValue["activeLeafId"]?.jsonPrimitive?.contentOrNull,
             )
             "bot" -> Frame.Bot(input.json.decodeFromJsonElement(
-                com.openmausbot.companion.core.Bot.serializer(),
+                com.lunabot.companion.core.Bot.serializer(),
                 objectValue.required("bot"),
             ))
             "bot.deleted" -> Frame.BotDeleted(objectValue.requiredString("botId"))
@@ -152,7 +152,7 @@ object FrameSerializer : KSerializer<Frame> {
             )
             "bot.queued" -> decodeBotQueued(objectValue) ?: Frame.Unknown(kind)
             "group" -> Frame.Room(input.json.decodeFromJsonElement(
-                com.openmausbot.companion.core.Room.serializer(),
+                com.lunabot.companion.core.Room.serializer(),
                 objectValue.required("group"),
             ))
             "group.deleted" -> Frame.RoomDeleted(objectValue.requiredString("groupId"))
@@ -161,11 +161,11 @@ object FrameSerializer : KSerializer<Frame> {
                 objectValue.required("notification"),
             ))
             "routine" -> Frame.Routine(input.json.decodeFromJsonElement(
-                com.openmausbot.companion.core.Routine.serializer(),
+                com.lunabot.companion.core.Routine.serializer(),
                 objectValue.required("routine"),
             ))
             "routine.run" -> Frame.RoutineRunFrame(input.json.decodeFromJsonElement(
-                com.openmausbot.companion.core.RoutineRun.serializer(),
+                com.lunabot.companion.core.RoutineRun.serializer(),
                 objectValue.required("run"),
             ))
             "routine.deleted" -> Frame.RoutineDeleted(objectValue.requiredString("routineId"))
@@ -282,12 +282,12 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         is Frame.Message -> {
             put("kind", "message")
             put("threadId", threadId)
-            put("message", output.json.encodeToJsonElement(com.openmausbot.companion.core.Message.serializer(), message))
+            put("message", output.json.encodeToJsonElement(com.lunabot.companion.core.Message.serializer(), message))
         }
         is Frame.MessagePatch -> {
             put("kind", "message.patch")
             put("threadId", threadId)
-            put("message", output.json.encodeToJsonElement(com.openmausbot.companion.core.Message.serializer(), message))
+            put("message", output.json.encodeToJsonElement(com.lunabot.companion.core.Message.serializer(), message))
         }
         is Frame.Thread -> {
             put("kind", "thread")
@@ -296,7 +296,7 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         }
         is Frame.Bot -> {
             put("kind", "bot")
-            put("bot", output.json.encodeToJsonElement(com.openmausbot.companion.core.Bot.serializer(), bot))
+            put("bot", output.json.encodeToJsonElement(com.lunabot.companion.core.Bot.serializer(), bot))
         }
         is Frame.BotDeleted -> {
             put("kind", "bot.deleted")
@@ -321,7 +321,7 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         }
         is Frame.Room -> {
             put("kind", "group")
-            put("group", output.json.encodeToJsonElement(com.openmausbot.companion.core.Room.serializer(), room))
+            put("group", output.json.encodeToJsonElement(com.lunabot.companion.core.Room.serializer(), room))
         }
         is Frame.RoomDeleted -> {
             put("kind", "group.deleted")
@@ -333,11 +333,11 @@ private fun Frame.toJsonObject(output: JsonEncoder): JsonObject = buildJsonObjec
         }
         is Frame.Routine -> {
             put("kind", "routine")
-            put("routine", output.json.encodeToJsonElement(com.openmausbot.companion.core.Routine.serializer(), routine))
+            put("routine", output.json.encodeToJsonElement(com.lunabot.companion.core.Routine.serializer(), routine))
         }
         is Frame.RoutineRunFrame -> {
             put("kind", "routine.run")
-            put("run", output.json.encodeToJsonElement(com.openmausbot.companion.core.RoutineRun.serializer(), run))
+            put("run", output.json.encodeToJsonElement(com.lunabot.companion.core.RoutineRun.serializer(), run))
         }
         is Frame.RoutineDeleted -> {
             put("kind", "routine.deleted")

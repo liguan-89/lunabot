@@ -5,12 +5,12 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, the StateFlow and coroutine plumbing replaced by an
  * immutable State with pure transitions, and the write plus the clock supplied
  * by the caller. Wiring into PhoneUiController is a separate change.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * Turning wireless debugging back on when the shell helper needs it, as a pure

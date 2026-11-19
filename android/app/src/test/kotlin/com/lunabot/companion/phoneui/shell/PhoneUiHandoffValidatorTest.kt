@@ -9,9 +9,9 @@
  * Modifications Copyright 2026 OpenMausBot contributors: adapted to the
  * trimmed protocol in HandoffProtocol.kt (no USB-script surface).
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
-import com.openmausbot.companion.phoneui.shell.HandoffProtocol.Reject
+import com.lunabot.companion.phoneui.shell.HandoffProtocol.Reject
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -165,7 +165,7 @@ class PhoneUiHandoffValidatorTest {
         assertTrue(cmd.startsWith("read n; (echo \"\$n\" | CLASSPATH="))
         // Detached session, named process, entry point and pinned cert as arguments.
         assertTrue(cmd.contains(" setsid app_process /system/bin --nice-name='com.lunabot.companion:phoneui-helper' "))
-        assertTrue(cmd.contains(" com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain 'com.lunabot.companion' 10234 'ab'\\''cd' "))
+        assertTrue(cmd.contains(" com.lunabot.companion.phoneui.shell.PhoneUiHelperMain 'com.lunabot.companion' 10234 'ab'\\''cd' "))
         // No nonce in the command line, and stdin held open until the handoff.
         assertTrue(cmd.endsWith(" >/dev/null 2>&1 &); read _"))
         assertFalse(cmd.contains("nonce"))

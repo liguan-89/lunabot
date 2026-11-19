@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
@@ -14,18 +14,18 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.lifecycleScope
-import com.openmausbot.companion.core.ActivityDetail
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.Compaction
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.RuntimeEvent
-import com.openmausbot.companion.core.SearchHit
-import com.openmausbot.companion.core.StreamFrame
-import com.openmausbot.companion.core.target
+import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Compaction
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.RuntimeEvent
+import com.lunabot.companion.core.SearchHit
+import com.lunabot.companion.core.StreamFrame
+import com.lunabot.companion.core.target
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.assertEquals

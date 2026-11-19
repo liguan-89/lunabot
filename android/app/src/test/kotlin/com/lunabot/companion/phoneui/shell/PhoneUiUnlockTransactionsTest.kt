@@ -1,5 +1,5 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.os.IBinder
 import kotlin.test.Test

@@ -1,6 +1,6 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Bot
+import com.lunabot.companion.core.Bot
 
 /**
  * A bot's computer, watch-only — the rules behind `ios/App/ComputerView.swift`.

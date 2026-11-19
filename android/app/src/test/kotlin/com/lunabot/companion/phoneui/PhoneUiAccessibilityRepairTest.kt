@@ -5,11 +5,11 @@
  * list parsing only ever adds our component — every other accessibility
  * service on the phone stays exactly where it was.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.phoneui.PhoneUiAccessibilityRepair.A11yObservation
-import com.openmausbot.companion.phoneui.PhoneUiAccessibilityRepair.Decision
-import com.openmausbot.companion.phoneui.PhoneUiAccessibilityRepair.RepairState
+import com.lunabot.companion.phoneui.PhoneUiAccessibilityRepair.A11yObservation
+import com.lunabot.companion.phoneui.PhoneUiAccessibilityRepair.Decision
+import com.lunabot.companion.phoneui.PhoneUiAccessibilityRepair.RepairState
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

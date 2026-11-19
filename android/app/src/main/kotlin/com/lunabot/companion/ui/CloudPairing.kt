@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf

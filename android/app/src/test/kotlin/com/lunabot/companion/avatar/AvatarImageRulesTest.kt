@@ -1,6 +1,6 @@
-package com.openmausbot.companion.avatar
+package com.lunabot.companion.avatar
 
-import com.openmausbot.companion.core.AvatarCrop
+import com.lunabot.companion.core.AvatarCrop
 import java.io.ByteArrayInputStream
 import java.io.InputStream
 import kotlin.test.Test

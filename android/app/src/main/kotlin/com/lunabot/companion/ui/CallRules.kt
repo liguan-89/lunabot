@@ -1,6 +1,6 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Message
+import com.lunabot.companion.core.Message
 
 /** Where a call is — `CallView.Phase` on iOS. */
 enum class CallPhase { LISTENING, SENDING, WORKING, SPEAKING }

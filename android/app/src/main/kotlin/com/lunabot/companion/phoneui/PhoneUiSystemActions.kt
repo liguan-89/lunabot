@@ -10,7 +10,7 @@
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, and reduced to this app's tool surface. The four
  * tools became one object of pure parsers and intent builders plus four
  * device-touching entry points, instead of Mika's PhoneTool subclasses with
@@ -33,7 +33,7 @@
  * SystemActionTools.kt (AddCalendarEvent, BulkAddCalendarEvents, ShowAlarms)
  * are not ported.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.app.ActivityOptions
 import android.content.ActivityNotFoundException
@@ -41,7 +41,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.AlarmClock
-import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.phone.PhoneToolOutcome
 import java.util.Calendar
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull

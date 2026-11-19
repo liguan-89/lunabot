@@ -1,9 +1,9 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.ConnectorCard
-import com.openmausbot.companion.core.ConnectorCatalog
-import com.openmausbot.companion.core.ConnectorStatus
-import com.openmausbot.companion.core.ConnectorStatuses
+import com.lunabot.companion.core.ConnectorCard
+import com.lunabot.companion.core.ConnectorCatalog
+import com.lunabot.companion.core.ConnectorStatus
+import com.lunabot.companion.core.ConnectorStatuses
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.graphics.Bitmap
 import android.graphics.PixelFormat
@@ -6,7 +6,7 @@ import android.media.Image
 import android.media.ImageReader
 import android.os.Handler
 import android.os.HandlerThread
-import com.openmausbot.companion.phoneui.shell.PhoneUiShell
+import com.lunabot.companion.phoneui.shell.PhoneUiShell
 import kotlinx.coroutines.delay
 
 /**

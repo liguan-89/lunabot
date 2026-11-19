@@ -1,4 +1,4 @@
-package com.openmausbot.companion.permissions
+package com.lunabot.companion.permissions
 
 import android.Manifest
 import android.content.Context

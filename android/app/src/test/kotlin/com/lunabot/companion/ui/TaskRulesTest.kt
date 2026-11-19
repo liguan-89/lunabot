@@ -1,9 +1,9 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.ThreadCloser
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.ThreadCloser
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.math.hypot
 

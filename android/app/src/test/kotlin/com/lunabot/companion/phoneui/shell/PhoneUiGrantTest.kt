@@ -10,7 +10,7 @@
  * Robolectric because the implementation logs through android.util.Log, as the
  * rest of this suite does.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

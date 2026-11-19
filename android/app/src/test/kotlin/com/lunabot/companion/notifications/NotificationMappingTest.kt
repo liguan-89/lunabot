@@ -1,6 +1,6 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
-import com.openmausbot.companion.core.NotificationFrame
+import com.lunabot.companion.core.NotificationFrame
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.ContentResolver
 import android.graphics.Bitmap
@@ -37,9 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.AttachmentPolicy
-import com.openmausbot.companion.core.PendingMessageAttachment
+import com.lunabot.companion.R
+import com.lunabot.companion.core.AttachmentPolicy
+import com.lunabot.companion.core.PendingMessageAttachment
 import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.Locale

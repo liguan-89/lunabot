@@ -24,7 +24,7 @@
  * so the probe paths themselves — a refused launch, an empty tree, a display
  * that must be released — are tested with fakes rather than a device.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.app.ActivityManager
 import android.content.ComponentName
@@ -38,7 +38,7 @@ import android.provider.Settings
 import android.view.Display
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.pm.PackageInfoCompat
-import com.openmausbot.companion.phoneui.shell.PhoneUiShell
+import com.lunabot.companion.phoneui.shell.PhoneUiShell
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
@@ -14,18 +14,18 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.openmausbot.companion.audio.PreviewAudioFocus
-import com.openmausbot.companion.audio.VoiceNoteController
-import com.openmausbot.companion.audio.VoiceNoteEngine
-import com.openmausbot.companion.audio.VoiceNotePlayer
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.MessageImageAttachment
-import com.openmausbot.companion.core.StreamFrame
+import com.lunabot.companion.audio.PreviewAudioFocus
+import com.lunabot.companion.audio.VoiceNoteController
+import com.lunabot.companion.audio.VoiceNoteEngine
+import com.lunabot.companion.audio.VoiceNotePlayer
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.MessageImageAttachment
+import com.lunabot.companion.core.StreamFrame
 import java.util.concurrent.ConcurrentLinkedQueue
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow

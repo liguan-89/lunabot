@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -32,8 +32,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.VoiceProvider
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.VoiceProvider
 import kotlinx.coroutines.launch
 
 /** What Settings → Voice says and offers — the decisions of `ios/App/VoiceSettingsView.swift`. */

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.lifecycle
+package com.lunabot.companion.lifecycle
 
 import androidx.lifecycle.Lifecycle
 import java.io.File
@@ -124,7 +124,7 @@ class SessionLingerWiringTest {
     }
 
     private fun sourceFile(name: String): File =
-        locate("src/main/kotlin/com/openmausbot/companion/$name")
+        locate("src/main/kotlin/com/lunabot/companion/$name")
 
     private fun locate(relative: String): File {
         var directory: File? = File(".").absoluteFile

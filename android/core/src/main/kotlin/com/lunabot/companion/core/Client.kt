@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import java.io.IOException
 import java.net.Inet6Address
@@ -135,10 +135,10 @@ class CompanionClient(
      * inside that encrypted session: OkHttp is pointed at a synthetic host whose
      * SocketFactory is the tunnel, so nothing else in this class changes.
      */
-    private val e2e: com.openmausbot.companion.core.e2e.E2eTransport? =
+    private val e2e: com.lunabot.companion.core.e2e.E2eTransport? =
         connection.e2eDescriptor?.let { descriptor ->
             token?.let {
-                com.openmausbot.companion.core.e2e.E2eTransport(
+                com.lunabot.companion.core.e2e.E2eTransport(
                     descriptor = descriptor,
                     token = it,
                     app = appLabel,
@@ -170,7 +170,7 @@ class CompanionClient(
     }
 
     init {
-        com.openmausbot.companion.core.e2e.E2eLog.line(
+        com.lunabot.companion.core.e2e.E2eLog.line(
             "client e2e=${e2e != null} base=${endpoint?.baseUrl}",
         )
         // A tunnel that had to be rebuilt invalidates every connection the

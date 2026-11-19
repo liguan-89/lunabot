@@ -1,13 +1,13 @@
-package com.openmausbot.companion.lifecycle
+package com.lunabot.companion.lifecycle
 
 import android.content.Context
 import android.content.Intent
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.ProcessLifecycleOwner
-import com.openmausbot.companion.OpenMausApp
-import com.openmausbot.companion.core.InMemoryOnboardingStore
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.core.TokenStore
+import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.core.InMemoryOnboardingStore
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.core.TokenStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.emptyFlow

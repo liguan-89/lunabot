@@ -2,7 +2,7 @@
  * Pins the key whitelist and the text typing rule: only navigation keys, and
  * only printable ASCII can be typed through key events.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

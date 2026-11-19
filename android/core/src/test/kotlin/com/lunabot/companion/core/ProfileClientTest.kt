@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.SerializationException

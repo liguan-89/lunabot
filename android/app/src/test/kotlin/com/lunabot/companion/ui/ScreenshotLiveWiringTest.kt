@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.graphics.Bitmap
 import android.util.Base64
@@ -9,12 +9,12 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.StreamFrame
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.StreamFrame
 import java.io.ByteArrayOutputStream
 import kotlin.test.assertEquals
 import kotlinx.coroutines.awaitCancellation

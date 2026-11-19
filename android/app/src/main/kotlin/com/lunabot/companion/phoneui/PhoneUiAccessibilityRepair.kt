@@ -7,13 +7,13 @@
  * repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, the flows and coroutines replaced by immutable
  * state and pure transitions, the clock taken as a parameter, and the shell
  * command execution left to the caller. Wiring into a service is a separate
  * change.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * Re-binding the accessibility service when the system lists it but does not

@@ -3,7 +3,7 @@
  * pulled back only when they are not the one driving, and a system picker is
  * never touched.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,7 +20,7 @@ class PhoneUiSpillTest {
             since = 500,
             topBefore = 7,
             userTouchedAt = null,
-            excludedPackages = setOf("com.openmausbot.companion"),
+            excludedPackages = setOf("com.lunabot.companion"),
             pickerPackages = pickers,
             homePackages = home,
         )
@@ -73,9 +73,9 @@ class PhoneUiSpillTest {
     @Test
     fun `our own package is ignored`() {
         val decision = PhoneUiSpill.decide(
-            arrivals = listOf(PhoneUiSpill.Arrival(46, "com.openmausbot.companion", 1_000)),
+            arrivals = listOf(PhoneUiSpill.Arrival(46, "com.lunabot.companion", 1_000)),
             since = 500, topBefore = 7, userTouchedAt = null,
-            excludedPackages = setOf("com.openmausbot.companion"),
+            excludedPackages = setOf("com.lunabot.companion"),
             pickerPackages = pickers, homePackages = home,
         )
         assertEquals(PhoneUiSpill.Verdict.None, decision.verdict)

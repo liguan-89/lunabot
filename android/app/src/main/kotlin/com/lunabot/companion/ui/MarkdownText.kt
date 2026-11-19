@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.ClipData
 import androidx.compose.foundation.background
@@ -56,8 +56,8 @@ import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Markdown
-import com.openmausbot.companion.core.MarkdownBlock
+import com.lunabot.companion.core.Markdown
+import com.lunabot.companion.core.MarkdownBlock
 import kotlinx.coroutines.launch
 
 /**

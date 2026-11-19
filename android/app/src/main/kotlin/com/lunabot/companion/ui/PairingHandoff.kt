@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /**
  * What counts as a pairing deep link.
@@ -8,18 +8,18 @@ package com.openmausbot.companion.ui
  */
 internal object PairingLink {
     /** The scheme the desktop writes now. */
-    const val SCHEME = com.openmausbot.companion.core.PairingInvite.SCHEME
+    const val SCHEME = com.lunabot.companion.core.PairingInvite.SCHEME
 
     /** Links and QR codes made by the previous rebrand still have to pair. */
-    const val PREVIOUS_SCHEME = com.openmausbot.companion.core.PairingInvite.PREVIOUS_SCHEME
+    const val PREVIOUS_SCHEME = com.lunabot.companion.core.PairingInvite.PREVIOUS_SCHEME
 
     /** Links and QR codes made before any rebrand still have to pair. */
-    const val LEGACY_SCHEME = com.openmausbot.companion.core.PairingInvite.LEGACY_SCHEME
+    const val LEGACY_SCHEME = com.lunabot.companion.core.PairingInvite.LEGACY_SCHEME
 
     const val HOST = "pair"
 
     fun isInvite(scheme: String?, host: String?): Boolean =
-        com.openmausbot.companion.core.PairingInvite.isPairingUri(scheme, host)
+        com.lunabot.companion.core.PairingInvite.isPairingUri(scheme, host)
 }
 
 /**
@@ -45,7 +45,7 @@ internal object PairingHandoff {
 
     /**
      * @param inviteUrl the pairing URL, or null when this was not one of ours.
-     * @param relaunch starts the sanitized [com.openmausbot.companion.MainActivity] Intent.
+     * @param relaunch starts the sanitized [com.lunabot.companion.MainActivity] Intent.
      * @param markFinishing `Activity.finish()` — synchronous, so the record is
      *   marked before it returns.
      * @param deliver hands the URL to the in-memory `Session`. Never called

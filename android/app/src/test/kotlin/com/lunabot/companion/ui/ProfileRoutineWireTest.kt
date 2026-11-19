@@ -1,21 +1,21 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.avatar.AvatarImageRules
-import com.openmausbot.companion.core.AvatarCrop
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotProfilePatch
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.ConfigFlag
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ConnectionStore
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.InMemoryOnboardingStore
-import com.openmausbot.companion.core.ModelSelection
-import com.openmausbot.companion.core.RoutineRunLocation
-import com.openmausbot.companion.core.RoutineSchedule
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.core.TokenStore
+import com.lunabot.companion.avatar.AvatarImageRules
+import com.lunabot.companion.core.AvatarCrop
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotProfilePatch
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ConnectionStore
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.InMemoryOnboardingStore
+import com.lunabot.companion.core.ModelSelection
+import com.lunabot.companion.core.RoutineRunLocation
+import com.lunabot.companion.core.RoutineSchedule
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.core.TokenStore
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -150,7 +150,7 @@ class ProfileRoutineWireTest {
         val session = session()
         val png = byteArrayOf(0x89.toByte(), 0x50, 0x4e, 0x47, 1, 2, 3)
         val prepared = AvatarImageRules.prepare(png)
-        assertTrue(prepared is com.openmausbot.companion.avatar.PreparedAvatar.Ready)
+        assertTrue(prepared is com.lunabot.companion.avatar.PreparedAvatar.Ready)
         server.enqueue(
             json("""{"path":"/store/avatars/abc-1.png","mime":"image/png","bytes":7}"""),
         )

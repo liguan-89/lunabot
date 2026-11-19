@@ -5,12 +5,12 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors: repackaged under
- * com.openmausbot.companion.phoneui.shell, comments translated into English,
+ * com.lunabot.companion.phoneui.shell, comments translated into English,
  * and trimmed to plain-text read and write; the framework ClipboardManager is
  * still the write path, only the read path bypasses the extra Settings query
  * a process without an app registration cannot answer.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.annotation.SuppressLint
 import android.content.ClipData

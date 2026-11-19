@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -46,13 +46,13 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.PairingInvite
-import com.openmausbot.companion.core.PairingRouteError
-import com.openmausbot.companion.core.ServerPairingRetryError
-import com.openmausbot.companion.discovery.DiscoveredService
-import com.openmausbot.companion.discovery.DiscoveryState
-import com.openmausbot.companion.discovery.toConnection
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.PairingInvite
+import com.lunabot.companion.core.PairingRouteError
+import com.lunabot.companion.core.ServerPairingRetryError
+import com.lunabot.companion.discovery.DiscoveredService
+import com.lunabot.companion.discovery.DiscoveryState
+import com.lunabot.companion.discovery.toConnection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

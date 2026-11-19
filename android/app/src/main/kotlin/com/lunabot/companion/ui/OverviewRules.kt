@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /**
  * "What this bot does", as rules — the copy behind [BotOverviewScreen].

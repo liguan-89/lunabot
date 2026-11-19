@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -70,12 +70,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.NotificationTarget
-import com.openmausbot.companion.core.Routine
-import com.openmausbot.companion.core.RoutineRun
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.NotificationTarget
+import com.lunabot.companion.core.Routine
+import com.lunabot.companion.core.RoutineRun
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * The keys a bot may press on its own display, by wire name. The helper has

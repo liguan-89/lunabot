@@ -3,7 +3,7 @@
  * snapshot it was issued in is the latest one, and every rotation, clear or
  * service handoff kills every outstanding ref.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import java.util.Random
 import kotlin.test.Test

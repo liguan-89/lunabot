@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * The pure limits and input rules of the phone-UI observation/action slice.

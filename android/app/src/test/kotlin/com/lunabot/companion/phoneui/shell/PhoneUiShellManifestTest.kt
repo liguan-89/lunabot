@@ -5,7 +5,7 @@
  * the application id. These assertions cover the attributes no compiler or
  * unit test would otherwise notice going missing.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import java.io.File
 import javax.xml.parsers.DocumentBuilderFactory

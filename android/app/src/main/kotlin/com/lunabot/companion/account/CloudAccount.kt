@@ -1,4 +1,4 @@
-package com.openmausbot.companion.account
+package com.lunabot.companion.account
 
 import android.content.Context
 import android.content.SharedPreferences

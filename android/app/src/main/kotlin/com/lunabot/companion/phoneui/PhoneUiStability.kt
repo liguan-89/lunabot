@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * Deciding when an action has actually taken effect on the screen.

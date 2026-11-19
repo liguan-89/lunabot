@@ -1,15 +1,15 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
-import com.openmausbot.companion.core.CompanionEndpoint
-import com.openmausbot.companion.core.CompanionEndpointKind
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ConnectionRegistry
+import com.lunabot.companion.core.CompanionEndpoint
+import com.lunabot.companion.core.CompanionEndpointKind
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ConnectionRegistry
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

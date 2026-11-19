@@ -1,6 +1,6 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.SignInCardData
+import com.lunabot.companion.core.SignInCardData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

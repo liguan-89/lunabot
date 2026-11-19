@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -14,9 +14,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.live.LiveCallController
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.live.LiveCallController
 import kotlinx.coroutines.delay
 
 /**

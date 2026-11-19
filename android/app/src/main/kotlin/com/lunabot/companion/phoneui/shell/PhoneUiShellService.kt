@@ -5,7 +5,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
+ * original: repackaged under com.lunabot.companion.phoneui.shell, comments
  * translated into English, and trimmed to the IPhoneUiShell surface. No
  * clipboard, audio muting, device files, call audio, devtools sockets, shell
  * command endpoint, orientation watch or IME policy remain; task moving is kept
@@ -16,7 +16,7 @@
  * exception, and they name a window uid instead of a display: see
  * [PhoneUiUnlock].
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.annotation.SuppressLint
 import android.app.ActivityOptions
@@ -43,7 +43,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.Surface
-import com.openmausbot.companion.phoneui.PhoneUiUnlock
+import com.lunabot.companion.phoneui.PhoneUiUnlock
 import kotlin.system.exitProcess
 
 /**

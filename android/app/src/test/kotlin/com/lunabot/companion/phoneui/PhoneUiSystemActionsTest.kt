@@ -4,7 +4,7 @@
  * No Android runtime and no launch: the request types and the intent builders
  * are plain functions over data.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull

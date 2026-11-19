@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /** Where the "we have asked" flag lives. Not a secret; not backed up either. */
 internal object PermissionPreferences {

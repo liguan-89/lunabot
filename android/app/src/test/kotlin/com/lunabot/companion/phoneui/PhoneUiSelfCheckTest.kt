@@ -6,7 +6,7 @@
  * clock. The clock here is a local variable the probes advance, so nothing in
  * this suite waits on wall time and the numbers in the assertions are exact.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

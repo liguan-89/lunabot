@@ -1,4 +1,4 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

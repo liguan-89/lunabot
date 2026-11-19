@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.Manifest
 import android.content.ActivityNotFoundException
@@ -9,7 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.telephony.SmsManager
 import androidx.core.content.ContextCompat
-import com.openmausbot.companion.core.PhoneTool
+import com.lunabot.companion.core.PhoneTool
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject

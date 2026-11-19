@@ -7,12 +7,12 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
+ * original: repackaged under com.lunabot.companion.phoneui.shell, comments
  * translated into English, and reduced to the key whitelist this helper is
  * allowed to inject. Plain Kotlin with no Android imports so the whitelist and
  * the display-flag fallback rules are unit-testable on the JVM.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 /**
  * Rules the shell helper applies before touching the system, kept free of

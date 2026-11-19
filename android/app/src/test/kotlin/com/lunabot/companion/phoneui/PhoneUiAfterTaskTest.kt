@@ -3,14 +3,14 @@
  * closing needs a package the bot may name, and the app's own package, the
  * system UI and the shell helper are never finished.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class PhoneUiAfterTaskTest {
-    private val self = "com.openmausbot.companion"
+    private val self = "com.lunabot.companion"
     private val app = "com.tencent.mm"
 
     @Test

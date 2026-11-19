@@ -7,7 +7,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, no coroutines or Android types, gestures emit
  * integer arrays ready for PhoneUiShell.injectStroke, and the app-knowledge
  * verdict is a small map instead of a site-knowledge record.
@@ -16,7 +16,7 @@
  * function sleeps, and every duration is clamped by a value in
  * [PhoneUiPaceLimits]. Wiring into the executor is a separate change.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.math.ceil
 import kotlin.math.hypot

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
@@ -7,7 +7,7 @@ import org.robolectric.annotation.GraphicsMode
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import com.openmausbot.companion.core.CompanionJson
+import com.lunabot.companion.core.CompanionJson
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.*
 import okhttp3.mockwebserver.*

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -21,15 +21,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.bylineLabel
-import com.openmausbot.companion.core.displayTitle
-import com.openmausbot.companion.core.isClosed
-import com.openmausbot.companion.core.isArchived
-import com.openmausbot.companion.core.isSnoozed
-import com.openmausbot.companion.core.isWaitingOnTeammate
-import com.openmausbot.companion.core.isWorking
-import com.openmausbot.companion.core.listStamp
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.bylineLabel
+import com.lunabot.companion.core.displayTitle
+import com.lunabot.companion.core.isClosed
+import com.lunabot.companion.core.isArchived
+import com.lunabot.companion.core.isSnoozed
+import com.lunabot.companion.core.isWaitingOnTeammate
+import com.lunabot.companion.core.isWorking
+import com.lunabot.companion.core.listStamp
 
 /** The quiet status under a title: waiting states are never painted as work.
  * The queued flag is client state the harness reports out-of-band. */

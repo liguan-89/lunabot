@@ -1,4 +1,4 @@
-package com.openmausbot.companion.audio
+package com.lunabot.companion.audio
 
 import android.content.Context
 import kotlinx.coroutines.CompletableDeferred

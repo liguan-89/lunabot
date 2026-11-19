@@ -1,6 +1,6 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.BotTask
+import com.lunabot.companion.core.BotTask
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

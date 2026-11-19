@@ -1,4 +1,4 @@
-package com.openmausbot.companion.live
+package com.lunabot.companion.live
 
 import android.annotation.SuppressLint
 import android.content.Context
@@ -18,9 +18,9 @@ import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.openmausbot.companion.core.LiveRelay
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.dictation.SpeechDictation
+import com.lunabot.companion.core.LiveRelay
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.dictation.SpeechDictation
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread

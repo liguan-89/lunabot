@@ -1,5 +1,5 @@
 // Adapted from Mika's WechatApi and WechatRuntime (Apache-2.0).
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory

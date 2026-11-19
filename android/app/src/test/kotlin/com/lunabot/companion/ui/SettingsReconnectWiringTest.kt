@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.CompositionLocalProvider
@@ -10,10 +10,10 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.core.StreamFrame
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.core.StreamFrame
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred

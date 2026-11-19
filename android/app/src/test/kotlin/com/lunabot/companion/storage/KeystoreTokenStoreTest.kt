@@ -1,7 +1,7 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.SharedPreferences
-import com.openmausbot.companion.core.TokenStore
+import com.lunabot.companion.core.TokenStore
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test

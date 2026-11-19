@@ -1,10 +1,10 @@
-package com.openmausbot.companion
+package com.lunabot.companion
 
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import com.openmausbot.companion.ui.PairingHandoff
-import com.openmausbot.companion.ui.PairingLink
+import com.lunabot.companion.ui.PairingHandoff
+import com.lunabot.companion.ui.PairingLink
 
 /**
  * The only door `lunabot://pair?…&token=omb_pair_…` may come through. The

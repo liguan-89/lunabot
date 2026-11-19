@@ -1,9 +1,9 @@
-package com.openmausbot.companion.lifecycle
+package com.lunabot.companion.lifecycle
 
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

@@ -1,6 +1,6 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
-import com.openmausbot.companion.core.NotificationFrame
+import com.lunabot.companion.core.NotificationFrame
 
 /**
  * Pure mapping from companion notify frames to Android channel + dedupe id.

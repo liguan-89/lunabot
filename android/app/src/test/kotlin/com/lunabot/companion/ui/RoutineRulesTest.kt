@@ -1,16 +1,16 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.saveable.SaverScope
-import com.openmausbot.companion.core.ConfigFlag
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.Instance
-import com.openmausbot.companion.core.ModelCatalog
-import com.openmausbot.companion.core.ProviderSnapshot
-import com.openmausbot.companion.core.Routine
-import com.openmausbot.companion.core.RoutineRun
-import com.openmausbot.companion.core.RoutineRunAvailability
-import com.openmausbot.companion.core.RoutineRunLocation
-import com.openmausbot.companion.core.RoutineSchedule
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.Instance
+import com.lunabot.companion.core.ModelCatalog
+import com.lunabot.companion.core.ProviderSnapshot
+import com.lunabot.companion.core.Routine
+import com.lunabot.companion.core.RoutineRun
+import com.lunabot.companion.core.RoutineRunAvailability
+import com.lunabot.companion.core.RoutineRunLocation
+import com.lunabot.companion.core.RoutineSchedule
 import java.time.LocalDate
 import java.time.Instant
 import java.time.LocalTime

@@ -4,7 +4,7 @@
  * is clamped and control-character-stripped, and the snapshot budget bounds
  * an element payload the way the JSON will.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,7 +18,7 @@ class PhoneUiRulesTest {
         for (name in listOf(
             "com.example.app",
             "org.wikipedia",
-            "com.openmausbot.companion",
+            "com.lunabot.companion",
             "a.b",
             "com.ex_ample.app2",
         )) {

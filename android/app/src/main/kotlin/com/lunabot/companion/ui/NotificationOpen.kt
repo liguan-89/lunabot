@@ -1,8 +1,8 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.NotificationTarget
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.NotificationTarget
+import com.lunabot.companion.core.Session
 
 /**
  * When a notification tap may call [Session.openNotification], and when it must

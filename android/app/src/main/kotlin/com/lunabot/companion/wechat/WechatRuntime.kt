@@ -1,9 +1,9 @@
 // Adapted from Mika's WechatApi and WechatRuntime (Apache-2.0).
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 import android.util.Log
-import com.openmausbot.companion.core.PhoneEventImage
-import com.openmausbot.companion.core.PhoneSmsEvent
+import com.lunabot.companion.core.PhoneEventImage
+import com.lunabot.companion.core.PhoneSmsEvent
 import java.io.IOException
 import java.util.Base64
 import kotlin.math.min

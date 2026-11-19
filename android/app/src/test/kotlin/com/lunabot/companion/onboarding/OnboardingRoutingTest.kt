@@ -1,4 +1,4 @@
-package com.openmausbot.companion.onboarding
+package com.lunabot.companion.onboarding
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.test.assertIsDisplayed
@@ -7,16 +7,16 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.openmausbot.companion.core.NotificationAuthorizationState
-import com.openmausbot.companion.core.OnboardingPairingState
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.ui.CompanionRoot
-import com.openmausbot.companion.ui.LocalCompanion
-import com.openmausbot.companion.ui.NotificationAccess
-import com.openmausbot.companion.ui.notificationAuthorization
-import com.openmausbot.companion.ui.onboardingPairingState
-import com.openmausbot.companion.ui.OnboardingCopy
-import com.openmausbot.companion.ui.PermissionPreferences
+import com.lunabot.companion.core.NotificationAuthorizationState
+import com.lunabot.companion.core.OnboardingPairingState
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.ui.CompanionRoot
+import com.lunabot.companion.ui.LocalCompanion
+import com.lunabot.companion.ui.NotificationAccess
+import com.lunabot.companion.ui.notificationAuthorization
+import com.lunabot.companion.ui.onboardingPairingState
+import com.lunabot.companion.ui.OnboardingCopy
+import com.lunabot.companion.ui.PermissionPreferences
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull

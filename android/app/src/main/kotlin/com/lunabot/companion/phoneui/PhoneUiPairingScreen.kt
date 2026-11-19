@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /** What the system wireless-debugging pairing dialog shows: six digits and the pairing port. */
 data class PhoneUiPairingCode(val code: String, val port: Int)

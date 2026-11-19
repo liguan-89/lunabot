@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.material3.Text
@@ -19,7 +19,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.TranscriptCard
+import com.lunabot.companion.core.TranscriptCard
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.junit.Rule

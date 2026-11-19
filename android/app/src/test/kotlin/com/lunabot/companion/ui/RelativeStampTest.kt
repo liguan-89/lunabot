@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import java.time.LocalDateTime
 import java.time.ZoneId

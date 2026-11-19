@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -15,10 +15,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.CompanionState
-import com.openmausbot.companion.core.displayTitle
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.CompanionState
+import com.lunabot.companion.core.displayTitle
 
 /** One thread that needs the person, from any bot in the fleet. */
 @Immutable

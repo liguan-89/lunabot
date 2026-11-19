@@ -1,4 +1,4 @@
-package com.openmausbot.companion.browser
+package com.lunabot.companion.browser
 
 import android.content.Context
 import android.net.Uri

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import java.net.InetAddress
 import kotlin.test.Test

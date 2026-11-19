@@ -7,7 +7,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui and translated
+ * original: repackaged under com.lunabot.companion.phoneui and translated
  * into English; no Android imports, no StateFlow and no progress stream — the
  * probes arrive as a map of [Probe], the clock as [runSelfCheck]'s parameter,
  * and the whole run is one suspend call returning a [SelfCheckReport], which is
@@ -26,7 +26,7 @@
  * runs it is the 自检 row in Settings, which calls [runSelfCheck] with
  * [phoneUiProbes] on a background thread.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException

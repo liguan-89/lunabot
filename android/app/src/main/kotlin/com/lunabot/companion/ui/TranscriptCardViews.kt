@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.ClipData
 import androidx.compose.foundation.background
@@ -53,9 +53,9 @@ import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Reasoning
-import com.openmausbot.companion.core.TranscriptCard
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Reasoning
+import com.lunabot.companion.core.TranscriptCard
 import java.util.Locale
 import kotlinx.coroutines.launch
 

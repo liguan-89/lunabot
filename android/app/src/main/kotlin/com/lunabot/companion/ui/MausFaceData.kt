@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /**
  * The mascot's face, as data — the port of `ios/App/MausFaceData.swift`, which is

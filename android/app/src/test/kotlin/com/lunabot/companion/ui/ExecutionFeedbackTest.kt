@@ -1,8 +1,8 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.os.Build
 import android.view.HapticFeedbackConstants
-import com.openmausbot.companion.core.ActivityDetail
+import com.lunabot.companion.core.ActivityDetail
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals

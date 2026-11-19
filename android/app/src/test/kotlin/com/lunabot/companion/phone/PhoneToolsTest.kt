@@ -1,11 +1,11 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.Manifest
 import android.app.Application
 import android.content.Context
-import com.openmausbot.companion.core.CalendarAccess
-import com.openmausbot.companion.core.ContactsAccess
-import com.openmausbot.companion.core.PhoneTool
+import com.lunabot.companion.core.CalendarAccess
+import com.lunabot.companion.core.ContactsAccess
+import com.lunabot.companion.core.PhoneTool
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs

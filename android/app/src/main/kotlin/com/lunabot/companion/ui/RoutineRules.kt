@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Routine
-import com.openmausbot.companion.core.RoutineInput
-import com.openmausbot.companion.core.RoutineRun
-import com.openmausbot.companion.core.RoutineRunAvailability
-import com.openmausbot.companion.core.RoutineRunLocation
-import com.openmausbot.companion.core.RoutineSchedule
+import com.lunabot.companion.core.Routine
+import com.lunabot.companion.core.RoutineInput
+import com.lunabot.companion.core.RoutineRun
+import com.lunabot.companion.core.RoutineRunAvailability
+import com.lunabot.companion.core.RoutineRunLocation
+import com.lunabot.companion.core.RoutineSchedule
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime

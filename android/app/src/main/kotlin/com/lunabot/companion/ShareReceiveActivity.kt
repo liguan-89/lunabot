@@ -1,14 +1,14 @@
-package com.openmausbot.companion
+package com.lunabot.companion
 
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import com.openmausbot.companion.sharing.ShareHandoff
-import com.openmausbot.companion.sharing.ShareInbox
-import com.openmausbot.companion.sharing.ShareItemLoader
-import com.openmausbot.companion.sharing.SharePayload
-import com.openmausbot.companion.ui.ShareLoadException
-import com.openmausbot.companion.ui.SharePolicy
+import com.lunabot.companion.sharing.ShareHandoff
+import com.lunabot.companion.sharing.ShareInbox
+import com.lunabot.companion.sharing.ShareItemLoader
+import com.lunabot.companion.sharing.SharePayload
+import com.lunabot.companion.ui.ShareLoadException
+import com.lunabot.companion.ui.SharePolicy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

@@ -9,10 +9,10 @@
  * clock: [Fixture.sleep] records the delay and advances the clock, which is
  * what the controller's real `delay` would do.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Stop
-import com.openmausbot.companion.phoneui.PhoneUiSelfRepair.Trigger
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Stop
+import com.lunabot.companion.phoneui.PhoneUiSelfRepair.Trigger
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -20,7 +20,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class PhoneUiRepairLoopTest {
-    private val ours = "com.lunabot.companion/com.openmausbot.companion.phoneui.PhoneUiAccessibilityService"
+    private val ours = "com.lunabot.companion/com.lunabot.companion.phoneui.PhoneUiAccessibilityService"
 
     /**
      * The loop plus everything it reads, as mutable fields: a test changes one

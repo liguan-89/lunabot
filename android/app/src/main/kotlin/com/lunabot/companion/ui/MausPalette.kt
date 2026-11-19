@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /**
  * The mascot palette — `src/lib/mascot.ts` MAUS_COLORS, the same ten the desktop

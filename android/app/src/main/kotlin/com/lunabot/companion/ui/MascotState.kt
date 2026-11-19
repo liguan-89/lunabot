@@ -1,9 +1,9 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.CompanionState
-import com.openmausbot.companion.core.Message
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.CompanionState
+import com.lunabot.companion.core.Message
 
 /**
  * Which face a bot wears — the desktop's `stateForBot`, ported from

@@ -3,7 +3,7 @@
  * reported once the screen is quiet, an unchanged screen is reported at the
  * cap, and a page that never goes quiet cannot hold an action forever.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test

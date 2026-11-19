@@ -1,10 +1,10 @@
 // Adapted from Mika's WechatApi and WechatRuntime (Apache-2.0).
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 import android.content.Context
-import com.openmausbot.companion.OpenMausApp
-import com.openmausbot.companion.core.PhoneSmsEvent
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.core.PhoneSmsEvent
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

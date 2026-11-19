@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.content.Intent
 import android.content.pm.PackageManager

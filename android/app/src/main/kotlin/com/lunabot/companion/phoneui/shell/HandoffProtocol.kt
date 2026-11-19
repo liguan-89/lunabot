@@ -6,12 +6,12 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
+ * original: repackaged under com.lunabot.companion.phoneui.shell, comments
  * translated into English, and the USB-script / pairing-audit surface is not
  * ported — one launch nonce slot and one resume slot only. Plain Kotlin with
  * no Android imports so the rejection rules are unit-testable on the JVM.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import java.security.MessageDigest
 
@@ -25,7 +25,7 @@ import java.security.MessageDigest
 object HandoffProtocol {
     const val SHELL_UID = 2000
     const val METHOD_ATTACH = "attach"
-    const val HELPER_CLASS = "com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain"
+    const val HELPER_CLASS = "com.lunabot.companion.phoneui.shell.PhoneUiHelperMain"
 
     // Helper -> app
     const val KEY_NONCE = "nonce"

@@ -1,7 +1,7 @@
 // Not ported: Mika drew its QR with zxing, which this build does not carry.
 // This encoder is written here from ISO/IEC 18004 so the bind screen can draw
 // the iLink payload offline. See WechatApi.kt for the ported half.
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 /**
  * A QR Code encoder, byte mode, error correction level M.

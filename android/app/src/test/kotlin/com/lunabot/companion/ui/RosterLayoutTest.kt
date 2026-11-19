@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.ChatSummary
-import com.openmausbot.companion.core.CompanionState
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.OptionCard
-import com.openmausbot.companion.core.PendingApproval
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.ChatSummary
+import com.lunabot.companion.core.CompanionState
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.OptionCard
+import com.lunabot.companion.core.PendingApproval
 import java.util.Locale
 import kotlin.test.Test
 import kotlin.test.assertEquals

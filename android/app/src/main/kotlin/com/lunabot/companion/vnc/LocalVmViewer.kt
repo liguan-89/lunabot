@@ -1,4 +1,4 @@
-package com.openmausbot.companion.vnc
+package com.lunabot.companion.vnc
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -40,8 +40,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.ui.LocalCompanion
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.ui.LocalCompanion
 import java.util.UUID
 import kotlin.math.min
 import kotlinx.coroutines.CoroutineScope

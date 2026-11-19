@@ -1,6 +1,6 @@
-package com.openmausbot.companion.sharing
+package com.lunabot.companion.sharing
 
-import com.openmausbot.companion.ui.ShareLoadException
+import com.lunabot.companion.ui.ShareLoadException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals

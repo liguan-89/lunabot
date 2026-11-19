@@ -1,6 +1,6 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.ActivityDetail
+import com.lunabot.companion.core.ActivityDetail
 import kotlin.math.PI
 import kotlin.math.cos
 
@@ -128,7 +128,7 @@ enum class ActivityStatus { RUNNING, SUCCESS, ERROR }
  * Only the status. iOS carries `durationMs`, `parameters` and `output` on that
  * view and the integration passes none of them, so all three render as nothing
  * there; inventing values for them here would be inventing a wire field. The
- * Android [com.openmausbot.companion.core.ToolActivity] carries no such fields
+ * Android [com.lunabot.companion.core.ToolActivity] carries no such fields
  * either, and this pass does not add any.
  */
 object ActivityReceipt {

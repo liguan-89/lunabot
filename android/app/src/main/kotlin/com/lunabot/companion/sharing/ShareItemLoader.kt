@@ -1,4 +1,4 @@
-package com.openmausbot.companion.sharing
+package com.lunabot.companion.sharing
 
 import android.content.ContentResolver
 import android.content.Intent
@@ -9,8 +9,8 @@ import android.net.Uri
 import android.os.Build
 import android.webkit.MimeTypeMap
 import androidx.exifinterface.media.ExifInterface
-import com.openmausbot.companion.ui.ShareLoadException
-import com.openmausbot.companion.ui.SharePolicy
+import com.lunabot.companion.ui.ShareLoadException
+import com.lunabot.companion.ui.SharePolicy
 import java.io.File
 import java.util.UUID
 

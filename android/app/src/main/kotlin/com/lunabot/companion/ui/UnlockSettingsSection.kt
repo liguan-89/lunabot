@@ -1,5 +1,5 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -38,9 +38,9 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.phoneui.PhoneUiController
-import com.openmausbot.companion.phoneui.UnlockCredential
-import com.openmausbot.companion.phoneui.UnlockOutcome
+import com.lunabot.companion.phoneui.PhoneUiController
+import com.lunabot.companion.phoneui.UnlockCredential
+import com.lunabot.companion.phoneui.UnlockOutcome
 import kotlinx.coroutines.launch
 
 /**

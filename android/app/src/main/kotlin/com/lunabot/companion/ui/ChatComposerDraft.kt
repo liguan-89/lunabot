@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableStateOf
-import com.openmausbot.companion.core.Dictation
-import com.openmausbot.companion.core.DraftProvenance
+import com.lunabot.companion.core.Dictation
+import com.lunabot.companion.core.DraftProvenance
 
 /**
  * Composer draft mutations for one conversation — the path [ChatScreen] /

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.app.AlarmManager
 import android.app.NotificationChannel
@@ -8,11 +8,11 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
-import com.openmausbot.companion.MainActivity
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.PhoneCalendarRules
-import com.openmausbot.companion.core.PhoneReminderRules
-import com.openmausbot.companion.core.PhoneTool
+import com.lunabot.companion.MainActivity
+import com.lunabot.companion.R
+import com.lunabot.companion.core.PhoneCalendarRules
+import com.lunabot.companion.core.PhoneReminderRules
+import com.lunabot.companion.core.PhoneTool
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -200,7 +200,7 @@ internal class ReminderAlarms(private val context: Context) {
         )
     }
 
-    private fun action(id: String) = "com.openmausbot.companion.REMINDER.$id"
+    private fun action(id: String) = "com.lunabot.companion.REMINDER.$id"
 }
 
 /** Posts the reminder when its alarm fires. */

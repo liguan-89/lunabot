@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * Judging whether one of our actions made an app open on the person's own

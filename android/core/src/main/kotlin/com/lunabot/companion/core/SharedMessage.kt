@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 /** The exact conversation a retry-safe shared message belongs to. */
 sealed interface MessageDestination {

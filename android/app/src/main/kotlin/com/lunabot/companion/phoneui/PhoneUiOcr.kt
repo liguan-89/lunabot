@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.graphics.Bitmap
 import com.google.mlkit.vision.common.InputImage

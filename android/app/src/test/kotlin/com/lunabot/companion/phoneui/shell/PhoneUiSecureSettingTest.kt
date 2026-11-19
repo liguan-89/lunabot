@@ -7,7 +7,7 @@
  * Robolectric's Settings shadow, and check that a refused name leaves the
  * setting table untouched.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.content.Context
 import android.provider.Settings

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.getValue
@@ -11,11 +11,11 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.openmausbot.companion.core.BotProject
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.ChatSummary
-import com.openmausbot.companion.core.ThreadCloser
+import com.lunabot.companion.core.BotProject
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.ChatSummary
+import com.lunabot.companion.core.ThreadCloser
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue

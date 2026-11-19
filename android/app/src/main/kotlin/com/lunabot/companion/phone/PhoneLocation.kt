@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -13,7 +13,7 @@ import android.os.Bundle
 import android.os.CancellationSignal
 import android.os.Looper
 import androidx.core.content.ContextCompat
-import com.openmausbot.companion.core.LocationAccess
+import com.lunabot.companion.core.LocationAccess
 import java.util.Locale
 import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 /** A chat is a bot or a room. They share a thread, which is what every message is keyed by. */
 sealed class Chat {

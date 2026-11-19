@@ -1,4 +1,4 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
 import android.os.Build
 import android.text.TextDirectionHeuristics

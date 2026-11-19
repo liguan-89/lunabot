@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -39,13 +39,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.DisplayedMessageAttachment
-import com.openmausbot.companion.core.DownloadedFile
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.ThreadRef
-import com.openmausbot.companion.core.TranscriptRow
-import com.openmausbot.companion.core.WebhookMessageContent
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.DisplayedMessageAttachment
+import com.lunabot.companion.core.DownloadedFile
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.ThreadRef
+import com.lunabot.companion.core.TranscriptRow
+import com.lunabot.companion.core.WebhookMessageContent
 
 /** Reversible completed narration; tools still follow the activity preference. */
 @Composable

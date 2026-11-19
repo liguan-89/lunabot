@@ -5,7 +5,7 @@
  * Instant / FAST profiles reproduce the old behaviour exactly. Every random
  * draw comes from a seeded Random here, so a failure names a seed.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.random.Random
 import kotlin.test.Test

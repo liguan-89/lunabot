@@ -1,9 +1,9 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.openmausbot.companion.core.OnboardingPreferenceKeys
-import com.openmausbot.companion.core.OnboardingStore
+import com.lunabot.companion.core.OnboardingPreferenceKeys
+import com.lunabot.companion.core.OnboardingStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -28,7 +28,7 @@ import androidx.core.content.edit
  *   credential in, the file is named for this purpose alone, and
  *   `OnboardingPreferencesContractTest` fails if a fourth key ever appears.
  * - **A write is durable before it returns.** [SharedPreferences.Editor.commit]
- *   rather than `apply()`, because [com.openmausbot.companion.core.Session] puts
+ *   rather than `apply()`, because [com.lunabot.companion.core.Session] puts
  *   this write *before* the connection save specifically so a process that stops
  *   in between cannot leave a restorable pairing whose marker never landed.
  *   `apply()` would hand that ordering back to a background thread and quietly

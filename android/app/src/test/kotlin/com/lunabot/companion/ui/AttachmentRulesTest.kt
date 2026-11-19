@@ -1,9 +1,9 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.IntSize
-import com.openmausbot.companion.core.AttachmentPolicy
-import com.openmausbot.companion.core.PendingMessageAttachment
+import com.lunabot.companion.core.AttachmentPolicy
+import com.lunabot.companion.core.PendingMessageAttachment
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -146,7 +146,7 @@ class AttachmentRulesTest {
 
     @Test
     fun `the sheet greys the attachment rows at the cap`() {
-        val actions = ChatActions.sheet(com.openmausbot.companion.core.Chat.BotChat(bot()), hasPendingApproval = false, canAddAttachment = false)
+        val actions = ChatActions.sheet(com.lunabot.companion.core.Chat.BotChat(bot()), hasPendingApproval = false, canAddAttachment = false)
         assertFalse(actions.single { it.id == ChatActionId.PHOTOS }.enabled)
         assertFalse(actions.single { it.id == ChatActionId.FILES }.enabled)
         assertTrue(actions.single { it.id == ChatActionId.TASKS }.enabled)

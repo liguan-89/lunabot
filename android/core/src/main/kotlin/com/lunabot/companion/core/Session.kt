@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 import java.net.URI
 import java.util.UUID
@@ -355,8 +355,8 @@ class Session(
         val e2eDescriptor = invited.e2eDescriptor
         if (e2eDescriptor != null) {
             val result = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-                com.openmausbot.companion.core.e2e.E2ePairing.pair(
-                    connector = com.openmausbot.companion.core.e2e.OkHttpE2eConnector(httpClient),
+                com.lunabot.companion.core.e2e.E2ePairing.pair(
+                    connector = com.lunabot.companion.core.e2e.OkHttpE2eConnector(httpClient),
                     descriptor = e2eDescriptor,
                     credential = credential,
                     deviceName = deviceName,
@@ -1075,7 +1075,7 @@ class Session(
                 if (!receivedHello) throw MissingStreamHelloException()
                 _status.value = Status.Offline("连接已断开。")
             } catch (error: Throwable) {
-                com.openmausbot.companion.core.e2e.E2eLog.line(
+                com.lunabot.companion.core.e2e.E2eLog.line(
                     "stream ${error.javaClass.simpleName}: ${error.message}",
                 )
                 if (!currentCoroutineContext().isActive || error is kotlinx.coroutines.CancellationException) {
@@ -1274,7 +1274,7 @@ class Session(
     private fun Throwable.carriesRemovedDevice(): Boolean {
         var current: Throwable? = this
         while (current != null) {
-            if (current is com.openmausbot.companion.core.e2e.E2eRemovedException) return true
+            if (current is com.lunabot.companion.core.e2e.E2eRemovedException) return true
             current = current.cause
         }
         return false
@@ -2648,12 +2648,12 @@ class Session(
 
     suspend fun liveCallRelayReady(): Boolean = try {
         val status = client?.config()
-        com.openmausbot.companion.core.e2e.E2eLog.line("relay probe client=${client != null} live=${status?.live} ready=${status?.hasSocketLiveCall}")
+        com.lunabot.companion.core.e2e.E2eLog.line("relay probe client=${client != null} live=${status?.live} ready=${status?.hasSocketLiveCall}")
         if (status != null) liveCallRelayCapable = status.hasSocketLiveCall
         liveCallRelayCapable == true
     } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        com.openmausbot.companion.core.e2e.E2eLog.line("relay probe failed: ${error::class.simpleName}: ${error.message}")
+        com.lunabot.companion.core.e2e.E2eLog.line("relay probe failed: ${error::class.simpleName}: ${error.message}")
         liveCallRelayCapable == true
     }
 
@@ -2700,7 +2700,7 @@ class Session(
             true
         } catch (error: Throwable) {
             if (error is CancellationException) throw error
-            com.openmausbot.companion.core.e2e.E2eLog.line("sms post failed: ${error.message}")
+            com.lunabot.companion.core.e2e.E2eLog.line("sms post failed: ${error.message}")
             false
         }
     }
@@ -2710,7 +2710,7 @@ class Session(
     } catch (error: Throwable) {
         if (error is CancellationException) throw error
         // Job delivery, lease and result posts used to fail here without a trace.
-        com.openmausbot.companion.core.e2e.E2eLog.line("phone call failed: ${error.message}")
+        com.lunabot.companion.core.e2e.E2eLog.line("phone call failed: ${error.message}")
         null
     }
 

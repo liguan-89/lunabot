@@ -1,4 +1,4 @@
-package com.openmausbot.companion.avatar
+package com.lunabot.companion.avatar
 
 import android.graphics.Bitmap
 

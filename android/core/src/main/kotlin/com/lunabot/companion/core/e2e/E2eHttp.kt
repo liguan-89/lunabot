@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core.e2e
+package com.lunabot.companion.core.e2e
 
 /** A minimal HTTP/1.1 client over one yamux stream. The E2E layer never parses HTTP; this does. */
 data class E2eHttpResponse(

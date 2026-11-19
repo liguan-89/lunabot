@@ -1,4 +1,4 @@
-package com.openmausbot.companion.speech
+package com.lunabot.companion.speech
 
 import com.k2fsa.sherpa.onnx.FeatureConfig
 import com.k2fsa.sherpa.onnx.OnlineModelConfig

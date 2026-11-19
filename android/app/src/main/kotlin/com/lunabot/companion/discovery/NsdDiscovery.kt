@@ -1,4 +1,4 @@
-package com.openmausbot.companion.discovery
+package com.lunabot.companion.discovery
 
 import android.content.Context
 import android.net.nsd.NsdManager
@@ -6,7 +6,8 @@ import android.net.nsd.NsdServiceInfo
 import android.net.wifi.WifiManager
 import android.os.Build
 import androidx.annotation.RequiresApi
-import com.openmausbot.companion.core.Connection
+import com.lunabot.companion.core.Connection
+import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
@@ -131,6 +132,50 @@ internal fun isCompanionServiceType(announced: String?, activeType: String): Boo
     fun matches(type: String, candidate: String) = type == candidate || type.startsWith("$candidate.")
     val type = announced?.let(::normalize) ?: return false
     return matches(type, normalize(activeType)) || LEGACY_SERVICE_TYPES.any { matches(type, it) }
+}
+
+/**
+ * The host a resolved computer should be dialled at.
+ *
+ * A resolved address wins: Android's own DNS resolver does not answer for
+ * `.local` names, so a Bonjour name cannot be dialled from a phone at all. The
+ * name is the fallback for a resolve that answered with a name and no address,
+ * which is the only case where it is all there is.
+ *
+ * A host may resolve to both families; an IPv4 address always dials, while a
+ * link-local IPv6 needs a zone that a URL cannot carry, so IPv4 is chosen first.
+ */
+internal fun dialableHost(
+    advertised: String?,
+    addresses: List<InetAddress>?,
+    legacyHost: InetAddress?,
+): String? {
+    addresses?.takeIf { it.isNotEmpty() }?.let { list ->
+        return formatAddress(list.firstOrNull { it is Inet4Address } ?: list.first())
+    }
+    legacyHost?.let { return formatAddress(it) }
+    return bonjourHost(advertised)?.let { Connection.urlHost(it) }
+}
+
+/**
+ * The Bonjour name behind an NSD result. Android may hand back the SRV target
+ * with the `.local` suffix stripped, so a single DNS label becomes
+ * `<label>.local`; an IP literal, a dotted non-local name or anything that
+ * cannot be one of our labels is not a name.
+ */
+internal fun bonjourHost(raw: String?): String? {
+    val name = raw?.trim()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: return null
+    if (name.endsWith(".local", ignoreCase = true)) return name
+    if (name.length > 63 || name.any { it == ':' || it == ' ' } ||
+        name.all { it.isDigit() || it == '.' } || name.contains('.')
+    ) return null
+    return name.takeIf { candidate -> candidate.all { it.isLetterOrDigit() || it == '-' } }
+        ?.let { "$it.local" }
+}
+
+internal fun formatAddress(address: InetAddress): String {
+    val host = address.hostAddress ?: return address.hostName
+    return Connection.urlHost(host)
 }
 
 /**
@@ -526,46 +571,16 @@ class NsdDiscovery(
     }
 
     private fun hostAddress(info: NsdServiceInfo): String? {
-        // The advertised Bonjour name follows the computer between networks; a
-        // resolved address is a snapshot that expires on the next DHCP lease or
-        // network switch. Prefer the name when the platform exposes it, and fall
-        // back to the resolved address where it does not.
         val advertised = if (Build.VERSION.SDK_INT >= 34) {
             runCatching { info.hostname }.getOrNull()
         } else {
             @Suppress("DEPRECATION")
             runCatching { info.host?.hostName }.getOrNull()
         }
-        bonjourHost(advertised)?.let { return Connection.urlHost(it) }
-        if (Build.VERSION.SDK_INT >= 34) {
-            val addresses = info.hostAddresses
-            if (!addresses.isNullOrEmpty()) {
-                return formatAddress(addresses.first())
-            }
-        }
+        val addresses = if (Build.VERSION.SDK_INT >= 34) info.hostAddresses else null
         @Suppress("DEPRECATION")
-        return info.host?.let(::formatAddress)
-    }
-
-    /**
-     * The Bonjour name behind an NSD result. Android may hand back the SRV
-     * target with the `.local` suffix stripped, so a single DNS label becomes
-     * `<label>.local`; an IP literal, a dotted non-local name or anything that
-     * cannot be one of our labels is not a name.
-     */
-    private fun bonjourHost(raw: String?): String? {
-        val name = raw?.trim()?.trimEnd('.')?.takeIf { it.isNotEmpty() } ?: return null
-        if (name.endsWith(".local", ignoreCase = true)) return name
-        if (name.length > 63 || name.any { it == ':' || it == ' ' } ||
-            name.all { it.isDigit() || it == '.' } || name.contains('.')
-        ) return null
-        return name.takeIf { candidate -> candidate.all { it.isLetterOrDigit() || it == '-' } }
-            ?.let { "$it.local" }
-    }
-
-    private fun formatAddress(address: InetAddress): String {
-        val host = address.hostAddress ?: return address.hostName
-        return Connection.urlHost(host)
+        val legacyHost = info.host
+        return dialableHost(advertised, addresses, legacyHost)
     }
 
     private fun failureMessage(errorCode: Int): String = when (errorCode) {

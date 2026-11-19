@@ -1,4 +1,4 @@
-package com.openmausbot.companion.update
+package com.lunabot.companion.update
 
 import android.content.Context
 import android.content.Intent

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals

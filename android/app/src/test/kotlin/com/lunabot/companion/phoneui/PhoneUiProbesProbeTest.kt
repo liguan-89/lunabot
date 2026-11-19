@@ -9,7 +9,7 @@
  * on its virtual clock: no test here waits on wall time, and a probe that would
  * hang on a phone fails its own bounded wait instead.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.content.Context
 import android.view.Display

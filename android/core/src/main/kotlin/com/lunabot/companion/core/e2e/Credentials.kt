@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core.e2e
+package com.lunabot.companion.core.e2e
 
 /**
  * The two values a credential derives (spec §2). The phone holds the token;

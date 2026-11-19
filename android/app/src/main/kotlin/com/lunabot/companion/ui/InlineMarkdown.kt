@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 /** One styled run of inline text. */
 data class InlineSpan(

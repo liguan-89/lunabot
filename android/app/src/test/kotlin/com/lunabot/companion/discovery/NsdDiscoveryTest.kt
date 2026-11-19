@@ -1,4 +1,4 @@
-package com.openmausbot.companion.discovery
+package com.lunabot.companion.discovery
 
 import android.net.nsd.NsdManager
 import kotlin.test.Test

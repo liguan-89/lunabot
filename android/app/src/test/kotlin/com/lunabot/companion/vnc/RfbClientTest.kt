@@ -1,4 +1,4 @@
-package com.openmausbot.companion.vnc
+package com.lunabot.companion.vnc
 
 import kotlin.test.Test
 import kotlin.test.assertContentEquals

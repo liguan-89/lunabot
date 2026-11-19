@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 /**
  * One inbound text can reach us twice: SMS_RECEIVED for a carrier text and the

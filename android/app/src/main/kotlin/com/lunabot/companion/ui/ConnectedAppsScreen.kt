@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
@@ -62,12 +62,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
-import com.openmausbot.companion.core.ConnectedAppsRules
-import com.openmausbot.companion.core.ConnectorAccount
-import com.openmausbot.companion.core.ConnectorCard
-import com.openmausbot.companion.core.ConnectorCatalog
-import com.openmausbot.companion.core.ConnectorStatus
-import com.openmausbot.companion.core.ConnectorStatuses
+import com.lunabot.companion.core.ConnectedAppsRules
+import com.lunabot.companion.core.ConnectorAccount
+import com.lunabot.companion.core.ConnectorCard
+import com.lunabot.companion.core.ConnectorCatalog
+import com.lunabot.companion.core.ConnectorStatus
+import com.lunabot.companion.core.ConnectorStatuses
 import kotlinx.coroutines.launch
 
 /**

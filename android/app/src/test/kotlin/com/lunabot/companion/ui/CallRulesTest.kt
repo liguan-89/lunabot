@@ -1,10 +1,10 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.ConfigFlag
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.OptionCard
-import com.openmausbot.companion.core.ToolActivity
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.OptionCard
+import com.lunabot.companion.core.ToolActivity
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

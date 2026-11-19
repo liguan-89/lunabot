@@ -6,7 +6,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, and reduced to this app's plain accessibility-tree
  * reader and tool surface. Mika scrolls by a fixed amount of 3 in one
  * sub-action; PHONE_UI_SCROLL here takes one step, so each iteration scrolls
@@ -22,9 +22,9 @@
  * snapshot, the package in front, the query, the scroll and the clock are
  * lambdas handed in by the executor rather than sub-actions of the tool.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.phone.PhoneToolOutcome
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject

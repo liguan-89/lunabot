@@ -1,14 +1,14 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.APIError
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.CompanionClient
-import com.openmausbot.companion.core.CompanionEndpointKind
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ConnectionAdvice
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.MessageDestination
-import com.openmausbot.companion.core.Room
+import com.lunabot.companion.core.APIError
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.CompanionClient
+import com.lunabot.companion.core.CompanionEndpointKind
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ConnectionAdvice
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.MessageDestination
+import com.lunabot.companion.core.Room
 import java.net.URI
 
 /**

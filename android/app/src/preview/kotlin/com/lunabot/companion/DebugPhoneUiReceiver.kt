@@ -1,12 +1,12 @@
-package com.openmausbot.companion
+package com.lunabot.companion
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
-import com.openmausbot.companion.core.PhoneTool
-import com.openmausbot.companion.phone.PhoneToolOutcome
-import com.openmausbot.companion.phoneui.PhoneUiTaskExecutor
+import com.lunabot.companion.core.PhoneTool
+import com.lunabot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.phoneui.PhoneUiTaskExecutor
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -268,7 +268,7 @@ class DebugPhoneUiReceiver : BroadcastReceiver() {
         get("scrollable")?.jsonPrimitive?.booleanOrNull == true
 
     companion object {
-        const val ACTION = "com.openmausbot.companion.DEBUG_PHONE_UI"
+        const val ACTION = "com.lunabot.companion.DEBUG_PHONE_UI"
         const val EXTRA_STEPS = "steps"
         private const val RESULT_FILE = "phoneui-debug.json"
         private const val MAX_STEPS = 10

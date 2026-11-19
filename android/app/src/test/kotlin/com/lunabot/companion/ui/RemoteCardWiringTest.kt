@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
@@ -9,16 +9,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ConnectorCardData
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.GroupGoalRunCardData
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.RoutineRunCardData
-import com.openmausbot.companion.core.SecretRequestCardData
-import com.openmausbot.companion.core.StreamFrame
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ConnectorCardData
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.GroupGoalRunCardData
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.RoutineRunCardData
+import com.lunabot.companion.core.SecretRequestCardData
+import com.lunabot.companion.core.StreamFrame
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
 import org.junit.After

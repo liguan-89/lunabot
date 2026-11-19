@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -196,7 +196,7 @@ fun StartingScreen() {
  * Both buttons end the step: [onEnable] fires the system prompt through the one
  * object allowed to fire it, and "Not now" declines without one. Either way the
  * step is answered once — see the marker's lifecycle in
- * [com.openmausbot.companion.core.NotificationOnboardingPolicy].
+ * [com.lunabot.companion.core.NotificationOnboardingPolicy].
  */
 @Composable
 fun NotificationOnboardingScreen(

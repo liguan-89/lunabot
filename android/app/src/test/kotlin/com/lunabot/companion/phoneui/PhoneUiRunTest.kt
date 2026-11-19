@@ -4,10 +4,10 @@
  * ambiguous match is refused), and the answer a run builds when a step fails.
  * No Android: the snapshot and the single-action call are plain lambdas here.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.core.PhoneTool
-import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.core.PhoneTool
+import com.lunabot.companion.phone.PhoneToolOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

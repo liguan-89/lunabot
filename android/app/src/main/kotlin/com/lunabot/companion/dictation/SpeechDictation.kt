@@ -1,4 +1,4 @@
-package com.openmausbot.companion.dictation
+package com.lunabot.companion.dictation
 
 import android.content.Context
 import android.content.Intent
@@ -15,7 +15,7 @@ import android.speech.SpeechRecognizer
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
-import com.openmausbot.companion.core.Dictation
+import com.lunabot.companion.core.Dictation
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.flow.MutableStateFlow

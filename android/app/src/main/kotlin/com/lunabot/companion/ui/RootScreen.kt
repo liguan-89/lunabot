@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -45,16 +45,16 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.NotificationAuthorizationState
-import com.openmausbot.companion.core.NotificationOnboardingPolicy
-import com.openmausbot.companion.core.NotificationTarget
-import com.openmausbot.companion.core.OnboardingContext
-import com.openmausbot.companion.core.OnboardingPairingState
-import com.openmausbot.companion.core.OnboardingRoute
-import com.openmausbot.companion.core.OnboardingRouter
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.storage.ThemeMode
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.NotificationAuthorizationState
+import com.lunabot.companion.core.NotificationOnboardingPolicy
+import com.lunabot.companion.core.NotificationTarget
+import com.lunabot.companion.core.OnboardingContext
+import com.lunabot.companion.core.OnboardingPairingState
+import com.lunabot.companion.core.OnboardingRoute
+import com.lunabot.companion.core.OnboardingRouter
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.storage.ThemeMode
 import kotlinx.coroutines.launch
 
 /**
@@ -62,7 +62,7 @@ import kotlinx.coroutines.launch
  * `ios/App/CompanionApp.swift`.
  *
  * The decision itself is not here. It is
- * [com.openmausbot.companion.core.OnboardingRouter], in `:core`, because the
+ * [com.lunabot.companion.core.OnboardingRouter], in `:core`, because the
  * orderings that matter are invisible until they are wrong: revocation has to
  * outrank a pending deep link, a deep link has to outrank the unpaired home,
  * and a

@@ -1,5 +1,5 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.app.KeyguardManager
 import android.content.Context

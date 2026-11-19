@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
@@ -48,8 +48,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Bot
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Bot
 import kotlinx.coroutines.launch
 
 @Composable

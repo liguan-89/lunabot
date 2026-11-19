@@ -1,10 +1,10 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
 import android.content.Intent
 import android.net.Uri
-import com.openmausbot.companion.MainActivity
-import com.openmausbot.companion.core.NotificationFrame
-import com.openmausbot.companion.core.NotificationTarget
+import com.lunabot.companion.MainActivity
+import com.lunabot.companion.core.NotificationFrame
+import com.lunabot.companion.core.NotificationTarget
 import androidx.core.net.toUri
 
 /**
@@ -31,9 +31,9 @@ fun Intent.notificationTarget(): NotificationTarget? =
  * The data URI below is the unambiguous discriminator; it is never hashed.
  */
 object NotificationIntents {
-    const val ACTION_OPEN = "com.openmausbot.companion.OPEN_NOTIFICATION"
-    const val ACTION_APPROVE = "com.openmausbot.companion.APPROVE_NOTIFICATION"
-    const val ACTION_DENY = "com.openmausbot.companion.DENY_NOTIFICATION"
+    const val ACTION_OPEN = "com.lunabot.companion.OPEN_NOTIFICATION"
+    const val ACTION_APPROVE = "com.lunabot.companion.APPROVE_NOTIFICATION"
+    const val ACTION_DENY = "com.lunabot.companion.DENY_NOTIFICATION"
 
     /**
      * Stable, unhashed identity string for [android.content.Intent.setData].

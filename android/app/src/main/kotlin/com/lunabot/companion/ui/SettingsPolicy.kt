@@ -1,7 +1,7 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Session
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

@@ -4,7 +4,7 @@
  * and editing may leave the helper, and no display flag combination may
  * include trust flags in a non-trusted retry.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,9 +1,9 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.saveable.Saver
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.PairingInvite
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.PairingInvite
 import java.util.UUID
 import kotlinx.serialization.Serializable
 

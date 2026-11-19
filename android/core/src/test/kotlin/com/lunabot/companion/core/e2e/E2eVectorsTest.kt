@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core.e2e
+package com.lunabot.companion.core.e2e
 
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray

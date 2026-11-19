@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.Manifest
 import android.content.ClipData
@@ -88,24 +88,24 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.ActivityDetail
-import com.openmausbot.companion.account.CloudAccountUi
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.phoneui.PhoneUiAccessibilityService
-import com.openmausbot.companion.phoneui.PhoneUiPairingInput
-import com.openmausbot.companion.phoneui.PhoneUiStatus
-import com.openmausbot.companion.phoneui.SelfCheckReport
-import com.openmausbot.companion.phoneui.phoneUiProbes
-import com.openmausbot.companion.phoneui.runSelfCheck
-import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
-import com.openmausbot.companion.storage.PhonePace
-import com.openmausbot.companion.storage.ThemeMode
-import com.openmausbot.companion.storage.VoiceAsrMode
-import com.openmausbot.companion.update.AppUpdater
-import com.openmausbot.companion.update.UpdateState
-import com.openmausbot.companion.wechat.WechatSettingsSection
+import com.lunabot.companion.R
+import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.account.CloudAccountUi
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.phoneui.PhoneUiAccessibilityService
+import com.lunabot.companion.phoneui.PhoneUiPairingInput
+import com.lunabot.companion.phoneui.PhoneUiStatus
+import com.lunabot.companion.phoneui.SelfCheckReport
+import com.lunabot.companion.phoneui.phoneUiProbes
+import com.lunabot.companion.phoneui.runSelfCheck
+import com.lunabot.companion.phoneui.shell.PhoneUiShellBridge
+import com.lunabot.companion.storage.PhonePace
+import com.lunabot.companion.storage.ThemeMode
+import com.lunabot.companion.storage.VoiceAsrMode
+import com.lunabot.companion.update.AppUpdater
+import com.lunabot.companion.update.UpdateState
+import com.lunabot.companion.wechat.WechatSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -1507,7 +1507,7 @@ private fun openWirelessDebugging(context: Context) {
  */
 @Composable
 private fun PhoneUiPairingSheet(
-    phoneUi: com.openmausbot.companion.phoneui.PhoneUiController,
+    phoneUi: com.lunabot.companion.phoneui.PhoneUiController,
     status: PhoneUiStatus,
     onDismiss: () -> Unit,
 ) {
@@ -1618,7 +1618,7 @@ private fun PhoneUiPairingSheet(
  */
 @Composable
 private fun DexSignInSheet(
-    account: com.openmausbot.companion.account.CloudAccountController,
+    account: com.lunabot.companion.account.CloudAccountController,
     ui: CloudAccountUi,
     onDismiss: () -> Unit,
 ) {

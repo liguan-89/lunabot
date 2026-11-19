@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.content.Context
 import android.content.Intent
@@ -10,14 +10,14 @@ import android.util.Base64
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.FileProvider
-import com.openmausbot.companion.core.PhoneTool
-import com.openmausbot.companion.phone.PhoneFileStore
-import com.openmausbot.companion.phone.PhoneNoticeStore
-import com.openmausbot.companion.phone.PhoneToolOutcome
-import com.openmausbot.companion.storage.ChatPreferences
-import com.openmausbot.companion.phoneui.shell.PhoneUiPolicy
-import com.openmausbot.companion.phoneui.shell.PhoneUiShell
-import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
+import com.lunabot.companion.core.PhoneTool
+import com.lunabot.companion.phone.PhoneFileStore
+import com.lunabot.companion.phone.PhoneNoticeStore
+import com.lunabot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.storage.ChatPreferences
+import com.lunabot.companion.phoneui.shell.PhoneUiPolicy
+import com.lunabot.companion.phoneui.shell.PhoneUiShell
+import com.lunabot.companion.phoneui.shell.PhoneUiShellBridge
 import java.io.ByteArrayOutputStream
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +37,7 @@ import kotlinx.serialization.json.put
  * by driving the helper's own virtual display ([PhoneUiDisplaySession]) and
  * the accessibility service ([PhoneUiAccessibilityService]).
  *
- * Contract for [com.openmausbot.companion.phone.PhoneJobRunner]:
+ * Contract for [com.lunabot.companion.phone.PhoneJobRunner]:
  * `suspend fun execute(tool: PhoneTool, arguments: JsonObject): PhoneToolOutcome`,
  * dispatching on `tool.wire`; unknown wires answer `unsupported`. Screen
  * actions fail closed unless the helper is attached, the accessibility service

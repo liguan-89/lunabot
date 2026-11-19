@@ -1,12 +1,12 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.AvatarCrop
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.ConfigFlag
-import com.openmausbot.companion.core.ConfigStatus
-import com.openmausbot.companion.core.ModelSelection
-import com.openmausbot.companion.core.Voice
-import com.openmausbot.companion.core.VoiceProvider
+import com.lunabot.companion.core.AvatarCrop
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.ModelSelection
+import com.lunabot.companion.core.Voice
+import com.lunabot.companion.core.VoiceProvider
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

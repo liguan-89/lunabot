@@ -10,12 +10,12 @@
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors: repackaged under
- * com.openmausbot.companion.phoneui.shell, comments in English, no USB-script
+ * com.lunabot.companion.phoneui.shell, comments in English, no USB-script
  * or pairing-audit surface, and the launch command reaches the caller only
  * through the callback set with [setLaunchCallback] — this class never talks
  * to adbd itself.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.content.Context
 import android.content.pm.PackageManager

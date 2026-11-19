@@ -1,5 +1,5 @@
 // Adapted from Mika's WechatApi and WechatRuntime (Apache-2.0).
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -43,13 +43,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.ui.MinisCardShape
-import com.openmausbot.companion.ui.minisCard
-import com.openmausbot.companion.ui.minisDanger
-import com.openmausbot.companion.ui.minisInk
-import com.openmausbot.companion.ui.minisSecondary
-import com.openmausbot.companion.ui.minisSeparator
-import com.openmausbot.companion.ui.minisTertiary
+import com.lunabot.companion.ui.MinisCardShape
+import com.lunabot.companion.ui.minisCard
+import com.lunabot.companion.ui.minisDanger
+import com.lunabot.companion.ui.minisInk
+import com.lunabot.companion.ui.minisSecondary
+import com.lunabot.companion.ui.minisSeparator
+import com.lunabot.companion.ui.minisTertiary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

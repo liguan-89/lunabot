@@ -17,7 +17,7 @@
 // the agent's virtual displays. Every display-bound call must name a display
 // this service itself created; the primary display is readable for spill
 // detection and movable into, but never an input target.
-package com.openmausbot.companion.phoneui.shell;
+package com.lunabot.companion.phoneui.shell;
 
 import android.view.Surface;
 

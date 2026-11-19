@@ -6,7 +6,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, and reduced to this app's plain accessibility-tree
  * reader and tool surface. A step resolves its selector against the snapshot
  * already in hand rather than calling phone_query, and a ref is found again
@@ -23,10 +23,10 @@
  * answer reports stopped, stoppedAt and the ending screen instead of Mika's
  * completed/total counts.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.core.PhoneTool
-import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.core.PhoneTool
+import com.lunabot.companion.phone.PhoneToolOutcome
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.material3.Text
 import androidx.compose.ui.semantics.SemanticsNode
@@ -6,8 +6,8 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onRoot
-import com.openmausbot.companion.core.ConfigFlag
-import com.openmausbot.companion.core.ConfigStatus
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
 import kotlin.test.assertEquals
 import org.junit.Rule
 import org.junit.Test

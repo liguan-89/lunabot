@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.ClipData
 import androidx.compose.foundation.background
@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.ClaudeUpdateResult
+import com.lunabot.companion.core.ClaudeUpdateResult
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 

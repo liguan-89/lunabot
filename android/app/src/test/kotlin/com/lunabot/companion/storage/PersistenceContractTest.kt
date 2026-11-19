@@ -1,9 +1,9 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ConnectionStore
-import com.openmausbot.companion.core.TokenStore
-import com.openmausbot.companion.ui.PermissionPreferences
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ConnectionStore
+import com.lunabot.companion.core.TokenStore
+import com.lunabot.companion.ui.PermissionPreferences
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals

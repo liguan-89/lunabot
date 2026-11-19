@@ -1,4 +1,4 @@
-package com.openmausbot.companion
+package com.lunabot.companion
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -27,7 +27,7 @@ class DebugPairReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION = "com.openmausbot.companion.DEBUG_PAIR"
+        const val ACTION = "com.lunabot.companion.DEBUG_PAIR"
         const val EXTRA_PORT = "port"
         const val EXTRA_CODE = "code"
     }

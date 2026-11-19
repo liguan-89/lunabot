@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import java.io.File
 import kotlin.io.path.createTempDirectory

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
@@ -66,11 +66,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Routine
-import com.openmausbot.companion.core.RoutineRunAvailability
-import com.openmausbot.companion.core.RoutineRunLocation
-import com.openmausbot.companion.core.RoutineSchedule
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Routine
+import com.lunabot.companion.core.RoutineRunAvailability
+import com.lunabot.companion.core.RoutineRunLocation
+import com.lunabot.companion.core.RoutineSchedule
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
@@ -761,7 +761,7 @@ private fun TimeoutPicker(value: Int?, onSelect: (Int?) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AgentPicker(
-    bots: List<com.openmausbot.companion.core.Bot>,
+    bots: List<com.lunabot.companion.core.Bot>,
     selected: String,
     onSelect: (String) -> Unit,
 ) {

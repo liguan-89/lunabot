@@ -1,10 +1,10 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
-import com.openmausbot.companion.core.TokenStore
+import com.lunabot.companion.core.TokenStore
 import java.security.KeyStoreException
 import javax.crypto.AEADBadTagException
 import kotlin.coroutines.CoroutineContext

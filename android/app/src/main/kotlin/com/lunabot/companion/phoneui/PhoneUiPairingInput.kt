@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * The port and six-digit code the system wireless-debugging pairing dialog

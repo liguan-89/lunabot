@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -49,11 +49,11 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
-import com.openmausbot.companion.R
-import com.openmausbot.companion.audio.CallSpeaker
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Message
+import com.lunabot.companion.R
+import com.lunabot.companion.audio.CallSpeaker
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Message
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableIntStateOf
@@ -64,7 +64,7 @@ import androidx.compose.runtime.mutableIntStateOf
  * the microphone is live only while the bot is not speaking. Interrupting is
  * a tap instead.
  *
- * Turn-taking is the silence endpointer in [com.openmausbot.companion.dictation.SpeechDictation.listenForTurn]:
+ * Turn-taking is the silence endpointer in [com.lunabot.companion.dictation.SpeechDictation.listenForTurn]:
  * the turn ends [CallRules.ENDPOINT_GAP_MILLIS] after the transcript last
  * changed. Waiting is narrated — every activity chip the harness phrases for
  * a voice is read as it lands — so an agent turn of tool calls sounds like

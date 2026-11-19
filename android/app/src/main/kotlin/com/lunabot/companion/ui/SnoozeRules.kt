@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.nextSnoozeExpiry
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.nextSnoozeExpiry
 import kotlinx.coroutines.delay
 import java.util.Calendar
 import androidx.compose.runtime.mutableLongStateOf

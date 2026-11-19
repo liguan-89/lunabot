@@ -1,9 +1,9 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.os.IBinder
-import com.openmausbot.companion.phoneui.shell.IPhoneUiShell
-import com.openmausbot.companion.phoneui.shell.PhoneUiShell
+import com.lunabot.companion.phoneui.shell.IPhoneUiShell
+import com.lunabot.companion.phoneui.shell.PhoneUiShell
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

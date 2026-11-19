@@ -4,9 +4,9 @@
  * snapshot, the scroll, the settle wait and the package in front are plain
  * lambdas here.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
-import com.openmausbot.companion.phone.PhoneToolOutcome
+import com.lunabot.companion.phone.PhoneToolOutcome
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject

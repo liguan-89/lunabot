@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.Manifest
 import android.content.Context
@@ -13,8 +13,8 @@ import android.provider.MediaStore
 import android.util.Base64
 import androidx.core.content.ContextCompat
 import androidx.documentfile.provider.DocumentFile
-import com.openmausbot.companion.phoneui.PhoneUiOcr
-import com.openmausbot.companion.storage.ChatPreferences
+import com.lunabot.companion.phoneui.PhoneUiOcr
+import com.lunabot.companion.storage.ChatPreferences
 import java.io.ByteArrayOutputStream
 
 /**

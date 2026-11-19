@@ -4,7 +4,7 @@
  * dialog carries a second `IP:port` (the connect port), so a cross-window read
  * would pair against the wrong socket.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

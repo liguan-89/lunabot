@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * The effects half of the two phone-UI self-repairs: [PhoneUiSelfRepair] and

@@ -1,14 +1,14 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.APIError
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.CompanionEndpoint
-import com.openmausbot.companion.core.CompanionEndpointKind
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Fleet
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.MessageDestination
-import com.openmausbot.companion.core.ModelSelection
+import com.lunabot.companion.core.APIError
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.CompanionEndpoint
+import com.lunabot.companion.core.CompanionEndpointKind
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.MessageDestination
+import com.lunabot.companion.core.ModelSelection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

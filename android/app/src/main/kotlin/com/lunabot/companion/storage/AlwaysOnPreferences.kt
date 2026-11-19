@@ -1,4 +1,4 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * Read synchronously at process start ([OpenMausApp.onCreate]) so the boot
  * receiver and the always-on service can decide whether to run before any
  * Activity exists. `commit()`, not `apply()`: the toggle in Settings starts or
- * stops [com.openmausbot.companion.lifecycle.AlwaysOnConnectionService] right
+ * stops [com.lunabot.companion.lifecycle.AlwaysOnConnectionService] right
  * after writing, and that decision must see the value that was just written,
  * not a write still queued for a background thread.
  */

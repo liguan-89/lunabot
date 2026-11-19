@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.annotation.DrawableRes
 import androidx.compose.ui.graphics.Color
-import com.openmausbot.companion.R
+import com.lunabot.companion.R
 import kotlin.math.abs
 import androidx.core.graphics.scale
 

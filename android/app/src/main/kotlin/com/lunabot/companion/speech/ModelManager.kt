@@ -1,4 +1,4 @@
-package com.openmausbot.companion.speech
+package com.lunabot.companion.speech
 
 import android.content.Context
 import java.io.File

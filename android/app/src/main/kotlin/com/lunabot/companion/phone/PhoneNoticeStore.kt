@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.app.Notification
 import android.service.notification.StatusBarNotification

@@ -6,7 +6,7 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui, comments
+ * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, and reduced to this app's tool surface. One choice
  * per task replaces Mika's per-package marks; `keep` is unconditional, since
  * this app has no audio-session surface and so never needs Mika's "close
@@ -16,7 +16,7 @@
  * call, IPhoneUiShell.forceStop, where Mika hands the keep/close sets to the
  * helper's finishDisplay and moves kept tasks behind the main screen.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 /**
  * What happens to the app a task drove once the task ends. The bot chooses

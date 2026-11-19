@@ -7,7 +7,7 @@
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
+ * original: repackaged under com.lunabot.companion.phoneui.shell, comments
  * translated into English, and the restore-wish / accessibility-repair /
  * uid-importance-watch machinery is not ported: after the app dies the helper
  * releases its displays and retries the handoff a few times with its resume
@@ -16,7 +16,7 @@
  * ever started by the app handing a one-time nonce over the exec stream's
  * stdin.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.annotation.SuppressLint
 import android.content.AttributionSource
@@ -39,7 +39,7 @@ import kotlin.system.exitProcess
  * The helper process entry point, started by the app as shell (uid 2000) via
  * wireless debugging's adbd exec service:
  * `CLASSPATH=<base.apk> app_process /system/bin --nice-name=<package>:phoneui-helper
- * com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain <package> <app uid> <cert sha256>`,
+ * com.lunabot.companion.phoneui.shell.PhoneUiHelperMain <package> <app uid> <cert sha256>`,
  * with the one-time nonce read from stdin (see [HandoffProtocol.command]).
  *
  * All privileged logic lives in [PhoneUiShellService]; this class only hands

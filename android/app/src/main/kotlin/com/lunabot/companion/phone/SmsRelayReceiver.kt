@@ -1,4 +1,4 @@
-package com.openmausbot.companion.phone
+package com.lunabot.companion.phone
 
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -6,10 +6,10 @@ import android.content.Intent
 import android.provider.Telephony
 import android.telephony.SmsMessage
 import android.util.Log
-import com.openmausbot.companion.OpenMausApp
-import com.openmausbot.companion.core.PhoneSmsEvent
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.storage.ChatPreferences
+import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.core.PhoneSmsEvent
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.storage.ChatPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

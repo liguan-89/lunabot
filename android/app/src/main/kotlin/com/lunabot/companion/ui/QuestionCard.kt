@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -42,10 +42,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.AskQuestion
-import com.openmausbot.companion.core.AskQuestionAnswer
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.Message
+import com.lunabot.companion.core.AskQuestion
+import com.lunabot.companion.core.AskQuestionAnswer
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.Message
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.mutableIntStateOf
 

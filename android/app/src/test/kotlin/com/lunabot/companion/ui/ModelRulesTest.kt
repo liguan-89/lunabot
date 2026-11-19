@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Instance
-import com.openmausbot.companion.core.InstanceCapabilities
-import com.openmausbot.companion.core.ModelCatalog
-import com.openmausbot.companion.core.ModelOption
-import com.openmausbot.companion.core.ModelSelection
-import com.openmausbot.companion.core.ProviderSnapshot
+import com.lunabot.companion.core.Instance
+import com.lunabot.companion.core.InstanceCapabilities
+import com.lunabot.companion.core.ModelCatalog
+import com.lunabot.companion.core.ModelOption
+import com.lunabot.companion.core.ModelSelection
+import com.lunabot.companion.core.ProviderSnapshot
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

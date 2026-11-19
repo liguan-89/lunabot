@@ -1,21 +1,21 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.AttachedMessageContent
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.ChatSummary
-import com.openmausbot.companion.core.ChatTarget
-import com.openmausbot.companion.core.CompanionState
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.core.OptionCard
-import com.openmausbot.companion.core.PendingApproval
-import com.openmausbot.companion.core.Reaction
-import com.openmausbot.companion.core.Room
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.core.SignInCardData
-import com.openmausbot.companion.core.chat
-import com.openmausbot.companion.core.TranscriptRow
-import com.openmausbot.companion.core.webhookContent
+import com.lunabot.companion.core.AttachedMessageContent
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.ChatSummary
+import com.lunabot.companion.core.ChatTarget
+import com.lunabot.companion.core.CompanionState
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.OptionCard
+import com.lunabot.companion.core.PendingApproval
+import com.lunabot.companion.core.Reaction
+import com.lunabot.companion.core.Room
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.core.SignInCardData
+import com.lunabot.companion.core.chat
+import com.lunabot.companion.core.TranscriptRow
+import com.lunabot.companion.core.webhookContent
 
 /**
  * The decisions the chat and roster screens make that are worth testing without

@@ -6,7 +6,7 @@
  * rather than at the timeout. No Android: the clock, the sleep and the screen
  * reads are plain lambdas here.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlinx.coroutines.runBlocking
 import kotlin.test.Test

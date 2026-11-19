@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
@@ -36,15 +36,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.openmausbot.companion.core.SharedAttachmentKind
-import com.openmausbot.companion.core.SharedAttachmentReference
-import com.openmausbot.companion.core.SharedMessageComposer
-import com.openmausbot.companion.sharing.LocalShareAttachment
-import com.openmausbot.companion.sharing.ShareInbox
-import com.openmausbot.companion.sharing.ShareItemLoader
-import com.openmausbot.companion.sharing.SharePayload
-import com.openmausbot.companion.sharing.SharePreparedDelivery
-import com.openmausbot.companion.sharing.ShareSheetPhase
+import com.lunabot.companion.core.SharedAttachmentKind
+import com.lunabot.companion.core.SharedAttachmentReference
+import com.lunabot.companion.core.SharedMessageComposer
+import com.lunabot.companion.sharing.LocalShareAttachment
+import com.lunabot.companion.sharing.ShareInbox
+import com.lunabot.companion.sharing.ShareItemLoader
+import com.lunabot.companion.sharing.SharePayload
+import com.lunabot.companion.sharing.SharePreparedDelivery
+import com.lunabot.companion.sharing.ShareSheetPhase
 import java.util.UUID
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers

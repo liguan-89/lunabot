@@ -1,10 +1,10 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.RemoteInput
-import com.openmausbot.companion.OpenMausApp
+import com.lunabot.companion.OpenMausApp
 
 /**
  * Receives the six-digit code typed into [PhoneUiPairingNotification]'s shade
@@ -22,7 +22,7 @@ class PhoneUiPairingReplyReceiver : BroadcastReceiver() {
     }
 
     companion object {
-        const val ACTION_PAIR = "com.openmausbot.companion.phoneui.PAIR_CODE"
+        const val ACTION_PAIR = "com.lunabot.companion.phoneui.PAIR_CODE"
         const val KEY_CODE = "code"
         private const val CODE_LENGTH = 6
     }

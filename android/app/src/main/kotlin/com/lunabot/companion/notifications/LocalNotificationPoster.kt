@@ -1,4 +1,4 @@
-package com.openmausbot.companion.notifications
+package com.lunabot.companion.notifications
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -13,10 +13,10 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
-import com.openmausbot.companion.MainActivity
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.NotificationFrame
-import com.openmausbot.companion.core.NotificationSink
+import com.lunabot.companion.MainActivity
+import com.lunabot.companion.R
+import com.lunabot.companion.core.NotificationFrame
+import com.lunabot.companion.core.NotificationSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob

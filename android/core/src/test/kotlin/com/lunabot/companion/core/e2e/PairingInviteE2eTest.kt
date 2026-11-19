@@ -1,12 +1,12 @@
-package com.openmausbot.companion.core.e2e
+package com.lunabot.companion.core.e2e
 
-import com.openmausbot.companion.core.CompanionConnectionMetadata
-import com.openmausbot.companion.core.CompanionEndpoint
-import com.openmausbot.companion.core.CompanionJson
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Frame
-import com.openmausbot.companion.core.StreamFrame
-import com.openmausbot.companion.core.PairingInvite
+import com.lunabot.companion.core.CompanionConnectionMetadata
+import com.lunabot.companion.core.CompanionEndpoint
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.StreamFrame
+import com.lunabot.companion.core.PairingInvite
 import java.security.SecureRandom
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,8 +1,8 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.CompanionState
-import com.openmausbot.companion.core.ModelSelection
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.CompanionState
+import com.lunabot.companion.core.ModelSelection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

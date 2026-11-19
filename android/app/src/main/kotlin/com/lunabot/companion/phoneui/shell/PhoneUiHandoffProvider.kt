@@ -7,13 +7,13 @@
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.openmausbot.companion.phoneui.shell, comments
+ * original: repackaged under com.lunabot.companion.phoneui.shell, comments
  * translated into English, and trimmed to the display helper: no device-file
  * policy, restore reports, clipboard or USB-script plumbing. The hub is a
  * process singleton (see [PhoneUiHandoff.of]); the provider and
  * [PhoneUiShellBridge] share that one instance.
  */
-package com.openmausbot.companion.phoneui.shell
+package com.lunabot.companion.phoneui.shell
 
 import android.content.ContentProvider
 import android.content.ContentValues

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.onboarding
+package com.lunabot.companion.onboarding
 
 import android.Manifest
 import androidx.compose.runtime.CompositionLocalProvider
@@ -8,11 +8,11 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.openmausbot.companion.permissions.CompanionPermissions
-import com.openmausbot.companion.ui.CompanionTheme
-import com.openmausbot.companion.ui.LocalCompanion
-import com.openmausbot.companion.ui.PairingScreen
-import com.openmausbot.companion.ui.PermissionPreferences
+import com.lunabot.companion.permissions.CompanionPermissions
+import com.lunabot.companion.ui.CompanionTheme
+import com.lunabot.companion.ui.LocalCompanion
+import com.lunabot.companion.ui.PairingScreen
+import com.lunabot.companion.ui.PermissionPreferences
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlinx.coroutines.CompletableDeferred

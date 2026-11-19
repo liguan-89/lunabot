@@ -1,11 +1,11 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.compose.runtime.saveable.SaverScope
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.PairingInvite
-import com.openmausbot.companion.core.PairingRouteError
-import com.openmausbot.companion.discovery.DiscoveredService
-import com.openmausbot.companion.discovery.toConnection
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.PairingInvite
+import com.lunabot.companion.core.PairingRouteError
+import com.lunabot.companion.discovery.DiscoveredService
+import com.lunabot.companion.discovery.toConnection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

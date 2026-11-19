@@ -1,6 +1,6 @@
-package com.openmausbot.companion.sharing
+package com.lunabot.companion.sharing
 
-import com.openmausbot.companion.ui.SharePolicy
+import com.lunabot.companion.ui.SharePolicy
 
 /**
  * Process-memory UI for one inbound share generation.

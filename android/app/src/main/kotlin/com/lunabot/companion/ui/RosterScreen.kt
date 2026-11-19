@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -104,17 +104,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
-import com.openmausbot.companion.R
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.ChatSummary
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.Room
-import com.openmausbot.companion.core.SearchHit
-import com.openmausbot.companion.core.Session
-import com.openmausbot.companion.core.chat
-import com.openmausbot.companion.core.chatSummaries
-import com.openmausbot.companion.core.forTask
+import com.lunabot.companion.R
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.ChatSummary
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Room
+import com.lunabot.companion.core.SearchHit
+import com.lunabot.companion.core.Session
+import com.lunabot.companion.core.chat
+import com.lunabot.companion.core.chatSummaries
+import com.lunabot.companion.core.forTask
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

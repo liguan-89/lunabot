@@ -1,5 +1,5 @@
 // Adapted from Mika's WechatApi and WechatRuntime (Apache-2.0).
-package com.openmausbot.companion.wechat
+package com.lunabot.companion.wechat
 
 import android.app.Notification
 import android.app.NotificationChannel
@@ -19,8 +19,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import com.openmausbot.companion.OpenMausApp
-import com.openmausbot.companion.R
+import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.R
 
 /**
  * Hosts the WeChat long poll.
@@ -120,7 +120,7 @@ class WechatService : Service() {
     }
 
     companion object {
-        const val ACTION_TURN_OFF = "com.openmausbot.companion.wechat.TURN_OFF"
+        const val ACTION_TURN_OFF = "com.lunabot.companion.wechat.TURN_OFF"
         const val CHANNEL_ID = "wechat_relay"
         private const val NOTIFICATION_ID = 30_002
         private const val TAG = "WechatService"

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.speech
+package com.lunabot.companion.speech
 
 import java.io.File
 import kotlin.io.path.createTempDirectory

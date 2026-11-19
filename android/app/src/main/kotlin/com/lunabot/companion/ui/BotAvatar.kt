@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.graphics.Bitmap
 import androidx.compose.foundation.Image
@@ -24,10 +24,10 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.openmausbot.companion.avatar.AvatarImageRules
-import com.openmausbot.companion.core.AvatarCrop
-import com.openmausbot.companion.core.Bot
-import com.openmausbot.companion.core.Chat
+import com.lunabot.companion.avatar.AvatarImageRules
+import com.lunabot.companion.core.AvatarCrop
+import com.lunabot.companion.core.Bot
+import com.lunabot.companion.core.Chat
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.platform.LocalResources

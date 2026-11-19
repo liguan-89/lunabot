@@ -8,7 +8,7 @@
  * paths, including the release of every display, are in
  * PhoneUiProbesProbeTest.kt.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

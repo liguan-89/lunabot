@@ -3,7 +3,7 @@
  * are never retried by coordinates, and a coordinate retry only ever picks a
  * small clickable target under the point.
  */
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -1,8 +1,8 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
-import com.openmausbot.companion.core.Connection
-import com.openmausbot.companion.core.ExportedTranscript
-import com.openmausbot.companion.core.Session
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.ExportedTranscript
+import com.lunabot.companion.core.Session
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -429,7 +429,7 @@ class SharePayloadTest {
         // This names a file the app is about to write, so a directory part in it
         // is a path traversal, not a preference.
         for (hostile in listOf(
-            "../../../../data/data/com.openmausbot.companion/databases/tokens.db",
+            "../../../../data/data/com.lunabot.companion/databases/tokens.db",
             "/etc/passwd",
             "..\\..\\windows\\system32\\evil.md",
             "sub/dir/transcript.md",

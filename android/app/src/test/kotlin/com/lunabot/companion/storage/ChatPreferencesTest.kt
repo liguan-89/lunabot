@@ -1,13 +1,13 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.BotTask
-import com.openmausbot.companion.core.forTask
-import com.openmausbot.companion.ui.bot
-import com.openmausbot.companion.ui.room
-import com.openmausbot.companion.core.ActivityDetail
-import com.openmausbot.companion.core.QuickReply
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.BotTask
+import com.lunabot.companion.core.forTask
+import com.lunabot.companion.ui.bot
+import com.lunabot.companion.ui.room
+import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.core.QuickReply
 import kotlin.test.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

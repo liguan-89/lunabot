@@ -1,11 +1,11 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
-import com.openmausbot.companion.phoneui.UnlockCredential
+import com.lunabot.companion.phoneui.UnlockCredential
 import java.io.File
 import java.io.RandomAccessFile
 import java.nio.ByteBuffer

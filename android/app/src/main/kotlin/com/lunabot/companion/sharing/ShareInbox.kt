@@ -1,4 +1,4 @@
-package com.openmausbot.companion.sharing
+package com.lunabot.companion.sharing
 
 import java.io.File
 import java.util.concurrent.atomic.AtomicLong

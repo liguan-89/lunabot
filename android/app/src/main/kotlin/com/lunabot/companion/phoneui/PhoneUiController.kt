@@ -1,15 +1,15 @@
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import com.dexbot.companion.core.phoneui.adb.AdbConnectionException
-import com.openmausbot.companion.permissions.CompanionPermissions
-import com.openmausbot.companion.phoneui.shell.PhoneUiShellBridge
-import com.openmausbot.companion.storage.ChatPreferences
-import com.openmausbot.companion.storage.UnlockCredentialStore
-import com.openmausbot.companion.storage.UnlockState
+import com.lunabot.companion.permissions.CompanionPermissions
+import com.lunabot.companion.phoneui.shell.PhoneUiShellBridge
+import com.lunabot.companion.storage.ChatPreferences
+import com.lunabot.companion.storage.UnlockCredentialStore
+import com.lunabot.companion.storage.UnlockState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -70,7 +70,7 @@ enum class PhoneUiStatus {
 /**
  * Process-level glue for controlling this phone's UI from the paired computer:
  * the ADB pairing identity, mDNS discovery of adbd's TLS ports, and the shell
- * helper's launch. One instance is built by [com.openmausbot.companion.OpenMausApp]
+ * helper's launch. One instance is built by [com.lunabot.companion.OpenMausApp]
  * and shared with Settings through `CompanionEnvironment`.
  *
  * Security shape: developer options are still never turned on here, and
@@ -541,7 +541,7 @@ class PhoneUiController(
     }
 
     private fun readyStatus(): PhoneUiStatus =
-        if (com.openmausbot.companion.phoneui.PhoneUiAccessibilityService.instance.value == null) {
+        if (com.lunabot.companion.phoneui.PhoneUiAccessibilityService.instance.value == null) {
             PhoneUiStatus.NeedsAccessibility
         } else {
             PhoneUiStatus.Ready

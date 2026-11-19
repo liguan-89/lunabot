@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import kotlin.test.Test
 import kotlin.test.assertFalse

@@ -1,11 +1,11 @@
-package com.openmausbot.companion.storage
+package com.lunabot.companion.storage
 
 import android.content.Context
 import android.content.SharedPreferences
-import com.openmausbot.companion.core.Chat
-import com.openmausbot.companion.core.forTask
-import com.openmausbot.companion.core.ActivityDetail
-import com.openmausbot.companion.core.QuickReply
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.forTask
+import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.core.QuickReply
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

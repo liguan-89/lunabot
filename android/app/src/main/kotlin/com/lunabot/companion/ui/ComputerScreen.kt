@@ -1,4 +1,4 @@
-package com.openmausbot.companion.ui
+package com.lunabot.companion.ui
 
 import android.graphics.BitmapFactory
 import android.util.Base64
@@ -46,8 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import androidx.activity.compose.BackHandler
-import com.openmausbot.companion.core.Message
-import com.openmausbot.companion.vnc.LocalVmViewerScreen
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.vnc.LocalVmViewerScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch

@@ -1,4 +1,4 @@
-package com.openmausbot.companion.core
+package com.lunabot.companion.core
 
 /** Display projection only. Stored prompts keep their model-facing trust boundaries. */
 data class WebhookMessageContent(val task: String, val payload: String?) {

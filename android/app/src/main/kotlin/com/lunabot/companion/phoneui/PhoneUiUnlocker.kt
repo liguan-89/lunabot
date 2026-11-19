@@ -1,9 +1,9 @@
 // Adapted from Mika's DeviceUnlockInput and DeviceAccess (Apache-2.0).
-package com.openmausbot.companion.phoneui
+package com.lunabot.companion.phoneui
 
 import android.util.Log
-import com.openmausbot.companion.phoneui.shell.PhoneUiShell
-import com.openmausbot.companion.storage.UnlockCredentialStore
+import com.lunabot.companion.phoneui.shell.PhoneUiShell
+import com.lunabot.companion.storage.UnlockCredentialStore
 import kotlinx.coroutines.delay
 
 /** What this phone's KeyguardManager and PowerManager say about the lock screen right now. */
