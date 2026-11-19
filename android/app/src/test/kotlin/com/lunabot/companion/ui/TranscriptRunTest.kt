@@ -71,12 +71,20 @@ class TranscriptRunTest {
     }
 
     @Test
-    fun `what this message is never matters — only what the next one is`() {
-        // The Swift reads `this.role` and `this.from`, never `this.kind`. A tool
-        // chip followed by more of the same bot's text does not end the run, and
-        // the bubble that eventually does end it is the one that gets the tail.
-        val messages = listOf(botActivity("m1"), botText("m2"))
-        assertFalse(TranscriptLayout.endsRun(messages, 0))
+    fun `a card breaks the run on both sides, not only the one above it`() {
+        // iOS asked only what came next, because its bot replies were bare page
+        // text with no shape to join. Here every reply is a filled bubble, and a
+        // card that followed one used to tuck its top corners into that bubble:
+        // the approval card read as the bot's own words, with the answer's
+        // bubble 4dp under it. Asking what this message is too is what separates
+        // the card from both neighbours.
+        assertTrue(TranscriptLayout.endsRun(listOf(botOptions("m1"), botText("m2")), 0))
+        assertTrue(TranscriptLayout.endsRun(listOf(botActivity("m1"), botText("m2")), 0))
+        // A chip between two replies breaks the run on both sides: it draws no
+        // bubble, so the two texts either side of it are separated by something
+        // the reader can see, and neither should tuck into the other.
+        val messages = listOf(botText("m1"), botActivity("m2"), botText("m3"))
+        assertTrue(TranscriptLayout.endsRun(messages, 0))
         assertTrue(TranscriptLayout.endsRun(messages, 1))
     }
 

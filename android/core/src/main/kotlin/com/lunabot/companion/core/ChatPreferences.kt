@@ -92,20 +92,37 @@ sealed interface TranscriptRow {
         val running: Boolean get() = items.any { it.tool?.ok == null }
     }
 
+    /**
+     * A finished turn's tool steps, behind one receipt.
+     *
+     * The fold used to hold the bot's narration and hide it, which put the bot's
+     * own words behind a "已处理" chip. It now holds the steps only: the words
+     * are the transcript and stay visible, and what collapses is the work.
+     */
     data class AssistantTurn(val turnId: String, val items: List<Message>, val elapsed: Double) : TranscriptRow {
         init {
-            require(items.isNotEmpty()) { "A turn fold must contain narration." }
+            require(items.isNotEmpty()) { "A turn fold must contain at least one step." }
         }
 
         override val head: Message get() = items.first()
         override val id: String get() = "turn.$turnId"
         override val endAt: Double get() = items.last().at
+
+        /**
+         * What the one chip says: how long the turn took and what it is holding.
+         *
+         * The count is there because this chip is the turn's only fold now — the
+         * "已运行 N 个步骤" chip beside it described the same work twice, and a
+         * reader who opens this one should know how much is inside before they
+         * do.
+         */
         val label: String get() {
-            if (elapsed < 1_000) return "已处理"
+            val steps = "${items.size} 个步骤"
+            if (elapsed < 1_000) return "已处理 · $steps"
             val seconds = (elapsed / 1_000).toLong()
             val duration = if (seconds < 60) "${seconds}秒"
                 else "${seconds / 60}分 ${(seconds % 60).toString().padStart(2, '0')}秒"
-            return "已处理 $duration"
+            return "已处理 $duration · $steps"
         }
     }
 }
@@ -172,30 +189,40 @@ fun isActivityReceipt(message: Message): Boolean = when (message.kind) {
 }
 
 /**
- * Fold a transcript to the selected activity detail. Failed steps are never folded in reduced
- * mode; hidden mode intentionally removes all activity, including failures.
+ * Fold a transcript to the selected activity detail.
+ *
+ * In [ActivityDetail.REDUCED] a finished turn's successful tool steps fold into
+ * one receipt — the same chip the "已运行 N 个步骤" run uses — so a turn shows one
+ * fold rather than one for its words and another for its work. Narration is
+ * never folded: what the bot said is the transcript, and a reply behind a chip
+ * is a reply the reader has to ask for.
+ *
+ * Failed steps are never folded in reduced mode; hidden mode intentionally
+ * removes all activity, including failures.
  */
 fun transcriptRows(messages: List<Message>, detail: ActivityDetail): List<TranscriptRow> {
-    // Only a server completion marker makes narration foldable. Legacy and
-    // unfinished turns stay visible, matching desktop and iOS.
-    val narration = mutableMapOf<String, MutableList<Message>>()
+    // Only a server completion marker makes a turn's steps foldable. Legacy and
+    // unfinished turns keep every step visible, matching desktop and iOS.
+    val steps = mutableMapOf<String, MutableList<Message>>()
     val startedAt = mutableMapOf<String, Double>()
     var lastUserAt: Double? = null
     val folds = mutableMapOf<String, TranscriptRow.AssistantTurn>()
     val hiddenIds = mutableSetOf<String>()
-    for (message in messages) {
-        if (message.role == Message.Role.USER) lastUserAt = message.at
-        val turnId = message.turnId?.takeIf { it.isNotEmpty() } ?: continue
-        if (message.role != Message.Role.BOT || message.kind != Message.Kind.TEXT) continue
-        if (message.turnTerminal == true) {
-            val items = narration.remove(turnId)?.takeIf { it.isNotEmpty() } ?: continue
-            folds[items.first().id] = TranscriptRow.AssistantTurn(
-                turnId, items.toList(), (message.at - (startedAt[turnId] ?: items.first().at)).coerceAtLeast(0.0),
-            )
-            hiddenIds.addAll(items.map { it.id })
-        } else {
-            if (turnId !in narration) startedAt[turnId] = lastUserAt ?: message.at
-            narration.getOrPut(turnId) { mutableListOf() }.add(message)
+    if (detail == ActivityDetail.REDUCED) {
+        for (message in messages) {
+            if (message.role == Message.Role.USER) lastUserAt = message.at
+            val turnId = message.turnId?.takeIf { it.isNotEmpty() } ?: continue
+            if (message.role != Message.Role.BOT) continue
+            if (message.turnTerminal == true) {
+                val items = steps.remove(turnId)?.takeIf { it.isNotEmpty() } ?: continue
+                folds[items.first().id] = TranscriptRow.AssistantTurn(
+                    turnId, items.toList(), (message.at - (startedAt[turnId] ?: items.first().at)).coerceAtLeast(0.0),
+                )
+                hiddenIds.addAll(items.map { it.id })
+            } else if (isFoldableStep(message)) {
+                if (turnId !in steps) startedAt[turnId] = lastUserAt ?: message.at
+                steps.getOrPut(turnId) { mutableListOf() }.add(message)
+            }
         }
     }
     return buildList {
@@ -216,7 +243,7 @@ fun transcriptRows(messages: List<Message>, detail: ActivityDetail): List<Transc
                 flush()
                 add(turn)
             } else if (message.id in hiddenIds || (detail == ActivityDetail.HIDDEN && isActivityReceipt(message))) {
-                // The reversible turn fold owns narration; Hidden owns tools.
+                // A folded step is drawn by its turn's receipt; Hidden owns the rest.
             } else if (detail != ActivityDetail.REDUCED || message.kind != Message.Kind.ACTIVITY) {
                 flush()
                 add(TranscriptRow.Single(message))
@@ -230,3 +257,19 @@ fun transcriptRows(messages: List<Message>, detail: ActivityDetail): List<Transc
         flush()
     }
 }
+
+/**
+ * A step a finished turn can fold: one that ran and finished, and that is only a
+ * receipt — not a chip that opens a thread, and not a line reporting the
+ * harness's own state, which a reader needs to see even when the work around it
+ * is folded.
+ */
+private fun isFoldableStep(message: Message): Boolean {
+    if (message.kind != Message.Kind.ACTIVITY) return false
+    val tool = message.tool ?: return false
+    if (tool.ok != true) return false
+    if (message.threadRef != null || message.comm != null) return false
+    return STATUS_PREFIXES.none { tool.name.startsWith(it) }
+}
+
+private val STATUS_PREFIXES = listOf("notice:", "recovery:", "stopped:", "error:")

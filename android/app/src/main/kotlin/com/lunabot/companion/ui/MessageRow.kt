@@ -1458,7 +1458,6 @@ private fun ReceiptChip(label: String, detail: String) {
 @Composable
 fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = null) {
     if (items.isEmpty()) return
-    val haptics = rememberHaptics()
     // Keyed on the run's identity — the same one the LazyColumn keys the row by
     // (`TranscriptRow.ActivityRun.id = "run.${head.id}"`). Keying on the last id
     // too would throw the reader's disclosure away on every receipt that lands
@@ -1470,42 +1469,12 @@ fun ActivityRunChip(items: List<Message>, openThread: ((ThreadRef) -> Unit)? = n
         modifier = Modifier.padding(start = 4.dp),
         verticalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        // The pill is ~30 dp tall; the target around it is MIN_TOUCH_TARGET, the
-        // way TouchTarget does it for the round buttons. Not TouchTarget itself:
-        // that helper is a square box, which would clip a capsule this wide.
-        Box(
-            modifier = Modifier
-                .heightIn(min = MIN_TOUCH_TARGET)
-                .clickable(role = Role.Button) {
-                    expanded = !expanded
-                    haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
-                }
-                .semantics {
-                    contentDescription = "$summary，${if (expanded) "已展开" else "已收起"}"
-                },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Row(
-                modifier = Modifier
-                    .background(minisGrouped, RoundedCornerShape(18.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                if (running) {
-                    CircularProgressIndicator(modifier = Modifier.size(13.dp), strokeWidth = 1.5.dp)
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = minisSecondary,
-                        modifier = Modifier.size(14.dp),
-                    )
-                }
-                Text(summary, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = minisInk)
-                Text(if (expanded) "收起" else "展开", fontSize = 12.sp, color = minisSecondary)
-            }
-        }
+        RunReceiptPill(
+            summary = summary,
+            expanded = expanded,
+            running = running,
+            onToggle = { expanded = !expanded },
+        )
         if (expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 items.forEach { item -> ActivityChip(item.tool, item.threadRef, openThread) }

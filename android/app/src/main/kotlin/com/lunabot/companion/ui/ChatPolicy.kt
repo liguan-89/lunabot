@@ -119,17 +119,20 @@ object TranscriptLayout {
      * where a run of bubbles gets its tail — one per run, like every messaging app,
      * rather than one per bubble. The port of `endsRun` in `ios/App/ChatView.swift`.
      *
-     * The three ways a run breaks, in the Swift's order: the role changes, the
-     * speaker's name changes, or the next row is not text — a card or a tool chip
-     * between two texts breaks the run visually. What this message itself is is
-     * deliberately not asked: only [TextBubble] draws a tail, so an activity chip
-     * that is followed by more text costs the run nothing.
+     * The three ways a run breaks: the role changes, the speaker's name changes,
+     * or either side of the join is not text — a card or a tool chip between two
+     * texts breaks the run visually. iOS only asked the *next* row, because its
+     * bot replies were bare page text with no shape to join; here every reply is
+     * a filled bubble, so a card that follows one must not tuck into it. Asking
+     * both sides is what keeps an approval card from reading as part of the bot's
+     * own message, with the answer's bubble 4dp under it.
      */
     fun endsRun(messages: List<Message>, index: Int): Boolean {
         val next = messages.getOrNull(index + 1) ?: return true
         val current = messages.getOrNull(index) ?: return true
         if (current.role != next.role) return true
         if (current.from?.name != next.from?.name) return true
+        if (current.kind != Message.Kind.TEXT) return true
         return next.kind != Message.Kind.TEXT
     }
 
@@ -139,6 +142,7 @@ object TranscriptLayout {
         val current = rows.getOrNull(index) ?: return true
         if (current.role != next.role) return true
         if (current.senderName != next.senderName) return true
+        if (current.kind != Message.Kind.TEXT) return true
         return next.kind != Message.Kind.TEXT
     }
 

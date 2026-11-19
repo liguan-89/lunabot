@@ -25,6 +25,7 @@ import com.lunabot.companion.core.Message
 import com.lunabot.companion.core.RuntimeEvent
 import com.lunabot.companion.core.SearchHit
 import com.lunabot.companion.core.StreamFrame
+import com.lunabot.companion.core.ToolActivity
 import com.lunabot.companion.core.target
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -63,7 +64,9 @@ class TranscriptPresentationTest {
         CompanionJson.decodeFromString<List<Message>>("""
             [
               {"id":"progress","role":"bot","kind":"text","at":2000,"text":"Let me inspect the build logs.","turnId":"turn"},
-              {"id":"progress2","role":"bot","kind":"text","at":3000,"text":"I found the failing check.","turnId":"turn"},
+              {"id":"step1","role":"bot","kind":"activity","at":2500,"turnId":"turn","tool":{"name":"read","ok":true}},
+              {"id":"step2","role":"bot","kind":"activity","at":3000,"turnId":"turn","tool":{"name":"bash","ok":true}},
+              {"id":"progress2","role":"bot","kind":"text","at":3500,"text":"I found the failing check.","turnId":"turn"},
               {"id":"answer","role":"bot","kind":"text","at":5000,"text":"A dependency is missing.","turnId":"turn","turnTerminal":true}
             ]
         """)
@@ -125,24 +128,25 @@ class TranscriptPresentationTest {
     }
 
     @Test
-    fun completedNarrationAndWebhookPayloadStartCollapsedAndExpandOnDemand() {
-        mount(ActivityDetail.HIDDEN)
+    fun completedNarrationStaysVisibleAndOnlyItsStepsFold() {
+        mount(ActivityDetail.REDUCED)
         screenshot("transcript-collapsed")
-        compose.onNodeWithText("已处理 4秒").assertIsDisplayed()
-        compose.onNodeWithText("Let me inspect the build logs.").assertDoesNotExist()
-        compose.onNodeWithText("I found the failing check.").assertDoesNotExist()
+        // What the bot said is on the page; only its work is behind the chip.
+        compose.onNodeWithText("Let me inspect the build logs.").assertIsDisplayed()
+        compose.onNodeWithText("I found the failing check.").assertIsDisplayed()
         compose.onNodeWithText("A dependency is missing.").assertIsDisplayed()
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").assertIsDisplayed()
         compose.onNodeWithText("Webhook 任务").assertIsDisplayed()
         compose.onNodeWithText("Triage the build failure.").assertIsDisplayed()
         compose.onNodeWithText("Delivery ID", substring = true).assertDoesNotExist()
         compose.onNodeWithText("AUTHENTICATED WEBHOOK", substring = true).assertDoesNotExist()
         compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
 
-        compose.onNodeWithText("已处理 4秒").performClick()
-        compose.onNodeWithText("Let me inspect the build logs.").assertIsDisplayed()
-        compose.onNodeWithText("I found the failing check.").assertIsDisplayed()
-        compose.onNodeWithText("已处理 4秒").performClick()
-        compose.onNodeWithText("Let me inspect the build logs.").assertDoesNotExist()
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
+        compose.onNodeWithText("read").assertIsDisplayed()
+        compose.onNodeWithText("bash").assertIsDisplayed()
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
+        compose.onNodeWithText("bash").assertDoesNotExist()
 
         compose.onNodeWithText("事件负载").performClick()
         compose.onNodeWithText("{\"service\":\"checkout\"}").assertIsDisplayed()
@@ -187,27 +191,32 @@ class TranscriptPresentationTest {
     }
 
     @Test
-    fun aSearchHitRevealsItsIntermediateReplyInsideTheFold() {
-        val narration = (0..11).map { index ->
-            messages[1].copy(id = "progress-$index", at = 2000.0 + index,
-                text = ("Intermediate reply $index. " + "Checking another part of the build. ".repeat(8)).trim())
+    fun aSearchHitRevealsTheStepItLandedOnInsideTheFold() {
+        // A hit on a step is a hit on something the fold is holding shut, so the
+        // fold has to open on it. Narration is never folded, so it needs no such
+        // path — this is the one case the fold still owes the search.
+        val steps = (0..11).map { index ->
+            Message("step-$index", Message.Role.BOT, Message.Kind.ACTIVITY, 2000.0 + index,
+                turnId = "turn", tool = ToolActivity(name = "step-$index", ok = true))
         }
-        mount(ActivityDetail.HIDDEN, transcript = listOf(messages.first()) + narration + messages.last())
-        val targetText = narration.last().text!!
-        compose.onNodeWithText(targetText).assertDoesNotExist()
+        val answer = Message("answer", Message.Role.BOT, Message.Kind.TEXT, 9000.0,
+            text = "Done.", turnId = "turn", turnTerminal = true)
+        mount(ActivityDetail.REDUCED, transcript = listOf(messages.first()) + steps + answer)
+        compose.onNodeWithText("已处理 8秒 · 12 个步骤").assertIsDisplayed()
+        compose.onNodeWithText("step-11").assertDoesNotExist()
         compose.runOnIdle {
             compose.activity.lifecycleScope.launch {
                 scene.session.open(SearchHit(
-                    threadId = "thread-bot-1", messageId = "progress-11", at = 2011.0,
-                    role = Message.Role.BOT, kind = Message.Kind.TEXT, snippet = targetText,
+                    threadId = "thread-bot-1", messageId = "step-11", at = 2011.0,
+                    role = Message.Role.BOT, kind = Message.Kind.ACTIVITY, snippet = "step-11",
                     matchStart = 0, matchLength = 7, botId = "bot-1", name = "Scout", onActivePath = true,
                 ))
             }
         }
         compose.waitUntil(5_000) {
-            compose.onAllNodesWithText(targetText).fetchSemanticsNodes().isNotEmpty()
+            compose.onAllNodesWithText("step-11").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText(targetText).assertIsDisplayed()
+        compose.onNodeWithText("step-11").assertIsDisplayed()
     }
 
     private fun mount(detail: ActivityDetail, reasoning: Boolean = false, transcript: List<Message> = messages) {

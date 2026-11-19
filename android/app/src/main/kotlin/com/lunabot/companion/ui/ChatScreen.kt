@@ -582,7 +582,7 @@ private fun LoadedChat(
         if (headerHeightPx > 0) headerHeightPx.toDp() + 12.dp else HEADER_CLEARANCE
     } + topInset
     val bottomClearance = with(density) {
-        if (composerHeightPx > 0) composerHeightPx.toDp() + 10.dp else BOTTOM_CHROME_HEIGHT + 8.dp
+        if (composerHeightPx > 0) composerHeightPx.toDp() + BOTTOM_CONTENT_GAP else BOTTOM_CHROME_HEIGHT + 8.dp
     }
     // Whether new content keeps the transcript pinned to the newest row. True
     // until the reader scrolls up: a bot that streams while someone is reading
@@ -1641,6 +1641,13 @@ private val TOP_BAND_HEIGHT = 52.dp
 // The floating bottom chrome — quick chips, the composer — occupies this much
 // above the window edge; the blur band and the list's clearance both use it.
 private val BOTTOM_CHROME_HEIGHT = 104.dp
+
+// The air between the newest row and the composer's top edge. The composer's own
+// 6dp top padding is inside its measured height, so this is what a reader sees
+// between a bubble's bottom and the quick-reply chips above the field: at 10dp a
+// long answer's last line sat close enough to the chips to look tucked under
+// them, which is the "贴着快捷卡片" the screenshot showed.
+private val BOTTOM_CONTENT_GAP = 22.dp
 
 /**
  * Search over the messages this phone has loaded.

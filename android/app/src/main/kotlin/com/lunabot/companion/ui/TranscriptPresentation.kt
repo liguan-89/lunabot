@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontFamily
@@ -46,6 +48,61 @@ import com.lunabot.companion.core.Message
 import com.lunabot.companion.core.ThreadRef
 import com.lunabot.companion.core.TranscriptRow
 import com.lunabot.companion.core.WebhookMessageContent
+
+/**
+ * The one pill a folded run of work wears, finished or still going.
+ *
+ * Two chips used to fold the same thing — a turn's steps — with different fills,
+ * different icons and two words for the same disclosure ("显示" and "展开"). A
+ * reader cannot tell from the shape that they are the same kind of row, so they
+ * read as two different objects that happen to sit in the transcript. This is
+ * that row, once: the tick or the spinner, the summary, and the toggle.
+ */
+@Composable
+internal fun RunReceiptPill(
+    summary: String,
+    expanded: Boolean,
+    running: Boolean,
+    onToggle: () -> Unit,
+) {
+    val haptics = rememberHaptics()
+    // The pill is ~30 dp tall; the target around it is MIN_TOUCH_TARGET, the way
+    // TouchTarget does it for the round buttons. Not TouchTarget itself: that
+    // helper is a square box, which would clip a capsule this wide.
+    Box(
+        modifier = Modifier
+            .heightIn(min = MIN_TOUCH_TARGET)
+            .clickable(role = Role.Button) {
+                onToggle()
+                haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
+            }
+            .semantics {
+                contentDescription = "$summary，${if (expanded) "已展开" else "已收起"}"
+            },
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Row(
+            modifier = Modifier
+                .background(minisGrouped, RoundedCornerShape(18.dp))
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (running) {
+                CircularProgressIndicator(modifier = Modifier.size(13.dp), strokeWidth = 1.5.dp)
+            } else {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = minisSecondary,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            Text(summary, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = minisInk)
+            Text(if (expanded) "收起" else "展开", fontSize = 12.sp, color = minisSecondary)
+        }
+    }
+}
 
 /** Reversible completed narration; tools still follow the activity preference. */
 @Composable
@@ -63,28 +120,13 @@ fun AssistantTurnChip(
     openComputer: (() -> Unit)? = null,
     onQuote: ((Message) -> Unit)? = null,
 ) {
-    val haptics = rememberHaptics()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Box(
-            modifier = Modifier.heightIn(min = MIN_TOUCH_TARGET)
-                .clickable(role = Role.Button) {
-                    onToggle()
-                    haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
-                }
-                .semantics { stateDescription = if (expanded) "已展开" else "已收起" },
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            Row(
-                modifier = Modifier.background(secondaryTint.copy(alpha = 0.10f), RoundedCornerShape(18.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.Check, contentDescription = null, tint = secondaryTint, modifier = Modifier.size(14.dp))
-                Text(turn.label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                Text(if (expanded) "隐藏" else "显示", fontSize = 12.sp, color = secondaryTint)
-            }
-        }
+        RunReceiptPill(
+            summary = turn.label,
+            expanded = expanded,
+            running = false,
+            onToggle = onToggle,
+        )
         if (expanded) turn.items.forEach { message ->
             key(message.id) {
                 val requester = remember { BringIntoViewRequester() }
@@ -100,6 +142,11 @@ fun AssistantTurnChip(
                     MessageRow(
                         chat,
                         message,
+                        // The steps sit inside the fold, not in the transcript's
+                        // own run: each is its own receipt, so none of them tucks
+                        // a corner into its neighbour's.
+                        startsRun = true,
+                        endsRun = true,
                         openLink = openLink,
                         openAttachment = openAttachment,
                         openThread = openThread,
