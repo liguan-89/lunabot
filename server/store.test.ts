@@ -26,6 +26,7 @@ import { TeamComputers } from "./team-computers.ts";
 import { allowsTool } from "../shared/tool-scope.ts";
 import { approvalModeFor } from "../shared/approval-mode.ts";
 
+
 const selection = (): ModelSelection => ({ instanceId: "claude", model: "claude-sonnet-5" });
 
 describe("Store", () => {
