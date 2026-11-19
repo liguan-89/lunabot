@@ -511,7 +511,10 @@ note_sandbox() { # tag or sha256:digest
 }
 
 newest_release() {
-  curl -fsS --max-time 15 "$RELEASES_URL" 2>/dev/null | sed -n 's/.*"tag_name": *"\(v[0-9][0-9.]*\)".*/\1/p' | head -n 1
+  set -- -fsS --max-time 15
+  # Unauthenticated calls share a 60/hour limit per address, which a CI runner's shared egress exhausts.
+  [ -n "${GITHUB_TOKEN:-}" ] && set -- "$@" -H "Authorization: Bearer $GITHUB_TOKEN"
+  curl "$@" "$RELEASES_URL" 2>/dev/null | sed -n 's/.*"tag_name": *"\(v[0-9][0-9.]*\)".*/\1/p' | head -n 1
 }
 
 # The stable channel when it is published, else the newest release. Never `latest`, which follows every commit.
