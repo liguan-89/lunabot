@@ -9,6 +9,7 @@ import type { SendTurnInput } from "../contracts.ts";
 import { redactSecretsInText } from "../redact.ts";
 import { MESSAGE_FILE_MAX_BYTES } from "../message-file.ts";
 import { augmentedPath } from "../env-path.ts";
+import { mcpCommandEnvironment } from "../mcp-environment.ts";
 import { cloudHomeConfigured } from "../cloud-home.ts";
 import { killCliTree, spawnCli } from "../procs.ts";
 import { AGENTS_TOOL_ALIASES } from "../../shared/agents-tool-names.ts";
@@ -88,7 +89,7 @@ class McpRequestRefused extends Error {}
 export function chatMcpEnvironment(serverEnv: Record<string, string>, source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...source, PATH: augmentedPath() };
   stripControlPlaneEnv(env);
-  return { ...env, ...serverEnv };
+  return mcpCommandEnvironment(env, serverEnv);
 }
 
 export class ChatMcpClient {
