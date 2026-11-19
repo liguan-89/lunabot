@@ -128,7 +128,7 @@ export function PairRequestCard() {
         aria-modal="true"
         aria-label={t("pairRequest.title")}
         data-pair-request-card
-        className="glass-popup animate-pop-in flex w-[min(440px,100%)] flex-col gap-4 rounded-2xl p-6 text-ink shadow-2xl"
+        className="glass-surface animate-pop-in flex w-[min(440px,100%)] flex-col gap-4 rounded-2xl p-6 text-ink"
       >
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full bg-ink/[0.06]">
