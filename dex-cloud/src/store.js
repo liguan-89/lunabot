@@ -13,6 +13,7 @@ const TABLES = [
   "CREATE TABLE IF NOT EXISTS control_sessions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS installations (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, client_instance_id TEXT NOT NULL, name TEXT NOT NULL, platform TEXT, app_version TEXT, kind TEXT NOT NULL DEFAULT 'desktop', created_at INTEGER NOT NULL, last_seen_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS installation_credentials (id TEXT PRIMARY KEY, installation_id TEXT NOT NULL, token_hash TEXT NOT NULL UNIQUE, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, revoked_at INTEGER)",
+  "CREATE TABLE IF NOT EXISTS pair_requests (id TEXT PRIMARY KEY, installation_id TEXT NOT NULL, account_id TEXT NOT NULL, device_name TEXT NOT NULL, status TEXT NOT NULL, link TEXT, created_at INTEGER NOT NULL, expires_at INTEGER NOT NULL, answered_at INTEGER)",
   "CREATE TABLE IF NOT EXISTS clouds (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, team_id TEXT, name TEXT NOT NULL, color TEXT, tier TEXT, status TEXT NOT NULL, origin TEXT, role TEXT NOT NULL, power_state TEXT NOT NULL DEFAULT 'awake', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, expires_at INTEGER, cancelled_at INTEGER, kept INTEGER NOT NULL DEFAULT 0, removable INTEGER NOT NULL DEFAULT 1, setup INTEGER NOT NULL DEFAULT 0, hostname TEXT, machine_id TEXT, bootstrap_secret TEXT, setup_step TEXT, setup_progress REAL, last_seen_at INTEGER, version TEXT, disk_gb INTEGER, max_disk_gb INTEGER, container_id TEXT)",
   "CREATE TABLE IF NOT EXISTS teams (id TEXT PRIMARY KEY, name TEXT NOT NULL, owner_account_id TEXT NOT NULL, created_at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS team_members (team_id TEXT NOT NULL, account_id TEXT NOT NULL, role TEXT NOT NULL, joined_at INTEGER NOT NULL, PRIMARY KEY (team_id, account_id))",
@@ -26,6 +27,7 @@ const TABLES = [
   "CREATE INDEX IF NOT EXISTS installation_credentials_token ON installation_credentials(token_hash)",
   "CREATE INDEX IF NOT EXISTS email_attempts_email ON email_attempts(email, created_at)",
   "CREATE INDEX IF NOT EXISTS clouds_account ON clouds(account_id)",
+  "CREATE INDEX IF NOT EXISTS pair_requests_installation ON pair_requests(installation_id, created_at)",
 ];
 
 const SESSION_BY_TOKEN = [
@@ -301,6 +303,37 @@ export class Store {
 
   revokeInstallationCredentials(installationId) {
     this.db.prepare("UPDATE installation_credentials SET revoked_at = ? WHERE installation_id = ? AND revoked_at IS NULL").run(now(), installationId);
+  }
+
+  insertPairRequest({ id, installationId, accountId, deviceName, expiresAt }) {
+    this.db.prepare("INSERT INTO pair_requests (id, installation_id, account_id, device_name, status, created_at, expires_at) VALUES (?, ?, ?, ?, 'pending', ?, ?)")
+      .run(id, installationId, accountId, deviceName, now(), expiresAt);
+  }
+
+  pairRequest(id) {
+    return this.db.prepare("SELECT * FROM pair_requests WHERE id = ?").get(id) ?? null;
+  }
+
+  /** Pending requests this computer has not answered, newest last. */
+  pendingPairRequests(installationId, at = now()) {
+    return this.db.prepare("SELECT * FROM pair_requests WHERE installation_id = ? AND status = 'pending' AND expires_at > ? ORDER BY created_at ASC")
+      .all(installationId, at);
+  }
+
+  /** How many the account asked of this computer since `since`, for the per-installation cap. */
+  pairRequestCount(installationId, since) {
+    const row = this.db.prepare("SELECT COUNT(*) AS n FROM pair_requests WHERE installation_id = ? AND created_at > ?").get(installationId, since);
+    return Number(row?.n ?? 0);
+  }
+
+  answerPairRequest(id, { status, link = null }) {
+    this.db.prepare("UPDATE pair_requests SET status = ?, link = ?, answered_at = ? WHERE id = ? AND status = 'pending'")
+      .run(status, link, now(), id);
+  }
+
+  /** Expire what was never answered; called before a read so a stale row cannot be approved late. */
+  expirePairRequests(at = now()) {
+    this.db.prepare("UPDATE pair_requests SET status = 'expired' WHERE status = 'pending' AND expires_at <= ?").run(at);
   }
 
   cloudsFor(accountId) {

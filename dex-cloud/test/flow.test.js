@@ -341,3 +341,89 @@ test("the bundled OG card is served at /og.png", async () => {
     app.store.close();
   }
 });
+
+test("a signed-in phone asks a computer to connect and the computer answers with a pairing link", async () => {
+  const app = await start(config());
+  try {
+    const signIn = await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", {
+      email: "owner@example.com",
+      type: "sign-in",
+    });
+    assert.equal(signIn.status, 200);
+    const verify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "owner@example.com",
+      otp: app.codes.at(-1).code,
+      name: "owner",
+    });
+    assert.equal(verify.status, 200);
+    const accountToken = verify.headers.get("set-auth-token");
+
+    const created = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "9d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b",
+      name: "Studio Mac",
+      platform: "darwin",
+      appVersion: "2.1.0",
+      kind: "desktop",
+    }, accountToken);
+    assert.equal(created.status, 201);
+    const installationId = created.body.installation.id;
+    const credential = created.body.credential;
+
+    const listed = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.installations[0].name, "Studio Mac");
+    assert.equal(listed.body.installations[0].online, true);
+
+    const asked = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "OnePlus 15T" }, accountToken);
+    assert.equal(asked.status, 201);
+    const requestId = asked.body.requestId;
+    assert.match(requestId, /^[0-9a-f-]{36}$/);
+
+    const waiting = await call(app.base, "GET", "/v1/installations/self/pair-requests", undefined, credential);
+    assert.equal(waiting.status, 200);
+    assert.equal(waiting.body.requests.length, 1);
+    assert.equal(waiting.body.requests[0].deviceName, "OnePlus 15T");
+
+    const stillPending = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, accountToken);
+    assert.equal(stillPending.status, 200);
+    assert.equal(stillPending.body.status, "pending");
+    assert.equal(stillPending.body.link, undefined);
+
+    const link = "lunabot://pair?address=192.168.10.120%3A8810&token=omb_pair_example";
+    const allowed = await call(app.base, "POST", `/v1/installations/self/pair-requests/${requestId}`, { decision: "allow", link }, credential);
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.body.status, "allowed");
+
+    const answered = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, accountToken);
+    assert.equal(answered.status, 200);
+    assert.equal(answered.body.status, "allowed");
+    assert.equal(answered.body.link, link);
+
+    // A second answer cannot rewrite an already-answered request.
+    const again = await call(app.base, "POST", `/v1/installations/self/pair-requests/${requestId}`, { decision: "deny" }, credential);
+    assert.equal(again.status, 409);
+
+    // Another account neither sees the computer nor its request.
+    await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", { email: "stranger@example.com", type: "sign-in" });
+    const strangerVerify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "stranger@example.com",
+      otp: app.codes.at(-1).code,
+      name: "stranger",
+    });
+    const strangerToken = strangerVerify.headers.get("set-auth-token");
+    const peek = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, strangerToken);
+    assert.equal(peek.status, 404);
+    const askForeign = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "x" }, strangerToken);
+    assert.equal(askForeign.status, 404);
+
+    // A decline is terminal and carries no link.
+    const denied = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "Old phone" }, accountToken);
+    await call(app.base, "POST", `/v1/installations/self/pair-requests/${denied.body.requestId}`, { decision: "deny" }, credential);
+    const denial = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${denied.body.requestId}`, undefined, accountToken);
+    assert.equal(denial.body.status, "denied");
+    assert.equal(denial.body.link, undefined);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});

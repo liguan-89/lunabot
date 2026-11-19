@@ -30,14 +30,32 @@ export async function handleControl(ctx) {
   return false;
 }
 
+/** A computer counts as online when it has talked to the plane in the last five minutes. */
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+
 function installationShape(row) {
+  const lastSeenAt = Number(row.last_seen_at) || 0;
   return {
     id: row.id,
     clientInstanceId: row.client_instance_id,
     name: row.name,
     ...(row.platform ? { platform: row.platform } : {}),
     ...(row.app_version ? { appVersion: row.app_version } : {}),
+    ...(lastSeenAt > 0 ? { lastSeenAt, online: Date.now() - lastSeenAt < ONLINE_WINDOW_MS } : {}),
   };
+}
+
+const PAIR_REQUEST_TTL_MS = 5 * 60 * 1000;
+const PAIR_REQUEST_HOURLY_CAP = 20;
+const PAIR_LINK_MAX = 4096;
+
+/** One request per installation owned by the account, so a leaked account is throttled and scoped. */
+function ownedInstallation(ctx, accountId) {
+  const id = ctx.path.split("/")[3];
+  if (!isInstallationId(id)) throw new HttpError(400, "invalid_request");
+  const installation = ctx.store.installation(id);
+  if (!installation || installation.account_id !== accountId) throw new HttpError(404, "not_found");
+  return installation;
 }
 
 function issueCredential(ctx, installationId) {
@@ -99,6 +117,77 @@ route("GET", "/v1/installations", async (ctx) => {
 });
 
 /** The Cloud desktops this account owns, so a signed-in phone can open one without a desktop paired first. */
+/** A signed-in phone asks the computer to connect. The computer answers with the same link a QR carries. */
+route("POST", /^\/v1\/installations\/[0-9a-f-]{36}\/pair-requests$/, async (ctx) => {
+  const session = controlSession(ctx);
+  const installation = ownedInstallation(ctx, session.account_id);
+  ctx.store.expirePairRequests();
+  if (ctx.store.pairRequestCount(installation.id, Date.now() - 60 * 60 * 1000) >= PAIR_REQUEST_HOURLY_CAP) {
+    throw new HttpError(429, "too_many_requests");
+  }
+  const deviceName = String(ctx.body.deviceName ?? "").trim().slice(0, 64) || "A phone";
+  const request = {
+    id: newUuid(),
+    installationId: installation.id,
+    accountId: session.account_id,
+    deviceName,
+    expiresAt: Date.now() + PAIR_REQUEST_TTL_MS,
+  };
+  ctx.store.insertPairRequest(request);
+  json(ctx.res, 201, { requestId: request.id, expiresAt: request.expiresAt });
+});
+
+/** The phone watches its own request; the link appears only after the computer approved it. */
+route("GET", /^\/v1\/installations\/[0-9a-f-]{36}\/pair-requests\/[0-9a-f-]{36}$/, async (ctx) => {
+  const session = controlSession(ctx);
+  const installation = ownedInstallation(ctx, session.account_id);
+  ctx.store.expirePairRequests();
+  const request = ctx.store.pairRequest(ctx.path.split("/")[5]);
+  if (!request || request.installation_id !== installation.id || request.account_id !== session.account_id) {
+    throw new HttpError(404, "not_found");
+  }
+  json(ctx.res, 200, {
+    status: request.status,
+    ...(request.status === "allowed" && request.link ? { link: request.link } : {}),
+    ...(request.status === "denied" ? { reason: "declined" } : {}),
+    expiresAt: Number(request.expires_at),
+  });
+});
+
+/** The desktop asks what is waiting for it. */
+route("GET", "/v1/installations/self/pair-requests", async (ctx) => {
+  const credential = installationAuth(ctx);
+  ctx.store.touchInstallation(credential.installation_id);
+  ctx.store.expirePairRequests();
+  const pending = ctx.store.pendingPairRequests(credential.installation_id).map((row) => ({
+    id: row.id,
+    deviceName: row.device_name,
+    createdAt: Number(row.created_at),
+    expiresAt: Number(row.expires_at),
+  }));
+  json(ctx.res, 200, { requests: pending });
+});
+
+/** The desktop approves (with the link it minted) or declines. Only an allow carries the link. */
+route("POST", /^\/v1\/installations\/self\/pair-requests\/[0-9a-f-]{36}$/, async (ctx) => {
+  const credential = installationAuth(ctx);
+  ctx.store.expirePairRequests();
+  const id = ctx.path.split("/")[5];
+  const request = ctx.store.pairRequest(id);
+  if (!request || request.installation_id !== credential.installation_id) throw new HttpError(404, "not_found");
+  const decision = ctx.body.decision === "allow" ? "allow" : ctx.body.decision === "deny" ? "deny" : null;
+  if (!decision) throw new HttpError(400, "invalid_request");
+  if (request.status !== "pending") throw new HttpError(409, "not_pending");
+  if (decision === "allow") {
+    const link = typeof ctx.body.link === "string" ? ctx.body.link.trim() : "";
+    if (!link.startsWith("lunabot://pair") || link.length > PAIR_LINK_MAX) throw new HttpError(400, "invalid_request");
+    ctx.store.answerPairRequest(id, { status: "allowed", link });
+  } else {
+    ctx.store.answerPairRequest(id, { status: "denied" });
+  }
+  json(ctx.res, 200, { status: decision === "allow" ? "allowed" : "denied" });
+});
+
 route("GET", "/v1/clouds", async (ctx) => {
   const session = controlSession(ctx);
   const clouds = ctx.store.cloudsFor(session.account_id)
