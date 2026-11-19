@@ -2,15 +2,17 @@
 // that exact step, and only once; everything else reaches the phone exactly as it did before. The loop guard rides the
 // same host: the same action on a screen that does not move is nudged in the answer, then refused. The per-turn ledger
 // keeps what each call read, so the answer check and the route recorder work from the same evidence.
-import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { Route } from "../../shared/route-replay.ts";
 import { flushDecisionLog, readDecisions } from "../decision-log.ts";
 import { PhoneRoutes, ownerDirectoryName } from "../phone-routes.ts";
 import type { BotRecord } from "../store.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
+import type { PhoneBot } from "./access.ts";
 import { MAX_CONFIRM_TURNS, PhoneConfirms } from "./confirm.ts";
 import { createPhoneHost, verifyPhoneTurn } from "./host.ts";
 import { PhoneJobs, type PhoneJobDelivery, type PhoneJobOutcome } from "./jobs.ts";
@@ -456,6 +458,54 @@ describe("the per-turn evidence ledger", () => {
     expect((await pending as PhoneToolResult).isError).toBe(true);
     expect(failed.host.endTurn(TURN, { goal: "打开下一页", ownerKey: OWNER }).route).toBeNull();
     expect(routeFiles(failed.dir)).toBe(0);
+  });
+});
+
+describe("the route a matching request is told about", () => {
+  const BOT: PhoneBot = { id: "chief", name: "Luna Bot", phoneApps: { phoneUi: "write" } };
+  /** A goal long enough that the template it leaves clears the matcher's similarity floor. */
+  const GOAL = "帮我在备忘录里打开下一页";
+  const REQUEST = "帮我在备忘录里打开第 2 页";
+
+  const record = async (h: ReturnType<typeof harness>): Promise<void> => {
+    await see(h, HOME);
+    await tapAnswering(h, page(1));
+    expect(h.host.endTurn(TURN, { goal: GOAL, ownerKey: OWNER }).route).not.toBeNull();
+  };
+
+  it("offers the one fitting route as a prompt part, its slot filled from the request", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const parts = h.host.parts(BOT, OWNER, "computer", REQUEST);
+    const part = parts.find((entry) => entry.id === "device-route");
+    expect(part?.text).toContain('("帮我在备忘录里打开{1}")');
+    expect(part?.text).toContain("It starts on com.example.shop.");
+    expect(part?.text).toContain('tap "第 2 页"');
+  });
+
+  it("offers nothing when two routes fit, rather than guessing between them", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    // A second stored route whose template the same request also fits: the choice needs a classifier, so no part.
+    const owner = join(h.dir, "phone-routes", ownerDirectoryName(OWNER));
+    mkdirSync(owner, { recursive: true });
+    const other: Route = {
+      id: "other", template: "帮我在备忘录里{1}", slots: 1, packages: [], appVersions: {},
+      steps: [{ tool: "PHONE_UI_BACK", args: {}, target: null, before: { packageName: null, texts: [] }, after: { packageName: null, texts: [] } }],
+      successes: 0, consecutiveMisses: 0, missStep: null, disabled: false, lastUsedMs: 0,
+    };
+    writeFileSync(join(owner, "other.json"), JSON.stringify(other));
+    const parts = h.host.parts(BOT, OWNER, "computer", REQUEST);
+    expect(parts.find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+  });
+
+  it("offers nothing without a recorder, a request, or a fit", async () => {
+    const plain = harness();
+    expect(plain.host.parts(BOT, OWNER, "computer", REQUEST).find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    const h = harness({ routes: true });
+    await record(h);
+    expect(h.host.parts(BOT, OWNER, "computer").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    expect(h.host.parts(BOT, OWNER, "computer", "把手机关机").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
   });
 });
 

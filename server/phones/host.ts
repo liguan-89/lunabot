@@ -6,7 +6,7 @@ import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // thing on a screen that does not move is nudged once and then refused, so a loop ends instead of running out the turn.
 import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
-import { effectiveWrite, isReplayablePhoneTool, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
+import { effectiveWrite, isReplayablePhoneTool, needsDecision, routePrompt, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
 import { hit } from "../../shared/sensitive.ts";
 import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type VerifyMessage } from "../answer-verify.ts";
 import { appendDecision } from "../decision-log.ts";
@@ -283,9 +283,9 @@ export interface PhoneHost {
   mounts(bot: PhoneBot, owner: string | null): boolean;
   integration(bot: PhoneBot, owner: string | null, mint: () => string, harnessUrl: string): { command: string; args: string[]; env: Record<string, string> } | null;
   prompt(bot: PhoneBot, owner: string | null): string;
-  /** The phone part and, only beside a non-empty one, where the person is: a section of its own, volatile, so a turn
-   * from the phone after one at the computer does not change the cached system prompt. */
-  parts(bot: PhoneBot, owner: string | null, place: PhonePlace): [PromptPart, PromptPart];
+  /** The phone part and, only beside a non-empty one, where the person is and the one fitting route: sections of
+   * their own, volatile, so a turn from the phone or a repeated request does not change the cached system prompt. */
+  parts(bot: PhoneBot, owner: string | null, place: PhonePlace, request?: string): [PromptPart, PromptPart, PromptPart];
   /** For a turn that may not use the phone although the owner's phone would serve this bot: say so, so it does not guess. */
   withheld(bot: PhoneBot, owner: string | null): string;
   /**
@@ -503,9 +503,17 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       };
     },
     prompt,
-    parts(bot, owner, place) {
+    parts(bot, owner, place, request?: string) {
       const text = prompt(bot, owner);
-      return [{ id: "device", label: "Phone", text }, { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] }];
+      // One fitting route is told to the bot so it can replay it; a shortlist it would have to choose between is
+      // not offered, because a classifier has to pick and nothing here may call a model.
+      const matched = request && owner !== null && routes ? routes.match(owner, request) : [];
+      const route = needsDecision(matched) ? null : (matched[0] ?? null);
+      return [
+        { id: "device", label: "Phone", text },
+        { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] },
+        { id: "device-route", label: "A path that worked before", text: text && route ? routePrompt(route, request!) : "" },
+      ];
     },
     withheld: (bot, owner) => (owner !== null && mounts(bot, owner) ? phoneWithheldPrompt(bot, phonesOf(owner).map(({ registration }) => registration)) : ""),
     confirm: confirms,

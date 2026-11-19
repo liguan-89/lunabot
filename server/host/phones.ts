@@ -168,6 +168,13 @@ export function createPhones(deps: PhonesDeps) {
     verifyMode: deps.verifyMode ?? (() => "off"),
   });
 
+  /** The line the thread's latest direct request answers, as the route recorder and the route part both read it. */
+  const goalFor = (threadId: string): string => {
+    const request = deps.request(threadId);
+    const line = request?.messageId ? store.messagesFor(threadId).find((message) => message.id === request.messageId) : undefined;
+    return line?.text ?? "";
+  };
+
   return {
     routineAuthors,
     fromPhone,
@@ -188,13 +195,14 @@ export function createPhones(deps: PhonesDeps) {
       if (sends.has(line?.sendId)) return "phone";
       return personAsked && !request?.automation && request?.origin?.kind === "user" ? "computer" : "unattended";
     },
+    goalFor,
     /** Only for the owner's own turn and a bot granted an app one of the owner's phones allows. */
     integration(bot: BotRecord, turn: { threadId: string; generation: string }) {
       return host.integration(bot, turnOwner({ botId: bot.id, ...turn }), () => deps.mint(bot.id, turn), deps.harnessUrl);
     },
     /** A turn's phone parts: what it may use and where the person is, or (unmounted) why the owner's phone is not here. */
     promptParts(bot: PhoneBot, input: { mounted: boolean; offered: boolean; turn: Turn; place: PhonePlace }): PromptPart[] {
-      if (input.mounted) return host.parts(bot, turnOwner(input.turn), input.place);
+      if (input.mounted) return host.parts(bot, turnOwner(input.turn), input.place, goalFor(input.turn.threadId));
       return [{ id: "device", label: "Phone", text: input.offered ? host.withheld(bot, owner()) : "" }];
     },
     /** The bot settings preview: the owner's phone as a turn at the computer would see it. */
@@ -223,8 +231,7 @@ export function createPhones(deps: PhonesDeps) {
     turnEnded(turn: Turn, input: { reply: string; stopped: boolean }): void {
       if (!store.bot(turn.botId)) return;
       const request = deps.request(turn.threadId);
-      const goal = request?.messageId
-        ? store.messagesFor(turn.threadId).find((message) => message.id === request.messageId)?.text ?? "" : "";
+      const goal = goalFor(turn.threadId);
       // A routine's run, a handoff and an unattended wake are nobody's own line: their calls are evidence, not a route.
       const personLine = request !== undefined && request.automation === undefined && request.origin?.kind === "user";
       const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine });
