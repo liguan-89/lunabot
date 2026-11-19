@@ -13,7 +13,7 @@ import { cliCommand } from "./cli-invocation.ts";
 import { relayBaseUrlOverride } from "../companion/src/e2e/config.ts";
 import { b64u, fromB64u } from "../companion/src/e2e/credentials.ts";
 import type { E2EDescriptor } from "../companion/src/e2e/descriptor.ts";
-import { generateKeyPair, keyPairFromPrivate, TRANSPORT_RELAY, type KeyPair } from "../companion/src/e2e/noise.ts";
+import { generateKeyPair, keyPairFromPrivate, CLOSE, TRANSPORT_RELAY, type KeyPair } from "../companion/src/e2e/noise.ts";
 import { handleDirectUpgrade, isE2EUpgrade } from "../companion/src/e2e/direct.ts";
 import { createE2EOrigin, e2eContextOf, type E2EOriginDeadlines } from "../companion/src/e2e/origin.ts";
 import { E2ERegistry, type E2EContext, type E2EDevices, type Peer } from "../companion/src/e2e/registry.ts";
@@ -70,8 +70,11 @@ export interface PhoneRelay {
   invite(credential: string, name: string | undefined, publicOrigin: string | null): string | null;
   /** What `POST /api/pair` adds for a phone that paired through the relay. */
   pairedOver(req: IncomingMessage): { e2e?: E2EDescriptor; endpoints?: CompanionEndpoint[] };
-  /** The endpoint list for `GET /api/companion/endpoints`, the same body the desktop's sidecar answers. */
-  endpoints(): { serverName: string; endpoints: CompanionEndpoint[]; version?: string; e2e?: E2EDescriptor };
+  /** The endpoint list for `GET /api/companion/endpoints`, the same body the desktop's sidecar answers. `deviceId`
+   * selects the descriptor: a device restricted to its own networks is told so. */
+  endpoints(deviceId?: string | null): { serverName: string; endpoints: CompanionEndpoint[]; version?: string; e2e?: E2EDescriptor };
+  /** A device's way in changed; a narrowing closes its relay sessions. */
+  routesChanged(deviceId: string): void;
   /** Why `POST /api/pair` refuses this input, or null: through the relay only the QR's credential pairs, never a code. */
   pairingRefusal(req: IncomingMessage, input: string): string | null;
   /**
@@ -87,7 +90,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse) => unknown;
 export interface PhoneRelayOptions {
   env: NodeJS.ProcessEnv;
   dataDir: string;
-  sessions: Pick<SessionRegistry, "bearerDigests" | "pairingDigests" | "onSessionIssued" | "onSessionRevoked" | "list" | "ticketOwner">;
+  sessions: Pick<SessionRegistry, "bearerDigests" | "deviceDigests" | "pairingDigests" | "onSessionIssued" | "onSessionRevoked" | "list" | "ticketOwner" | "routesOf">;
   handle: Handler;
   serverName(): string;
   publicOrigin(): string | null;
@@ -215,6 +218,7 @@ function offForTunnel(reason: string): PhoneRelay {
     invite: () => null,
     pairedOver: () => ({}),
     endpoints: () => ({ serverName: "", endpoints: [] }),
+    routesChanged: () => {},
     pairingRefusal: () => null,
     directUpgrade: () => false,
     stop: () => {},
@@ -248,7 +252,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   const phones = readPhones(dataDir);
   const savePhones = () => writeFileAtomic(join(dataDir, PHONE_RELAY_PHONES_FILE), `${JSON.stringify({ v: 1, phones: [...phones] })}\n`, { mode: 0o600 });
   const devices: E2EDevices = {
-    records: () => sessions.bearerDigests(phones),
+    records: () => sessions.deviceDigests(phones),
     pairingWindows: () => sessions.pairingDigests(MAX_PAIRING_WINDOWS).map((tokenHash) => ({ tokenHash })),
     confirm: () => {},
     markE2E: () => {},
@@ -267,7 +271,9 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   let grantState: PhoneRelayGrantState = "waiting";
   let tunnelReason: string | null = null;
   const baseUrl = relayBaseUrlOverride(options.env.OMB_PHONE_RELAY_URL);
-  const descriptor = () => e2e.descriptor(null);
+  /** The descriptor as one device sees it: a device restricted to its own networks is told `"local"`, and the relay
+   * never admits it (the registry filters `routes === "local"` out of the admission set). */
+  const descriptor = (deviceId: string | null = null) => e2e.descriptor(deviceId);
 
   const counts = () => {
     const e2eCount = devices.records().length;
@@ -311,9 +317,10 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
   const origin = createE2EOrigin((req, res) => relayed(req, res), (req, socket, head) => upgraded(req, socket, head), options.streamDeadlines ?? STREAM_DEADLINES);
 
   /** The endpoint list, read fresh on every ask: a new DHCP lease, a later `--lan` or a changed public origin reaches an
-   * already-paired phone instead of leaving it on the routes its QR carried. */
-  const endpointsBody = () => {
-    const current = descriptor();
+   * already-paired phone instead of leaving it on the routes its QR carried. `deviceId` picks the descriptor the asking
+   * device is given, which is what carries a `local` restriction. */
+  const endpointsBody = (deviceId: string | null = null) => {
+    const current = descriptor(deviceId);
     return {
       serverName: options.serverName(),
       endpoints: serverEndpoints(options.publicOrigin(), options.port ?? 8799, options.env, options.addresses?.()),
@@ -416,7 +423,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
       if (ticket && sessions.ticketOwner(ticket) !== peer.id) return reply(res, 401, { error: "this connection belongs to another device" });
       if (method === "GET" && path === "/api/companion/endpoints") {
         if (!bearer) return reply(res, 401, { error: "pair this device first" });
-        return reply(res, 200, endpointsBody());
+        return reply(res, 200, endpointsBody(peer.id));
       }
     }
     void pairing.run(context, () => Promise.resolve(options.handle(req, res))).catch(() => {
@@ -458,7 +465,15 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
       const routes = serverEndpoints(options.publicOrigin(), options.port ?? 8799, options.env, options.addresses?.());
       return { ...(current ? { e2e: current } : {}), ...(routes.length ? { endpoints: routes } : {}) };
     },
-    endpoints: () => endpointsBody(),
+    endpoints: (deviceId) => endpointsBody(deviceId ?? null),
+    /** A device's way in changed. Narrowed to `local`, the relay stops admitting it at once (the admission set is
+     * rebuilt from `deviceDigests`) and its relay sessions are closed; direct ones stay. Widened, admission comes
+     * first. */
+    routesChanged(deviceId) {
+      relay?.refreshAdmission();
+      if (sessions.routesOf(deviceId) !== "local") return;
+      e2e.closeDevice(deviceId, CLOSE.normal, "relay");
+    },
     pairingRefusal: (req, input) => (e2eContextOf(req.socket) && !isPairingCredential(input) ? "pair a phone with its QR code" : null),
     directUpgrade(req, socket, head) {
       if (!isE2EUpgrade(req)) return false;

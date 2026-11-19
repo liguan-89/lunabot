@@ -13381,6 +13381,21 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       if (auth.kind === "session" && auth.session.id === m[1]) res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE));
       return json(res, revoked ? 200 : 404, revoked ? { ok: true } : { error: "no such session" });
     }
+    // Where one paired device may connect from. `local` keeps it on this machine's own networks and off the relay; the
+    // relay drops its sessions at once, so the change is not only what the phone is told.
+    m = path.match(/^\/api\/auth\/sessions\/([\w-]+)\/routes$/);
+    if (m && method === "PUT") {
+      const sessionId = m[1];
+      if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
+        return json(res, 415, { error: "content-type must be application/json" });
+      }
+      const body = await readBody(req, 4096);
+      const next = body?.routes;
+      if (next !== "any" && next !== "local") return json(res, 400, { error: 'routes must be "any" or "local"' });
+      if (!sessions.setRoutes(sessionId, next)) return json(res, 404, { error: "no such session" });
+      phoneRelay?.routesChanged(sessionId);
+      return json(res, 200, { ok: true, session: sessions.list().find((session) => session.id === sessionId) ?? null });
+    }
     // Test-only routes exist only when the launcher sets a high-entropy test key, which production builds never set.
     if (method === "POST" && path === "/api/testing/org-library") {
       const expected = Buffer.from(process.env.OMB_TEST_ORG_LIBRARY_KEY ?? "");

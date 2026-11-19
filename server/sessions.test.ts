@@ -828,3 +828,29 @@ describe("a member's own phone on a Team Cloud", () => {
     expect(registry.memberPhones(), "an ended phone is not listed").toEqual([]);
   });
 });
+
+describe("where a paired device may connect from", () => {
+  it("is anywhere until set, survives a reload, and is listed for the person who set it", () => {
+    const phone = registry.issue({ label: "Pixel", scopes: ["client"] });
+    expect(registry.routesOf(phone.session.id)).toBe("any");
+    expect(registry.list().find((session) => session.id === phone.session.id)?.routes).toBeUndefined();
+
+    expect(registry.setRoutes(phone.session.id, "local")).toBe(true);
+    expect(registry.routesOf(phone.session.id)).toBe("local");
+    expect(registry.list().find((session) => session.id === phone.session.id)?.routes).toBe("local");
+    expect(registry.deviceDigests(new Set([phone.session.id]))).toEqual([
+      { id: phone.session.id, tokenHash: expect.any(String), routes: "local" },
+    ]);
+
+    // A restart reads it back: the restriction is stored, not held in memory.
+    const reopened = new SessionRegistry({ file: file(), now: () => clock });
+    expect(reopened.routesOf(phone.session.id)).toBe("local");
+    reopened.close();
+
+    // Widening drops the field rather than storing "any", so a session written before it existed reads the same.
+    expect(registry.setRoutes(phone.session.id, "any")).toBe(true);
+    expect(registry.routesOf(phone.session.id)).toBe("any");
+    expect(registry.deviceDigests(new Set([phone.session.id]))[0]).not.toHaveProperty("routes");
+    expect(registry.setRoutes("no-such-device", "local")).toBe(false);
+  });
+});

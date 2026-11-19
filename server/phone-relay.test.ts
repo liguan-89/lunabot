@@ -251,6 +251,36 @@ describe("phones through Luna Bot Relay on a server", () => {
     }, 6_000)).toEqual(new SessionClosed(4404));
   });
 
+  it("stops admitting a phone the owner restricts to its own networks, and closes its relay session", async () => {
+    const server = await startServer();
+    await connected(server);
+    const phone = await pairPhone(server);
+    const session = await waitFor(() => viaRelay(server, phone.k, phone.token).catch(() => null), 6_000);
+    expect(json(await http(session, "GET", "/api/health")).app).toBe("openmausbot");
+
+    // The owner narrows this device: the descriptor it would be given says so, the relay stops admitting it, and the
+    // session it holds over the relay is closed. On a relay-only server that leaves it with no way in until the owner
+    // widens it again — which is what the setting means.
+    expect(server.sessions.setRoutes(phone.id, "local")).toBe(true);
+    expect(server.phoneRelay.endpoints(phone.id).e2e).toMatchObject({ v: 1, routes: "local" });
+    server.phoneRelay.routesChanged(phone.id);
+    await waitFor(() => !server.relay.admitted(b64u(server.hostId)).has(admissionHash(admission(credentialHash(phone.token), server.hostId))), 6_000);
+    await expect(waitFor(async () => {
+      const outcome = await http(session, "GET", "/api/health").then(() => null, (error: unknown) => error);
+      return outcome ?? null;
+    }, 6_000)).resolves.toBeTruthy();
+    // A new relay session for this device is refused outright.
+    await expect(viaRelay(server, phone.k, phone.token)).rejects.toEqual(new SessionClosed(4404));
+
+    // Widened again, it is admitted and the descriptor stops saying `local`.
+    server.sessions.setRoutes(phone.id, "any");
+    server.phoneRelay.routesChanged(phone.id);
+    await waitFor(() => server.relay.admitted(b64u(server.hostId)).has(admissionHash(admission(credentialHash(phone.token), server.hostId))), 6_000);
+    const again = await waitFor(() => viaRelay(server, phone.k, phone.token).catch(() => null), 6_000);
+    expect(json(await http(again, "GET", "/api/companion/endpoints", { token: phone.token })).e2e).not.toHaveProperty("routes");
+    again.shutdown();
+  });
+
   it("tells a removed phone so inside the encryption, then the relay admits it no more", async () => {
     const server = await startServer();
     await connected(server);

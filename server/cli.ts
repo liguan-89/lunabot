@@ -83,6 +83,8 @@ export interface CliOptions {
   client: boolean;
   pair: boolean;
   revoke?: string;
+  /** `devices routes <id> any|local`: where one paired device may connect from. */
+  routes?: { id: string; routes: "any" | "local" };
   /** `access list|add|remove` */
   accessAction?: "list" | "add" | "remove";
   chatOnly?: boolean;
@@ -177,6 +179,13 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
       else if (arg === "--json") options.json = true;
       else if (arg === "--email") options.email = value();
       else if (options.command === "sessions" && (arg === "revoke" || arg === "list")) { if (arg === "revoke") options.revoke = value(); }
+      else if (options.command === "sessions" && arg === "routes") {
+        const id = value();
+        const where = rest[i + 1];
+        if (where !== "any" && where !== "local") throw new Error('routes needs "any" or "local" after the device id');
+        i += 1;
+        options.routes = { id, routes: where };
+      }
       else if (options.command === "access" && !options.accessAction && (arg === "list" || arg === "add" || arg === "remove")) {
         options.accessAction = arg;
         if (arg !== "list") options.email = value();
@@ -402,6 +411,24 @@ export async function runSessions(options: CliOptions): Promise<number> {
       return 1;
     }
     console.log(`revoked ${options.revoke}: that device is signed out and its stream is closed`);
+    return 0;
+  }
+  if (options.routes) {
+    const { status, body } = await api(options.port, `/api/auth/sessions/${encodeURIComponent(options.routes.id)}/routes`, {
+      method: "PUT",
+      body: JSON.stringify({ routes: options.routes.routes }),
+    });
+    if (refusedAsService(status, body)) {
+      console.error(SERVICE_TRUST_HELP);
+      return 1;
+    }
+    if (status !== 200) {
+      console.error(`could not change where that device connects from: ${typeof body?.error === "string" ? body.error : status}`);
+      return 1;
+    }
+    console.log(options.routes.routes === "local"
+      ? `${options.routes.id} now connects from this machine's own networks only (Wi-Fi and tailnet); its relay sessions are closed`
+      : `${options.routes.id} may connect from anywhere again`);
     return 0;
   }
   const { status, body } = await api(options.port, "/api/auth/sessions");
