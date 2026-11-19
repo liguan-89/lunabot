@@ -417,7 +417,7 @@ fun SettingsScreen(
             }
 
             SettingsSection(
-                label = "DEX 账号",
+                label = "Cloud 账号",
                 // Errors and browser results are answers, not explanations;
                 // the rest of the account story lives in the desktop app.
                 footer = if (accountUi.error == null && accountUi.notice == null && cloudNotice == null) {
@@ -456,7 +456,7 @@ fun SettingsScreen(
                     }
                     CloudAccountUi.Phase.SIGNED_OUT -> {
                         SettingsRow(
-                            title = "登录 DEX 账号",
+                            title = "登录 Cloud 账号",
                             chevron = true,
                             onClick = {
                                 environment.cloudAccount.clearError()
@@ -1298,7 +1298,7 @@ fun SettingsScreen(
             title = { Text("从账号移除 ${computer.name}？") },
             text = {
                 Text(
-                    "这条记录会从你的 DEX 账号里删除，所有登录了这个账号的手机都不再看到它。" +
+                    "这条记录会从你的 Cloud 账号里删除，所有登录了这个账号的手机都不再看到它。" +
                         "电脑本身不受影响，它下次登录会重新出现。",
                 )
             },
@@ -1729,7 +1729,7 @@ private fun DexSignInSheet(
     }
     val enteringEmail = ui.codeSentTo == null
     SettingsSheet(
-        title = if (enteringEmail) "登录 DEX 账号" else "输入登录码",
+        title = if (enteringEmail) "登录 Cloud 账号" else "输入登录码",
         onDismiss = onDismiss,
         actionLabel = if (enteringEmail) "发送登录码" else "登录",
         actionEnabled = !ui.busy,
@@ -1743,7 +1743,7 @@ private fun DexSignInSheet(
         ) {
             if (enteringEmail) {
                 Text(
-                    "用 DEX 账号的邮箱接收一个 8 位登录码。",
+                    "用 Cloud 账号的邮箱接收一个 8 位登录码。",
                     fontSize = 12.sp,
                     color = secondaryTint,
                 )
@@ -2011,7 +2011,7 @@ private fun IdentityRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        DexBotMark(40.dp)
+        LunaBotMark(40.dp)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -2214,7 +2214,7 @@ private fun BrandBlock(version: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        DexBotMark(56.dp)
+        LunaBotMark(56.dp)
         Text("Luna Bot", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         Text(
             text = version,

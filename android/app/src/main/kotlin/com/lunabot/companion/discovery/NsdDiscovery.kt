@@ -595,6 +595,6 @@ class NsdDiscovery(
 
     companion object {
         const val SERVICE_TYPE = "_lunabot._tcp."
-        const val MULTICAST_LOCK_TAG = "dexbot-nsd"
+        const val MULTICAST_LOCK_TAG = "lunabot-nsd"
     }
 }

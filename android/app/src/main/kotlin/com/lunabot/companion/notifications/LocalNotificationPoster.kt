@@ -68,7 +68,7 @@ class LocalNotificationPoster(
         val body = NotificationText.anchored(notification.body)
         val builder = NotificationCompat.Builder(appContext, channelId)
             // The app's own mark, monochrome as the status bar requires.
-            .setSmallIcon(R.drawable.ic_dexbot_mark)
+            .setSmallIcon(R.drawable.ic_lunabot_mark)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -161,7 +161,7 @@ class LocalNotificationPoster(
         val anchoredTitle = NotificationText.anchored(title)
         val anchoredText = NotificationText.anchored(text)
         val builder = NotificationCompat.Builder(appContext, NotificationMapping.CHANNEL_BLOCKING)
-            .setSmallIcon(R.drawable.ic_dexbot_mark)
+            .setSmallIcon(R.drawable.ic_lunabot_mark)
             .setContentTitle(anchoredTitle)
             .setContentText(anchoredText)
             .setStyle(NotificationCompat.BigTextStyle().bigText(anchoredText))

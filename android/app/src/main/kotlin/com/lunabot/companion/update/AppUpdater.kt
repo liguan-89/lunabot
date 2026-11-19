@@ -171,7 +171,7 @@ class AppUpdater(
         val directory = File(appContext.cacheDir, "updates").apply { mkdirs() }
         // One package at a time; a retry replaces the previous partial file.
         directory.listFiles()?.forEach { it.delete() }
-        val target = File(directory, "dexbot-${info.versionCode}.apk")
+        val target = File(directory, "lunabot-${info.versionCode}.apk")
         val connection = (URL(info.apkUrl).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 60_000

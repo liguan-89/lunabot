@@ -5,11 +5,11 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.dexbot.companion.core.phoneui.adb, comments
+ * original: repackaged under com.lunabot.companion.core.phoneui.adb, comments
  * translated into English, and the mDNS/NSD service discovery types
  * (AdbServiceTypes, AdbServiceFinder) are not ported, that stays app-side.
  */
-package com.dexbot.companion.core.phoneui.adb
+package com.lunabot.companion.core.phoneui.adb
 
 import java.io.DataInputStream
 import java.io.EOFException

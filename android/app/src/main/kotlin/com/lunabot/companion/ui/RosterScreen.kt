@@ -1502,7 +1502,7 @@ private fun SearchHitRow(hit: SearchHit, onClick: () -> Unit) {
             painter = if (SearchHitRole.isFromUser(hit.role)) {
                 rememberVectorPainter(Icons.Filled.Person)
             } else {
-                painterResource(R.drawable.ic_dexbot_mark)
+                painterResource(R.drawable.ic_lunabot_mark)
             },
             contentDescription = SearchHitRole.contentDescription(hit.role, hit.name),
             tint = secondaryTint,

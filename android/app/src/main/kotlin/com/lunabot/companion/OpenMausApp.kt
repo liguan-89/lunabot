@@ -90,7 +90,7 @@ class OpenMausApp : Application() {
     lateinit var phoneUi: PhoneUiController
         private set
 
-    /** The DEX account this phone signs in with; one account across the desktop and every Cloud. */
+    /** The Cloud account this phone signs in with; one account across the desktop and every Cloud. */
     lateinit var cloudAccount: CloudAccountController
         private set
 
@@ -112,6 +112,9 @@ class OpenMausApp : Application() {
             "openmaus.always_on" to "dexbot.always_on",
             "dexbot.permissions" to "lunabot.permissions",
             "dexbot.onboarding" to "lunabot.onboarding",
+            "dexbot.chat-preferences" to "lunabot.chat-preferences",
+            "dexbot.always_on" to "lunabot.always_on",
+            "dexbot.phoneui.adb" to "lunabot.phoneui.adb",
         )
         for ((legacy, current) in names) {
             val source = File(directory, "$legacy.xml")

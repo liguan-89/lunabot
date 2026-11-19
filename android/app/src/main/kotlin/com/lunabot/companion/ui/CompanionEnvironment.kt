@@ -111,7 +111,7 @@ class CompanionEnvironment(
     val onboarding: OnboardingPreferences,
     /** Phone-local transcript and composer presentation choices. */
     val chatPreferences: ChatPreferences,
-    /** The DEX account this phone signs in with, and the Cloud desktops it can open. */
+    /** The Cloud account this phone signs in with, and the Cloud desktops it can open. */
     val cloudAccount: CloudAccountController,
     val camera: CameraPermissionController,
     val mic: MicPermissionController,

@@ -5,11 +5,11 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.dexbot.companion.core.phoneui.adb and comments
+ * original: repackaged under com.lunabot.companion.core.phoneui.adb and comments
  * translated into English; the storage glue (AdbIdentitySource, AdbKeyState,
  * AdbKeyStore, WrappedKeyFile) is not ported, that stays app-side.
  */
-package com.dexbot.companion.core.phoneui.adb
+package com.lunabot.companion.core.phoneui.adb
 
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -91,7 +91,7 @@ class AdbIdentity(val keyPair: KeyPair, val name: String) {
 
         private fun signsWith(key: RSAPrivateKey, e: BigInteger): Boolean = runCatching {
             val pub = KeyFactory.getInstance("RSA").generatePublic(RSAPublicKeySpec(key.modulus, e))
-            val data = "dexbot-adb-key-check".toByteArray()
+            val data = "lunabot-adb-key-check".toByteArray()
             val sig = Signature.getInstance("SHA256withRSA").run { initSign(key); update(data); sign() }
             Signature.getInstance("SHA256withRSA").run { initVerify(pub); update(data); verify(sig) }
         }.getOrDefault(false)

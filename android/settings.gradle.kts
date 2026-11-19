@@ -19,7 +19,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "dexbot-android"
+rootProject.name = "lunabot-android"
 include(":core")
 include(":app")
 // The generator for app/src/main/baseline-prof.txt. It is a test-only module:

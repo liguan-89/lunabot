@@ -36,7 +36,7 @@ class AlwaysOnPreferences(private val prefs: SharedPreferences) {
     }
 
     companion object {
-        const val NAME = "dexbot.always_on"
+        const val NAME = "lunabot.always_on"
         const val KEY_ENABLED = "enabled"
     }
 }

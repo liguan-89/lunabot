@@ -96,8 +96,7 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
         ) {
             Text(
                 // The app's own name, the same one the launcher and every
-                // other surface use. The computer is still OpenMausBot; this
-                // header names the phone client, so it is Luna Bot.
+                // other surface use. This header names the phone client.
                 text = "Luna Bot",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -179,7 +178,7 @@ fun StartingScreen() {
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        DexBotMark(72.dp)
+        LunaBotMark(72.dp)
         Text(
             text = "正在启动…",
             fontSize = 12.sp,
