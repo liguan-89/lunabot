@@ -424,9 +424,10 @@ jobs:
           # Fly: the proxy's private address names the client in Fly-Client-IP, exactly as before.
           run_home fly omb-fly-ci 18082 -e FLY_APP_NAME=omb-t-ci
           healthy fly 18082
-          for i in $(seq 1 10); do test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.7' -H "Cf-Connecting-IP: 198.51.100.$i")" = 401; done
-          test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.7')" = 429
-          test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.8')" = 401
+          want() { local code=$1; shift; local got; got=$(bad_pair "$@") || true; [ "$got" = "$code" ] || { echo "pairing: wanted $code, got '$got'"; docker logs fly 2>&1 | tail -15; return 1; }; }
+          for i in $(seq 1 10); do want 401 18082 -H 'Fly-Client-IP: 203.0.113.7' -H "Cf-Connecting-IP: 198.51.100.$i"; done
+          want 429 18082 -H 'Fly-Client-IP: 203.0.113.7'
+          want 401 18082 -H 'Fly-Client-IP: 203.0.113.8'
           docker rm -f fly >/dev/null
           docker volume rm omb-fly-ci >/dev/null
 
