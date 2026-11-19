@@ -3073,6 +3073,37 @@ describe("restoring the open conversation", () => {
       expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
     });
 
+    it("clears a pictures notice while the next task snapshot is still pending", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.stubGlobal("fetch", () => new Promise<Response>(() => {}));
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+      flushSync(() => dispatch({ type: "switchTask", botId: "bot-1", threadId: "task-b" }));
+      expect(seen.bots.find((bot) => bot.id === "bot-1")).toMatchObject({ threadId: "bot-1-thread", switchingTo: "task-b" });
+      expect(seen.notice).toBeNull();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "task-b" } }));
+      expect(seen.notice).toMatchObject({ threadId: "task-b" });
+    });
+
+    it("ignores a pictures-held response arriving after navigation without erasing the current notice", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      let respond!: (response: Response) => void;
+      vi.stubGlobal("fetch", () => new Promise<Response>((resolve) => { respond = resolve; }));
+      const settled = vi.fn();
+      flushSync(() => dispatch({ type: "steerQueued", botId: "bot-1", queueId: "delayed-image", onSettled: settled }));
+      await settle();
+      flushSync(() => dispatch({ type: "select", id: "bot-2" }));
+      const current = { kind: "steer-images" as const, botName: null, threadId: "bot-2-thread" };
+      flushSync(() => dispatch({ type: "notice", notice: current }));
+      respond(new Response(JSON.stringify({ ok: true, queued: true, threadId: "bot-1-thread", blockedBy: "images" })));
+      await settle();
+      expect(settled).toHaveBeenCalledOnce();
+      expect(seen.notice).toEqual(current);
+    });
+
     it("ignores a held room-steer note arriving after navigation without erasing the current notice", async () => {
       const { stream } = await boot();
       stream.send(hello());
