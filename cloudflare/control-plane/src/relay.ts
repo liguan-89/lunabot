@@ -11,7 +11,10 @@ export const RELAY_TOKEN_TTL_S = 12 * 60 * 60;
 export const RELAY_REFRESH_AFTER_S = 60 * 60;
 export const RELAY_TOKEN_LIMIT = 60;
 const ADOPTION_WINDOW_MS = 30 * 24 * HOUR_MS;
-const RELAY_HOST = /^relay[1-9][0-9]?\.lunabot\.com$/;
+/** The nodes a computer may be sent to. The app refuses a descriptor naming a host outside its own list
+ * (`companion/src/e2e/descriptor.ts`), so both hold the same names; a Worker whose `RELAY_NODES` it rejects turns
+ * the relay off for every computer. */
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.(?:lunabot|openmausbot)\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 const KID = /^k[0-9]{1,3}$/;
 const VERSION = /^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,6}$/;
 const UUIDISH = /^[0-9a-f-]{36}$/;

@@ -6,7 +6,7 @@ import { parseTokenKeys, verifyToken } from "../src/token.ts";
 import { keysJson, mintToken, testKey } from "./helpers.ts";
 
 /** The SHA-256 the wire spec pins for vectors/v1.json; a stale copy here fails. */
-const PINNED_VECTORS = "e8f2fa25534c6b4e6f51d75054d2d8d5e2a8788370cc550791cef2b3b300a02f";
+const PINNED_VECTORS = "1b05438928a8b2631a12c3bcfb3ec785a71a7c61cddab2b91367c48b27bb3118";
 const vectorsText = readFileSync(new URL("./vectors/e2e-v1.json", import.meta.url));
 const vectors = JSON.parse(vectorsText.toString("utf8"));
 const V8 = vectors.V8;
