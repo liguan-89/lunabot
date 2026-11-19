@@ -1558,10 +1558,15 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
         // Explicit ink: the row's inherited content colour is not the card's,
         // and without it the title drew near-black on the dark card.
         Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
-        // The detail of what is being approved is the thing worth copying.
-        SelectionContainer {
-            Text(card.subtitle, fontSize = 14.sp, color = minisSecondary)
-        }
+        // The detail of what is being approved is the thing worth copying, and
+        // it is also the thing with no length limit: a command, a diff, a tool's
+        // own explanation. Folding it keeps one such card from filling the
+        // screen; the whole text stays one tap away.
+        ExpandableText(
+            text = card.subtitle,
+            style = TextStyle(fontSize = 14.sp, color = minisSecondary),
+            showMore = "显示完整内容",
+        )
 
         card.held?.let {
             Text(it, fontSize = 13.sp, color = minisWarning)

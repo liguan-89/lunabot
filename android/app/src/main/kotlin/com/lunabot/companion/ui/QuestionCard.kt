@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -176,6 +177,28 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
             Text("智能体生成的问题", fontSize = 12.sp, color = secondaryTint)
         }
 
+        // A settled ask is a receipt: the question that was asked, folded, and
+        // one line per question saying what came back. It used to draw the body
+        // whole and then echo `answeredText` — which is `Q: <the same
+        // question>\nA: <pick>` — so a long question filled the screen twice.
+        if (settled) {
+            val answer = card.answeredText ?: sent
+            val byQuestion = SettledQuestionLine.answers(questions, answer)
+            // The tabs are gone by now, so every question is drawn: a settled
+            // multi-question card that showed only the active one would hide the
+            // answers the other tabs received.
+            questions.forEach { question ->
+                ExpandableText(
+                    text = question.question,
+                    style = TextStyle(fontSize = 15.sp),
+                )
+                SettledQuestionLine.line(question, byQuestion[question.question])
+                    ?.let { AnswerLine(it) }
+            }
+            if (byQuestion.isEmpty()) AnswerLine(SettledQuestionLine.ANSWERED)
+            return@Column
+        }
+
         if (questions.size > 1) {
             Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -223,32 +246,12 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
             }
         }
 
-        SelectionContainer {
-            Text(current.question, fontSize = 15.sp)
-        }
-
-        if (settled) {
-            val answer = card.answeredText ?: sent
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.Top,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Check,
-                    contentDescription = null,
-                    tint = secondaryTint,
-                    modifier = Modifier.size(16.dp),
-                )
-                SelectionContainer {
-                    Text(
-                        answer?.let(AskQuestionAnswer::withoutPreamble) ?: "已回答",
-                        fontSize = 14.sp,
-                        color = secondaryTint,
-                    )
-                }
-            }
-            return@Column
-        }
+        // A bot-authored question has no client-side length limit, so it folds
+        // rather than filling the screen; the whole text is one tap away.
+        ExpandableText(
+            text = current.question,
+            style = TextStyle(fontSize = 15.sp),
+        )
 
         if (current.allowsMultiple) {
             Text("可多选", fontSize = 12.sp, color = secondaryTint)
@@ -399,6 +402,26 @@ private fun Marker(checked: Boolean, multi: Boolean) {
                     .size(8.dp)
                     .background(MaterialTheme.colorScheme.onPrimary, CircleShape),
             )
+        }
+    }
+}
+
+/** The one line a settled question keeps: a tick and what came back. */
+@Composable
+private fun AnswerLine(text: String) {
+    Row(
+        modifier = Modifier.heightIn(min = MIN_TOUCH_TARGET),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            imageVector = Icons.Filled.Check,
+            contentDescription = null,
+            tint = secondaryTint,
+            modifier = Modifier.size(16.dp),
+        )
+        SelectionContainer {
+            Text(text = text, fontSize = 14.sp, color = secondaryTint)
         }
     }
 }
