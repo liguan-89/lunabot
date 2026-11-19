@@ -538,7 +538,14 @@ fun SettingsScreen(
                                     // tapping again is how it is called off.
                                     enabled = if (waiting) true else accountUi.pairingComputerId == null && !accountUi.busy,
                                     trailing = {
-                                        TextButton(onClick = { pendingAccountComputerRemoval = computer }) {
+                                        // Not while this row's request is in
+                                        // flight: deleting the installation the
+                                        // computer is being asked to approve
+                                        // would answer the question with a 404.
+                                        TextButton(
+                                            enabled = !waiting && !accountUi.busy,
+                                            onClick = { pendingAccountComputerRemoval = computer },
+                                        ) {
                                             Text("移除", fontSize = 13.sp, color = minisDanger)
                                         }
                                     },
