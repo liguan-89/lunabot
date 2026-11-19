@@ -37,7 +37,8 @@ import { clearLeftoverTailscaleServe, explainTailscaleFailure, tailscaleServe, t
 import { defaultSetupIo, SetupCancelled, type SetupIo } from "./cli-prompts.ts";
 import { HEADLESS_VERB_NAMES, usage } from "./cli-usage.ts";
 import { normalizePhoneOrigin, phonePairingInstructions, runPhoneSetup } from "./cli-phone-setup.ts";
-import { browserSignInLines, desktopOwnedRefusal, formatSessions, pairingBlock, RELAY_NOT_WITH_TUNNEL, relayPairingBlock, showRelayPairing } from "./cli-pairing.ts";
+import { browserSignInLines, desktopOwnedRefusal, pairingBlock, RELAY_NOT_WITH_TUNNEL, relayPairingBlock, showRelayPairing } from "./cli-pairing.ts";
+import { createSessionsCommand } from "./cli-sessions.ts";
 import { cliCommand, cliPrefix } from "./cli-invocation.ts";
 import { resolveDataDir } from "./data-dir.ts";
 import { checkReach, envPublicUrl, lanProblem, localLinkBase, noRouteLines, publicUrlProblem, reachLines, waitForReach, type Route } from "./cli-reach.ts";
@@ -395,63 +396,12 @@ export async function runPair(options: CliOptions): Promise<number> {
   return 0;
 }
 
-export async function runSessions(options: CliOptions): Promise<number> {
-  if (!(await serverUp(options.port))) {
-    console.error(`no Luna Bot server on http://127.0.0.1:${options.port}`);
-    return 1;
-  }
-  if (options.revoke) {
-    const { status, body } = await api(options.port, `/api/auth/sessions/${encodeURIComponent(options.revoke)}`, { method: "DELETE" });
-    if (refusedAsService(status, body)) {
-      console.error(SERVICE_TRUST_HELP);
-      return 1;
-    }
-    if (status !== 200) {
-      console.error(`could not revoke: ${typeof body?.error === "string" ? body.error : status}`);
-      return 1;
-    }
-    console.log(`revoked ${options.revoke}: that device is signed out and its stream is closed`);
-    return 0;
-  }
-  if (options.routes) {
-    const { status, body } = await api(options.port, `/api/auth/sessions/${encodeURIComponent(options.routes.id)}/routes`, {
-      method: "PUT",
-      body: JSON.stringify({ routes: options.routes.routes }),
-    });
-    if (refusedAsService(status, body)) {
-      console.error(SERVICE_TRUST_HELP);
-      return 1;
-    }
-    if (status !== 200) {
-      console.error(`could not change where that device connects from: ${typeof body?.error === "string" ? body.error : status}`);
-      return 1;
-    }
-    console.log(options.routes.routes === "local"
-      ? `${options.routes.id} now connects from this machine's own networks only (Wi-Fi and tailnet); its relay sessions are closed`
-      : `${options.routes.id} may connect from anywhere again`);
-    return 0;
-  }
-  const { status, body } = await api(options.port, "/api/auth/sessions");
-  if (refusedAsService(status, body)) {
-    console.error(SERVICE_TRUST_HELP);
-    return 1;
-  }
-  if (status !== 200) {
-    console.error(`could not list sessions: ${typeof body?.error === "string" ? body.error : status}`);
-    return 1;
-  }
-  const sessions: Array<{ id: string; label: string; scopes: string[]; lastSeenAt: number; expiresAt: number }> = Array.isArray(body?.sessions) ? body.sessions : [];
-  if (options.json) {
-    console.log(JSON.stringify(sessions, null, 2));
-    return 0;
-  }
-  if (!sessions.length) {
-    console.log(`no paired devices yet: run ${cliCommand("pair")}`);
-    return 0;
-  }
-  console.log(formatSessions(sessions));
-  return 0;
-}
+export const runSessions: (options: CliOptions) => Promise<number> = createSessionsCommand({
+  api,
+  serverUp,
+  refusedAsService,
+  serviceTrustHelp: SERVICE_TRUST_HELP,
+});
 
 export async function runStatus(options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
   const body: any = await fetch(`http://127.0.0.1:${options.port}/.well-known/dexbot/environment`).then((r) => r.json()).catch(() => null);

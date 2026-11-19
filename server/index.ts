@@ -611,6 +611,7 @@ import { createTeamRoutes } from "./routes/teams.ts";
 import { createThreadModelRoutes } from "./routes/thread-models.ts";
 import { createUndoRoutes } from "./routes/undo.ts";
 import { createDesktopViewer, desktopViewerUrl } from "./routes/desktop-viewer.ts";
+import { createDeviceRoutes } from "./routes/device-routes.ts";
 import { createUpgrades } from "./routes/upgrades.ts";
 import { createBrowserViewerRoutes } from "./routes/browser-viewers.ts";
 import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts";
@@ -13221,12 +13222,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, loadBrand());
     }
     if (!gate.auth) return json(res, gate.status, { error: gate.error });
-    // The companion apps' route list, answered over HTTPS as the desktop sidecar answers it: a paired phone re-reads the
-    // ways in on every reconnect, so a new LAN address or a later `--lan` reaches it without a new QR.
-    if (method === "GET" && path === "/api/companion/endpoints") {
-      res.setHeader("cache-control", "no-store");
-      return json(res, 200, phoneRelay?.endpoints() ?? { serverName: cfg.computerName || "", endpoints: serverEndpoints(publicUrl(), PORT, process.env) });
-    }
     if (cloudPower && gate.auth.kind === "session") cloudPower.request(path, req.headers, res); // someone using a Cloud home keeps it awake
     const auth = gate.auth;
     if (HOSTED_WORKSPACE && auth.kind === "session") {
@@ -13371,30 +13366,6 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         const busy = sharedComputerControl.acquire(body.id); if (busy) return json(res, 409, { error: busy, code: "bot" });
       }
       return json(res, 200, { ok: true });
-    }
-    if (method === "GET" && path === "/api/auth/sessions") {
-      return json(res, 200, { sessions: sessions.list(), current: auth.kind === "session" ? auth.session.id : null });
-    }
-    m = path.match(/^\/api\/auth\/sessions\/([\w-]+)$/);
-    if (m && method === "DELETE") {
-      const revoked = sessions.revoke(m[1]);
-      if (auth.kind === "session" && auth.session.id === m[1]) res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE));
-      return json(res, revoked ? 200 : 404, revoked ? { ok: true } : { error: "no such session" });
-    }
-    // Where one paired device may connect from. `local` keeps it on this machine's own networks and off the relay; the
-    // relay drops its sessions at once, so the change is not only what the phone is told.
-    m = path.match(/^\/api\/auth\/sessions\/([\w-]+)\/routes$/);
-    if (m && method === "PUT") {
-      const sessionId = m[1];
-      if (!/^application\/json\b/i.test(String(req.headers["content-type"] ?? ""))) {
-        return json(res, 415, { error: "content-type must be application/json" });
-      }
-      const body = await readBody(req, 4096);
-      const next = body?.routes;
-      if (next !== "any" && next !== "local") return json(res, 400, { error: 'routes must be "any" or "local"' });
-      if (!sessions.setRoutes(sessionId, next)) return json(res, 404, { error: "no such session" });
-      phoneRelay?.routesChanged(sessionId);
-      return json(res, 200, { ok: true, session: sessions.list().find((session) => session.id === sessionId) ?? null });
     }
     // Test-only routes exist only when the launcher sets a high-entropy test key, which production builds never set.
     if (method === "POST" && path === "/api/testing/org-library") {
@@ -15974,6 +15945,10 @@ const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessio
 // Wi-Fi and Tailscale: the QR names this server's own address, and the phone dials `ws://<host>/v1/e2e` here. The
 // E2E listener answers its own handshake (a different subprotocol), so it runs before the shared upgrade gate.
 upgrades.intercept((req, socket, head) => phoneRelay?.directUpgrade(req, socket, head) ?? false);
+// The endpoint list a paired phone re-reads, and where one device may connect from: server/routes/device-routes.ts.
+ROUTES.push(createDeviceRoutes({ relay: phoneRelay, sessions: () => sessions.list(), revoke: (id) => sessions.revoke(id),
+  endpoints: () => ({ serverName: cfg.computerName || "", endpoints: serverEndpoints(publicUrl(), PORT, process.env) }),
+  setRoutes: (id, routes) => sessions.setRoutes(id, routes), clearOwnCookie: (res) => res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE)) }));
 
 /** A root the runtime holds is the runtime's to account for at the next start: a line here, with Retry, would start the job a second time. */
 function noteTurnsCutByShutdown(): void {
