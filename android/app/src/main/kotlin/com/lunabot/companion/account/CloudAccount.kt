@@ -234,8 +234,39 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
         if (answer.status !in 200..299) throw problem(answer)
     }
 
+    /**
+     * Tells the plane this phone is still in use.
+     *
+     * It refreshes the row in place and mints nothing: a phone authenticates with
+     * the account session, and registering again would revoke the installation
+     * credential that belongs to a desktop signed in from the same address.
+     *
+     * @return whether the plane answered. `false` on a server too old to have the
+     * route, which is not worth showing anyone.
+     */
+    suspend fun reportPresence(token: String, clientInstanceId: String, name: String, appVersion: String): Boolean {
+        val answer = call(
+            "/v1/installations/self/presence",
+            "POST",
+            JSONObject()
+                .put("clientInstanceId", clientInstanceId)
+                .put("name", name)
+                .put("platform", "android")
+                .put("appVersion", appVersion)
+                .put("kind", "phone"),
+            token,
+        )
+        if (answer.status == 401) throw CloudAccountException("登录已过期，请重新登录。", unauthorized = true)
+        if (answer.status == 404 || answer.status == 405) return false
+        if (answer.status !in 200..299) return false
+        return true
+    }
+
     /** Registers this phone so the desktop's device list shows it. Best effort: sign-in stands if it fails. */
     suspend fun registerInstallation(token: String, clientInstanceId: String, name: String, appVersion: String) {
+        if (reportPresence(token, clientInstanceId, name, appVersion)) return
+        // A control plane from before presence existed needs the older route; it
+        // hands back a credential this phone has no use for, but it registers.
         val answer = call(
             "/v1/installations",
             "POST",
@@ -643,6 +674,12 @@ class CloudAccountController(
     private suspend fun load(token: String, justSignedIn: Boolean = false) {
         try {
             val email = api.me(token).ifBlank { _state.value.email.orEmpty() }
+            // Every visit to Settings counts as "this phone is still here", so a
+            // phone in daily use never looks abandoned to the plane's sweeper.
+            // Best effort: an unreachable plane must not hide the page.
+            ownClientInstanceId()?.let { id ->
+                runCatching { api.reportPresence(token, id, deviceName, appVersion) }
+            }
             val clouds = api.clouds(token)
             // A server from before the account-bound pairing answers 404 here;
             // the section simply shows no computers instead of failing the page.
