@@ -8,6 +8,10 @@ import type { E2EContext } from "./registry.ts";
 
 const contexts = new WeakMap<object, E2EContext>();
 
+/** Set on a relayed stream that presents the net.Socket methods an HTTP server calls. A listener that only takes real
+ * sockets (`server/routes/upgrades.ts`) checks this rather than guessing from the shape. */
+export const SOCKET_LIKE = Symbol.for("lunabot.e2e.socketLike");
+
 /** The session a request arrived through, or null for any other listener. */
 export const e2eContextOf = (socket: object | null | undefined): E2EContext | null => (socket ? contexts.get(socket) ?? null : null);
 
@@ -26,6 +30,7 @@ function socketLike(socket: Duplex): Duplex {
     if (timer) clearTimeout(timer);
   });
   return Object.assign(socket, {
+    [SOCKET_LIKE]: true,
     setTimeout(ms: number, listener?: () => void) {
       idleMs = ms;
       if (listener) socket.once("timeout", listener);

@@ -15945,10 +15945,14 @@ if (TUNNEL_SOCKET) {
     console.log(`lunabot tunnel listener on ${TUNNEL_SOCKET}`);
   });
 }
-// `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request.
-const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, version: serverVersion(), publicOrigin: publicUrl,
+// `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request. A phone's
+// WebSocket goes through the same gate as its HTTP requests (`upgrades`), not a blanket refusal.
+const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, upgrades, version: serverVersion(), publicOrigin: publicUrl,
   serverName: () => cfg.computerName || environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED }).label,
   refusal: CLOUD_HOME ? "a Luna Bot Cloud home" : HOSTED_WORKSPACE ? "a hosted workspace" : DESKTOP_MANAGED ? "the desktop app, whose companion carries phones" : null });
+// Wi-Fi and Tailscale: the QR names this server's own address, and the phone dials `ws://<host>/v1/e2e` here. The
+// E2E listener answers its own handshake (a different subprotocol), so it runs before the shared upgrade gate.
+upgrades.intercept((req, socket, head) => phoneRelay?.directUpgrade(req, socket, head) ?? false);
 
 /** A root the runtime holds is the runtime's to account for at the next start: a line here, with Retry, would start the job a second time. */
 function noteTurnsCutByShutdown(): void {

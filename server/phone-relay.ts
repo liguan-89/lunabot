@@ -14,6 +14,7 @@ import { relayBaseUrlOverride } from "../companion/src/e2e/config.ts";
 import { b64u, fromB64u } from "../companion/src/e2e/credentials.ts";
 import type { E2EDescriptor } from "../companion/src/e2e/descriptor.ts";
 import { generateKeyPair, keyPairFromPrivate, TRANSPORT_RELAY, type KeyPair } from "../companion/src/e2e/noise.ts";
+import { handleDirectUpgrade, isE2EUpgrade } from "../companion/src/e2e/direct.ts";
 import { createE2EOrigin, e2eContextOf, type E2EOriginDeadlines } from "../companion/src/e2e/origin.ts";
 import { E2ERegistry, type E2EContext, type E2EDevices, type Peer } from "../companion/src/e2e/registry.ts";
 import { RelayClient, type RelayStatus } from "../companion/src/e2e/relay-client.ts";
@@ -22,9 +23,11 @@ import { createControlPlaneClient } from "../electron/control-plane-client.mjs";
 import { MANAGED_COMPANION_ENDPOINT_FIELD } from "../electron/managed-companion-tunnel.mjs";
 import { createRelayTokenService, validRelayGrant, type RelayGrant } from "../electron/relay-token.mjs";
 import { isLoopbackHost } from "../electron/server-address.mjs";
+import { isPrivateHost } from "../shared/private-host.ts";
 import { writeFileAtomic } from "./atomic.ts";
 import { reportableServerVersion } from "./environment.ts";
 import { bearerToken, PROXY_HEADERS } from "./request-auth.ts";
+import type { Upgrades } from "./routes/upgrades.ts";
 import { isPairingCredential, type SessionRegistry } from "./sessions.ts";
 import { describeTunnelAccount, FLEET_CREDENTIAL_ENV, fleetCredential, openTunnelCredentials } from "./tunnel.ts";
 import type { E2ESession } from "../companion/src/e2e/session.ts";
@@ -67,6 +70,11 @@ export interface PhoneRelay {
   pairedOver(req: IncomingMessage): { e2e?: E2EDescriptor };
   /** Why `POST /api/pair` refuses this input, or null: through the relay only the QR's credential pairs, never a code. */
   pairingRefusal(req: IncomingMessage, input: string): string | null;
+  /**
+   * Answers `GET /v1/e2e` on this server's own listener: the Wi-Fi and Tailscale route, the same responder the desktop's
+   * companion runs. True when the request was that upgrade (answered either way); false leaves it to the next handler.
+   */
+  directUpgrade(req: IncomingMessage, socket: Duplex, head: Buffer): boolean;
   stop(): void;
 }
 
@@ -82,6 +90,12 @@ export interface PhoneRelayOptions {
   version: string;
   /** Why this server never runs the relay (a Cloud home, a hosted workspace, the desktop app), or null. */
   refusal: string | null;
+  /**
+   * The server's shared WebSocket gate. Given, an upgrade inside a phone's session is answered by the route that owns
+   * its path — the same authentication, capability check and handler it gets over HTTPS — instead of a bare 501.
+   * Without it (a caller with no gate) upgrades are refused as before.
+   */
+  upgrades?: Pick<Upgrades, "handle">;
   /** Tests: the control plane's relay-token answer, and shorter stream deadlines. */
   fetchGrant?: (devices: { e2e: number; legacy: number }) => Promise<unknown>;
   streamDeadlines?: E2EOriginDeadlines;
@@ -126,12 +140,19 @@ function readPhones(dataDir: string): Set<string> {
 }
 
 /** The way in a QR names besides the relay: this server's public HTTPS address, which a phone without the encrypted
- * connection uses and one with it never does, or a name that never resolves. */
+ * connection uses and one with it never does, this machine's private LAN address when it serves one, or a name that
+ * never resolves. */
 function qrRoute(publicOrigin: string | null): { address: string; port: number; hosts?: string[]; endpoints?: CompanionEndpoint[] } {
   try {
     const url = publicOrigin ? new URL(publicOrigin) : null;
     if (url?.protocol === "https:" && !isLoopbackHost(url.host)) {
       return { address: url.hostname, port: url.port ? Number(url.port) : 443, hosts: [url.hostname], endpoints: [{ url: url.origin, kind: "hosted", priority: 0 }] };
+    }
+    // `OMB_LAN=1` makes `publicUrl` this machine's LAN address. The server answers `/v1/e2e` there, so a phone on the
+    // same network pairs and connects without the relay at all.
+    if (url?.protocol === "http:" && !isLoopbackHost(url.hostname) && isPrivateHost(url.hostname)) {
+      const port = url.port ? Number(url.port) : 80;
+      return { address: url.hostname, port, hosts: [url.hostname], endpoints: [{ url: url.origin, kind: "lan", priority: 200 }] };
     }
   } catch {
     // A malformed address is no way in.
@@ -164,6 +185,7 @@ function offForTunnel(reason: string): PhoneRelay {
     invite: () => null,
     pairedOver: () => ({}),
     pairingRefusal: () => null,
+    directUpgrade: () => false,
     stop: () => {},
   };
 }
@@ -255,7 +277,16 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
     log: (line) => log(`phone relay: ${line}`),
   });
 
-  const origin = createE2EOrigin((req, res) => relayed(req, res), (_req, socket) => refuseUpgrade(socket), options.streamDeadlines ?? STREAM_DEADLINES);
+  const origin = createE2EOrigin((req, res) => relayed(req, res), (req, socket, head) => upgraded(req, socket, head), options.streamDeadlines ?? STREAM_DEADLINES);
+
+  /** A WebSocket opened inside a phone's session. It reaches the same gate as the phone's HTTP requests, so a route
+   * that authorizes over HTTPS authorizes here too; only a device session may open one (a pairing window may not). */
+  function upgraded(req: IncomingMessage, socket: Duplex, head: Buffer): void {
+    const context = e2eContextOf(req.socket);
+    if (!context || context.peer.kind !== "device" || !options.upgrades) return refuseUpgrade(socket);
+    scrub(req, context.peer);
+    options.upgrades.handle(req, socket, head);
+  }
 
   /** One phone (or one pairing window) holds a few live sessions; a new one closes its oldest, so a phone that lost its
    * sessions without the relay noticing can still come back. */
@@ -382,6 +413,13 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
       return current ? { e2e: current } : {};
     },
     pairingRefusal: (req, input) => (e2eContextOf(req.socket) && !isPairingCredential(input) ? "pair a phone with its QR code" : null),
+    directUpgrade(req, socket, head) {
+      if (!isE2EUpgrade(req)) return false;
+      // The server's own listener is loopback or a private LAN (`listenHost`), and the phone's QR names it: this is the
+      // same route the desktop's companion answers, with the same connection key and registry.
+      handleDirectUpgrade(req, socket, head, e2e, origin);
+      return true;
+    },
     stop() {
       stopIssued();
       stopRevoked();

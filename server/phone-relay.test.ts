@@ -3,6 +3,7 @@
 import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,6 +14,7 @@ import { dial } from "../companion/src/e2e/phone.ts";
 import { SessionClosed, type E2ESession } from "../companion/src/e2e/session.ts";
 import { startFakeRelay, type FakeRelay } from "../companion/test/e2e/fake-relay.ts";
 import { http, json, waitFor } from "../companion/test/e2e/rig.ts";
+import { createUpgrades } from "./routes/upgrades.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { MAX_RELAY_PHONES, MAX_SESSIONS_PER_PHONE, PHONE_RELAY_KEY_FILE, PHONE_RELAY_PHONES_FILE, startPhoneRelay, tunnelHolder, type PhoneRelay, type PhoneRelayOptions } from "./phone-relay.ts";
 import { requestSource, resolveRequestAuth } from "./request-auth.ts";
@@ -43,7 +45,7 @@ async function body(req: IncomingMessage): Promise<Record<string, string>> {
 }
 
 /** The parts of the server's handler a phone meets: `/api/pair` as the server answers it, and the real request gate. */
-function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null) {
+function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null, upgrades?: ReturnType<typeof createUpgrades>) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://server");
     const send = (status: number, payload: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(payload));
@@ -61,6 +63,15 @@ function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null
       res.writeHead(200, { "content-type": "text/event-stream" });
       const tick = setInterval(() => res.write("data: tick\n\n"), 100);
       res.once("close", () => clearInterval(tick));
+      return;
+    }
+    if (url.pathname === "/api/test-upgrade") {
+      // A route that owns a WebSocket: the same gate a phone's browser view meets, answered by hand here.
+      const pending = upgrades?.pending(req);
+      if (!pending) return send(426, { error: "WebSocket upgrade required" });
+      pending.release();
+      res.detachSocket(pending.socket);
+      pending.socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nupgraded");
       return;
     }
     const gate = resolveRequestAuth(req, { sessions, cookieName: "omb_session", streamPath: "/api/events", url });
@@ -90,11 +101,17 @@ async function startServer(input: Partial<PhoneRelayOptions> & { dir?: string; r
   const hostId = randomBytes(16);
   const logs: string[] = [];
   let phoneRelay: PhoneRelay | null = null;
+  const upgrades = createUpgrades();
+  upgrades.route((path) => path === "/api/test-upgrade");
+  // The gate answers through the handler `attach` registers; a server that never listens is enough here, because the
+  // relay hands it the stream itself rather than an accepted socket.
+  upgrades.attach(createServer(), (req, res) => serverHandler(sessions, () => phoneRelay, upgrades)(req, res));
   phoneRelay = startPhoneRelay({
     env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url },
     dataDir: dir,
     sessions,
-    handle: serverHandler(sessions, () => phoneRelay),
+    handle: serverHandler(sessions, () => phoneRelay, upgrades),
+    upgrades,
     serverName: () => "VPS",
     publicOrigin: () => null,
     version: "0.1.152",
@@ -127,6 +144,34 @@ function viaRelay(server: Server, k: Buffer, token: string): Promise<E2ESession<
 }
 
 const connected = (server: Server) => waitFor(() => server.phoneRelay.status().relay === "connected", 5_000);
+
+/** One WebSocket upgrade on a stream of the session, answered with its HTTP status (101 when the route took it). */
+function upgradeOn(session: E2ESession<never>, path: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = request({
+      method: "GET",
+      path,
+      host: "companion",
+      headers: {
+        connection: "Upgrade",
+        upgrade: "websocket",
+        "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==",
+        "sec-websocket-version": "13",
+      },
+      createConnection: () => session.openStream(),
+    });
+    req.on("upgrade", (res, socket) => {
+      socket.destroy();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on("response", (res) => {
+      res.resume();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 async function pairPhone(server: Server): Promise<{ token: string; id: string; k: Buffer; session: E2ESession<never> }> {
   const opened = server.sessions.openPairing({ scopes: ["client"] });
@@ -291,7 +336,14 @@ describe("phones through Luna Bot Relay on a server", () => {
     const link = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "https://maus.example.com")!);
     expect(link.searchParams.get("address")).toBe("maus.example.com:443");
     expect(JSON.parse(fromB64u(link.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "https://maus.example.com", kind: "hosted", priority: 0 }]);
+    // Loopback is this machine only, so it is no way in for a phone.
     expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://localhost:8080")!).searchParams.get("address")).toBe("relay-only.invalid:443");
+    expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://127.0.0.1:8799")!).searchParams.get("address")).toBe("relay-only.invalid:443");
+    // `OMB_LAN=1` publishes a private LAN address, and the server answers `/v1/e2e` there: a phone on the same network
+    // pairs and connects over Wi-Fi with no relay at all.
+    const lan = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://192.168.31.175:8799")!);
+    expect(lan.searchParams.get("address")).toBe("192.168.31.175:8799");
+    expect(JSON.parse(fromB64u(lan.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "http://192.168.31.175:8799", kind: "lan", priority: 200 }]);
   });
 
   it("never asks for a relay token on a machine that holds or needs a tunnel", async () => {
@@ -451,5 +503,29 @@ describe("phones through Luna Bot Relay on a server", () => {
     await waitFor(() => asked >= 2, 6_000);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(holding.phoneRelay.status()).toMatchObject({ grant: "ok", relay: "connecting" });
+  });
+
+  it("hands a phone's WebSocket to the route that owns it, and refuses one a pairing window opens", async () => {
+    const server = await startServer();
+    await connected(server);
+    const opened = server.sessions.openPairing({ scopes: ["client"] });
+    const link = server.phoneRelay.invite(opened.credential, "VPS", null)!;
+    const k = fromB64u(descriptorOf(link).k)!;
+
+    // Before pairing, a window may pair and nothing else — an upgrade included.
+    const window = await waitFor(() => viaRelay(server, k, opened.credential).catch(() => null), 6_000);
+    expect(await upgradeOn(window, "/api/test-upgrade")).toBe(501);
+
+    const paired = await http(window, "POST", "/api/pair", { body: JSON.stringify({ credential: opened.credential, deviceName: "Pixel" }), headers: { "content-type": "application/json" } });
+    expect(paired.status).toBe(200);
+    const token = (json(paired) as { token: string }).token;
+    window.shutdown();
+
+    const phone = await waitFor(() => viaRelay(server, k, token).catch(() => null), 6_000);
+    // The route answers it: the relay no longer writes a blanket 501 over a path the server serves.
+    expect(await upgradeOn(phone, "/api/test-upgrade")).toBe(101);
+    // A path no route owns is still refused, and so is an upgrade the server has no gate for.
+    expect(await upgradeOn(phone, "/api/nothing-owns-this")).toBe(404);
+    phone.shutdown();
   });
 });
