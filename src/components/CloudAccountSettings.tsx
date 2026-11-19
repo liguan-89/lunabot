@@ -111,6 +111,8 @@ const RESTORE_RETRY: Partial<Record<DesktopCapabilities["host"]["platform"], Loc
 
 function accountMessage(account: CloudAccountState | null, view: CloudPlanView, platform: DesktopCapabilities["host"]["platform"]): string | null {
   if (!account) return null;
+  // A saved sign-in this computer can't read or remove: Clear and sign in again is the way on (main offers it after a few tries).
+  if (account.reset) return t("cloudAccount.savedStuck");
   if (account.message === "signout-local-only") return t("cloudAccount.signoutLocalOnly");
   if (account.message === "signout-storage-failed") return t("cloudAccount.storageFailed");
   if (account.message === "restore-failed") return t(RESTORE_RETRY[platform] ?? "cloudAccount.restoreRetry");
@@ -120,8 +122,9 @@ function accountMessage(account: CloudAccountState | null, view: CloudPlanView, 
   if (view.kind === "attention" && !account.machine && !account.trial) return t("cloudAccount.attention");
   if (account.status === "signed-out" && account.message === "enrollment-expired") return t("cloudAccount.codeExpired");
   if (account.status === "signed-out" && account.message === "restore-removed") return t("cloudAccount.restoreRemoved");
+  if (account.status === "signed-out" && account.message === "reset-kept") return t("cloudAccount.resetKept");
   if (account.status === "signed-out" && account.message && account.message !== "restoring") return t("cloudAccount.signinFailed");
-  return null;
+  return account.unsaved ? t("cloudAccount.unsaved") : null;
 }
 
 function dashboardLabel(account: CloudAccountState, view: CloudPlanView): string {
@@ -271,6 +274,14 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, teamH
     <button type="button" disabled={busy} className="ui-button ui-button-primary" onClick={onAddCloud}>{t(offerTrialDays(offer) !== null ? "cloudIntro.start" : "cloudAccount.upgrade")}</button>
     {moneyBack && <p className="text-[12px] text-ink-secondary">{moneyBack}</p>}
   </div>;
+  // 清除并重新登录：先丢不可用的已存登录，再走 Sign in 的同一入口。
+  const resetSaved = bridge.resetSaved && account?.reset ? () => void perform(async () => {
+    const next = await bridge.resetSaved!();
+    if (next.status !== "signed-out") return next;
+    if (onSignIn) { onSignIn(); return next; }
+    return bridge.begin();
+  }) : null;
+  const resetButton = (primary: boolean) => resetSaved && <button type="button" disabled={busy} data-cloud-reset="" className={primary ? "ui-button ui-button-primary" : "ui-button"} onClick={resetSaved}>{t("cloudAccount.resetSaved")}</button>;
   return <>
     <p className="text-[13px] leading-relaxed text-ink-secondary">{t("cloudAccount.optional")}</p>
     <Card title={t("settings.section.cloudAccount")} subtitle={t("cloudAccount.separate")}>
@@ -278,9 +289,11 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, teamH
       {(!account || view.kind === "unknown") && <p role="status" className="text-[13px] text-ink-secondary">{t("cloudAccount.loading")}</p>}
       {message && <p role="status" className="mb-3 text-[13px] text-ink-secondary">{message}</p>}
       {(view.kind === "signed-out" || view.kind === "removed") && <div className="flex flex-col items-start gap-3">
-        {addCloudButton}
-        <button type="button" disabled={busy} className={addCloudButton ? "text-[13px] font-medium text-accent-text underline underline-offset-2 hover:text-ink" : "ui-button"}
-          onClick={() => onSignIn ? onSignIn() : void perform(() => bridge.begin())}>{t("cloudAccount.signIn")}</button>
+        {resetSaved ? resetButton(true) : <>
+          {addCloudButton}
+          <button type="button" disabled={busy} className={addCloudButton ? "text-[13px] font-medium text-accent-text underline underline-offset-2 hover:text-ink" : "ui-button"}
+            onClick={() => onSignIn ? onSignIn() : void perform(() => bridge.begin())}>{t("cloudAccount.signIn")}</button>
+        </>}
       </div>}
       {account?.status === "connecting" && <div className="flex flex-col items-start gap-3">
         <p role="status" className="text-[13px] text-ink-secondary">{t("cloudAccount.browser")}</p>
@@ -299,7 +312,8 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, teamH
         {account.status === "connected" && trialLines(account.trial, account.credit)}
         {view.kind === "free" && addCloudButton}
         <div className="flex flex-wrap gap-2">
-          {view.kind === "reauth"
+          {resetSaved ? resetButton(false)
+            : view.kind === "reauth"
             ? <button type="button" disabled={busy} className="ui-button" onClick={() => void perform(() => bridge.signInAgain())}>{t("cloudAccount.signInAgain")}</button>
             : <>
               {!(view.kind === "free" && addCloudButton) && <button type="button" disabled={busy} className="ui-button" onClick={() => void perform(() => bridge.openDashboard())}>{view.kind === "free" ? t("cloudAccount.dashboard") : dashboardLabel(account, view)}</button>}
