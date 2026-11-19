@@ -704,6 +704,21 @@ private fun LoadedChat(
         if (liveCount == 0 || itemCount == 0) return@LaunchedEffect
         if (stickToBottom.value) listState.scrollToItem(itemCount - 1)
     }
+    // The composer changes height under the list — the quick-reply chips appear
+    // when a turn settles, the keyboard comes and goes — and its measured height
+    // is the list's bottom padding. A reader parked at the newest row used to
+    // keep the padding it had when it parked, so the new, taller chrome covered
+    // the last lines of the answer that had just arrived (the screenshot this
+    // fixes showed row 16 of 20 under the chips). Re-anchor when the chrome
+    // grows, not when it shrinks: a chip row leaving is no reason to move
+    // someone who has scrolled up.
+    val chromeHeight = remember(threadId) { mutableStateOf(bottomClearance) }
+    LaunchedEffect(threadId, bottomClearance) {
+        val grew = bottomClearance > chromeHeight.value
+        chromeHeight.value = bottomClearance
+        if (!grew || !settled || itemCount == 0) return@LaunchedEffect
+        if (stickToBottom.value) listState.scrollToItem(itemCount - 1)
+    }
     // A search hit lands on its message.
     LaunchedEffect(focusedMessageId, transcript.size) {
         val target = focusedMessageId ?: return@LaunchedEffect
