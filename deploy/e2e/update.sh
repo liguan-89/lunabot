@@ -71,7 +71,7 @@ services:
       OMB_WEBHOOK_PORT: "8800"
       OMB_PUBLIC_URL: https://${DOMAIN}
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot"]
       interval: 30s
       timeout: 5s
       retries: 3
