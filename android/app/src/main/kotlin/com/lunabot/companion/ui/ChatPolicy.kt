@@ -142,6 +142,15 @@ object TranscriptLayout {
         return next.kind != Message.Kind.TEXT
     }
 
+    /**
+     * The other end of a run: the first bubble after a break, or the first row
+     * of the transcript. [endsRowRun] decides where a run stops; this says where
+     * it starts, and the two together are what let a bubble round only the
+     * corners that face the page — the ones that touch a neighbour stay tight.
+     */
+    fun startsRowRun(rows: List<TranscriptRow>, index: Int): Boolean =
+        index <= 0 || endsRowRun(rows, index - 1)
+
     /** Which side the tail hangs from, or none while the run continues. */
     fun tail(message: Message, endsRun: Boolean): BubbleTail = when {
         !endsRun -> BubbleTail.NONE

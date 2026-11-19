@@ -224,6 +224,9 @@ val MinisCardShape = RoundedCornerShape(16.dp)
 val MinisBubbleShape = RoundedCornerShape(18.dp)
 val MinisComposerShape = RoundedCornerShape(24.dp)
 
+/** The corner a bubble tucks in where it touches the next line of its run. */
+val MinisBubbleJoinedCorner = 6.dp
+
 /** Small chips and code blocks. */
 val MinisChipShape = RoundedCornerShape(10.dp)
 

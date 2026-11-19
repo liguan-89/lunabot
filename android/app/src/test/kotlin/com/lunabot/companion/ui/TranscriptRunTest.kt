@@ -5,6 +5,7 @@ import com.lunabot.companion.core.Chat
 import com.lunabot.companion.core.Message
 import com.lunabot.companion.core.Room
 import com.lunabot.companion.core.Sender
+import com.lunabot.companion.core.TranscriptRow
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -92,6 +93,28 @@ class TranscriptRunTest {
         assertEquals(BubbleTail.LEADING, TranscriptLayout.tail(botText("m1"), endsRun = true))
         assertEquals(BubbleTail.NONE, TranscriptLayout.tail(userText("m1"), endsRun = false))
         assertEquals(BubbleTail.NONE, TranscriptLayout.tail(botText("m1"), endsRun = false))
+    }
+
+    @Test
+    fun `a run starts where the previous row ended one`() {
+        // The other end of `endsRowRun`: the first row of the transcript starts a
+        // run, and so does any row whose predecessor ended one. That is what lets
+        // a bubble tuck in only the corners that touch a neighbour.
+        val rows = listOf(
+            TranscriptRow.Single(userText("u1")),
+            TranscriptRow.Single(userText("u2")),
+            TranscriptRow.Single(botText("b1")),
+        )
+        assertTrue(TranscriptLayout.startsRowRun(rows, 0))
+        assertFalse(TranscriptLayout.startsRowRun(rows, 1))
+        assertTrue(TranscriptLayout.startsRowRun(rows, 2))
+    }
+
+    @Test
+    fun `an index off the end of the rows starts a run rather than throwing`() {
+        val rows = listOf(TranscriptRow.Single(userText("u1")))
+        assertTrue(TranscriptLayout.startsRowRun(rows, -1))
+        assertTrue(TranscriptLayout.startsRowRun(emptyList(), 0))
     }
 }
 

@@ -91,6 +91,7 @@ import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
@@ -107,6 +108,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
+import com.lunabot.companion.R
 import com.lunabot.companion.core.Chat
 import com.lunabot.companion.core.ConnectorCardAction
 import com.lunabot.companion.core.ConnectorCardData
@@ -144,14 +146,16 @@ private const val MESSAGE_CLIP_LABEL = "Luna Bot message"
 /**
  * One row of the transcript — the port of `MessageRow` in `ios/App/ChatView.swift`.
  *
- * [endsRun] is the last bubble of a run from the same side: the one that gets the
- * tail. [TranscriptLayout.endsRun] decides it, over the whole transcript, so a row
- * never has to look at its neighbours.
+ * [startsRun] and [endsRun] are the two ends of a run of bubbles from the same
+ * side. [TranscriptLayout] decides both, over the whole transcript, so a row
+ * never has to look at its neighbours; the pair is what lets a bubble round only
+ * the corners that face the page, with the ones touching a neighbour tucked in.
  */
 @Composable
 fun MessageRow(
     chat: Chat,
     message: Message,
+    startsRun: Boolean = true,
     endsRun: Boolean = true,
     /** Where a tapped link in a bot reply goes; null leaves it to the system. */
     openLink: ((String, Message) -> Unit)? = null,
@@ -215,6 +219,7 @@ fun MessageRow(
             MessageContent(
                 chat = chat,
                 message = message,
+                startsRun = startsRun,
                 endsRun = endsRun,
                 haptics = haptics,
                 openLink = openLink,
@@ -541,6 +546,7 @@ private fun SelectableTextDialog(text: String, onDismiss: () -> Unit) {
 private fun MessageContent(
     chat: Chat,
     message: Message,
+    startsRun: Boolean,
     endsRun: Boolean,
     haptics: Haptics,
     openLink: ((String, Message) -> Unit)?,
@@ -549,7 +555,7 @@ private fun MessageContent(
     openComputer: (() -> Unit)?,
 ) {
     when (message.kind) {
-        Message.Kind.TEXT -> TextBubble(chat, message, endsRun, openLink, openAttachment)
+        Message.Kind.TEXT -> TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         // A structured ask draws its own card: its answers are the model's
         // questions, not an allow/deny a tap could stand for.
         Message.Kind.OPTIONS -> if (QuestionCardRules.drawsQuestionCard(message)) {
@@ -579,12 +585,12 @@ private fun MessageContent(
         Message.Kind.CONNECTOR -> if (message.connector != null) {
             ConnectorRequestCard(message, (chat as? Chat.BotChat)?.bot?.id, chat.threadId)
         } else if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
         Message.Kind.SECRET -> if (message.secret != null) {
             SecretRequestCard(message, (chat as? Chat.BotChat)?.bot?.id, chat.threadId)
         } else if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
         // The person does the signing in; the phone only carries the request
         // and the two answers, so a card waiting on the computer is visible
@@ -597,17 +603,17 @@ private fun MessageContent(
                 threadId = chat.threadId,
             )
         } else if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
         Message.Kind.ROUTINE_RUN -> if (message.routineRun != null) {
             RoutineRunCard(message)
         } else if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
         Message.Kind.GOAL_RUN -> if (message.goalRun != null) {
             GoalRunCard(message)
         } else if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
         // A finished Live call leaves a receipt; without it the call simply
         // vanishes from the conversation. The phone cannot join a call the
@@ -617,7 +623,7 @@ private fun MessageContent(
             if (call != null) {
                 CallRecordCard(call)
             } else if (!message.text.isNullOrEmpty()) {
-                TextBubble(chat, message, endsRun, openLink, openAttachment)
+                TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
             }
         }
         // A bot-authored widget or app page is a full document on the desktop.
@@ -638,7 +644,7 @@ private fun MessageContent(
         // show, show nothing — a placeholder saying "unsupported" is a worse gap
         // than the gap.
         Message.Kind.UNKNOWN -> if (!message.text.isNullOrEmpty()) {
-            TextBubble(chat, message, endsRun, openLink, openAttachment)
+            TextBubble(chat, message, startsRun, endsRun, openLink, openAttachment)
         }
     }
 }
@@ -647,6 +653,7 @@ private fun MessageContent(
 private fun TextBubble(
     chat: Chat,
     message: Message,
+    startsRun: Boolean,
     endsRun: Boolean,
     openLink: ((String, Message) -> Unit)?,
     openAttachment: ((DisplayedMessageAttachment, Message, DownloadedFile?) -> Unit)?,
@@ -665,6 +672,14 @@ private fun TextBubble(
     // only your own words arrive in a card. A card (diff/table) still brings
     // its own surface, and a bot paragraph gets no fill of any kind.
     val bubble = card == null && mine
+    // Your own run of bubbles: the corners that touch a neighbour tuck in, the
+    // ones that face the page stay round. One per run, not one per bubble, so
+    // three lines in a row read as one block rather than three cards.
+    val bubbleShape = joinedBubbleShape(
+        mine = mine,
+        startsRun = startsRun,
+        endsRun = endsRun,
+    )
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
@@ -684,7 +699,7 @@ private fun TextBubble(
                         Modifier
                             .background(
                                 BubbleColor.userBubble,
-                                MinisBubbleShape,
+                                bubbleShape,
                             )
                             .padding(horizontal = 13.dp, vertical = 10.dp)
                     } else {
@@ -1483,29 +1498,39 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
     val scope = rememberCoroutineScope()
     var answering by remember(message.id) { mutableStateOf(false) }
     val skillRequest = card.skillRequest
+    // What this card is, as opposed to what it says: the four outcomes already
+    // existed on the wire, and the phone drew all of them the same way.
+    val style = ApprovalCardStyle.of(card, chat)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(minisGrouped, MinisCardShape)
             .then(
-                if (card.isPending) {
+                if (style.isPending) {
                     Modifier.border(
                         1.5.dp,
-                        minisAccent,
+                        if (style.danger) minisDanger else minisAccent,
                         MinisCardShape,
                     )
                 } else {
-                    Modifier
+                    Modifier.border(0.5.dp, minisSeparator, MinisCardShape)
                 },
             )
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(card.title, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        // The state line: the one thing a person scanning the transcript needs
+        // before the title. It carries a glyph rather than a colour alone, so it
+        // reads in a screenshot and to a colour-blind eye.
+        ApprovalStateLine(style)
+
+        // Explicit ink: the row's inherited content colour is not the card's,
+        // and without it the title drew near-black on the dark card.
+        Text(card.title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         // The detail of what is being approved is the thing worth copying.
         SelectionContainer {
-            Text(card.subtitle, fontSize = 15.sp, color = minisSecondary)
+            Text(card.subtitle, fontSize = 14.sp, color = minisSecondary)
         }
 
         card.held?.let {
@@ -1574,7 +1599,29 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
             }
         }
 
-        if (card.isPending) {
+        // The slip: the one fact a person checks before tapping, in the face
+        // that says "this is a machine's name, not prose". Only cards that name
+        // a tool have one; a question card has nothing to put here.
+        card.tool?.takeIf { it.isNotBlank() }?.let { tool ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(secondaryTint.copy(alpha = 0.08f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = tool,
+                    fontSize = 11.5.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = minisInk.copy(alpha = 0.78f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+
+        if (style.showsActions) {
             // Minis stacks the decisions: one full-width primary action, the
             // refusal quieter underneath. Nothing sits side by side where a
             // thumb has to choose between "allow" and "deny" at speed.
@@ -1597,15 +1644,30 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                                 refusal ||
                                 skillRequest.reviewedSha256 != null
                             ),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 44.dp),
                         shape = RoundedCornerShape(12.dp),
                         // Same `isRefusal` that picks the allow choice picks the
                         // weight, so the most sensible action on the most
                         // sensitive screen is not the same shape as the refusal.
+                        //
+                        // The refusal is a tint of the text colour rather than
+                        // the page colour: the card already sits on `grouped`,
+                        // and in dark mode the page colour is near-black, which
+                        // made the button's shape vanish into its own card.
                         colors = if (refusal) {
                             ButtonDefaults.filledTonalButtonColors(
-                                containerColor = minisPage,
+                                containerColor = secondaryTint.copy(alpha = 0.12f),
                                 contentColor = minisInk,
+                            )
+                        } else if (style.danger) {
+                            // The allow action deletes something. The desktop
+                            // has drawn it red since `card.danger` existed; the
+                            // phone drew it ink like any other.
+                            ButtonDefaults.buttonColors(
+                                containerColor = minisDanger,
+                                contentColor = Color.White,
                             )
                         } else {
                             ButtonDefaults.buttonColors(
@@ -1623,44 +1685,118 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
             // own, so it cannot permit something subtly wider than the computer
             // would have. The same goes for the answer: it is one of the options
             // the card offered, never a string invented here.
-            val alwaysAllow = ApprovalChoices.alwaysAllowChoice(card)
-            if (alwaysAllow != null && chat is Chat.BotChat) {
-                TextButton(
-                    onClick = {
-                        haptics.play(TactileAction.GRANT_APPROVAL)
-                        answering = true
-                        scope.launch {
-                            ApprovalAnswers.grant(session, chat, card, alwaysAllow)
-                            answering = false
-                        }
-                    },
-                    enabled = !answering,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text("始终允许此工具", fontSize = 14.sp, color = minisAccent)
-                }
-            }
-        } else {
-            if (card.expired == true && card.answered == null) {
-                // The server withdrew the options; the card is settled but was
-                // never answered, and saying nothing read as "still pending".
-                Text("此请求已过期，未做处理。", fontSize = 14.sp, color = secondaryTint)
-            }
-            card.answered?.let {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null,
-                        tint = secondaryTint,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Text(it, fontSize = 14.sp, color = secondaryTint)
+            //
+            // `showsAlwaysAllow` already requires a bot chat, but the compiler
+            // cannot see through that predicate, so the cast is re-stated here.
+            val botChat = chat as? Chat.BotChat
+            if (style.showsAlwaysAllow && botChat != null) {
+                val alwaysAllow = ApprovalChoices.alwaysAllowChoice(card)
+                if (alwaysAllow != null) {
+                    TextButton(
+                        onClick = {
+                            haptics.play(TactileAction.GRANT_APPROVAL)
+                            answering = true
+                            scope.launch {
+                                ApprovalAnswers.grant(session, botChat, card, alwaysAllow)
+                                answering = false
+                            }
+                        },
+                        enabled = !answering,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text("始终允许此工具", fontSize = 14.sp, color = minisAccent)
+                    }
                 }
             }
         }
+
+        // The stamp: one line, after the actions are gone, saying what was
+        // decided. A settled card that said nothing read as still pending.
+        if (style.showsStamp) {
+            ApprovalStamp(style)
+        }
+    }
+}
+
+/** The state line above a card's title: glyph, words, and nothing else. */
+@Composable
+private fun ApprovalStateLine(style: ApprovalCardStyle) {
+    val tint = when (style.state) {
+        ApprovalState.PENDING -> if (style.danger) minisDanger else minisAccent
+        ApprovalState.ALLOWED -> minisSuccess
+        // A refusal is not an error; it is the card doing its job.
+        ApprovalState.DENIED -> secondaryTint
+        ApprovalState.EXPIRED -> secondaryTint
+        ApprovalState.SETTLED -> secondaryTint
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        when (style.state) {
+            ApprovalState.PENDING -> if (style.danger) {
+                Icon(
+                    imageVector = Icons.Filled.Warning,
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(14.dp),
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.ic_shield_line),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(14.dp),
+                )
+            }
+            ApprovalState.ALLOWED -> Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(14.dp),
+            )
+            ApprovalState.EXPIRED -> Icon(
+                painter = painterResource(R.drawable.ic_schedule),
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(14.dp),
+            )
+            ApprovalState.DENIED, ApprovalState.SETTLED -> Unit
+        }
+        Text(
+            text = style.label,
+            fontSize = 11.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.2.sp,
+            color = tint,
+        )
+    }
+}
+
+/** What a settled card leaves behind: one line, behind a hairline. */
+@Composable
+private fun ApprovalStamp(style: ApprovalCardStyle) {
+    val tint = if (style.state == ApprovalState.ALLOWED) minisSuccess else secondaryTint
+    HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (style.state == ApprovalState.ALLOWED) {
+            Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = tint,
+                modifier = Modifier.size(12.dp),
+            )
+        }
+        Text(
+            text = style.stamp.orEmpty(),
+            fontSize = 12.sp,
+            color = tint,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

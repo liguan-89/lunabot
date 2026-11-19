@@ -1187,8 +1187,10 @@ private fun LoadedChat(
                                 is TranscriptRow.Single -> MessageRow(
                                     chat = chat,
                                     message = message.message,
-                                    // One tail per run of bubbles from the same author,
-                                    // not one per bubble.
+                                    // The two ends of a run of bubbles from the
+                                    // same author: the corners that touch a
+                                    // neighbour tuck in, the rest stay round.
+                                    startsRun = TranscriptLayout.startsRowRun(transcript, index),
                                     endsRun = TranscriptLayout.endsRowRun(transcript, index),
                                     openLink = ::openLink,
                                     openAttachment = ::openAttachment,

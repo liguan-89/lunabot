@@ -82,6 +82,13 @@ data class OptionCard(
     val tool: String? = null,
     val held: String? = null,
     val allowKey: String? = null,
+    /**
+     * The allow action is destructive: it deletes a bot, data or an account.
+     * The desktop has drawn this as a danger action since the field reached the
+     * wire (`shared/wire.ts` `OptionCardData.danger`); the phone dropped it, so
+     * a delete read exactly like a calendar read.
+     */
+    val danger: Boolean? = null,
     /** Learned skills require a complete, hash-bound review before approval. */
     val skillRequest: SkillRequestCardData? = null,
     /**
