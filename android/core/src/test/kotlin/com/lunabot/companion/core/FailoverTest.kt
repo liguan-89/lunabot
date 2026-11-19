@@ -294,10 +294,10 @@ class FailoverTest {
             name = "Mac",
             host = "192.168.1.42",
             port = 8810,
-            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42", "openmausbot-aa.local"),
+            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42"),
         )
         assertEquals(
-            listOf("192.168.1.42", "mac.tail1234.ts.net", "openmausbot-aa.local"),
+            listOf("192.168.1.42", "mac.tail1234.ts.net"),
             connection.orderedHosts,
         )
     }
@@ -343,16 +343,18 @@ class FailoverTest {
             name = "Mac",
             host = "mac.tail1234.ts.net",
             port = 8810,
-            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42", "openmausbot-aa.local"),
+            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42"),
         ).promoting("192.168.1.42")
         assertEquals("192.168.1.42", connection.host)
         assertEquals(
-            listOf("192.168.1.42", "mac.tail1234.ts.net", "openmausbot-aa.local"),
+            listOf("192.168.1.42", "mac.tail1234.ts.net"),
             connection.hosts,
         )
         val typed = connection.promoting("10.0.0.7")
         assertEquals("10.0.0.7", typed.hosts?.first())
-        assertEquals(4, typed.hosts?.size)
+        // Three: the promoted address plus the two the connection already had.
+        // A `.local` name would have been a fourth, and Android cannot dial it.
+        assertEquals(3, typed.hosts?.size)
     }
 
     @Test
@@ -428,12 +430,12 @@ class FailoverTest {
             name = "Mac",
             host = "mac.tail1234.ts.net",
             port = 8810,
-            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42", "openmausbot-aa.local"),
+            hosts = listOf("mac.tail1234.ts.net", "192.168.1.42"),
         ).promoting(assertNotNull(CompanionEndpoint.direct("192.168.1.42", 8810, priority = 1)))
 
         assertNull(connection.endpoints)
         assertEquals(
-            listOf("192.168.1.42", "mac.tail1234.ts.net", "openmausbot-aa.local"),
+            listOf("192.168.1.42", "mac.tail1234.ts.net"),
             connection.orderedEndpoints.map { it.host },
         )
     }

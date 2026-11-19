@@ -11,6 +11,16 @@ import java.util.UUID
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 
+/**
+ * A `.local` name is only usable where the platform resolves mDNS. Android has no
+ * such resolver — a name that arrives in an invite or a snapshot can never be
+ * dialled, and letting it into the host list means the confirmation screen offers
+ * an address that fails on the first connect. Every route passes through this one
+ * predicate before it is dialled or shown.
+ */
+internal fun isBonjourName(host: String): Boolean =
+    host.trim().trimEnd('.').lowercase().endsWith(".local")
+
 @Serializable
 data class Connection(
     val id: String = UUID.randomUUID().toString(),
@@ -96,7 +106,9 @@ data class Connection(
     }
 
     fun endpointsAllowedByRoutePolicy(candidates: List<CompanionEndpoint>): List<CompanionEndpoint> =
-        candidates.filter(::allowsEndpoint)
+        candidates.filter { endpoint ->
+            endpoint.kind != CompanionEndpointKind.BONJOUR && !isBonjourName(endpoint.host) && allowsEndpoint(endpoint)
+        }
 
     /** Bind a new pairing to its selected route before any probe or credential redemption. */
     fun establishingRoutePolicyFromInvite(): Connection {
@@ -316,7 +328,7 @@ data class Connection(
             val seen = mutableSetOf<String>()
             return advertised.mapNotNull { raw ->
                 val candidate = raw.trim()
-                if (candidate.isEmpty() ||
+                if (candidate.isEmpty() || isBonjourName(candidate) ||
                     candidate.toByteArray(StandardCharsets.UTF_8).size > 253 ||
                     candidate.any { it.isWhitespace() || it in "/?#" }
                 ) {
@@ -457,12 +469,15 @@ data class PairingInvite(val connection: Connection, val credential: String) {
 
             values["endpoints"]?.let { encoded ->
                 val endpoints = decodeEndpoints(encoded) ?: return null
-                // A computer that names itself over Bonjour is reachable by that
-                // name on every network it joins; the numeric LAN address in the
-                // same invite expires the moment either end changes networks.
-                // Consent to the name (and hosted), not the ephemeral address.
-                val preferred = endpoints.firstOrNull { it.kind == CompanionEndpointKind.BONJOUR }
-                    ?: endpoints.first()
+                // iOS prefers the Bonjour name here: it resolves mDNS, so the name
+                // survives the next network. Android cannot resolve `.local` at all,
+                // so the numeric LAN route leads and the name is never promoted —
+                // `endpointsAllowedByRoutePolicy` drops it entirely.
+                // Keep the invite's own order — a hosted or tailnet route still
+                // leads — and skip only the route this platform cannot resolve.
+                val preferred = endpoints.firstOrNull {
+                    it.kind != CompanionEndpointKind.BONJOUR && !isBonjourName(it.host)
+                } ?: endpoints.first()
                 connection = connection.copy(endpoints = endpoints).dialing(preferred)
             }
 

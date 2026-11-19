@@ -7,7 +7,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ConnectionRegistryTest {
-    private val air = Connection(id = "air", name = "MacBook Air", host = "air.local", port = 8810)
+    private val air = Connection(id = "air", name = "MacBook Air", host = "10.0.0.10", port = 8810)
     private val pro = Connection(id = "pro", name = "MacBook Pro", host = "pro.local", port = 8810)
 
     @Test
@@ -28,7 +28,7 @@ class ConnectionRegistryTest {
         val sameComputerNewPairing = Connection(
             id = "new-id",
             name = "Renamed laptop",
-            host = "air.local",
+            host = "10.0.0.10",
             port = 8810,
         )
         val registry = ConnectionRegistry(listOf(air, pro), air.id)

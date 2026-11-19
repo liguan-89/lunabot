@@ -10,7 +10,7 @@ class ServerPairingTest {
     fun serverQrLinksAreAcceptedWithTheirExactOriginAndNormalizedCode() {
         for (origin in listOf(
             "https://mini.example:8443", "http://192.168.1.20:8799", "http://localhost:8799",
-            "http://mini.local:8799", "http://mini.tail.ts.net:8799", "http://[fd00::1]:8799",
+            "http://mini.tail.ts.net:8799", "http://[fd00::1]:8799",
         )) {
             val invite = assertNotNull(PairingInvite.parse("$origin/pair#code=abcd-efgh-jklm"))
             assertEquals("ABCDEFGHJKLM", invite.credential)

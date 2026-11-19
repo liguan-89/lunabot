@@ -29,8 +29,8 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MultiComputerSessionTest {
-    private val air = Connection(id = "air", name = "MacBook Air", host = "air.local", port = 8810)
-    private val pro = Connection(id = "pro", name = "MacBook Pro", host = "pro.local", port = 8810)
+    private val air = Connection(id = "air", name = "MacBook Air", host = "10.0.0.10", port = 8810)
+    private val pro = Connection(id = "pro", name = "MacBook Pro", host = "10.0.0.11", port = 8810)
 
     @Test
     fun switchAndRemovalKeepTokensAndRoutesIsolatedByConnectionId() = runTest {

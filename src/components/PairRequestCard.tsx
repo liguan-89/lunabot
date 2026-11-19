@@ -28,15 +28,21 @@ export function PairRequestCard() {
   const [error, setError] = useState<string | null>(null);
   const bridge = window.ogb?.companionAccount;
 
+  const enqueue = (requests: PairRequest[]) => {
+    setQueue((current) => {
+      const known = new Set(current.map((one) => one.id));
+      const fresh = requests.filter((one) => !known.has(one.id));
+      return fresh.length === 0 ? current : [...current, ...fresh];
+    });
+  };
+
   useEffect(() => {
     if (!bridge?.onPairRequest) return;
-    return bridge.onPairRequest((requests) => {
-      setQueue((current) => {
-        const known = new Set(current.map((one) => one.id));
-        const fresh = requests.filter((one) => !known.has(one.id));
-        return fresh.length === 0 ? current : [...current, ...fresh];
-      });
-    });
+    const unsubscribe = bridge.onPairRequest(enqueue);
+    // A window that reloaded between the request and the card would otherwise
+    // lose it: the server still holds it, so read what is pending once on mount.
+    void bridge.pairRequests?.().then(enqueue).catch(() => {});
+    return unsubscribe;
   }, [bridge]);
 
   const request = queue[0];

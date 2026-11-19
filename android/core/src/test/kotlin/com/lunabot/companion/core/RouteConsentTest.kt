@@ -182,12 +182,12 @@ class RouteConsentTest {
     }
 
     @Test
-    fun aBonjourNameLeadsEvenWhenTheNumericLanAddressComesFirst() {
+    fun theNumericLanAddressLeadsAndTheBonjourNameIsDropped() {
         val bonjour = requireNotNull(
             CompanionEndpoint.create("http://mac-mini.local:8810", CompanionEndpointKind.BONJOUR, 300),
         )
         val encoded = java.util.Base64.getUrlEncoder().withoutPadding()
-            .encodeToString(CompanionJson.encodeToString(listOf(local, bonjour, hosted)).toByteArray())
+            .encodeToString(CompanionJson.encodeToString(listOf(local, bonjour)).toByteArray())
         val invite = requireNotNull(
             PairingInvite.parse(
                 URI("openmausbot://pair?address=192.168.1.42%3A8810&code=123456&endpoints=$encoded"),
@@ -195,21 +195,19 @@ class RouteConsentTest {
         )
         val connection = invite.connection
 
-        // The stable name is the route the person confirms, not the address
-        // that expires when either end changes networks.
-        assertEquals(bonjour, connection.activeEndpoint)
+        // iOS leads with the Bonjour name because it resolves mDNS. Android has
+        // no such resolver, so the numeric LAN route is what the person confirms
+        // and the `.local` name never enters the route set at all.
+        assertEquals(local, connection.activeEndpoint)
+        // Hosted is always allowed as the safe upgrade; the local set is the LAN route alone.
+        assertEquals(setOf(CompanionEndpointKind.LAN, CompanionEndpointKind.HOSTED), connection.allowedRouteKinds)
+        assertEquals(setOf(local.url), connection.allowedLocalRouteURLs)
         assertEquals(
-            setOf(CompanionEndpointKind.BONJOUR, CompanionEndpointKind.HOSTED),
-            connection.allowedRouteKinds,
-        )
-        assertEquals(setOf(bonjour.url), connection.allowedLocalRouteURLs)
-        // Hosted keeps its advertised priority above the local name; the
-        // numeric LAN route is not consented at all.
-        assertEquals(
-            setOf(CompanionEndpointKind.BONJOUR, CompanionEndpointKind.HOSTED),
+            setOf(CompanionEndpointKind.LAN),
             connection.orderedEndpoints.map { it.kind }.toSet(),
         )
-        assertFalse(connection.orderedEndpoints.any { it.url == local.url })
+        assertFalse(connection.orderedEndpoints.any { it.url == bonjour.url })
+        assertFalse(connection.orderedHosts.any { it.endsWith(".local") })
     }
 
     @Test
