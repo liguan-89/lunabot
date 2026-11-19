@@ -591,7 +591,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(settings(written)).toEqual(settings(manual));
     // The sign-in lists and mail server are passed only when .env sets them: an empty one would still be set.
     for (const name of ["OMB_SIGNIN_EMAILS", "OMB_SIGNIN_MEMBER_EMAILS", "OMB_SIGNIN_SMTP_URL", "OMB_SIGNIN_SMTP_FROM", "OMB_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
-    for (const line of ['test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot"]', "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
+    for (const line of [`test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]`, "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
       "- edge:/run/openmausbot", "type: tmpfs"]) {
       expect(written).toContain(line);
       expect(manual).toContain(line);
