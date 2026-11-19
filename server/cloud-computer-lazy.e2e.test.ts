@@ -307,7 +307,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
     await idle(bot.id);
     const fourth = await startTurn(bot.id, "after the stop");
     expect(fourth.pid).not.toBe(first.pid);
-    expect(fourth.mcpConfig.mcpServers.computer.env.OMB_MCP_TOKEN_COMPUTER).not.toBe(first.mcpConfig.mcpServers.computer.env.OMB_MCP_TOKEN_COMPUTER);
+    expect(fourth.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER).not.toBe(first.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER);
     expect((await computerCall(first, "tools/list")).status).toBe(401);
     await finish(bot.id);
     await apiOk("DELETE", `/api/bots/${bot.id}`);
