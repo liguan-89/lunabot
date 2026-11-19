@@ -297,7 +297,11 @@ route("POST", "/v1/installations/self/relay-token", async (ctx) => {
   if (!ctx.config.relayNodes.length || !ctx.config.relayNodes.every((node) => RELAY_HOST.test(node))) {
     throw new HttpError(503, "relay_unavailable");
   }
-  const hostId = randomBytesB64u(16);
+  // Stable per installation: a paired phone pins the descriptor's `h` and keeps
+  // dialling it, so a fresh identity per token would leave it knocking on a
+  // hostId the relay no longer has (4404) while both ends are online.
+  const hostId = ctx.store.relayHostId(credential.installation_id, () => randomBytesB64u(16));
+  if (!hostId) throw new HttpError(500, "relay_unavailable");
   const nowSeconds = Math.floor(Date.now() / 1000);
   const signed = signRelayToken({
     privateKey: ctx.relayKey.privateKey,

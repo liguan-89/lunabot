@@ -66,6 +66,8 @@ const MIGRATIONS = [
   "ALTER TABLE clouds ADD COLUMN disk_gb INTEGER",
   "ALTER TABLE clouds ADD COLUMN max_disk_gb INTEGER",
   "ALTER TABLE clouds ADD COLUMN container_id TEXT",
+  // A computer's relay identity outlives every token: paired phones pin it.
+  "ALTER TABLE installations ADD COLUMN relay_host_id TEXT",
 ];
 
 const CLOUD_UPDATES = {
@@ -283,6 +285,25 @@ export class Store {
 
   touchInstallation(id) {
     this.db.prepare("UPDATE installations SET last_seen_at = ? WHERE id = ?").run(now(), id);
+  }
+
+  /**
+   * The relay identity of one installation, made once and kept.
+   *
+   * A phone pins `h` from the descriptor it paired with, and its stored
+   * connection keeps dialling that name forever. A hostId that changed per
+   * token refresh would leave every paired phone knocking on an identity the
+   * relay no longer has — it answers 4404, and the phone shows the computer as
+   * unreachable while both ends are online.
+   */
+  relayHostId(installationId, mint) {
+    const read = () => this.db.prepare("SELECT relay_host_id FROM installations WHERE id = ?").get(installationId)?.relay_host_id ?? null;
+    const existing = read();
+    if (existing) return existing;
+    // `AND relay_host_id IS NULL` settles a race between two first requests.
+    this.db.prepare("UPDATE installations SET relay_host_id = ? WHERE id = ? AND relay_host_id IS NULL")
+      .run(mint(), installationId);
+    return read();
   }
 
   deleteInstallation(accountId, id) {

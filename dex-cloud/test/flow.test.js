@@ -191,6 +191,18 @@ test("control plane creates installations and mints a relay token the relay key 
     assert.equal(claims.v, 1);
     assert.equal(claims.hid, grant.body.hostId);
     assert.equal(claims.exp - claims.iat, 12 * 3600);
+
+    // A second token keeps the same identity: a paired phone pins the
+    // descriptor's `h` and keeps dialling it, so a fresh one would leave it at
+    // the relay's 4404 while both ends are online.
+    const renewed = await call(app.base, "POST", "/v1/installations/self/relay-token", {
+      appVersion: "2.0.0",
+      devices: { e2e: true, legacy: 0 },
+    }, installation.body.credential);
+    assert.equal(renewed.status, 200);
+    assert.equal(renewed.body.hostId, grant.body.hostId);
+    const renewedClaims = JSON.parse(Buffer.from(renewed.body.token.split(".")[0], "base64url").toString("utf8"));
+    assert.equal(renewedClaims.hid, grant.body.hostId);
   } finally {
     app.server.close();
     app.store.close();
