@@ -24,7 +24,7 @@ describe("modelMenu", () => {
     expect(JSON.stringify(menu).length).toBeLessThan(400);
   });
 
-  it("lists a small catalog whole, without what the organization turned off, with efforts and only the labels that add something", () => {
+  it("lists a small catalog whole, with efforts and only the labels that add something, and says what the organization turned off", () => {
     const claude = engine("claude", [], {
       models: { default: "claude-sonnet-5", options: [
         { id: "claude-sonnet-5", label: "Claude Sonnet 5" },
@@ -36,6 +36,7 @@ describe("modelMenu", () => {
     });
     expect(modelMenu({ engines: [claude], current, pinned: [], refusal: opens })).toEqual({ current, engines: [{
       instanceId: "claude", name: "Claude", models: ["claude-sonnet-5", "claude-opus-5", { id: "default", label: "Default (recommended)" }], efforts: ["low", "high", "max"],
+      blocked: [{ id: "claude-haiku-5", why: "turned off by this account's organization" }],
     }] });
   });
 
