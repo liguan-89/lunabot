@@ -266,14 +266,25 @@ export const TOOLS = [
   { name: "list_apps", description: "List installed launchable Android package names, optionally filtered by a human app name. Prefer open_app first.", inputSchema: { type: "object", properties: { query: { type: "string" }, serial: { type: "string" } } } },
   { name: "open_app", description: "Open an installed Android app directly by its English name, such as Uber or Skyscanner, or by its package name. Do not scan the app drawer first.", inputSchema: { type: "object", properties: { name: { type: "string" }, serial: { type: "string" } }, required: ["name"] } },
   { name: "tap_text", description: "Tap visible Android text or an accessibility label, then use read_screen to verify.", inputSchema: { type: "object", properties: { text: { type: "string" }, exact: { type: "boolean" }, index: { type: "integer", minimum: 0 }, serial: { type: "string" } }, required: ["text"] } },
-  { name: "tap", description: "Tap Android screen pixel coordinates obtained from read_screen or screenshot.", inputSchema: { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, serial: { type: "string" } }, required: ["x", "y"] } },
-  { name: "swipe", description: "Swipe the Android screen in a direction, then use read_screen to verify.", inputSchema: { type: "object", properties: { direction: { type: "string", enum: ["up", "down", "left", "right"] }, serial: { type: "string" } }, required: ["direction"] } },
+  { name: "tap", description: "Tap Android screen pixel coordinates obtained from read_screen or screenshot. Add duration_ms to hold the tap; about 1000 is a long press.", inputSchema: { type: "object", properties: { x: { type: "number" }, y: { type: "number" }, duration_ms: { type: "integer" }, serial: { type: "string" } }, required: ["x", "y"] } },
+  { name: "swipe", description: "Swipe the Android screen in a direction, then use read_screen to verify. By default the finger moves half the screen through the centre in 260 ms. To scroll a list, a pane or a picker wheel by a chosen amount, give x and y (where the finger starts), distance (pixels it moves) and duration_ms (longer is slower).", inputSchema: { type: "object", properties: { direction: { type: "string", enum: ["up", "down", "left", "right"] }, x: { type: "number" }, y: { type: "number" }, distance: { type: "number" }, duration_ms: { type: "integer" }, serial: { type: "string" } }, required: ["direction"] } },
   { name: "type_text", description: "Type text into the focused Android field. Letters, digits, spaces and _.,@- always work; other text, such as Chinese, emoji or +, needs the ADBKeyBoard keyboard selected on the phone. Never enter passwords or payment details. A one-time code only for a sign-in the person asked for, into the app it was sent for.", inputSchema: { type: "object", properties: { text: { type: "string", maxLength: 256 }, serial: { type: "string" } }, required: ["text"] } },
   { name: "press", description: "Press an Android navigation or keyboard key. wakeup turns the screen on and sleep turns it off.", inputSchema: { type: "object", properties: { key: { type: "string", enum: Object.keys(KEYCODES) }, serial: { type: "string" } }, required: ["key"] } },
 ] as const;
 
 type ToolResult = { content: Array<{ type: "text"; text: string } | { type: "image"; data: string; mimeType: string }>; isError?: boolean };
 const textResult = (text: string, isError = false): ToolResult => ({ content: [{ type: "text", text }], ...(isError ? { isError: true } : {}) });
+
+const toNumber = (value: unknown) => (typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : Number.NaN);
+const given = (value: unknown) => value !== undefined && value !== null && value !== "";
+const rounded = (value: unknown) => Math.round(toNumber(value));
+const absentOrWithin = (value: unknown, min: number, max: number) => !given(value) || (rounded(value) >= min && rounded(value) <= max);
+const DURATION_NEEDS = "duration_ms from 50 to 2000";
+const HELD_TAP_EXAMPLE = { x: 540, y: 900, duration_ms: 1000 };
+const durationOk = (args: Record<string, unknown>) => absentOrWithin(args.duration_ms, 50, 2000);
+const SWIPE_NEEDS = `x and y from 0 to 10000, distance from 50 to 10000 and ${DURATION_NEEDS}`;
+const SWIPE_EXAMPLE = { direction: "up", x: 300, y: 1400, distance: 400, duration_ms: 800 };
+const swipeFieldsOk = (args: Record<string, unknown>) => absentOrWithin(args.x, 0, 10_000) && absentOrWithin(args.y, 0, 10_000) && absentOrWithin(args.distance, 50, 10_000) && durationOk(args);
 
 // The harness reserves the phone per turn from the first real tool call. Retained MCP processes can
 // outlive their turn, so every call revalidates the claim.
@@ -350,25 +361,34 @@ async function callTool(name: string, args: Json): Promise<ToolResult> {
   if (name === "tap") {
     const x = Number(args.x); const y = Number(args.y);
     if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || y < 0 || x > 10000 || y > 10000) throw new Error("Invalid Android coordinates");
-    await onDevice(serial, ["shell", "input", "tap", String(Math.round(x)), String(Math.round(y))]);
-    return textResult(`Tapped ${Math.round(x)},${Math.round(y)}`);
+    if (!durationOk(args)) throw new Error(`tap needs ${DURATION_NEEDS}, e.g. ${JSON.stringify(HELD_TAP_EXAMPLE)}`);
+    const at = [String(Math.round(x)), String(Math.round(y))];
+    const held = given(args.duration_ms) ? String(rounded(args.duration_ms)) : undefined;
+    // Android's `input` has no touch long press: a swipe that ends where it starts holds the finger there (seen on Android 9).
+    await onDevice(serial, ["shell", "input", ...(held ? ["swipe", ...at, ...at, held] : ["tap", ...at])]);
+    return textResult(held ? `Pressed ${at.join(",")} for ${held} ms` : `Tapped ${at.join(",")}`);
   }
   if (name === "swipe") {
     const direction = String(args.direction ?? "");
+    if (!swipeFieldsOk(args)) throw new Error(`swipe needs ${SWIPE_NEEDS}, e.g. ${JSON.stringify(SWIPE_EXAMPLE)}`);
     const size = (await onDevice(serial, ["shell", "wm", "size"])).toString("utf8");
     const match = /(\d+)x(\d+)/.exec(size);
     if (!match) throw new Error("Could not read Android screen size");
     const width = Number(match[1]); const height = Number(match[2]);
-    const points: Record<string, [number, number, number, number]> = {
-      up: [width / 2, height * 0.75, width / 2, height * 0.25],
-      down: [width / 2, height * 0.25, width / 2, height * 0.75],
-      left: [width * 0.75, height / 2, width * 0.25, height / 2],
-      right: [width * 0.25, height / 2, width * 0.75, height / 2],
+    const moves: Record<string, { x: number; y: number; dx: number; dy: number; distance: number }> = {
+      up: { x: width / 2, y: height * 0.75, dx: 0, dy: -1, distance: height / 2 },
+      down: { x: width / 2, y: height * 0.25, dx: 0, dy: 1, distance: height / 2 },
+      left: { x: width * 0.75, y: height / 2, dx: -1, dy: 0, distance: width / 2 },
+      right: { x: width * 0.25, y: height / 2, dx: 1, dy: 0, distance: width / 2 },
     };
-    const point = points[direction];
-    if (!point) throw new Error("Invalid swipe direction");
-    await onDevice(serial, ["shell", "input", "swipe", ...point.map((value) => String(Math.round(value))), "260"]);
-    return textResult(`Swiped ${direction}`);
+    const move = Object.hasOwn(moves, direction) ? moves[direction] : undefined;
+    if (!move) throw new Error("Invalid swipe direction");
+    const or = (value: unknown, fallback: number) => (given(value) ? rounded(value) : fallback);
+    const x = or(args.x, move.x); const y = or(args.y, move.y); const distance = or(args.distance, move.distance);
+    const sent = [x, y, x + move.dx * distance, y + move.dy * distance, or(args.duration_ms, 260)].map((value) => String(Math.round(value)));
+    await onDevice(serial, ["shell", "input", "swipe", ...sent]);
+    const chosen = [args.x, args.y, args.distance, args.duration_ms].some(given);
+    return textResult(chosen ? `Swiped from ${sent[0]},${sent[1]} to ${sent[2]},${sent[3]} in ${sent[4]} ms` : `Swiped ${direction}`);
   }
   if (name === "type_text") return textResult(await typePhoneText(deviceShell(serial), String(args.text ?? "")));
   if (name === "press") {
