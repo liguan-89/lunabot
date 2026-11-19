@@ -8537,7 +8537,7 @@ async function beginTurn(
           const thisComputerCapture = async () => {
             const live = desktopComputer.connection();
             if (!live) throw new Error("this computer is no longer available");
-            const frame = await captureDesktopScreen(live, { maxImageDimension: 1280 });
+            const frame = await captureDesktopScreen(live, { maxImageDimension: 900 });
             return { png: frame.png, format: frame.mime === "image/jpeg" ? "jpeg" : "png" };
           };
           autoVmClaims.set(threadId, {

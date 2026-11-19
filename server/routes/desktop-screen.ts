@@ -54,6 +54,10 @@ function unavailable(connection: ReturnType<typeof desktopComputer.connection>):
 
 export function createDesktopScreenRoutes(deps: DesktopScreenRouteDeps): RouteHandler {
   const connection = deps.connection ?? (() => desktopComputer.connection());
+  // The window each bot's phone last pointed at. Text and keys go there, so a keystroke lands in the window the person
+  // tapped rather than in whatever application happens to be frontmost. In memory: a restart drops it, and the next tap
+  // sets it again.
+  const aimed = new Map<string, { pid: number; windowId: number }>();
   return async ({ req, res, path, method, json, readBody }) => {
     const shot = path.match(SCREENSHOT_ROUTE);
     const act = path.match(ACTION_ROUTE);
@@ -71,7 +75,7 @@ export function createDesktopScreenRoutes(deps: DesktopScreenRouteDeps): RouteHa
 
     if (shot) {
       // Watch-only: no lease, so the bot keeps working and the person sees it happen.
-      const frame = await captureDesktopScreen(live!, { maxImageDimension: 1280 });
+      const frame = await captureDesktopScreen(live!, { maxImageDimension: 900 });
       return json(res, 200, frame);
     }
 
@@ -83,7 +87,8 @@ export function createDesktopScreenRoutes(deps: DesktopScreenRouteDeps): RouteHa
     if (!deps.computerControl.ownsLease(key, parsed.data.controlLeaseId)) {
       return json(res, 409, { error: "Take control of this computer first" });
     }
-    await performDesktopScreenAction(live!, parsed.data);
-    return json(res, 200, { ok: true });
+    const outcome = await performDesktopScreenAction(live!, parsed.data, { target: aimed.get(bot.id) });
+    if (outcome.target) aimed.set(bot.id, outcome.target);
+    return json(res, 200, { ok: true, ...(outcome.target ? { target: outcome.target } : {}) });
   };
 }

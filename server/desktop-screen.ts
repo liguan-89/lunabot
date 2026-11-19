@@ -113,13 +113,30 @@ function callDriver(
 function driverFailure(stdout: string, stderr: string, code: number | null): string {
   for (const text of [stdout, stderr]) {
     try {
-      const parsed = JSON.parse(text) as { error?: { message?: unknown }; message?: unknown };
-      const message = parsed?.error?.message ?? parsed?.message;
-      if (typeof message === "string" && message.trim()) return message.trim().slice(0, 400);
+      const parsed = JSON.parse(text) as {
+        error?: { message?: unknown } | string;
+        message?: unknown;
+        hint?: unknown;
+        suggestion?: unknown;
+        escalation?: { reason?: unknown };
+        code?: unknown;
+      };
+      const candidates = [
+        typeof parsed.error === "string" ? parsed.error : parsed.error?.message,
+        parsed.message,
+        // A refusal names itself in `code` and explains itself in `hint`; without these the phone saw a bare "}".
+        parsed.hint,
+        parsed.suggestion,
+        parsed.escalation?.reason,
+        parsed.code,
+      ];
+      for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.trim()) return candidate.trim().slice(0, 400);
+      }
     } catch {
       // Not JSON: fall through to the text itself.
     }
-    const line = text.split("\n").map((row) => row.trim()).filter(Boolean).at(-1);
+    const line = text.split("\n").map((row) => row.trim()).filter((row) => row && row !== "}" && row !== "{").at(-1);
     if (line) return line.slice(0, 400);
   }
   return `the computer helper exited with code ${code ?? "unknown"}`;
@@ -135,7 +152,7 @@ function driverFailure(stdout: string, stderr: string, code: number | null): str
  */
 export async function captureDesktopScreen(
   connection: LocalComputerConnection,
-  { maxImageDimension = 1280, timeoutMs = 20_000 }: { maxImageDimension?: number; timeoutMs?: number } = {},
+  { maxImageDimension = 900, timeoutMs = 20_000 }: { maxImageDimension?: number; timeoutMs?: number } = {},
 ): Promise<DesktopScreenFrame> {
   const socket = desktopScreenSocket(connection);
   if (!socket) throw Object.assign(new Error("this computer's helper has no address to ask"), { status: 409 });
@@ -187,7 +204,7 @@ export async function captureDesktopScreen(
 function sipsToJpeg(png: string, scratch: string): Promise<string | null> {
   const out = join(scratch, "screen.jpg");
   return new Promise((resolve) => {
-    const child = spawn("/usr/bin/sips", ["-s", "format", "jpeg", "-s", "formatOptions", "72", png, "--out", out], {
+    const child = spawn("/usr/bin/sips", ["-s", "format", "jpeg", "-s", "formatOptions", "60", png, "--out", out], {
       stdio: "ignore",
     });
     const timer = setTimeout(() => {
@@ -243,61 +260,213 @@ export function desktopScreenRefusal(request: Partial<DesktopScreenRequest>): st
   return null;
 }
 
+/** One window the driver can see, in logical points, front-most first. */
+export interface DesktopWindow {
+  pid: number;
+  windowId: number;
+  app: string;
+  title: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /**
- * Perform one action on the desktop. Coordinates are logical screen points, which is what the driver's
- * `scope: "desktop"` path takes — the phone converts from the picture it drew using the frame's screenWidth/Height.
+ * The window at a point, front-most first, or null over the bare desktop.
+ *
+ * [windows] carry bounds in logical points and [x]/[y] arrive in desktop pixels, so [scale] (the display's backing
+ * factor) converts between them. Getting this wrong is invisible until nothing matches and typing silently falls back
+ * to "whatever application is frontmost".
+ *
+ * This is what makes typing land where the person pointed: the driver's unanchored `type_text` goes to the frontmost
+ * application, which is not the window under their finger. `z` is the WindowServer's own order, so the first match is
+ * the one they see.
+ */
+export function windowAtPoint(
+  windows: readonly DesktopWindow[],
+  x: number,
+  y: number,
+  scale = 1,
+): DesktopWindow | null {
+  const pointX = x / (scale > 0 ? scale : 1);
+  const pointY = y / (scale > 0 ? scale : 1);
+  const ordered = [...windows].sort((a, b) => ((a as { z?: number }).z ?? 0) - ((b as { z?: number }).z ?? 0));
+  for (const window of ordered) {
+    if (window.width < 8 || window.height < 8) continue;
+    if (pointX >= window.x && pointY >= window.y &&
+        pointX < window.x + window.width && pointY < window.y + window.height) return window;
+  }
+  return null;
+}
+
+/** The display's backing factor: desktop pixels per logical point. 1 when the driver cannot say. */
+async function backingScale(
+  connection: LocalComputerConnection,
+  socket: string,
+  timeoutMs: number,
+): Promise<number> {
+  try {
+    const { stdout } = await callDriver(connection, socket, "get_screen_size", {}, timeoutMs);
+    const factor = Number((JSON.parse(stdout) as { scale_factor?: unknown }).scale_factor);
+    return Number.isFinite(factor) && factor > 0 ? factor : 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Every on-screen window with a usable rectangle, front-most first. */
+async function listWindows(
+  connection: LocalComputerConnection,
+  socket: string,
+  timeoutMs: number,
+): Promise<Array<DesktopWindow & { z: number }>> {
+  const { stdout } = await callDriver(connection, socket, "list_windows", { on_screen_only: true }, timeoutMs);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout);
+  } catch {
+    return [];
+  }
+  const rows = (parsed as { windows?: unknown })?.windows;
+  if (!Array.isArray(rows)) return [];
+  const out: Array<DesktopWindow & { z: number }> = [];
+  for (const row of rows) {
+    const record = row as Record<string, unknown>;
+    const bounds = record.bounds as Record<string, unknown> | undefined;
+    const pid = Number(record.pid);
+    const windowId = Number(record.window_id);
+    const x = Number(bounds?.x);
+    const y = Number(bounds?.y);
+    const width = Number(bounds?.width);
+    const height = Number(bounds?.height);
+    if (![pid, windowId, x, y, width, height].every((n) => Number.isFinite(n))) continue;
+    // Utility overlays (the Dock's own windows, menu extras) are not things a person taps to type into.
+    if (Number(record.layer ?? 0) !== 0) continue;
+    out.push({
+      pid,
+      windowId,
+      app: String(record.app_name ?? ""),
+      title: String(record.title ?? ""),
+      x,
+      y,
+      width,
+      height,
+      z: Number(record.z_index ?? Number.MAX_SAFE_INTEGER),
+    });
+  }
+  return out.sort((a, b) => a.z - b.z);
+}
+
+/** One action's outcome, plus the window it was aimed at so the caller can remember it for the next keystroke. */
+export interface DesktopScreenOutcome {
+  ok: true;
+  /** The window the action landed on, when one was found. */
+  target?: { pid: number; windowId: number };
+}
+
+/**
+ * Perform one action on the desktop. Coordinates are desktop pixels, which is what the driver's `scope: "desktop"`
+ * path takes and divides by the backing scale itself — the phone converts from the picture it drew using the frame's
+ * screenWidth/Height.
+ *
+ * [target] is the window the person last pointed at. Text and keys go there by pid and window id, so they land in that
+ * window whether or not it is in front; without it they would follow the driver's rule and go to whatever application
+ * is frontmost, which is the bug that made typing feel broken.
  */
 export async function performDesktopScreenAction(
   connection: LocalComputerConnection,
   request: DesktopScreenRequest,
-  { timeoutMs = 20_000 }: { timeoutMs?: number } = {},
-): Promise<{ ok: true }> {
+  { timeoutMs = 30_000, target }: { timeoutMs?: number; target?: { pid: number; windowId: number } } = {},
+): Promise<DesktopScreenOutcome> {
   const refusal = desktopScreenRefusal(request);
   if (refusal) throw Object.assign(new Error(refusal), { status: 400 });
   const socket = desktopScreenSocket(connection);
   if (!socket) throw Object.assign(new Error("this computer's helper has no address to ask"), { status: 409 });
   const at = { x: request.x, y: request.y, scope: "desktop" as const };
   const modifiers = request.modifiers?.map((modifier) => modifier.toLowerCase());
+  // Text and keys are aimed at a window, never at "whatever is in front".
+  const aimed = target ? { pid: target.pid, window_id: target.windowId } : {};
   switch (request.action) {
     case "click":
+    case "double_click": {
+      const windows = await listWindows(connection, socket, timeoutMs).catch(() => []);
+      const scale = await backingScale(connection, socket, timeoutMs);
+      const hit = windowAtPoint(windows, request.x ?? 0, request.y ?? 0, scale);
+      // A person clicking a window expects it to come forward and take the keyboard; the driver's desktop click moves
+      // the pointer without activating anything, which left every later keystroke going to the wrong application.
+      if (hit) {
+        await callDriver(connection, socket, "bring_to_front", { pid: hit.pid, window_id: hit.windowId }, timeoutMs)
+          .catch(() => undefined);
+      }
       await callDriver(connection, socket, "click", {
         ...at,
+        // The driver refuses a desktop-scope click over a background app unless told it may take the pointer for that
+        // instant; `foreground` is its own documented escalation, and it puts the previous app back afterwards.
+        delivery_mode: "foreground",
+        ...(request.action === "double_click" ? { count: 2 } : {}),
         ...(modifiers?.length ? { modifier: modifiers } : {}),
         post_action_wait: "none",
       }, timeoutMs);
-      return { ok: true };
-    case "double_click":
-      // `double_click` has no `scope` argument, so a desktop-scoped double click is one `click` with count 2.
-      await callDriver(connection, socket, "click", { ...at, count: 2, post_action_wait: "none" }, timeoutMs);
-      return { ok: true };
-    case "scroll":
+      return { ok: true, ...(hit ? { target: { pid: hit.pid, windowId: hit.windowId } } : {}) };
+    }
+    case "scroll": {
+      // Scrolling a background window needs no activation; it is aimed at the point.
       await callDriver(connection, socket, "scroll", {
         ...at,
+        // Same rule as a click: a wheel event over a background app needs the pointer, which the driver only takes when
+        // told to.
+        delivery_mode: "foreground",
         direction: request.key,
         amount: request.amount ?? 3,
         post_action_wait: "none",
       }, timeoutMs);
       return { ok: true };
-    case "type_text":
+    }
+    case "type_text": {
+      // Two ways in, tried in order, because they fail on different windows:
+      //
+      //   1. Aimed at the window: an accessibility write into its focused field. No focus steal, and it answers at once.
+      //      Refused when the window's focused element is not a text input — a document window before anything is
+      //      clicked in it is exactly that case.
+      //   2. At the desktop, into whatever is frontmost. Correct only because a click already brought the tapped window
+      //      forward, and that is also what focuses the field the person pointed at.
+      if (target) {
+        const aimedResult = await callDriver(connection, socket, "type_text", {
+          text: request.text,
+          ...aimed,
+          delivery_mode: "background",
+        }, timeoutMs).then(() => null, (error: Error) => error);
+        if (!aimedResult) return { ok: true };
+      }
       await callDriver(connection, socket, "type_text", {
         text: request.text,
         scope: "desktop",
         delivery_mode: "foreground",
       }, timeoutMs);
       return { ok: true };
-    case "press_key":
+    }
+    case "press_key": {
+      const keyArgs = { key: request.key, ...(modifiers?.length ? { modifiers } : {}) };
+      if (target) {
+        const aimedResult = await callDriver(connection, socket, "press_key", {
+          ...keyArgs,
+          ...aimed,
+          delivery_mode: "background",
+        }, timeoutMs).then(() => null, (error: Error) => error);
+        if (!aimedResult) return { ok: true };
+      }
       await callDriver(connection, socket, "press_key", {
-        key: request.key,
-        ...(modifiers?.length ? { modifiers } : {}),
+        ...keyArgs,
         scope: "desktop",
         delivery_mode: "foreground",
       }, timeoutMs);
       return { ok: true };
+    }
     case "hotkey":
       await callDriver(connection, socket, "hotkey", {
         keys: [request.key!, ...(modifiers ?? [])],
-        scope: "desktop",
-        delivery_mode: "foreground",
+        ...(target ? { ...aimed, delivery_mode: "background" } : { scope: "desktop", delivery_mode: "foreground" }),
       }, timeoutMs);
       return { ok: true };
   }

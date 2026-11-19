@@ -67,6 +67,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
@@ -101,6 +103,15 @@ internal class ThisComputerViewer(
 
     private var poll: Job? = null
     private var started = false
+    /** Bumped when a picture is wanted now; the poll loop skips its wait when it changes. */
+    private var refreshNow by mutableStateOf(0)
+    /** True while one action owns the link; the poll loop stands down meanwhile. */
+    @Volatile
+    private var acting = false
+    /** Serialises actions, so two quick taps cannot interleave into one confusing order. */
+    private val actionLock = Mutex()
+    /** Counts refusals, so an older error's timer cannot clear a newer one. */
+    private var errorGeneration = 0
 
     fun start() {
         if (started) return
@@ -108,6 +119,14 @@ internal class ThisComputerViewer(
         poll = scope.launch {
             var misses = 0
             while (isActive) {
+                // An action owns the link while it runs: a frame competing with a tap is what made a tap take 20 seconds
+                // and then time out on a relay.
+                if (acting) {
+                    delay(120)
+                    continue
+                }
+                val seenRefresh = refreshNow
+                val startedAt = System.currentTimeMillis()
                 val shot = session.captureDesktopScreen(botId)
                 if (shot == null) {
                     misses += 1
@@ -129,10 +148,19 @@ internal class ThisComputerViewer(
                         state = ThisComputerState.Live(controlling = leaseId != null)
                     }
                 }
-                // A slow cadence on purpose: each frame is a fresh capture the Mac has to encode.
-                delay(if (leaseId != null) 2_000 else 5_000)
+                // Never two captures back to back: the wait is at least as long as the capture took, so a slow link
+                // cannot be saturated by the viewer alone.
+                val took = System.currentTimeMillis() - startedAt
+                val wanted = if (leaseId != null) 1_500L else 5_000L
+                val wait = (wanted - took).coerceAtLeast(400L)
+                if (refreshNow == seenRefresh) delay(wait)
             }
         }
+    }
+
+    /** Ask the poll loop for a picture now, after an action changed the screen. */
+    private fun refreshSoon() {
+        refreshNow += 1
     }
 
     /** Take the computer so taps land, which also refuses the bot's own hands for as long as it is held. */
@@ -218,13 +246,36 @@ internal class ThisComputerViewer(
             body.forEach { (name, value) -> put(name, value) }
             put("controlLeaseId", id)
         }
-        try {
-            session.desktopScreenAction(botId, withLease)
-            actionError = null
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            actionError = error.message ?: "这台电脑没有接受这次操作。"
+        // One action at a time, and no frame captured while it runs: on a relay a 110 KB picture in flight is enough to
+        // push a tap past its timeout.
+        actionLock.withLock {
+            acting = true
+            try {
+                session.desktopScreenAction(botId, withLease)
+                actionError = null
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                showError(error.message ?: "这台电脑没有接受这次操作。")
+            } finally {
+                acting = false
+                // The screen changed under the finger; show it without waiting for the next tick.
+                refreshSoon()
+            }
+        }
+    }
+
+    /**
+     * Show a refusal for a few seconds, then let it go. A permanent red line under the picture reads as a broken screen
+     * long after the one action that failed.
+     */
+    private fun showError(message: String) {
+        actionError = message
+        errorGeneration += 1
+        val generation = errorGeneration
+        scope.launch {
+            delay(5_000)
+            if (errorGeneration == generation) actionError = null
         }
     }
 

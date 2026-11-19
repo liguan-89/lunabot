@@ -1409,7 +1409,11 @@ class CompanionClient(
          */
         const val ALREADY_DRAINED = "no such queued message"
 
-        private const val ACTION_TIMEOUT_SECONDS = 20L
+        /**
+         * 30 s: a screen action waits for a capture-sized frame to clear the relay before its own reply comes back, and
+         * 20 s cut a tap off on a slow link (the phone showed a bare "timeout" while the action had in fact landed).
+         */
+        private const val ACTION_TIMEOUT_SECONDS = 30L
         private const val SOCKET_PING_INTERVAL_SECONDS = 20L
         /** The server holds a job poll for 20 s; this leaves it room to answer. */
         private const val PHONE_JOB_TIMEOUT_SECONDS = 35L

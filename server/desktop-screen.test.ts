@@ -10,6 +10,7 @@ import {
   desktopScreenRefusal,
   desktopScreenSocket,
   performDesktopScreenAction,
+  windowAtPoint,
 } from "./desktop-screen.ts";
 import type { LocalComputerConnection } from "./local-computer.ts";
 
@@ -47,9 +48,19 @@ function captureDriver({ stdout, pngBase64 }: { stdout: string; pngBase64?: stri
     console.log(${JSON.stringify(stdout)});`;
 }
 
-/** A driver that writes each call's tool and arguments to the file named in RECORD_PATH, then exits 0. */
+/**
+ * A driver that records each call's tool and arguments to RECORD_PATH and answers `list_windows` with one window, so a
+ * click has something to activate. Everything else exits 0 with no output, which is what the action paths expect.
+ */
 const RECORDER = `if (process.argv[2] !== "call") process.exit(2);
-  require("node:fs").appendFileSync(process.env.RECORD_PATH, JSON.stringify({ tool: process.argv[3], args: JSON.parse(process.argv[4] ?? "{}") }) + "\\n");`;
+  const tool = process.argv[3];
+  const args = JSON.parse(process.argv[4] ?? "{}");
+  require("node:fs").appendFileSync(process.env.RECORD_PATH, JSON.stringify({ tool, args }) + "\\n");
+  if (tool === "get_screen_size") console.log(JSON.stringify({ width: 1710, height: 1107, scale_factor: 1 }));
+  if (tool === "list_windows") console.log(JSON.stringify({ windows: [
+    { pid: 42, window_id: 4242, app_name: "Test", title: "Doc", layer: 0, z_index: 0,
+      bounds: { x: 100, y: 100, width: 400, height: 300 } },
+  ] }));`;
 
 /** A one-pixel PNG: enough for wholeScreenshot to accept it as a complete image. */
 const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
@@ -90,6 +101,42 @@ describe("desktopScreenRefusal", () => {
 
   it("refuses an action this screen does not offer", () => {
     expect(desktopScreenRefusal({ action: "launch_app" as never })).toContain(DESKTOP_SCREEN_ACTIONS[0]);
+  });
+});
+
+describe("windowAtPoint", () => {
+  const base = { app: "A", title: "", x: 0, y: 0, width: 100, height: 100 };
+
+  it("returns the front-most window containing the point", () => {
+    const windows = [
+      { ...base, pid: 1, windowId: 11, z: 5 },
+      { ...base, pid: 2, windowId: 22, z: 1 },
+    ] as never;
+    // Lower z is nearer the front in the WindowServer's order.
+    expect(windowAtPoint(windows, 50, 50)?.windowId).toBe(22);
+  });
+
+  it("returns null over the bare desktop", () => {
+    expect(windowAtPoint([{ ...base, pid: 1, windowId: 11, z: 0 }] as never, 500, 500)).toBeNull();
+  });
+
+  it("skips slivers too small to be a window a person tapped", () => {
+    const sliver = { ...base, pid: 1, windowId: 11, width: 3, height: 3, z: 0 } as never;
+    expect(windowAtPoint([sliver], 1, 1)).toBeNull();
+  });
+
+  it("treats the top-left corner as inside and the far edge as outside", () => {
+    const one = [{ ...base, pid: 1, windowId: 11, z: 0 }] as never;
+    expect(windowAtPoint(one, 0, 0)?.windowId).toBe(11);
+    expect(windowAtPoint(one, 100, 100)).toBeNull();
+  });
+
+  it("converts the point from desktop pixels to the logical points a window's bounds are in", () => {
+    // On a retina screen a point arrives doubled; without the division nothing matches and typing silently falls back to
+    // the frontmost application, which is exactly the bug this whole path exists to avoid.
+    const one = [{ ...base, pid: 1, windowId: 11, z: 0 }] as never;
+    expect(windowAtPoint(one, 100, 100, 2)?.windowId).toBe(11);
+    expect(windowAtPoint(one, 300, 300, 2)).toBeNull();
   });
 });
 
@@ -162,15 +209,41 @@ describe("performDesktopScreenAction", () => {
   });
 
   it("sends a click as desktop-scoped screen points", async () => {
-    const call = await recordedCall({ action: "click", x: 120, y: 340 });
-    expect(call.tool).toBe("click");
-    expect(call.args).toMatchObject({ x: 120, y: 340, scope: "desktop", post_action_wait: "none" });
+    const calls = await recordedCalls({ action: "click", x: 120, y: 340 });
+    const click = calls.find((call) => call.tool === "click");
+    expect(click?.args).toMatchObject({ x: 120, y: 340, scope: "desktop", delivery_mode: "foreground", post_action_wait: "none" });
+  });
+
+  it("brings the window under the click forward first, so the next keystroke lands there", async () => {
+    // A person clicking a window expects it to take the keyboard. The driver's desktop click moves the pointer without
+    // activating anything, which left typing going to whatever application was already in front.
+    const calls = await recordedCalls({ action: "click", x: 150, y: 120 });
+    expect(calls.map((call) => call.tool)).toEqual(["list_windows", "get_screen_size", "bring_to_front", "click"]);
+    expect(calls[2]!.args).toMatchObject({ pid: 42, window_id: 4242 });
+    // The driver refuses a desktop click over a background app unless told it may take the pointer for that instant.
+    expect(calls[3]!.args).toMatchObject({ delivery_mode: "foreground" });
+  });
+
+  it("does not try to activate anything when the point is over the bare desktop", async () => {
+    const calls = await recordedCalls({ action: "click", x: 5000, y: 5000 });
+    expect(calls.map((call) => call.tool)).toEqual(["list_windows", "get_screen_size", "click"]);
   });
 
   it("sends a double click as one click with count 2, because that tool takes no scope", async () => {
-    const call = await recordedCall({ action: "double_click", x: 5, y: 6 });
-    expect(call.tool).toBe("click");
-    expect(call.args).toMatchObject({ x: 5, y: 6, count: 2, scope: "desktop" });
+    const calls = await recordedCalls({ action: "double_click", x: 5, y: 6 });
+    const click = calls.find((call) => call.tool === "click");
+    expect(click?.args).toMatchObject({ x: 5, y: 6, count: 2, scope: "desktop" });
+  });
+
+  it("aims text and keys at the window the person pointed at, in the background", async () => {
+    // The whole input bug: an unanchored type_text goes to the frontmost application, not the window under the finger.
+    const typed = await recordedCalls({ action: "type_text", text: "hi" }, { target: { pid: 42, windowId: 4242 } });
+    expect(typed).toHaveLength(1);
+    expect(typed[0]!.args).toMatchObject({ text: "hi", pid: 42, window_id: 4242, delivery_mode: "background" });
+    expect(typed[0]!.args.scope).toBeUndefined();
+
+    const key = await recordedCalls({ action: "press_key", key: "Return" }, { target: { pid: 42, windowId: 4242 } });
+    expect(key[0]!.args).toMatchObject({ key: "Return", pid: 42, window_id: 4242, delivery_mode: "background" });
   });
 
   it("sends scroll with its direction and amount", async () => {
@@ -179,7 +252,9 @@ describe("performDesktopScreenAction", () => {
     expect(call.args).toMatchObject({ direction: "down", amount: 4, scope: "desktop" });
   });
 
-  it("types with foreground delivery, since a Mac field needs focus", async () => {
+  it("falls back to fronting a window only when no window was pointed at yet", async () => {
+    // The first keystroke after opening the viewer has no target; fronting is the only way left. Every later one is
+    // aimed, which is the path that does not steal focus.
     const call = await recordedCall({ action: "type_text", text: "hi" });
     expect(call.tool).toBe("type_text");
     expect(call.args).toMatchObject({ text: "hi", scope: "desktop", delivery_mode: "foreground" });
@@ -197,6 +272,19 @@ describe("performDesktopScreenAction", () => {
 
 /** Run one action against the recording driver and return the single call it made. */
 async function recordedCall(request: Parameters<typeof performDesktopScreenAction>[1]): Promise<{ tool: string; args: Record<string, unknown> }> {
+  const calls = await recordedCalls(request);
+  expect(calls).toHaveLength(1);
+  return calls[0]!;
+}
+
+/**
+ * Every driver call one action made, in order. A click now asks which window is under the point before clicking it, so
+ * "one action" is not always "one call".
+ */
+async function recordedCalls(
+  request: Parameters<typeof performDesktopScreenAction>[1],
+  options: Parameters<typeof performDesktopScreenAction>[2] = {},
+): Promise<Array<{ tool: string; args: Record<string, unknown> }>> {
   const scratch = mkdtempSync(join(tmpdir(), "lunabot-screen-test-"));
   const record = join(scratch, "calls.jsonl");
   const conn: LocalComputerConnection = {
@@ -204,10 +292,15 @@ async function recordedCall(request: Parameters<typeof performDesktopScreenActio
     env: { RECORD_PATH: record },
   };
   try {
-    await performDesktopScreenAction(conn, request);
-    const lines = readFileSync(record, "utf8").trim().split("\n");
-    expect(lines).toHaveLength(1);
-    return JSON.parse(lines[0]!);
+    await performDesktopScreenAction(conn, request, options);
+    let text = "";
+    try {
+      text = readFileSync(record, "utf8").trim();
+    } catch {
+      text = "";
+    }
+    if (!text) return [];
+    return text.split("\n").map((line) => JSON.parse(line));
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }
