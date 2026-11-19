@@ -208,7 +208,7 @@ class TranscriptPresentationTest {
         val messages = messages("""
             [
               {"id":"user","role":"user","kind":"text","at":1000,"text":"Hello"},
-              {"id":"waiting","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"提示：pi 在缓慢启动后回复了。","ok":true,
+              {"id":"waiting","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"notice: pi 在缓慢启动后回复了。","ok":true,
                "rescue":{"botId":"b","threadId":"th","turnId":"t","instanceId":"pi","ai":"pi","settled":true}}},
               {"id":"answer","role":"bot","kind":"text","at":30000,"text":"Hi","turnId":"t","turnTerminal":true}
             ]
@@ -226,7 +226,7 @@ class TranscriptPresentationTest {
         val messages = messages("""
             [
               {"id":"user","role":"user","kind":"text","at":1000,"text":"Hello"},
-              {"id":"over","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"提示：pi 在缓慢启动后回复了。","ok":true,
+              {"id":"over","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"notice: pi 在缓慢启动后回复了。","ok":true,
                "rescue":{"botId":"b","threadId":"th","turnId":"t","instanceId":"pi","ai":"pi","over":true}}}
             ]
         """)

@@ -29,8 +29,10 @@ class ActivityNamingTest {
     @Test
     fun `a name that is already a sentence is left alone`() {
         // Notices, errors and anything the harness wrote for this row: the
-        // desktop prints those verbatim, and so does the phone.
-        assertEquals("提示：pi 在缓慢启动后回复了。", ActivityNaming.toolLabel("提示：pi 在缓慢启动后回复了。"))
+        // desktop prints those verbatim, and so does the phone. The marker is
+        // ASCII in every language (`src/locales/status-marker.test.ts`), so the
+        // sentence behind it may be any language at all.
+        assertEquals("notice: 提示：pi 在缓慢启动后回复了。", ActivityNaming.toolLabel("notice: 提示：pi 在缓慢启动后回复了。"))
         assertEquals("notice: the model is signed out", ActivityNaming.toolLabel("notice: the model is signed out"))
         assertEquals("bash --login", ActivityNaming.toolLabel("bash --login"))
         assertEquals("", ActivityNaming.toolLabel(""))
@@ -52,13 +54,13 @@ class ActivityNamingTest {
     fun `a notice's sentence has its engine id replaced where it landed`() {
         val rescue = rescue(ai = "pi")
         assertEquals(
-            "提示：自定义模型提供方 在缓慢启动后回复了。",
-            ActivityNaming.rescueEngine("提示：pi 在缓慢启动后回复了。", rescue),
+            "notice: 自定义模型提供方 在缓慢启动后回复了。",
+            ActivityNaming.rescueEngine("notice: pi 在缓慢启动后回复了。", rescue),
         )
         // Whole words only: a bot called "pilot" is not the engine.
-        assertEquals("提示：pilot 回复了。", ActivityNaming.rescueEngine("提示：pilot 回复了。", rescue))
+        assertEquals("notice: pilot 回复了。", ActivityNaming.rescueEngine("notice: pilot 回复了。", rescue))
         // No payload (an older computer): nothing to replace, nothing to invent.
-        assertEquals("提示：pi 回复了。", ActivityNaming.rescueEngine("提示：pi 回复了。", null))
+        assertEquals("notice: pi 回复了。", ActivityNaming.rescueEngine("notice: pi 回复了。", null))
     }
 
     @Test
@@ -66,7 +68,7 @@ class ActivityNamingTest {
         val message = CompanionJson.decodeFromString<Message>(
             """
             {"id":"r","role":"bot","kind":"activity","at":1,
-             "tool":{"name":"提示：pi 在缓慢启动后回复了。","ok":true,
+             "tool":{"name":"notice: pi 在缓慢启动后回复了。","ok":true,
                "rescue":{"botId":"b","threadId":"th","turnId":"t","instanceId":"pi","ai":"pi","settled":true}}}
             """,
         )
