@@ -213,11 +213,26 @@ export function createPhones(deps: PhonesDeps) {
       .join("\n");
     const { state, question } = intentGateRequest({ message, recentContext });
     const judgeText = `${question.instructions}\n\ncurrentMessage: ${state.currentMessage}\n${state.recentContext ? `${state.recentContext}\n` : ""}\nAnswer with exactly one word: DISCUSS, READ, or ACT.`;
+    // The judge borrows the answer check's text call, whose own budget is far wider: the gate's 10 s is imposed
+    // around it, so a stalled engine never holds a turn — a timeout reads the same as no reply.
+    const judged = complete
+      ? async () => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            return await Promise.race<string | null>([
+              complete(judgeText).catch(() => null),
+              new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), INTENT_GATE_TIMEOUT_MS); }),
+            ]);
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+      : () => null;
     try {
       const { intent } = await assessIntent(
         () => decide?.choose("botDecide", state, question, { timeoutMs: INTENT_GATE_TIMEOUT_MS })
           ?? { ok: false as const, reason: "disabled" as const },
-        () => (complete ? complete(judgeText).catch(() => null) : null),
+        judged,
       );
       return intent;
     } catch {
