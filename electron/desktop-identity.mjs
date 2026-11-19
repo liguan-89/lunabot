@@ -6,8 +6,8 @@ import { migrateDataDir, migrateUserData } from "./user-data-migration.mjs";
 
 export { migrateDataDir };
 
-/** `lunabot://` is what this build writes; `dexbot://` stays registered so links earlier builds handed out open here. */
-export const DESKTOP_PROTOCOLS = ["lunabot", "dexbot"];
+/** `lunabot://` is what this build writes; `dexbot://` and `openmausbot://` stay registered so links earlier builds handed out open here. */
+export const DESKTOP_PROTOCOLS = ["lunabot", "dexbot", "openmausbot"];
 
 /**
  * Runs before anything reads `app.getPath("userData")` and before ready: an installed build from before the
