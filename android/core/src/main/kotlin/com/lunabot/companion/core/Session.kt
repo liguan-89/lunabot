@@ -369,10 +369,12 @@ class Session(
                 name = result.serverName?.takeIf { it.isNotEmpty() } ?: invited.name,
                 allowedRouteKinds = invited.allowedRouteKinds,
                 allowedLocalRouteURLs = invited.allowedLocalRouteURLs,
-                hosts = result.hosts.takeIf { it.isNotEmpty() } ?: invited.hosts,
                 // The computer's own descriptor wins; the pinned QR value stays otherwise.
                 e2e = result.descriptor?.encode() ?: invited.e2e,
             )
+            // The routes it advertises for this device, under the consent the QR already carried — the same rule the
+            // plain pairing path applies. Without them a relay-only QR or a server pairing learns no direct route.
+            stored = stored.applyingPairingAdvertisement(result.hosts, result.endpoints)
             if (result.deviceId != null) {
                 stored = stored.copy(name = stored.name)
             }

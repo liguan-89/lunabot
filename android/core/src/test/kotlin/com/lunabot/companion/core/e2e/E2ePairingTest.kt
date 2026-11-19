@@ -51,6 +51,9 @@ class E2ePairingTest {
         assertEquals("omb_device_token", result.token)
         assertEquals("d1", result.deviceId)
         assertEquals("Mac mini", result.serverName)
+        assertEquals(listOf("192.168.1.42"), result.hosts)
+        // The route this build knows is kept; the one whose kind it does not is dropped, not the token beside it.
+        assertEquals(listOf("http://192.168.1.42:8810"), result.endpoints.map { it.url })
         assertTrue(computer.sawPairRequest)
         assertTrue(computer.sawRelayHello)
     }
@@ -119,7 +122,7 @@ class E2ePairingTest {
                     request.append(String(data))
                     val text = request.toString()
                     if (text.contains("POST /api/pair") && text.endsWith("\r\n\r\n") || text.contains("}\r\n") || text.endsWith("}")) {
-                        val body = """{"token":"omb_device_token","device":{"id":"d1","name":"Pixel"},"serverName":"Mac mini"}"""
+                        val body = """{"token":"omb_device_token","device":{"id":"d1","name":"Pixel"},"serverName":"Mac mini","hosts":["192.168.1.42"],"endpoints":[{"url":"http://192.168.1.42:8810","kind":"lan","priority":200},{"url":"http://unknown:1","kind":"future-kind","priority":1}]}"""
                         val response = "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: ${body.length}\r\n\r\n$body"
                         sawPairRequest = true
                         mux!!.write(streamId, response.toByteArray())

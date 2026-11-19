@@ -89,7 +89,8 @@ private class OkHttpE2eSocket(private val listener: E2eSocketListener) : WebSock
     }
 }
 
-/** What `POST /api/pair` answers. */
+/** What `POST /api/pair` answers. `endpoints` is advisory and lossy per element: the token is already minted, so one
+ * route the phone cannot read must not discard it. */
 data class E2ePairResult(
     val token: String,
     val deviceId: String?,
@@ -97,6 +98,7 @@ data class E2ePairResult(
     val serverName: String?,
     val descriptor: E2eDescriptor?,
     val hosts: List<String>,
+    val endpoints: List<com.lunabot.companion.core.CompanionEndpoint>,
 )
 
 object E2ePairing {
@@ -180,6 +182,15 @@ object E2ePairing {
         val hosts = (root["hosts"] as? kotlinx.serialization.json.JsonArray)
             ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull }
             ?: emptyList()
+        // The routes the computer advertises for this device. Decoded one element at a time: a kind or URL this build
+        // does not know is dropped, never the token beside it.
+        val endpoints = (root["endpoints"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { element ->
+                runCatching {
+                    Json.decodeFromJsonElement(com.lunabot.companion.core.CompanionEndpoint.serializer(), element)
+                }.getOrNull()
+            }
+            ?: emptyList()
         return E2ePairResult(
             token = token,
             deviceId = (device?.get("id") as? JsonPrimitive)?.contentOrNull,
@@ -187,6 +198,7 @@ object E2ePairing {
             serverName = (root["serverName"] as? JsonPrimitive)?.contentOrNull,
             descriptor = descriptor,
             hosts = hosts,
+            endpoints = endpoints,
         )
     }
 }
