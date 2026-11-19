@@ -171,6 +171,19 @@ fun PairingScreen(onCancel: () -> Unit) {
         }
     }
 
+    // A computer answered a connect request made from Settings: the link is a
+    // QR's twin, so it enters through the same door a scan does.
+    val computerRequest by ComputerPairingInbox.pending
+    LaunchedEffect(computerRequest) {
+        val request = computerRequest ?: return@LaunchedEffect
+        ComputerPairingInbox.consume()
+        if (PairingInvite.parse(request.link) == null) {
+            failure = "「${request.name}」返回的配对信息无效。"
+            return@LaunchedEffect
+        }
+        session.receivePairingURL(request.link)
+    }
+
     val invite by session.pairingInvite.collectAsState()
     // One key, and it is the invite. `takeInvite` refuses while a redemption
     // holds the slot, and what brings the refused invitation back is not a

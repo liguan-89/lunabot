@@ -11,6 +11,7 @@ import java.net.URL
 import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +28,20 @@ data class CloudMachine(
     val origin: String?,
 )
 
+/** One computer the account has signed the desktop app into, as the control plane lists it. */
+data class AccountComputer(
+    val id: String,
+    val name: String,
+    val platform: String?,
+    val online: Boolean,
+)
+
+/** The phone's ask, waiting for the computer to answer on its own screen. */
+data class ComputerPairRequest(val requestId: String, val expiresAt: Long)
+
+/** What the computer answered: keep polling, take the link, or stop. */
+data class ComputerPairState(val status: String, val link: String? = null)
+
 /** A one-time pairing code for one of the account's Clouds, minted by the control plane. */
 data class CloudPairingGrant(
     val origin: String,
@@ -39,8 +54,11 @@ data class CloudAccountUi(
     val phase: Phase = Phase.LOADING,
     val email: String? = null,
     val clouds: List<CloudMachine> = emptyList(),
+    val computers: List<AccountComputer> = emptyList(),
     val busy: Boolean = false,
     val codeSentTo: String? = null,
+    /** A neutral line such as "waiting for the computer to approve"; not a failure. */
+    val notice: String? = null,
     val error: String? = null,
 ) {
     enum class Phase { LOADING, SIGNED_OUT, SIGNED_IN }
@@ -115,6 +133,59 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
                 )
             }
         }
+    }
+
+    /** The computers this account signed a desktop into — the ones a phone may ask to connect. */
+    suspend fun computers(token: String): List<AccountComputer> {
+        val answer = call("/v1/installations", "GET", null, token)
+        if (answer.status == 401) throw CloudAccountException("登录已过期，请重新登录。", unauthorized = true)
+        if (answer.status !in 200..299) throw problem(answer)
+        val list = answer.body?.optJSONArray("installations") ?: return emptyList()
+        return buildList {
+            for (index in 0 until list.length()) {
+                val row = list.optJSONObject(index) ?: continue
+                val id = row.optString("id")
+                if (id.isBlank()) continue
+                add(
+                    AccountComputer(
+                        id = id,
+                        name = row.optString("name").ifBlank { "My computer" },
+                        platform = row.optString("platform").takeIf { it.isNotBlank() },
+                        online = row.optBoolean("online", false),
+                    ),
+                )
+            }
+        }
+    }
+
+    /** Ask one computer to connect. The person in front of it approves; nothing is granted until then. */
+    suspend fun requestComputerPairing(token: String, installationId: String, deviceName: String): ComputerPairRequest {
+        val answer = call(
+            "/v1/installations/$installationId/pair-requests",
+            "POST",
+            JSONObject().put("deviceName", deviceName),
+            token,
+        )
+        if (answer.status == 401) throw CloudAccountException("登录已过期，请重新登录。", unauthorized = true)
+        if (answer.status == 404) throw CloudAccountException("这台电脑已不在账号下。")
+        if (answer.status == 429) throw CloudAccountException("请求太频繁，请稍后再试。")
+        if (answer.status !in 200..299) throw problem(answer)
+        val body = answer.body ?: throw CloudAccountException("服务器没有返回请求编号。")
+        val requestId = body.optString("requestId")
+        if (requestId.isBlank()) throw CloudAccountException("服务器没有返回请求编号。")
+        return ComputerPairRequest(requestId = requestId, expiresAt = body.optLong("expiresAt"))
+    }
+
+    suspend fun computerPairing(token: String, installationId: String, requestId: String): ComputerPairState {
+        val answer = call("/v1/installations/$installationId/pair-requests/$requestId", "GET", null, token)
+        if (answer.status == 401) throw CloudAccountException("登录已过期，请重新登录。", unauthorized = true)
+        if (answer.status == 404) throw CloudAccountException("这条连接请求不存在了。")
+        if (answer.status !in 200..299) throw problem(answer)
+        val body = answer.body ?: throw CloudAccountException("服务器没有返回连接状态。")
+        return ComputerPairState(
+            status = body.optString("status").ifBlank { "pending" },
+            link = body.optString("link").takeIf { it.startsWith("lunabot://pair") },
+        )
     }
 
     /** Registers this phone so the desktop's device list shows it. Best effort: sign-in stands if it fails. */
@@ -368,6 +439,63 @@ class CloudAccountController(
         _state.update { it.copy(error = null) }
     }
 
+    /**
+     * Asks [computer] to connect and waits for the person in front of it to
+     * approve. Returns the pairing link the computer minted — the same link a QR
+     * carries, so it brings the encrypted route and the relay with it — or null
+     * when the request was declined, expired, or the account session is gone.
+     *
+     * Polling stays inside this call because the answer is only useful here: the
+     * Settings row shows one result, and the link is a one-time secret that
+     * belongs in the pairing screen, not in saved state.
+     */
+    suspend fun pairComputer(computer: AccountComputer): String? {
+        val token = storedToken() ?: run {
+            _state.update { it.copy(error = "请先登录 DEX 账号。") }
+            return null
+        }
+        _state.update {
+            it.copy(busy = true, error = null, notice = "已请求连接「${computer.name}」，请在电脑上点「允许」。")
+        }
+        return try {
+            val request = api.requestComputerPairing(token, computer.id, deviceName)
+            val deadline = System.currentTimeMillis() + PAIR_WAIT_MS
+            while (System.currentTimeMillis() < deadline) {
+                delay(PAIR_POLL_MS)
+                val answer = api.computerPairing(token, computer.id, request.requestId)
+                when (answer.status) {
+                    "allowed" -> {
+                        val link = answer.link
+                        if (link == null) {
+                            _state.update { it.copy(busy = false, notice = null, error = "电脑批准的配对信息无效。") }
+                            return null
+                        }
+                        _state.update { it.copy(busy = false, notice = null) }
+                        return link
+                    }
+                    "denied" -> {
+                        _state.update { it.copy(busy = false, notice = null, error = "电脑上拒绝了这次连接。") }
+                        return null
+                    }
+                    "expired" -> {
+                        _state.update { it.copy(busy = false, notice = null, error = "连接请求已过期，请重试。") }
+                        return null
+                    }
+                }
+            }
+            _state.update { it.copy(busy = false, notice = null, error = "电脑没有回应，请确认那台电脑已登录并打开。") }
+            null
+        } catch (error: CloudAccountException) {
+            if (error.unauthorized) {
+                runCatching { store.clear() }
+                _state.value = CloudAccountUi(phase = CloudAccountUi.Phase.SIGNED_OUT, error = error.message)
+            } else {
+                _state.update { it.copy(busy = false, error = error.message) }
+            }
+            null
+        }
+    }
+
     /** Mints a one-time pairing code for [cloud]; null (with the section's error
      * set) when the account session is gone or the server refused. The caller
      * redeems the grant with the ordinary pairing flow. */
@@ -416,11 +544,15 @@ class CloudAccountController(
         try {
             val email = api.me(token).ifBlank { _state.value.email.orEmpty() }
             val clouds = api.clouds(token)
+            // A server from before the account-bound pairing answers 404 here;
+            // the section simply shows no computers instead of failing the page.
+            val computers = runCatching { api.computers(token) }.getOrDefault(emptyList())
             val codeSentTo = if (justSignedIn) null else _state.value.codeSentTo
             _state.value = CloudAccountUi(
                 phase = CloudAccountUi.Phase.SIGNED_IN,
                 email = email,
                 clouds = clouds,
+                computers = computers,
                 busy = false,
                 codeSentTo = codeSentTo,
             )
@@ -437,8 +569,11 @@ class CloudAccountController(
         }
     }
 
-    companion object {
+    private companion object {
         private val EMAIL = Regex("^[^\\s@<>()\\[\\]\\\\,;:\"]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
         private val CODE = Regex("^\\d{8}$")
+        /** Long enough for the person at the computer to notice the card and tap. */
+        const val PAIR_WAIT_MS = 120_000L
+        const val PAIR_POLL_MS = 2_000L
     }
 }

@@ -414,10 +414,11 @@ fun SettingsScreen(
                 label = "DEX 账号",
                 // Errors and browser results are answers, not explanations;
                 // the rest of the account story lives in the desktop app.
-                footer = if (accountUi.error == null && cloudNotice == null) {
+                footer = if (accountUi.error == null && accountUi.notice == null && cloudNotice == null) {
                     null
                 } else {
                     {
+                        accountUi.notice?.let { SettingsFootnote(it) }
                         accountUi.error?.let { SettingsFootnote(it) }
                         cloudNotice?.let { SettingsFootnote(it) }
                     }
@@ -503,6 +504,35 @@ fun SettingsScreen(
                                     cloudNotice = environment.openCloudDesktop(URI(origin))
                                 },
                             )
+                        }
+                        // The computers this account signed in, next to the
+                        // Clouds. Asking one opens a card on that computer; the
+                        // link it answers with is redeemed by the pairing screen.
+                        if (accountUi.computers.isNotEmpty()) {
+                            SettingsDivider()
+                            SettingsRow(title = "我的电脑", value = "${accountUi.computers.size} 台")
+                            accountUi.computers.forEach { computer ->
+                                SettingsDivider()
+                                SettingsRow(
+                                    title = if (accountUi.busy) "正在请求…" else "连接 ${computer.name}",
+                                    value = when {
+                                        accountUi.busy -> null
+                                        computer.online -> "在线"
+                                        else -> "离线"
+                                    },
+                                    chevron = true,
+                                    enabled = !accountUi.busy,
+                                    onClick = {
+                                        scope.launch {
+                                            val link = environment.cloudAccount.pairComputer(computer) ?: return@launch
+                                            ComputerPairingInbox.offer(
+                                                ComputerPairingRequest(link = link, name = computer.name),
+                                            )
+                                            session.beginPairing()
+                                        }
+                                    },
+                                )
+                            }
                         }
                         SettingsDivider()
                         SettingsRow(

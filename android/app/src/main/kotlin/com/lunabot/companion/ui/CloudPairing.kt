@@ -49,3 +49,33 @@ internal object CloudPairingInbox {
         return request
     }
 }
+
+/**
+ * A computer's approval, carrying the same `lunabot://pair` link a scanned QR
+ * does. Settings offers it and asks `Session` to open the pairing screen, which
+ * feeds it through `receivePairingURL` — the path a scan already takes, so the
+ * confirmation, the attempt transaction and the saved connection are unchanged.
+ *
+ * The link is a one-time credential, so it lives in process memory only.
+ */
+internal data class ComputerPairingRequest(
+    val link: String,
+    /** The computer's name, for a failure line that names what failed. */
+    val name: String,
+)
+
+internal object ComputerPairingInbox {
+    private val _pending = mutableStateOf<ComputerPairingRequest?>(null)
+
+    val pending: State<ComputerPairingRequest?> = _pending
+
+    fun offer(request: ComputerPairingRequest) {
+        _pending.value = request
+    }
+
+    fun consume(): ComputerPairingRequest? {
+        val request = _pending.value ?: return null
+        _pending.value = null
+        return request
+    }
+}
