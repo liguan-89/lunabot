@@ -311,6 +311,11 @@ const __APP_VERSION__: string;
          * is pairing now. Absent in older desktop builds. */
         prepare?(): Promise<CompanionAccountState>;
         signOut(): Promise<CompanionAccountState>;
+        /** Phones asking this computer to connect; absent in older desktop builds. */
+        pairRequests?(): Promise<Array<{ id: string; deviceName: string; createdAt: number; expiresAt: number }>>;
+        answerPairRequest?(id: string, decision: "allow" | "deny", link?: string | null): Promise<string>;
+        /** Fires when a signed-in phone asks to connect. Returns an unsubscribe. */
+        onPairRequest?(listener: (requests: Array<{ id: string; deviceName: string; createdAt: number; expiresAt: number }>) => void): () => void;
       };
       /** Local-shell-only bridge for trusted approval-mode transitions. It is
        * absent on remote server pages and in older desktop builds. */
