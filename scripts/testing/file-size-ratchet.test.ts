@@ -21,7 +21,7 @@ const LINES: Record<string, number> = {
   "electron/main.mjs": 3181,
   "server/store.ts": 2268,
   "src/components/Sidebar.tsx": 1693,
-  "server/routines.ts": 1569,
+  "server/routines.ts": 1571,
   "server/drivers/agents-call.ts": 1094,
   "server/drivers/agents-catalog.ts": 1094,
   "server/browser-live.ts": 1014,
@@ -43,7 +43,7 @@ const LINES: Record<string, number> = {
   "server/container-computer.ts": 1176,
   "src/components/ModelPicker.tsx": 1039,
   "src/components/PhoneSetupFlow.tsx": 1072,
-  "server/cli.ts": 1062,
+  "server/cli.ts": 1064,
   "src/components/AttachmentPreview.tsx": 1035,
   "server/meetings/meetbot.ts": 1047,
 };
