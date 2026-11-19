@@ -32,7 +32,7 @@ const NODE_REQUIRE = {
 const ENTRY_POINTS = [
   "index.ts",
   "message-search.worker.ts",
-  // the `openmausbot` command
+  // the `lunabot` command
   "lunabot.ts",
   "pair-cli.ts",
   "workspace-backup.worker.ts",

@@ -35,16 +35,16 @@ const io = () => {
 
 const base: FleetInput = {
   action: "list", admins: [], members: [], dryRun: false, yes: false, keepData: false,
-  node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", root: "/",
+  node: "/usr/bin/node", script: "/usr/lib/node_modules/lunabot/cli.js", root: "/",
 };
 const registryFile = "/etc/lunabot/fleet.json";
 const withRegistry = (workspaces = {}) => ({ [registryFile]: JSON.stringify({ ...emptyRegistry("agentada.cc"), workspaces }) });
 
-describe("openmausbot fleet", () => {
+describe("lunabot fleet", () => {
   it("updates only managed OpenRouter models and rejects missing, malformed or redirected config", async () => {
     const workspace: FleetWorkspace = { slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: "" };
-    const path = "/var/lib/openmausbot/acme/.config/opencode/opencode.json";
-    const cfgPath = "/var/lib/openmausbot/acme/.lunabot/config.json";
+    const path = "/var/lib/lunabot/acme/.config/opencode/opencode.json";
+    const cfgPath = "/var/lib/lunabot/acme/.lunabot/config.json";
     const config = { model: "my-own-default", provider: { unrelated: { models: { keep: {} } }, [MANAGED_OPENROUTER]: {
       npm: "@ai-sdk/openai-compatible", name: "Keep this name", options: { baseURL: "https://admin.example.test/api/gateway/acme/openrouter/v1", apiKey: "scoped-secret" }, models: { "old/model": { name: "Old" } },
     } } };
@@ -75,7 +75,7 @@ describe("openmausbot fleet", () => {
     const { io: log, out } = io();
     expect(await runFleetCommand({ ...base, action: "init", domain: "agentada.cc" }, log, deps)).toBe(0);
     expect(out[0]).toBe("not running as root; inspect this plan, then rerun the fleet command as root without --dry-run (with --yes where required):");
-    expect(out.join("\n")).toContain("cat > /etc/systemd/system/openmausbot@.service <<'OMB_EOF'");
+    expect(out.join("\n")).toContain("cat > /etc/systemd/system/lunabot@.service <<'OMB_EOF'");
     expect(out.join("\n")).toContain("systemctl enable --now lunabot-fence.service");
     expect(calls).toEqual([]);
 
@@ -83,14 +83,14 @@ describe("openmausbot fleet", () => {
     const dry = io();
     expect(await runFleetCommand({ ...base, action: "create", slug: "acme", admins: ["ada@example.test"], dryRun: true }, dry.io, rooted.deps)).toBe(0);
     expect(dry.out[0]).toBe("dry run; inspect this plan, then rerun the fleet command as root without --dry-run (with --yes where required):");
-    expect(dry.out.join("\n")).toContain("useradd --system --create-home --home-dir /var/lib/openmausbot/acme");
+    expect(dry.out.join("\n")).toContain("useradd --system --create-home --home-dir /var/lib/lunabot/acme");
     expect(rooted.calls).toEqual([]);
   });
 
   it("refuses an npx cache as the unit's script and asks for the domain", async () => {
     const { deps } = machine({ root: true });
     const bad = io();
-    expect(await runFleetCommand({ ...base, action: "init", domain: "agentada.cc", script: "/root/.npm/_npx/abc/node_modules/openmausbot/cli.js" }, bad.io, deps)).toBe(2);
+    expect(await runFleetCommand({ ...base, action: "init", domain: "agentada.cc", script: "/root/.npm/_npx/abc/node_modules/lunabot/cli.js" }, bad.io, deps)).toBe(2);
     expect(bad.err[0]).toMatch(/npx|permanently/);
     const missing = io();
     expect(await runFleetCommand({ ...base, action: "init" }, missing.io, deps)).toBe(2);
@@ -104,15 +104,15 @@ describe("openmausbot fleet", () => {
     expect(code).toBe(0);
     expect(calls.slice(0, 5)).toEqual([
       `write ${registryFile} 600`,
-      "run useradd --system --create-home --home-dir /var/lib/openmausbot/acme --shell /usr/sbin/nologin --user-group omb-acme",
+      "run useradd --system --create-home --home-dir /var/lib/lunabot/acme --shell /usr/sbin/nologin --user-group omb-acme",
       `write ${registryFile} 600`,
-      "mkdir /var/lib/openmausbot/acme/.lunabot 700 as omb-acme",
-      "write /var/lib/openmausbot/acme/.lunabot/config.json 600 as omb-acme",
+      "mkdir /var/lib/lunabot/acme/.lunabot 700 as omb-acme",
+      "write /var/lib/lunabot/acme/.lunabot/config.json 600 as omb-acme",
     ]);
-    expect(JSON.parse(files.get("/var/lib/openmausbot/acme/.lunabot/config.json")!)).toEqual({
+    expect(JSON.parse(files.get("/var/lib/lunabot/acme/.lunabot/config.json")!)).toEqual({
       signIn: { admins: ["ada@example.test"], members: ["@acme.test"] }, anthropic: { key: "sk-ant-fixture" }, budgets: { monthlyUsd: 40 },
     });
-    expect(files.get("/var/lib/openmausbot/acme/.lunabot/brand.json")).toBe('{"name":"Acme"}');
+    expect(files.get("/var/lib/lunabot/acme/.lunabot/brand.json")).toBe('{"name":"Acme"}');
     expect(files.get("/etc/lunabot/instances/acme.env")).toContain("OMB_LICENSE_KEY=omb1.k");
     expect(calls).toContain("health http://127.0.0.1:8810/api/health");
     expect(calls.at(-1)).toBe(`write ${registryFile} 600`);
@@ -148,7 +148,7 @@ describe("openmausbot fleet", () => {
   });
 
   it("edits a workspace's sign-in list in place, owned by the workspace, and lists what runs", async () => {
-    const dataFile = "/var/lib/openmausbot/acme/.lunabot/config.json";
+    const dataFile = "/var/lib/lunabot/acme/.lunabot/config.json";
     const ready = machine({ root: true, files: { ...withRegistry({ acme: { slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: "" } }), [dataFile]: '{"signIn":{"admins":["ada@example.test"]}}' } });
     const added = io();
     expect(await runFleetCommand({ ...base, action: "users", slug: "acme", userAction: "add", email: "Bob@Acme.test", chatOnly: true }, added.io, ready.deps)).toBe(0);
@@ -174,13 +174,13 @@ describe("openmausbot fleet", () => {
     expect(await runFleetCommand({ ...base, action: "init", domain: "fresh.example.test", yes: true }, result.io, ready.deps)).toBe(0);
     expect(JSON.parse(ready.files.get(registryFile)!)).toEqual({ ...prior, domain: "fresh.example.test" });
     expect(ready.files.get("/etc/lunabot/fence.nft")).toBe(fenceRules(Object.values(workspaces)));
-    expect(ready.files.get("/etc/systemd/system/openmausbot-fleet.service")).toContain("--group maus");
+    expect(ready.files.get("/etc/systemd/system/lunabot-fleet.service")).toContain("--group maus");
     expect(ready.calls).toContain("run nft -f /etc/lunabot/fence.nft");
     expect(await runFleetCommand({ ...base, action: "init", domain: "fresh.example.test", operator: "newadmin", yes: true }, io().io, ready.deps)).toBe(0);
     expect(JSON.parse(ready.files.get(registryFile)!).operator).toBe("newadmin");
   });
 
-  it.each(["/var/lib/openmausbot/acme", "/etc/lunabot/instances/acme.env", "/etc/caddy/omb.d/acme.caddy", "/etc/systemd/system/openmausbot@acme.service.d"])("refuses residual customer path %s before taking action", async (path) => {
+  it.each(["/var/lib/lunabot/acme", "/etc/lunabot/instances/acme.env", "/etc/caddy/omb.d/acme.caddy", "/etc/systemd/system/lunabot@acme.service.d"])("refuses residual customer path %s before taking action", async (path) => {
     const ready = machine({ root: true, files: { ...withRegistry(), [path]: "retained data" } });
     const result = io();
     expect(await runFleetCommand({ ...base, action: "create", slug: "acme", admins: ["a@example.test"] }, result.io, ready.deps)).toBe(2);

@@ -12,8 +12,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release", "npm");
 const app = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-// The server bundle's entry is still openmausbot.js (server/openmausbot.ts); the package it ships as is lunabot.
-for (const required of ["dist-server/index.js", "dist-server/openmausbot.js", "dist/index.html"]) {
+// The server bundle's entry is lunabot.js (server/lunabot.ts); the package it ships as is lunabot.
+for (const required of ["dist-server/index.js", "dist-server/lunabot.js", "dist/index.html"]) {
   if (!existsSync(join(root, required))) {
     console.error(`missing ${required}: run \`pnpm build:server && pnpm exec vite build\` first`);
     process.exit(1);
@@ -29,7 +29,7 @@ cpSync(join(root, "LICENSE"), join(out, "LICENSE"));
 cpSync(join(root, "NOTICE"), join(out, "NOTICE"));
 
 // The bin lives next to the bundle so serverEntry() finds index.js by path.
-writeFileSync(join(out, "cli.js"), `#!/usr/bin/env node\nimport "./dist-server/openmausbot.js";\n`);
+writeFileSync(join(out, "cli.js"), `#!/usr/bin/env node\nimport "./dist-server/lunabot.js";\n`);
 
 writeFileSync(
   join(out, "package.json"),
