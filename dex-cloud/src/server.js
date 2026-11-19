@@ -109,6 +109,12 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
     for (const limiter of Object.values(limits)) limiter.sweep();
     store.purgeDeviceCodes(Date.now());
     store.purgeEmailAttempts(Date.now());
+    // A phone that has not reported for a week is a reinstall, a spare, or an
+    // emulator left behind; its row is noise in 我的电脑 and in the account list.
+    if (config.stalePhoneDays > 0) {
+      const dropped = store.purgeStalePhones(Date.now() - config.stalePhoneDays * 24 * 60 * 60_000);
+      if (dropped) log(`swept ${dropped} stale phone installation(s)`);
+    }
   }, 60 * 60_000);
   sweeper.unref?.();
 

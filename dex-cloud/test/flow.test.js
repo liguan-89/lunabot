@@ -457,3 +457,85 @@ test("a signed-in phone asks a computer to connect and the computer answers with
     app.store.close();
   }
 });
+
+test("a signed-in phone reports it is still here, and silent ones are swept", async () => {
+  const app = await start(config());
+  try {
+    await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", { email: "owner@example.com", type: "sign-in" });
+    const verify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "owner@example.com",
+      otp: app.codes.at(-1).code,
+      name: "owner",
+    });
+    const accountToken = verify.headers.get("set-auth-token");
+
+    // A phone registers at sign-in and never gets an installation credential:
+    // it authenticates with the account session.
+    const phone = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000001",
+      name: "OnePlus",
+      platform: "android",
+      appVersion: "2.1.3",
+      kind: "phone",
+    }, accountToken);
+    assert.equal(phone.status, 201);
+    const phoneId = phone.body.installation.id;
+    const phoneCredential = phone.body.credential;
+
+    // Presence refreshes the row in place — same id, newer clock, no credential.
+    app.store.db.prepare("UPDATE installations SET last_seen_at = ? WHERE id = ?").run(1, phoneId);
+    const presence = await call(app.base, "POST", "/v1/installations/self/presence", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000001",
+      name: "OnePlus",
+      appVersion: "2.1.4",
+    }, accountToken);
+    assert.equal(presence.status, 200);
+    assert.equal(presence.body.installation.id, phoneId);
+    assert.equal(presence.body.installation.kind, "phone");
+    assert.equal(presence.body.installation.appVersion, "2.1.4");
+    assert.equal(presence.body.credential, undefined);
+    const seen = app.store.db.prepare("SELECT last_seen_at FROM installations WHERE id = ?").get(phoneId);
+    assert.ok(Number(seen.last_seen_at) > 1);
+
+    // A swept row comes back when the phone reports again, still as a phone.
+    const swept = await call(app.base, "POST", "/v1/installations/self/presence", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000002",
+      name: "Spare phone",
+      platform: "android",
+      appVersion: "2.1.3",
+    }, accountToken);
+    assert.equal(swept.status, 200);
+    assert.equal(swept.body.installation.kind, "phone");
+
+    // The sweep removes phones that stopped reporting — and only those.
+    const desktop = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000003",
+      name: "Studio Mac",
+      platform: "darwin",
+      appVersion: "2.1.3",
+      kind: "desktop",
+    }, accountToken);
+    const desktopId = desktop.body.installation.id;
+    const week = 7 * 24 * 60 * 60_000;
+    const stale = Date.now() - week - 60_000;
+    app.store.db.prepare("UPDATE installations SET last_seen_at = ? WHERE id IN (?, ?)").run(stale, phoneId, desktopId);
+    // A pending request on the stale row must not outlive it.
+    const waiting = await call(app.base, "POST", `/v1/installations/${phoneId}/pair-requests`, { deviceName: "ipad" }, accountToken);
+    assert.equal(waiting.status, 201);
+
+    const dropped = app.store.purgeStalePhones(Date.now() - week);
+    assert.equal(dropped, 1, "the silent phone goes; the desktop beside it stays");
+    const left = app.store.installationsFor(app.store.db.prepare("SELECT account_id FROM installations WHERE id = ?").get(desktopId).account_id);
+    assert.deepEqual(left.map((row) => row.id).sort(), [desktopId, swept.body.installation.id].sort());
+    // The desktop keeps working; the swept phone's credential is revoked.
+    const desktopStill = await call(app.base, "GET", "/v1/installations/self", undefined, desktop.body.credential);
+    assert.equal(desktopStill.status, 200);
+    const phoneGone = await call(app.base, "GET", "/v1/installations/self", undefined, phoneCredential);
+    assert.equal(phoneGone.status, 401);
+    const requestGone = app.store.pairRequest(waiting.body.requestId);
+    assert.equal(requestGone, null);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});

@@ -288,6 +288,43 @@ export class Store {
   }
 
   /**
+   * Refreshes what a signed-in device reports about itself, and marks it seen.
+   *
+   * The name and the version move with the device — a rename or an upgrade
+   * should not need a fresh registration, which would rotate the credential a
+   * desktop is still polling with.
+   */
+  updateInstallationProfile(id, { name, platform = null, appVersion = null }) {
+    this.db.prepare([
+      "UPDATE installations SET name = ?, platform = COALESCE(?, platform),",
+      "app_version = COALESCE(?, app_version), last_seen_at = ? WHERE id = ?",
+    ].join(" ")).run(name, platform, appVersion, now(), id);
+  }
+
+  /**
+   * Drops phone rows that stopped reporting.
+   *
+   * Only `kind = 'phone'` qualifies: a desktop row may be pinned by a paired
+   * phone's stored relay identity, and deleting it would leave that phone
+   * knocking on a name the relay no longer has (4404) while both ends are
+   * online. Phones carry no installation credential worth keeping — they
+   * authenticate with the account session — so the row and its pending
+   * requests go together.
+   */
+  purgeStalePhones(before) {
+    const stale = this.db.prepare("SELECT id FROM installations WHERE kind = 'phone' AND last_seen_at < ?").all(before);
+    if (!stale.length) return 0;
+    this.transaction(() => {
+      for (const { id } of stale) {
+        this.db.prepare("UPDATE installation_credentials SET revoked_at = ? WHERE installation_id = ? AND revoked_at IS NULL").run(now(), id);
+        this.db.prepare("DELETE FROM pair_requests WHERE installation_id = ?").run(id);
+        this.db.prepare("DELETE FROM installations WHERE id = ?").run(id);
+      }
+    });
+    return stale.length;
+  }
+
+  /**
    * The relay identity of one installation, made once and kept.
    *
    * A phone pins `h` from the descriptor it paired with, and its stored

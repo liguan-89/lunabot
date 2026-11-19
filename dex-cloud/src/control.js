@@ -234,6 +234,11 @@ route("POST", "/v1/installations", async (ctx) => {
   let installation = ctx.store.installationByClientInstance(session.account_id, clientInstanceId);
   if (installation) {
     ctx.store.revokeInstallationCredentials(installation.id);
+    // Signing in again is also the newest thing the plane knows about this
+    // device: refresh the row so a rename or an upgrade lands without a
+    // second round trip.
+    ctx.store.updateInstallationProfile(installation.id, { name, platform, appVersion });
+    installation = ctx.store.installation(installation.id);
   } else {
     installation = ctx.store.insertInstallation({
       id: newUuid(),
@@ -247,6 +252,48 @@ route("POST", "/v1/installations", async (ctx) => {
   }
   const credential = issueCredential(ctx, installation.id);
   json(ctx.res, 201, { installation: installationShape(installation), ...credential });
+});
+
+/**
+ * A signed-in device says it is still here.
+ *
+ * Phones authenticate with the account session, never with an installation
+ * credential, so they have no request of their own that would touch their row:
+ * without this, their `last_seen_at` stays at the moment they signed in, and
+ * the sweeper cannot tell a daily phone from a forgotten one.
+ *
+ * It deliberately does not mint a credential. `POST /v1/installations` does,
+ * and a phone calling that on every settings screen would revoke the
+ * credential its own desktop is polling with.
+ */
+route("POST", "/v1/installations/self/presence", async (ctx) => {
+  const session = controlSession(ctx);
+  const clientInstanceId = cleanInstallationClientId(ctx.body.clientInstanceId);
+  if (!clientInstanceId) throw new HttpError(400, "invalid_request");
+  const reported = typeof ctx.body.name === "string" ? ctx.body.name.trim().slice(0, 100) : "";
+  const platform = typeof ctx.body.platform === "string" ? ctx.body.platform.slice(0, 40) : null;
+  const appVersion = cleanVersion(ctx.body.appVersion);
+  let installation = ctx.store.installationByClientInstance(session.account_id, clientInstanceId);
+  if (installation) {
+    ctx.store.updateInstallationProfile(installation.id, {
+      name: reported || installation.name,
+      platform,
+      appVersion,
+    });
+  } else {
+    // The row was swept while the phone stayed signed in, or this is the first
+    // report after the app updated. Rebuilding it keeps the device list honest.
+    installation = ctx.store.insertInstallation({
+      id: newUuid(),
+      accountId: session.account_id,
+      clientInstanceId,
+      name: reported || "This phone",
+      platform: platform ?? "android",
+      appVersion,
+      kind: "phone",
+    });
+  }
+  json(ctx.res, 200, { installation: installationShape(ctx.store.installation(installation.id)) });
 });
 
 route("GET", "/v1/installations/self", async (ctx) => {
