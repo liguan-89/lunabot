@@ -116,8 +116,10 @@ jobs:
           docker tag openmausbot:ci ghcr.io/milind-soni/openmausbot:latest
           printf 'DOMAIN=localhost\nENGINES=\n' > deploy/.env
           docker compose -f deploy/docker-compose.yml up -d --no-build
+          # Caddy answers within a second but the server takes a few more; an early
+          # answer is a 502, which plain `curl -sk` still reports as success.
           for i in $(seq 1 45); do
-            curl -sk -o /dev/null --max-time 2 https://localhost/.well-known/openmausbot/environment && break
+            [ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 2 https://localhost/.well-known/openmausbot/environment)" = 200 ] && break
             sleep 2
             if [ "$i" = "45" ]; then docker compose -f deploy/docker-compose.yml logs; echo "caddy never answered"; exit 1; fi
           done
