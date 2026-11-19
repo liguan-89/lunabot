@@ -98,7 +98,11 @@ describe("captureDesktopScreen", () => {
     const frame = await captureDesktopScreen(
       driverConnection(
         captureDriver({
-          stdout: JSON.stringify({ screen_width: 1710, screen_height: 1107, screenshot_width: 1280, screenshot_height: 829 }),
+          stdout: JSON.stringify({
+            screen_width: 1710, screen_height: 1107,
+            screenshot_width: 1280, screenshot_height: 829,
+            screenshot_original_width: 3420, screenshot_original_height: 2214,
+          }),
           pngBase64: PNG,
         }),
       ),
@@ -110,7 +114,8 @@ describe("captureDesktopScreen", () => {
     expect(Buffer.from(frame.png, "base64").length).toBeGreaterThan(512);
     expect(frame.mime).toBe(process.platform === "darwin" ? "image/jpeg" : "image/png");
     expect([frame.imageWidth, frame.imageHeight]).toEqual([1280, 829]);
-    expect([frame.screenWidth, frame.screenHeight]).toEqual([1710, 1107]);
+    // Desktop pixels, not points: the driver divides by the backing scale itself, so points would land at half.
+    expect([frame.screenWidth, frame.screenHeight]).toEqual([3420, 2214]);
   });
 
   it("asks for the long-edge cap it was given", async () => {

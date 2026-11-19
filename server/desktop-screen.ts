@@ -15,14 +15,18 @@ import { wholeScreenshot } from "./container-computer.ts";
 import { augmentedPath } from "./env-path.ts";
 import type { LocalComputerConnection } from "./local-computer.ts";
 
-/** One capture: the PNG the phone draws, and the screen size its taps must be expressed in. */
+/** One capture: the picture the phone draws, and the frame an action's x/y must be expressed in. */
 export interface DesktopScreenFrame {
   png: string;
   mime: "image/png" | "image/jpeg";
   /** Pixels in [png]; what the phone's touch maps against. */
   imageWidth: number;
   imageHeight: number;
-  /** Logical screen points; what an action's x/y are in. */
+  /**
+   * The driver's own desktop pixels — `screenshot_original_width/height`, which on a retina screen is twice the
+   * logical point size. Actions are sent in these, not in points: the driver converts them itself, and a point-sized
+   * coordinate lands at half the intended place.
+   */
   screenWidth: number;
   screenHeight: number;
 }
@@ -147,8 +151,11 @@ export async function captureDesktopScreen(
       timeoutMs,
     );
     const facts = JSON.parse(stdout) as Record<string, unknown>;
-    const screenWidth = Number(facts.screen_width);
-    const screenHeight = Number(facts.screen_height);
+    // The driver's `scope: "desktop"` input path takes DESKTOP PIXELS, not logical points: it divides by the backing
+    // scale itself (a click at 3400,2200 reports "screen-point (1700,1100)"). Sending points lands every action at half
+    // its intended place on a retina screen, which is exactly what a phone's tap looked like — off by 2×.
+    const screenWidth = Number(facts.screenshot_original_width ?? facts.screen_width);
+    const screenHeight = Number(facts.screenshot_original_height ?? facts.screen_height);
     const imageWidth = Number(facts.screenshot_width);
     const imageHeight = Number(facts.screenshot_height);
     if (![screenWidth, screenHeight, imageWidth, imageHeight].every((n) => Number.isFinite(n) && n > 0)) {
