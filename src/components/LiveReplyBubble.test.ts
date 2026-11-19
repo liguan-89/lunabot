@@ -29,3 +29,26 @@ describe("LiveReplyBubble", () => {
     expect(html).not.toContain("group-hover:opacity-100");
   });
 });
+
+// The settled row's surface is the streaming bubble's, or the handover is a
+// jump: Simple mode's structured long reply has no bubble, and this component
+// used to wrap it in one until the turn landed.
+describe("LiveReplyBubble surfaces", () => {
+  const list = "1. One is the start.\n2. Two comes right after.\n3. Three is a small crowd.\n4. Four fills a table.\n5. Five is a hand.";
+  const render = (text: string, simple: boolean) => renderToStaticMarkup(createElement(LiveReplyBubble, { text, simple }));
+
+  it("streams a structured long reply without a bubble in Simple mode, like its settled row", () => {
+    const html = render(list, true);
+    expect(html).toContain("bg-transparent");
+    expect(html).not.toContain("bg-card");
+  });
+
+  it("keeps a chat line in the bubble in Simple mode", () => {
+    const html = render("Done. I will look every morning at 8.", true);
+    expect(html).toContain("bg-card");
+  });
+
+  it("keeps Advanced mode's card for both shapes", () => {
+    for (const text of ["Done.", list]) expect(render(text, false)).toContain("bg-card");
+  });
+});
