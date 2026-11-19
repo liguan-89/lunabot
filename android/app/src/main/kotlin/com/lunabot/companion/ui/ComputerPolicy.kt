@@ -52,15 +52,24 @@ object ComputerPolicy {
     }
 
     /**
-     * Cloud and Local VM expose an HTTP capture; "this Mac" has its own route
-     * now (`/desktop/screenshot`), so it polls like the others.
+     * Every surface that answers a capture outside a live turn: cloud/Box, the Local VM, and this computer's own screen.
+     *
+     * This is the polled-still rule for the cloud and VM panels; this computer has its own viewer, which asks its own
+     * route, so a bot on Auto does not need this to be true to show its screen.
      */
     fun hasRemoteCapture(bot: Bot): Boolean =
         bot.computer == "cloud" || bot.computer == "vm" || bot.computer == "local" ||
             (bot.computer == null && bot.cloudBackend != null)
 
-    /** This computer's own screen: watched and driven through its own two routes, never the VM's. */
-    fun isThisComputer(bot: Bot): Boolean = bot.computer == "local"
+    /**
+     * This computer's own screen: watched and driven through its own two routes, never the VM's.
+     *
+     * Auto with no cloud backend counts, because that is the surface the harness resolves to when the desktop app is
+     * running — the only one it can reach. A phone that waited for an explicit `"local"` would never show anything,
+     * since a bot on Auto never reports one. When the app is not running the route answers 409 and the viewer says so.
+     */
+    fun isThisComputer(bot: Bot): Boolean =
+        bot.computer == "local" || (bot.computer == null && bot.cloudBackend == null)
 
     /** Acting on this Mac needs a control lease first, exactly like the Local VM. */
     fun showsThisComputerTakeover(bot: Bot): Boolean = isThisComputer(bot)

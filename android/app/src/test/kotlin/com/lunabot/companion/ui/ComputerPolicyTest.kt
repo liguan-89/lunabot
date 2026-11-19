@@ -104,6 +104,16 @@ class ComputerPolicyTest {
         // Its screen opens on its own viewer, which is why it never needs the VNC join button.
         assertFalse(ComputerPolicy.showsCloudDesktop(bot(id = "b").copy(computer = "local")))
     }
+
+    @Test
+    fun `a bot on Auto with no cloud backend is this computer`() {
+        // The harness picks the surface per turn, and with no cloud backend the only one it can reach is this Mac. A bot
+        // on Auto never reports `computer = "local"`, so waiting for that would leave the screen permanently blank.
+        assertTrue(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = null, cloudBackend = null)))
+        assertTrue(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = null)))
+        // A configured cloud backend is a different surface, so Auto there is not this Mac.
+        assertFalse(ComputerPolicy.isThisComputer(bot(id = "b").copy(computer = null, cloudBackend = "vps")))
+    }
 }
 
 /**
