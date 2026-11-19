@@ -4,6 +4,7 @@ import java.io.IOException
 import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.NetworkInterface
+import java.net.Proxy
 import java.net.URI
 import java.net.UnknownHostException
 import java.util.UUID
@@ -42,6 +43,25 @@ import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 
 internal data class ConnectionEndpoint(val baseUrl: HttpUrl, val dns: Dns)
+
+/**
+ * The HTTP stack that runs inside an E2E tunnel.
+ *
+ * The tunnel is the route: every byte already reaches the computer through it,
+ * and its synthetic host (`h-….e2e.invalid`) is not a name any proxy could
+ * resolve. Left to the platform's proxy selector — a VPN app's local HTTP
+ * proxy, say — OkHttp would dial *the proxy* through this same socket factory
+ * and write an absolute-form request line (`PUT http://h-….e2e.invalid/api/…`)
+ * into the tunnel. The computer reads that whole string as a path, finds no
+ * route for it, and the phone reports the connection as unreachable while the
+ * tunnel itself is perfectly healthy.
+ */
+internal fun e2eHttpClient(base: OkHttpClient, tunnel: com.lunabot.companion.core.e2e.E2eTransport): OkHttpClient =
+    base.newBuilder()
+        .socketFactory(tunnel.socketFactory)
+        .dns(tunnel.dns)
+        .proxy(Proxy.NO_PROXY)
+        .build()
 
 /** The durable pairing result together with the route that actually redeemed it. */
 data class PairingOutcome(
@@ -149,10 +169,7 @@ class CompanionClient(
 
     private val transportClient: OkHttpClient = run {
         val tunnel = e2e ?: return@run baseClient
-        baseClient.newBuilder()
-            .socketFactory(tunnel.socketFactory)
-            .dns(tunnel.dns)
-            .build()
+        e2eHttpClient(baseClient, tunnel)
     }
 
     private val endpoint = run {
