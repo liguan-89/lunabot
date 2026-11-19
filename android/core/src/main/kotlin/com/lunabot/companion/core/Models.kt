@@ -161,7 +161,44 @@ data class ToolActivity(
      * the command to run by hand. Older computers omit it.
      */
     val claudeUpdate: Boolean? = null,
+    /**
+     * A first reply that has not come yet: the turn's AI has said nothing and
+     * this row is the harness's notice about it (`shared/first-reply-rescue.ts`).
+     * The row's name is a whole sentence, which is what the phone prints; this
+     * payload is what says whether the notice still has something to ask.
+     */
+    val rescue: FirstReplyRescue? = null,
 )
+
+/**
+ * The harness's own record of a turn that heard nothing from its AI for a
+ * while. Only the fields the phone acts on are decoded: the desktop's two
+ * buttons (switch AI, connect a subscription) are its own, and the phone has
+ * neither.
+ */
+@Serializable
+data class FirstReplyRescue(
+    val botId: String,
+    val threadId: String,
+    val turnId: String,
+    val requestMessageId: String? = null,
+    val instanceId: String,
+    val ai: String,
+    val groupId: String? = null,
+    /** The AI has started answering: the notice has nothing left to say. */
+    val settled: Boolean? = null,
+    /** The turn ended, or gave way to the next, without an answer: history, not a live wait. */
+    val over: Boolean? = null,
+) {
+    /**
+     * Whether the row still belongs on screen. A settled notice said "still
+     * waiting" about something that has since arrived, and the desktop drops it
+     * from the transcript; the phone used to print it forever because it could
+     * not see this payload at all. An over notice is history and stays, with no
+     * live anything — which is exactly what a printed sentence is.
+     */
+    val answered: Boolean get() = settled == true
+}
 
 /**
  * A compaction record: from this message on, rebuilds of the thread's

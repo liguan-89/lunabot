@@ -238,6 +238,11 @@ fun transcriptRows(messages: List<Message>, detail: ActivityDetail): List<Transc
 
         messages.forEach { message ->
             if (message.kind == Message.Kind.DIGEST) return@forEach
+            // A first-reply notice the AI has since answered is not history
+            // worth a line: it said "no answer yet" about a turn that has one.
+            // The desktop drops the same row (`FirstReplyRescueRow`), and this
+            // is the phone's half of that rule.
+            if (message.tool?.rescue?.answered == true) return@forEach
             val turn = folds[message.id]
             if (turn != null) {
                 flush()
