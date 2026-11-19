@@ -300,6 +300,13 @@ const bridge = {
     retry: () => ipcRenderer.invoke("companion-account:retry"),
     prepare: () => ipcRenderer.invoke("companion-account:prepare"),
     signOut: () => ipcRenderer.invoke("companion-account:sign-out"),
+    pairRequests: () => ipcRenderer.invoke("companion-account:pair-requests"),
+    answerPairRequest: (id, decision, link) => ipcRenderer.invoke("companion-account:answer-pair-request", id, decision, link),
+    onPairRequest: (listener) => {
+      const handler = (_event, requests) => listener(requests);
+      ipcRenderer.on("companion-account:pair-request", handler);
+      return () => ipcRenderer.removeListener("companion-account:pair-request", handler);
+    },
   },
   /** Full/Custom never go through the loopback API, only the embedded server's private utilityProcess port. */
   approvals: {
