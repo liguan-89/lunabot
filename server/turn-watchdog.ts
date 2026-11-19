@@ -28,6 +28,22 @@ export function engineProcessGone(adapter: Pick<ProviderAdapter, "enginePid"> | 
   return pid === undefined || !alive(pid);
 }
 
+/** Why the watchdog stopped a turn: it went silent, or the process running its engine exited and the turn can never
+ * answer. */
+export type StallReason = "silent" | "engine-exited";
+
+/** The silence that stops a turn whose engine process has exited: its engine can never answer it, so it waits only long
+ * enough for the driver to report the turn's own end, and not for the tool limit. */
+export const ENGINE_EXIT_STALL_MS = 2 * 60_000;
+
+/** The engine's process for the thread's turn has exited: the driver names one and that process is gone. A driver that
+ * names no process for the turn proves nothing (the turn may not have started one yet), so this is false for it. */
+export function engineProcessExited(adapter: Pick<ProviderAdapter, "enginePid"> | null | undefined, threadId: string, alive = processAlive): boolean {
+  if (!adapter?.enginePid) return false;
+  const pid = adapter.enginePid(threadId);
+  return pid !== undefined && !alive(pid);
+}
+
 const SUSPENDED_SWEEPS = 3;
 
 const parked = (turn: WatchedTurn): boolean => turn.waitingOnHuman || turn.waitingOnComputer;
@@ -37,11 +53,18 @@ export interface TurnWatchdogOptions {
   toolStallMs: number;
   /** The silence that stops a parked turn whose engine is known to be gone: longer than any wait the harness bounds itself. */
   parkedStallMs: number;
+  /** The silence that stops a turn whose engine process has exited: its engine can never answer it, so it does not wait
+   * for the tool limit, only long enough for the driver to report the turn's own end. */
+  engineExitStallMs: number;
   checkMs: number;
   /** The turn's engine is known to have no process left for it; absent or false, a parked turn waits on. */
   engineGone?: (turn: WatchedTurn) => boolean;
-  /** silentMs: the silence that stopped the turn, stallMs, toolStallMs or parkedStallMs. */
-  onStall: (turn: WatchedTurn, silentMs: number) => void;
+  /** The turn's engine process has exited: the driver names one for the turn and that process is gone. Absent or false,
+   * the turn waits for the silence its tools bound. */
+  engineExited?: (turn: WatchedTurn) => boolean;
+  /** silentMs: the silence that stopped the turn, stallMs, toolStallMs, parkedStallMs or engineExitStallMs. reason: why
+   * the turn was stopped, so the person is told what actually happened to it. */
+  onStall: (turn: WatchedTurn, silentMs: number, reason: StallReason) => void;
   /** The conversations shown working that nothing holds but a watched turn (no dispatch, engine or settling turn): one no
    * watched turn holds either is freed once it has stayed so for stallMs. */
   unheld?: { threads(): Iterable<{ threadId: string; botId: string }>; free(threadId: string, botId: string): void };
@@ -148,18 +171,20 @@ export class TurnWatchdog {
     const at = this.now();
     for (const turn of this.turns.values()) {
       if (sleptMs) turn.lastEventAt = Math.min(at, turn.lastEventAt + sleptMs);
-      const silentMs = this.silenceLimit(turn);
-      if (silentMs === null || at - turn.lastEventAt < silentMs) continue;
+      const limit = this.silenceLimit(turn);
+      if (limit === null || at - turn.lastEventAt < limit.ms) continue;
       this.turns.delete(turn.threadId);
-      this.opts.onStall(turn, silentMs);
+      this.opts.onStall(turn, limit.ms, limit.reason);
     }
     this.freeUnheld(at);
   }
 
   /** null: the turn may wait on, parked while its engine is not known to be gone. */
-  private silenceLimit(turn: WatchedTurn): number | null {
-    if (parked(turn)) return this.opts.engineGone?.(turn) ? this.opts.parkedStallMs : null;
-    return turn.runningTools.size > 0 ? Math.max(this.opts.stallMs, this.opts.toolStallMs) : this.opts.stallMs;
+  private silenceLimit(turn: WatchedTurn): { ms: number; reason: StallReason } | null {
+    if (parked(turn)) return this.opts.engineGone?.(turn) ? { ms: this.opts.parkedStallMs, reason: "silent" } : null;
+    // The engine's process is gone: nothing can finish this turn, so it waits for the driver's own word, not for a tool's.
+    if (this.opts.engineExited?.(turn)) return { ms: this.opts.engineExitStallMs, reason: "engine-exited" };
+    return { ms: turn.runningTools.size > 0 ? Math.max(this.opts.stallMs, this.opts.toolStallMs) : this.opts.stallMs, reason: "silent" };
   }
 
   private freeUnheld(at: number): void {

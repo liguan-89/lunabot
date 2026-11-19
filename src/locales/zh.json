@@ -8147,6 +8147,7 @@
   "chat.notice.resumingAfterRestart": "重启后正在恢复",
   "chat.notice.cutOffByRestart": "{name} 被重启打断；正在恢复",
   "chat.notice.stalled": "{minutes} 分钟没有活动 — 回合已停止",
+  "chat.notice.engineExited": "运行此回合的 AI 进程已退出 — 回合已停止",
   "chat.notice.followupInterrupted": "排队的后续消息被重启或恢复打断 — 它可能已经运行过。请先检查结果再重新发送。",
   "chat.notice.usageLimit": "这个 {provider} 账户已达到用量上限{detail}。请等待重置，或将此机器人切换到其他 AI。",
   "chat.notice.claudeExtraUsage": "Claude 拒绝了这一回合，因为此模型按你账户的额外用量运行，而那些额度已用完。你方案自身的用量不受影响：请将此机器人切换到方案包含的模型，或在你的 Claude 账户中添加额外用量。",
