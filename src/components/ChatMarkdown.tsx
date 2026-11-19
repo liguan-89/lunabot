@@ -144,9 +144,24 @@ function unwrapLinkedImages() {
 // directions falls back to LTR. JS regexes cannot match Bidi_Class, so these are the blocks Unicode reserves for
 // right-to-left letters.
 const RTL_LETTER = /[\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF\u{10800}-\u{10FFF}\u{1E800}-\u{1EFFF}]/u;
+const ADDRESS = /(?:[a-z][a-z0-9+.-]*:\/\/|www\.)[^\s\u0590-\u08FF\uFB1D-\uFDFF\uFE70-\uFEFF()]+/giu;
+const TECHNICAL = /[\d._/\\@=]|^-|\p{Ll}\p{Lu}/u;
 
 export function textDirection(value: string): "rtl" | "ltr" {
-  const strong = /\p{Letter}/u.exec(value);
+  const text = value.replace(ADDRESS, " ");
+  let rtl = 0, ltr = 0, first: "rtl" | "ltr" | null = null;
+  for (const word of text.split(/\s+/)) {
+    const direction = RTL_LETTER.test(word) ? "rtl"
+      : /\p{Letter}/u.test(word) && !TECHNICAL.test(word) ? "ltr"
+      : null;
+    if (!direction) continue;
+    first ??= direction;
+    if (direction === "rtl") rtl += 1;
+    else ltr += 1;
+  }
+  if (rtl !== ltr) return rtl > ltr ? "rtl" : "ltr";
+  if (first) return first;
+  const strong = /\p{Letter}/u.exec(text);
   return strong && RTL_LETTER.test(strong[0]) ? "rtl" : "ltr";
 }
 
