@@ -1203,13 +1203,20 @@ class CompanionClient(
         return namedEventStream(request, streamingClient)
     }
 
-    /** One action on that view: a pointer move, a tap, a key, a navigation, or the acknowledgement of a frame. */
-    suspend fun browserAction(botId: String, threadId: String? = null, body: JsonObject) {
+    /**
+     * One action on that view. The server routes it by `viewerId`, the id its `ready` event handed out, so it travels
+     * inside the body on every call — a frame's acknowledgement included.
+     */
+    suspend fun browserAction(botId: String, viewerId: String, body: JsonObject, threadId: String? = null) {
+        val withViewer = buildJsonObject {
+            put("viewerId", viewerId)
+            body.forEach { (name, value) -> put(name, value) }
+        }
         sendUnit(makeRequest(
             "POST",
             "/api/bots/${segment(botId)}/browser/action",
             query = threadId?.let { listOf("threadId" to it) }.orEmpty(),
-            body = body,
+            body = withViewer,
         ))
     }
 

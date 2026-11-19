@@ -125,7 +125,9 @@ fun BrowserScreen(botId: String, onBack: () -> Unit) {
                                     if (decoded != null) frame = decoded
                                 }
                                 // A frame the server is still waiting on holds the next one back.
-                                runCatching { session.browserAction(botId, threadId, buildJsonObject { put("type", "ack"); put("seq", seq) }) }
+                                viewerId?.let { view ->
+                                    runCatching { session.browserAction(botId, view, threadId, buildJsonObject { put("type", "ack"); put("seq", seq) }) }
+                                }
                             }
                             "control" -> {
                                 val data = event.json() ?: return@collect
@@ -176,11 +178,11 @@ fun BrowserScreen(botId: String, onBack: () -> Unit) {
     BackHandler { onBack() }
 
     val take = {
-        scope.launch { runCatching { session.browserAction(botId, threadId, buildJsonObject { put("type", "take") }) } }
+        viewerId?.let { view -> scope.launch { runCatching { session.browserAction(botId, view, threadId, buildJsonObject { put("type", "take") }) } } }
         Unit
     }
     val release = {
-        scope.launch { runCatching { session.browserAction(botId, threadId, buildJsonObject { put("type", "release") }) } }
+        viewerId?.let { view -> scope.launch { runCatching { session.browserAction(botId, view, threadId, buildJsonObject { put("type", "release") }) } } }
         Unit
     }
 
@@ -191,14 +193,15 @@ fun BrowserScreen(botId: String, onBack: () -> Unit) {
                 image = image,
                 onSize = { panel = it },
                 onPointer = { x, y, phase ->
+                    val view = viewerId
                     scope.launch {
                         // A tap on a view that does not hold the browser asks for it instead of driving someone else's page.
-                        if (!ownsHold) {
+                        if (!ownsHold || view == null) {
                             take()
                             return@launch
                         }
                         runCatching {
-                            session.browserAction(botId, threadId, buildJsonObject {
+                            session.browserAction(botId, view, threadId, buildJsonObject {
                                 put("type", "input_mouse")
                                 put("eventType", phase)
                                 put("x", x)

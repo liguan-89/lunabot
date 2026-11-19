@@ -956,8 +956,8 @@ class Session(
     fun browserLive(botId: String, threadId: String? = null, size: Pair<Int, Int>? = null, resume: String? = null): Flow<SSEEvent>? =
         client?.browserLive(botId, threadId, size, resume)
 
-    suspend fun browserAction(botId: String, threadId: String?, body: JsonObject) {
-        client?.browserAction(botId, threadId, body)
+    suspend fun browserAction(botId: String, viewerId: String, threadId: String?, body: JsonObject) {
+        client?.browserAction(botId, viewerId, body, threadId)
     }
 
     fun watchScreen(ofBotId: String) {
