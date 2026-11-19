@@ -206,7 +206,24 @@ class E2eSession(
     override fun onClosed(code: Int) {
         E2eLog.line("closed $code")
         closeCode = code
+        // A close before the handshake finishes is this route refusing the session, not a live session ending.
+        // Without a failure here, `close()` releases the wait in `connect()` and the caller gets a session with no
+        // keys: the first request then fails with "handshake incomplete" and no other target is ever tried
+        // (spec §9 close codes, §12 what the phone shows).
+        if (keys == null && failure == null) failure = refusalFor(code)
         close(0)
+    }
+
+    /** What a close code means before any record can flow: a relay refusal is "try the next route", and only a
+     * direct route's 4001 is the owner removing this phone (a relay may write any code it likes). */
+    private fun refusalFor(code: Int): String = when {
+        target is E2eTarget.Direct && code == IF_REJECTED -> "removed"
+        code == 4404 -> "asleep"
+        code == 4408 -> "relay_no_data_socket"
+        code == 4429 -> "relay_busy"
+        code == 4503 -> "relay_restarting"
+        code == IF_REJECTED -> "relay_rejected"
+        else -> "closed_$code"
     }
 
     override fun onFailure(message: String) {

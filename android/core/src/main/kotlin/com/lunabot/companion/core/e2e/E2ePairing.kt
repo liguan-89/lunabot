@@ -122,13 +122,15 @@ object E2ePairing {
         val relayNodes = descriptor.relays
 
         val targets = ArrayList<E2eTarget>()
-        if (hostId != null && relayNodes.isNotEmpty()) {
+        // Same order as E2eTransport: the direct route leads, the relay follows (spec §3, §4). A descriptor that
+        // restricts this device to `"local"` offers no relay route.
+        directWsUrl?.let { targets += E2eTarget.Direct(it) }
+        if (descriptor.routes != "local" && hostId != null && relayNodes.isNotEmpty()) {
             val admission = E2eCredentials.admission(credential, hostId)
             for (node in relayNodes) {
                 targets += E2eTarget.Relay("wss://$node/v1/phone", hostId, admission)
             }
         }
-        directWsUrl?.let { targets += E2eTarget.Direct(it) }
         if (targets.isEmpty()) throw NoiseException("no_route")
 
         var lastError: Throwable? = null

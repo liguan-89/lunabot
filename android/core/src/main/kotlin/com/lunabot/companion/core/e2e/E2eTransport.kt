@@ -72,11 +72,14 @@ class E2eTransport(
         val psk = E2eCredentials.psk(token, E2eCredentials.keyId(descriptor.transportKey))
         val hostId = descriptor.hostId
         val targets = ArrayList<E2eTarget>()
-        if (hostId != null && descriptor.relays.isNotEmpty()) {
+        // Spec §3 and §4: the direct routes lead and the relay is the fallback, so a phone at home never pays the
+        // relay's round trip and a relay that refuses this device (signed out, outside the rollout) still leaves
+        // Wi-Fi working. A descriptor that says `routes: "local"` offers no relay route at all.
+        directUrl?.let { targets += E2eTarget.Direct(it) }
+        if (descriptor.routes != "local" && hostId != null && descriptor.relays.isNotEmpty()) {
             val admission = E2eCredentials.admission(token, hostId)
             for (node in descriptor.relays) targets += E2eTarget.Relay("wss://$node/v1/phone", hostId, admission)
         }
-        directUrl?.let { targets += E2eTarget.Direct(it) }
         if (targets.isEmpty()) throw NoiseException("no_route")
 
         var lastError: Throwable? = null
@@ -92,12 +95,14 @@ class E2eTransport(
                 candidate.onClosed = { onTunnelLost?.invoke() }
                 candidate.connect()
                 session = candidate
-                if (candidate.failure == "removed") throw E2eRemovedException()
                 return@synchronized candidate
             } catch (error: Throwable) {
                 E2eLog.line("target failed: ${error.message}")
-                lastError = error
                 candidate.close()
+                // The owner removed this phone. No other route changes that, so the walk stops here rather than
+                // spending the relay's attempt on a device the computer will refuse again (spec §12).
+                if (candidate.failure == "removed" || error is E2eRemovedException) throw E2eRemovedException()
+                lastError = error
             }
         }
         throw (lastError as? IOException) ?: IOException(lastError?.message ?: "e2e: no route")
