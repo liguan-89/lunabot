@@ -109,10 +109,17 @@ const RESTORE_RETRY: Partial<Record<DesktopCapabilities["host"]["platform"], Loc
   linux: "cloudAccount.restoreRetryKeyring",
 };
 
+/** Clear is offered only after a few minutes of failed reads, and still says what may open it first: the keychain or keyring
+ * unlocked, or the app restarted (a keyring that wasn't up when the app started). */
+const SAVED_STUCK: Partial<Record<DesktopCapabilities["host"]["platform"], LocaleKey>> = {
+  darwin: "cloudAccount.savedStuckKeychain",
+  linux: "cloudAccount.savedStuckKeyring",
+};
+
 function accountMessage(account: CloudAccountState | null, view: CloudPlanView, platform: DesktopCapabilities["host"]["platform"]): string | null {
   if (!account) return null;
   // A saved sign-in this computer can't read or remove: Clear and sign in again is the way on (main offers it after a few tries).
-  if (account.reset) return t("cloudAccount.savedStuck");
+  if (account.reset) return t(SAVED_STUCK[platform] ?? "cloudAccount.savedStuck");
   if (account.message === "signout-local-only") return t("cloudAccount.signoutLocalOnly");
   if (account.message === "signout-storage-failed") return t("cloudAccount.storageFailed");
   if (account.message === "restore-failed") return t(RESTORE_RETRY[platform] ?? "cloudAccount.restoreRetry");
@@ -289,7 +296,7 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, teamH
       {(!account || view.kind === "unknown") && <p role="status" className="text-[13px] text-ink-secondary">{t("cloudAccount.loading")}</p>}
       {message && <p role="status" className="mb-3 text-[13px] text-ink-secondary">{message}</p>}
       {(view.kind === "signed-out" || view.kind === "removed") && <div className="flex flex-col items-start gap-3">
-        {resetSaved ? resetButton(true) : <>
+        {resetSaved ? resetButton(false) : <>
           {addCloudButton}
           <button type="button" disabled={busy} className={addCloudButton ? "text-[13px] font-medium text-accent-text underline underline-offset-2 hover:text-ink" : "ui-button"}
             onClick={() => onSignIn ? onSignIn() : void perform(() => bridge.begin())}>{t("cloudAccount.signIn")}</button>
