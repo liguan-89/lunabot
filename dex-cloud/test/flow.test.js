@@ -438,6 +438,20 @@ test("a signed-in phone asks a computer to connect and the computer answers with
     const denial = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${denied.body.requestId}`, undefined, accountToken);
     assert.equal(denial.body.status, "denied");
     assert.equal(denial.body.link, undefined);
+
+    // The phone can drop the record itself, which is what 我的电脑's 移除 does.
+    // Its own credential dies with the row: the desktop must sign in again.
+    const removed = await call(app.base, "DELETE", `/v1/installations/${installationId}`, undefined, accountToken);
+    assert.equal(removed.status, 200);
+    const afterRemoval = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(afterRemoval.body.installations.some((item) => item.id === installationId), false);
+    const orphaned = await call(app.base, "GET", "/v1/installations/self", undefined, credential);
+    assert.equal(orphaned.status, 401);
+
+    // Another account's id is a no-op rather than an error: the route is scoped
+    // by account, and a 404 there would confirm which ids exist.
+    const foreign = await call(app.base, "DELETE", `/v1/installations/${installationId}`, undefined, strangerToken);
+    assert.equal(foreign.status, 200);
   } finally {
     app.server.close();
     app.store.close();
