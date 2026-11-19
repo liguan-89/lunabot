@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -93,15 +94,20 @@ fun BrowserScreen(botId: String, onBack: () -> Unit) {
     var ready by remember(botId) { mutableStateOf(false) }
     var ownsHold by remember(botId) { mutableStateOf(false) }
     var viewerId by remember(botId) { mutableStateOf<String?>(null) }
-    var panel by remember(botId) { mutableStateOf<IntSize?>(null) }
+    // The panel in CSS pixels, measured before the stream opens: the server sizes the page to it, and a viewer that is
+    // not holding the browser cannot resize it afterwards. A measured dp value is the page's CSS pixel.
+    var panel by remember(botId) { mutableStateOf<Pair<Int, Int>?>(null) }
+    val density = LocalDensity.current
 
-    // The view is a live stream of its own: it opens when the screen appears and is torn down with it, so a phone that
-    // leaves the screen stops asking the computer for frames.
-    DisposableEffect(botId) {
+    // The view is a live stream of its own: it opens when the panel has been measured and is torn down with the screen,
+    // so a phone that leaves the screen stops asking the computer for frames. A rotation measures a new panel and the
+    // stream reopens with it.
+    DisposableEffect(botId, panel) {
+        val measured = panel ?: return@DisposableEffect onDispose { }
         val watcher = scope.launch {
             while (true) {
                 try {
-                    val stream = session.browserLive(botId, threadId, panel?.let { it.width to it.height }, viewerId)
+                    val stream = session.browserLive(botId, threadId, measured, viewerId)
                         ?: return@launch
                     stream.collect { event ->
                         when (event.event) {
@@ -186,12 +192,21 @@ fun BrowserScreen(botId: String, onBack: () -> Unit) {
         Unit
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            // Measured before the stream opens: the page is sized to this panel, and the frames that come back are cut
+            // to it, so the picture fills the screen instead of a desktop-shaped strip inside it.
+            .onSizeChanged { size ->
+                val measured = with(density) { size.width.toDp().value.toInt() to size.height.toDp().value.toInt() }
+                if (measured.first > 0 && measured.second > 0 && measured != panel) panel = measured
+            },
+    ) {
         val image = frame
         if (image != null) {
             BrowserFrame(
                 image = image,
-                onSize = { panel = it },
                 onPointer = { x, y, phase ->
                     val view = viewerId
                     scope.launch {
@@ -271,14 +286,13 @@ private fun SSEEvent.json(): JsonObject? = runCatching {
 @Composable
 private fun BrowserFrame(
     image: ImageBitmap,
-    onSize: (IntSize) -> Unit,
     onPointer: (x: Int, y: Int, phase: String) -> Unit,
 ) {
     var bounds by remember { mutableStateOf(IntSize.Zero) }
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .onSizeChanged { bounds = it; onSize(it) }
+            .onSizeChanged { bounds = it }
             .pointerInput(image, bounds) {
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
