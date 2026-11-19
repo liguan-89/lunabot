@@ -25,6 +25,14 @@ export const MESSAGE_FILE_ROUTE = {
   path: /^\/api\/threads\/[\w-]+\/messages\/[\w-]+\/file$/,
 } as const;
 
+/** The same path as [MESSAGE_FILE_ROUTE], read-only: the renderer's inline preview of an image a message shared. The
+ * harness answers it only with `?preview=1&ref=<offset>` and a `ref` that names an image the message rendered; a bare
+ * GET falls through to no handler. */
+export const MESSAGE_PREVIEW_ROUTE = {
+  method: "GET",
+  path: MESSAGE_FILE_ROUTE.path,
+} as const;
+
 export const CLOUD_DESKTOP_CONTROL_ROUTE = {
   method: "POST",
   path: /^\/api\/bots\/[\w-]+\/computer\/(?:control|screenshot|viewer-close)$/,
@@ -177,6 +185,7 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/apps\/[\w-]+\/rpc$/ },
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/apps\/[\w-]+\/context$/ },
   MESSAGE_FILE_ROUTE,
+  MESSAGE_PREVIEW_ROUTE,
   { method: "POST", path: /^\/api\/threads\/[\w-]+\/messages\/[\w-]+\/reactions$/ },
   { method: "GET", path: /^\/api\/threads\/[\w-]+\/export$/ },
   { method: "POST", path: /^\/api\/threads\/[\w-]+\/respond$/ },
@@ -187,8 +196,17 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/attachments$/ },
   // The harness honors Range on voice notes so a phone player can seek.
   { method: "GET", path: /^\/api\/attachments\/[\w-]+\.(?:png|jpe?g|gif|webp|mp3|wav)$/i },
+  // Discarding an upload the person never sent. The harness answers 404 unless the asking session uploaded it and no
+  // message references it, so the name alone grants nothing.
+  { method: "DELETE", path: /^\/api\/attachments\/[\w-]+\.(?:png|jpe?g|gif|webp|mp3|wav)$/i },
   // Raw upload, capped and stored under a generated filename by the harness.
   { method: "POST", path: /^\/api\/files$/ },
+
+  // The person's own notification list and its read marks. `spend` entries are withheld from a non-admin by the
+  // harness; the feed itself is the one the host's own tray shows.
+  { method: "GET", path: /^\/api\/notifications$/ },
+  { method: "POST", path: /^\/api\/notifications\/read-all$/ },
+  { method: "POST", path: /^\/api\/notifications\/[\w-]+\/read$/ },
 
   // Never expose or mutate the workspace ElevenLabs key.
   { method: "GET", path: /^\/api\/tts\/voices$/ },

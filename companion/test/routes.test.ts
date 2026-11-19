@@ -103,6 +103,10 @@ describe("what the app may do", () => {
     ["GET", "/api/attachments/avatar-123.webp"],
     ["GET", "/api/attachments/voice-note-1.mp3"],
     ["GET", "/api/attachments/voice-note-1.wav"],
+    ["DELETE", "/api/attachments/uploaded-1.png"],
+    ["GET", "/api/notifications"],
+    ["POST", "/api/notifications/read-all"],
+    ["POST", "/api/notifications/n-1/read"],
     ["POST", "/api/files"],
     ["GET", "/api/tts/voices"],
     ["POST", "/api/tts/prepare"],
@@ -286,7 +290,11 @@ describe("what it may not", () => {
     expect(allowed("GET", "/api/bots")).toBe(true);
     expect(allowed("DELETE", "/api/bots/bot_123")).toBe(false);
     expect(allowed("POST", "/api/threads/th_1/messages")).toBe(false);
-    expect(allowed("GET", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
+    // The read half is the renderer's inline preview; the harness answers it only for `?preview=1&ref=<offset>` that
+    // names an image the message rendered, and 400s a bare GET.
+    expect(allowed("GET", "/api/threads/th_1/messages/msg_2/file")).toBe(true);
+    expect(allowed("PUT", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
+    expect(allowed("DELETE", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
     expect(allowed("POST", "/api/threads/th_1/messages/msg_2/file/extra")).toBe(false);
     expect(allowed("GET", "/api/groups/room-1")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123")).toBe(false);
