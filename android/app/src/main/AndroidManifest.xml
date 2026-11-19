@@ -121,6 +121,14 @@
       the app write the single `adb_wifi_enabled` switch itself after a reboot.
     -->
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!--
+      The opt-in floating watch window over the controlled display: a small
+      read-only view the person turns on in Settings so a bot's task can be
+      watched from another app. Android grants it only through the system's
+      own overlay settings page, which the switch opens; the window itself
+      takes no touches and no focus.
+    -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <!--
       Phone UI launch: the executor resolves an installed package's launcher

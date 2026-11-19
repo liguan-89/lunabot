@@ -271,6 +271,21 @@ class ChatPreferences(
     }
 
     /**
+     * Whether a small read-only window may float over other apps while a task
+     * drives the controlled display, so the person can watch from anywhere.
+     * Off by default; the switch also needs the system's own overlay grant,
+     * which Settings asks for through ACTION_MANAGE_OVERLAY_PERMISSION.
+     */
+    private val _phoneUiOverlay = MutableStateFlow(storedBoolean(PHONE_UI_OVERLAY))
+    val phoneUiOverlay: StateFlow<Boolean> = _phoneUiOverlay.asStateFlow()
+
+    fun setPhoneUiOverlay(enabled: Boolean) {
+        if (_phoneUiOverlay.value == enabled && prefs.contains(PHONE_UI_OVERLAY)) return
+        prefs.edit { putBoolean(PHONE_UI_OVERLAY, enabled) }
+        _phoneUiOverlay.value = enabled
+    }
+
+    /**
      * This installation's id for the phone-tools registration. Stable for the
      * life of the install so a re-registration updates the same device record;
      * a fresh pairing changes the key the server stores it under, not this.
@@ -350,6 +365,7 @@ class ChatPreferences(
         private const val PHONE_FILES = "companion.prefs.phone.files"
         private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
         private const val PHONE_NOTICES = "companion.prefs.phone.notices"
+        private const val PHONE_UI_OVERLAY = "companion.prefs.phone.uiOverlay"
         private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 
