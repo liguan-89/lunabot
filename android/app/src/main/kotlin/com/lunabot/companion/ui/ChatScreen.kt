@@ -1095,9 +1095,11 @@ private fun LoadedChat(
                         top = headerClearance,
                         bottom = bottomClearance,
                     ),
-                    // Grok gives each turn a little air; 6 dp made a run of
-                    // bubbles read as one block even when the speakers changed.
-                    verticalArrangement = Arrangement.spacedBy(9.dp),
+                    // Spacing is per row, not uniform: a run of one person's
+                    // lines sits 4dp apart and the gap between turns is 9dp,
+                    // which is what makes three short lines read as one block
+                    // rather than three cards. Grok's own rhythm, from the
+                    // design's `.row.tight`.
                 ) {
                     if (hasMore) {
                         item(key = LOAD_EARLIER_KEY) {
@@ -1159,12 +1161,28 @@ private fun LoadedChat(
                     }
 
                     itemsIndexedKeyed(transcript) { index, message ->
+                        // The gap above a row belongs to that row, so a run can
+                        // sit tighter than the space between turns without the
+                        // list having to know which rows are which.
+                        val startsRun = TranscriptLayout.startsRowRun(transcript, index)
                         Column(
                             // New rows fade in and rows that move (a fold
                             // opening, an unread section reordering) glide
                             // rather than jump. Placement only — content
                             // changes inside a row never animate.
-                            modifier = Modifier.animateItem(),
+                            modifier = Modifier
+                                .animateItem()
+                                // The list's own top padding already spaces the
+                                // very first item; every later row carries its
+                                // own gap. "Load earlier" counts as the item
+                                // above when it is shown.
+                                .padding(
+                                    top = when {
+                                        index > 0 -> if (startsRun) TURN_GAP else RUN_GAP
+                                        hasMore -> TURN_GAP
+                                        else -> 0.dp
+                                    },
+                                ),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             // A gap in time is worth marking; a timestamp on every
@@ -1237,7 +1255,12 @@ private fun LoadedChat(
                         item(key = LIVE_BUBBLE_KEY) {
                             // The working row arrives with a fade instead of
                             // popping into existence under the last message.
-                            Box(modifier = Modifier.animateItem()) {
+                            // It is its own turn, so it takes the turn gap.
+                            Box(
+                                modifier = Modifier
+                                    .animateItem()
+                                    .padding(top = TURN_GAP),
+                            ) {
                                 if (tail == TranscriptTail.WORKING) {
                                     WorkingBubble(
                                         chat = chat,
@@ -1563,6 +1586,18 @@ private const val LOAD_EARLIER_KEY = "companion.loadEarlier"
 private const val LIVE_BUBBLE_KEY = "companion.live"
 private const val EMPTY_STATE_KEY = "companion.empty"
 private val CHAT_CONTENT_MAX_WIDTH = 840.dp
+
+/**
+ * The transcript's vertical rhythm: one gap between turns, a tighter one inside a
+ * run of the same person's lines.
+ *
+ * The design's `.row.tight` is 4px inside a run against 9px between turns, and
+ * that difference is the whole reason three short lines read as one block. The
+ * gap is carried as the top padding of the row that starts, so the list itself
+ * needs no verticalArrangement and the first row keeps the list's own padding.
+ */
+private val TURN_GAP = 9.dp
+private val RUN_GAP = 4.dp
 
 /**
  * Whether the newest row is fully on screen.
