@@ -956,6 +956,15 @@ class Session(
         }
     }
 
+    /** A bot's browser as the view sees it: the stream itself, and the actions it posts back. Both go through the
+     * active client, so the session's own bearer and route carry them like every other request. */
+    fun browserLive(botId: String, threadId: String? = null, size: Pair<Int, Int>? = null, resume: String? = null): Flow<SSEEvent>? =
+        client?.browserLive(botId, threadId, size, resume)
+
+    suspend fun browserAction(botId: String, threadId: String?, body: JsonObject) {
+        client?.browserAction(botId, threadId, body)
+    }
+
     fun watchScreen(ofBotId: String) {
         scope.launch {
             gate.withLock {

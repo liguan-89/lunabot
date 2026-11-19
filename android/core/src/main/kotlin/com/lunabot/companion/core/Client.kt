@@ -1179,6 +1179,40 @@ class CompanionClient(
         return eventStream(request, streamingClient)
     }
 
+    // MARK: - A bot's browser, live
+
+    /**
+     * The bot's browser as server-sent events, undecoded: this view names each message with `event:` (`frame`, `ready`,
+     * `control`, `tabs`, `url`, `status`, `waiting`, `heartbeat`, `error`) and a frame's payload is base64 image data
+     * plus its own metadata, not one of the general feed's frame kinds.
+     *
+     * `size` is the panel's CSS pixels, which the page fills; the server answers with the frames that match it.
+     */
+    fun browserLive(botId: String, threadId: String? = null, size: Pair<Int, Int>? = null, resume: String? = null): Flow<SSEEvent> {
+        val query = buildList {
+            threadId?.let { add("threadId" to it) }
+            size?.let { (width, height) ->
+                add("width" to width.toString())
+                add("height" to height.toString())
+            }
+            resume?.let { add("resume" to it) }
+        }
+        val request = makeRequest("GET", "/api/bots/${segment(botId)}/browser/live", query).newBuilder()
+            .header("Accept", "text/event-stream")
+            .build()
+        return namedEventStream(request, streamingClient)
+    }
+
+    /** One action on that view: a pointer move, a tap, a key, a navigation, or the acknowledgement of a frame. */
+    suspend fun browserAction(botId: String, threadId: String? = null, body: JsonObject) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/browser/action",
+            query = threadId?.let { listOf("threadId" to it) }.orEmpty(),
+            body = body,
+        ))
+    }
+
     // MARK: - Phone apps as bot tools
 
     /** Tell the computer what this phone allows. The key is the paired device, never the body. */

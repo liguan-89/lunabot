@@ -47,6 +47,9 @@ sealed interface Destination {
     /** A bot's computer, watch-only. Addressed by bot id for the same reason. */
     data class Computer(val botId: String) : Destination
 
+    /** A bot's own browser, live and controllable: the server holds the page and this screen drives it. */
+    data class Browser(val botId: String) : Destination
+
     /**
      * A bot's read-only "What this bot does" — who it is, what it does, what it
      * can reach, what it won't, and its most recent changes. Addressed by bot id
@@ -176,6 +179,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
         private const val VOICE = "voice"
         private const val THREAD = "thread:"
         private const val COMPUTER = "computer:"
+        private const val BROWSER = "browser:"
         private const val OVERVIEW = "overview:"
         private const val BOT_CHAT = "botchat:"
         private const val ROOM_CHAT = "roomchat:"
@@ -190,6 +194,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 Destination.Voice -> VOICE
                 is Destination.Thread -> THREAD + it.threadId
                 is Destination.Computer -> COMPUTER + it.botId
+                is Destination.Browser -> BROWSER + it.botId
                 is Destination.Overview -> OVERVIEW + it.botId
                 is Destination.Chat -> when (val target = it.target) {
                     is ChatTarget.Bot -> BOT_CHAT + join(target.botId, target.threadId)
@@ -209,6 +214,7 @@ class CompanionNavigator(initial: List<Destination> = listOf(Destination.Roster)
                 it == VOICE -> Destination.Voice
                 it.startsWith(THREAD) -> Destination.Thread(it.removePrefix(THREAD))
                 it.startsWith(COMPUTER) -> Destination.Computer(it.removePrefix(COMPUTER))
+                it.startsWith(BROWSER) -> Destination.Browser(it.removePrefix(BROWSER))
                 it.startsWith(OVERVIEW) -> Destination.Overview(it.removePrefix(OVERVIEW))
                 it.startsWith(BOT_CHAT) -> split(it.removePrefix(BOT_CHAT))
                     ?.let { (owner, thread) -> Destination.Chat(ChatTarget.Bot(owner, thread)) }

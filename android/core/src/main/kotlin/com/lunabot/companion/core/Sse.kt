@@ -14,7 +14,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 
-data class SSEEvent(val id: String? = null, val data: String)
+/** One server-sent event. `event` is the `event:` name (the browser's live view names every message this way); the
+ * general event feed leaves it out and puts the kind inside `data`. */
+data class SSEEvent(val id: String? = null, val data: String, val event: String? = null)
 
 /** A line-oriented parser whose empty input line is the SSE event terminator. */
 class SSEParser {
@@ -44,15 +46,64 @@ class SSEParser {
     companion object {
         internal fun event(fields: List<Pair<String, String>>): SSEEvent? {
             var id: String? = null
+            var name: String? = null
             val data = mutableListOf<String>()
-            fields.forEach { (name, value) ->
-                when (name) {
+            fields.forEach { (field, value) ->
+                when (field) {
                     "id" -> id = value
+                    "event" -> name = value
                     "data" -> data += value
                 }
             }
-            return data.takeIf { it.isNotEmpty() }?.let { SSEEvent(id, it.joinToString("\n")) }
+            return data.takeIf { it.isNotEmpty() }?.let { SSEEvent(id, it.joinToString("\n"), name) }
         }
+    }
+}
+
+/**
+ * Every server-sent event on `request`, undecoded: the browser's live view names each message with `event:` and its
+ * payload is that view's own, not the general feed's frame kinds.
+ */
+fun namedEventStream(
+    request: Request,
+    client: OkHttpClient,
+): Flow<SSEEvent> = callbackFlow {
+    val call = client.newCall(request)
+    val responseRef = AtomicReference<Response?>(null)
+    val reader = launch(Dispatchers.IO) {
+        try {
+            val response = call.execute()
+            responseRef.set(response)
+            if (response.code != 200) throw APIError.Status(response.code)
+            val body = response.body ?: throw APIError.Transport("The computer sent an empty event stream.")
+            val source = body.source()
+            val parser = SSEParser()
+            while (isActive) {
+                val line = source.readUtf8Line() ?: break
+                val event = parser.line(line) ?: continue
+                try {
+                    send(event)
+                } catch (_: Throwable) {
+                    break
+                }
+            }
+            parser.reset()
+            close()
+        } catch (_: CancellationException) {
+            // A collector leaving the flow deliberately tears down the call.
+        } catch (error: APIError) {
+            runCatching { close(error) }
+        } catch (error: IOException) {
+            runCatching { close(APIError.Transport(error.message ?: "Could not reach the computer.", error)) }
+        } finally {
+            responseRef.getAndSet(null)?.close()
+        }
+    }
+
+    awaitClose {
+        responseRef.getAndSet(null)?.close()
+        call.cancel()
+        reader.cancel()
     }
 }
 

@@ -24,6 +24,18 @@ class SseTest {
     }
 
     @Test
+    fun keepsTheEventNameTheBrowserViewNamesEveryMessageWith() {
+        // The browser's live view writes `event: <name>` and its own payload; the general feed leaves the name out.
+        val named = events(listOf("event: frame", """data: {"seq":7}""", ""))
+        assertEquals(1, named.size)
+        assertEquals("frame", named[0].event)
+        assertEquals("""{"seq":7}""", named[0].data)
+        // A feed without a name stays unnamed rather than borrowing the previous event's.
+        val unnamed = events(listOf("data: {}", ""))
+        assertNull(unnamed[0].event)
+    }
+
+    @Test
     fun swallowsKeepaliveComments() {
         assertTrue(events(listOf(": keepalive", "")).isEmpty())
         assertEquals(1, events(listOf(": keepalive", "", "data: {}", "")).size)
