@@ -40,7 +40,11 @@ writeFileSync(
       description: "Run the Luna Bot server anywhere and pair your devices to it",
       license: "AGPL-3.0-only",
       type: "module",
-      bin: { lunabot: "cli.js", dexbot: "cli.js", lunabot: "cli.js" },
+      // The rename mapped the legacy third name onto `lunabot` and left the
+      // key twice in the same object literal, which is a duplicate key: the
+      // object silently kept one of them and the pre-push lint refused the
+      // branch. `dexbot` stays as the compatibility name.
+      bin: { lunabot: "cli.js", dexbot: "cli.js" },
       // Never bundled, so npm installs them beside the server: DuckDB and
       // resvg are native addons that npm picks per platform from their
       // optional packages, and the 1Password SDK reads its WebAssembly core
