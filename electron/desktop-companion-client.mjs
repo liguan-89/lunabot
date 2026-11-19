@@ -247,10 +247,21 @@ export function proxyDesktopCompanionApi(req, res, access) {
     const value = req.headers[name];
     if (typeof value === "string") headers[name] = value;
   }
+  // Only canonical single-range shapes travel; anything else gets the complete
+  // file. A voice note's player seeks with one, and the host answers 206.
+  const range = req.headers.range;
+  if (typeof range === "string" && /^bytes=\d*-\d*$/.test(range.trim())) headers.range = range.trim();
   const upstream = request(target, { method: req.method, headers }, (remote) => {
     upstream.setTimeout(0);
     const responseHeaders = {};
-    for (const name of ["content-type", "content-length", "content-disposition", "cache-control"]) {
+    for (const name of [
+      "content-type",
+      "content-length",
+      "content-disposition",
+      "cache-control",
+      "accept-ranges",
+      "content-range",
+    ]) {
       const value = remote.headers[name];
       if (value !== undefined) responseHeaders[name] = value;
     }
@@ -300,6 +311,15 @@ function writeUpgrade(socket, response) {
   );
 }
 
+/** WebSocket paths this relay forwards. `/vps-viewer/` is the noVNC viewer; `/api/live/relay` carries a WebSocket live
+ * call's PCM. Everything else stays local: the companion's own allowlist decides what a paired device may open, and a
+ * path it refuses must not be reachable here either. */
+const PROXIED_UPGRADE_PATHS = ["/vps-viewer/", "/api/live/relay"];
+
+function proxiesUpgrade(pathname) {
+  return PROXIED_UPGRADE_PATHS.some((prefix) => pathname.startsWith(prefix));
+}
+
 export function proxyDesktopCompanionUpgrade(req, socket, head, access, activeSockets = new Set()) {
   let target;
   try {
@@ -308,7 +328,7 @@ export function proxyDesktopCompanionUpgrade(req, socket, head, access, activeSo
     socket.destroy();
     return;
   }
-  if (!target.pathname.startsWith("/vps-viewer/")) return socket.destroy();
+  if (!proxiesUpgrade(target.pathname)) return socket.destroy();
   const headers = websocketHeaders(req, `Bearer ${access.token}`);
   if (!headers) return socket.destroy();
   const request = target.protocol === "https:" ? httpsRequest : httpRequest;
