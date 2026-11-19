@@ -326,6 +326,10 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET", "PUT", "DELETE"], path: /^\/api\/phones\/self$/ },
   { methods: ["GET"], path: /^\/api\/phones\/self\/jobs$/ },
   { methods: ["POST"], path: /^\/api\/phones\/self\/jobs\/[\w-]+\/(?:lease|result)$/ },
+  // The ways in this very device may take, as the desktop sidecar answers it: its own server's address, which the phone
+  // paired with, and the descriptor its QR already carried. A paired phone re-reads it on every reconnect, so a new LAN
+  // address or a later `--lan` reaches it without a new QR — a chat-only session included, which is what a phone gets.
+  { methods: ["GET"], path: /^\/api\/companion\/endpoints$/ },
   { methods: ["GET"], path: /^\/api\/health$/ },
   { methods: ["GET"], path: /^\/api\/edition$/ },
   { methods: ["GET"], path: /^\/api\/brand$/ },
