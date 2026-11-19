@@ -147,7 +147,7 @@ export function answerCustomerRunRequest(request: CustomerRunRequest, facts: Ser
 // fields: that it answers as MausBot and whether its bot box is on or off, its version, and its seat count. Every other field of those answers (the
 // server's name among them) is dropped here and never kept.
 
-export const HOME_READS = ["/api/health", "/.well-known/openmausbot/environment", "/api/seats"] as const;
+export const HOME_READS = ["/api/health", "/.well-known/lunabot/environment", "/api/seats"] as const;
 const RECORD_END = "\u001e";
 /** Run inside the home's container: curl comes with the image, and the home listens on its own loopback only. */
 export const HOME_READS_COMMAND = [

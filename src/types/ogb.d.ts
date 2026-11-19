@@ -394,7 +394,7 @@ const __APP_VERSION__: string;
       /** Receives a GitHub package URL opened through lunabot://install (or an older dexbot://install). */
       onPackageInstall?(cb: (url: string) => void): () => void;
       /** Receives a chat link (lunabot://thread/… or lunabot://bot/…, and the
-       * dexbot:// / openmausbot:// spellings earlier builds wrote) opened from
+       * dexbot:// / lunabot:// spellings earlier builds wrote) opened from
        * outside the app. */
       onChatLink?(cb: (link: string) => void): () => void;
       /** The desktop shell's app-menu Preferences… item was activated; open
@@ -404,7 +404,7 @@ const __APP_VERSION__: string;
       onOpenAppSettings?(cb: (section?: "organization" | "cloud" | "cloud-settings" | "cloud-add" | "cloud-add-howto") => void): () => void;
       /** Updates the native Dock/taskbar unread indicator. */
       setUnreadCount?(count: number): void;
-      /** Opens a live desktop as a sandboxed window owned by OpenMausBot. */
+      /** Opens a live desktop as a sandboxed window owned by Luna Bot. */
       desktopViewer?: {
         open(url: string, title: string, contextId: string): Promise<boolean>;
         /** Closes the live-desktop window, but only when it belongs to this bot. */
@@ -447,7 +447,7 @@ const __APP_VERSION__: string;
       /** Writes the redacted diagnostics report to a user-chosen file;
        * resolves the path, or null when cancelled. */
       exportDiagnostics?(): Promise<string | null>;
-      /** Asks where to save a bot-created file (inside ~/.openmausbot), copies
+      /** Asks where to save a bot-created file (inside ~/.lunabot), copies
        * it there and reveals it. Resolves the chosen path, or null if the
        * user cancelled the dialog. */
       saveFile?(filePath: string): Promise<string | null>;

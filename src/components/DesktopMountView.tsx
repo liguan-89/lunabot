@@ -274,7 +274,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
           style={{ animation: "mount-bubble-in 180ms cubic-bezier(0.22, 1, 0.36, 1) both" }}
           className={cn(
             GLASS_BUBBLE,
-            "group/bubble flex min-h-0 w-full flex-col text-[12.5px]",
+            "group/bubble flex min-h-0 w-full flex-col text-[12px]",
           )}
         >
           <div className="flex shrink-0 items-center justify-between gap-2 px-3.5 pt-2.5 pb-1">
@@ -288,7 +288,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
               )}
               {!bot.busy && bot.unread && <span className="size-1.5 shrink-0 rounded-full bg-accent" />}
             </div>
-            <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-ink/[0.04] p-0.5 opacity-75 transition-opacity group-hover/bubble:opacity-100">
+            <div className="flex shrink-0 items-center gap-0.5 rounded-full bg-ink/[0.04] p-0.5 opacity-75 transition-opacity group-hover/bubble:opacity-100 group-focus-within/bubble:opacity-100 touch:opacity-100">
               {window.ogb?.desktopMount?.startCall && (
                 <button
                   type="button"
@@ -347,7 +347,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
                   <div
                     key={msg.id}
                     className={cn(
-                      "max-w-[92%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-[12.5px] leading-[1.45]",
+                      "max-w-[92%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-[12px] leading-[1.45]",
                       msg.role === "user"
                         ? "self-end bg-accent text-white shadow-xs"
                         : "self-start bg-ink/[0.06] text-ink",

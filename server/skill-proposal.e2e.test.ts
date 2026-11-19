@@ -77,8 +77,8 @@ posixOnly("a turn the helper judges reusable ends in an unanswered skill card", 
     const port = workerPort(18900, 10_000);
     const base = `http://127.0.0.1:${port}`;
     const home = mkdtempSync(join(tmpdir(), "omb-skill-proposal-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
-    writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
+    writeFileSync(join(home, ".lunabot", "config.json"), JSON.stringify({
       features: { smartSetupChoices: false },
       decider: {
         enabled: true, provider: "openrouter", openrouterApi: "chat",

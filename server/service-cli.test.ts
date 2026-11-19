@@ -41,7 +41,7 @@ describe("openmausbot service", () => {
     expect(existsSync(join(dir, "x", "lunabot.service"))).toBe(false);
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return true; }, exists: () => true }, io)).toBe(0);
     const pinned = readFileSync(join(dir, "x", "lunabot.service"), "utf8");
-    const script = join(dir, "x", "app", "latest", "node_modules", "lunabot", "dist-server", "openmausbot.js");
+    const script = join(dir, "x", "app", "latest", "node_modules", "lunabot", "dist-server", "lunabot.js");
     expect(pinned).toContain(`ExecStart=/usr/bin/node ${/[\s"\\]/.test(script) ? `"${script.replace(/[\\"]/g, "\\$&")}"` : script} serve`);
     expect(pinned).toContain("--public-url https://maus.example.com");
     expect(pinned).not.toContain("--no-pair");
@@ -116,7 +116,7 @@ describe("openmausbot service", () => {
     expect(plist).toContain(`<string>${app}/MacOS/Luna Bot</string>`);
     expect(plist).toContain(`<string>${app}/Resources/server/openmausbot.js</string>`);
     expect(plist).toContain("<key>ELECTRON_RUN_AS_NODE</key>");
-    expect(plist).not.toContain("openmausbot.ts");
+    expect(plist).not.toContain("lunabot.ts");
     expect(out.join("\n")).toContain("runs the desktop app's own CLI");
 
     // an installed app from before Sentinel, or none: the checkout it was run

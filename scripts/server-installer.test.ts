@@ -355,7 +355,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     const result = run(["--domain", "maus.example.com"], { env: { FAKE_STABLE: "200" } });
     expect(result.stdout).toContain("  ok    version: the stable channel");
     expect(readFileSync(join(result.install, ".env"), "utf8")).toContain("OMB_IMAGE=ghcr.io/milind-soni/openmausbot:stable\n");
-    expect(script).not.toMatch(/openmausbot:latest/);
+    expect(script).not.toMatch(/lunabot:latest/);
     expect(result.calls.some((call) => call.includes("releases/latest"))).toBe(false);
   });
 

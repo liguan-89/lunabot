@@ -375,7 +375,7 @@ export async function mergeLocalInject(
   fetchImpl: typeof fetch = fetch,
 ): Promise<ModelCatalog> {
   const vitest = env.VITEST ?? process.env.VITEST;
-  const probe = env.OPENMAUSBOT_PROBE_LOCAL_INJECT ?? process.env.OPENMAUSBOT_PROBE_LOCAL_INJECT;
+  const probe = env.LUNABOT_PROBE_LOCAL_INJECT ?? process.env.LUNABOT_PROBE_LOCAL_INJECT;
   if (vitest === "true" && probe !== "1") return catalog;
   // An engine's own config lists whatever it was last told to run, which may be a name that carries a window.
   catalog = { ...catalog, options: catalog.options.filter((option) => !isContextName(option.id)) };

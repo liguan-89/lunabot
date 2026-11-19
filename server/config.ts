@@ -800,7 +800,7 @@ export function changedInstanceIds(before: Record<string, unknown>, after: Recor
 
 export const DATA_DIR = resolveDataDir(process.env, { home: dataHome() });
 /** Earlier names this workspace may have used. The closest predecessor wins. */
-const LEGACY_DATA_DIRS = [join(dataHome(), ".openmausbot"), join(dataHome(), ".opengrokbot")];
+const LEGACY_DATA_DIRS = [join(dataHome(), ".lunabot"), join(dataHome(), ".opengrokbot")];
 export const EVENTS_DIR = join(DATA_DIR, "events");
 export const NATIVE_DIR = join(DATA_DIR, "native");
 

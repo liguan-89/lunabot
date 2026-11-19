@@ -33,7 +33,7 @@ export function fleetLayout(root = "/"): FleetLayout {
     instancesDir: at("etc", "openmausbot", "instances"),
     unitFile: at("etc", "systemd", "system", "openmausbot@.service"),
     fenceFile: at("etc", "openmausbot", "fence.nft"),
-    fenceUnitFile: at("etc", "systemd", "system", "openmausbot-fence.service"),
+    fenceUnitFile: at("etc", "systemd", "system", "lunabot-fence.service"),
     caddyDir: at("etc", "caddy", "omb.d"),
     caddyfile: at("etc", "caddy", "Caddyfile"),
     homesDir: at("var", "lib", "openmausbot"),
@@ -116,7 +116,7 @@ export function workspaceHome(layout: FleetLayout, slug: string): string {
 }
 
 export function workspaceDataDir(layout: FleetLayout, slug: string): string {
-  return join(workspaceHome(layout, slug), ".openmausbot");
+  return join(workspaceHome(layout, slug), ".lunabot");
 }
 
 export function assertSlug(slug: string): void {
@@ -149,9 +149,9 @@ export function templateUnit(spec: { node: string; script: string; layout?: Flee
     "# Written by `lunabot fleet init`. One unit for every workspace: %i is the slug.",
     "[Unit]",
     "Description=Luna Bot workspace %i",
-    "After=network-online.target openmausbot-fence.service",
+    "After=network-online.target lunabot-fence.service",
     "Wants=network-online.target",
-    "Requires=openmausbot-fence.service",
+    "Requires=lunabot-fence.service",
     "",
     "[Service]",
     "Type=simple",
@@ -312,7 +312,7 @@ export function initPlan(input: { domain: string; node: string; script: string; 
     ...(input.operator ? [{ kind: "write" as const, path: layout.agentUnitFile, content: agentUnit({ node: input.node, script: input.script, operator: input.operator, layout }), mode: 0o644 }] : []),
     { kind: "append-once", path: layout.caddyfile, line: caddyImportLine(layout) },
     { kind: "run", argv: ["systemctl", "daemon-reload"], why: "load the workspace template and the fence unit" },
-    { kind: "run", argv: ["systemctl", "enable", "--now", "openmausbot-fence.service"], why: "apply the loopback fence now and at boot" },
+    { kind: "run", argv: ["systemctl", "enable", "--now", "lunabot-fence.service"], why: "apply the loopback fence now and at boot" },
     ...(input.operator ? [{ kind: "run" as const, argv: ["systemctl", "enable", "--now", "openmausbot-fleet.service"], why: `start the fleet agent for ${input.operator}` }] : []),
     { kind: "run", argv: ["systemctl", "reload", "caddy"], why: "start serving the workspaces folder" },
     { kind: "note", text: `point *.${registry.domain} at this server (a wildcard A/AAAA record); each workspace gets its own certificate when created` },

@@ -28,7 +28,7 @@ function CloudHomePicture({ scheme }: { scheme: "dark" | "light" }) {
       role="img"
       aria-label={t("whatsNew.cloud.pictureAlt")}
       data-cloud-home-picture={scheme}
-      className="flex size-full flex-col justify-between rounded-t-xl border border-b-0 border-ink/10 bg-surface p-3.5 shadow-sm"
+      className="flex size-full flex-col justify-between rounded-t-xl border border-b-0 border-ink/10 bg-card p-3.5 shadow-sm"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">

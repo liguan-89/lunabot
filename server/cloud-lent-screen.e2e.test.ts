@@ -61,7 +61,7 @@ async function adminPairing(): Promise<string> {
 /** The person's Windows PC, lending its apps and screen and its Chrome but no terminal and no folder, as the desktop app
  * registers it; it answers computer_tools with its own tool list, as cua-driver there would. */
 async function lendPc(): Promise<void> {
-  const environmentId = (await api("GET", "/.well-known/openmausbot/environment")).body.environmentId as string;
+  const environmentId = (await api("GET", "/.well-known/lunabot/environment")).body.environmentId as string;
   const headers = { "x-omb-computer-secret": PC.secret };
   const connected = await api("POST", "/api/shared-computers/connect", { token: owner, headers, body: {
     id: PC.id, name: "OFFICE-PC", environmentId, folders: [], terminal: false, computer: true, platform: "win32", chrome: true,
@@ -82,7 +82,7 @@ async function lendPc(): Promise<void> {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-lent-screen-"));
-  dataDir = join(home, ".openmausbot");
+  dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

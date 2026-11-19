@@ -73,7 +73,7 @@ async function adminPairing(cloud: Cloud): Promise<string> {
 
 /** A personal Cloud home whose browser engine is `agentBrowser`, off the internet: its own fetches go nowhere. */
 async function bootCloud(home: string, agentBrowser: string, env: Record<string, string> = {}): Promise<Cloud> {
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);
@@ -192,7 +192,7 @@ const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record
 
 /** A bot's turn, started by `start`: its browser tools, as the engine would spawn them from the turn's MCP config. */
 async function browserOf(cloud: Cloud, start: () => Promise<void>, botId: string, threadId?: string): Promise<Call> {
-  const dump = piDumpPath(join(cloud.home, ".openmausbot"));
+  const dump = piDumpPath(join(cloud.home, ".lunabot"));
   const before = piTurns(dump).length;
   await start();
   let browser: McpServer | undefined;

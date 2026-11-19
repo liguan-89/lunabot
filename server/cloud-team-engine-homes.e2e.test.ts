@@ -56,7 +56,7 @@ beforeAll(async () => {
   if (!posix) return;
   fx = await launchCloudSendFixture({ onePasswordToken: TOKEN, team: { id: "team-acme-homes", name: "Acme", engine: HOME_FILES }, cloudEngine: HOME_FILES });
   team = fx.team!;
-  dataDir = join(team.home, ".openmausbot");
+  dataDir = join(team.home, ".lunabot");
   bobHome = audienceHome(dataDir, `member:${personKey({ id: "", email: BOB.email })}`);
   ownerHome = audienceHome(dataDir, `member:${personKey({ id: "", email: OWNER.email })}`);
   owner = (await team.pair(OWNER)).token!;
@@ -107,5 +107,5 @@ it.runIf(posix)("My Cloud is unchanged: its engine runs in the server's HOME", a
   await expect.poll(() => existsSync(join(cloudHome, "homes.jsonl")), { timeout: 60_000, interval: 100 }).toBe(true);
   const seen = JSON.parse(readFileSync(join(cloudHome, "homes.jsonl"), "utf8").trim().split("\n").at(-1)!) as Launch;
   expect(seen.home).toBe(cloudHome);
-  expect(existsSync(join(cloudHome, ".openmausbot", "engine-homes"))).toBe(false);
+  expect(existsSync(join(cloudHome, ".lunabot", "engine-homes"))).toBe(false);
 }, hostTimeout(90_000));

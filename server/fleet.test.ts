@@ -50,7 +50,7 @@ describe("rendered files", () => {
   it("renders one template unit for every workspace, hardened and parameterised by slug", () => {
     const unit = templateUnit({ node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", layout });
     expect(unit).toContain("User=omb-%i");
-    expect(unit).toContain("EnvironmentFile=/etc/openmausbot/instances/%i.env");
+    expect(unit).toContain("EnvironmentFile=/etc/lunabot/instances/%i.env");
     expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port ${OMB_PORT} --data-dir ${OMB_DATA_DIR} --public-url ${OMB_PUBLIC_URL} --label %i --no-pair");
     for (const line of ["PrivateTmp=yes", "NoNewPrivileges=yes", "ProtectSystem=strict", "ReadWritePaths=/var/lib/openmausbot/%i"]) expect(unit).toContain(line);
     expect(templateUnit({ node: "/usr/bin/node", script: "/src/server/cli.ts", layout })).toContain("--experimental-strip-types /src/server/cli.ts");
@@ -59,10 +59,10 @@ describe("rendered files", () => {
   it("requires the loopback fence to start successfully before every tenant instance", () => {
     const unit = templateUnit({ node: "/usr/bin/node", script: "/src/server/openmausbot.ts", layout });
     const header = unit.split("[Service]")[0];
-    expect(header).toContain("After=network-online.target openmausbot-fence.service\n");
-    expect(header).toContain("Requires=openmausbot-fence.service\n");
+    expect(header).toContain("After=network-online.target lunabot-fence.service\n");
+    expect(header).toContain("Requires=lunabot-fence.service\n");
     const fence = fenceUnit(layout);
-    expect(fence).toContain("Type=oneshot\nRemainAfterExit=yes\nExecStart=/usr/sbin/nft -f /etc/openmausbot/fence.nft\n");
+    expect(fence).toContain("Type=oneshot\nRemainAfterExit=yes\nExecStart=/usr/sbin/nft -f /etc/lunabot/fence.nft\n");
     expect(fence).not.toContain("Before=openmausbot@.service");
   });
 
@@ -96,8 +96,8 @@ describe("rendered files", () => {
 
   it("writes the environment, the first config and the sign-in edits the server reads live", () => {
     const workspace: FleetWorkspace = { slug: "acme", host: "acme.agentada.cc", port: 8810, webhookPort: 8811, status: "running", createdAt: "" };
-    expect(instanceEnv({ workspace, dataDir: "/var/lib/openmausbot/acme/.openmausbot", licenseKey: "omb1.k" })).toBe(
-      "OMB_DATA_DIR=/var/lib/openmausbot/acme/.openmausbot\nOMB_PORT=8810\nOMB_WEBHOOK_PORT=8811\nOMB_PUBLIC_URL=https://acme.agentada.cc\nOMB_LICENSE_KEY=omb1.k\n",
+    expect(instanceEnv({ workspace, dataDir: "/var/lib/openmausbot/acme/.lunabot", licenseKey: "omb1.k" })).toBe(
+      "OMB_DATA_DIR=/var/lib/openmausbot/acme/.lunabot\nOMB_PORT=8810\nOMB_WEBHOOK_PORT=8811\nOMB_PUBLIC_URL=https://acme.agentada.cc\nOMB_LICENSE_KEY=omb1.k\n",
     );
     expect(JSON.parse(initialConfig({ admins: ["ada@example.test"], members: ["@acme.test"], anthropicKey: "sk-ant-x", monthlyCapUsd: 50 }))).toEqual({
       signIn: { admins: ["ada@example.test"], members: ["@acme.test"] }, anthropic: { key: "sk-ant-x" }, budgets: { monthlyUsd: 50 },
@@ -123,9 +123,9 @@ describe("plans", () => {
   it("initialises the server once: folders, registry, templates, fence, the Caddy import, and reloads", () => {
     const { steps, registry } = initPlan({ domain: "AgentAda.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", layout });
     expect(registry).toEqual({ version: 1, domain: "agentada.cc", nextPort: 8810, workspaces: {} });
-    expect(writesOf(steps)).toEqual(["/etc/openmausbot/fleet.json", "/etc/systemd/system/openmausbot@.service", "/etc/openmausbot/fence.nft", "/etc/systemd/system/openmausbot-fence.service"]);
+    expect(writesOf(steps)).toEqual(["/etc/lunabot/fleet.json", "/etc/systemd/system/openmausbot@.service", "/etc/lunabot/fence.nft", "/etc/systemd/system/lunabot-fence.service"]);
     expect(steps.find((step) => step.kind === "append-once")).toEqual({ kind: "append-once", path: "/etc/caddy/Caddyfile", line: "import /etc/caddy/omb.d/*.caddy" });
-    expect(argvOf(steps)).toEqual(["systemctl daemon-reload", "systemctl enable --now openmausbot-fence.service", "systemctl reload caddy"]);
+    expect(argvOf(steps)).toEqual(["systemctl daemon-reload", "systemctl enable --now lunabot-fence.service", "systemctl reload caddy"]);
     expect(() => initPlan({ domain: "not a domain", node: "n", script: "s", layout })).toThrow("domain name");
     const withAgent = initPlan({ domain: "agentada.cc", node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", operator: "maus", layout });
     expect(withAgent.registry.operator).toBe("maus");
@@ -153,14 +153,14 @@ describe("plans", () => {
     expect(checkpoints.every((checkpoint) => checkpoint.nextPort === 8820)).toBe(true);
     expect(argvOf(plan.steps)).toEqual([
       "useradd --system --create-home --home-dir /var/lib/openmausbot/acme --shell /usr/sbin/nologin --user-group omb-acme",
-      "nft -f /etc/openmausbot/fence.nft",
+      "nft -f /etc/lunabot/fence.nft",
       "systemctl daemon-reload",
       "systemctl enable --now openmausbot@acme.service",
       "systemctl reload caddy",
     ]);
-    const config = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/acme/.openmausbot/config.json"));
+    const config = plan.steps.find((step) => step.kind === "write" && step.path.endsWith("/acme/.lunabot/config.json"));
     expect(config).toMatchObject({ mode: 0o600, owner: "omb-acme" });
-    const env = plan.steps.find((step) => step.kind === "write" && step.path === "/etc/openmausbot/instances/acme.env");
+    const env = plan.steps.find((step) => step.kind === "write" && step.path === "/etc/lunabot/instances/acme.env");
     expect(env).toMatchObject({ mode: 0o600 });
     // root keeps the environment file: it carries the licence key
     expect(env).not.toHaveProperty("owner");
@@ -219,20 +219,20 @@ describe("plans", () => {
 
   it("renders privileged steps but never recommends root writes through tenant paths", () => {
     const lines = describeSteps([
-      { kind: "mkdir", path: "/var/lib/openmausbot/acme/.openmausbot", mode: 0o700, owner: "omb-acme" },
-      { kind: "write", path: "/var/lib/openmausbot/acme/.openmausbot/config.json", content: "secret", mode: 0o600, owner: "omb-acme" },
-      { kind: "write", path: "/etc/openmausbot/instances/acme.env", content: "OMB_PORT=8810\n", mode: 0o600 },
+      { kind: "mkdir", path: "/var/lib/openmausbot/acme/.lunabot", mode: 0o700, owner: "omb-acme" },
+      { kind: "write", path: "/var/lib/openmausbot/acme/.lunabot/config.json", content: "secret", mode: 0o600, owner: "omb-acme" },
+      { kind: "write", path: "/etc/lunabot/instances/acme.env", content: "OMB_PORT=8810\n", mode: 0o600 },
       { kind: "run", argv: ["useradd", "--comment", "Acme Inc", "omb-acme"], why: "the account" },
       { kind: "append-once", path: "/etc/caddy/Caddyfile", line: "import /etc/caddy/omb.d/*.caddy" },
       { kind: "note", text: "done" },
     ]);
     expect(lines).toEqual([
-      "# Create /var/lib/openmausbot/acme/.openmausbot mode 700 as omb-acme (use fleet --yes; never root chown on tenant paths)",
-      "# Write /var/lib/openmausbot/acme/.openmausbot/config.json mode 600 as omb-acme (use fleet --yes; tenant content omitted)",
-      "cat > /etc/openmausbot/instances/acme.env <<'OMB_EOF'",
+      "# Create /var/lib/openmausbot/acme/.lunabot mode 700 as omb-acme (use fleet --yes; never root chown on tenant paths)",
+      "# Write /var/lib/openmausbot/acme/.lunabot/config.json mode 600 as omb-acme (use fleet --yes; tenant content omitted)",
+      "cat > /etc/lunabot/instances/acme.env <<'OMB_EOF'",
       "OMB_PORT=8810",
       "OMB_EOF",
-      "chmod 600 /etc/openmausbot/instances/acme.env",
+      "chmod 600 /etc/lunabot/instances/acme.env",
       "useradd --comment 'Acme Inc' omb-acme   # the account",
       "grep -qxF 'import /etc/caddy/omb.d/*.caddy' /etc/caddy/Caddyfile || printf '\\n%s\\n' 'import /etc/caddy/omb.d/*.caddy' >> /etc/caddy/Caddyfile",
       "# done",

@@ -13,7 +13,7 @@ let revokedDeviceIds: string[] = [];
 const routeBodies: unknown[] = [];
 const CONTROL_TOKEN = "c".repeat(43);
 let controlToken: string | null = CONTROL_TOKEN;
-const withToken = { "x-openmausbot-control-token": CONTROL_TOKEN };
+const withToken = { "x-lunabot-control-token": CONTROL_TOKEN };
 
 const ask = async (
   method: string,
@@ -73,15 +73,15 @@ describe("the per-launch control token", () => {
       expect(tokenless.status, `${method} ${path}`).toBe(403);
       expect(JSON.stringify(tokenless.body)).not.toMatch(/omb_pair_|"code"/);
     }
-    expect((await ask("POST", "/pairing", {}, undefined, { "x-openmausbot-control-token": "d".repeat(43) })).status).toBe(403);
-    expect((await ask("POST", "/pairing", {}, undefined, { "x-openmausbot-control-token": CONTROL_TOKEN.slice(1) })).status).toBe(403);
+    expect((await ask("POST", "/pairing", {}, undefined, { "x-lunabot-control-token": "d".repeat(43) })).status).toBe(403);
+    expect((await ask("POST", "/pairing", {}, undefined, { "x-lunabot-control-token": CONTROL_TOKEN.slice(1) })).status).toBe(403);
     expect(devices.pairing()).toBeNull();
   });
 
   it("serves the page itself, which holds no state, without one", async () => {
     const page = await ask("GET", "/", {}, undefined, {});
     expect(page.status).toBe(200);
-    expect(page.body).toContain("x-openmausbot-control-token");
+    expect(page.body).toContain("x-lunabot-control-token");
     expect(page.body).not.toContain(CONTROL_TOKEN);
   });
 
@@ -334,13 +334,13 @@ describe("hosted endpoint advertisement", () => {
       "PUT",
       "/hosted-endpoint",
       headers,
-      JSON.stringify({ url: "https://C-Opaque.OpenMausBot.Test/" }),
+      JSON.stringify({ url: "https://C-Opaque.LunaBot.Test/" }),
     );
     expect(published.status).toBe(200);
     expect(published.body.endpoints[0]).toEqual({
       kind: "hosted",
       priority: 0,
-      url: "https://c-opaque.openmausbot.test",
+      url: "https://c-opaque.lunabot.test",
     });
 
     expect(
@@ -367,7 +367,7 @@ describe("hosted endpoint advertisement", () => {
       { url: false },
       [],
       null,
-      "https://c-opaque.openmausbot.test",
+      "https://c-opaque.lunabot.test",
     ]) {
       const result = await ask("PUT", "/hosted-endpoint", headers, JSON.stringify(body));
       expect(result).toEqual({ status: 400, body: { error: "invalid JSON body" } });

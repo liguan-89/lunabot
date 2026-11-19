@@ -660,7 +660,7 @@ describe("routine comms e2e on the job runtime (fake pi fleet)", () => {
         expect(taskId).toBeTruthy();
         const minted = await request("/api/testing/internal-capability", {
           method: "POST",
-          headers: { "content-type": "application/json", "x-openmausbot-test-capability": TEST_CAPABILITY_KEY },
+          headers: { "content-type": "application/json", "x-lunabot-test-capability": TEST_CAPABILITY_KEY },
           body: JSON.stringify({ botId: chief.id, threadId: sourceThreadId, kind: "agents" }),
         });
         expect(minted.status).toBe(201);

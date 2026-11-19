@@ -32,7 +32,7 @@ describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
   const said: string[] = [];
   const proxies: ChildProcess[] = [];
   /** The launch and prompt of the latest pi turn: the fake appends one launch line per process and one per prompt. */
-  const turn = (): PiTurn | undefined => piTurns(piDumpPath(join(home, ".openmausbot"))).at(-1);
+  const turn = (): PiTurn | undefined => piTurns(piDumpPath(join(home, ".lunabot"))).at(-1);
   const dump = () => {
     const latest = turn();
     if (!latest?.launch?.mcpConfig) throw new Error("no pi launch yet");
@@ -71,7 +71,7 @@ describe.skipIf(!process.env.OMB_EMAIL_REAL_TEST)("Email end to end", () => {
       for (const raw of MAIL) await seed.append("INBOX", Buffer.from(raw), []);
     } finally { lock.release(); await seed.logout(); }
     home = mkdtempSync(join(tmpdir(), "omb-email-e2e-"));
-    const dataDir = join(home, ".openmausbot");
+    const dataDir = join(home, ".lunabot");
     mkdirSync(dataDir, { recursive: true });
     // The fake pi keeps a turn open until its release file exists, so the recipe can call the turn's own agents and
     // email proxies while it runs. The compat turn is the retired fixture's `hang` shape: it says nothing until released.

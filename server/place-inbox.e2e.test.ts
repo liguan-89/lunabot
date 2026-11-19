@@ -47,7 +47,7 @@ function place(call: Call, home: () => string) {
     writeFileSync(file(), JSON.stringify(plan));
   };
   /** The pi log for this place: a confined turn carries its confinement in the tool scope, not a `--restricted` argv. */
-  const dump = () => join(home(), ".openmausbot", "fake-pi-dump.jsonl");
+  const dump = () => join(home(), ".lunabot", "fake-pi-dump.jsonl");
   const confined = (marker: string) => {
     const turn = piTurns(dump()).findLast((one) => one.prompt.includes(marker));
     const deny = (turn?.launch?.mcpConfig?.toolScope as { deny?: string[] } | undefined)?.deny;
@@ -219,7 +219,7 @@ describe("on a Cloud someone else once used", () => {
       { key: "G1", match: ["G1-GO"], timeoutMs: 120_000, steps: [{ server: "agents", tool: "message_person", arguments: { message: "For the guest" } }], reply: "G1: told them" },
       { key: "G3", match: ["G3-GO"], reply: "G3 done" });
 
-    markLeftBehind(join(fx.root, "cloud", ".openmausbot"), { threadIds: [theirs] });
+    markLeftBehind(join(fx.root, "cloud", ".lunabot"), { threadIds: [theirs] });
     await fx.relaunch({ cloud: {} });
     await h.say(zed.id, theirs, "G1-GO");
     await until(async () => (await h.messages(theirs)).some((line) => line.text === "G1: told them"), "the guest's first turn");

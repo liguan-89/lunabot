@@ -182,7 +182,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // The same session now speaks for the new phone, with its own session.
     expect(json(await http(session, "GET", "/api/auth/session", { token: reply.token }))).toEqual({ kind: "session", id: reply.device.id, source: `relay-${reply.device.id}`, host: "phone-relay.invalid", via: "bearer" });
     // Whatever the phone writes, a relayed request is never this machine's.
-    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-openmausbot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
+    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-lunabot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
     expect(spoofed.status).toBe(403);
     expect(json(spoofed).error).toMatch(/proxy/);
     // A token inside the session must be the one whose key opened it.

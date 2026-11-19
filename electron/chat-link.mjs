@@ -1,9 +1,9 @@
 // lunabot://thread/<thread-id>?bot=<bot-id>, lunabot://bot/<bot-id> and lunabot://task?bot=<bot-id>&text=<text>.
-// Links written before the rename (dexbot://, openmausbot://) still open; only the new scheme is ever written.
+// Links written before the rename (dexbot://, lunabot://) still open; only the new scheme is ever written.
 // The page checks them strictly against its chats; opening one never sends, interrupts or creates anything —
 // a task link only drafts the text in the bot's composer.
 const CHAT_LINK_PATHS = ["thread/", "bot/", "task"];
-const SCHEMES = ["lunabot://", "dexbot://", "openmausbot://"];
+const SCHEMES = ["lunabot://", "dexbot://", "lunabot://"];
 const MAX_LINK_LENGTH = 1024;
 
 export function chatLinkFrom(value) {

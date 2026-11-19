@@ -49,7 +49,7 @@ const MAIN = readFileSync(join(REPO_ROOT, "electron", "main.mjs"), "utf8").repla
 const SPLASH_ICON = join(REPO_ROOT, "electron", "resources", "app-icon.png");
 export const ACCOUNT_ID = "acct-fixture";
 /** The renderer's own routes to its server; the same keys as vite.config.ts, so none of its own targets is kept. */
-const PROXIED = ["/api", "/.well-known/openmausbot/environment"];
+const PROXIED = ["/api", "/.well-known/lunabot/environment"];
 
 type Cdp = Awaited<ReturnType<typeof connectCdp>>;
 type Handler = (params: any, sessionId?: string) => void;
@@ -378,7 +378,7 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
       }
       next();
     });
-  }, Object.fromEntries(PROXIED.map((path) => [path, { target: fx.desktopBase, ws: true, headers: { "x-openmausbot-desktop-owner": fx.ownerCapability } }])));
+  }, Object.fromEntries(PROXIED.map((path) => [path, { target: fx.desktopBase, ws: true, headers: { "x-lunabot-desktop-owner": fx.ownerCapability } }])));
   cleanup.push(() => localEdge.close());
 
   // Main's ipcMain, reached by the preload's ipcRenderer.
@@ -565,7 +565,7 @@ export async function launchHomeWorld(fx: CloudSendFixture, { chrome, ports, ver
     },
     changed: () => lending?.cloudChanged(),
   }) : null;
-  const ownCopy = async (route: string, init?: RequestInit) => fetch(`${fx.desktopBase}${route}`, { ...init, headers: { "x-openmausbot-desktop-owner": fx.ownerCapability } });
+  const ownCopy = async (route: string, init?: RequestInit) => fetch(`${fx.desktopBase}${route}`, { ...init, headers: { "x-lunabot-desktop-owner": fx.ownerCapability } });
   const makeHome = () => createHomeWindow({
     ...(clean ? { clean } : {}),
     journal: () => (moves.moved ? { v: 1, phase: "done", cloud: { origin: cloudOrigin, account: ACCOUNT_ID, machine: cloudOrigin }, doneAt: Date.now() } : null),

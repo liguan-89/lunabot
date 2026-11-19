@@ -40,7 +40,7 @@ writeFileSync(
       description: "Run the Luna Bot server anywhere and pair your devices to it",
       license: "AGPL-3.0-only",
       type: "module",
-      bin: { lunabot: "cli.js", dexbot: "cli.js", openmausbot: "cli.js" },
+      bin: { lunabot: "cli.js", dexbot: "cli.js", lunabot: "cli.js" },
       // Never bundled, so npm installs them beside the server: DuckDB and
       // resvg are native addons that npm picks per platform from their
       // optional packages, and the 1Password SDK reads its WebAssembly core

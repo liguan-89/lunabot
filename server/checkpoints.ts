@@ -27,7 +27,7 @@ const EXCLUDES = `# Luna Bot checkpoint excludes — never snapshotted
 .svn/
 .hg/
 .dexbot-secrets/
-.openmausbot-secrets/
+.lunabot-secrets/
 node_modules/
 bower_components/
 .pnpm-store/

@@ -8,8 +8,8 @@ import {
 const spec: ServiceSpec = {
   node: "/usr/bin/node",
   script: "/usr/lib/node_modules/openmausbot/cli.js",
-  serveArgs: ["--port", "8799", "--data-dir", "/home/maus/.openmausbot", "--domain", "maus.example.com", "--no-pair"],
-  dataDir: "/home/maus/.openmausbot",
+  serveArgs: ["--port", "8799", "--data-dir", "/home/maus/.lunabot", "--domain", "maus.example.com", "--no-pair"],
+  dataDir: "/home/maus/.lunabot",
   user: "maus",
   home: "/home/maus",
   bindsLowPorts: true,
@@ -26,34 +26,34 @@ describe("service units", () => {
     const unit = systemdUnit(spec);
     expect(unit).toContain("Description=Luna Bot (agentada)");
     expect(unit).toContain("User=maus");
-    expect(unit).toContain("Environment=OMB_DATA_DIR=/home/maus/.openmausbot");
-    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port 8799 --data-dir /home/maus/.openmausbot --domain maus.example.com --no-pair");
+    expect(unit).toContain("Environment=OMB_DATA_DIR=/home/maus/.lunabot");
+    expect(unit).toContain("ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --port 8799 --data-dir /home/maus/.lunabot --domain maus.example.com --no-pair");
     expect(unit).toContain("Restart=always");
     expect(unit).toContain("AmbientCapabilities=CAP_NET_BIND_SERVICE");
     expect(unit).toContain("WantedBy=multi-user.target");
-    const local = systemdUnit({ ...spec, bindsLowPorts: false, serveArgs: ["--port", "8799", "--data-dir", "/home/maus/.openmausbot"] });
+    const local = systemdUnit({ ...spec, bindsLowPorts: false, serveArgs: ["--port", "8799", "--data-dir", "/home/maus/.lunabot"] });
     expect(local).not.toContain("CAP_NET_BIND_SERVICE");
     expect(systemdUnit({ ...spec, dataDir: "/home/maus/My Data", serveArgs: ["--data-dir", "/home/maus/My Data"] })).toContain('ExecStart=/usr/bin/node /usr/lib/node_modules/openmausbot/cli.js serve --data-dir "/home/maus/My Data"');
   });
 
   it("renders a launchd agent that keeps the server alive and logs under the data dir", () => {
-    const plist = launchdPlist({ ...spec, home: "/Users/maus", dataDir: "/Users/maus/.openmausbot" });
+    const plist = launchdPlist({ ...spec, home: "/Users/maus", dataDir: "/Users/maus/.lunabot" });
     expect(plist).toContain("<string>com.lunabot.serve</string>");
     expect(plist).toContain("<string>/usr/bin/node</string>");
     expect(plist).toContain("<string>serve</string>");
     expect(plist).toContain("<string>maus.example.com</string>");
     expect(plist).toContain("<key>KeepAlive</key>");
-    expect(plist).toContain("/Users/maus/.openmausbot/logs/service.log");
+    expect(plist).toContain("/Users/maus/.lunabot/logs/service.log");
     expect(launchdPlist({ ...spec, serveArgs: ["--label", "a & b <c>"] })).toContain("<string>a &amp; b &lt;c&gt;</string>");
   });
 
   it("refuses to point a service at an npx cache, and knows where each platform's file goes", () => {
     expect(unstableInstallWarning("/home/maus/.npm/_npx/abc123/node_modules/openmausbot/cli.js")).toMatch(/npm install -g lunabot/);
     expect(unstableInstallWarning("/usr/lib/node_modules/openmausbot/cli.js")).toBeNull();
-    const linux = servicePlan("linux", "/home/maus/.openmausbot");
+    const linux = servicePlan("linux", "/home/maus/.lunabot");
     expect(linux?.installed).toBe("/etc/systemd/system/lunabot.service");
     expect(linux?.activate.join("\n")).toContain("systemctl enable --now lunabot");
-    const mac = servicePlan("darwin", "/Users/maus/.openmausbot", "/Users/maus");
+    const mac = servicePlan("darwin", "/Users/maus/.lunabot", "/Users/maus");
     expect(mac?.installed).toBe("/Users/maus/Library/LaunchAgents/com.lunabot.serve.plist");
     expect(mac?.activate.join("\n")).toContain("launchctl bootstrap gui/$(id -u)");
     expect(servicePlan("win32", "C:\\x")).toBeNull();
@@ -61,8 +61,8 @@ describe("service units", () => {
 
   it("renders Sentinel as a launchd agent on an interval, under its own label, logging outside the data dir", () => {
     const out = "/Users/maus/Library/Application Support/openmausbot-sentinel";
-    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", dataDir: "/Users/maus/.openmausbot", home: "/Users/maus", out };
-    expect(sentinelCommand(sentinel)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/openmausbot/cli.js", "sentinel", "--once", "--data-dir", "/Users/maus/.openmausbot", "--out", out]);
+    const sentinel = { node: "/usr/bin/node", script: "/usr/lib/node_modules/openmausbot/cli.js", dataDir: "/Users/maus/.lunabot", home: "/Users/maus", out };
+    expect(sentinelCommand(sentinel)).toEqual(["/usr/bin/node", "/usr/lib/node_modules/openmausbot/cli.js", "sentinel", "--once", "--data-dir", "/Users/maus/.lunabot", "--out", out]);
     expect(sentinelCommand({ ...sentinel, script: "/srv/Luna Bot/server/openmausbot.ts" })[1]).toBe("--experimental-strip-types");
     const plist = sentinelLaunchdPlist(sentinel);
     expect(plist).toContain("<string>com.lunabot.sentinel</string>");
@@ -70,7 +70,7 @@ describe("service units", () => {
     expect(plist).toContain("<string>sentinel</string>");
     expect(plist).not.toContain("KeepAlive");
     expect(plist).toContain(`<string>${out}/sentinel.log</string>`);
-    expect(plist).not.toContain(".openmausbot/logs");
+    expect(plist).not.toContain(".lunabot/logs");
     const mac = sentinelServicePlan("darwin", out, "/Users/maus");
     expect(mac?.files).toEqual([{ name: "com.lunabot.sentinel.plist", installed: "/Users/maus/Library/LaunchAgents/com.lunabot.sentinel.plist" }]);
     // a path with a space is one argument in the printed commands
@@ -106,7 +106,7 @@ describe("service units", () => {
     expect(shippedSentinelCli("darwin", "/Users/maus", (path) => present.has(path), () => false)).toBeNull();
     expect(shippedSentinelCli("win32", "C:\\Users\\maus", () => true)).toBeNull();
 
-    const spec = { node: `${app}/MacOS/Luna Bot`, script: `${app}/Resources/server/openmausbot.js`, dataDir: "/Users/maus/.openmausbot", home: "/Users/maus", out: "/tmp/s", electronRunAsNode: true };
+    const spec = { node: `${app}/MacOS/Luna Bot`, script: `${app}/Resources/server/openmausbot.js`, dataDir: "/Users/maus/.lunabot", home: "/Users/maus", out: "/tmp/s", electronRunAsNode: true };
     expect(sentinelLaunchdPlist(spec)).toContain("<key>ELECTRON_RUN_AS_NODE</key>\n\t\t<string>1</string>");
     expect(sentinelSystemdService(spec)).toContain("Environment=ELECTRON_RUN_AS_NODE=1");
     expect(sentinelLaunchdPlist({ ...spec, electronRunAsNode: false })).not.toContain("ELECTRON_RUN_AS_NODE");

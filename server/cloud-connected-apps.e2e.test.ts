@@ -128,7 +128,7 @@ beforeAll(async () => {
   brokerUrl = `http://127.0.0.1:${(broker.address() as AddressInfo).port}`;
 
   home = mkdtempSync(join(tmpdir(), "omb-cloud-connected-apps-"));
-  dataDir = join(home, ".openmausbot");
+  dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

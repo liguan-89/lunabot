@@ -31,10 +31,10 @@ import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { dockerCliMissing, dockerCliMissingProblem } from "./vps-hints.ts";
 
 export const VPS_IMAGE = CUA_IMAGE;
-export const VPS_MANAGED_LABEL = "com.openmausbot.vps";
-export const VPS_CONTAINER_LABEL = "com.openmausbot.container";
-export const VPS_ENVIRONMENT_LABEL = "com.openmausbot.environment";
-export const VPS_VIEWER_LABEL = "com.openmausbot.vps-viewer";
+export const VPS_MANAGED_LABEL = "com.lunabot.vps";
+export const VPS_CONTAINER_LABEL = "com.lunabot.container";
+export const VPS_ENVIRONMENT_LABEL = "com.lunabot.environment";
+export const VPS_VIEWER_LABEL = "com.lunabot.vps-viewer";
 export const VPS_CONTAINER_PREFIX = "openmausbot-vps";
 export { dockerCliInstallCommand, vpsStartsForTurn, vpsUnavailableHint } from "./vps-hints.ts";
 // Lazy: index must finish data migration and take the writer lease before this may create the data directory.

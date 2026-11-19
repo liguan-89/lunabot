@@ -979,7 +979,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           const modelPromise = awaitResponse("set_model");
           send({ type: "set_model", provider: chosen.provider, modelId: chosen.modelId });
           confirmedModel = piModelId(await modelPromise);
-          if (!confirmedModel) throw new RuntimeNoticeError("Pi did not confirm the selected model", "chat.notice.piModelNotConfirmed");
+          if (!confirmedModel) throw new RuntimeNoticeError("The selected model was not confirmed", "chat.notice.piModelNotConfirmed");
         } catch (error) {
           const message = prePromptFailure ?? String((error as Error).message);
           if (prePromptQuiet()) {

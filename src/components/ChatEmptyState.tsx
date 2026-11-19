@@ -47,7 +47,7 @@ export function EmptyChat({ bot }: { bot: Bot }) {
               key={prompt}
               type="button"
               onClick={() => dispatch({ type: "send", botId: bot.id, text: prompt, threadId: bot.threadId })}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink/[0.09] bg-surface/85 px-3.5 py-1.5 text-[13px] text-ink-secondary shadow-xs backdrop-blur-sm transition-all hover:border-ink/20 hover:bg-raised hover:text-ink"
+              className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink/[0.09] bg-card/85 px-3.5 py-1.5 text-[13px] text-ink-secondary shadow-xs backdrop-blur-sm transition-all hover:border-ink/20 hover:bg-raised hover:text-ink"
             >
               <Sparkles size={12} aria-hidden="true" className="shrink-0 text-accent/80" />
               <span className="truncate">{prompt}</span>

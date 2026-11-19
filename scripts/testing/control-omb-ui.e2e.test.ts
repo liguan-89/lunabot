@@ -174,10 +174,10 @@ describe("control-omb ui drives the real renderer", () => {
     const replace = () => evaluate(`${row}.querySelector('[data-key-replace]').click(); true`);
     const type = async (text: string) => {
       // The one custom provider's key row: its label names the provider pi uses.
-      await click("Custom model provider");
+      await click("API key");
       await evaluate(`${input}.select(); true`);
       await ui("press", info.ui, "--keys", "Backspace");
-      if (text) await ui("type", info.ui, "--name", "Custom model provider", "--text", text);
+      if (text) await ui("type", info.ui, "--name", "API key", "--text", text);
     };
     const enter = () => ui("press", info.ui, "--keys", "Enter");
     await evaluate(`(() => {
@@ -203,7 +203,6 @@ describe("control-omb ui drives the real renderer", () => {
     // Settings is a lazy chunk: it paints once the chunk arrives. Keys sit on the AI page, under API keys.
     await expect.poll(() => evaluate(`(() => {
       document.querySelector('[data-settings-page="ai"]')?.click();
-      document.querySelector('[data-settings-disclosure="ai-keys"] button[aria-expanded="false"]')?.click();
       return Boolean(${row}?.checkVisibility());
     })()`), { timeout: 10_000 }).toBe(true);
     // The servers section opens on its own, because a key is saved there.
@@ -224,7 +223,7 @@ describe("control-omb ui drives the real renderer", () => {
       field.blur();
       return true;
     })()`);
-    await expect.poll(rowText, { timeout: 10_000 }).toContain("Remove the username, password, query string or fragment");
+    await expect.poll(() => evaluate("document.body.textContent"), { timeout: 10_000 }).toContain("Remove the username, password, query string or fragment");
     expect(await evaluate("window.keySaves")).toBe(0);
     expect((await fixtureApi(info.url)("GET", "/api/config")).openaiCompat.url).toBe(savedUrl);
 
@@ -250,7 +249,7 @@ describe("control-omb ui drives the real renderer", () => {
     await expect.poll(rowText, { timeout: 10_000 }).toContain("Didn't work: Fixture save rejected");
     await expect.poll(() => evaluate(`${input}?.value ?? null`), { timeout: 10_000 }).toBe("fixture-replacement-key");
     await evaluate("window.rejectKeySave = false");
-    await click("Custom model provider");
+    await click("API key");
     await enter();
     await expect.poll(() => evaluate(`${input} ?? null`), { timeout: 10_000 }).toBe(null);
     await expect.poll(() => evaluate("window.keyTests.length")).toBe(3);

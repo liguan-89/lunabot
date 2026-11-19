@@ -68,7 +68,7 @@ export function windowFrameable(capabilities: Pick<DesktopCapabilities, "windowC
  * (WindowFrameBar) and the rail of places in the frame's colour, and the app, its sidebar and the chat or page, in a
  * rounded card beside them. Nothing under the bar makes room for the window's buttons. Off once the person turned the frame off. */
 export function windowFramed(capabilities: Pick<DesktopCapabilities, "windowChrome" | "windowFrame"> | undefined): boolean {
-  return windowFrameable(capabilities) && capabilities?.windowFrame === true;
+  return windowFrameable(capabilities) && capabilities?.windowFrame !== false;
 }
 
 /** A window with no title bar of its own: the page's headers drag it, framed or not. */

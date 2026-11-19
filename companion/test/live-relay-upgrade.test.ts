@@ -50,7 +50,7 @@ const fixture = async () => {
     socket.on("error", () => {});
     upstreamUpgrade = {
       url: req.url ?? "",
-      device: req.headers["x-openmausbot-companion-device"] as string | undefined,
+      device: req.headers["x-lunabot-companion-device"] as string | undefined,
     };
     socket.write(
       "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"

@@ -458,7 +458,7 @@ describe.sequential("Composio Sessions", () => {
     setManagedBrokerAccess(null);
   });
   it("ignores credential sync without access and clears only on explicit null", () => {
-    const messageType = "openmausbot:managed-composio";
+    const messageType = "lunabot:managed-composio";
     setManagedBrokerAccess({ url: "http://127.0.0.1:3210/", token: "a".repeat(64) });
 
     expect(applyManagedBrokerMessage({ type: messageType })).toBe(false);
@@ -865,7 +865,7 @@ describe.sequential("Composio Sessions", () => {
 
   it("does not offer Twitter through the official managed broker without an owned OAuth app", async () => {
     setManagedBrokerAccess({
-      url: "https://broker.openmausbot.test",
+      url: "https://broker.lunabot.test",
       token: "a".repeat(64),
     });
     try {

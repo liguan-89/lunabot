@@ -10,7 +10,7 @@ import { parseSentinelArgs, runSentinelCli } from "./cli.ts";
 import { runScan } from "./scan.ts";
 import { fixtureDataDir, turnCompleted, type FixtureDataDir } from "./testing.ts";
 
-const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "..", "openmausbot.ts");
+const ENTRY = join(dirname(fileURLToPath(import.meta.url)), "..", "lunabot.ts");
 const PRIVATE = "Example Client Ltd";
 
 function sentinel(...args: string[]): { status: number | null; stdout: string; stderr: string } {

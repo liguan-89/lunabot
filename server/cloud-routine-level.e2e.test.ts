@@ -60,7 +60,7 @@ async function adminPairing(): Promise<string> {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-routine-level-"));
-  dataDir = join(home, ".openmausbot");
+  dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   // The plan scripts the turns the owner starts (each one keeps its turn open); every other turn holds on the release
   // file, so a routine's run can be read while it runs. A routine's prompt also asks permission, so a confined run

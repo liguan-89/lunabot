@@ -118,7 +118,7 @@ app.whenReady().then(async () => {
   });
   if (process.argv.includes("--skill-ui-only")) {
     await require("./testing/skill-approval-ui-smoke.cjs")({ root, home, url: `http://127.0.0.1:${port}`, api, until,
-      capability: (botId, threadId) => api("/api/testing/internal-capability", "POST", { botId, threadId, skillAuthoring: true }, { "x-openmausbot-test-capability": testCapabilityKey }),
+      capability: (botId, threadId) => api("/api/testing/internal-capability", "POST", { botId, threadId, skillAuthoring: true }, { "x-lunabot-test-capability": testCapabilityKey }),
     });
     return;
   }
@@ -288,7 +288,7 @@ app.whenReady().then(async () => {
   await coordinator.request(child, peerTarget.id, "full");
   await coordinator.request(child, peerTarget.id, "full", { threadId: peerThread.threadId });
   const capability = await api("/api/testing/internal-capability", "POST",
-    { botId: sender.id, threadId: sender.threadId }, { "x-openmausbot-test-capability": testCapabilityKey });
+    { botId: sender.id, threadId: sender.threadId }, { "x-lunabot-test-capability": testCapabilityKey });
   assert.equal(capability.status, 201);
   const peerResponse = await api("/api/internal/coordinate-bots", "POST",
     { botIds: [peerTarget.id], message: `${permissionMarker}, peer-initiated on the work thread`, consult: true },

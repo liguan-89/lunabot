@@ -73,7 +73,7 @@
     "build:cua:linux:offline": "node scripts/prepare-cua-linux.mjs --offline",
     "build:updater": "node scripts/bundle-updater.mjs",
     "package:prepare": "pnpm build && pnpm build:server && pnpm build:companion && pnpm build:updater && pnpm build:android-tools && pnpm build:cloudflared && pnpm build:browser && pnpm build:duckdb",
-    "package:mac": "export OPENMAUSBOT_CUA_ARCHES=arm64 OPENMAUSBOT_CUA_ARCHES_PARTIAL=1 CSC_IDENTITY_AUTO_DISCOVERY=false DEXBOT_CODESIGN_IDENTITY=\"DEX BOT Development\" && pnpm package:prepare && pnpm build:speech && pnpm build:cua && electron-builder --mac --arm64 --publish never",
+    "package:mac": "export LUNABOT_CUA_ARCHES=arm64 LUNABOT_CUA_ARCHES_PARTIAL=1 CSC_IDENTITY_AUTO_DISCOVERY=false DEXBOT_CODESIGN_IDENTITY=\"DEX BOT Development\" && pnpm package:prepare && pnpm build:speech && pnpm build:cua && electron-builder --mac --arm64 --publish never",
     "package:win": "pnpm package:prepare && pnpm build:cua:win && electron-builder --win --publish never",
     "package:linux": "pnpm package:prepare && pnpm build:cua:linux && electron-builder --config.productName=LunaBot --linux --x64 --publish never",
     "package:arch": "pnpm package:prepare && pnpm build:cua:linux && electron-builder --config.productName=LunaBot --linux pacman --x64 --publish never",

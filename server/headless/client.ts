@@ -1,5 +1,5 @@
-// Server: --url, --port, DEXBOT_URL (or the pre-rebrand OPENMAUSBOT_URL) or OMB_PORT, else the desktop ports. A
-// credential never travels while a server is being looked for; it comes from DEXBOT_TOKEN (or OPENMAUSBOT_TOKEN) or
+// Server: --url, --port, DEXBOT_URL (or the pre-rebrand LUNABOT_URL) or OMB_PORT, else the desktop ports. A
+// credential never travels while a server is being looked for; it comes from DEXBOT_TOKEN (or LUNABOT_TOKEN) or
 // --token-file only (a command line leaks).
 import { readFileSync } from "node:fs";
 
@@ -28,7 +28,7 @@ export async function loadMcp(): Promise<McpModule> {
     return await mcpModule;
   } catch (error) {
     mcpModule = undefined;
-    throw usageError(`OPENMAUSBOT_URL is not usable: ${error instanceof Error ? error.message : String(error)}`);
+    throw usageError(`LUNABOT_URL is not usable: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
@@ -54,7 +54,7 @@ export function readToken(flags: Flags, env: NodeJS.ProcessEnv): string | undefi
     if (!token) throw usageError(`--token-file ${file} is empty`);
     return token;
   }
-  return (env.DEXBOT_TOKEN ?? env.OPENMAUSBOT_TOKEN)?.trim() || undefined;
+  return (env.DEXBOT_TOKEN ?? env.LUNABOT_TOKEN)?.trim() || undefined;
 }
 
 export function namedServer(flags: Flags, env: NodeJS.ProcessEnv): { url: string } | { port: string } | undefined {
@@ -62,7 +62,7 @@ export function namedServer(flags: Flags, env: NodeJS.ProcessEnv): { url: string
   if (url) return { url };
   const port = flag(flags, "port")?.trim();
   if (port) return { port };
-  const configuredUrl = env.DEXBOT_URL?.trim() || env.OPENMAUSBOT_URL?.trim();
+  const configuredUrl = env.DEXBOT_URL?.trim() || env.LUNABOT_URL?.trim();
   if (configuredUrl) return { url: configuredUrl };
   return env.OMB_PORT?.trim() ? { port: env.OMB_PORT.trim() } : undefined;
 }
@@ -88,7 +88,7 @@ export async function openClient(flags: Flags, deps: ClientDeps, mutating: boole
     }
     if (token) {
       throw usageError("a token needs a named server, so it is never sent while looking for one",
-        "pass --url (or --port), or set DEXBOT_URL (or OPENMAUSBOT_URL) or OMB_PORT");
+        "pass --url (or --port), or set DEXBOT_URL (or LUNABOT_URL) or OMB_PORT");
     }
     try {
       baseUrl = await mcp.probeBaseUrls(DISCOVERY_PORTS.map((port) => `http://127.0.0.1:${port}`));

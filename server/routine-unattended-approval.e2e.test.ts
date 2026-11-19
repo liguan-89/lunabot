@@ -32,7 +32,7 @@ afterEach(async () => {
 
 it("waits for the person, tells them at once, and stops saying nobody answered the approval when it went unanswered", async () => {
   home = mkdtempSync(join(tmpdir(), "omb-routine-unattended-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   // The fixture's own TMPDIR (verificationServerEnvironment points it here) has to exist before the engine spawns.
   mkdirSync(join(dataDir, "tmp"), { recursive: true });

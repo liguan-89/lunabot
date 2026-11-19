@@ -85,7 +85,7 @@ beforeAll(async () => {
   const jevUrl = `http://127.0.0.1:${(jev.address() as AddressInfo).port}`;
 
   home = mkdtempSync(join(tmpdir(), "omb-decider-rooms-"));
-  // The workspace's current data folder; the server renames a legacy `.openmausbot` here at boot.
+  // The workspace's current data folder; the server renames a legacy `.lunabot` here at boot.
   data = join(home, ".lunabot");
   const staticDir = join(home, "static");
   mkdirSync(data, { recursive: true });

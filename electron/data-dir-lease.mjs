@@ -10,7 +10,7 @@ const DELEGATED_CHILD_DIR = ".lunabot-server-child";
 const LEGACY_DELEGATED_CHILD_DIRS = [".dexbot-server-child"];
 const DELEGATED_CHILD_DIRS = [DELEGATED_CHILD_DIR, ...LEGACY_DELEGATED_CHILD_DIRS];
 // Internal parent-to-child capability, obtained only from utilityServerLeaseEnvironment(); never public configuration.
-const CHILD_LEASE_ENV = "OPENMAUSBOT_INTERNAL_DATA_DIR_LEASE";
+const CHILD_LEASE_ENV = "LUNABOT_INTERNAL_DATA_DIR_LEASE";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_PID = 0x7fffffff;
 const MAX_BOOT_ID = 128;
