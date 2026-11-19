@@ -25,7 +25,7 @@ const REAL_TOOLS = ["sed", "awk", "grep", "cat", "head", "tail", "tr", "sort", "
 const HEALTHY = {
   FAKE_UID: "0", FAKE_ARCH: "x86_64", FAKE_CPUS: "4", FAKE_FREE_GB: "80", FAKE_DOCKER: "27.3.1", FAKE_SECURITY: '["name=apparmor","name=seccomp,profile=builtin"]',
   FAKE_COMPOSE: "0", FAKE_PUBLIC_IP: "203.0.113.7", FAKE_LOCAL_IP: "10.0.0.5", FAKE_DNS: "203.0.113.7", FAKE_NOW: "1794268800", FAKE_THEIRS: "1794268790",
-  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "openmausbot",
+  FAKE_STABLE: "404", FAKE_RELEASE: "v0.1.151", FAKE_RELEASE_STATUS: "200", FAKE_HEALTH: "healthy", FAKE_HTTPS: "dexbot",
   FAKE_IMAGE_ENV: '["PATH=/usr/bin","HOME=/data","OMB_IMAGE=server"]', FAKE_BOX_CHECK: BOX_PASSED, FAKE_SOURCE: "published",
 };
 
@@ -591,7 +591,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(settings(written)).toEqual(settings(manual));
     // The sign-in lists and mail server are passed only when .env sets them: an empty one would still be set.
     for (const name of ["OMB_SIGNIN_EMAILS", "OMB_SIGNIN_MEMBER_EMAILS", "OMB_SIGNIN_SMTP_URL", "OMB_SIGNIN_SMTP_FROM", "OMB_PHONE_RELAY"]) expect(settings(written)).toContain(`${name}:`);
-    for (const line of ['test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]', "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
+    for (const line of ['test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot"]', "init: true", "shm_size: 512m", '- "80:80"', '- "443:443"',
       "- edge:/run/openmausbot", "type: tmpfs"]) {
       expect(written).toContain(line);
       expect(manual).toContain(line);
