@@ -28,6 +28,7 @@ import { activateExistingWindow, releaseSingleInstanceLock } from "./single-inst
 import { bootFailureMessage, listeningSignal, pollServerIdentity, SERVER_BOOT_TIMEOUT_MS, SERVER_LISTENING_GRACE_MS } from "./server-boot-probe.mjs";
 import { createServerSupervisor } from "./server-supervisor.mjs";
 import { serverChildLaunch } from "./server-child-launch.mjs";
+import { watchPairRequests } from "./companion-pair-watch.mjs";
 import { packageUrlFromCommandLine, packageUrlFromDeepLink } from "./package-link.mjs";
 import { chatLinkFrom, chatLinkFromCommandLine } from "./chat-link.mjs"; import { installDesktopNotifications } from "./desktop-notifications.mjs";
 import { createOrganizationEntry, isOrganizationDeepLink, ORGANIZATION_DEEP_LINK, takeOrganizationDeepLink, organizationRestartIntent, withOrganizationRestartIntent, withoutOrganizationRestartIntent } from "./organization-entry.mjs";
@@ -2464,37 +2465,6 @@ ipcMain.handle("companion-account:answer-pair-request", localOnly("companion-acc
   ensureCompanionAccountService().answerPairRequest(id, { decision: decision === "allow" ? "allow" : "deny", link: typeof link === "string" ? link : null }),
 ));
 
-/**
- * Phones asking to connect, delivered to the renderer that can mint the link.
- *
- * The poll is cheap (one authenticated GET) and only runs while the window
- * exists; a request already shown is not re-sent, so a slow tap cannot stack
- * cards.
- */
-const PAIR_REQUEST_POLL_MS = 10_000;
-let pairRequestPoll = null;
-let shownPairRequests = new Set();
-function watchPairRequests() {
-  if (pairRequestPoll) return;
-  pairRequestPoll = setInterval(async () => {
-    if (!mainWindow || mainWindow.isDestroyed()) return;
-    let requests;
-    try {
-      requests = await ensureCompanionAccountService().pairRequests();
-    } catch {
-      return;
-    }
-    const fresh = requests.filter((request) => !shownPairRequests.has(request.id));
-    if (fresh.length === 0) return;
-    // Forget ids the server no longer lists, so a new request with a reused id (none today) is not swallowed.
-    const live = new Set(requests.map((request) => request.id));
-    for (const id of shownPairRequests) if (!live.has(id)) shownPairRequests.delete(id);
-    for (const request of fresh) shownPairRequests.add(request.id);
-    mainWindow.webContents.send("companion-account:pair-request", fresh);
-  }, PAIR_REQUEST_POLL_MS);
-  pairRequestPoll.unref?.();
-}
-
 const workspaceOnly = (handler) => (event, ...args) => {
   if (!workspaceSenderAllowed(event, mainWindow?.webContents, environmentsState, rendererOrigin())) throw new Error("These controls are only available in the main desktop window");
   return handler(event, ...args);
@@ -2932,7 +2902,12 @@ app.whenReady().then(async () => {
   if (app.isPackaged) await ensurePhoneSecretIdentity();
   companionE2E = createDesktopCompanionE2E({ isPackaged: app.isPackaged, appVersion: app.getVersion(), readCredentials: () => secureCredentialState?.read() ?? secureCredentials, updateCredentials: updateSecureCredentialDocument, powerMonitor, log: slog });
   void companionE2E.start();
-  watchPairRequests();
+  // The delivery half of the phone-asks-a-computer loop; main.mjs is at its
+  // line ratchet, so the poll itself lives beside it.
+  watchPairRequests(
+    () => ensureCompanionAccountService().pairRequests(),
+    () => mainWindow,
+  );
   desktopRemoteAccess = desktopCompanionAccess(secureCredentials);
   const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();
   // Display capture needs a one-shot renderer intent from the same frame/origin, no audio, and a user gesture.

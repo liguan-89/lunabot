@@ -25,6 +25,11 @@ const LINES: Record<string, number> = {
   "server/drivers/agents-call.ts": 1094,
   "server/drivers/agents-catalog.ts": 1094,
   "server/browser-live.ts": 1014,
+  // The hosted account service: one file holds the control-plane calls, the
+  // credential document and the managed-endpoint watchdog, because they share
+  // the same secure-credential document and splitting it would mean passing
+  // that document through three modules to keep one lock on it.
+  "electron/companion-account-service.mjs": 1034,
   "shared/wire.ts": 1018,
   "src/components/ComputerPanel.tsx": 1782,
   "src/components/RoutineCalendarPage.tsx": 1622,
