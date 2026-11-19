@@ -3032,6 +3032,7 @@
   "composer.queued.steerAll": "全部插话",
   "composer.queued.steerNext": "插话下一条",
   "composer.queued.steer": "插话",
+  "composer.queued.roomSteerHeld": "消息仍在排队，没有打断任何任务。",
   "composer.queued.steerAllHint": "立即插入队列中的全部 {count} 条消息",
   "composer.queued.steerNextHint": "立即插入队列中的下一条消息",
   "composer.queued.steerHint": "立即插入排队的消息",

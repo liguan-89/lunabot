@@ -44805,7 +44805,16 @@
       "native.context.saveLinkAs": "e4e9bea4f92587829080b691bde74a8bbf4335b425b846e7a31a396ef2309c20",
       "native.context.openInDefaultApp": "42148b60f4d8a124879f213855108acbc74ff4210cc6408f5cbea7b15e595aa4",
       "native.context.cannotOpen": "0b3b5e25baf6058ec4b29099941edfb212324eaa707e76ce9521b7606846811c",
-      "native.context.openFailed": "67bbee6999fe12ddd399e1ef2be47f3a75af55bd32ca137a907caee9781fa166"
+      "native.context.openFailed": "67bbee6999fe12ddd399e1ef2be47f3a75af55bd32ca137a907caee9781fa166",
+      "settings.noticeLearn.title": "66bddf2dac20be58f620f996ef15e602d60a69c9c2e554bb5c5330a34a71309e",
+      "settings.noticeLearn.subtitle": "01f4ce2d89bf8e66c98481c9e1e19ab282de94b509a33eeb5ee34281f265e010",
+      "settings.noticeLearn.aria": "66bddf2dac20be58f620f996ef15e602d60a69c9c2e554bb5c5330a34a71309e",
+      "settings.noticeLearn.error": "3de018d396c36483da71982b9e16533ddda67ff19e45586fb59eb77f992529ef",
+      "settings.noticeLearn.off": "ca7981b46ecf2c1787b6d76d81d9fd7fa0ca95842e2fcc2a452869891a9334d1",
+      "settings.noticeLearn.conservative": "75e1783e4e517e5459062db056ec2d886889cf94fc62c3b7e01f10ae3505a2f5",
+      "settings.noticeLearn.balanced": "5386ea5db81c8579a363438895a447d9580cbca1bdecdad43f2839af6d6fbf5c",
+      "settings.noticeLearn.aggressive": "4ad0cc8ec0084946ade150954a43f214c3647a20fd4fa57aa8e1b6b2c35fc23c",
+      "composer.queued.roomSteerHeld": "6e022eabd03229934c8c1528f1fb885370bd73a0fc371b1f25941a6537f923e8"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",

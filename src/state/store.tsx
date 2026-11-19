@@ -615,7 +615,7 @@ export interface AppState {
   connected: boolean;
   hydrated?: true;
   error: string | null;
-  notice: { kind: "thread-gone" | "bot-gone" | "steer-images" | "note"; botName: string | null; text?: string } | null;
+  notice: { kind: "thread-gone" | "bot-gone" | "steer-images" | "note"; botName: string | null; text?: string; threadId?: string } | null;
   revealThread: { threadId: string; nonce: number } | null;
   mascotMotion: {
     botId: string;
@@ -2159,6 +2159,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const olderPagesInFlight = new Set<string>();
     const newTaskOnce = createNewTaskOnce();
     let creatingBot = false;
+    let noticeTimer: ReturnType<typeof setTimeout> | undefined;
     const showError = (e: unknown) => { if (isBotLimitRefusal(e)) return; if (isNoAiRefusal(e)) wrapped({ type: "notice", notice: { kind: "note", botName: null, text: e.message } }); else rawDispatch({ type: "error", message: e instanceof Error ? e.message : String(e) }); };
     const showSavedState = (owner: SavedOwner) => (error: unknown) => {
       showError(error);
@@ -2309,11 +2310,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (action.type !== "send") return undefined;
         return botBeforeSend ? openOnboardingCard(botBeforeSend) : undefined;
       })();
-      if (
-        action.type !== "cancelQueued" &&
-        action.type !== "cancelGroupQueued" &&
-        action.type !== "deleteBot"
-      ) rawDispatch(action);
+      const threadOf = (s: AppState) => s.groups.find((g) => g.id === s.selectedId)?.threadId ?? s.bots.find((b) => b.id === s.selectedId)?.threadId, previousOpened = threadOf(stateRef.current);
+      const dispatched = action.type !== "cancelQueued" && action.type !== "cancelGroupQueued" && action.type !== "deleteBot";
+      if (dispatched) rawDispatch(action);
+      const cur = dispatched ? reducer(stateRef.current, action) : stateRef.current, opened = threadOf(cur);
+      if (previousOpened !== opened && cur.notice?.threadId && opened && cur.notice.threadId !== opened) rawDispatch({ type: "notice", notice: null });
       switch (action.type) {
         case "loadOlderMessages": {
           // The guard, not the reducer flag: stateRef still holds the pre-dispatch state.
@@ -2346,7 +2347,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "notice":
-          if (action.notice) setTimeout(() => rawDispatch({ type: "notice", notice: null }), action.notice.kind === "note" ? 20_000 : 6000);
+          if (noticeTimer !== undefined) clearTimeout(noticeTimer);
+          noticeTimer = action.notice ? setTimeout((shown) => { if (stateRef.current.notice === shown) rawDispatch({ type: "notice", notice: null }); }, action.notice.kind === "note" ? 20_000 : 6000, action.notice) : undefined;
           break;
         case "createRoutine":
           api("/api/routines", { method: "POST", body: JSON.stringify(action.input) }).catch(showError);
@@ -2401,7 +2403,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   rawDispatch({ type: "consumePendingQueued", threadId: body.threadId, queueId });
                 }
               } else if (body?.queued === true && body.blockedBy === "images") {
-                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null } });
+                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: body.threadId } });
               }
               action.onSettled?.();
             })
@@ -2431,8 +2433,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 for (const queueId of body.queueIds ?? []) {
                   rawDispatch({ type: "consumePendingQueued", threadId: body.threadId, queueId });
                 }
-              } else if (body?.queued === true && body.blockedBy === "images") {
-                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null } });
+              } else if (body?.queued === true) {
+                wrapped({ type: "notice", notice: body.blockedBy === "images" ? { kind: "steer-images", botName: null, threadId: body.threadId } : { kind: "note", botName: null, text: t("composer.queued.roomSteerHeld"), threadId: body.threadId } });
               }
               action.onSettled?.();
             })
@@ -2475,6 +2477,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   text: action.text,
                   reason: body.reason === "capacity" || body.reason === "group-turn" ? body.reason : undefined,
                 });
+                if (body.blockedBy === "images") wrapped({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: body.threadId } });
               }
             })
             .catch((error) => {

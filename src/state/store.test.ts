@@ -2969,6 +2969,7 @@ describe("restoring the open conversation", () => {
       const answers: Record<string, unknown> = {
         "/api/bots/bot-1/queue/q-image/steer": { ok: true, queued: true, threadId: "bot-1-thread", blockedBy: "images" },
         "/api/groups/room-1/queue/q-room/steer": { ok: true, queued: true, threadId: "room-thread", blockedBy: "images" },
+        "/api/groups/room-1/queue/q-room-plain/steer": { ok: true, queued: true, threadId: "room-thread" },
         "/api/bots/bot-1/queue/q-plain/steer": { ok: true, queued: true, threadId: "bot-1-thread" },
       };
       vi.stubGlobal("fetch", (path: string) => Promise.resolve(new Response(JSON.stringify(answers[path.replace(/\?since=[^&]*$/, "")] ?? {}))));
@@ -2982,13 +2983,72 @@ describe("restoring the open conversation", () => {
       flushSync(() => dispatch({ type: "steerQueued", botId: "bot-1", queueId: "q-image", onSettled: settled }));
       await settle();
       expect(settled).toHaveBeenCalledTimes(2);
-      expect(seen.notice).toEqual({ kind: "steer-images", botName: null });
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
 
       flushSync(() => dispatch({ type: "notice", notice: null }));
       flushSync(() => dispatch({ type: "steerGroupQueued", groupId: "room-1", queueId: "q-room", onSettled: settled }));
       await settle();
       expect(settled).toHaveBeenCalledTimes(3);
-      expect(seen.notice).toEqual({ kind: "steer-images", botName: null });
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "room-thread" });
+
+      flushSync(() => dispatch({ type: "notice", notice: null }));
+      flushSync(() => dispatch({ type: "steerGroupQueued", groupId: "room-1", queueId: "q-room-plain", onSettled: settled }));
+      await settle();
+      expect(settled).toHaveBeenCalledTimes(4);
+      expect(seen.notice).toMatchObject({ kind: "note", text: expect.stringContaining("Nothing was stopped"), threadId: "room-thread" });
+    });
+
+    it("a Steer send that stays queued because of pictures says why", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.stubGlobal("fetch", (path: string) => Promise.resolve(new Response(JSON.stringify(
+        path.replace(/\?since=[^&]*$/, "").startsWith("/api/bots/bot-1/messages")
+          ? { ok: true, queued: true, threadId: "bot-1-thread", queueId: "q-image-send", blockedBy: "images" }
+          : {},
+      ))));
+      flushSync(() => dispatch({
+        type: "send",
+        botId: "bot-1",
+        text: "see this",
+        threadId: "bot-1-thread",
+        followUp: "steer",
+        sendId: "send-image",
+      }));
+      await settle();
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+    });
+
+    it("an earlier notice timer does not clear a newer pictures notice", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        flushSync(() => dispatch({ type: "notice", notice: { kind: "note", botName: null, text: "held" } }));
+        flushSync(() => vi.advanceTimersByTime(19_000));
+        flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+        flushSync(() => vi.advanceTimersByTime(2_000));
+        expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+        flushSync(() => vi.advanceTimersByTime(6_000));
+        expect(seen.notice).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a pictures notice leaves when the person opens another conversation", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+      flushSync(() => dispatch({ type: "select", id: "bot-1" }));
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+      flushSync(() => dispatch({ type: "select", id: "bot-2" }));
+      expect(seen.notice).toBeNull();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "thread-gone", botName: "bot-1" } }));
+      flushSync(() => dispatch({ type: "select", id: "bot-1" }));
+      expect(seen.notice).toEqual({ kind: "thread-gone", botName: "bot-1" });
     });
 
     it("the provider restores the conversation remembered on this device", async () => {
