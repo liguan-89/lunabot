@@ -79,6 +79,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.MotionDurationScale
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
@@ -680,6 +681,11 @@ private fun TextBubble(
         startsRun = startsRun,
         endsRun = endsRun,
     )
+    // A white bubble on the #F4F4F5 canvas differs by 11/255 a channel: the
+    // fill alone barely reads as a shape. The rim and the soft drop under it are
+    // what make it one, and both are the design's own values.
+    val bubbleShadow = minisBubbleShadow
+    val bubbleRim = minisBubbleRim
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
@@ -697,10 +703,20 @@ private fun TextBubble(
                 .then(
                     if (bubble) {
                         Modifier
+                            // The shadow sits outside the fill, so it is applied
+                            // before the background and never clipped by it.
+                            .shadow(
+                                elevation = 3.dp,
+                                shape = bubbleShape,
+                                clip = false,
+                                ambientColor = bubbleShadow.first,
+                                spotColor = bubbleShadow.second,
+                            )
                             .background(
                                 BubbleColor.userBubble,
                                 bubbleShape,
                             )
+                            .border(0.5.dp, bubbleRim, bubbleShape)
                             .padding(horizontal = 13.dp, vertical = 10.dp)
                     } else {
                         Modifier
@@ -814,7 +830,7 @@ private fun TextBubble(
 private fun UserMessageText(text: String) {
     val color = BubbleColor.userBubbleText
     if (!text.startsWith(">")) {
-        Text(text = text, fontSize = 17.sp, color = color)
+        Text(text = text, fontSize = 17.sp, lineHeight = 24.sp, color = color)
         return
     }
     val lines = text.lines()
@@ -825,7 +841,7 @@ private fun UserMessageText(text: String) {
         .dropWhile { it.isBlank() }
         .joinToString("\n")
     if (quote.isEmpty()) {
-        Text(text = text, fontSize = 17.sp, color = color)
+        Text(text = text, fontSize = 17.sp, lineHeight = 24.sp, color = color)
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -848,7 +864,7 @@ private fun UserMessageText(text: String) {
             )
         }
         if (body.isNotEmpty()) {
-            Text(text = body, fontSize = 17.sp, color = color)
+            Text(text = body, fontSize = 17.sp, lineHeight = 24.sp, color = color)
         }
     }
 }

@@ -78,6 +78,16 @@ object MinisTokens {
     // person a card.
     val UserBubbleLight = Color(0xFFFFFFFF)
     val UserBubbleDark = Color(0xFF2C2C2E)
+    // A white bubble on the #F4F4F5 canvas differs by 11/255 a channel, so the
+    // fill alone is nearly invisible: what makes it a shape is the hairline rim
+    // and the soft drop under it. Both come from the design's `.bubble`
+    // (`border: .5px solid var(--rim)`, `box-shadow: var(--shadow-bubble)`).
+    val BubbleRimLight = Color(0x17000000)
+    val BubbleRimDark = Color(0x24FFFFFF)
+    val BubbleShadowAmbientLight = Color(0x0D000000)
+    val BubbleShadowSpotLight = Color(0x4D000000)
+    val BubbleShadowAmbientDark = Color(0x66000000)
+    val BubbleShadowSpotDark = Color(0xCC000000)
     val BotBubbleLight = Color(0xFFF2F2F2)
     val BotBubbleDark = Color(0xFF2C2C2E)
     val FabLight = Color(0xFFB7AF96)
@@ -146,6 +156,18 @@ val minisCanvas: Color
 /** A card or control on [minisCanvas]. */
 val minisCard: Color
     @Composable get() = if (minisIsDark()) MinisTokens.CardDark else MinisTokens.CardLight
+
+/** The hairline that makes a white bubble a shape on the grey canvas. */
+val minisBubbleRim: Color
+    @Composable get() = if (minisIsDark()) MinisTokens.BubbleRimDark else MinisTokens.BubbleRimLight
+
+/** The soft drop under a bubble, as (ambient, spot) — Compose takes both. */
+val minisBubbleShadow: Pair<Color, Color>
+    @Composable get() = if (minisIsDark()) {
+        MinisTokens.BubbleShadowAmbientDark to MinisTokens.BubbleShadowSpotDark
+    } else {
+        MinisTokens.BubbleShadowAmbientLight to MinisTokens.BubbleShadowSpotLight
+    }
 
 /** Muted foreground, like iOS `secondaryLabel`. */
 val minisSecondary: Color
@@ -221,7 +243,13 @@ val MinisPagePadding = 16.dp
 val MinisRowIndent = 20.dp
 
 val MinisCardShape = RoundedCornerShape(16.dp)
-val MinisBubbleShape = RoundedCornerShape(18.dp)
+
+/**
+ * A bubble's standing corner. The shape a bubble actually draws comes from
+ * [joinedBubbleShape], which tucks the corners that touch a neighbour in the
+ * same run; this is the round one it falls back to.
+ */
+val MinisBubbleCorner = 18.dp
 val MinisComposerShape = RoundedCornerShape(24.dp)
 
 /** The corner a bubble tucks in where it touches the next line of its run. */

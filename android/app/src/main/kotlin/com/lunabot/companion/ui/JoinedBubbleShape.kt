@@ -24,7 +24,7 @@ fun joinedBubbleShape(
     mine: Boolean,
     startsRun: Boolean,
     endsRun: Boolean,
-    corner: Dp = 18.dp,
+    corner: Dp = MinisBubbleCorner,
     joined: Dp = MinisBubbleJoinedCorner,
 ): RoundedCornerShape {
     if (startsRun && endsRun) return RoundedCornerShape(corner)
