@@ -429,9 +429,11 @@ stop_server() {
   [ -z "$cid" ] || [ "$(inspect '{{.State.Running}}' "$cid")" = false ]
 }
 
-answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -q dexbot; }
+# The update being checked against may still run a pre-rename build: /api/health's
+# app name and the descriptor path both changed, so accept either generation.
+answers() { compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/api/health"' 2>/dev/null | grep -Eq '"app":"(dexbot|openmausbot)"'; }
 reported_version() {
-  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
+  compose exec -T "$SERVICE" sh -c 'curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/lunabot/environment" || curl -sf --max-time 5 "http://127.0.0.1:${OMB_PORT:-8799}/.well-known/openmausbot/environment"' 2>/dev/null | json_top version
 }
 # How many engines can start a bot, as the server counts them (GET /api/health/engines, which a hardened server answers
 # a local caller without a session); nothing from a version without that count.
