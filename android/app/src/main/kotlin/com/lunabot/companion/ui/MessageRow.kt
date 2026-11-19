@@ -669,13 +669,14 @@ private fun TextBubble(
     // prose, and a server-controlled path must never be presented as a link.
     val attached = remember(message.id, message.text) { AttachedMessageContent.parse(message.text.orEmpty()) }
     val webhook = remember(message) { message.webhookContent }
-    // Grok Bot's transcript is text-first: the bot's answer is the page, and
-    // only your own words arrive in a card. A card (diff/table) still brings
-    // its own surface, and a bot paragraph gets no fill of any kind.
-    val bubble = card == null && mine
-    // Your own run of bubbles: the corners that touch a neighbour tuck in, the
-    // ones that face the page stay round. One per run, not one per bubble, so
-    // three lines in a row read as one block rather than three cards.
+    // Both sides are bubbles. Your words take the brighter fill, the bot's the
+    // quieter one, so the transcript reads as a conversation rather than as
+    // notes written on a page. A patch or a table still brings its own surface
+    // and gets no bubble of its own: a card around a card hides the card.
+    val bubble = card == null
+    // A run of one side's bubbles: the corners that touch a neighbour tuck in,
+    // the ones that face the page stay round. One per run, not one per bubble,
+    // so three lines in a row read as one block rather than three cards.
     val bubbleShape = joinedBubbleShape(
         mine = mine,
         startsRun = startsRun,
@@ -686,6 +687,7 @@ private fun TextBubble(
     // what make it one, and both are the design's own values.
     val bubbleShadow = minisBubbleShadow
     val bubbleRim = minisBubbleRim
+    val bubbleFill = if (mine) BubbleColor.userBubble else BubbleColor.botBubble
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
@@ -713,7 +715,7 @@ private fun TextBubble(
                                 spotColor = bubbleShadow.second,
                             )
                             .background(
-                                BubbleColor.userBubble,
+                                bubbleFill,
                                 bubbleShape,
                             )
                             .border(0.5.dp, bubbleRim, bubbleShape)
@@ -2306,8 +2308,13 @@ private fun goalStatusLabel(status: String): String = when (status) {
  */
 @Composable
 fun StreamingBubble(text: String?, reasoning: String?) {
-    // The live reply is already the page, exactly where its settled version
-    // will be. No portrait, no fill: there is nothing to hand over.
+    // The live reply wears the same bubble its settled version will, so the
+    // handover is invisible. Only the answer gets the fill: a thought chamber
+    // with nothing but reasoning has no text yet, and a bubble around the
+    // chamber would be a bubble around a loading state.
+    val bubbleShape = joinedBubbleShape(mine = false, startsRun = true, endsRun = true)
+    val bubbleShadow = minisBubbleShadow
+    val bubbleRim = minisBubbleRim
     Entrance {
         Column(
             modifier = Modifier
@@ -2328,7 +2335,22 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                 // Same renderer as the settled text: a live reply showing
                 // `**bold**` that snaps to bold on arrival is the message
                 // jumping, just in a different dimension.
-                MarkdownText(source = revealed(text), caret = true)
+                Box(
+                    modifier = Modifier
+                        .widthIn(max = 640.dp)
+                        .shadow(
+                            elevation = 3.dp,
+                            shape = bubbleShape,
+                            clip = false,
+                            ambientColor = bubbleShadow.first,
+                            spotColor = bubbleShadow.second,
+                        )
+                        .background(BubbleColor.botBubble, bubbleShape)
+                        .border(0.5.dp, bubbleRim, bubbleShape)
+                        .padding(horizontal = 13.dp, vertical = 10.dp),
+                ) {
+                    MarkdownText(source = revealed(text), caret = true)
+                }
             }
         }
     }

@@ -116,9 +116,9 @@ fun AssistantTurnChip(
 fun WebhookMessageBody(content: WebhookMessageContent) {
     var expanded by remember(content) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Webhook 任务", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = BubbleColor.mineText)
+        Text("Webhook 任务", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
         SelectionContainer {
-            Text(content.task, fontSize = 17.sp, color = BubbleColor.mineText)
+            Text(content.task, fontSize = 17.sp, color = minisInk)
         }
         content.payload?.let { payload ->
             Row(
@@ -127,16 +127,16 @@ fun WebhookMessageBody(content: WebhookMessageContent) {
                     .semantics { stateDescription = if (expanded) "已展开" else "已收起" },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("事件负载", fontSize = 13.sp, color = BubbleColor.mineText, modifier = Modifier.weight(1f))
+                Text("事件负载", fontSize = 13.sp, color = minisInk, modifier = Modifier.weight(1f))
                 Icon(
                     if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                    contentDescription = null, tint = BubbleColor.mineText,
+                    contentDescription = null, tint = minisInk,
                 )
             }
             if (expanded) {
                 SelectionContainer {
                     Text(
-                        payload, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = BubbleColor.mineText,
+                        payload, fontSize = 12.sp, fontFamily = FontFamily.Monospace, color = minisInk,
                         modifier = Modifier.heightIn(max = 180.dp).verticalScroll(rememberScrollState()),
                     )
                 }

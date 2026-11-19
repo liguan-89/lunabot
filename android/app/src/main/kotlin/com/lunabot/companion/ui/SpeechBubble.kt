@@ -188,9 +188,10 @@ private const val LEADING_EDGE = 180f
 private const val QUARTER = 90f
 
 /**
- * The two bubble fills. The Minis phone surface uses a single low-contrast
- * bubble for your own words and no bubble at all for the bot: a bot answer is
- * the page, not a message that arrived in it.
+ * The two bubble fills. Both sides of the transcript are bubbles: your words on
+ * the brighter surface, the bot's answer on the quieter one. A transcript where
+ * only one side is a shape reads as notes on a page; a pair of them reads as a
+ * conversation.
  */
 object BubbleColor {
     /** Ink: the send button, unread dots and other "solid" chrome. */
@@ -199,7 +200,7 @@ object BubbleColor {
 
     val mineText: Color = Color.White
 
-    /** What you said — a card on the canvas, not a dark block. */
+    /** What you said — the brighter of the two bubbles. */
     val userBubble: Color
         @Composable get() =
             if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
@@ -211,7 +212,7 @@ object BubbleColor {
     val userBubbleText: Color
         @Composable get() = minisInk
 
-    /** Kept for card-adjacent surfaces; the transcript no longer uses it. */
+    /** What the bot answered — one step quieter than [userBubble]. */
     val botBubble: Color
         @Composable get() =
             if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
@@ -219,6 +220,9 @@ object BubbleColor {
             } else {
                 MinisTokens.BotBubbleLight
             }
+
+    val botBubbleText: Color
+        @Composable get() = minisInk
 
     /**
      * Kept for the streaming tail's gutter; transcript text now sits in

@@ -73,9 +73,11 @@ object MinisTokens {
     val TertiaryDark = Color(0x4DEBEBF5)
     val SeparatorLight = Color(0x1F000000)
     val SeparatorDark = Color(0xFF38383A)
-    // Your own words are the raised surface on a grey page, not a dark block.
-    // The Grok Bot transcript keeps the bot on the page and gives only the
-    // person a card.
+    // Two bubbles, two fills. Your own words are the brighter surface; the
+    // bot's answer is the dimmer one, so the transcript reads as a conversation
+    // rather than as your notes on a page. In light that is white against a
+    // quiet grey (the pair iMessage has used for years); in dark the same
+    // relationship, brighter against darker.
     val UserBubbleLight = Color(0xFFFFFFFF)
     val UserBubbleDark = Color(0xFF2C2C2E)
     // A white bubble on the #F4F4F5 canvas differs by 11/255 a channel, so the
@@ -88,8 +90,11 @@ object MinisTokens {
     val BubbleShadowSpotLight = Color(0x4D000000)
     val BubbleShadowAmbientDark = Color(0x66000000)
     val BubbleShadowSpotDark = Color(0xCC000000)
-    val BotBubbleLight = Color(0xFFF2F2F2)
-    val BotBubbleDark = Color(0xFF2C2C2E)
+    // The bot's bubble: 22/255 below white and 11/255 below the canvas, which
+    // is the narrow band where it reads as a surface without competing with
+    // your own words for attention.
+    val BotBubbleLight = Color(0xFFE9E9EB)
+    val BotBubbleDark = Color(0xFF1C1C1E)
     val FabLight = Color(0xFFB7AF96)
     val FabDark = Color(0xFF504C42)
     val Danger = Color(0xFFFF3B30)
