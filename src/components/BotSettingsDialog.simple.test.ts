@@ -631,6 +631,25 @@ describe("the Details tab", () => {
     expect(switches(rendered.html)).toBe(0);
   });
 
+  describe("the Model row", () => {
+    const opus = { instanceId: "claude", model: "claude-opus-5-5" };
+    const thread = (modelSelection?: Bot["modelSelection"]) => makeBot({
+      modelSelection: { ...opus, effort: "low" },
+      tasks: [{ threadId: "thread-scout", title: "Main", createdAt: 1, ...(modelSelection ? { modelSelection, followsBotModel: false } : {}) }],
+    });
+    beforeEach(() => {
+      fixture.storeState = { ...fixture.storeState, instances: [engine()] };
+    });
+
+    it("shows the open conversation's model, not the bot's default", () => {
+      const own = { instanceId: "claude", model: "claude-haiku-4-5", effort: "max" as const };
+      const rendered = botTab(thread(own));
+      const picker = ofType(rendered, ModelPicker)!;
+      expect((picker.props.bot as Bot).modelSelection).toEqual(own);
+      expect(picker.key).toMatch(/thread-scout$/);
+    });
+  });
+
   it("offers Add a routine, which says what routines are, and Automations while the bot has none, and lists them once it has some", () => {
     const empty = botTab(makeBot());
     expect(empty.html).toContain('data-panel-empty="routines"');
