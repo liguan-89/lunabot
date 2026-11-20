@@ -287,7 +287,7 @@ internal class PhoneJobRunner(
                 // registration is idempotent; checking only for a missing row
                 // would leave a stale capability set in place forever.
                 if (session.lastPhonePollError != null) {
-                    session.registerPhone(registration.copy(capabilities = claimed))
+                    session.registerPhone(registration.copy(capabilities = claimed, noticeApps = claimedApps))
                 }
                 // A 20 s poll that found nothing is the normal case; one that
                 // failed returns immediately, so a short pause keeps a broken
