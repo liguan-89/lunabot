@@ -19,9 +19,10 @@ import { createHash } from "node:crypto";
 import { clean, defuse } from "./records-block.ts";
 import { estimateTokens } from "./intent-gate.ts";
 import {
-  LEARN_LEVELS, NOTICE_TUNING,
+  LEARN_LEVELS, localEpochDay, NOTICE_TUNING,
   type LearnLevel, type LearnLevelConfig, type NoticeMessage, type NoticeRecord, type SourceTier,
 } from "./phone-notices.ts";
+import { hostTimeZone } from "./turn-clock.ts";
 
 const { LEARN_TITLE_MAX, LEARN_TEXT_MAX, NEW_LINES_MAX, BATCH_MAX, DUE_COUNT, DUE_AGE_MS, BUFFER_CAP, REPEAT_WINDOW_MS } = NOTICE_TUNING;
 
@@ -392,7 +393,8 @@ function addDays(evidence: Record<string, number[]>, packageName: string, days: 
   return out;
 }
 
-export function createTopicPool(data: TopicPoolData = { version: 1, topics: [] }, newId: () => string = defaultTopicId) {
+/** Days a notice belongs to are counted in this zone — the reporting phone's, not the server's. */
+export function createTopicPool(data: TopicPoolData = { version: 1, topics: [] }, newId: () => string = defaultTopicId, zone: () => string = hostTimeZone) {
   const topics = new Map<string, ObservedTopic>(data.topics.map((topic) => [topic.id, topic]));
 
   const findSame = (kind: TopicKind, label: string): ObservedTopic | undefined =>
@@ -445,7 +447,7 @@ export function createTopicPool(data: TopicPoolData = { version: 1, topics: [] }
       const seen = Math.min(Math.max(...[...cited].map((i) => events[i]!.postedAtMs)), nowMs);
       topics.set(id, {
         ...topic,
-        evidence: addDays(topic.evidence, packageName, [epochDay(seen)]),
+        evidence: addDays(topic.evidence, packageName, [localEpochDay(seen, zone())]),
         lastSeenMs: Math.max(topic.lastSeenMs, seen),
       });
       for (const i of cited) (byEvent.get(i) ?? byEvent.set(i, new Set()).get(i)!).add(id);

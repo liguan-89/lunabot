@@ -2,7 +2,7 @@
 // strictness, the pool's day evidence and forgetting, and what the prompt section carries.
 import { describe, expect, it } from "vitest";
 
-import type { NoticeRecord } from "./phone-notices.ts";
+import { localEpochDay, type NoticeRecord } from "./phone-notices.ts";
 import {
   buildLearnInput, createLearnBuffer, createTopicPool, epochDay, parseLearnReply,
   qualifiedTopic, renderObserved, topicDays, type LearnEvent, type ObservedTopic,
@@ -150,6 +150,14 @@ describe("TopicPool", () => {
     expect(pool.all()).toHaveLength(1);
     expect(topicDays(pool.all()[0]!)).toBe(2);
     expect(pool.all()[0]!.evidence["com.app.a"]).toHaveLength(2);
+  });
+
+  it("evidence days are counted in the reporting phone's zone, not the server's", () => {
+    const pool = createTopicPool({ version: 1, topics: [] }, undefined, () => "Pacific/Auckland");
+    // Noon UTC is the next day already in Auckland.
+    const seen = Date.UTC(2026, 0, 10, 12);
+    pool.apply("com.app.a", [event({ postedAtMs: seen })], [{ events: [0], newKind: "interest", newLabel: "咖啡" }], seen);
+    expect(pool.all()[0]!.evidence["com.app.a"]).toEqual([localEpochDay(seen, "Pacific/Auckland")]);
   });
 
   it("a topic forgotten by retention is dropped on maintain; an unticked app's evidence leaves", () => {

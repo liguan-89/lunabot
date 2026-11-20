@@ -11,7 +11,8 @@ import {
   createLearnBuffer, createTopicPool, buildLearnInput, parseLearnReply,
   type LearnBuffer, type TopicPool, type TopicPoolData, type ObservedTopic,
 } from "../notice-learn.ts";
-import { failureHoldMs, NOTICE_TUNING, type LearnLevel, type NoticeMessage, type NoticeRecord } from "../phone-notices.ts";
+import { failureHoldMs, localEpochDay, NOTICE_TUNING, type LearnLevel, type NoticeMessage, type NoticeRecord } from "../phone-notices.ts";
+import { hostTimeZone } from "../turn-clock.ts";
 
 /** A provisional per-owner daily cap on learn requests; Mika spends from a token ledger we do not have. */
 const LEARN_CALLS_PER_DAY = 20;
@@ -27,6 +28,8 @@ export interface NoticeLearnDeps {
   level(): LearnLevel | "off";
   /** Labels are written in this language's English name. */
   language(): string;
+  /** The timezone a notice's day is counted in — the reporting phone's. Absent, the server's own. */
+  zone?(): string;
   /** The topic pool after every applied batch, for the caller's file. */
   persist(data: TopicPoolData): void;
   now(): number;
@@ -36,16 +39,17 @@ export interface NoticeLearnDeps {
 
 export function createNoticeLearn(deps: NoticeLearnDeps, data?: TopicPoolData) {
   const buffer: LearnBuffer = createLearnBuffer();
-  const pool: TopicPool = createTopicPool(data);
+  const pool: TopicPool = createTopicPool(data, undefined, deps.zone);
+  const dayOf = (now: number) => localEpochDay(now, deps.zone?.() ?? hostTimeZone());
   let failures = 0;
   let callsToday = 0;
-  let day = new Date(deps.now()).toDateString();
+  let day = dayOf(deps.now());
   let inFlight = false;
   let holdUntilMs = 0;
   let timer: unknown = null;
 
   const rollDay = (now: number) => {
-    const today = new Date(now).toDateString();
+    const today = dayOf(now);
     if (today === day) return;
     day = today;
     callsToday = 0;
