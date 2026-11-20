@@ -4,14 +4,14 @@ import { windowBackground, windowChromeOptions } from "./window-chrome.mjs";
 
 describe("window chrome", () => {
   it("uses inset traffic lights on macOS", () => {
-    expect(windowChromeOptions("darwin")).toEqual({
+    expect(windowChromeOptions("darwin", true)).toEqual({
       titleBarStyle: "hiddenInset",
       trafficLightPosition: { x: 12, y: 7 },
     });
   });
 
   it("hides the native title bar on Windows; caption buttons are renderer-drawn", () => {
-    expect(windowChromeOptions("win32")).toEqual({
+    expect(windowChromeOptions("win32", true)).toEqual({
       titleBarStyle: "hidden",
     });
   });

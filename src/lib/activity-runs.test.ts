@@ -105,6 +105,20 @@ describe("groupActivityRuns", () => {
     }
   });
 
+  it("reads a stored row whose marker shipped translated, from the window before the marker was declared wire", () => {
+    for (const stored of [
+      "提示：pi 在缓慢启动后回复了。",
+      "Hinweis: pi hat nach einem langsamen Start geantwortet.",
+    ]) {
+      expect(statusActivity(tool(stored))?.kind).toBe("notice");
+    }
+    expect(statusActivity(tool("提示：pi 在缓慢启动后回复了。"))).toEqual({
+      kind: "notice", text: "pi 在缓慢启动后回复了。",
+    });
+    // A translated prefix on an ordinary text row is still not a status row.
+    expect(statusActivity(text("提示：ordinary text"))).toBeNull();
+  });
+
   it("keeps ordinary failed tools visible between successful runs", () => {
     const items = groupActivityRuns([
       tool("Read"),

@@ -88,8 +88,10 @@ export function toolReplayLine(tool: NonNullable<Message["tool"]>): string {
   // A path is clipped from the front: its end names the file.
   const left = detail ? room - [...name].length - 2 : 0;
   const shown = left > 1 ? `${name}: ${clip(detail!.text, left, detail!.path)}` : clip(name, room);
-  // A title and a detail can open a note between them.
-  return `[ran: ${escapeNotes(shown)}${tail}`;
+  // A title and a detail can open a note between them. A replayed line speaks
+  // for today's product: a defused legacy one-word header shows as lunabot.
+  const escaped = escapeNotes(shown).replace(/\((?:openmausbot|omb)\b/g, "(lunabot");
+  return `[ran: ${escaped}${tail}`;
 }
 
 /** Harness chips (a retry notice, "Stopped here") carry no itemId and are not tool calls. */

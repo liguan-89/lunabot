@@ -5,6 +5,7 @@ import { activityText } from "@/lib/activity-text";
 import { failedTurnCause } from "../../shared/failed-turn";
 import { isStoppedTurnName } from "../../shared/client-cancel";
 import { localDay } from "@/lib/transcript-derivations";
+import { legacyNoticeBody } from "@/lib/status-marker";
 
 export type ActivityTranscriptItem =
   | { kind: "message"; message: Message }
@@ -19,6 +20,8 @@ export function statusActivity(message: Message): { kind: "recovery" | "notice" 
   const name = tool?.name;
   if (name?.startsWith("recovery:")) return { kind: "recovery", text: activityText(tool!, name.slice("recovery:".length).trim()) };
   if (name?.startsWith("notice:")) return { kind: "notice", text: activityText(tool!, name.slice("notice:".length).trim()) };
+  const legacy = name ? legacyNoticeBody(name) : null;
+  if (legacy !== null) return { kind: "notice", text: activityText(tool!, legacy) };
   if (name && isStoppedTurnName(name)) return { kind: "stopped", text: name.slice("stopped:".length).trim() };
   return null;
 }
