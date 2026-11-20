@@ -73,11 +73,11 @@ object MinisTokens {
     val SeparatorDark = Color(0xFF38383A)
     // Muse-inspired warm oatmeal-taupe user bubble paired with a quiet soft-grey
     // bot bubble — warm, calm, and legible without borders or harsh shadows.
-    val UserBubbleLight = Color(0xFFDCD1C7)
+    val UserBubbleLight = Color(0xFFD5C8BE)
     val UserBubbleDark = Color(0xFF3A342E)
     val BubbleRimLight = Color(0x00000000)
     val BubbleRimDark = Color(0x14FFFFFF)
-    val BotBubbleLight = Color(0xFFEFEFED)
+    val BotBubbleLight = Color(0xFFEBEBE9)
     val BotBubbleDark = Color(0xFF1F1F22)
     val FabLight = Color(0xFFB7AF96)
     val FabDark = Color(0xFF504C42)
@@ -233,8 +233,31 @@ val MinisCardShape = RoundedCornerShape(16.dp)
  * 21dp rather than 18: at a 45dp bubble the smaller radius read as a rounded
  * rectangle, and the reference this transcript is measured against uses 21.
  */
-val MinisBubbleCorner = 21.dp
-val MinisComposerShape = RoundedCornerShape(24.dp)
+val MinisBubbleCorner = 24.dp
+val MinisComposerShape = RoundedCornerShape(26.dp)
+
+/** Muse-style crisp floating white control surface: whisper-soft pillow shadow + 0.75dp hairline. */
+@Composable
+fun Modifier.museFloatingPill(
+    shape: Shape = androidx.compose.foundation.shape.CircleShape,
+    elevation: Dp = 4.dp,
+): Modifier {
+    val dark = minisIsDark()
+    return if (dark) {
+        this.clip(shape).background(minisCard).border(0.6.dp, Color(0x20FFFFFF), shape)
+    } else {
+        this
+            .shadow(
+                elevation = elevation,
+                shape = shape,
+                ambientColor = Color(0x0D000000),
+                spotColor = Color(0x14000000),
+            )
+            .clip(shape)
+            .background(Color.White)
+            .border(0.75.dp, Color(0xFFE9E9E7), shape)
+    }
+}
 
 /** The corner a bubble tucks in where it touches the next line of its run. */
 val MinisBubbleJoinedCorner = 6.dp

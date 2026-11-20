@@ -216,7 +216,8 @@ fun ConnectedAppsScreen(onBack: () -> Unit, embedded: Boolean = false) {
                 Row(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(if (minisIsDark()) minisGrouped else Color(0xFFF3F3F1))
+                        .background(minisCard)
+                        .border(0.75.dp, if (minisIsDark()) Color(0x20FFFFFF) else Color(0xFFE8E8E6), CircleShape)
                         .padding(3.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
@@ -436,11 +437,12 @@ private const val FILTER_CONNECTED = "已连接"
 
 @Composable
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val activeFill = if (minisIsDark()) minisGrouped else Color(0xFFF1F1EF)
     Row(
         modifier = Modifier
             .height(32.dp)
             .clip(CircleShape)
-            .background(if (selected) minisCard else Color.Transparent)
+            .background(if (selected) activeFill else Color.Transparent)
             .clickable(onClick = onClick)
             .semantics { contentDescription = label }
             .padding(horizontal = 14.dp),

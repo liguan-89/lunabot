@@ -85,6 +85,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -361,9 +362,82 @@ fun RosterScreen(navigator: CompanionNavigator) {
         mutableStateOf<ChatTarget?>(null)
     }
     val showLiveHeroChat = activeTab == 0 && !bar.searchOpen && hero != null
+    val drawerProgress by animateFloatAsState(
+        targetValue = if (drawerOpen) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.88f, stiffness = 420f),
+        label = "muse-drawer-push",
+    )
+    val drawerWidthPx = with(density) { 296.dp.toPx() }
+    val pushedCorner = (28f * drawerProgress).dp
 
     CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(modifier = Modifier.fillMaxSize().background(homeCanvas)) {
+        // Muse-style underlying pure-white drawer layer (revealed as main stage pushes right).
+        if (drawerProgress > 0.005f) {
+            MuseDrawerContent(
+                activeTab = activeTab,
+                companions = companionSummaries,
+                computerName = connection?.name,
+                status = status,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .graphicsLayer {
+                        translationX = -36.dp.toPx() * (1f - drawerProgress)
+                        alpha = (drawerProgress * 1.4f).coerceIn(0f, 1f)
+                    },
+                onSelectTab = { next ->
+                    haptics.play(HapticCue.SELECT)
+                    activeTab = next
+                    drawerOpen = false
+                },
+                onOpenCompanion = { summary ->
+                    drawerOpen = false
+                    navigator.open(
+                        environment.chatPreferences.restoringThread(summary.chat, connection?.id),
+                    )
+                },
+                onOpenSettings = {
+                    drawerOpen = false
+                    navigator.push(Destination.Settings)
+                },
+                onOpenSearch = {
+                    drawerOpen = false
+                    activeTab = 1
+                    bar = bar.openSearch()
+                },
+                onCreateBot = {
+                    drawerOpen = false
+                    createBot()
+                },
+                onCreateGroup = {
+                    drawerOpen = false
+                    showingNewGroup = true
+                },
+                onSwitchComputer = {
+                    drawerOpen = false
+                    choosingComputer = true
+                },
+            )
+        }
+
+        // Main app stage: physically pushes right with 28dp rounded corners when drawer opens.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    translationX = drawerWidthPx * drawerProgress
+                }
+                .then(
+                    if (drawerProgress > 0.01f) {
+                        Modifier
+                            .shadow(elevation = (18f * drawerProgress).dp, shape = RoundedCornerShape(pushedCorner))
+                            .clip(RoundedCornerShape(pushedCorner))
+                    } else {
+                        Modifier
+                    },
+                )
+                .background(homeCanvas),
+        ) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when {
@@ -393,6 +467,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
                         embedded = true,
                     )
                     activeTab == 3 -> MuseLibraryTab(
+                        heroChat = hero?.chat,
                         heroName = heroBot?.name ?: "Luna",
                         computerName = connection?.name,
                         status = status,
@@ -705,47 +780,20 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 },
             )
         }
-
-        MuseDrawer(
-            open = drawerOpen,
-            activeTab = activeTab,
-            companions = companionSummaries,
-            computerName = connection?.name,
-            status = status,
-            onDismiss = { drawerOpen = false },
-            onSelectTab = { next ->
-                haptics.play(HapticCue.SELECT)
-                activeTab = next
-                drawerOpen = false
-            },
-            onOpenCompanion = { summary ->
-                drawerOpen = false
-                navigator.open(
-                    environment.chatPreferences.restoringThread(summary.chat, connection?.id),
-                )
-            },
-            onOpenSettings = {
-                drawerOpen = false
-                navigator.push(Destination.Settings)
-            },
-            onOpenSearch = {
-                drawerOpen = false
-                activeTab = 1
-                bar = bar.openSearch()
-            },
-            onCreateBot = {
-                drawerOpen = false
-                createBot()
-            },
-            onCreateGroup = {
-                drawerOpen = false
-                showingNewGroup = true
-            },
-            onSwitchComputer = {
-                drawerOpen = false
-                choosingComputer = true
-            },
-        )
+        if (drawerProgress > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.14f * drawerProgress))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClick = { drawerOpen = false },
+                    ),
+            )
+        }
+        }
     }
     }
 
@@ -912,49 +960,22 @@ private fun RosterHeader(
     onCreateGroup: () -> Unit,
     onCreateSection: () -> Unit,
 ) {
-    val dark = minisIsDark()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Muse-style floating circular `=` drawer button
-        TouchTarget(onClick = onOpenDrawer, contentDescription = "打开侧边栏", size = 44.dp) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .then(
-                        if (dark) Modifier.clip(CircleShape).background(minisCard)
-                        else Modifier
-                            .shadow(2.dp, CircleShape, ambientColor = Color(0x0A000000), spotColor = Color(0x12000000))
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(0.5.dp, Color(0x0E000000), CircleShape),
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Box(Modifier.width(16.dp).height(1.7.dp).background(minisInk, CircleShape))
-                    Box(Modifier.width(16.dp).height(1.7.dp).background(minisInk, CircleShape))
-                }
-            }
-        }
+        MuseDrawerButton(onClick = onOpenDrawer)
 
         Spacer(Modifier.weight(1f))
 
         if (showRightActions) {
             Row(
                 modifier = Modifier
-                    .height(42.dp)
-                    .then(
-                        if (dark) Modifier.clip(CircleShape).background(minisCard)
-                        else Modifier
-                            .shadow(2.dp, CircleShape, ambientColor = Color(0x0A000000), spotColor = Color(0x12000000))
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(0.5.dp, Color(0x0E000000), CircleShape),
-                    ),
+                    .height(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 TouchTarget(onClick = onOpenSearch, contentDescription = "搜索会话", size = 40.dp) {
@@ -2081,6 +2102,8 @@ private fun MuseBottomNavBar(
         Triple(2, R.drawable.ic_schedule, "定时巡检"),
         Triple(3, R.drawable.ic_hub, "工作空间"),
     )
+    val dark = minisIsDark()
+    val inactiveTint = if (dark) minisSecondary.copy(alpha = 0.62f) else Color(0xFF909095)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2090,7 +2113,7 @@ private fun MuseBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(52.dp)
+                .height(56.dp)
                 .padding(horizontal = 24.dp),
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
@@ -2108,8 +2131,8 @@ private fun MuseBottomNavBar(
                     Icon(
                         painter = painterResource(iconRes),
                         contentDescription = null,
-                        tint = if (selected) minisInk else minisSecondary.copy(alpha = 0.60f),
-                        modifier = Modifier.size(if (selected) 24.dp else 22.dp),
+                        tint = if (selected) minisInk else inactiveTint,
+                        modifier = Modifier.size(if (selected) 25.dp else 22.dp),
                     )
                 }
             }
@@ -2117,9 +2140,10 @@ private fun MuseBottomNavBar(
     }
 }
 
-/** Muse-style 2-segment Library Hub (`连接应用 | 实时桌面`), mirroring Muse's `文件 | 影音内容`. */
+/** Muse-style Library Hub with persistent Luna centerpiece + full-width white-bordered 2-segment switcher. */
 @Composable
 private fun MuseLibraryTab(
+    heroChat: Chat?,
     heroName: String,
     computerName: String?,
     status: Session.Status,
@@ -2128,47 +2152,81 @@ private fun MuseLibraryTab(
     onSwitchComputer: () -> Unit,
 ) {
     var segment by rememberSaveable { mutableIntStateOf(0) }
-    val trackFill = if (minisIsDark()) minisGrouped else Color(0xFFF3F3F1)
+    val dark = minisIsDark()
+    val activePillFill = if (dark) minisGrouped else Color(0xFFF1F1EF)
+    val outerBorder = if (dark) Color(0x20FFFFFF) else Color(0xFFE8E8E6)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas),
     ) {
-        // Header clearance for floating `=` button + centered 2-segment Muse pill.
-        Box(
+        // Persistent Muse centerpiece: floating avatar + softly shadowed white name pill.
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 66.dp, vertical = 9.dp),
-            contentAlignment = Alignment.Center,
+                .padding(top = 10.dp, bottom = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
+            if (heroChat != null) {
+                ChatAvatar(
+                    chat = heroChat,
+                    size = 68.dp,
+                    animated = false,
+                    fallback = AvatarFallback.PRESET,
+                    motion = AvatarMotion.SHEEN,
+                )
+            }
             Row(
                 modifier = Modifier
-                    .clip(CircleShape)
-                    .background(trackFill)
-                    .padding(3.dp),
-                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    .museFloatingPill(CircleShape, elevation = 5.dp)
+                    .padding(horizontal = 15.dp, vertical = 4.5.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                listOf("连接应用", "实时桌面").forEachIndexed { idx, label ->
-                    val selected = segment == idx
-                    Box(
-                        modifier = Modifier
-                            .height(34.dp)
-                            .clip(CircleShape)
-                            .background(if (selected) minisCard else Color.Transparent)
-                            .clickable(role = Role.Button) { segment = idx }
-                            .padding(horizontal = 16.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = label,
-                            fontSize = 14.sp,
-                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (selected) minisInk else minisSecondary,
-                        )
-                    }
+                Text(
+                    text = heroName,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                )
+                Spacer(Modifier.width(4.dp))
+                CrownBadge(size = 11.5.dp)
+            }
+        }
+        // Muse-style full-width white-bordered capsule with soft-gray active inner pill.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(50.dp)
+                .clip(CircleShape)
+                .background(minisCard)
+                .border(0.85.dp, outerBorder, CircleShape)
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            listOf("连接应用", "实时桌面").forEachIndexed { idx, label ->
+                val selected = segment == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(if (selected) activePillFill else Color.Transparent)
+                        .clickable(role = Role.Button) { segment = idx },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 15.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) minisInk else minisSecondary,
+                    )
                 }
             }
         }
+        Spacer(Modifier.height(10.dp))
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
             if (segment == 0) {
                 ConnectedAppsScreen(onBack = {}, embedded = true)
@@ -2210,16 +2268,16 @@ private fun MuseDesktopTab(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
-            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(22.dp))
                 .background(minisGrouped)
                 .clickable(enabled = onOpenComputer != null, role = Role.Button) { onOpenComputer?.invoke() }
-                .padding(horizontal = 16.dp, vertical = 18.dp),
+                .padding(horizontal = 18.dp, vertical = 18.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -2288,15 +2346,14 @@ private fun MuseDesktopTab(
     }
 }
 
-/** Muse-style left slide-out drawer with tabs, companion shortcuts, creation, computer switcher & bottom action row. */
+/** Muse-style underlying pure-white drawer layer revealed as main stage pushes right. */
 @Composable
-private fun BoxScope.MuseDrawer(
-    open: Boolean,
+private fun MuseDrawerContent(
     activeTab: Int,
     companions: List<ChatSummary>,
     computerName: String?,
     status: Session.Status,
-    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
     onSelectTab: (Int) -> Unit,
     onOpenCompanion: (ChatSummary) -> Unit,
     onOpenSettings: () -> Unit,
@@ -2305,211 +2362,189 @@ private fun BoxScope.MuseDrawer(
     onCreateGroup: () -> Unit,
     onSwitchComputer: () -> Unit,
 ) {
-    androidx.compose.animation.AnimatedVisibility(
-        visible = open,
-        enter = fadeIn(tween(180)),
-        exit = fadeOut(tween(160)),
-        modifier = Modifier.matchParentSize(),
+    val pillFill = if (minisIsDark()) minisGrouped else Color(0xFFF0F0EE)
+    Column(
+        modifier = modifier
+            .width(296.dp)
+            .fillMaxHeight()
+            .background(minisCanvas)
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.24f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    role = Role.Button,
-                    onClick = onDismiss,
-                ),
+        Text(
+            text = "Luna Bot",
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.4).sp,
+            color = minisInk,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
         )
-    }
-    androidx.compose.animation.AnimatedVisibility(
-        visible = open,
-        enter = androidx.compose.animation.slideInHorizontally(tween(220)) { -it },
-        exit = androidx.compose.animation.slideOutHorizontally(tween(180)) { -it },
-        modifier = Modifier.align(Alignment.CenterStart),
-    ) {
-        Column(
-            modifier = Modifier
-                .width(292.dp)
-                .fillMaxHeight()
-                .background(minisCanvas)
-                .navigationBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        ) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "选项卡",
+            fontSize = 12.5.sp,
+            color = minisSecondary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+        val navItems = listOf(
+            Triple(0, R.drawable.ic_chat_bubbles, "主要聊天"),
+            Triple(1, R.drawable.ic_sparkles, "协作助手"),
+            Triple(2, R.drawable.ic_schedule, "定时巡检"),
+            Triple(3, R.drawable.ic_hub, "工作空间"),
+        )
+        navItems.forEach { (idx, iconRes, title) ->
+            val selected = activeTab == idx
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (selected) pillFill else Color.Transparent)
+                    .clickable(role = Role.Button) { onSelectTab(idx) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(iconRes),
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(21.dp),
+                )
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = minisInk,
+                )
+            }
+        }
+        if (companions.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+            Spacer(Modifier.height(10.dp))
             Text(
-                text = "Luna Bot",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = minisInk,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                text = "选项卡",
-                fontSize = 12.sp,
+                text = "协作助手",
+                fontSize = 12.5.sp,
                 color = minisSecondary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
-            val navItems = listOf(
-                Triple(0, R.drawable.ic_chat_bubbles, "主要聊天"),
-                Triple(1, R.drawable.ic_sparkles, "协作助手"),
-                Triple(2, R.drawable.ic_schedule, "定时巡检"),
-                Triple(3, R.drawable.ic_hub, "工作空间"),
-            )
-            navItems.forEach { (idx, iconRes, title) ->
-                val selected = activeTab == idx
+            companions.take(5).forEach { summary ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
-                        .background(if (selected) minisGrouped else Color.Transparent)
-                        .clickable(role = Role.Button) { onSelectTab(idx) }
-                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                        .clickable(role = Role.Button) { onOpenCompanion(summary) }
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(
-                        painter = painterResource(iconRes),
-                        contentDescription = null,
-                        tint = minisInk,
-                        modifier = Modifier.size(20.dp),
+                    ChatAvatar(
+                        chat = summary.chat,
+                        size = 30.dp,
+                        animated = false,
+                        fallback = AvatarFallback.PRESET,
                     )
                     Text(
-                        text = title,
+                        text = summary.chat.name,
                         fontSize = 15.5.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        fontWeight = FontWeight.Medium,
                         color = minisInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
-                }
-            }
-            if (companions.isNotEmpty()) {
-                Spacer(Modifier.height(10.dp))
-                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    text = "协作助手",
-                    fontSize = 12.sp,
-                    color = minisSecondary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-                companions.take(5).forEach { summary ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable(role = Role.Button) { onOpenCompanion(summary) }
-                            .padding(horizontal = 10.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        ChatAvatar(
-                            chat = summary.chat,
-                            size = 28.dp,
-                            animated = false,
-                            fallback = AvatarFallback.PRESET,
-                        )
-                        Text(
-                            text = summary.chat.name,
-                            fontSize = 15.sp,
-                            color = minisInk,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        if (summary.chat.unread) {
-                            Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
-                        }
+                    if (summary.chat.unread) {
+                        Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(role = Role.Button, onClick = onCreateBot)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisAccent, modifier = Modifier.size(20.dp))
+            Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisAccent)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(role = Role.Button, onClick = onCreateGroup)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_chat_bubbles), null, tint = minisSecondary, modifier = Modifier.size(19.dp))
+            Text("新建群组", fontSize = 15.sp, color = minisInk)
+        }
+        if (computerName != null) {
+            Spacer(Modifier.height(10.dp))
             HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
+            val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable(role = Role.Button, onClick = onCreateBot)
+                    .clickable(role = Role.Button, onClick = onSwitchComputer)
                     .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisAccent, modifier = Modifier.size(19.dp))
-                Text("新建智能体", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = minisAccent)
+                Box(Modifier.size(8.dp).background(statusDot, CircleShape))
+                Text(computerName, fontSize = 14.5.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        // Muse drawer footer: Settings circle + Search pill + New button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onOpenSettings),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(painterResource(R.drawable.ic_gear_line), "设置", tint = minisInk, modifier = Modifier.size(21.dp))
             }
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .clickable(role = Role.Button, onClick = onCreateGroup)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(painterResource(R.drawable.ic_chat_bubbles), null, tint = minisSecondary, modifier = Modifier.size(18.dp))
-                Text("新建群组", fontSize = 14.5.sp, color = minisInk)
-            }
-            if (computerName != null) {
-                Spacer(Modifier.height(8.dp))
-                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-                Spacer(Modifier.height(8.dp))
-                val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(role = Role.Button, onClick = onSwitchComputer)
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(8.dp).background(statusDot, CircleShape))
-                    Text(computerName, fontSize = 14.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
-                }
-            }
-            Spacer(Modifier.weight(1f))
-            // Muse drawer footer: Settings circle + Search pill + New button
-            Row(
-                modifier = Modifier.fillMaxWidth(),
+                    .weight(1f)
+                    .height(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onOpenSearch)
+                    .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(minisGrouped)
-                        .clickable(role = Role.Button, onClick = onOpenSettings),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(painterResource(R.drawable.ic_gear_line), "设置", tint = minisInk, modifier = Modifier.size(20.dp))
-                }
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(minisGrouped)
-                        .clickable(role = Role.Button, onClick = onOpenSearch)
-                        .padding(horizontal = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Filled.Search, null, tint = minisSecondary, modifier = Modifier.size(18.dp))
-                    Text("搜索", fontSize = 15.sp, color = minisSecondary)
-                }
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(minisGrouped)
-                        .clickable(role = Role.Button, onClick = onCreateBot),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Filled.Create, "新建", tint = minisInk, modifier = Modifier.size(18.dp))
-                }
+                Icon(Icons.Filled.Search, null, tint = minisSecondary, modifier = Modifier.size(19.dp))
+                Text("搜索", fontSize = 15.5.sp, color = minisSecondary)
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onCreateBot),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Create, "新建", tint = minisInk, modifier = Modifier.size(19.dp))
             }
         }
     }

@@ -1967,28 +1967,20 @@ internal fun MuseDrawerButton(
     onClick: () -> Unit,
     unreadElsewhere: Int = 0,
 ) {
-    val dark = minisIsDark()
     Row(
         horizontalArrangement = Arrangement.spacedBy(5.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TouchTarget(onClick = onClick, contentDescription = "打开侧边栏", size = 44.dp) {
+        TouchTarget(onClick = onClick, contentDescription = "打开侧边栏", size = 48.dp) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .then(
-                        if (dark) Modifier.clip(CircleShape).background(minisCard)
-                        else Modifier
-                            .shadow(2.dp, CircleShape, ambientColor = Color(0x0A000000), spotColor = Color(0x12000000))
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .border(0.5.dp, Color(0x0E000000), CircleShape),
-                    ),
+                    .size(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Box(Modifier.width(16.dp).height(1.7.dp).background(minisInk, CircleShape))
-                    Box(Modifier.width(16.dp).height(1.7.dp).background(minisInk, CircleShape))
+                Column(verticalArrangement = Arrangement.spacedBy(5.5.dp)) {
+                    Box(Modifier.width(17.dp).height(1.8.dp).background(minisInk, CircleShape))
+                    Box(Modifier.width(17.dp).height(1.8.dp).background(minisInk, CircleShape))
                 }
             }
         }
@@ -1999,7 +1991,7 @@ internal fun MuseDrawerButton(
                 fontWeight = FontWeight.SemiBold,
                 color = minisAccent,
                 modifier = Modifier
-                    .chromeCapsule(surface = true)
+                    .museFloatingPill(CircleShape, elevation = 3.dp)
                     .defaultMinSize(minWidth = 22.dp)
                     .padding(horizontal = 8.dp, vertical = 3.dp),
                 textAlign = TextAlign.Center,
@@ -2028,7 +2020,7 @@ private fun ChatHeader(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 10.dp, end = 10.dp, top = 4.dp, bottom = 4.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp),
         ) {
             Box(modifier = Modifier.align(Alignment.TopStart).padding(top = 6.dp)) {
                 if (onOpenDrawer != null) {
@@ -2038,12 +2030,12 @@ private fun ChatHeader(
                 }
             }
 
-            // Muse-style floating centerpiece: large circular avatar with a crisp
-            // overlapping white name pill at its lower edge.
+            // Muse-style generous floating centerpiece: large 68dp avatar with
+            // softly shadowed pure-white name pill cleanly anchored below.
             Column(
                 modifier = Modifier.align(Alignment.TopCenter),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 Box(
                     modifier = Modifier
@@ -2058,7 +2050,7 @@ private fun ChatHeader(
                 ) {
                     ChatAvatar(
                         chat = chat,
-                        size = 54.dp,
+                        size = 68.dp,
                         animated = true,
                         contentDescription = null,
                         fallback = AvatarFallback.PRESET,
@@ -2068,14 +2060,7 @@ private fun ChatHeader(
                 }
                 Row(
                     modifier = Modifier
-                        .shadow(
-                            elevation = if (minisIsDark()) 0.dp else 3.dp,
-                            shape = CircleShape,
-                            ambientColor = Color(0x0D000000),
-                            spotColor = Color(0x12000000),
-                        )
-                        .clip(CircleShape)
-                        .background(minisCard)
+                        .museFloatingPill(CircleShape, elevation = 5.dp)
                         .clickable(
                             role = Role.Button,
                             onClick = if (chat.supportsTasks) onOpenThreads else onOpenProfile,
@@ -2085,22 +2070,23 @@ private fun ChatHeader(
                                 if (chat.supportsTasks) "${chat.name}，打开话题列表"
                                 else "${chat.name}，编辑智能体资料"
                         }
-                        .padding(horizontal = 12.dp, vertical = 3.5.dp),
+                        .padding(horizontal = 15.dp, vertical = 4.5.dp),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = chat.name,
-                        fontSize = 13.5.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.15).sp,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 150.dp),
+                        modifier = Modifier.widthIn(max = 156.dp),
                     )
                     if (chat is Chat.BotChat && chat.bot.chiefOfStaff == true) {
                         Spacer(Modifier.width(4.dp))
-                        CrownBadge(size = 11.dp)
+                        CrownBadge(size = 11.5.dp)
                     }
                     if (chat.busy) {
                         Spacer(Modifier.width(5.dp))
@@ -2109,31 +2095,32 @@ private fun ChatHeader(
                 }
             }
 
-            // Muse-style floating right action capsule: quick voice call + overflow.
+            // Muse-style floating right dual-action capsule: 46dp crisp white pill.
             Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp)) {
                 var actionsOpen by remember { mutableStateOf(false) }
                 Row(
                     modifier = Modifier
-                        .height(42.dp)
-                        .chromeCapsule(surface = true),
+                        .height(46.dp)
+                        .museFloatingPill(CircleShape, elevation = 4.dp)
+                        .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (chat is Chat.BotChat) {
-                        TouchTarget(onClick = onCall, size = 40.dp, contentDescription = "语音通话") {
+                        TouchTarget(onClick = onCall, size = 42.dp, contentDescription = "语音通话") {
                             Icon(
                                 painter = painterResource(R.drawable.ic_call_line),
                                 contentDescription = null,
                                 tint = minisInk,
-                                modifier = Modifier.size(19.dp),
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
-                    TouchTarget(onClick = { actionsOpen = true }, size = 40.dp, contentDescription = "更多操作") {
+                    TouchTarget(onClick = { actionsOpen = true }, size = 42.dp, contentDescription = "更多操作") {
                         Icon(
                             painter = painterResource(R.drawable.ic_more),
                             contentDescription = null,
                             tint = minisInk,
-                            modifier = Modifier.size(18.dp),
+                            modifier = Modifier.size(19.dp),
                         )
                     }
                 }
@@ -2672,9 +2659,9 @@ private fun Composer(
                 modifier = Modifier
                     .weight(1f)
                     .clip(CircleShape)
-                    .background(if (minisIsDark()) minisCard else Color(0xFFEFEFED))
-                    .heightIn(min = MIN_TOUCH_TARGET)
-                    .padding(start = 4.dp, end = 6.dp),
+                    .background(if (minisIsDark()) minisCard else Color(0xFFEBEBE9))
+                    .heightIn(min = 50.dp)
+                    .padding(start = 6.dp, end = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {

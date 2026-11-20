@@ -726,7 +726,7 @@ private fun TextBubble(
                                     bubbleShape,
                                 )
                                 .then(if (mine) Modifier.border(0.5.dp, bubbleRim, bubbleShape) else Modifier)
-                                .padding(horizontal = 13.dp, vertical = 10.dp)
+                                .padding(horizontal = 17.dp, vertical = 12.dp)
                         } else {
                             Modifier
                         },
@@ -2497,7 +2497,7 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                     modifier = Modifier
                         .widthIn(max = 640.dp)
                         .background(BubbleColor.botBubble, bubbleShape)
-                        .padding(horizontal = 13.dp, vertical = 10.dp),
+                        .padding(horizontal = 17.dp, vertical = 12.dp),
                 ) {
                     MarkdownText(source = revealed(text), caret = true)
                 }
