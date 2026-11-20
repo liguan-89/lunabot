@@ -298,8 +298,8 @@ export interface PhoneHost {
   /** For a turn that may not use the phone although the owner's phone would serve this bot: say so, so it does not guess. */
   withheld(bot: PhoneBot, owner: string | null): string;
   /**
-   * The gate that holds the approvals of irreversible screen controls. A confirmation tool
-   * reaches it here to declare a request and take the person's answer.
+   * The gate that holds the approvals of irreversible screen controls. A confirmation tool,
+   * if one is ever added, reaches it here to declare a request and take the person's answer.
    */
   confirm: PhoneConfirms;
   handle(body: unknown, capability: TurnCapability, assertActive: () => void): Promise<PhoneToolsList | PhoneToolResult>;
