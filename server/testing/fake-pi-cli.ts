@@ -10,6 +10,8 @@
 //   FAKE_PI_MODELS  provider/model pairs (default "ollama-cloud/glm-5.2,openai/gpt-4o")
 //   FAKE_PI_DUMP  path to append {argv, env} JSON to
 //   FAKE_PI_STEER_REFUSE  answer a steer with an explicit success:false
+//   FAKE_PI_SWITCH_FAIL  refuse switch_session while new_session still succeeds (strict-resume rebuild)
+//   FAKE_PI_THINKING_REFUSE  answer set_thinking_level with success:false (effort notice)
 //   FAKE_PI_STEER_OUT_OF_ORDER  hold the first steer until a second arrives, then refuse the first and accept the second
 //   FAKE_PI_REPLIES  JSON array of replies (string, or string[] for several items) used in order
 //   FAKE_PI_REPLY_FILE  path whose text is the reply while it exists, read again each turn
@@ -775,12 +777,14 @@ function handle(cmd: any) {
       }, Number(process.env.FAKE_PI_SESSION_DELAY_MS ?? 800));
       return;
     case "switch_session":
-      if (mode === "session-error") {
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ switchSession: cmd.sessionPath ?? null }) + "\n");
+      // FAKE_PI_SWITCH_FAIL=1 refuses only the resume; a fresh new_session still
+      // works, so a strict-resume driver can rebuild on it.
+      if (mode === "session-error" || process.env.FAKE_PI_SWITCH_FAIL === "1") {
         send({ type: "response", command: "switch_session", success: false, error: "fake pi: session unavailable" });
         return;
       }
       currentSessionFile = cmd.sessionPath ?? currentSessionFile;
-      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ switchSession: cmd.sessionPath ?? null }) + "\n");
       send({ type: "response", command: "switch_session", success: true, data: { sessionId: "s-resumed", sessionFile: currentSessionFile } });
       return;
     case "set_model": {
@@ -803,6 +807,11 @@ function handle(cmd: any) {
         try {
           appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ thinkingLevel: cmd.level }) + "\n");
         } catch {}
+      }
+      // FAKE_PI_THINKING_REFUSE=1 answers as a model that takes no level.
+      if (process.env.FAKE_PI_THINKING_REFUSE === "1") {
+        send({ type: "response", command: "set_thinking_level", success: false, error: "fake pi: model takes no thinking level" });
+        return;
       }
       send({ type: "response", command: "set_thinking_level", success: true });
       return;
@@ -890,7 +899,9 @@ function handle(cmd: any) {
     case "steer": {
       if (process.env.FAKE_PI_DUMP) {
         try {
-          appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ steer: { id: cmd.id, message: cmd.message } }) + "\n");
+          appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({
+            steer: { id: cmd.id, message: cmd.message, ...(Array.isArray(cmd.images) ? { images: cmd.images } : {}) },
+          }) + "\n");
         } catch {}
       }
       if (typeof cmd.message === "string") {
