@@ -24,6 +24,20 @@ enum class ThemeMode(val wireValue: String) {
     }
 }
 
+/** Visual character style pack for bot portraits across the app. */
+enum class BotAvatarStyle(val wireValue: String) {
+    ORB("orb"),
+    SPIRIT("spirit"),
+    MINIBOT("minibot"),
+    CLASSIC("classic"),
+    ;
+
+    companion object {
+        fun fromWire(value: String?): BotAvatarStyle =
+            entries.firstOrNull { it.wireValue == value } ?: ORB
+    }
+}
+
 /** Where a voice message's transcript is produced: nowhere, on the phone, or on the computer. */
 enum class VoiceAsrMode(val wireValue: String) {
     OFF("off"),
@@ -89,6 +103,11 @@ class ChatPreferences(
         ThemeMode.fromWire(prefs.getString(THEME_MODE, null)),
     )
     val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    private val _avatarStyle = MutableStateFlow(
+        BotAvatarStyle.fromWire(prefs.getString(AVATAR_STYLE, null)),
+    )
+    val avatarStyle: StateFlow<BotAvatarStyle> = _avatarStyle.asStateFlow()
 
     private val _voiceAsrMode = MutableStateFlow(
         VoiceAsrMode.fromWire(prefs.getString(VOICE_ASR_MODE, null)),
@@ -288,6 +307,12 @@ class ChatPreferences(
         _themeMode.value = mode
     }
 
+    fun setAvatarStyle(style: BotAvatarStyle) {
+        if (_avatarStyle.value == style && prefs.contains(AVATAR_STYLE)) return
+        prefs.edit { putString(AVATAR_STYLE, style.wireValue) }
+        _avatarStyle.value = style
+    }
+
     fun setActivityDetail(detail: ActivityDetail) {
         if (_activityDetail.value == detail && prefs.contains(ACTIVITY_DETAIL)) return
         // The value is small and changed only from Settings. Commit makes a
@@ -338,6 +363,7 @@ class ChatPreferences(
         private const val ACTIVITY_DETAIL = "companion.prefs.activityDetail"
         private const val QUICK_REPLIES = "companion.prefs.quickReplies"
         private const val THEME_MODE = "companion.prefs.themeMode"
+        private const val AVATAR_STYLE = "companion.prefs.avatarStyle"
         private const val VOICE_ASR_MODE = "companion.prefs.voiceAsr"
         private const val PHONE_CALENDAR = "companion.prefs.phone.calendar"
         private const val PHONE_CONTACTS = "companion.prefs.phone.contacts"

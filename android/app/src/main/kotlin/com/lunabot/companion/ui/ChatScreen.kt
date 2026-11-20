@@ -154,6 +154,7 @@ import com.lunabot.companion.core.Dictation
 import com.lunabot.companion.core.DisplayedMessageAttachment
 import com.lunabot.companion.core.DownloadedFile
 import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.QuickReply
 import com.lunabot.companion.core.ThreadRef
 import com.lunabot.companion.core.TranscriptRow
 import com.lunabot.companion.core.target
@@ -508,8 +509,10 @@ private fun LoadedChat(
     }
     var expandedTurns by remember(threadId) { mutableStateOf(emptySet<String>()) }
     var revealedTurnMessageId by remember(threadId) { mutableStateOf<String?>(null) }
-    val predictiveChips = remember(quickReplies) {
-        quickReplies.map { PredictiveChip(title = it.title, prompt = it.prompt, icon = it.icon) }
+    val lastTranscriptId = rawTranscript.lastOrNull()?.id
+    var dismissedQuickChipsForId by remember(threadId) { mutableStateOf<String?>(null) }
+    val predictiveChips = remember(quickReplies, rawTranscript) {
+        contextualQuickReplies(rawTranscript, quickReplies)
     }
     val streaming = state.streaming[threadId]
     val reasoning = state.reasoning[threadId]
@@ -668,12 +671,25 @@ private fun LoadedChat(
         session.loadThreadIfNeeded(threadId)
     }
 
+    val composerAccessory = ComposerAccessories.accessory(
+        hudOpen = hudOpen,
+        draft = draft,
+        busy = chat.busy,
+        pendingApproval = pendingApproval,
+        hasQuickReplies = predictiveChips.isNotEmpty(),
+        hasAttachments = attachments.isNotEmpty(),
+    )
+    val showQuickChips = composerAccessory == ComposerAccessory.CHIPS &&
+        predictiveChips.isNotEmpty() &&
+        !showingPlus &&
+        dismissedQuickChipsForId != lastTranscriptId
     val headerCount = if (hasMore) 1 else 0
     // One slot at the bottom, whichever of the three is in it — iOS gives all of
     // them the same `.id(Self.liveBubbleId)` for the same reason: they replace
     // one another, they do not stack.
     val liveCount = if (tail == TranscriptTail.NONE) 0 else 1
-    val itemCount = headerCount + transcript.size + liveCount
+    val quickChipsCount = if (showQuickChips) 1 else 0
+    val itemCount = headerCount + transcript.size + liveCount + quickChipsCount
 
     // A conversation grows from the bottom: opening a chat starts on the newest
     // message rather than the oldest.
@@ -1282,12 +1298,25 @@ private fun LoadedChat(
                             }
                         }
                     }
+
+                    if (showQuickChips) {
+                        item(key = QUICK_REPLIES_KEY) {
+                            PredictiveChipsRow(
+                                chips = predictiveChips,
+                                onSelect = { submit(it.prompt) },
+                                onDismiss = { dismissedQuickChipsForId = lastTranscriptId },
+                                modifier = Modifier
+                                    .animateItem()
+                                    .padding(top = 12.dp),
+                            )
+                        }
+                    }
                 }
                 }
 
                 val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
                 val topBandAlpha by animateFloatAsState(
-                    targetValue = if (topScrolled) 1f else 0.72f,
+                    targetValue = if (topScrolled) 1f else 0.90f,
                     animationSpec = tween(180),
                     label = "chat-top-haze",
                 )
@@ -1295,7 +1324,7 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(headerClearance + 20.dp)
+                        .height(headerClearance + 8.dp)
                         .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
                 )
                 Box(
@@ -1371,14 +1400,7 @@ private fun LoadedChat(
                         .onSizeChanged { composerHeightPx = it.height },
                 name = chat.name,
                 draft = draft,
-                accessory = ComposerAccessories.accessory(
-                    hudOpen = hudOpen,
-                    draft = draft,
-                    busy = chat.busy,
-                    pendingApproval = pendingApproval,
-                    hasQuickReplies = predictiveChips.isNotEmpty(),
-                    hasAttachments = attachments.isNotEmpty(),
-                ),
+                accessory = if (composerAccessory == ComposerAccessory.HUD) ComposerAccessory.HUD else ComposerAccessory.NONE,
                 commands = commands,
                 chips = predictiveChips,
                 plusOpen = showingPlus,
@@ -1584,6 +1606,7 @@ private const val QUOTE_MAX_LINES = 4
 
 private const val LOAD_EARLIER_KEY = "companion.loadEarlier"
 private const val LIVE_BUBBLE_KEY = "companion.live"
+private const val QUICK_REPLIES_KEY = "companion.quickReplies"
 private const val EMPTY_STATE_KEY = "companion.empty"
 private val CHAT_CONTENT_MAX_WIDTH = 840.dp
 
@@ -2637,49 +2660,68 @@ private fun Composer(
                     label = "composer-action",
                 ) { sending ->
                 if (!sending) {
-                // Tap opens the floating voice card and keeps recording until
-                // its send button; holding the mic records and the release
-                // sends — one press, decided by how long it is held.
-                val voiceInteraction = remember { MutableInteractionSource() }
-                Box(
-                    modifier = Modifier
-                        .size(MIN_TOUCH_TARGET)
-                        .pressScale(voiceInteraction)
-                        .clip(CircleShape)
-                        .then(voiceButton),
-                    contentAlignment = Alignment.Center,
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // Tap opens the floating voice card and keeps recording until
+                    // its send button; holding the mic records and the release
+                    // sends — one press, decided by how long it is held.
+                    val voiceInteraction = remember { MutableInteractionSource() }
                     Box(
                         modifier = Modifier
-                            .size(30.dp)
-                            .background(
-                                if (dictationListening) {
-                                    MinisTokens.Danger.copy(alpha = 0.18f)
-                                } else {
-                                    minisGrouped
-                                },
-                                CircleShape,
-                            ),
+                            .size(42.dp)
+                            .pressScale(voiceInteraction)
+                            .clip(CircleShape)
+                            .then(voiceButton),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (dictationListening) {
-                            // The bars run exactly as long as capture does:
-                            // they are the state, not a loading decoration.
-                            ListeningBars(
-                                color = MinisTokens.Danger,
-                                modifier = Modifier.size(width = 16.dp, height = 14.dp),
-                            )
-                        } else {
-                            Icon(
-                                painter = painterResource(R.drawable.ic_mic),
-                                contentDescription = null,
-                                tint = minisInk,
-                                modifier = Modifier.size(20.dp),
-                            )
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(
+                                    if (dictationListening) {
+                                        MinisTokens.Danger.copy(alpha = 0.18f)
+                                    } else {
+                                        minisGrouped
+                                    },
+                                    CircleShape,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (dictationListening) {
+                                ListeningBars(
+                                    color = MinisTokens.Danger,
+                                    modifier = Modifier.size(width = 16.dp, height = 14.dp),
+                                )
+                            } else {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_mic),
+                                    contentDescription = null,
+                                    tint = minisInk,
+                                    modifier = Modifier.size(19.dp),
+                                )
+                            }
+                        }
+                    }
+                    if (showCall) {
+                        TouchTarget(onClick = onCall, size = 42.dp, contentDescription = "语音通话") {
+                            Box(
+                                modifier = Modifier
+                                    .size(34.dp)
+                                    .background(minisInk, CircleShape),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_waveform),
+                                    contentDescription = null,
+                                    tint = minisPage,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
                         }
                     }
                 }
-
                 } else {
                     TouchTarget(
                         onClick = onSend,
@@ -2703,28 +2745,6 @@ private fun Composer(
                 }
                 }
             }
-
-            // The black circle beside the pill is Grok Bot's voice entry. Our
-            // phone action is the closest thing this client has to it, and it
-            // stays outside the field so the field keeps its width.
-            if (showCall) {
-                Spacer(Modifier.width(8.dp))
-                TouchTarget(onClick = onCall, contentDescription = "语音通话") {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .background(minisInk, CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_waveform),
-                            contentDescription = null,
-                            tint = minisPage,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-                }
-            }
         }
     }
 }
@@ -2734,6 +2754,42 @@ private fun Composer(
  * or the same notice twice — are one line with a count. The source transcript is
  * untouched; this only changes what the list draws.
  */
+/**
+ * Adapts the factory quick-reply chips to the latest conversation context so
+ * phone-control chats don't show coding templates; user-customized replies are
+ * preserved verbatim.
+ */
+internal fun contextualQuickReplies(
+    transcript: List<Message>,
+    configured: List<QuickReply>,
+): List<PredictiveChip> {
+    if (configured.isEmpty()) return emptyList()
+    if (configured != QuickReply.DEFAULTS) {
+        return configured.map { PredictiveChip(title = it.title, prompt = it.prompt, icon = it.icon) }
+    }
+    val recent = transcript.takeLast(6)
+    val blob = recent.joinToString(" ") {
+        listOfNotNull(it.text, it.tool?.name).joinToString(" ")
+    }.lowercase(Locale.ROOT)
+    val isPhoneControl = "phone_ui" in blob || "受控屏幕" in blob || "手机屏幕" in blob || "点击测试" in blob
+    val isCoding = "git" in blob || "diff" in blob || "编译" in blob || "报错" in blob || "gradle" in blob || "commit" in blob
+    return when {
+        isPhoneControl -> listOf(
+            PredictiveChip("再测一次", "再执行一次刚才的操作验证一下", "history"),
+            PredictiveChip("看下屏幕", "帮我读取一下当前手机屏幕状态", "search"),
+            PredictiveChip("继续操作", "继续下一步操作", "next"),
+            PredictiveChip("总结结果", "简短总结一下刚才的测试结果", "document"),
+        )
+        isCoding -> listOf(
+            PredictiveChip("查看变更", "展示最新的代码变更", "diff"),
+            PredictiveChip("运行测试", "运行相关自动化测试确认没有回归", "tests"),
+            PredictiveChip("解释原因", "详细解释一下原因和改动点", "explain"),
+            PredictiveChip("下一步？", "接下来我们该做什么？", "next"),
+        )
+        else -> configured.map { PredictiveChip(title = it.title, prompt = it.prompt, icon = it.icon) }
+    }
+}
+
 internal fun collapseRepeatedReceipts(messages: List<Message>): List<Message> {
     if (messages.size < 2) return messages
     val out = ArrayList<Message>(messages.size)

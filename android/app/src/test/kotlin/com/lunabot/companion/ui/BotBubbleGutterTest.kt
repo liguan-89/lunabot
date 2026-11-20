@@ -31,8 +31,8 @@ class BotBubbleGutterTest {
     fun `the two gutters differ, and the long one is the narrower`() {
         // The whole point: a long answer gets more room, not less.
         assertEquals(true, BotBubbleGutter.LONG < BotBubbleGutter.SHORT)
-        assertEquals(44.dp, BotBubbleGutter.SHORT)
-        assertEquals(24.dp, BotBubbleGutter.LONG)
+        assertEquals(32.dp, BotBubbleGutter.SHORT)
+        assertEquals(16.dp, BotBubbleGutter.LONG)
         assertEquals(5, BotBubbleGutter.LONG_ANSWER_LINES)
     }
 }

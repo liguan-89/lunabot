@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,7 +19,9 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import com.lunabot.companion.storage.BotAvatarStyle
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipPath
@@ -384,6 +387,9 @@ internal object BotFaceRig {
  * The draw lambda reads the clock itself, so a tick repaints this canvas and
  * nothing else — no recomposition, no layout, no state per face.
  */
+/** Current visual character style pack for all drawn bot portraits. */
+internal val LocalBotAvatarStyle = compositionLocalOf { BotAvatarStyle.ORB }
+
 @Composable
 internal fun BotFace(
     color: String?,
@@ -415,6 +421,7 @@ internal fun BotFace(
      * makes it look worn.
      */
     crown: Boolean = false,
+    style: BotAvatarStyle = LocalBotAvatarStyle.current,
 ) {
     val preset = remember(color) { PresetAvatars.forColor(color) }
     val faceSeed = remember(preset.key, seed) {
@@ -505,6 +512,7 @@ internal fun BotFace(
             val top = headroom.toPx()
             drawFace(
                 palette = preset,
+                style = style,
                 rim = rim,
                 pose = pose,
                 crown = crown,
@@ -550,6 +558,469 @@ private const val DROWSY_POLL_MILLIS = 5_000L
 
 private fun DrawScope.drawFace(
     palette: PresetAvatar,
+    style: BotAvatarStyle,
+    rim: Color,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+    hands: BotHandsPose,
+    handBrush: Brush,
+    handEdge: Color,
+) {
+    when (style) {
+        BotAvatarStyle.ORB -> drawOrbFace(palette, pose, crown, diameter, middle, hands, handBrush, handEdge)
+        BotAvatarStyle.SPIRIT -> drawSpiritFace(palette, pose, crown, diameter, middle)
+        BotAvatarStyle.MINIBOT -> drawMiniBotFace(palette, pose, crown, diameter, middle)
+        BotAvatarStyle.CLASSIC -> drawClassicFace(palette, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)
+    }
+}
+
+private data class SoftBotPalette(
+    val top: Color,
+    val mid: Color,
+    val edge: Color,
+    val bounce: Color,
+    val blush: Color,
+    val eye: Color,
+    val visorGlow: Color,
+)
+
+/** Low-saturation mineral-pastel palettes so companion bots harmonize with Luna and the warm ivory canvas. */
+private fun softBotPalette(key: String): SoftBotPalette = when (key) {
+    "white" -> SoftBotPalette(
+        top = Color(0xFFFFFFFF),
+        mid = Color(0xFFF3F4F8),
+        edge = Color(0xFFDCDFE8),
+        bounce = Color(0x58FFE0A3),
+        blush = Color(0x42FF9A68),
+        eye = Color(0xFF1D1B29),
+        visorGlow = Color(0xFFFFF2D6),
+    )
+    "blue" -> SoftBotPalette(
+        top = Color(0xFFF2F9FF),
+        mid = Color(0xFFCDE5FE),
+        edge = Color(0xFF9EC7F5),
+        bounce = Color(0x55D6EEFF),
+        blush = Color(0x3882B6F5),
+        eye = Color(0xFF1A2538),
+        visorGlow = Color(0xFF9AD8FF),
+    )
+    "orange" -> SoftBotPalette(
+        top = Color(0xFFFFF6EE),
+        mid = Color(0xFFFFD8BC),
+        edge = Color(0xFFF0B892),
+        bounce = Color(0x55FFE5C2),
+        blush = Color(0x48F5966A),
+        eye = Color(0xFF2B1E18),
+        visorGlow = Color(0xFFFFDFB0),
+    )
+    "purple" -> SoftBotPalette(
+        top = Color(0xFFF8F4FF),
+        mid = Color(0xFFE2D4FC),
+        edge = Color(0xFFC3AEF0),
+        bounce = Color(0x50EBDFFF),
+        blush = Color(0x38C69FF5),
+        eye = Color(0xFF231B33),
+        visorGlow = Color(0xFFE0C4FF),
+    )
+    "mint" -> SoftBotPalette(
+        top = Color(0xFFF0FCF5),
+        mid = Color(0xFFC7F0DA),
+        edge = Color(0xFF97DAB8),
+        bounce = Color(0x50D9FFEA),
+        blush = Color(0x347ACFA6),
+        eye = Color(0xFF192B24),
+        visorGlow = Color(0xFFA8FFD0),
+    )
+    "coral" -> SoftBotPalette(
+        top = Color(0xFFFFF3F3),
+        mid = Color(0xFFFFCECC),
+        edge = Color(0xFFF0A5A3),
+        bounce = Color(0x50FFE0DE),
+        blush = Color(0x44F28B88),
+        eye = Color(0xFF2E1A1B),
+        visorGlow = Color(0xFFFFC0B8),
+    )
+    else -> SoftBotPalette(
+        top = Color(0xFF565966),
+        mid = Color(0xFF3A3D49),
+        edge = Color(0xFF23252E),
+        bounce = Color(0x30A9B6D9),
+        blush = Color(0x22FFFFFF),
+        eye = Color(0xFFF5F6FA),
+        visorGlow = Color(0xFFFFF2D6),
+    )
+}
+
+/** Style 1: Translucent moon-glass / porcelain orb with warm subsurface bounce, level sparkle eyes, blush & sculpted crown. */
+private fun DrawScope.drawOrbFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+    hands: BotHandsPose,
+    handBrush: Brush,
+    handEdge: Color,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+    val isLightBody = palette.key != "black" && palette.key != "grey"
+    val baseTop = soft.top
+    val baseMid = soft.mid
+    val baseEdge = soft.edge
+    val bounceGlow = soft.bounce
+
+    // Subtle ambient contact shadow underneath so light porcelain orbs pop cleanly off ivory canvas
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x1E000000), Color.Transparent),
+            center = middle + Offset(0f, radius * 0.96f),
+            radius = radius * 0.85f,
+        ),
+        topLeft = Offset(middle.x - radius * 0.72f, middle.y + radius * 0.78f),
+        size = Size(radius * 1.44f, radius * 0.34f),
+    )
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val disc = Path().apply {
+            addOval(Rect(middle.x - radius, middle.y - radius, middle.x + radius, middle.y + radius))
+        }
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(baseTop, baseMid, baseEdge),
+                center = middle + Offset(-radius * 0.28f, -radius * 0.34f),
+                radius = radius * 1.46f,
+            ),
+            radius = radius,
+            center = middle,
+        )
+        clipPath(disc) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(bounceGlow, Color.Transparent),
+                    center = middle + Offset(0f, radius * 0.76f),
+                    radius = radius * 0.92f,
+                ),
+                radius = radius,
+                center = middle,
+            )
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = if (isLightBody) 0.82f else 0.48f), Color.Transparent),
+                    center = middle + Offset(-radius * 0.30f, -radius * 0.46f),
+                    radius = radius * 0.56f,
+                ),
+                topLeft = Offset(middle.x - radius * 0.76f, middle.y - radius * 0.86f),
+                size = Size(radius * 0.94f, radius * 0.70f),
+            )
+
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            val roll = pose.roll * (PI.toFloat() / 180f)
+            val cosRoll = cos(roll)
+            val sinRoll = sin(roll)
+
+            val blushColor = soft.blush
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bx = side * 0.50f * radius + gazeX * 0.5f
+                val by = 0.14f * radius + gazeY * 0.5f
+                val rx = bx * cosRoll - by * sinRoll
+                val ry = bx * sinRoll + by * cosRoll
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(blushColor, Color.Transparent),
+                        center = middle + Offset(rx, ry),
+                        radius = radius * 0.30f,
+                    ),
+                    radius = radius * 0.30f,
+                    center = middle + Offset(rx, ry),
+                )
+            }
+
+            // Level, upright glossy capsule eyes with crisp catchlights
+            val eyeColor = soft.eye
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val offsetX = side * 0.30f * radius + gazeX
+                val offsetY = -0.04f * radius + gazeY
+                val eyeX = offsetX * cosRoll - offsetY * sinRoll
+                val eyeY = offsetX * sinRoll + offsetY * cosRoll
+                val width = 0.145f * diameter
+                val height = max(0.245f * diameter * open, width * 0.32f)
+                val eyeCenter = middle + Offset(eyeX, eyeY)
+                withTransform({
+                    rotate(pose.roll, eyeCenter)
+                }) {
+                    drawRoundRect(
+                        color = eyeColor,
+                        topLeft = Offset(eyeCenter.x - width / 2f, eyeCenter.y - height / 2f),
+                        size = Size(width, height),
+                        cornerRadius = CornerRadius(width / 2f, width / 2f),
+                    )
+                    if (open > 0.36f) {
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.94f),
+                            radius = width * 0.21f,
+                            center = Offset(eyeCenter.x - width * 0.16f, eyeCenter.y - height * 0.22f),
+                        )
+                        drawCircle(
+                            color = Color.White.copy(alpha = 0.52f),
+                            radius = width * 0.10f,
+                            center = Offset(eyeCenter.x + width * 0.15f, eyeCenter.y + height * 0.16f),
+                        )
+                    }
+                }
+            }
+        }
+        // Crisp subtle porcelain rim definition + inner white glass sheen
+        drawCircle(
+            color = if (isLightBody) Color(0x16000000) else Color(0x10000000),
+            radius = radius,
+            center = middle,
+            style = Stroke(0.6.dp.toPx()),
+        )
+        drawCircle(
+            brush = Brush.linearGradient(
+                colors = listOf(Color.White.copy(alpha = 0.80f), Color.White.copy(alpha = 0.12f)),
+                start = middle + Offset(-radius, -radius),
+                end = middle + Offset(radius, radius),
+            ),
+            radius = radius - 0.8.dp.toPx(),
+            center = middle,
+            style = Stroke(1.dp.toPx()),
+        )
+        drawBotHands(hands, handEdge, handBrush, radius, middle)
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style 2: Plump organic moon-spirit cloud/pebble creature with ear-nubs, smile, blush & floating crescent moon. */
+private fun DrawScope.drawSpiritFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+    val bodyTop = soft.top
+    val bodyMid = soft.mid
+    val bodyLow = soft.edge
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val earR = radius * 0.23f
+        val earBrush = Brush.radialGradient(
+            colors = listOf(bodyTop, bodyLow),
+            center = middle + Offset(0f, -radius * 0.8f),
+            radius = radius,
+        )
+        drawCircle(earBrush, earR, middle + Offset(-radius * 0.54f, -radius * 0.66f))
+        drawCircle(earBrush, earR, middle + Offset(radius * 0.54f, -radius * 0.66f))
+
+        val bodyPath = Path().apply {
+            moveTo(middle.x, middle.y - radius * 0.86f)
+            cubicTo(
+                middle.x + radius * 0.66f, middle.y - radius * 0.86f,
+                middle.x + radius * 1.02f, middle.y - radius * 0.16f,
+                middle.x + radius * 0.96f, middle.y + radius * 0.36f,
+            )
+            cubicTo(
+                middle.x + radius * 0.90f, middle.y + radius * 0.82f,
+                middle.x + radius * 0.44f, middle.y + radius * 0.96f,
+                middle.x, middle.y + radius * 0.96f,
+            )
+            cubicTo(
+                middle.x - radius * 0.44f, middle.y + radius * 0.96f,
+                middle.x - radius * 0.90f, middle.y + radius * 0.82f,
+                middle.x - radius * 0.96f, middle.y + radius * 0.36f,
+            )
+            cubicTo(
+                middle.x - radius * 1.02f, middle.y - radius * 0.16f,
+                middle.x - radius * 0.66f, middle.y - radius * 0.86f,
+                middle.x, middle.y - radius * 0.86f,
+            )
+            close()
+        }
+        drawPath(
+            path = bodyPath,
+            brush = Brush.radialGradient(
+                colors = listOf(bodyTop, bodyMid, bodyLow),
+                center = middle + Offset(-radius * 0.25f, -radius * 0.35f),
+                radius = radius * 1.45f,
+            ),
+        )
+        drawPath(
+            path = bodyPath,
+            color = Color.White.copy(alpha = 0.65f),
+            style = Stroke(0.9.dp.toPx()),
+        )
+
+        val gazeX = (pose.gazeX + pose.lookX) * radius
+        val gazeY = (pose.gazeY + pose.lookY) * radius
+        val roll = pose.roll * (PI.toFloat() / 180f)
+        val cosRoll = cos(roll)
+        val sinRoll = sin(roll)
+
+        val blush = soft.blush
+        for (side in floatArrayOf(-1f, 1f)) {
+            val bx = side * 0.48f * radius + gazeX * 0.45f
+            val by = 0.16f * radius + gazeY * 0.45f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(blush, Color.Transparent),
+                    center = middle + Offset(bx, by),
+                    radius = radius * 0.28f,
+                ),
+                radius = radius * 0.28f,
+                center = middle + Offset(bx, by),
+            )
+        }
+
+        val eyeColor = soft.eye
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val ox = side * 0.30f * radius + gazeX
+            val oy = -0.02f * radius + gazeY
+            val ex = ox * cosRoll - oy * sinRoll
+            val ey = ox * sinRoll + oy * cosRoll
+            val w = 0.13f * diameter
+            val h = max(0.16f * diameter * open, w * 0.30f)
+            val center = middle + Offset(ex, ey)
+            drawOval(
+                color = eyeColor,
+                topLeft = Offset(center.x - w / 2f, center.y - h / 2f),
+                size = Size(w, h),
+            )
+            if (open > 0.36f) {
+                drawCircle(
+                    color = Color.White,
+                    radius = w * 0.24f,
+                    center = Offset(center.x - w * 0.16f, center.y - h * 0.18f),
+                )
+            }
+        }
+
+        val smileCenter = middle + Offset(gazeX * 0.7f, 0.11f * radius + gazeY * 0.7f)
+        val smilePath = Path().apply {
+            moveTo(smileCenter.x - radius * 0.11f, smileCenter.y)
+            quadraticTo(smileCenter.x, smileCenter.y + radius * 0.10f, smileCenter.x + radius * 0.11f, smileCenter.y)
+        }
+        drawPath(
+            path = smilePath,
+            color = eyeColor.copy(alpha = 0.85f),
+            style = Stroke(width = max(1.4.dp.toPx(), radius * 0.055f), cap = StrokeCap.Round),
+        )
+
+        if (crown) drawMoonStarCrest(pose, radius, middle)
+    }
+}
+
+/** Style 3: Matte ceramic rounded-squircle mini-bot with recessed glossy obsidian visor, glowing eyes & gold halo. */
+private fun DrawScope.drawMiniBotFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+    val shellTop = soft.top
+    val shellBot = soft.edge
+    val glowEye = soft.visorGlow
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val podW = diameter * 0.96f
+        val podH = diameter * 0.90f
+        val podTopLeft = Offset(middle.x - podW / 2f, middle.y - podH / 2f)
+        val podCorner = CornerRadius(podW * 0.38f, podH * 0.38f)
+
+        drawRoundRect(
+            brush = Brush.linearGradient(
+                colors = listOf(shellTop, shellBot),
+                start = podTopLeft,
+                end = podTopLeft + Offset(podW, podH),
+            ),
+            topLeft = podTopLeft,
+            size = Size(podW, podH),
+            cornerRadius = podCorner,
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.72f),
+            topLeft = podTopLeft,
+            size = Size(podW, podH),
+            cornerRadius = podCorner,
+            style = Stroke(1.dp.toPx()),
+        )
+
+        val visorW = podW * 0.74f
+        val visorH = podH * 0.64f
+        val visorTopLeft = Offset(middle.x - visorW / 2f, middle.y - visorH / 2f)
+        val visorCorner = CornerRadius(visorW * 0.34f, visorH * 0.34f)
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF23252E), Color(0xFF0E0F14)),
+                startY = visorTopLeft.y,
+                endY = visorTopLeft.y + visorH,
+            ),
+            topLeft = visorTopLeft,
+            size = Size(visorW, visorH),
+            cornerRadius = visorCorner,
+        )
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color.White.copy(alpha = 0.16f), Color.Transparent),
+                startY = visorTopLeft.y,
+                endY = visorTopLeft.y + visorH * 0.45f,
+            ),
+            topLeft = visorTopLeft + Offset(visorW * 0.08f, visorH * 0.05f),
+            size = Size(visorW * 0.84f, visorH * 0.38f),
+            cornerRadius = CornerRadius(visorW * 0.24f, visorH * 0.24f),
+        )
+
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.85f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.85f
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val eyeCenter = middle + Offset(side * visorW * 0.22f + gazeX, gazeY)
+            val w = visorW * 0.16f
+            val h = max(visorH * 0.34f * open, w * 0.34f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(glowEye.copy(alpha = 0.36f), Color.Transparent),
+                    center = eyeCenter,
+                    radius = max(w, h) * 1.15f,
+                ),
+                radius = max(w, h) * 1.15f,
+                center = eyeCenter,
+            )
+            drawRoundRect(
+                color = glowEye,
+                topLeft = Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f),
+                size = Size(w, h),
+                cornerRadius = CornerRadius(w / 2f, w / 2f),
+            )
+        }
+
+        if (crown) drawGoldHalo(pose, radius, middle)
+    }
+}
+
+/** Style 4: Original classic flat Grok-style portrait. */
+private fun DrawScope.drawClassicFace(
+    palette: PresetAvatar,
     rim: Color,
     pose: FacePose,
     crown: Boolean,
@@ -560,14 +1031,10 @@ private fun DrawScope.drawFace(
     handEdge: Color,
 ) {
     val radius = diameter / 2f
-    // The breath squashes as it stretches: the disc is a soft body, not a
-    // balloon, so it never grows in both directions at once.
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
 
     withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
-        // A light from the upper left, so the flat disc has a near side and a
-        // far side instead of reading as a sticker cut out of one colour.
         drawCircle(
             brush = Brush.radialGradient(
                 colors = listOf(
@@ -589,15 +1056,11 @@ private fun DrawScope.drawFace(
         val cosTilt = cos(tilt)
         val sinTilt = sin(tilt)
 
-        // The gaze moves along the face's own tilted axes, not the screen's.
-        // A finger's look is in screen axes, so it is added after the tilt.
         val gazeX = pose.gazeX * radius * cosTilt - pose.gazeY * radius * sinTilt +
             pose.lookX * radius
         val gazeY = pose.gazeX * radius * sinTilt + pose.gazeY * radius * cosTilt +
             pose.lookY * radius
 
-        // A gesture tips the whole face, so the pair swings around the circle's
-        // centre rather than each eye turning in place.
         val roll = pose.roll * (PI.toFloat() / 180f)
         val cosRoll = cos(roll)
         val sinRoll = sin(roll)
@@ -611,8 +1074,6 @@ private fun DrawScope.drawFace(
                 val eyeX = offsetX * cosRoll - offsetY * sinRoll
                 val eyeY = offsetX * sinRoll + offsetY * cosRoll
                 val width = BotFaceGeometry.EYE_WIDTH * diameter
-                // A closed eye is a slit, not nothing: the reference's pills have a
-                // visible lid line, and a hole in the face would read as a glitch.
                 val height = max(BotFaceGeometry.EYE_LENGTH * diameter * open, width * 0.34f)
                 withTransform({
                     rotate(
@@ -631,10 +1092,99 @@ private fun DrawScope.drawFace(
         }
 
         drawCircle(rim, radius, middle, style = Stroke(0.5.dp.toPx()))
-        // The hands sit in front of the body, over the rim: a limb held across
-        // the belly, not a sticker behind the portrait.
         drawBotHands(hands, handEdge, handBrush, radius, middle)
         if (crown) drawCrown(pose, radius, middle)
+    }
+}
+
+/** Smooth sculptural brushed-gold mini crown floating subtly above the Moon-Glass Orb. */
+private fun DrawScope.drawSculptedCrown(pose: FacePose, radius: Float, middle: Offset) {
+    val lean = 16f + pose.roll + pose.gazeX * 50f
+    withTransform({ rotate(lean, middle) }) {
+        val baseCenter = Offset(middle.x, middle.y - radius * 1.15f)
+        val w = radius * 0.64f
+        val h = radius * 0.36f
+        val crownPath = Path().apply {
+            moveTo(baseCenter.x - w * 0.44f, baseCenter.y + h * 0.22f)
+            lineTo(baseCenter.x - w * 0.52f, baseCenter.y - h * 0.52f)
+            quadraticTo(baseCenter.x - w * 0.25f, baseCenter.y - h * 0.10f, baseCenter.x, baseCenter.y - h * 0.76f)
+            quadraticTo(baseCenter.x + w * 0.25f, baseCenter.y - h * 0.10f, baseCenter.x + w * 0.52f, baseCenter.y - h * 0.52f)
+            lineTo(baseCenter.x + w * 0.44f, baseCenter.y + h * 0.22f)
+            quadraticTo(baseCenter.x, baseCenter.y + h * 0.42f, baseCenter.x - w * 0.44f, baseCenter.y + h * 0.22f)
+            close()
+        }
+        drawOval(
+            color = Color(0xFF8A6724).copy(alpha = 0.55f),
+            topLeft = Offset(baseCenter.x - w * 0.42f, baseCenter.y + h * 0.14f),
+            size = Size(w * 0.84f, h * 0.26f),
+        )
+        drawPath(
+            path = crownPath,
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFFF8E0A0), Color(0xFFC89B3E), Color(0xFFE9C774)),
+                start = Offset(baseCenter.x - w * 0.5f, baseCenter.y - h),
+                end = Offset(baseCenter.x + w * 0.5f, baseCenter.y + h * 0.4f),
+            ),
+        )
+        drawPath(
+            path = crownPath,
+            color = Color(0xFFFFF4D2).copy(alpha = 0.80f),
+            style = Stroke(width = max(0.8.dp.toPx(), radius * 0.025f), join = StrokeJoin.Round),
+        )
+    }
+}
+
+/** Floating champagne-gold crescent moon and tiny star for the Spirit style. */
+private fun DrawScope.drawMoonStarCrest(pose: FacePose, radius: Float, middle: Offset) {
+    val bobY = -radius * 1.18f - pose.squash * radius * 2.5f
+    val moonCenter = Offset(middle.x - radius * 0.04f, middle.y + bobY)
+    val r = radius * 0.22f
+    withTransform({ rotate(pose.roll * 0.6f - 10f, moonCenter) }) {
+        val moonPath = Path().apply {
+            addOval(Rect(moonCenter.x - r, moonCenter.y - r, moonCenter.x + r, moonCenter.y + r))
+        }
+        val cutPath = Path().apply {
+            addOval(Rect(moonCenter.x - r * 0.42f, moonCenter.y - r * 1.08f, moonCenter.x + r * 1.32f, moonCenter.y + r * 0.66f))
+        }
+        val crescent = Path.combine(androidx.compose.ui.graphics.PathOperation.Difference, moonPath, cutPath)
+        drawPath(
+            path = crescent,
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFFF6DC9B), Color(0xFFCFA34E)),
+                start = moonCenter + Offset(-r, -r),
+                end = moonCenter + Offset(r, r),
+            ),
+        )
+        val starCenter = moonCenter + Offset(r * 0.62f, -r * 0.16f)
+        val sr = r * 0.34f
+        val star = Path().apply {
+            moveTo(starCenter.x, starCenter.y - sr)
+            quadraticTo(starCenter.x, starCenter.y, starCenter.x + sr, starCenter.y)
+            quadraticTo(starCenter.x, starCenter.y, starCenter.x, starCenter.y + sr)
+            quadraticTo(starCenter.x, starCenter.y, starCenter.x - sr, starCenter.y)
+            quadraticTo(starCenter.x, starCenter.y, starCenter.x, starCenter.y - sr)
+            close()
+        }
+        drawPath(star, Color(0xFFE7C26B))
+    }
+}
+
+/** Minimalist floating brushed-gold halo ring for the Ceramic Mini-Bot style. */
+private fun DrawScope.drawGoldHalo(pose: FacePose, radius: Float, middle: Offset) {
+    val haloCenter = Offset(middle.x, middle.y - radius * 1.15f - pose.squash * radius * 2f)
+    val rx = radius * 0.46f
+    val ry = radius * 0.11f
+    withTransform({ rotate(pose.roll * 0.5f, haloCenter) }) {
+        drawOval(
+            brush = Brush.linearGradient(
+                colors = listOf(Color(0xFFF5DA97), Color(0xFFC79B44), Color(0xFFF2D48A)),
+                start = Offset(haloCenter.x - rx, haloCenter.y),
+                end = Offset(haloCenter.x + rx, haloCenter.y),
+            ),
+            topLeft = Offset(haloCenter.x - rx, haloCenter.y - ry),
+            size = Size(rx * 2f, ry * 2f),
+            style = Stroke(width = max(2.dp.toPx(), radius * 0.085f)),
+        )
     }
 }
 

@@ -1,25 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  A center node with three others around it, for what an agent can reach. Drawn
-  here rather than pulled from `material-icons-extended`: the core icon set has
-  no such glyph, and the extended artifact is thousands of vectors for a
-  handful of uses.
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24"
     android:tint="?attr/colorControlNormal">
+    <!-- Top-left rounded square -->
     <path
         android:strokeColor="@android:color/white"
-        android:strokeWidth="1.5"
+        android:strokeWidth="1.7"
         android:strokeLineCap="round"
-        android:pathData="M12,11 L4.5,5.5 M12,11 L4.5,16.5 M12,11 L19.5,11" />
+        android:strokeLineJoin="round"
+        android:pathData="M5.5,3.5 H9.5 A2,2 0 0,1 11.5,5.5 V9.5 A2,2 0 0,1 9.5,11.5 H5.5 A2,2 0 0,1 3.5,9.5 V5.5 A2,2 0 0,1 5.5,3.5 Z" />
+    <!-- Top-right rounded circle/dot accent for connected ecosystem feel -->
     <path
-        android:fillColor="@android:color/white"
-        android:pathData="M12,9 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0
-                           M4.5,3.5 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0
-                           M4.5,14.5 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0
-                           M19.5,9 m-2,0 a2,2 0 1,0 4,0 a2,2 0 1,0 -4,0" />
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M16.5,3.5 A4,4 0 1,0 16.5,11.5 A4,4 0 1,0 16.5,3.5 Z" />
+    <!-- Bottom-left rounded square -->
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M5.5,12.5 H9.5 A2,2 0 0,1 11.5,14.5 V18.5 A2,2 0 0,1 9.5,20.5 H5.5 A2,2 0 0,1 3.5,18.5 V14.5 A2,2 0 0,1 5.5,12.5 Z" />
+    <!-- Bottom-right rounded square -->
+    <path
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M14.5,12.5 H18.5 A2,2 0 0,1 20.5,14.5 V18.5 A2,2 0 0,1 18.5,20.5 H14.5 A2,2 0 0,1 12.5,18.5 V14.5 A2,2 0 0,1 14.5,12.5 Z" />
 </vector>

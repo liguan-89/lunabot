@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
@@ -42,7 +43,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
@@ -79,7 +79,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.onSizeChanged
@@ -97,6 +100,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -342,14 +346,20 @@ fun RosterScreen(navigator: CompanionNavigator) {
         label = "roster-top-haze",
     )
 
+    val isDark = minisIsDark()
+    val homeCanvas = if (isDark) minisCanvas else Color(0xFFF8F7F4)
     CompositionLocalProvider(LocalHazeState provides hazeState) {
-    Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+    Box(modifier = Modifier.fillMaxSize().background(homeCanvas)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(minisCanvas)
+                .background(homeCanvas)
                 .hazeSource(hazeState),
         ) {
+            AmbientAuroraBackdrop(
+                dark = isDark,
+                modifier = Modifier.fillMaxSize(),
+            )
             PullToRefreshBox(
                 isRefreshing = refreshing,
                 onRefresh = {
@@ -385,16 +395,13 @@ fun RosterScreen(navigator: CompanionNavigator) {
                 ) {
                     hero?.let { main ->
                         item(key = "hero") {
-                            val duplicateName = connection != null &&
-                                connections.count { it.name == connection?.name } > 1
-                            val chipLabel = connection?.let { bound ->
-                                if (duplicateName) "${bound.name} · ${shortHostLabel(bound.host)}" else bound.name
-                            }
+                            val chipLabel = connection?.name
                             RosterHero(
                                 summary = main,
                                 status = status,
                                 computerName = chipLabel,
                                 computerCount = connections.size,
+                                canvasColor = homeCanvas,
                                 onChooseComputer = { choosingComputer = true },
                             ) {
                                 navigator.open(
@@ -407,16 +414,34 @@ fun RosterScreen(navigator: CompanionNavigator) {
                         }
                     }
                     if (RosterLayout.showsGroups(query)) {
-                        if (attention.isNotEmpty()) {
-                            item(key = "attention-label") {
-                                SectionLabel("需要关注", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                            }
-                            items(attention, key = { "attention-${it.id}" }) { entry ->
-                                AttentionRow(entry = entry, onOpen = {
-                                    state.bots.firstOrNull { it.id == entry.botId }
-                                        ?.let { bot -> Chat.BotChat(bot.forTask(entry.task.threadId) ?: bot) }
-                                        ?.let(navigator::open)
-                                })
+                        val heroBot = (hero?.chat as? Chat.BotChat)?.bot
+                        val unsectioned = state.unsectionedBots.mapNotNull { listSummariesById[it.id] }
+                        if (hero != null || unsectioned.isNotEmpty()) {
+                            item(key = "living-spaces") {
+                                LivingSpacesStrip(
+                                    heroName = heroBot?.name ?: "Luna",
+                                    computerName = connection?.name,
+                                    onOpenComputer = heroBot?.let { bot ->
+                                        {
+                                            haptics.play(HapticCue.SELECT)
+                                            navigator.push(Destination.Computer(bot.id))
+                                        }
+                                    },
+                                    onOpenRoutines = {
+                                        haptics.play(HapticCue.SELECT)
+                                        navigator.push(Destination.Routines)
+                                    },
+                                    onConnectedApps = {
+                                        haptics.play(HapticCue.SELECT)
+                                        navigator.push(Destination.ConnectedApps)
+                                    },
+                                    onOverview = heroBot?.let { bot ->
+                                        {
+                                            haptics.play(HapticCue.SELECT)
+                                            navigator.push(Destination.Overview(bot.id))
+                                        }
+                                    },
+                                )
                             }
                         }
                         state.unsectionedChief?.let { chief ->
@@ -459,18 +484,72 @@ fun RosterScreen(navigator: CompanionNavigator) {
                                 )
                             }
                         }
-                        val unsectioned = state.unsectionedBots.mapNotNull { listSummariesById[it.id] }
                         if (unsectioned.isNotEmpty()) {
-                            // With the hero above, a "智能体" label would just
-                            // restate what the large face already says.
-                            if (hero == null) {
-                                item(key = "bots-label") {
-                                    SectionLabel("智能体", Modifier.padding(top = 18.dp, bottom = 4.dp))
+                            item(key = "bots-label") {
+                                Text(
+                                    text = if (hero != null) "协作助手" else "智能体",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = minisSecondary,
+                                    modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 20.dp, bottom = 8.dp),
+                                )
+                            }
+                            item(key = "bots-card") {
+                                val cardShape = RoundedCornerShape(24.dp)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .museGlassSurface(
+                                            shape = cardShape,
+                                            dark = isDark,
+                                            alpha = if (isDark) 0.86f else 0.84f,
+                                            elevation = 4.dp,
+                                        ),
+                                ) {
+                                    unsectioned.forEachIndexed { index, summary ->
+                                        entry(summary, index == unsectioned.lastIndex)
+                                    }
                                 }
                             }
-                            itemsIndexed(unsectioned, key = { _, summary -> "bot-${summary.id}" }) { index, summary ->
-                                Box(Modifier.animateItem()) {
-                                    entry(summary, index == unsectioned.lastIndex)
+                        }
+                        if (attention.isNotEmpty()) {
+                            item(key = "attention-label") {
+                                Text(
+                                    text = "需要关注",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = minisSecondary,
+                                    modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 8.dp),
+                                )
+                            }
+                            item(key = "attention-card") {
+                                val cardShape = RoundedCornerShape(22.dp)
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .museGlassSurface(
+                                            shape = cardShape,
+                                            dark = isDark,
+                                            alpha = if (isDark) 0.86f else 0.82f,
+                                            elevation = 3.dp,
+                                        ),
+                                ) {
+                                    attention.forEachIndexed { index, itemEntry ->
+                                        AttentionRow(entry = itemEntry, onOpen = {
+                                            state.bots.firstOrNull { it.id == itemEntry.botId }
+                                                ?.let { bot -> Chat.BotChat(bot.forTask(itemEntry.task.threadId) ?: bot) }
+                                                ?.let(navigator::open)
+                                        })
+                                        if (index < attention.lastIndex) {
+                                            HorizontalDivider(
+                                                modifier = Modifier.padding(start = 33.dp, end = 16.dp),
+                                                thickness = 0.5.dp,
+                                                color = minisSeparator.copy(alpha = 0.22f),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -594,6 +673,10 @@ fun RosterScreen(navigator: CompanionNavigator) {
             RosterHeader(
                 canCreateBot = true,
                 onSettings = { navigator.push(Destination.Settings) },
+                onOpenSearch = {
+                    haptics.play(TactileAction.OPEN_SEARCH)
+                    bar = bar.openSearch()
+                },
                 onCreateBot = createBot,
                 onCreateGroup = {
                     haptics.play(TactileAction.START_NEW_GROUP)
@@ -611,6 +694,18 @@ fun RosterScreen(navigator: CompanionNavigator) {
             updates = updates,
             bar = bar,
             onBar = { bar = it },
+            heroName = hero?.chat?.name,
+            onQuickChat = hero?.let { main ->
+                {
+                    haptics.play(HapticCue.SELECT)
+                    navigator.open(
+                        environment.chatPreferences.restoringThread(
+                            main.chat,
+                            connection?.id,
+                        ),
+                    )
+                }
+            },
             onOpenUpdates = {
                 haptics.play(TactileAction.OPEN_UPDATES)
                 showingUpdates = true
@@ -715,45 +810,138 @@ private val StringSetSaver = listSaver<Set<String>, String>(
  * it is now the lamp on the bot portraits, so the middle stays open.
  */
 @Composable
+private fun AmbientAuroraBackdrop(dark: Boolean, modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = if (dark) {
+                    listOf(Color(0x26E8A55C), Color(0x0ED98F4E), Color.Transparent)
+                } else {
+                    listOf(Color(0x52FBD4B4), Color(0x24F8E2CC), Color.Transparent)
+                },
+                center = Offset(w * 0.16f, h * 0.10f),
+                radius = w * 0.88f,
+            ),
+            radius = w * 0.88f,
+            center = Offset(w * 0.16f, h * 0.10f),
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = if (dark) {
+                    listOf(Color(0x224B7BE5), Color(0x0C3D66C4), Color.Transparent)
+                } else {
+                    listOf(Color(0x4CC2E0FD), Color(0x20D7EAFC), Color.Transparent)
+                },
+                center = Offset(w * 0.86f, h * 0.14f),
+                radius = w * 0.82f,
+            ),
+            radius = w * 0.82f,
+            center = Offset(w * 0.86f, h * 0.14f),
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = if (dark) {
+                    listOf(Color(0x168C6CE6), Color.Transparent)
+                } else {
+                    listOf(Color(0x22E7DCFB), Color.Transparent)
+                },
+                center = Offset(w * 0.52f, h * 0.22f),
+                radius = w * 0.62f,
+            ),
+            radius = w * 0.62f,
+            center = Offset(w * 0.52f, h * 0.22f),
+        )
+    }
+}
+
+private fun Modifier.museGlassSurface(
+    shape: Shape,
+    dark: Boolean,
+    alpha: Float = 0.72f,
+    elevation: Dp = 3.dp,
+): Modifier {
+    val fill = if (dark) Color(0xFF1F222A).copy(alpha = alpha) else Color.White.copy(alpha = alpha)
+    val rim = if (dark) Color.White.copy(alpha = 0.11f) else Color.White.copy(alpha = 0.88f)
+    return this
+        .then(
+            if (dark || elevation <= 0.dp) {
+                Modifier
+            } else {
+                Modifier.shadow(
+                    elevation = elevation,
+                    shape = shape,
+                    ambientColor = Color(0x0A000000),
+                    spotColor = Color(0x10000000),
+                )
+            },
+        )
+        .clip(shape)
+        .background(fill)
+        .border(0.85.dp, rim, shape)
+}
+
+@Composable
 private fun RosterHeader(
     canCreateBot: Boolean,
     onSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
     onCreateBot: () -> Unit,
     onCreateGroup: () -> Unit,
     onCreateSection: () -> Unit,
 ) {
+    val dark = minisIsDark()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 6.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TouchTarget(onClick = onSettings, contentDescription = "设置", size = 44.dp) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .chromeCapsule(surface = true),
+                    .size(42.dp)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     painter = painterResource(R.drawable.ic_gear_line),
                     contentDescription = null,
                     tint = minisInk,
-                    modifier = Modifier.size(21.dp),
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
 
         Spacer(Modifier.weight(1f))
 
+        TouchTarget(onClick = onOpenSearch, contentDescription = "搜索会话", size = 44.dp) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(19.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.width(8.dp))
+
         val interaction = remember { MutableInteractionSource() }
         var menuOpen by remember { mutableStateOf(false) }
         Box {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(42.dp)
                     .pressScale(interaction, pressed = 0.92f)
-                    .chromeCapsule(surface = true)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp)
                     .combinedClickable(
                         interactionSource = interaction,
                         indication = LocalIndication.current,
@@ -773,7 +961,7 @@ private fun RosterHeader(
                     painter = painterResource(R.drawable.ic_plus_line),
                     contentDescription = null,
                     tint = minisInk,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(21.dp),
                 )
             }
             NewMenu(
@@ -849,109 +1037,120 @@ private fun NewMenuRow(painter: androidx.compose.ui.graphics.painter.Painter, te
     }
 }
 
-/** The one bot the app is about, large, the way Grok opens on its assistant. */
+/** The primary companion stage — serene, compact, and floating over the ambient aurora. */
 @Composable
 private fun RosterHero(
     summary: ChatSummary,
     status: Session.Status,
     computerName: String?,
     computerCount: Int,
+    canvasColor: Color,
     onChooseComputer: () -> Unit,
     onClick: () -> Unit,
 ) {
     val chief = (summary.chat as? Chat.BotChat)?.bot?.chiefOfStaff == true
+    val dark = minisIsDark()
+    val showHostPill = computerCount > 1 && computerName != null
+    val heroPreview = remember(summary.preview) { RosterPreviewFormat.display(summary.preview) }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 0.dp, bottom = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // The portrait and the name are one button. The computer chip below is
-        // deliberately outside it: clearing the hero's descendant semantics to
-        // get a single label would otherwise hide the chip from TalkBack.
+        // Ambient stage around Luna's breathing portrait, name, and quiet preview.
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(role = Role.Button, onClick = onClick)
-                // Keep the name in the merged tree; clearing it would leave
-                // only the description and break text-based readers/tests.
                 .semantics(mergeDescendants = true) {
                     contentDescription = "${summary.chat.name}，打开会话"
                 }
-                .padding(top = 6.dp, bottom = 8.dp),
+                .padding(top = 2.dp, bottom = 7.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-        Box {
-            // The one large portrait on the screen, and the only one that
-            // breathes: a slow scale and a six-second highlight sweep are
-            // enough to say "alive" without turning the list into an aquarium.
-            ChatAvatar(
-                chat = summary.chat,
-                size = 84.dp,
-                animated = false,
-                // The whole hero is one labelled button; the portrait must not
-                // add a second, duplicate focus stop.
-                contentDescription = null,
-                fallback = AvatarFallback.PRESET,
-                motion = AvatarMotion.BREATH,
-                // The one face a person actually looks at for a while: it
-                // blinks, follows nothing, and after a minute of being ignored
-                // it starts to doze.
-                drowsy = true,
-                // The commander's crown is drawn by the face rig, so it
-                // breathes with the head and tips with its gestures instead of
-                // sitting on the screen like a sticker.
-                crown = chief,
-            )
-            // The link to the paired computer is a lamp on the portrait now, not
-            // a line of text in the header. The rank moved to the head, so the
-            // corner is the lamp's alone.
-            ConnectionLight(
-                status = status,
-                size = 18.dp,
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(1.dp),
-            )
-        }
-        Spacer(Modifier.height(7.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box {
+                ChatAvatar(
+                    chat = summary.chat,
+                    size = 72.dp,
+                    animated = false,
+                    contentDescription = null,
+                    fallback = AvatarFallback.PRESET,
+                    motion = AvatarMotion.BREATH,
+                    drowsy = true,
+                    crown = chief,
+                )
+                if (!showHostPill) {
+                    ConnectionLight(
+                        status = status,
+                        size = 16.dp,
+                        ringColor = canvasColor,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(1.dp),
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = summary.chat.name,
+                    fontSize = 21.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.3).sp,
+                    color = minisInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                if (summary.chat.unread) {
+                    Spacer(Modifier.width(6.dp))
+                    Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
+                }
+            }
+            Spacer(Modifier.height(3.dp))
             Text(
-                text = summary.chat.name,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Medium,
-                // A long name wraps the hero open; the transcript is one tap
-                // away if the reader needs the whole of it.
+                text = heroPreview.ifEmpty { "轻点头像，直接和 ${summary.chat.name} 聊两句" },
+                fontSize = 13.sp,
+                color = minisSecondary,
+                textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false),
+                modifier = Modifier.padding(horizontal = 32.dp),
             )
-            if (summary.chat.unread) {
-                Spacer(Modifier.width(6.dp))
-                Box(Modifier.size(8.dp).background(minisAccent, CircleShape))
+        }
+
+        // Frosted glass host status pill (IP stays tucked inside the switcher sheet).
+        if (showHostPill && computerName != null) {
+            val statusText = when (status) {
+                Session.Status.Live -> "已连接"
+                Session.Status.Connecting -> "连接中"
+                else -> "离线"
             }
-        }
-        }
-        // Which computer these bots live on, and the way to the other one.
-        // Only when there is a choice: a single paired computer needs no chip,
-        // and an unpaired phone has nothing to switch to.
-        if (computerCount > 1 && computerName != null) {
-            Spacer(Modifier.height(6.dp))
+            val statusColor = when (status) {
+                Session.Status.Live -> MinisTokens.Success
+                Session.Status.Connecting -> MinisTokens.Warning
+                else -> minisTertiary
+            }
             Row(
                 modifier = Modifier
-                    .chromeCapsule(surface = true)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.72f, elevation = 2.dp)
                     .clickable(role = Role.Button, onClick = onChooseComputer)
                     .clearAndSetSemantics {
-                        contentDescription = "切换电脑，当前 $computerName"
+                        contentDescription = "切换电脑，当前 $computerName，$statusText"
                         role = Role.Button
                         semanticsOnClick(label = "切换电脑") {
                             onChooseComputer()
                             true
                         }
                     }
-                    .padding(start = 11.dp, end = 7.dp, top = 4.dp, bottom = 4.dp),
+                    .padding(start = 11.dp, end = 8.dp, top = 4.dp, bottom = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                Box(Modifier.size(6.dp).background(statusColor, CircleShape))
                 Text(
-                    text = computerName,
+                    text = "$computerName · $statusText",
                     fontSize = 12.sp,
                     color = minisSecondary,
                     maxLines = 1,
@@ -961,8 +1160,191 @@ private fun RosterHero(
                     imageVector = Icons.Filled.KeyboardArrowDown,
                     contentDescription = null,
                     tint = minisSecondary,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(15.dp),
                 )
+            }
+        }
+    }
+}
+
+private data class SpaceCardSpec(
+    val key: String,
+    val title: String,
+    val subtitle: String,
+    val icon: Int,
+    val lightStart: Color,
+    val lightEnd: Color,
+    val darkStart: Color,
+    val darkEnd: Color,
+    val lightTint: Color,
+    val darkTint: Color,
+    val lightBadgeBg: Color,
+    val darkBadgeBg: Color,
+    val onClick: () -> Unit,
+)
+
+@Composable
+private fun LivingSpacesStrip(
+    heroName: String,
+    computerName: String?,
+    onOpenComputer: (() -> Unit)?,
+    onOpenRoutines: () -> Unit,
+    onConnectedApps: () -> Unit,
+    onOverview: (() -> Unit)?,
+) {
+    val dark = minisIsDark()
+    val cards = buildList {
+        if (onOpenComputer != null) {
+            add(
+                SpaceCardSpec(
+                    key = "space-computer",
+                    title = "实时桌面",
+                    subtitle = computerName ?: "查看电脑画面",
+                    icon = R.drawable.ic_display_line,
+                    lightStart = Color(0xCCFFFFFF),
+                    lightEnd = Color(0xBFEAF3FF),
+                    darkStart = Color(0xCC1E2634),
+                    darkEnd = Color(0xCC171E2A),
+                    lightTint = Color(0xFF2B6CB0),
+                    darkTint = Color(0xFF7BB3FF),
+                    lightBadgeBg = Color(0x1F2B6CB0),
+                    darkBadgeBg = Color(0x267BB3FF),
+                    onClick = onOpenComputer,
+                ),
+            )
+        }
+        add(
+            SpaceCardSpec(
+                key = "space-routines",
+                title = "定时巡检",
+                subtitle = "自动任务与日程",
+                icon = R.drawable.ic_schedule,
+                lightStart = Color(0xCCFFFFFF),
+                lightEnd = Color(0xBFFFF3E2),
+                darkStart = Color(0xCC2A2318),
+                darkEnd = Color(0xCC201B14),
+                lightTint = Color(0xFFB7791F),
+                darkTint = Color(0xFFF0BE66),
+                lightBadgeBg = Color(0x22D69E2E),
+                darkBadgeBg = Color(0x26F0BE66),
+                onClick = onOpenRoutines,
+            ),
+        )
+        add(
+            SpaceCardSpec(
+                key = "space-apps",
+                title = "连接应用",
+                subtitle = "工具授权与生态",
+                icon = R.drawable.ic_hub,
+                lightStart = Color(0xCCFFFFFF),
+                lightEnd = Color(0xBFE8F7EE),
+                darkStart = Color(0xCC172620),
+                darkEnd = Color(0xCC131F1A),
+                lightTint = Color(0xFF2F855A),
+                darkTint = Color(0xFF68D391),
+                lightBadgeBg = Color(0x1F2F855A),
+                darkBadgeBg = Color(0x2668D391),
+                onClick = onConnectedApps,
+            ),
+        )
+        if (onOverview != null) {
+            add(
+                SpaceCardSpec(
+                    key = "space-overview",
+                    title = "$heroName 总览",
+                    subtitle = "记忆与能力面板",
+                    icon = R.drawable.ic_sparkles,
+                    lightStart = Color(0xCCFFFFFF),
+                    lightEnd = Color(0xBFF2ECFF),
+                    darkStart = Color(0xCC231D30),
+                    darkEnd = Color(0xCC1A1624),
+                    lightTint = Color(0xFF6B46C1),
+                    darkTint = Color(0xFFB794F4),
+                    lightBadgeBg = Color(0x1F6B46C1),
+                    darkBadgeBg = Color(0x26B794F4),
+                    onClick = onOverview,
+                ),
+            )
+        }
+    }
+    if (cards.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+    ) {
+        Text(
+            text = "空间",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = minisSecondary,
+            modifier = Modifier.padding(start = 22.dp, bottom = 8.dp),
+        )
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            items(cards, key = { it.key }) { card ->
+                val shape = RoundedCornerShape(22.dp)
+                val gradient = Brush.linearGradient(
+                    colors = if (dark) listOf(card.darkStart, card.darkEnd) else listOf(card.lightStart, card.lightEnd),
+                )
+                val rimColor = if (dark) Color.White.copy(alpha = 0.11f) else Color.White.copy(alpha = 0.90f)
+                val iconTint = if (dark) card.darkTint else card.lightTint
+                val iconBadgeBg = if (dark) card.darkBadgeBg else card.lightBadgeBg
+                Box(
+                    modifier = Modifier
+                        .width(144.dp)
+                        .height(88.dp)
+                        .then(
+                            if (dark) Modifier else Modifier.shadow(
+                                elevation = 3.dp,
+                                shape = shape,
+                                ambientColor = Color(0x0A000000),
+                                spotColor = Color(0x10000000),
+                            ),
+                        )
+                        .clip(shape)
+                        .background(gradient)
+                        .border(0.85.dp, rimColor, shape)
+                        .clickable(role = Role.Button, onClick = card.onClick)
+                        .padding(horizontal = 13.dp, vertical = 12.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(28.dp)
+                            .background(iconBadgeBg, CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(card.icon),
+                            contentDescription = null,
+                            tint = iconTint,
+                            modifier = Modifier.size(15.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.align(Alignment.BottomStart),
+                        verticalArrangement = Arrangement.spacedBy(1.dp),
+                    ) {
+                        Text(
+                            text = card.title,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = minisInk,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Text(
+                            text = card.subtitle,
+                            fontSize = 11.5.sp,
+                            color = minisSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
     }
@@ -1044,7 +1426,12 @@ private fun ComputerSheet(
  * portrait: green when the stream is live, amber while reconnecting, red when
  * the computer is unreachable or the pairing is gone.
  */@Composable
-private fun ConnectionLight(status: Session.Status, size: Dp, modifier: Modifier = Modifier) {
+private fun ConnectionLight(
+    status: Session.Status,
+    size: Dp,
+    modifier: Modifier = Modifier,
+    ringColor: Color = minisCanvas,
+) {
     // The palette's own lamps, not five literals: these are states the rest of
     // the app already has names for.
     val (lamp, label) = when (status) {
@@ -1058,7 +1445,7 @@ private fun ConnectionLight(status: Session.Status, size: Dp, modifier: Modifier
     Box(
         modifier = modifier
             .size(size)
-            .background(minisCanvas, CircleShape)
+            .background(ringColor, CircleShape)
             .padding(2.dp)
             .background(lamp, CircleShape)
             .semantics { contentDescription = label },
@@ -1332,11 +1719,18 @@ private fun ChatRow(
                 }
             }
         }
+        if (!last) {
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 75.dp, end = 16.dp),
+                thickness = 0.5.dp,
+                color = minisSeparator.copy(alpha = 0.22f),
+            )
+        }
     }
 }
 
 /**
- * The bar over the bottom of the list: Updates beside search and new bot, or —
+ * The bar over the bottom of the list: Updates beside quick chat, or —
  * once search is open — the field beside Cancel.
  *
  * Cancel is what closes it, and it takes the query with it: that is what puts the
@@ -1347,6 +1741,8 @@ private fun RosterBottomBar(
     updates: List<ChatUpdate>,
     bar: RosterBar,
     onBar: (RosterBar) -> Unit,
+    heroName: String?,
+    onQuickChat: (() -> Unit)?,
     onOpenUpdates: () -> Unit,
     onOpenSearch: () -> Unit,
     onCreateBot: () -> Unit,
@@ -1355,6 +1751,7 @@ private fun RosterBottomBar(
     canCreateSection: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    val dark = minisIsDark()
     val focus = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     LaunchedEffect(bar.searchOpen) {
@@ -1364,15 +1761,15 @@ private fun RosterBottomBar(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (bar.searchOpen) {
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .chromeCapsule(surface = true)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.84f, elevation = 4.dp)
                     .height(BAR_HEIGHT)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -1420,8 +1817,7 @@ private fun RosterBottomBar(
 
             Box(
                 modifier = Modifier
-                    .chromeCapsule(surface = true)
-                    .clip(CircleShape)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.84f, elevation = 4.dp)
                     .height(BAR_HEIGHT)
                     .clickable(role = Role.Button, onClick = { onBar(bar.cancelSearch()) })
                     .padding(horizontal = 16.dp),
@@ -1432,8 +1828,8 @@ private fun RosterBottomBar(
         } else {
             Box(
                 modifier = Modifier
-                    .size(52.dp)
-                    .chromeCapsule(surface = true)
+                    .size(BAR_HEIGHT)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.82f, elevation = 4.dp)
                     .clickable(role = Role.Button, onClick = onOpenUpdates)
                     .semantics(mergeDescendants = true) {
                         contentDescription = "动态"
@@ -1442,10 +1838,10 @@ private fun RosterBottomBar(
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.ic_grid),
+                    painter = painterResource(R.drawable.ic_sparkles),
                     contentDescription = null,
                     tint = minisInk,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(20.dp),
                 )
                 if (updates.isNotEmpty()) {
                     Box(
@@ -1457,32 +1853,58 @@ private fun RosterBottomBar(
                     )
                 }
             }
+            val quickAction = onQuickChat ?: onOpenSearch
+            val quickLabel = if (onQuickChat != null && !heroName.isNullOrBlank()) "向 $heroName 提问" else "搜索"
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .height(BAR_HEIGHT)
-                    .chromeCapsule(surface = true)
-                    .clickable(role = Role.Button, onClick = onOpenSearch)
+                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.82f, elevation = 4.dp)
+                    .clickable(role = Role.Button, onClick = quickAction)
                     .semantics(mergeDescendants = true) {
-                        contentDescription = "搜索会话"
+                        contentDescription = if (onQuickChat != null) quickLabel else "搜索会话"
                     }
-                    .padding(horizontal = 16.dp),
+                    .padding(start = 18.dp, end = 9.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = null,
-                    tint = minisSecondary,
-                    modifier = Modifier.size(20.dp),
-                )
-                Text("搜索", fontSize = 17.sp, color = minisSecondary)
+                if (onQuickChat != null) {
+                    Text(
+                        text = quickLabel,
+                        fontSize = 15.5.sp,
+                        color = minisSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(minisInk.copy(alpha = 0.07f), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_chat_bubbles),
+                            contentDescription = null,
+                            tint = minisInk.copy(alpha = 0.84f),
+                            modifier = Modifier.size(17.dp),
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = minisSecondary,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text("搜索", fontSize = 17.sp, color = minisSecondary)
+                }
             }
         }
     }
 }
 
-private val BAR_HEIGHT = 52.dp
+private val BAR_HEIGHT = 50.dp
 
 @Composable
 private fun SearchHitRow(hit: SearchHit, onClick: () -> Unit) {
@@ -1560,12 +1982,7 @@ fun StatusBanner() {
     val snapshotAt by session.rosterSnapshotAt.collectAsState()
     val cachedFor = snapshotAt?.let(::cacheAge)
     val notice: ConnectionNotice? = when (val current = status) {
-        Session.Status.Live, Session.Status.Unpaired, is Session.Status.Offline -> null
-        Session.Status.Connecting -> ConnectionNotice(
-            message = cachedFor?.let { "正在重连，先显示${it}的名单。" } ?: "正在连接电脑…",
-            title = null,
-            tone = NoticeTone.INFO,
-        )
+        Session.Status.Live, Session.Status.Unpaired, Session.Status.Connecting, is Session.Status.Offline -> null
         Session.Status.Unauthorized -> ConnectionNotice(
             message = "此手机已在电脑上取消配对。",
             title = null,

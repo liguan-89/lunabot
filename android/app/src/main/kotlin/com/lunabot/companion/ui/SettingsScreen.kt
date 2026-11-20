@@ -13,6 +13,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +32,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
@@ -101,6 +103,7 @@ import com.lunabot.companion.phoneui.SelfCheckReport
 import com.lunabot.companion.phoneui.phoneUiProbes
 import com.lunabot.companion.phoneui.runSelfCheck
 import com.lunabot.companion.phoneui.shell.PhoneUiShellBridge
+import com.lunabot.companion.storage.BotAvatarStyle
 import com.lunabot.companion.storage.PhonePace
 import com.lunabot.companion.storage.ThemeMode
 import com.lunabot.companion.storage.VoiceAsrMode
@@ -150,6 +153,7 @@ fun SettingsScreen(
     val notifications by environment.notifications.access.collectAsState()
     val activityDetail by environment.chatPreferences.activityDetail.collectAsState()
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
+    val avatarStyle by environment.chatPreferences.avatarStyle.collectAsState()
     val voiceAsrMode by environment.chatPreferences.voiceAsrMode.collectAsState()
     val phoneCalendar by environment.chatPreferences.phoneCalendar.collectAsState()
     val phoneContacts by environment.chatPreferences.phoneContacts.collectAsState()
@@ -254,6 +258,7 @@ fun SettingsScreen(
     var pairingComputerJob by remember { mutableStateOf<Job?>(null) }
     var choosingActivity by remember { mutableStateOf(false) }
     var choosingTheme by remember { mutableStateOf(false) }
+    var choosingAvatarStyle by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
     var choosingPhonePace by remember { mutableStateOf(false) }
     var phoneUiCheckReport by remember { mutableStateOf<SelfCheckReport?>(null) }
@@ -1020,6 +1025,13 @@ fun SettingsScreen(
                 )
                 SettingsDivider()
                 SettingsRow(
+                    title = "Bot 形象风格",
+                    value = avatarStyleLabel(avatarStyle),
+                    chevron = true,
+                    onClick = { choosingAvatarStyle = true },
+                )
+                SettingsDivider()
+                SettingsRow(
                     title = "活动详情",
                     value = activityDetail.label,
                     chevron = true,
@@ -1341,6 +1353,99 @@ fun SettingsScreen(
                         )
                     }
                 }
+            }
+        }
+    }
+
+    if (choosingAvatarStyle) {
+        SettingsSheet(title = "Bot 形象风格", onDismiss = { choosingAvatarStyle = false }) {
+            Column(
+                modifier = Modifier.padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                BotAvatarStyle.entries.chunked(2).forEach { pair ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        pair.forEach { option ->
+                            val selected = option == avatarStyle
+                            val cardShape = RoundedCornerShape(20.dp)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(cardShape)
+                                    .background(minisCard)
+                                    .border(
+                                        width = if (selected) 1.5.dp else 0.5.dp,
+                                        color = if (selected) minisAccent else minisSeparator.copy(alpha = 0.5f),
+                                        shape = cardShape,
+                                    )
+                                    .clickable(role = Role.Button) {
+                                        haptics.play(HapticCue.SELECT)
+                                        environment.chatPreferences.setAvatarStyle(option)
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 14.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.Bottom,
+                                ) {
+                                    BotFace(
+                                        color = "blue",
+                                        size = 22.dp,
+                                        life = FaceLife.STILL,
+                                        style = option,
+                                    )
+                                    BotFace(
+                                        color = "white",
+                                        size = 50.dp,
+                                        life = FaceLife.ALIVE,
+                                        crown = true,
+                                        seed = option.ordinal * 37,
+                                        style = option,
+                                    )
+                                    BotFace(
+                                        color = "orange",
+                                        size = 22.dp,
+                                        life = FaceLife.STILL,
+                                        style = option,
+                                    )
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = avatarStyleLabel(option),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = minisInk,
+                                    )
+                                    if (selected) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = minisAccent,
+                                            modifier = Modifier.size(15.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = avatarStyleCaption(option),
+                                    fontSize = 11.5.sp,
+                                    color = secondaryTint,
+                                    textAlign = TextAlign.Center,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                    }
+                }
+                SettingsFootnote("切换后会实时应用到主页、聊天页与所有协作助手，并保留呼吸、眨眼等微动效。")
             }
         }
     }
@@ -2228,6 +2333,20 @@ private fun themeLabel(mode: ThemeMode): String = when (mode) {
     ThemeMode.SYSTEM -> "跟随系统"
     ThemeMode.LIGHT -> "浅色"
     ThemeMode.DARK -> "深色"
+}
+
+private fun avatarStyleLabel(style: BotAvatarStyle): String = when (style) {
+    BotAvatarStyle.ORB -> "琉璃月灵"
+    BotAvatarStyle.SPIRIT -> "星月软团"
+    BotAvatarStyle.MINIBOT -> "陶瓷微机"
+    BotAvatarStyle.CLASSIC -> "经典极简"
+}
+
+private fun avatarStyleCaption(style: BotAvatarStyle): String = when (style) {
+    BotAvatarStyle.ORB -> "温润琉璃球 · 流金皇冠"
+    BotAvatarStyle.SPIRIT -> "软萌小精灵 · 悬浮星月"
+    BotAvatarStyle.MINIBOT -> "磨砂微机 · 发光面罩"
+    BotAvatarStyle.CLASSIC -> "原始极简圆球"
 }
 
 private fun voiceAsrLabel(mode: VoiceAsrMode): String = when (mode) {

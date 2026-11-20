@@ -159,8 +159,9 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
     val connectedCount = cards.count { card ->
         inventory.statuses?.get(card.slug)?.connected == true
     }
+    val pageCanvas = if (minisIsDark()) minisCanvas else Color(0xFFF8F7F4)
 
-    Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+    Box(modifier = Modifier.fillMaxSize().background(pageCanvas)) {
         Column(modifier = Modifier.fillMaxSize()) {
             Row(
                 modifier = Modifier
@@ -426,21 +427,31 @@ private const val FILTER_CONNECTED = "已连接"
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
     // Token colours, not black-on-white: the selected chip sits on the canvas,
     // and a hardcoded black pill disappears into the dark one.
-    TouchTarget(onClick = onClick, contentDescription = label) {
-        Row(
-            modifier = Modifier
-                .height(36.dp)
-                .clip(CircleShape)
-                .background(if (selected) minisInk else minisCard)
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                label,
-                fontSize = 14.sp,
-                color = if (selected) minisPage else minisInk,
+    Row(
+        modifier = Modifier
+            .height(38.dp)
+            .clip(CircleShape)
+            .background(if (selected) minisInk else minisCard)
+            .then(
+                if (selected) {
+                    Modifier
+                } else {
+                    Modifier.border(0.5.dp, minisSeparator.copy(alpha = 0.65f), CircleShape)
+                },
             )
-        }
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = label }
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            label,
+            fontSize = 14.sp,
+            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
+            color = if (selected) minisPage else minisInk,
+            maxLines = 1,
+            softWrap = false,
+        )
     }
 }
 
@@ -504,25 +515,30 @@ private fun ConnectorCardView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 12.dp, top = 12.dp, bottom = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             ConnectorIconTile(card)
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(card.label, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = minisInk)
-                // The blurb is the provider's own description; there is no
-                // invented reason line here.
+                Text(
+                    card.label,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
                 Text(
                     card.blurb,
                     color = minisSecondary,
-                    fontSize = 14.sp,
+                    fontSize = 13.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
             when {
-                !hasAuthoritativeInventory -> Unit
+                !hasAuthoritativeInventory -> ConnectorActionCapsule("电脑端管理", enabled = false, onClick = null)
                 connected || accounts.isNotEmpty() -> ConnectorActionCapsule("已连接", enabled = false, onClick = null)
                 pending -> ConnectorActionCapsule("连接中…", enabled = false, onClick = null)
                 else -> ConnectorActionCapsule("连接", enabled = configured, onClick = onConnect)
@@ -530,12 +546,7 @@ private fun ConnectorCardView(
         }
 
         when {
-            !hasAuthoritativeInventory -> Text(
-                "请在电脑端连接；状态以电脑为准",
-                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
-                color = minisSecondary,
-                fontSize = 13.sp,
-            )
+            !hasAuthoritativeInventory -> Unit
             accounts.isEmpty() && (connected || pending) -> Text(
                 "无法从该服务商获取账号详情。请在完成授权后刷新。",
                 modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
@@ -577,18 +588,37 @@ private fun ConnectorCardView(
  */
 @Composable
 private fun ConnectorIconTile(card: ConnectorCard) {
+    val dark = minisIsDark()
+    val idx = (card.slug.hashCode() and 0x7FFFFFFF) % 5
+    val (bg, fg) = if (dark) {
+        when (idx) {
+            0 -> Color(0xFF1C2738) to Color(0xFF8CC4FF)
+            1 -> Color(0xFF2B2318) to Color(0xFFF3C47A)
+            2 -> Color(0xFF172820) to Color(0xFF7ADBA2)
+            3 -> Color(0xFF251E33) to Color(0xFFC5A8FA)
+            else -> Color(0xFF2C1E20) to Color(0xFFF7A6A4)
+        }
+    } else {
+        when (idx) {
+            0 -> Color(0xFFEAF3FF) to Color(0xFF2B6CB0)
+            1 -> Color(0xFFFFF3E2) to Color(0xFFB7791F)
+            2 -> Color(0xFFE9F7EF) to Color(0xFF2F855A)
+            3 -> Color(0xFFF3EEFF) to Color(0xFF6B46C1)
+            else -> Color(0xFFFFEFEF) to Color(0xFFC53030)
+        }
+    }
     Box(
         modifier = Modifier
-            .size(52.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(minisGrouped),
+            .size(46.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(bg),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = card.label.trim().firstOrNull()?.uppercase() ?: "·",
-            fontSize = 20.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold,
-            color = minisInk,
+            color = fg,
         )
     }
 }

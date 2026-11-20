@@ -19,8 +19,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import com.lunabot.companion.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -171,6 +181,7 @@ fun PredictiveChipsRow(
     chips: List<PredictiveChip>,
     onSelect: (PredictiveChip) -> Unit,
     modifier: Modifier = Modifier,
+    onDismiss: (() -> Unit)? = null,
 ) {
     val scrollState = rememberScrollState()
     val fadeLeft = scrollState.canScrollBackward
@@ -222,7 +233,7 @@ fun PredictiveChipsRow(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     chip.icon?.let { icon ->
-                        Text(quickReplyGlyph(icon), fontSize = 13.sp, color = secondaryTint)
+                        QuickReplyVectorIcon(icon = icon, tint = secondaryTint)
                     }
                     Text(
                         text = chip.title,
@@ -230,6 +241,32 @@ fun PredictiveChipsRow(
                         fontWeight = FontWeight.Medium,
                         color = minisInk,
                         maxLines = 1,
+                    )
+                }
+            }
+        }
+        if (onDismiss != null) {
+            Box(
+                modifier = Modifier
+                    .heightIn(min = 40.dp)
+                    .clickable(
+                        role = Role.Button,
+                        onClick = onDismiss,
+                    )
+                    .semantics { contentDescription = "收起快捷建议" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .chromeCapsule(surface = true),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = null,
+                        tint = secondaryTint,
+                        modifier = Modifier.size(14.dp),
                     )
                 }
             }
@@ -245,6 +282,23 @@ fun PredictiveChipsRow(
  * a mark someone picks in Settings is the mark that appears above the composer
  * because it is literally the same branch, not a copy that agrees today.
  */
+@Composable
+private fun QuickReplyVectorIcon(icon: String, tint: Color) {
+    val mod = Modifier.size(14.dp)
+    when (icon) {
+        "next" -> Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = tint, modifier = mod)
+        "tests" -> Icon(Icons.Filled.Check, contentDescription = null, tint = tint, modifier = mod)
+        "explain" -> Icon(Icons.Filled.Info, contentDescription = null, tint = tint, modifier = mod)
+        "build" -> Icon(Icons.Filled.Build, contentDescription = null, tint = tint, modifier = mod)
+        "bug" -> Icon(Icons.Filled.Warning, contentDescription = null, tint = tint, modifier = mod)
+        "send" -> Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = tint, modifier = mod)
+        "search" -> Icon(Icons.Filled.Search, contentDescription = null, tint = tint, modifier = mod)
+        "history" -> Icon(Icons.Filled.Refresh, contentDescription = null, tint = tint, modifier = mod)
+        "list", "document" -> Icon(painterResource(R.drawable.ic_list_line), contentDescription = null, tint = tint, modifier = mod)
+        else -> Icon(painterResource(R.drawable.ic_edit_line), contentDescription = null, tint = tint, modifier = mod)
+    }
+}
+
 internal fun quickReplyGlyph(icon: String): String = when (icon) {
     "next" -> "→"
     "diff" -> "±"

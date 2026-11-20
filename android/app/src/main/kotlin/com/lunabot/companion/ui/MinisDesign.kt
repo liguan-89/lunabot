@@ -392,7 +392,7 @@ fun CrownBadge(
     size: Dp = 14.dp,
     tint: Color? = null,
 ) {
-    val color = tint ?: minisAccent
+    val color = tint ?: if (minisIsDark()) Color(0xFFF0B92E) else Color(0xFFD49B1A)
     androidx.compose.foundation.Canvas(modifier.size(size)) {
         val w = this.size.width
         val h = this.size.height

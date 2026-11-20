@@ -77,8 +77,16 @@ internal fun ThreadToggle(
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(count.toString(), fontSize = 13.sp, color = secondaryTint)
-        DisclosureIcon(expanded)
+        Row(
+            modifier = Modifier
+                .background(minisInk.copy(alpha = 0.045f), RoundedCornerShape(50))
+                .padding(horizontal = 7.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("${count} 个话题", fontSize = 11.5.sp, color = minisSecondary)
+            DisclosureIcon(expanded)
+        }
     }
 }
 

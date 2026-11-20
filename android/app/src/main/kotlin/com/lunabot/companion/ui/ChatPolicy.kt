@@ -751,10 +751,10 @@ data class PredictiveChip(val title: String, val prompt: String, val icon: Strin
  */
 object PredictiveChips {
     val ALL: List<PredictiveChip> = listOf(
-        PredictiveChip("查看变更", "展示最新的 git diff", "diff"),
-        PredictiveChip("运行测试", "运行所有自动化测试", "tests"),
-        PredictiveChip("解释步骤", "详细解释所做的更改", "explain"),
-        PredictiveChip("下一步？", "我们下一步该做什么？", "next"),
+        PredictiveChip("继续执行", "继续下一步", "next"),
+        PredictiveChip("总结要点", "帮我简短总结一下刚才的结果", "document"),
+        PredictiveChip("展开说明", "再详细解释一下细节和原因", "explain"),
+        PredictiveChip("下一步建议", "接下来有什么建议？", "list"),
     )
 }
 

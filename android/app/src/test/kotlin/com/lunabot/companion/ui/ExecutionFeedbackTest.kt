@@ -234,6 +234,9 @@ class ActivityReceiptTest {
             readableActivityName("error: Claude had a temporary server problem"),
         )
         assertEquals("read_file", readableActivityName("read_file"))
+        assertEquals("操作手机界面", readableActivityName("mcp__device__PHONE_UI_RUN"))
+        assertEquals("操作手机界面 ×2", readableActivityName("mcp__device__PHONE_UI_RUN ×2"))
+        assertEquals("读取手机屏幕", readableActivityName("mcp__device__PHONE_UI_SNAPSHOT"))
     }
 }
 

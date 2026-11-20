@@ -1,6 +1,7 @@
 package com.lunabot.companion.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -83,23 +84,24 @@ internal fun RunReceiptPill(
     ) {
         Row(
             modifier = Modifier
-                .background(minisGrouped, RoundedCornerShape(18.dp))
-                .padding(horizontal = 10.dp, vertical = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                .background(minisInk.copy(alpha = 0.03f), RoundedCornerShape(50))
+                .border(0.5.dp, minisSeparator.copy(alpha = 0.55f), RoundedCornerShape(50))
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (running) {
-                CircularProgressIndicator(modifier = Modifier.size(13.dp), strokeWidth = 1.5.dp)
+                CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
             } else {
                 Icon(
                     imageVector = Icons.Filled.Check,
                     contentDescription = null,
-                    tint = minisSecondary,
-                    modifier = Modifier.size(14.dp),
+                    tint = minisSecondary.copy(alpha = 0.78f),
+                    modifier = Modifier.size(13.dp),
                 )
             }
-            Text(summary, fontSize = 13.sp, fontWeight = FontWeight.Medium, color = minisInk)
-            Text(if (expanded) "收起" else "展开", fontSize = 12.sp, color = minisSecondary)
+            Text(summary, fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+            Text(if (expanded) "收起" else "展开", fontSize = 11.5.sp, color = minisSecondary)
         }
     }
 }

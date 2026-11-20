@@ -1,10 +1,18 @@
 package com.lunabot.companion.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -94,23 +102,26 @@ private fun attentionRank(entry: AttentionEntry): Int = when {
 /** Selection only: the row jumps; menus and management stay in the sheet. */
 @Composable
 internal fun AttentionRow(entry: AttentionEntry, onOpen: () -> Unit) {
+    val urgent = entry.task.activity == "waiting-on-you"
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(if (urgent) minisDanger else minisAccent, CircleShape),
+        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = entry.task.displayTitle,
-                fontSize = 15.sp,
+                fontSize = 14.5.sp,
                 fontWeight = if (entry.task.unread == true) FontWeight.SemiBold else FontWeight.Medium,
-                color = if (entry.task.activity == "waiting-on-you") {
-                    MaterialTheme.colorScheme.error
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = if (urgent) MaterialTheme.colorScheme.error else minisInk,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -122,5 +133,11 @@ internal fun AttentionRow(entry: AttentionEntry, onOpen: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = minisTertiary,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }

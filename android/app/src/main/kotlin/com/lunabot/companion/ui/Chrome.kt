@@ -136,15 +136,17 @@ internal fun Modifier.progressiveHazeBand(
     }
     val edgeScrim = if (fromTop) {
         Brush.verticalGradient(
-            0f to canvas.copy(alpha = (if (dark) 0.76f else 0.80f) * alpha),
-            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
+            0f to canvas.copy(alpha = 1f * alpha),
+            0.70f to canvas.copy(alpha = (if (dark) 0.98f else 0.99f) * alpha),
+            0.88f to canvas.copy(alpha = (if (dark) 0.45f else 0.50f) * alpha),
             1f to Color.Transparent,
         )
     } else {
         Brush.verticalGradient(
             0f to Color.Transparent,
-            0.50f to canvas.copy(alpha = (if (dark) 0.34f else 0.38f) * alpha),
-            1f to canvas.copy(alpha = (if (dark) 0.78f else 0.82f) * alpha),
+            0.30f to canvas.copy(alpha = (if (dark) 0.48f else 0.54f) * alpha),
+            0.62f to canvas.copy(alpha = (if (dark) 0.92f else 0.95f) * alpha),
+            1f to canvas.copy(alpha = (if (dark) 0.98f else 1f) * alpha),
         )
     }
     return this

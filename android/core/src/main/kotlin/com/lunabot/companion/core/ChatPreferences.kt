@@ -28,10 +28,10 @@ data class QuickReply(
 ) {
     companion object {
         val DEFAULTS: List<QuickReply> = listOf(
-            QuickReply("default.diff", "查看差异", "显示最新的 git 差异", "diff"),
-            QuickReply("default.tests", "运行测试", "运行所有自动化测试", "tests"),
-            QuickReply("default.explain", "解释步骤", "详细解释所做的更改", "explain"),
-            QuickReply("default.next", "下一步？", "接下来我们该做什么？", "next"),
+            QuickReply("default.continue", "继续执行", "继续下一步", "next"),
+            QuickReply("default.summary", "总结要点", "帮我简短总结一下刚才的结果", "document"),
+            QuickReply("default.explain", "展开说明", "再详细解释一下细节和原因", "explain"),
+            QuickReply("default.next", "下一步建议", "接下来有什么建议？", "list"),
         )
 
         val ICON_CHOICES: List<String> = listOf(
@@ -209,19 +209,43 @@ fun transcriptRows(messages: List<Message>, detail: ActivityDetail): List<Transc
     val folds = mutableMapOf<String, TranscriptRow.AssistantTurn>()
     val hiddenIds = mutableSetOf<String>()
     if (detail == ActivityDetail.REDUCED) {
+        val pendingUnscoped = mutableListOf<Message>()
+        var unscopedStartAt: Double? = null
         for (message in messages) {
-            if (message.role == Message.Role.USER) lastUserAt = message.at
-            val turnId = message.turnId?.takeIf { it.isNotEmpty() } ?: continue
+            if (message.role == Message.Role.USER) {
+                lastUserAt = message.at
+                pendingUnscoped.clear()
+                unscopedStartAt = null
+                continue
+            }
             if (message.role != Message.Role.BOT) continue
-            if (message.turnTerminal == true) {
-                val items = steps.remove(turnId)?.takeIf { it.isNotEmpty() } ?: continue
-                folds[items.first().id] = TranscriptRow.AssistantTurn(
-                    turnId, items.toList(), (message.at - (startedAt[turnId] ?: items.first().at)).coerceAtLeast(0.0),
+            val turnId = message.turnId?.takeIf { it.isNotEmpty() }
+            if (message.turnTerminal == true && turnId != null) {
+                val collected = mutableListOf<Message>()
+                steps.remove(turnId)?.let { collected.addAll(it) }
+                if (pendingUnscoped.isNotEmpty()) {
+                    collected.addAll(pendingUnscoped)
+                    pendingUnscoped.clear()
+                }
+                if (collected.isEmpty()) continue
+                collected.sortBy { it.at }
+                val startAt = listOfNotNull(startedAt.remove(turnId), unscopedStartAt, collected.first().at).minOrNull()
+                    ?: collected.first().at
+                unscopedStartAt = null
+                folds[collected.first().id] = TranscriptRow.AssistantTurn(
+                    turnId,
+                    collected.toList(),
+                    (message.at - startAt).coerceAtLeast(0.0),
                 )
-                hiddenIds.addAll(items.map { it.id })
+                hiddenIds.addAll(collected.map { it.id })
             } else if (isFoldableStep(message)) {
-                if (turnId !in steps) startedAt[turnId] = lastUserAt ?: message.at
-                steps.getOrPut(turnId) { mutableListOf() }.add(message)
+                if (turnId != null) {
+                    if (turnId !in steps) startedAt[turnId] = lastUserAt ?: message.at
+                    steps.getOrPut(turnId) { mutableListOf() }.add(message)
+                } else {
+                    if (unscopedStartAt == null) unscopedStartAt = lastUserAt ?: message.at
+                    pendingUnscoped.add(message)
+                }
             }
         }
     }

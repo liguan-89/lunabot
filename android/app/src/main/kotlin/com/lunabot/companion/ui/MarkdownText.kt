@@ -108,7 +108,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
     val muted = secondaryTint
     when (block) {
         is MarkdownBlock.Paragraph ->
-            Text(inline(block.text, tail, muted), fontSize = 17.sp)
+            Text(inline(block.text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp)
 
         is MarkdownBlock.Heading ->
             // Three sizes, not six. A chat bubble is not a document, and an h4
@@ -116,9 +116,9 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
             Text(
                 text = inline(block.text, tail, muted),
                 fontSize = when {
-                    block.level <= 1 -> 21.sp
-                    block.level == 2 -> 19.sp
-                    else -> 17.sp
+                    block.level <= 1 -> 19.sp
+                    block.level == 2 -> 17.5.sp
+                    else -> 16.sp
                 },
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.padding(top = 2.dp),
@@ -139,7 +139,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                         .fillMaxHeight()
                         .background(muted.copy(alpha = 0.4f), RoundedCornerShape(1.5.dp)),
                 )
-                Text(inline(block.text, tail, muted), fontSize = 17.sp, color = muted)
+                Text(inline(block.text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp, color = muted)
             }
 
         is MarkdownBlock.Table -> {
@@ -257,11 +257,12 @@ private fun MarkerRow(symbol: String, indent: Int, text: String, tail: Boolean, 
     ) {
         Text(
             text = symbol,
-            fontSize = 17.sp,
+            fontSize = 15.5.sp,
+            lineHeight = 22.5.sp,
             color = muted,
             modifier = Modifier.widthIn(min = 16.dp),
         )
-        Text(inline(text, tail, muted), fontSize = 17.sp)
+        Text(inline(text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp)
     }
 }
 

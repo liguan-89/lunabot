@@ -27,6 +27,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -209,6 +210,7 @@ fun CompanionRoot(
 
     // The phone's answer unless someone chose otherwise in Settings → 外观.
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
+    val avatarStyle by environment.chatPreferences.avatarStyle.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         ThemeMode.SYSTEM -> systemDark
@@ -216,6 +218,7 @@ fun CompanionRoot(
         ThemeMode.DARK -> true
     }
 
+    CompositionLocalProvider(LocalBotAvatarStyle provides avatarStyle) {
     CompanionTheme(darkTheme = darkTheme) {
         // One place for system insets: the app draws edge to edge, and every
         // screen keeps clear of the gesture bar and keyboard. Conversation
@@ -375,6 +378,7 @@ fun CompanionRoot(
                 }
             }
         }
+    }
     }
 }
 

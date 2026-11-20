@@ -237,15 +237,15 @@ class PredictiveChipsTest {
     fun `four chips, sending the words the Swift sends`() {
         assertEquals(
             listOf(
-                "展示最新的 git diff",
-                "运行所有自动化测试",
-                "详细解释所做的更改",
-                "我们下一步该做什么？",
+                "继续下一步",
+                "帮我简短总结一下刚才的结果",
+                "再详细解释一下细节和原因",
+                "接下来有什么建议？",
             ),
             PredictiveChips.ALL.map { it.prompt },
         )
         assertEquals(
-            listOf("查看变更", "运行测试", "解释步骤", "下一步？"),
+            listOf("继续执行", "总结要点", "展开说明", "下一步建议"),
             PredictiveChips.ALL.map { it.title },
         )
     }

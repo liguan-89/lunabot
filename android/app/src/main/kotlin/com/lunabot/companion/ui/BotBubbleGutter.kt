@@ -19,10 +19,10 @@ import androidx.compose.ui.unit.dp
  */
 object BotBubbleGutter {
     /** Short answers: the bubble stops well short of the edge. */
-    val SHORT = 44.dp
+    val SHORT = 32.dp
 
     /** Long answers: the bubble uses the room, keeping only a hair of margin. */
-    val LONG = 24.dp
+    val LONG = 16.dp
 
     /** Past this many lines the answer is long enough that the room matters more. */
     const val LONG_ANSWER_LINES = 5

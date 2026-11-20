@@ -725,7 +725,7 @@ private fun TextBubble(
                                     bubbleFill,
                                     bubbleShape,
                                 )
-                                .border(0.5.dp, bubbleRim, bubbleShape)
+                                .then(if (mine) Modifier.border(0.5.dp, bubbleRim, bubbleShape) else Modifier)
                                 .padding(horizontal = 13.dp, vertical = 10.dp)
                         } else {
                             Modifier
@@ -840,11 +840,80 @@ private fun TextBubble(
  * head of a draft, which reads as one clipped reference, not as literal
  * ">" runes in front of your words.
  */
+private data class SystemPromptBubble(
+    val badge: String,
+    val preview: String,
+    val fullText: String,
+)
+
+private fun parseSystemPromptBubble(text: String): SystemPromptBubble? {
+    val trimmed = text.trimStart()
+    val badge = when {
+        trimmed.startsWith("[From Luna Bot") -> "系统事件报告"
+        trimmed.startsWith("[Scheduled routine") -> "定时巡检触发"
+        else -> return null
+    }
+    val closing = trimmed.indexOf(']')
+    val body = if (closing in 1 until trimmed.lastIndex) {
+        trimmed.substring(closing + 1).trim()
+    } else {
+        trimmed
+    }
+    val preview = body.lineSequence()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .joinToString(" ")
+        .ifEmpty { trimmed }
+    return SystemPromptBubble(badge = badge, preview = preview, fullText = trimmed)
+}
+
+@Composable
+private fun SystemPromptCollapse(prompt: SystemPromptBubble, color: Color) {
+    var expanded by remember(prompt.fullText) { mutableStateOf(false) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button) { expanded = !expanded },
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = prompt.badge,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = color.copy(alpha = 0.72f),
+            )
+            Text(
+                text = if (expanded) "收起" else "展开详情",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisAccent,
+            )
+        }
+        Text(
+            text = if (expanded) prompt.fullText else prompt.preview,
+            fontSize = 13.5.sp,
+            lineHeight = 20.sp,
+            color = color.copy(alpha = if (expanded) 0.86f else 0.74f),
+            maxLines = if (expanded) Int.MAX_VALUE else 2,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 @Composable
 private fun UserMessageText(text: String) {
     val color = BubbleColor.userBubbleText
+    parseSystemPromptBubble(text)?.let { prompt ->
+        SystemPromptCollapse(prompt = prompt, color = color)
+        return
+    }
     if (!text.startsWith(">")) {
-        Text(text = text, fontSize = 17.sp, lineHeight = 24.sp, color = color)
+        Text(text = text, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
         return
     }
     val lines = text.lines()
@@ -855,7 +924,7 @@ private fun UserMessageText(text: String) {
         .dropWhile { it.isBlank() }
         .joinToString("\n")
     if (quote.isEmpty()) {
-        Text(text = text, fontSize = 17.sp, lineHeight = 24.sp, color = color)
+        Text(text = text, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -871,14 +940,14 @@ private fun UserMessageText(text: String) {
             )
             Text(
                 text = quote,
-                fontSize = 14.sp,
+                fontSize = 13.5.sp,
                 color = color.copy(alpha = 0.72f),
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
         }
         if (body.isNotEmpty()) {
-            Text(text = body, fontSize = 17.sp, lineHeight = 24.sp, color = color)
+            Text(text = body, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
         }
     }
 }
@@ -1307,12 +1376,16 @@ private fun ActivityChip(
     // A receipt is a pill that wraps its sentence, not a full-width row. Stretched
     // edge to edge it read as a log line, and the state word sat marooned at the
     // screen edge; a capsule keeps the mark, the sentence and the state together.
-    val shape = RoundedCornerShape(12.dp)
-    // A wash of ink, not a white card: a white pill beside a white message bubble
-    // reads as another reply, and these are the transcript's smallest print.
+    val shape = RoundedCornerShape(50)
+    // Lightweight trace pill: softer fill + hairline border so tool steps never
+    // compete visually with the bot's reply bubbles.
     val wash = when (status) {
         ActivityStatus.ERROR -> tint.copy(alpha = 0.08f)
-        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.05f)
+        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.03f)
+    }
+    val borderTint = when (status) {
+        ActivityStatus.ERROR -> tint.copy(alpha = 0.24f)
+        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisSeparator.copy(alpha = 0.55f)
     }
     val haptics = rememberHaptics()
     val label = readableActivityName(tool.name)
@@ -1328,40 +1401,41 @@ private fun ActivityChip(
     }
     Row(
         modifier = Modifier
-            .padding(start = 4.dp)
+            .padding(start = 2.dp)
             .widthIn(max = 280.dp)
             .clip(shape)
             .background(wash)
+            .border(0.5.dp, borderTint, shape)
             .then(linked)
-            .padding(horizontal = 11.dp, vertical = 7.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = ActivityReceipt.announcement(label, status)
             },
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        // The marker belongs to the first line, not to the middle of a wrapped
-        // sentence.
-        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (status == ActivityStatus.ERROR) {
-            Icon(
+        when (status) {
+            ActivityStatus.ERROR -> Icon(
                 imageVector = Icons.Filled.Warning,
                 contentDescription = null,
                 tint = tint,
-                modifier = Modifier
-                    .padding(top = 2.dp)
-                    .size(13.dp),
+                modifier = Modifier.size(12.dp),
             )
-        } else {
-            Box(
+            ActivityStatus.SUCCESS -> Icon(
+                imageVector = Icons.Filled.Check,
+                contentDescription = null,
+                tint = secondaryTint.copy(alpha = 0.78f),
+                modifier = Modifier.size(12.dp),
+            )
+            ActivityStatus.RUNNING -> Box(
                 modifier = Modifier
-                    .padding(top = 6.dp)
                     .size(ACTIVITY_DOT)
                     .background(tint, CircleShape),
             )
         }
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = 12.sp,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             color = if (status == ActivityStatus.ERROR) tint else secondaryTint,
@@ -1369,11 +1443,10 @@ private fun ActivityChip(
         if (ActivityReceipt.showsLabel(status)) {
             Text(
                 text = ActivityReceipt.label(status),
-                fontSize = 12.sp,
+                fontSize = 11.5.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 color = tint,
-                modifier = Modifier.padding(top = 1.dp),
             )
         }
     }
@@ -1404,7 +1477,54 @@ internal fun readableActivityName(name: String): String {
             RosterPreviewFormat.humanizeErrorMessage(cleanActivityText(coded.groupValues[2]))
         }"
     }
-    return cleanActivityText(body)
+    val cleaned = cleanActivityText(body)
+    return friendlyToolLabel(cleaned)
+}
+
+private fun friendlyToolLabel(raw: String): String {
+    val repeatMatch = Regex("^(.*?)(\\s*×\\d+)$").matchEntire(raw)
+    val core = repeatMatch?.groupValues?.get(1)?.trim() ?: raw
+    val suffix = repeatMatch?.groupValues?.get(2).orEmpty()
+    val normalized = core.lowercase()
+    val phoneUiAction = when {
+        normalized.startsWith("mcp__device__phone_ui_") -> normalized.removePrefix("mcp__device__phone_ui_")
+        normalized.startsWith("device_phone_ui_") -> normalized.removePrefix("device_phone_ui_")
+        normalized.startsWith("phone_ui_") -> normalized.removePrefix("phone_ui_")
+        else -> null
+    }
+    val mapped = when {
+        phoneUiAction != null -> when {
+            "observe" in phoneUiAction || "screenshot" in phoneUiAction ||
+                "snapshot" in phoneUiAction || "read" in phoneUiAction -> "读取手机屏幕"
+            "tap" in phoneUiAction || "click" in phoneUiAction -> "点击手机屏幕"
+            "type" in phoneUiAction || "input" in phoneUiAction -> "输入手机文字"
+            "swipe" in phoneUiAction || "scroll" in phoneUiAction -> "滑动手机屏幕"
+            "back" in phoneUiAction || "home" in phoneUiAction -> "导航手机界面"
+            else -> "操作手机界面"
+        }
+        normalized == "agents_trigger" -> "触发协作助手"
+        normalized == "agents_retry_thread" -> "重试助手话题"
+        normalized == "agents_session_search" -> "检索历史会话"
+        normalized == "agents_send" || normalized == "agents_message" -> "向助手发消息"
+        normalized == "agents_list" || normalized == "agents_status" -> "查看助手状态"
+        normalized.startsWith("agents_") -> "协作助手操作"
+        normalized == "manage_routine" -> "管理定时巡检"
+        normalized == "create_routine" -> "创建定时巡检"
+        normalized == "delete_routine" -> "删除定时巡检"
+        normalized.startsWith("mcp__") -> {
+            val segments = core.removePrefix("mcp__").split("__").filter { it.isNotBlank() }
+            val tool = segments.lastOrNull().orEmpty()
+                .replace('_', ' ')
+                .trim()
+            if (tool.isEmpty()) core else tool.lowercase().replaceFirstChar { it.uppercase() }
+        }
+        normalized.startsWith("device_") -> {
+            val tool = core.removePrefix("device_").replace('_', ' ').trim()
+            if (tool.isEmpty()) core else tool.lowercase().replaceFirstChar { it.uppercase() }
+        }
+        else -> core
+    }
+    return mapped + suffix
 }
 
 private fun cleanActivityText(text: String): String = text
@@ -1607,6 +1727,7 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
         // that says "this is a machine's name, not prose". Only cards that name
         // a tool have one; a question card has nothing to put here.
         card.tool?.takeIf { it.isNotBlank() }?.let { tool ->
+            val label = friendlyToolLabel(tool)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1615,9 +1736,9 @@ private fun CardView(chat: Chat, message: Message, haptics: Haptics) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = tool,
-                    fontSize = 11.5.sp,
-                    fontFamily = FontFamily.Monospace,
+                    text = label,
+                    fontSize = 12.sp,
+                    fontFamily = if (label == tool) FontFamily.Monospace else FontFamily.Default,
                     color = minisInk.copy(alpha = 0.78f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -2299,7 +2420,6 @@ fun StreamingBubble(text: String?, reasoning: String?) {
     // with nothing but reasoning has no text yet, and a bubble around the
     // chamber would be a bubble around a loading state.
     val bubbleShape = joinedBubbleShape(mine = false, startsRun = true, endsRun = true)
-    val bubbleRim = minisBubbleRim
     Entrance {
         Column(
             modifier = Modifier
@@ -2324,7 +2444,6 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                     modifier = Modifier
                         .widthIn(max = 640.dp)
                         .background(BubbleColor.botBubble, bubbleShape)
-                        .border(0.5.dp, bubbleRim, bubbleShape)
                         .padding(horizontal = 13.dp, vertical = 10.dp),
                 ) {
                     MarkdownText(source = revealed(text), caret = true)
@@ -2414,7 +2533,7 @@ private fun botBubbleGutter(text: String?, columnWidth: Dp): Dp {
         // direction — the cost is a few dp of margin, not a clipped line.
         measurer.measure(
             text = AnnotatedString(text),
-            style = TextStyle(fontSize = 17.sp, lineHeight = 24.sp),
+            style = TextStyle(fontSize = 15.5.sp, lineHeight = 22.5.sp),
             maxLines = BotBubbleGutter.LONG_ANSWER_LINES + 1,
             constraints = Constraints(maxWidth = widestPx),
         ).lineCount
