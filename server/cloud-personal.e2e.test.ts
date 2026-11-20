@@ -118,7 +118,7 @@ async function shutdown() { if (child) await waitForExit(child, { signal: "SIGTE
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-personal-"));
-  dataDir = join(home, ".openmausbot");
+  dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   mkdirSync(project(), { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");

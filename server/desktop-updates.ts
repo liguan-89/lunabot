@@ -224,8 +224,6 @@ export function createLocalVmUpdater(deps: LocalVmUpdaterDeps) {
   };
 }
 
-export type LocalVmUpdater = ReturnType<typeof createLocalVmUpdater>;
-
 /** Finds the desktops a previous run left, so Auto turns can use them and idle ones stop on time. */
 export async function recoverLocalVms(input: {
   mode: "shared" | "per-bot" | "pool";

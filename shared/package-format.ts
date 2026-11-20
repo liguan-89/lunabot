@@ -477,7 +477,6 @@ export type PackagePlaybook = NonNullable<PackageDefinition["playbooks"]>[number
 export type PackageSkill = NonNullable<PackageDefinition["skills"]>["entries"][number];
 export type PackagePreset = NonNullable<PackageDefinition["presets"]>[number];
 export type PackageConnection = NonNullable<PackageDefinition["connections"]>[number];
-export type PackageAvatar = NonNullable<PackageAgent["appearance"]["avatar"]>;
 export type PackageRoutineSchedule = PackageRoutine["schedule"];
 
 

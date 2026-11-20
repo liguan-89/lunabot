@@ -110,7 +110,7 @@ async function control(method, urlPath, body, { timeoutMs = 4_000 } = {}) {
   const options = {
     method,
     signal: AbortSignal.timeout(timeoutMs),
-    headers: { "x-openmausbot-control-token": controlToken },
+    headers: { "x-lunabot-control-token": controlToken },
   };
   if (body !== undefined) {
     options.body = JSON.stringify(body);
@@ -245,7 +245,7 @@ async function start({ resourcesPath, harnessPort, mutationToken, hostedUrl = nu
   child.once("spawn", () => {
     // Never expose this capability in argv, environment, logs or the renderer.
     try {
-      child.postMessage({ type: "openmausbot:companion-mutation-token", token: mutationToken, controlToken });
+      child.postMessage({ type: "lunabot:companion-mutation-token", token: mutationToken, controlToken });
       const e2e = e2eHooks.initialMessage();
       if (e2e) child.postMessage(e2e);
     } catch {
@@ -254,7 +254,7 @@ async function start({ resourcesPath, harnessPort, mutationToken, hostedUrl = nu
     }
   });
   child.on("message", (message) => {
-    if (message?.type === "openmausbot:companion-e2e-token-rejected") e2eHooks.tokenRejected();
+    if (message?.type === "lunabot:companion-e2e-token-rejected") e2eHooks.tokenRejected();
   });
   child.stdout?.on("data", (d) => log?.(`[companion] ${String(d).trimEnd()}`));
   child.stderr?.on("data", (d) => log?.(`[companion err] ${String(d).trimEnd()}`));
@@ -458,5 +458,13 @@ export async function companionBrowserControlAccess(deviceId, allowed) {
   if (!proc) return companionState();
   if (!/^[\w-]{1,64}$/.test(String(deviceId ?? ""))) return companionState();
   await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/browser-control`);
+  return companionState();
+}
+
+/** The person's own screen: its own grant, never inherited from either of the other two. */
+export async function companionDesktopScreenAccess(deviceId, allowed) {
+  if (!proc) return companionState();
+  if (!/^[\w-]{1,64}$/.test(String(deviceId ?? ""))) return companionState();
+  await control(allowed ? "POST" : "DELETE", `/devices/${deviceId}/desktop-screen`).catch(() => {});
   return companionState();
 }

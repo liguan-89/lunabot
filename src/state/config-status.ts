@@ -34,7 +34,11 @@ export interface ConfigStatus {
   anthropic?: SavedKey & { everyClaudeBot?: boolean };
   openai?: SavedKey;
   openrouter?: SavedKey;
-  openaiCompat?: SavedKey & { url?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[] };
+  openaiCompat?: SavedKey & { url?: string; protocol?: "openai" | "responses" | "anthropic"; models?: string[]; /** The id pi's models.json knows this provider by. */ providerId?: string };
+  /** The model new bots start with; the AI page marks it in the model list. */
+  defaultModelSelection?: { instanceId: string; model: string } | null;
+  /** Model ids hidden from the AI page and every model picker; providers still serve them. */
+  hiddenModels?: string[];
   /** what this server is entitled to; Settings shows only what works here.
    * `license` reaches admins only, and only while the key is inside its
    * warning window or grace period. */

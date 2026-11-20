@@ -5,6 +5,7 @@ import { useStore, type InstanceInfo } from "@/state/store";
 import { dismissAppCopySwitch, useAppCopySwitch } from "@/state/engine-install";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import { RefreshEngines } from "./EngineLibrary";
 import { keyForInstance } from "./keys/key-catalog";
 import { openKeySettings } from "./keys/key-focus";
@@ -15,7 +16,7 @@ export function AppCopyNotice({ instance, className }: { instance: InstanceInfo;
   return (
     <div data-app-copy-notice className={cn("flex items-start gap-2", className)}>
       <p role="status" className="min-w-0 flex-1 text-[12px] leading-relaxed text-ink-secondary">
-        {t("engineSetup.usingAppCopy", { name: instance.displayName })}
+        {t("engineSetup.usingAppCopy", { name: engineDisplayName(instance) })}
       </p>
       <button
         type="button"
@@ -40,9 +41,9 @@ export function AppCopySetup({ instance, className, unframed }: { instance: Inst
           <Check size={14} />
         </span>
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-ink">{t("engineSetup.appCopy.title", { name: instance.displayName })}</div>
+          <div className="text-[13px] font-semibold text-ink">{t("engineSetup.appCopy.title", { name: engineDisplayName(instance) })}</div>
           <p className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">
-            {t(remote ? "engineSetup.appCopy.remote" : "engineSetup.appCopy.description", { name: instance.displayName })}
+            {t(remote ? "engineSetup.appCopy.remote" : "engineSetup.appCopy.description", { name: engineDisplayName(instance) })}
           </p>
         </div>
       </div>

@@ -5,7 +5,7 @@ import { createHash, randomBytes } from "node:crypto";
 import type { Docker, DockerInfo } from "./docker.ts";
 import { errorText } from "./log.ts";
 import type { HostCheck, HostFacts, HostHealth } from "./protocol.ts";
-import { APPARMOR_PROFILE, HOME_CAPABILITIES, LABELS, SECCOMP_FILE } from "./settings.ts";
+import { APPARMOR_PROFILE, HOME_CAPABILITIES, LABELS } from "./settings.ts";
 
 const MIN_DISK_GB = 20;
 const MIN_MEMORY_GB = 4;
@@ -172,4 +172,3 @@ export async function probeBox(docker: Docker, image: string, seccomp: string): 
   }
 }
 
-export const PROFILE_FILES = { seccomp: SECCOMP_FILE, apparmor: `${APPARMOR_PROFILE}.apparmor` } as const;

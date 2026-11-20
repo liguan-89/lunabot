@@ -132,4 +132,3 @@ export function createTeamPresenceHost<Stream extends PresenceStream>(deps: Team
   };
 }
 
-export type TeamPresenceHost = ReturnType<typeof createTeamPresenceHost>;

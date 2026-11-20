@@ -167,7 +167,7 @@ export function MessageActions({
     <div
       ref={rootRef}
       className={cn(
-        "relative flex items-center gap-0.5 self-end pb-0.5 transition-opacity duration-150",
+        "relative flex items-center gap-0.5 self-end rounded-full border border-ink/[0.08] bg-card/85 px-1 py-0.5 shadow-sm backdrop-blur-md transition-opacity duration-150",
         mirrored && "flex-row-reverse",
         shown ? "opacity-100" : "pointer-events-none opacity-0",
         className,

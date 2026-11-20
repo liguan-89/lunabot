@@ -56,4 +56,3 @@ export function createAskRouting(deps: AskRoutingDeps) {
   return { team: deps.team, askedPerson, asks, notificationReaches };
 }
 
-export type AskRouting = ReturnType<typeof createAskRouting>;

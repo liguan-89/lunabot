@@ -5,8 +5,6 @@ import type { BotVisibility } from "./wire.ts";
 export const BOT_ACCESS_LEVELS = ["none", "view", "chat", "edit"] as const;
 export type BotAccessLevel = (typeof BOT_ACCESS_LEVELS)[number];
 export type GrantedLevel = Exclude<BotAccessLevel, "none">;
-export const GRANTED_LEVELS: readonly GrantedLevel[] = ["view", "chat", "edit"];
-
 /** A Team Cloud bot's sharing. `everyone` is what every member of the team may do ("none": only the people added);
  * `people` gives each added person a level by lowercased address. An `@domain` entry, which only an older list carries,
  * covers that domain's addresses. */
@@ -28,8 +26,6 @@ export interface BotAccessFields {
 export const levelRank = (level: BotAccessLevel | undefined): number => BOT_ACCESS_LEVELS.indexOf(level ?? "none");
 export const atLeast = (level: BotAccessLevel | undefined, wanted: BotAccessLevel): boolean => levelRank(level) >= levelRank(wanted);
 export const higherLevel = (a: BotAccessLevel, b: BotAccessLevel): BotAccessLevel => (atLeast(a, b) ? a : b);
-export const isAccessLevel = (value: unknown): value is BotAccessLevel => (BOT_ACCESS_LEVELS as readonly unknown[]).includes(value);
-
 /** A bot nobody set sharing for: what its older visibility setting meant. Everyone could chat with an everyone bot, the
  * listed people with a listed one, and only admins (who edit every bot) with an admins-only one. */
 export function accessFromVisibility(visibility: BotVisibility | undefined): BotAccess {

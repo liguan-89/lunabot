@@ -1,4 +1,5 @@
 import { createContext, memo, use, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch } from "react";
+import { engineDisplayName } from "@/lib/engine-name";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { ThreadLinkContext } from "@/components/ThreadLinkMenu";
@@ -138,7 +139,7 @@ import { dockedTodoAnchor, pendingTodoItems } from "./ComposerTodoTray";
 import { PeerLabel } from "./PeerLabel";
 import { TranscriptAnnouncer } from "./TranscriptAnnouncer";
 import { JumpToLatestButton } from "./JumpToLatestButton";
-import { isBotTextRow, joinedCorners, needsStamp, quietRow, simpleRowLayout, SIMPLE_BOT_BUBBLE, SIMPLE_BUBBLE_MAX, SIMPLE_BUBBLE_TEXT, SIMPLE_STACKED, SIMPLE_USER_BUBBLE, type BubbleJoin } from "./chat-bubble";
+import { botReplySurface, isBotTextRow, joinedCorners, needsStamp, quietRow, simpleRowLayout, SIMPLE_BUBBLE_MAX, SIMPLE_BUBBLE_TEXT, SIMPLE_STACKED, SIMPLE_USER_BUBBLE, type BubbleJoin } from "./chat-bubble";
 
 const USER_COLLAPSE_CHARS = 600;
 const USER_COLLAPSE_LINES = 8;
@@ -290,7 +291,7 @@ export function FailedTurnRow({ tool, engine, onRetry, botId, threadId, messageA
   return (
     <ErrorRow
       message={notice ?? cause}
-      headline={signedOut ? t("chat.error.signedOut", { name: signedOut.displayName }) : notice ?? plainErrorLine(cause)}
+      headline={signedOut ? t("chat.error.signedOut", { name: engineDisplayName(signedOut) }) : notice ?? plainErrorLine(cause)}
       onRetry={onRetry}
       action={resume}
       setupInstance={tool.setup ? engine : undefined}
@@ -459,7 +460,7 @@ const Bubble = memo(function Bubble({
           data-chat-bubble={simple ? "simple" : ""}
           className={cn(
             tabled ? "w-full" : "w-fit",
-            simple ? !tabled && SIMPLE_BUBBLE_MAX : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl text-[15px] leading-relaxed",
+            simple ? !tabled && (structuredSimple ? formattedReplyWidth(text) : SIMPLE_BUBBLE_MAX) : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl text-[15px] leading-relaxed",
             emerging && "turn-answer",
             user && webhookView
               ? cn("overflow-hidden border border-accent/25 bg-card text-ink", simple ? cn("rounded-[18px]", SIMPLE_BUBBLE_TEXT) : "shadow-[0_10px_30px_rgba(0,0,0,0.18)]")
@@ -469,9 +470,9 @@ const Bubble = memo(function Bubble({
                   ? cn("whitespace-pre-wrap [overflow-wrap:anywhere] text-ink", simple ? SIMPLE_USER_BUBBLE : "bg-bubble-user px-4 py-2.5", ownBubbleStyle && "user-bubble-colored", simple && ownBubbleStyle && "antialiased")
                   : formatted
                     ? cn(formattedReplyWidth(text), "px-1 text-ink")
-                    : structuredSimple
-                      ? cn(formattedReplyWidth(text), "bg-transparent px-1 py-0.5 text-ink")
-                      : simple ? SIMPLE_BOT_BUBBLE : "bg-card px-4 py-2.5 text-ink",
+                    // The same rule the live bubble calls, so a long structured
+                    // reply does not change shape when its stream settles.
+                    : simple ? botReplySurface(true, text) : "bg-card px-4 py-2.5 text-ink",
             simple && join && !split && !attachmentsOnly && !tabled && !structuredSimple && joinedCorners(user ? "end" : "start", join),
           )}
           style={user && !webhookView && !attachmentsOnly ? ownBubbleStyle : undefined}
@@ -1217,8 +1218,9 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
           )}
           {/* The reply growing above the mascot: the words arrive long before
               the turn settles and the message is persisted, and a person
-              waiting on a slow engine needs to see the model is writing. */}
-          {live.reply ? <LiveReplyBubble text={live.reply} /> : null}
+              waiting on a slow engine needs to see the model is writing. The
+              surface is the settled row's own, so the handover moves nothing. */}
+          {live.reply ? <LiveReplyBubble text={live.reply} simple={!advanced} /> : null}
           <TurnPresence
             avatar={
               <BotAvatar

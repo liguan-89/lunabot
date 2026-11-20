@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  A shield with a tick inside: the mark an approval card wears while it waits.
+  Drawn here in the same monoline hand as `ic_search_line`, because the core
+  Material set has no shield and the extended artifact is thousands of vectors
+  for one glyph. The tick is the card's own promise: what it asks for is a read
+  you can see, not a lock you have to trust.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M12,3.2L18.8,6v5.1c0,4.4 -2.8,7.9 -6.8,9.7c-4,-1.8 -6.8,-5.3 -6.8,-9.7V6L12,3.2z" />
+    <path
+        android:fillColor="@android:color/transparent"
+        android:strokeColor="@android:color/white"
+        android:strokeWidth="1.7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M9.2,12.1L11,13.9l3.9,-4" />
+</vector>

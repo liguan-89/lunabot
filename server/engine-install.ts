@@ -6,7 +6,7 @@ import { stripVTControlCharacters } from "node:util";
 import type { EngineInstall, StandaloneRelease } from "./contracts.ts";
 import { DATA_DIR, stripWorkspaceCredentialEnv } from "./config.ts";
 import { npmEnginesPrefix } from "./engine-roots.ts";
-import { registerStandaloneBinDirs, standaloneAssetFor, standaloneRunEnv } from "./engine-standalone.ts";
+import { registerStandaloneBinDirs, standaloneAssetFor } from "./engine-standalone.ts";
 import { STANDALONE_RELEASES } from "./standalone-releases.ts";
 import { augmentedPath, findCliCandidates, registerPathDir, resetPathCache } from "./env-path.ts";
 import { botBox } from "./bot-box/box.ts";
@@ -67,12 +67,6 @@ export function standaloneLookupPath(baseDir = DATA_DIR, path: string = augmente
 
 /** A spawn environment for an engine with a standalone release: the npm folder last on its PATH, and the release's run
  * settings when its CLI is the app's own copy. */
-export function applyStandaloneSpawnEnv(release: StandaloneRelease, env: Record<string, string | undefined>, cli: string, baseDir = DATA_DIR): void {
-  const path = env.PATH ?? augmentedPath();
-  env.PATH = standaloneEnginePath(path, baseDir);
-  Object.assign(env, standaloneRunEnv(release, cli, baseDir, standaloneLookupPath(baseDir, path)));
-}
-
 export function npmPackageOf(install: EngineInstall | undefined): string | null {
   if (install?.npmPackage) return install.npmPackage;
   const line = install?.command?.linux ?? install?.command?.darwin ?? install?.command?.win32;

@@ -695,11 +695,6 @@ export function splitTranscriptAttachments(
   return { display: trimDisplay ? display.trim() : display, images, files };
 }
 
-export function splitAttachedImages(text: string): { display: string; images: string[] } {
-  const { display, images } = splitTranscriptAttachments(text);
-  return { display, images: images.map((image) => image.path) };
-}
-
 /** A file uploaded for a message and taken off it before sending: the server keeps it only while a message uses it. */
 export function discardUnsentUpload(attachment: Attachment): void {
   if ((attachment.kind !== "image" && attachment.kind !== "file") || !attachment.path) return;

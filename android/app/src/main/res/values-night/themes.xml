@@ -5,7 +5,7 @@
       frame of a dark-mode launch flashes white before the composition draws;
       the colour is `MinisTokens.CanvasDark`, the page the app actually opens on.
     -->
-    <style name="Theme.OpenMausMobile" parent="android:Theme.Material.NoActionBar">
+    <style name="Theme.LunaBotMobile" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">#FF0B0B0C</item>
     </style>
 </resources>

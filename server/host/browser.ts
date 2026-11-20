@@ -472,7 +472,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
   deps.engineMemory?.useBrowsers(engineBrowsers);
   /** A deleted bot's or profile's browser on the new engine, whatever the flag says now. */
   function eraseChromeBrowser(request: { type: string; botId?: string; partitionId?: string }): Promise<boolean> {
-    if (request.type === "openmausbot:browser-bot-deleted" && request.botId) return chromeEngine.erase({ kind: "bot", id: request.botId, partitionId: "" });
+    if (request.type === "lunabot:browser-bot-deleted" && request.botId) return chromeEngine.erase({ kind: "bot", id: request.botId, partitionId: "" });
     if (request.partitionId) return chromeEngine.erase({ kind: "profile", id: request.partitionId, partitionId: request.partitionId });
     return Promise.resolve(true);
   }
@@ -496,7 +496,7 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     return results.every(Boolean);
   }
   async function eraseOneBrowser(request: BrowserCleanupWireRequest): Promise<boolean> {
-    const session = request.type === "openmausbot:browser-bot-deleted" && request.botId ? browserSessionId(request.botId, "")
+    const session = request.type === "lunabot:browser-bot-deleted" && request.botId ? browserSessionId(request.botId, "")
       : request.partitionId ? browserSessionId("", request.partitionId) : null;
     const engine = cleanupEngine();
     const erased = async (name: string) => {
@@ -518,9 +518,9 @@ export function createBrowserHost(deps: BrowserHostDeps) {
     const suffix = audienceBrowserSuffix(audience);
     if (!suffix || !audiences.variants().includes(suffix)) return true;
     const requests: BrowserCleanupWireRequest[] = [
-      ...store.bots.map((bot) => ({ type: "openmausbot:browser-bot-deleted" as const, requestId: "team-member-left", botId: bot.id + suffix })),
+      ...store.bots.map((bot) => ({ type: "lunabot:browser-bot-deleted" as const, requestId: "team-member-left", botId: bot.id + suffix })),
       ...(cfg.browserProfiles ?? []).filter((profile) => !usesMyChrome(profile.id)).map((profile) => ({
-        type: "openmausbot:browser-profile-deleted" as const, requestId: "team-member-left", partitionId: browserProfilePartitionId(profile) + suffix })),
+        type: "lunabot:browser-profile-deleted" as const, requestId: "team-member-left", partitionId: browserProfilePartitionId(profile) + suffix })),
     ];
     return (await Promise.all(requests.map((request) => eraseOneBrowser(request)))).every(Boolean);
   }

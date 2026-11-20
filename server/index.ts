@@ -28,6 +28,7 @@ import { queuedBehindPersonText, turnWaitedOnPerson, UnansweredApprovals } from 
 import { createPersonWaits } from "./host/person-waits.ts"; import { askToolName, createAskCards } from "./host/ask-cards.ts"; import { createQuestionRouting } from "./host/question-routing.ts"; import { workThreadFor } from "./host/work-thread.ts"; import { anyCardLive, closedByStop, expireOrphanedHolds, resumableCards as cardsWaitedOn } from "./host/resumable-cards.ts"; import { createMcpChat } from "./host/mcp-chat.ts"; import { isCardOwnerLive, isMcpSignInCard } from "./host/mcp-sign-in-cards.ts";
 import { assertRequestTarget, guardedRequestPath, requestConflict, requestNeedsInput } from "./guarded-requests.ts";
 import { botAvatarUrlFromStoredPath } from "../shared/bot-avatar.ts";
+import { withoutHiddenModels } from "../shared/model-management.ts";
 import { BOT_PROFILE_LIMITS } from "../shared/bot-profile.ts";
 import { CLOUD_COMPUTER_BUSY_ERROR } from "../shared/computer-contention.ts";
 import { failedTurnTool } from "../shared/failed-turn.ts";
@@ -190,7 +191,7 @@ import { ComputerControl } from "./computer-control.ts";
 import { resetPathCache } from "./env-path.ts";
 import { registerEnginesBinDir } from "./engine-install.ts"; import { engineUpdatesFor } from "./engine-updates-host.ts"; import { workAttribution } from "./engine-limits.ts";
 import { PI_INSTANCE } from "./instance-fleets.ts";
-import { piCustomModelId } from "./drivers/pi-custom-provider.ts";
+import { PI_CUSTOM_PROVIDER_ID, piCustomModelId } from "./drivers/pi-custom-provider.ts";
 import { appendUsage, flushUsageLedger, queuedTurnTrigger, usageTriggerFor, type UsageRow, type UsageTrigger } from "./usage-ledger.ts"; import { createUsageAttribution } from "./usage-attribution.ts";
 import { createTraceRecorder } from "./usage-trace/recorder.ts";
 import { GroupUsageReader } from "./group-thread-usage.ts";
@@ -546,7 +547,7 @@ import {
 } from "./request-auth.ts";
 import { cookieMaxAgeSeconds, formatPairingCode, pairingRequest, SessionRegistry, type SessionRecord } from "./sessions.ts";
 import { ThreadStarters } from "./thread-starters.ts";
-import { startPhoneRelay } from "./phone-relay.ts";
+import { startPhoneRelay, serverEndpoints } from "./phone-relay.ts";
 import {
   appendAdminAction,
   BOT_AUDIT_FIELDS,
@@ -611,6 +612,7 @@ import { createTeamRoutes } from "./routes/teams.ts";
 import { createThreadModelRoutes } from "./routes/thread-models.ts";
 import { createUndoRoutes } from "./routes/undo.ts";
 import { createDesktopViewer, desktopViewerUrl } from "./routes/desktop-viewer.ts";
+import { createDeviceRoutes } from "./routes/device-routes.ts";
 import { createUpgrades } from "./routes/upgrades.ts";
 import { createBrowserViewerRoutes } from "./routes/browser-viewers.ts";
 import { localDesktopTarget, localVmViewerStatus } from "./desktop-viewer-targets.ts";
@@ -624,6 +626,7 @@ import { createMcpServerRoutes } from "./routes/mcp-servers.ts";
 import { teamAdminSummary } from "./cloud-team-admin.ts"; import { createConnectionHealthHost } from "./host/connection-health-host.ts";
 import { createSetupImportRoutes } from "./routes/setup-import.ts";
 import { createComputerRoutes } from "./routes/computers.ts";
+import { createDesktopScreenRoutes } from "./routes/desktop-screen.ts"; import { thisComputerCapture } from "./desktop-screen.ts";
 import { createStatusRoutes } from "./routes/status.ts";
 import { createLiveRoutes } from "./routes/live.ts";
 import { liveRelayResolver, LiveRelays } from "./live-relay.ts";
@@ -679,7 +682,7 @@ if (existsSync(join(DATA_DIR, ".backups"))) {
 } dataFormatAtStart("stamp", DATA_DIR, serverVersion());
 const workspaceMaintenance = new WorkspaceBackupMaintenance(), moveFreeze = createMoveFreeze({ dataDir: DATA_DIR, exportOnly: (process.env.OMB_CLOUD_ROLE === "home" || process.env.OMB_CLOUD_ROLE === "team") && process.env.OMB_CLOUD_EXPORT_ONLY === "1" });
 let webAuthnCredentials = loadWebAuthnCredentials(DATA_DIR);
-// Only after ensureDirs(), whose one-time legacy data-dir rename must not find ~/.openmausbot already there.
+// Only after ensureDirs(), whose one-time legacy data-dir rename must not find ~/.lunabot already there.
 const ENVIRONMENT_ID = loadEnvironmentId(DATA_DIR);
 const signInAllowList = cacheUntilConfigChanges((config) => ({
   admins: parseAllowList(config.signIn?.admins?.join(",")),
@@ -1235,8 +1238,8 @@ function adminActivityRecording(): boolean {
 
 function adminActorFor(auth: RequestAuth, req: IncomingMessage): AdminActor {
   if (auth.kind === "loopback" && auth.trust !== "service" &&
-    (req.headers["x-dexbot-cli"] === "1" || req.headers["x-openmausbot-cli"] === "1"
-      || req.headers["x-dexbot-cli-owner"] !== undefined || req.headers["x-openmausbot-cli-owner"] !== undefined)) return { kind: "cli" };
+    (req.headers["x-dexbot-cli"] === "1" || req.headers["x-lunabot-cli"] === "1"
+      || req.headers["x-dexbot-cli-owner"] !== undefined || req.headers["x-lunabot-cli-owner"] !== undefined)) return { kind: "cli" };
   return decisionActorFor(auth);
 }
 
@@ -1405,11 +1408,11 @@ type UtilityParentPort = {
 // Only Electron's utility process supplies parentPort, private to the desktop main process; plain Node leaves it absent.
 const utilityParentPort = (process as NodeJS.Process & { parentPort?: UtilityParentPort }).parentPort;
 type DesktopPrivateMessage = BrowserCleanupWireRequest | import("./login-handoff.ts").LoginHandoffResult | {
-  type: "openmausbot:browser-control";
+  type: "lunabot:browser-control";
   botId: string;
   held: true;
 } | {
-  type: "openmausbot:phone-secret-save";
+  type: "lunabot:phone-secret-save";
   requestId: string;
   target: string;
   value: string;
@@ -1443,7 +1446,7 @@ function postDesktopPrivateMessage(message: DesktopPrivateMessage): boolean {
 function applyDesktopMutationTokenMessage(raw: unknown): boolean {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return false;
   const message = raw as Record<string, unknown>;
-  if (message.type !== "openmausbot:desktop-mutation-token") return false;
+  if (message.type !== "lunabot:desktop-mutation-token") return false;
   if (typeof message.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(message.token)) {
     throw new Error("invalid desktop mutation capability");
   }
@@ -1461,7 +1464,7 @@ const browserCleanup: BrowserCleanupCoordinator = new BrowserCleanupCoordinator(
       console.warn("browser cleanup: could not clear saved session state", error);
       return false;
     }).then((ok) => {
-      browserCleanup.receive({ type: "openmausbot:browser-lifecycle-result", requestId: request.requestId, ok });
+      browserCleanup.receive({ type: "lunabot:browser-lifecycle-result", requestId: request.requestId, ok });
     }).catch((error) => {
       console.warn("browser cleanup: could not acknowledge cleanup", error);
     });
@@ -1529,41 +1532,41 @@ const heldKeys = null as unknown as RetiredHeldKeys;
 const cloudCreditStarted = Promise.resolve();
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; identity?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop-identity") return;
+  if (message?.type !== "lunabot:managed-desktop-identity") return;
   const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
   void companyRuntimeStarted.then(() => managedDesktop.migrateIdentity(message.identity)).then(() => true, () => false).then(ok => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
+    utilityParentPort.postMessage({ type: "lunabot:managed-desktop-result", requestId, ok });
   });
 });
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; policy?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop-policy") return;
+  if (message?.type !== "lunabot:managed-desktop-policy") return;
   const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
   let ok = true;
   try { managedPolicy.apply(message.policy); } catch { ok = false; }
-  utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
+  utilityParentPort.postMessage({ type: "lunabot:managed-desktop-result", requestId, ok });
 });
 // A relay that arrives before the library exists waits for it; the acknowledgement does not.
 let orgLibrary: OrgLibrary | null = null;
 let pendingOrgLibraryRelay: { library: unknown } | null = null;
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; library?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-library") return;
+  if (message?.type !== "lunabot:managed-library") return;
   const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
   let ok = true;
   if (orgLibrary) ok = orgLibrary.applyRelay(message.library ?? null).ok;
   else pendingOrgLibraryRelay = { library: message.library ?? null };
-  utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok });
+  utilityParentPort.postMessage({ type: "lunabot:managed-desktop-result", requestId, ok });
 });
 // Deliberately no HTTP equivalent: only Electron sets the organization identity, endpoint and model capability.
 utilityParentPort?.on("message", event => {
   const message = event.data as { type?: unknown; requestId?: unknown; connection?: unknown } | undefined;
-  if (message?.type !== "openmausbot:managed-desktop") return;
+  if (message?.type !== "lunabot:managed-desktop") return;
   const requestId = typeof message.requestId === "string" && message.requestId.length <= 100 ? message.requestId : undefined;
   void companyRuntimeStarted.then(() => managedDesktop.apply(message.connection)).then(() => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok: true });
+    utilityParentPort.postMessage({ type: "lunabot:managed-desktop-result", requestId, ok: true });
   }, () => {
-    utilityParentPort.postMessage({ type: "openmausbot:managed-desktop-result", requestId, ok: false, error: "Company connection could not be applied. Reconnect from desktop Settings." });
+    utilityParentPort.postMessage({ type: "lunabot:managed-desktop-result", requestId, ok: false, error: "Company connection could not be applied. Reconnect from desktop Settings." });
   });
 });
 
@@ -2449,7 +2452,7 @@ const computerControl = new ComputerControl((key, snapshot) => {
   computerControlRevision.set(botId, (computerControlRevision.get(botId) ?? 0) + 1);
   // One-way, fail-closed mirror into Electron: never send release, since a loopback caller can influence the server record.
   if (snapshot.held && /^[A-Za-z0-9_-]{1,120}$/.test(botId)) {
-    postDesktopPrivateMessage({ type: "openmausbot:browser-control", botId, held: true });
+    postDesktopPrivateMessage({ type: "lunabot:browser-control", botId, held: true });
   }
   broadcast({ kind: "computer-control", botId, held: snapshot.held, helpReason: snapshot.helpReason, ...(snapshot.help ? { help: snapshot.help } : {}) });
   }
@@ -8539,7 +8542,7 @@ async function beginTurn(
             onRejected: surfaceLazyClaimRejection("this computer"),
             claim: async (call) => {
               await claimWithYourComputerConsent(() => liveApprovalMode(bot, threadId, commsDepth > 0) !== "full", () => askToUseYourComputer(approvalBus, bot, resourceOwner, call), () => bindTurnComputer(resourceOwner, "computer:host", true));
-              pinAutoSurface("local"); recordTurnPlace(bot.id, threadId, "local");
+              pinAutoSurface("local"); recordTurnPlace(bot.id, threadId, "local"); adoptClaimedCapture(thisComputerCapture);
             },
           });
           integrations.localComputer = gatedLocalComputer(cua, controlIntegration(bot.id, threadId, dispatchClaimId, "this computer"), savedSteps.journals(directRequestOwners.get(threadId)));
@@ -12111,7 +12114,9 @@ function configStatus() {
     billing: { currency: cfg.billing?.currency ?? "USD", prices: cfg.billing?.prices ?? {} },
     decisions: { retentionDays: decisionRetentionDays(cfg.decisions?.retentionDays) },
     safetyFloor: { enabled: safetyFloorOn() },
-    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "", protocol: cfg.openaiCompat?.protocol ?? "openai", models: cfg.openaiCompat?.models ?? (cfg.openaiCompat?.model ? [cfg.openaiCompat.model] : []) },
+    openaiCompat: { ...keyStatus(cfg.openaiCompat?.key), url: cfg.openaiCompat?.url ?? "", protocol: cfg.openaiCompat?.protocol ?? "openai", models: cfg.openaiCompat?.models ?? (cfg.openaiCompat?.model ? [cfg.openaiCompat.model] : []), providerId: PI_CUSTOM_PROVIDER_ID },
+    defaultModelSelection: cfg.defaultModelSelection ?? null,
+    hiddenModels: cfg.hiddenModels ?? [],
     composio: {
       ...(composio.connectionMode(cfg) === "self-hosted" ? keyHint(cfg.composio?.apiKey) : {}),
       configured: composio.configured(cfg), mode: composio.connectionMode(cfg),
@@ -12219,6 +12224,7 @@ function persistMcpServers(next: Record<string, unknown>): void {
 
 async function describeInstances() {
   const configs = providerConfigs();
+  const hiddenModels = new Set(cfg.hiddenModels ?? []);
   void retryComputerEngineMove();
   const read = testedAi.read(), engines = selectableInstances(await registry.describe({ known: true, reuse: { ms: ENGINE_LIST_REUSE_MS, changed: () => broadcast({ kind: "config", ...configStatus() }) } }));
   await refreshUnsetModelSelections(engines, read);
@@ -12226,7 +12232,7 @@ async function describeInstances() {
   return engines.map((instance) => {
     const entry = configs[instance.instanceId];
     const described = {
-      ...instance, ...testedAi.info(instance), ...engineUpdates.shown(instance.driverKind),
+      ...instance, models: withoutHiddenModels(instance.models, hiddenModels), ...testedAi.info(instance), ...engineUpdates.shown(instance.driverKind),
       ...instanceLook(entry),
       ...(entry?.access ? { access: entry.access } : {}), ...(entry?.driver === "openai-compat" && typeof (entry.config as { replyWaitMinutes?: unknown } | undefined)?.replyWaitMinutes === "number" ? { replyWaitMinutes: (entry.config as { replyWaitMinutes: number }).replyWaitMinutes } : {}), ...(heldKeys?.refusal(instance.instanceId) ? { snapshot: { state: "unavailable" as const, reason: TRIAL_KEY_HELD } } : {}),
     };
@@ -12791,6 +12797,7 @@ ROUTES.push(createComputerRoutes({
   computerPreviewBot, computerPreviewSurface, claimTeamComputerLifecycle, claimBotComputerLifecycle,
   claimBoatInventoryRequest, claimManagedBoatMutation, claimManagedVpsMutation, cloudComputerUsed: owner => cloudComputerPower.used(owner),
 }));
+ROUTES.push(createDesktopScreenRoutes({ store, computerControl, botComputerControlKey }));
 ROUTES.push(createStatusRoutes({
   store, cfg,
   staticDir: STATIC_DIR,
@@ -13119,7 +13126,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     // Two public routes come first; everything else needs the loopback owner or a paired session with the right scope.
     if (method === "GET" && !path.startsWith("/api/") && !path.startsWith("/.well-known/") && (moveFreeze.screen(path) ? (res.writeHead(302, { location: moveFreeze.screen(path)!, "cache-control": "no-store" }).end(), true) : serveStatic(res, path, STATIC_DIR))) return;
-    if (method === "GET" && (path === "/.well-known/dexbot/environment" || path === "/.well-known/openmausbot/environment")) {
+    if (method === "GET" && (path === "/.well-known/dexbot/environment" || path === "/.well-known/lunabot/environment")) {
       return json(res, 200, environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED, emailSignIn: !HOSTED_WORKSPACE && !CLOUD_HOME && emailSignIn.enabled(), sharedComputers: lendingEnabled(), cloudHome: Boolean(CLOUD_HOME), cloudTeam: CLOUD_TEAM !== null, ownHome: ownHome.takesMove() }));
     }
     const domainCheck = path.match(/^\/\.well-known\/(?:dexbot|openmausbot)\/domain-check\/([a-f0-9]{64})$/);
@@ -13368,19 +13375,10 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       }
       return json(res, 200, { ok: true });
     }
-    if (method === "GET" && path === "/api/auth/sessions") {
-      return json(res, 200, { sessions: sessions.list(), current: auth.kind === "session" ? auth.session.id : null });
-    }
-    m = path.match(/^\/api\/auth\/sessions\/([\w-]+)$/);
-    if (m && method === "DELETE") {
-      const revoked = sessions.revoke(m[1]);
-      if (auth.kind === "session" && auth.session.id === m[1]) res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE));
-      return json(res, revoked ? 200 : 404, revoked ? { ok: true } : { error: "no such session" });
-    }
     // Test-only routes exist only when the launcher sets a high-entropy test key, which production builds never set.
     if (method === "POST" && path === "/api/testing/org-library") {
       const expected = Buffer.from(process.env.OMB_TEST_ORG_LIBRARY_KEY ?? "");
-      const header = req.headers["x-openmausbot-test-org-library"];
+      const header = req.headers["x-lunabot-test-org-library"];
       const actual = Buffer.from(Array.isArray(header) ? "" : String(header ?? ""));
       if (expected.length < 32 || actual.length !== expected.length || !timingSafeEqual(actual, expected) || !orgLibrary) {
         return json(res, 404, { error: "not found" });
@@ -13392,9 +13390,9 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
     }
     if (method === "POST" && path === "/api/testing/internal-capability") {
       const expected = process.env.OMB_TEST_INTERNAL_CAPABILITY_KEY ?? "";
-      const actual = Array.isArray(req.headers["x-openmausbot-test-capability"])
+      const actual = Array.isArray(req.headers["x-lunabot-test-capability"])
         ? ""
-        : String(req.headers["x-openmausbot-test-capability"] ?? "");
+        : String(req.headers["x-lunabot-test-capability"] ?? "");
       const expectedBytes = Buffer.from(expected);
       const actualBytes = Buffer.from(actual);
       if (
@@ -15947,10 +15945,18 @@ if (TUNNEL_SOCKET) {
     console.log(`lunabot tunnel listener on ${TUNNEL_SOCKET}`);
   });
 }
-// `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request.
-const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, version: serverVersion(), publicOrigin: publicUrl,
+// `serve --relay`: phones through MausBot Relay, each encrypted stream answered here as a remote request. A phone's
+// WebSocket goes through the same gate as its HTTP requests (`upgrades`), not a blanket refusal.
+const phoneRelay = startPhoneRelay({ env: process.env, dataDir: DATA_DIR, sessions, handle: handleRequest, upgrades, version: serverVersion(), publicOrigin: publicUrl, port: PORT,
   serverName: () => cfg.computerName || environmentDescriptor({ environmentId: ENVIRONMENT_ID, ...TEAM_LABEL, desktopManaged: DESKTOP_MANAGED }).label,
   refusal: CLOUD_HOME ? "a Luna Bot Cloud home" : HOSTED_WORKSPACE ? "a hosted workspace" : DESKTOP_MANAGED ? "the desktop app, whose companion carries phones" : null });
+// Wi-Fi and Tailscale: the QR names this server's own address, and the phone dials `ws://<host>/v1/e2e` here. The
+// E2E listener answers its own handshake (a different subprotocol), so it runs before the shared upgrade gate.
+upgrades.intercept((req, socket, head) => phoneRelay?.directUpgrade(req, socket, head) ?? false);
+// The endpoint list a paired phone re-reads, and where one device may connect from: server/routes/device-routes.ts.
+ROUTES.push(createDeviceRoutes({ relay: phoneRelay, sessions: () => sessions.list(), revoke: (id) => sessions.revoke(id),
+  endpoints: () => ({ serverName: cfg.computerName || "", endpoints: serverEndpoints(publicUrl(), PORT, process.env) }),
+  setRoutes: (id, routes) => sessions.setRoutes(id, routes), clearOwnCookie: (res) => res.setHeader("set-cookie", clearSessionCookie(SESSION_COOKIE)) }));
 
 /** A root the runtime holds is the runtime's to account for at the next start: a line here, with Retry, would start the job a second time. */
 function noteTurnsCutByShutdown(): void {

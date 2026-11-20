@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, LoaderCircle, RefreshCw, X } from "lucide-react";
 import { EngineSetup } from "@/components/EngineSetup";
 import { engineReady } from "@/components/EngineLibrary";
-import { InstanceProviderMark } from "@/components/ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "@/components/ProviderIcons";
 import { ModelgoOption } from "@/components/ModelgoOffer";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
@@ -32,9 +32,11 @@ function OtherWay({ instance, open, onToggle }: { instance: InstanceInfo; open: 
         aria-expanded={open}
         className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-ink/[0.04] focus-visible:outline-offset-[-2px]"
       >
-        <span className="flex size-[18px] shrink-0 items-center justify-center">
-          <InstanceProviderMark instance={instance} size={18} />
-        </span>
+        {hasProviderMark(instance) && (
+          <span className="flex size-[18px] shrink-0 items-center justify-center">
+            <InstanceProviderMark instance={instance} size={18} />
+          </span>
+        )}
         <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{engineDisplayName(instance)}</span>
         <ChevronDown size={14} className={cn("shrink-0 text-ink-secondary transition-transform duration-200", open && "rotate-180")} />
       </button>

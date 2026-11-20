@@ -290,4 +290,3 @@ export function createMcpSignInCards(deps: McpSignInCardDeps) {
   };
 }
 
-export type McpSignInCards = ReturnType<typeof createMcpSignInCards>;

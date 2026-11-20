@@ -501,6 +501,9 @@ function GroupCall({ group, members }: { group: Group; members: Bot[] }) {
                   bot={member}
                   state={state}
                   size={94}
+                  fallback="preset"
+                  life="alive"
+                  crown={Boolean(member.chiefOfStaff)}
                   animated
                   motion={workingMember?.id === member.id ? "working" : "none"}
                   motionKey={workingMember?.id === member.id ? 1 : 0}

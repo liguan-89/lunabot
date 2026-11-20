@@ -107,7 +107,7 @@ describe("isJson", () => {
 
   it("matches structured JSON suffixes too", () => {
     expect(isJson("application/problem+json")).toBe(true);
-    expect(isJson("application/vnd.openmausbot.bot+json; charset=utf-8")).toBe(true);
+    expect(isJson("application/vnd.lunabot.bot+json; charset=utf-8")).toBe(true);
     expect(isJson("APPLICATION/PROBLEM+JSON")).toBe(true);
     expect(isJson("text/notjson")).toBe(false);
   });

@@ -93,7 +93,6 @@ const EVENT_DURATION_OPTIONS = Array.from({ length: 240 / CALENDAR_SLOT_MINUTES 
 import { BOT_DRAG_TYPE, EVENT_DRAG_TYPE, LimitResetMarker, type ResetDrop } from "./routines/LimitResetMarkers";
 
 export type EventKind = "routine" | "call";
-export type RoutinesLayout = "day" | "week" | "list";
 type CalendarRecurrenceChoice = "none" | "daily" | "weekdays" | "weekly" | "custom";
 type RecurrenceChoice = CalendarRecurrenceChoice | "interval" | "limit_reset" | CronChoice;
 type IntervalDayChoice = "every-day" | "weekdays" | "custom";

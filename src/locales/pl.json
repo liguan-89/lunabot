@@ -5712,7 +5712,6 @@
   "botAccess.tools.exclude": "Wyklucz (po jednym w wierszu)",
   "botAccess.tools.emptyHint": "Pusta lista Zezwalaj nie wybiera żadnych narzędzi. Zapisz, aby ją zastosować.",
   "botAccess.tools.syntax": "Użyj oryginalnych nazw: native:NAME lub mcp:SERVER:NAME. native:* i mcp:SERVER:* obejmują wszystkie narzędzia w tej grupie. Wykluczenie ma pierwszeństwo.",
-  "botAccess.tools.grok": "Natywny wybór w Grok CLI wymaga wersji 1.0.41. W przypadku narzędzi MCP zezwól także na native:search_tool i native:use_tool lub użyj Pi.",
   "botAccess.tools.nativeUnsupported": "To AI nie może ograniczyć natywnych narzędzi. Pozostaw native:* w polu Zezwalaj bez natywnych wykluczeń lub wybierz obsługiwane AI. Z tym wyborem bot zatrzyma się przed wysłaniem zapytania.",
   "botAccess.tools.unsupported": "To AI nie obsługuje wyboru narzędzi. Z tym wyborem bot zatrzyma się przed wysłaniem zapytania. Wybierz obsługiwane AI.",
   "botAccess.tools.busy": "Poczekaj, aż ten bot ukończy wszystkie aktywne zadania, zanim zmienisz jego wybór narzędzi.",

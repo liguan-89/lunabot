@@ -105,11 +105,21 @@ export function createApp({ config, store, emailer, relayKey, provisioner, log =
     checkoutIp: new RateLimiter({ windowMs: 60 * 60_000, limit: 30 }),
     bugIp: new RateLimiter({ windowMs: 60 * 60_000, limit: 20 }),
   };
-  const sweeper = setInterval(() => {
+  const sweep = () => {
     for (const limiter of Object.values(limits)) limiter.sweep();
     store.purgeDeviceCodes(Date.now());
     store.purgeEmailAttempts(Date.now());
-  }, 60 * 60_000);
+    // A phone that has not reported for a week is a reinstall, a spare, or an
+    // emulator left behind; its row is noise in 我的电脑 and in the account list.
+    if (config.stalePhoneDays > 0) {
+      const dropped = store.purgeStalePhones(Date.now() - config.stalePhoneDays * 24 * 60 * 60_000);
+      if (dropped) log(`swept ${dropped} stale phone installation(s)`);
+    }
+  };
+  // Once at startup as well as hourly: a deploy that ships a new rule should not
+  // leave the old rows sitting for an hour before anything happens to them.
+  sweep();
+  const sweeper = setInterval(sweep, 60 * 60_000);
   sweeper.unref?.();
 
   return async function handle(req, res) {

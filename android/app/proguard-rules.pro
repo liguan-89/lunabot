@@ -15,16 +15,16 @@
     kotlinx.serialization.KSerializer serializer(...);
 }
 
--keep,includedescriptorclasses class com.openmausbot.companion.**$$serializer { *; }
--keepclassmembers class com.openmausbot.companion.** {
+-keep,includedescriptorclasses class com.lunabot.companion.**$$serializer { *; }
+-keepclassmembers class com.lunabot.companion.** {
     *** Companion;
 }
--keepclasseswithmembers class com.openmausbot.companion.** {
+-keepclasseswithmembers class com.lunabot.companion.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 # Enum constants are wire values (`role`, `kind`, `crop`): renaming them would
 # silently turn a known value into UNKNOWN.
--keepclassmembers enum com.openmausbot.companion.** {
+-keepclassmembers enum com.lunabot.companion.** {
     public static **[] values();
     public static ** valueOf(java.lang.String);
     **[] $VALUES;
@@ -56,6 +56,6 @@
 
 # The phone-UI shell helper is launched from a shell command that names its
 # entry-point class on the app_process command line, so R8 must not rename it.
--keep class com.openmausbot.companion.phoneui.shell.PhoneUiHelperMain {
+-keep class com.lunabot.companion.phoneui.shell.PhoneUiHelperMain {
     public static void main(java.lang.String[]);
 }

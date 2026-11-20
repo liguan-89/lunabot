@@ -1,5 +1,6 @@
 // No bulk route on purpose: each bot goes through its own panel's request, so every per-bot server check still applies.
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import { threadApprovalModes, type Bot, type InstanceInfo } from "@/state/store";
 import type { BotUpdatePatch } from "@/state/bot-patch-queue";
 import { approvalModeFor, supportsApprovalMode, type ApprovalMode } from "../../shared/approval-mode";
@@ -52,7 +53,7 @@ export function teamModelChoices(bots: readonly Bot[], instances: readonly Insta
     for (const id of new Set(ids)) {
       const label = engine.models.options.find((option) => option.id === id)?.label ?? id;
       const entry = choices.get(id) ?? { id, label, engines: [] };
-      if (!entry.engines.includes(engine.displayName)) entry.engines.push(engine.displayName);
+      if (!entry.engines.includes(engineDisplayName(engine))) entry.engines.push(engineDisplayName(engine));
       choices.set(id, entry);
     }
   }
@@ -87,7 +88,7 @@ export function planTeamChange(bots: readonly Bot[], instances: readonly Instanc
   return bots.map((bot): TeamPlanRow => {
     if (change.kind === "access") return planAccess(bot, change);
     const engine = engineOf(bot, instances);
-    const engineName = engine?.displayName ?? bot.modelSelection.instanceId;
+    const engineName = engine ? engineDisplayName(engine) : bot.modelSelection.instanceId;
     if (change.kind === "approval") {
       if ([approvalModeFor(bot), ...threadApprovalModes(bot)].every((mode) => mode === change.mode)) return { bot, status: "unchanged" };
       if (!teamModeOffered(engine?.driverKind, change.mode)) {

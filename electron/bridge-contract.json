@@ -78,6 +78,7 @@
   "companion",
   "companion.browserControl",
   "companion.cloudDesktop",
+  "companion.desktopScreen",
   "companion.keepAwake",
   "companion.pairing",
   "companion.refreshTailscale",

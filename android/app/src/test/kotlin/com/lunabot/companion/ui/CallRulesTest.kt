@@ -1,0 +1,100 @@
+package com.lunabot.companion.ui
+
+import com.lunabot.companion.core.ConfigFlag
+import com.lunabot.companion.core.ConfigStatus
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.OptionCard
+import com.lunabot.companion.core.ToolActivity
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/** The call loop's decisions, read off `react()` in `ios/App/CallView.swift`. */
+class CallRulesTest {
+    private fun text(id: String, role: Message.Role = Message.Role.BOT, body: String = "Done.") =
+        Message(id = id, role = role, kind = Message.Kind.TEXT, at = 1.0, text = body)
+
+    private fun chip(id: String, spoken: String?) =
+        Message(id = id, role = Message.Role.BOT, kind = Message.Kind.ACTIVITY, at = 1.0, tool = ToolActivity("read", spoken = spoken))
+
+    private fun card(id: String, requestId: String, tool: String?) =
+        Message(id = id, role = Message.Role.BOT, kind = Message.Kind.OPTIONS, at = 1.0, card = OptionCard("Allow?", "", listOf("Allow", "Deny"), requestId = requestId, tool = tool))
+
+    private fun react(
+        fresh: List<Message> = emptyList(),
+        pendingCard: Message? = null,
+        announced: Set<String> = emptySet(),
+        phase: CallPhase = CallPhase.WORKING,
+        busy: Boolean = false,
+        speakerSpeaking: Boolean = false,
+    ) = CallRules.react("Scout", fresh, pendingCard, announced, phase, busy, speakerSpeaking)
+
+    @Test
+    fun `a pending card is announced once, and never over the bot's own voice`() {
+        val permission = card("m1", "req-1", tool = "bash")
+        assertEquals(
+            CallAction.Announce("Scout 正在请求权限审批，请打开聊天窗口回复。"),
+            react(pendingCard = permission, phase = CallPhase.LISTENING),
+        )
+        assertEquals(
+            CallAction.Announce("Scout 有一个问题待确认，请打开聊天窗口回复。"),
+            react(pendingCard = card("m2", "req-2", tool = null), phase = CallPhase.WORKING),
+        )
+        assertEquals(CallAction.None, react(pendingCard = permission, announced = setOf("req-1"), phase = CallPhase.LISTENING))
+        assertEquals(CallAction.None, react(pendingCard = permission, phase = CallPhase.SPEAKING))
+    }
+
+    @Test
+    fun `a reply is read, the newest one, and never the person's own words`() {
+        assertEquals(CallAction.SayReply("Second."), react(fresh = listOf(text("a", body = "First."), text("b", body = "Second."))))
+        assertEquals(CallAction.None, react(fresh = listOf(text("u", role = Message.Role.USER, body = "hi")), busy = false, phase = CallPhase.LISTENING))
+        assertEquals(CallAction.Listen, react(fresh = listOf(text("e", body = "   ")), phase = CallPhase.WORKING))
+    }
+
+    @Test
+    fun `a spoken chip is narrated only while waiting`() {
+        assertEquals(CallAction.SayChip("Reading the logs"), react(fresh = listOf(chip("c", "Reading the logs")), phase = CallPhase.WORKING, busy = true))
+        assertEquals(CallAction.None, react(fresh = listOf(chip("c", null)), phase = CallPhase.WORKING, busy = true))
+        assertEquals(CallAction.StopListeningAndWork, react(fresh = listOf(chip("c", "Reading")), phase = CallPhase.LISTENING, busy = true))
+    }
+
+    @Test
+    fun `busy closes the microphone, idle reopens it once the speaker is quiet`() {
+        assertEquals(CallAction.StopListeningAndWork, react(phase = CallPhase.LISTENING, busy = true))
+        assertEquals(CallAction.StopListeningAndWork, react(phase = CallPhase.SENDING, busy = true))
+        assertEquals(CallAction.None, react(phase = CallPhase.WORKING, busy = true))
+        assertEquals(CallAction.Listen, react(phase = CallPhase.WORKING, busy = false))
+        assertEquals(CallAction.Listen, react(phase = CallPhase.SENDING, busy = false))
+        assertEquals(CallAction.None, react(phase = CallPhase.WORKING, busy = false, speakerSpeaking = true))
+        assertEquals(CallAction.None, react(phase = CallPhase.LISTENING, busy = false))
+    }
+
+    @Test
+    fun `the phase line and the notes read as the Swift's`() {
+        assertEquals("正在倾听…", CallRules.phaseText(CallPhase.LISTENING, "Scout"))
+        assertEquals("Scout 正在处理…", CallRules.phaseText(CallPhase.WORKING, "Scout"))
+        assertEquals("请在“设置 → 语音”中配置语音以收听 Scout 的回复。", CallRules.noVoiceNote("Scout"))
+        assertEquals(850L, CallRules.ENDPOINT_GAP_MILLIS)
+    }
+
+    @Test
+    fun `voice settings offer the key only under ElevenLabs`() {
+        val ready = ConfigStatus(tts = ConfigFlag(configured = true))
+        val system = ConfigStatus(tts = ConfigFlag(configured = true, provider = "system"))
+        assertEquals("已就绪", VoiceSettingsRules.statusText(ready))
+        assertEquals("未设置", VoiceSettingsRules.statusText(ConfigStatus(tts = ConfigFlag(configured = false))))
+        assertNull(VoiceSettingsRules.statusText(null))
+        assertTrue(VoiceSettingsRules.showsKeyField(ready))
+        assertTrue(VoiceSettingsRules.showsKeyField(null))
+        assertFalse(VoiceSettingsRules.showsKeyField(system))
+        assertEquals("替换密钥", VoiceSettingsRules.saveLabel(ready))
+        assertEquals("保存密钥", VoiceSettingsRules.saveLabel(null))
+        assertTrue(VoiceSettingsRules.canSave("sk", saving = false))
+        assertFalse(VoiceSettingsRules.canSave("  ", saving = false))
+        assertFalse(VoiceSettingsRules.canSave("sk", saving = true))
+        assertTrue(VoiceSettingsRules.canRemove(ready, saving = false))
+        assertFalse(VoiceSettingsRules.canRemove(null, saving = false))
+    }
+}

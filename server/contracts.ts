@@ -511,28 +511,7 @@ export interface ModelCatalog {
 }
 
 /** "gpt-5.4-mini" → "Gpt 5.4 Mini", splitting on the caller's word breaks. */
-export function titleCaseModelId(id: string, wordBreaks: RegExp): string {
-  return id
-    .split(wordBreaks)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 /** A picker label with a second facet (display name, provider host) unless the id already says it. */
-export function qualifiedModelLabel(
-  id: string,
-  qualifier: string | null | undefined,
-  options: {
-    redundantWhen?: (id: string, qualifier: string) => boolean;
-    decorate?: (qualifier: string) => string;
-  } = {},
-): string {
-  const { redundantWhen = () => false, decorate = (facet) => ` — ${facet}` } = options;
-  if (!qualifier || redundantWhen(id, qualifier)) return id;
-  return `${id}${decorate(qualifier)}`;
-}
-
 export interface DriverCreateInput<Config> {
   instanceId: InstanceId;
   displayName: string | undefined;

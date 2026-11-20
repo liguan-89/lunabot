@@ -3,7 +3,6 @@
 import { CdpBrowser, type BrowserOptions } from "./cdp/browser.ts";
 import { loopbackPage, openOwnPage } from "./chrome/calibrate.ts";
 import type { Identity } from "./cdp/identity.ts";
-import { webSocketTransport } from "./cdp/transport.ts";
 import { fitPage, pageLimit, type BrowserMode, type HostKind, type ScreenSpec } from "./chrome/flags.ts";
 import { launchChrome, type ChromeProcess, type LaunchOptions } from "./chrome/launch.ts";
 import { clearSingleton, staleSingletonLock, type ProcessRegistry } from "./chrome/processes.ts";
@@ -192,40 +191,7 @@ async function takeFirstNavigation(browser: CdpBrowser): Promise<void> {
   }
 }
 
-const CONNECTED_CAPS: BackendCaps = { persistentProfile: true, window: false, egressGate: false, identityOverride: false, ownsAllTabs: false, downloads: "none", uploads: "inject", botPasskeys: false };
-
 /**
  * A browser Luna Bot reaches over a DevTools WebSocket: the person's own Chrome (My Chrome), or a cloud browser the
  * person brings. Nothing is changed about it: no identity, no gate, no permissions, no downloads.
  */
-export class ConnectedBackend implements Backend {
-  readonly kind: "my-chrome" | "cdp-url";
-  readonly caps = CONNECTED_CAPS;
-  readonly #url: () => Promise<string>;
-  readonly #connect: typeof webSocketTransport;
-
-  constructor(kind: "my-chrome" | "cdp-url", url: () => Promise<string>, connect: typeof webSocketTransport = webSocketTransport) {
-    this.kind = kind;
-    this.#url = url;
-    this.#connect = connect;
-  }
-
-  async open(request: OpenRequest): Promise<OpenedBrowser> {
-    if (request.mode !== "headless") throw new Error("A connected browser already has its own windows.");
-    const transport = await this.#connect(await this.#url());
-    const browser = await CdpBrowser.connect(transport, { identity: null, headless: false, permissions: false, downloadDir: null, viewport: null, ownTabsOnly: true });
-    const version = versionOf((await browser.version()).product);
-    let closed!: () => void;
-    const exited = new Promise<void>((resolve) => { closed = resolve; });
-    browser.connection.onClose(() => closed());
-    return {
-      browser,
-      pid: null,
-      version,
-      exited,
-      async close() {
-        browser.disconnect();
-      },
-    };
-  }
-}

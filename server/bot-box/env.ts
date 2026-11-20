@@ -36,7 +36,7 @@ export const BOX_ENV_OMB_PREFIXES: readonly string[] = ["OMB_MCP_TOKEN_", "OMB_G
 
 /** Prefixes of the engines' own settings and keys (T0b replaces the keys with per-turn broker tokens). */
 export const BOX_ENV_PREFIXES: readonly string[] = [
-  "LC_", "DEXBOT_", "OPENMAUSBOT_", "NPM_CONFIG_", "npm_config_",
+  "LC_", "DEXBOT_", "LUNABOT_", "NPM_CONFIG_", "npm_config_",
   "ANTHROPIC_", "CLAUDE_", "CODEX_", "OPENAI_", "OPENCODE_", "OPENROUTER_", "GEMINI_", "GOOGLE_", "GROK_", "XAI_",
   "MISTRAL_", "CEREBRAS_", "GROQ_", "GREENFERENCE_", "MODELGO_", "META_", "MINIMAX_", "KIMI_", "MOONSHOT_", "CURSOR_", "FACTORY_", "CLINE_", "HERMES_",
   "MUSE_", "PI_", "DWEB_", "UNSLOTH_", "FAKE_CLAUDE_", "MCP_", "ANTIGRAVITY_", "AGY_",
@@ -44,11 +44,11 @@ export const BOX_ENV_PREFIXES: readonly string[] = [
 
 /** Never, whatever the allow-list says: the control plane's settings and secrets, and the server's own placement. The
  * CLI's session token and server address (server/headless/client.ts) too: nothing in a box reads them, and one an
- * operator set on the server would otherwise pass under the engines' DEXBOT_/OPENMAUSBOT_ prefixes. */
+ * operator set on the server would otherwise pass under the engines' DEXBOT_/LUNABOT_ prefixes. */
 export const BOX_ENV_NEVER: ReadonlySet<string> = new Set([
   "OMB_LICENSE_KEY", "OMB_INSTALLATION_CREDENTIAL", "OMB_LOOPBACK_TRUST", "OMB_CLOUD_SECRETS_FD",
   "OMB_DATA_DIR", "OMB_STATIC_DIR", "OMB_DUCKDB_DIR", "OMB_PORT", "OMB_WEBHOOK_PORT",
-  "DEXBOT_TOKEN", "DEXBOT_URL", "OPENMAUSBOT_TOKEN", "OPENMAUSBOT_URL",
+  "DEXBOT_TOKEN", "DEXBOT_URL", "LUNABOT_TOKEN", "LUNABOT_URL",
 ]);
 export const BOX_ENV_NEVER_PREFIXES: readonly string[] = ["OMB_CLOUD_"];
 

@@ -36,11 +36,11 @@ describe("the headless command line", () => {
   it("redacts secrets in everything it prints", async () => {
     const { io, out } = capture();
     const callTool = vi.fn(async () => ({ messages: [{ role: "bot", kind: "text", text: "the key is sk-ant-abcdefghijklmnopqrstuv0123" }] }));
-    await runHeadless(["messages", "--bot", "b1", "--json"], { io, env: { OPENMAUSBOT_URL: "http://127.0.0.1:19999" }, callTool: callTool as any });
+    await runHeadless(["messages", "--bot", "b1", "--json"], { io, env: { LUNABOT_URL: "http://127.0.0.1:19999" }, callTool: callTool as any });
     expect(out.join("\n")).not.toContain("sk-ant-abcdefghijklmnopqrstuv0123");
     expect(out.join("\n")).toContain("«redacted");
     const human = capture();
-    await runHeadless(["messages", "--bot", "b1"], { io: human.io, env: { OPENMAUSBOT_URL: "http://127.0.0.1:19999" }, callTool: callTool as any });
+    await runHeadless(["messages", "--bot", "b1"], { io: human.io, env: { LUNABOT_URL: "http://127.0.0.1:19999" }, callTool: callTool as any });
     expect(human.out.join("\n")).not.toContain("sk-ant-abcdefghijklmnopqrstuv0123");
   });
 
@@ -55,11 +55,11 @@ describe("the headless command line", () => {
   });
 
   it("is reachable through the published entry, which keeps every other command as it was", () => {
-    const entry = join(import.meta.dirname, "..", "openmausbot.ts");
+    const entry = join(import.meta.dirname, "..", "lunabot.ts");
     const help = spawnSync(process.execPath, ["--experimental-strip-types", entry, "help", "export"], { encoding: "utf8" });
     expect(help.status).toBe(0);
     expect(help.stdout).toContain("lunabot export TARGET --out DIR");
-    const refused = spawnSync(process.execPath, ["--experimental-strip-types", entry, "run", "--json"], { encoding: "utf8", env: { ...process.env, OPENMAUSBOT_URL: "" } });
+    const refused = spawnSync(process.execPath, ["--experimental-strip-types", entry, "run", "--json"], { encoding: "utf8", env: { ...process.env, LUNABOT_URL: "" } });
     expect(refused.status).toBe(2);
     expect(JSON.parse(refused.stdout)).toMatchObject({ ok: false, exitCode: 2 });
     const usage = spawnSync(process.execPath, ["--experimental-strip-types", entry, "--help"], { encoding: "utf8" });
@@ -68,9 +68,9 @@ describe("the headless command line", () => {
   });
 
   it("serves MCP through the published entry, and Ctrl-C ends it like any command", async () => {
-    const entry = join(import.meta.dirname, "..", "openmausbot.ts");
+    const entry = join(import.meta.dirname, "..", "lunabot.ts");
     const child = spawn(process.execPath, ["--experimental-strip-types", entry, "mcp"], {
-      env: { ...process.env, OPENMAUSBOT_URL: "http://127.0.0.1:19998", OPENMAUSBOT_TOKEN: "" }, stdio: ["pipe", "pipe", "pipe"],
+      env: { ...process.env, LUNABOT_URL: "http://127.0.0.1:19998", LUNABOT_TOKEN: "" }, stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
     child.stdout.on("data", (chunk) => { stdout += chunk; });

@@ -22,7 +22,7 @@ it("reads as an app with information only on a Team Cloud, and a caller can't wr
     expect(on.status, JSON.stringify(on.body)).toBe(200);
     const receiver = team.base.replace(/:(\d+)$/, (_: string, port: string) => `:${Number(port) + 1}`);
     const send = (body: unknown) => fetch(`${receiver}/hooks/api/bots/${bot.id}/messages`, { method: "POST", headers: { authorization: `Bearer ${on.body.key}`, "content-type": "application/json" }, body: JSON.stringify(body) });
-    const dump = () => piDumpPath(join(fx.team!.home, ".openmausbot"));
+    const dump = () => piDumpPath(join(fx.team!.home, ".lunabot"));
     /** The turn that carried `text`, with the instructions in effect on it. */
     const turnOf = (text: string) => {
       const turns = piTurns(dump());

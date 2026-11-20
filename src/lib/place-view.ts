@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CloudAccountState } from "../../electron/cloud-account.mjs";
 import { activeLocale, t } from "@/lib/i18n";
 import { cloudPlanView } from "@/lib/cloud-plan";
+import { engineDisplayName } from "@/lib/engine-name";
 import { engineSignedOut } from "@/lib/failed-turn";
 import { browserAvailable, builtInBrowserEnabled, type FeatureFlagConfig } from "@/lib/feature-flags";
 import { writeComputerPanelView } from "@/lib/computer-panel-view";
@@ -35,9 +36,10 @@ export function serverKind(config: Pick<ConfigStatus, "cloudHome"> | null | unde
 
 function engineFacts(instance: InstanceInfo | undefined, model: string | undefined): PlaceFacts["engine"] {
   const label = instance?.models?.options?.find((option) => option.id === model)?.label;
+  const name = instance ? engineDisplayName(instance) : "";
   return {
-    name: instance?.displayName || instance?.driverKind || model || "",
-    model: label || model || instance?.displayName || "",
+    name: name || instance?.driverKind || model || "",
+    model: label || model || name || "",
     computer: instance?.capabilities?.computerMcp === true,
     browser: instance?.capabilities?.browserMcp === true,
     signedIn: !engineSignedOut(instance),
@@ -128,7 +130,7 @@ export function openPlaceAction(
     case "manage-computers": appSettings("computer"); return true;
     case "add-boat-key": dispatch(openKeySettings("box")); return true;
     case "open-vm-settings":
-      window.sessionStorage?.setItem("openmausbot.settings.section", "computer");
+      window.sessionStorage?.setItem("lunabot.settings.section", "computer");
       appSettings("computer");
       return true;
     case "open-team-map": dispatch({ type: "showTeamMap" }); return true;

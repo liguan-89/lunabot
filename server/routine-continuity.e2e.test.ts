@@ -5,7 +5,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 
 it("passes the previous report to the real fake-engine turn only when continuity is enabled", async () => {
   const fixture = await launchVerificationServer({ OMB_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
-  const env = { OPENMAUSBOT_URL: fixture.info.url };
+  const env = { LUNABOT_URL: fixture.info.url };
   const planPath = join(fixture.info.dataDir, "room-plan.json");
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, {

@@ -187,7 +187,7 @@ export async function launchCloudSendFixture({ onePasswordToken, cloudOnePasswor
 
   async function start(name: string, own: NodeJS.ProcessEnv, port: number, extra: string[] = [], ipc = false, acceptedToken = onePasswordToken, calls = 0, engine = ""): Promise<ChildProcess> {
     const home = join(root, name);
-    const dataDir = join(home, ".openmausbot");
+    const dataDir = join(home, ".lunabot");
     mkdirSync(dataDir, { recursive: true });
     const cli = join(home, "fixture-pi.mjs");
     const tools = calls ? JSON.stringify(Array.from({ length: calls }, (_, i) => ({ name: "Bash", input: { command: `echo step ${i}` } }))) : "";
@@ -246,7 +246,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   const startDesktop = async (dataDir?: string) => {
     const child = await start("desktop", { OMB_DESKTOP_PARENT: "1", ...(dataDir ? { OMB_DATA_DIR: dataDir } : {}),
       ...(broker && desktopInstallation ? { OMB_COMPOSIO_BROKER_URL: broker.url, OMB_COMPOSIO_BROKER_TOKEN: desktopInstallation.token } : {}) }, desktopPort, ["--import", parentPort], true, onePasswordToken, toolCalls, desktopEngine);
-    child.send({ type: "openmausbot:desktop-mutation-token", token: ownerCapability });
+    child.send({ type: "lunabot:desktop-mutation-token", token: ownerCapability });
     return child;
   };
   let desktop = await startDesktop();
@@ -294,8 +294,8 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     if (team.noAi) {
       // No AI to run: the one engine's CLI is not installed here, so its snapshot is unavailable and no bot gets a
       // model selection — what a team whose owner has connected nothing looks like (server/host/no-ai-notice.ts).
-      mkdirSync(join(root, "team", ".openmausbot"), { recursive: true });
-      writeFileSync(join(root, "team", ".openmausbot", "config.json"), JSON.stringify({ instances: { pi: {
+      mkdirSync(join(root, "team", ".lunabot"), { recursive: true });
+      writeFileSync(join(root, "team", ".lunabot", "config.json"), JSON.stringify({ instances: { pi: {
         driver: "piAgent", displayName: "pi", config: { cli: join(root, "team", "no-pi-installed.mjs") },
       } } }));
     }
@@ -351,7 +351,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
       signed: (method, path, body) => signedRequest(teamBase, method, path, body === undefined ? "" : JSON.stringify(body)),
       async capability(botId, threadId, kind) {
         // A loopback caller with the private key, as the harness mints one: never through the edge.
-        const minted = await fetch(`${teamBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-openmausbot-test-capability": CAPABILITY_KEY }, body: JSON.stringify({ botId, threadId, ...(kind ? { kind } : {}) }) });
+        const minted = await fetch(`${teamBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-lunabot-test-capability": CAPABILITY_KEY }, body: JSON.stringify({ botId, threadId, ...(kind ? { kind } : {}) }) });
         const answer = parse(await minted.text());
         if (minted.status !== 200 && minted.status !== 201) throw new Error(`no test capability: ${minted.status} ${JSON.stringify(answer)}`);
         return answer.token as string;
@@ -368,7 +368,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
 
   const local = async (method: string, path: string, body?: unknown) => {
     const response = await remember(await fetch(`${desktopBase}${path}`, { method, headers: {
-      "x-openmausbot-desktop-owner": ownerCapability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      "x-lunabot-desktop-owner": ownerCapability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
     body: body === undefined ? undefined : JSON.stringify(body) }));
     return { status: response.status, body: parse(await response.text()) };
   };
@@ -410,7 +410,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     ipcMain: { handle: (channel, handler) => { handlers.set(channel, handler); } },
     cloudPage: (event) => (event as { page?: "local" | "cloud" })?.page ?? null,
     server: () => port,
-    localRequest: async (route, init = {}) => remember(await fetch(`${desktopBase}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-openmausbot-desktop-owner": ownerCapability } })),
+    localRequest: async (route, init = {}) => remember(await fetch(`${desktopBase}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-lunabot-desktop-owner": ownerCapability } })),
     home: () => ({ origin: cloudBase, grant: async () => ({ origin: cloudBase, code: await mintCode("OpenMausBot app (Cloud)") }) }),
     cookieFetch: throughEdge(owner) as typeof fetch,
     reconnect: async () => false,
@@ -446,7 +446,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   let main = wire();
   const asks = createLoginHandoffClient();
   const older = () => createCloudSend({
-    local: async (route, init) => remember(await fetch(`${desktopBase}${route}`, { method: init?.method ?? "GET", headers: { "x-openmausbot-desktop-owner": ownerCapability } })),
+    local: async (route, init) => remember(await fetch(`${desktopBase}${route}`, { method: init?.method ?? "GET", headers: { "x-lunabot-desktop-owner": ownerCapability } })),
     cloud: {
       origin: () => cloudBase,
       asleep: () => false,
@@ -466,12 +466,12 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     const capability = randomBytes(32).toString("base64url");
     const startIt = async () => {
       const child = await start(name, { OMB_DESKTOP_PARENT: "1", OMB_ENVIRONMENT_LABEL: label }, deskPort, ["--import", parentPort], true, onePasswordToken, toolCalls, desktopEngine);
-      child.send({ type: "openmausbot:desktop-mutation-token", token: capability });
+      child.send({ type: "lunabot:desktop-mutation-token", token: capability });
       return child;
     };
     let child = await startIt();
     const deskLocal: CloudSendDesk["local"] = async (method, path, body) => {
-      const response = await remember(await fetch(`${base}${path}`, { method, headers: { "x-openmausbot-desktop-owner": capability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+      const response = await remember(await fetch(`${base}${path}`, { method, headers: { "x-lunabot-desktop-owner": capability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) }));
       return { status: response.status, body: parse(await response.text()) };
     };
@@ -488,7 +488,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
       ipcMain: { handle: () => {} },
       cloudPage: (event) => (event as { page?: "local" | "cloud" })?.page ?? null,
       server: () => ipc,
-      localRequest: async (route, init = {}) => remember(await fetch(`${base}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-openmausbot-desktop-owner": capability } })),
+      localRequest: async (route, init = {}) => remember(await fetch(`${base}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-lunabot-desktop-owner": capability } })),
       home: () => ({ origin: cloudBase, grant: async () => ({ origin: cloudBase, code: await mintCode("OpenMausBot app (Cloud)") }) }),
       cookieFetch: throughOwner,
       reconnect: async () => false,
@@ -524,7 +524,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     listenIt();
     desks.push({ close: () => deskMain.close() });
     return {
-      base, dataDir: join(root, name, ".openmausbot"), local: deskLocal, account: deskAccount, journalFile, spies,
+      base, dataDir: join(root, name, ".lunabot"), local: deskLocal, account: deskAccount, journalFile, spies,
       oneHome: { kick: () => deskMain.kick(), view: () => deskMain.view(), away: () => deskMain.away() },
       async relaunch({ kill = true } = {}) {
         deskMain.close();
@@ -554,7 +554,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     get intercept() { return fixture.intercept; },
     set intercept(hook) { fixture.intercept = hook; },
     oneHome: { kick: () => main.kick(), view: () => main.view(), away: () => main.away() },
-    desktopDataDir: join(root, "desktop", ".openmausbot"),
+    desktopDataDir: join(root, "desktop", ".lunabot"),
     async relaunch({ kill = true, cloud: cloudMore, dataDir } = {}) {
       main.close();
       await waitForExit(desktop, { signal: kill ? "SIGKILL" : "SIGTERM" });
@@ -570,7 +570,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     },
     handoff: (what) => asks.request(port, what as ConnectionAsk),
     async picture(bytes) {
-      const response = await fetch(`${desktopBase}/api/attachments`, { method: "POST", headers: { "x-openmausbot-desktop-owner": ownerCapability, "content-type": "image/png" }, body: bytes });
+      const response = await fetch(`${desktopBase}/api/attachments`, { method: "POST", headers: { "x-lunabot-desktop-owner": ownerCapability, "content-type": "image/png" }, body: bytes });
       return `/api/attachments/${((await response.json()) as { path: string }).path.split(/[\\/]/).pop()}`;
     },
     call: <T>(channel: string, page: "local" | "cloud", ...args: unknown[]) => Promise.resolve(handlers.get(channel)!({ page }, ...args)) as Promise<T>,

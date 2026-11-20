@@ -211,7 +211,7 @@ export function createInstanceRoutes(deps: InstanceRouteDeps): RouteHandler {
     }
 
     if (method === "DELETE" && instancePatch) {
-      return json(res, 400, { error: "The pi instance cannot be removed." });
+      return json(res, 400, { error: "The built-in AI cannot be removed." });
     }
     return PASS;
   };

@@ -226,7 +226,7 @@ const PAIR_FORM = "Boolean(document.querySelector('form input') && /pairing code
 
   it("chat links and the Settings key open on My Cloud's page", async () => {
     await onCloudPage();
-    expect(world.openLink(`openmausbot://bot/${nova}`)).toBe(true);
+    expect(world.openLink(`lunabot://bot/${nova}`)).toBe(true);
     await until(() => page<string | null>("document.querySelector('textarea[aria-label^=\"Message\"]')?.getAttribute('aria-label') ?? null"), (label) => label === "Message Nova", 20_000, "Nova's chat");
     expect(new URL(world.window.url).origin).toBe(world.cloudOrigin);
     await world.window.screenshot(join(shots, "6-chat-link.png"));
@@ -244,7 +244,7 @@ const PAIR_FORM = "Boolean(document.querySelector('form input') && /pairing code
     await fx.relaunch({ kill: false, cloud: { OMB_APP_VERSION: "0.1.999" } });
     await until(() => page<boolean>("window.__sameLoad === true"), (same) => same === false, 30_000, "the page to reload");
     await onCloudPage();
-    expect(await page("fetch('/.well-known/openmausbot/environment').then((response) => response.json()).then((env) => env.version)")).toBe("0.1.999");
+    expect(await page("fetch('/.well-known/lunabot/environment').then((response) => response.json()).then((env) => env.version)")).toBe("0.1.999");
   }, hostTimeout(180_000));
 
   // T3: the team switcher. The session lists a team; its Cloud is the team server at world.teamOrigin.

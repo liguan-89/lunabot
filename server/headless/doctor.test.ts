@@ -18,14 +18,14 @@ function sharedServer(engines: number | "old server") {
       if (engines === "old server") throw refused(403);
       return { app: "openmausbot", engines };
     }
-    if (path === "/.well-known/openmausbot/environment") return { version: "0.1.160", label: "maus.example.com", capabilities: { jobs: true } };
+    if (path === "/.well-known/lunabot/environment") return { version: "0.1.160", label: "maus.example.com", capabilities: { jobs: true } };
     if (path === "/api/auth/session") return { kind: "loopback", scopes: ["client"], trust: "service" };
     throw refused(403);
   });
   const out: string[] = [];
   const io: HeadlessIo = { out: (text) => out.push(text), err: () => {}, readStdin: async () => "" };
   return async (argv: string[]) => {
-    const code = await runHeadless(argv, { env: { OPENMAUSBOT_URL: "http://127.0.0.1:19999" }, io, callTool: callTool as any, request: request as any });
+    const code = await runHeadless(argv, { env: { LUNABOT_URL: "http://127.0.0.1:19999" }, io, callTool: callTool as any, request: request as any });
     return { code, out };
   };
 }

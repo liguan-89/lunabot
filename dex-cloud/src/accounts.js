@@ -50,18 +50,6 @@ export function grantFor(account, deviceId, session) {
   };
 }
 
-export function readSession(store, token) {
-  if (!token) return null;
-  const row = store.sessionByTokenHash(sha256Hex(token));
-  if (!row) return null;
-  if (Number(row.expires_at) <= Date.now()) {
-    store.revokeSession(row.token_hash);
-    return null;
-  }
-  store.touchDevice(row.device_id);
-  return row;
-}
-
 export function sessionPayload(store, config, session) {
   const entitlement = entitlementFor({
     plan_tier: session.plan_tier,

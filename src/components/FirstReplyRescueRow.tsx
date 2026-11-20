@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import { openBotSettings } from "@/components/bot-panel/panel-link";
 import { requestAiSwitch, useAiSwitchRow } from "@/lib/ai-switch";
+import { engineDisplayName } from "@/lib/engine-name";
 import { t } from "@/lib/i18n";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useLiveTurn } from "@/lib/stop-turn";
@@ -25,7 +26,8 @@ export function FirstReplyRescueRow({ rescue, text, at }: { rescue: FirstReplyRe
   const live = !rescue.settled && !rescue.over && busy && (seen !== undefined ? seen === rescue.turnId : startedAt == null || startedAt <= at);
   useAiSwitchRow({ threadId: rescue.threadId, turnId: rescue.turnId, live });
   if (rescue.settled) return null;
-  const ai = state.instances.find((instance) => instance.instanceId === rescue.instanceId)?.displayName || rescue.ai;
+  const instance = state.instances.find((candidate) => candidate.instanceId === rescue.instanceId);
+  const ai = instance ? engineDisplayName(instance) : rescue.ai;
   // Where this bot's AI is chosen: the bot panel in Simple mode, the chat header in Advanced. A room's header and a
   // remote client's Advanced header have no model chip.
   const remote = window.ogb?.remoteClient?.active === true;

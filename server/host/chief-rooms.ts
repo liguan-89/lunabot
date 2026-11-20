@@ -57,4 +57,3 @@ export function createChiefRooms(deps: ChiefRoomsDeps) {
   };
 }
 
-export type ChiefRooms = ReturnType<typeof createChiefRooms>;

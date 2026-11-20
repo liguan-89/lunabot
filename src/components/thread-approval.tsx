@@ -1,6 +1,7 @@
 import { useState, type ComponentProps, type ReactNode } from "react";
 
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
+import { engineDisplayName } from "@/lib/engine-name";
 import { useStore, type Bot } from "@/state/store";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
 import type { ApprovalModeSelector } from "./ApprovalModeSelector";
@@ -33,7 +34,7 @@ export function useThreadApproval(bot: Bot | undefined): { choice: ApprovalChoic
   const choice: ApprovalChoice | undefined = bot && engine && !remoteClient ? {
     approvalMode: bot.approvalMode,
     autoApprove: bot.autoApprove,
-    providerName: engine.displayName,
+    providerName: engineDisplayName(engine),
     driverKind: engine.driverKind,
     onSelect,
     busy: Boolean(bot.busy),

@@ -4,13 +4,13 @@ import { existsSync, linkSync, mkdirSync, readdirSync, readFileSync, readlinkSyn
 import { hostname, uptime } from "node:os";
 import { join } from "node:path";
 
-const LEASE_NAME = "openmausbot-server.lease";
+const LEASE_NAME = "lunabot-server.lease";
 const DELEGATED_CHILD_DIR = ".lunabot-server-child";
 /** Where a build from before the rename kept its delegated child's lease: still read, so one is never missed. */
 const LEGACY_DELEGATED_CHILD_DIRS = [".dexbot-server-child"];
 const DELEGATED_CHILD_DIRS = [DELEGATED_CHILD_DIR, ...LEGACY_DELEGATED_CHILD_DIRS];
 // Internal parent-to-child capability, obtained only from utilityServerLeaseEnvironment(); never public configuration.
-const CHILD_LEASE_ENV = "OPENMAUSBOT_INTERNAL_DATA_DIR_LEASE";
+const CHILD_LEASE_ENV = "LUNABOT_INTERNAL_DATA_DIR_LEASE";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const MAX_PID = 0x7fffffff;
 const MAX_BOOT_ID = 128;

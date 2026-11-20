@@ -244,7 +244,7 @@ export interface ServiceInfo {
   /** e.g. "_lunabot._tcp"; one machine may publish several, for older phones */
   type: string;
   port: number;
-  /** the name our A records claim, e.g. "openmausbot-1a2b3c4d.local" */
+  /** the name our A records claim, e.g. "lunabot-1a2b3c4d.local" */
   host: string;
   addresses: string[];
   /** DNS-SD key=value pairs */
@@ -371,7 +371,7 @@ export function clampBytes(text: string, limit: number): string {
 /** Not `<hostname>.local`: on macOS mDNSResponder owns and defends that name. */
 export function defaultHostName(machine = hostname()): string {
   const digest = createHash("sha256").update(machine).digest("hex").slice(0, 8);
-  return `openmausbot-${digest}.local`;
+  return `lunabot-${digest}.local`;
 }
 
 /** macOS point-to-point tunnels: utun (every VPN, Tailscale, tun2socks),

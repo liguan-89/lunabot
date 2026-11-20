@@ -461,7 +461,7 @@ describe("a Team Cloud", () => {
     const scout = await newBot("Earlier bot");
     const { thread } = await webhookTurn(scout.id, "Earlier hook", "marker-earlier");
     await finish(scout.id);
-    const file = join(team.home, ".openmausbot", "bots.json");
+    const file = join(team.home, ".lunabot", "bots.json");
     const before = readFileSync(file, "utf8");
     expect(before).toContain('"outside":true');
     writeFileSync(file, before.replaceAll('"outside":true', '"unmarked":true'));
@@ -510,7 +510,7 @@ describe("a personal Cloud only its owner has used", () => {
     expect((await fetch(`${receiver}/hooks/${hook.webhook.endpointId}/${encodeURIComponent(hook.credential.secret)}`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomBytes(6).toString("hex") }, body: JSON.stringify({ text: "marker-solo" }) })).status).toBe(202);
     const webhook = await turnWith("marker-solo");
     expect(confined(webhook)).toBe(false);
-    const capabilityFor = async (botId: string, threadId: string) => ((await (await fetch(`${fx.cloudBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-openmausbot-test-capability": KEY }, body: JSON.stringify({ botId, threadId }) })).json()) as any).token as string;
+    const capabilityFor = async (botId: string, threadId: string) => ((await (await fetch(`${fx.cloudBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-lunabot-test-capability": KEY }, body: JSON.stringify({ botId, threadId }) })).json()) as any).token as string;
     const call = async (from: string, path: string, body: object) => {
       const response = await fetch(`${fx.cloudBase}${path}?fromBotId=${scout.id}`, { method: "POST", headers: { authorization: `Bearer ${await capabilityFor(scout.id, from)}`, "content-type": "application/json" }, body: JSON.stringify({ fromBotId: scout.id, fromThreadId: from, ...body }) });
       return { status: response.status, body: await response.json().catch(() => null) as any };
@@ -551,7 +551,7 @@ describe("a personal Cloud someone else has used", () => {
     expect((await cloud("PATCH", `/api/bots/${mate.id}`, { approvalMode: "full", applyToAllThreads: true })).status).toBe(200);
     const room = (await cloud("POST", "/api/groups", { name: "Owner's room", memberIds: [chief.id, mate.id], setup: { bulletin: "as it was", defaultResponder: { kind: "member", botId: mate.id } } })).body.group;
     const theirs = (await cloud("POST", `/api/bots/${chief.id}/tasks`, { title: "Left behind" })).body.task.threadId as string;
-    const capabilityFor = async (botId: string, threadId: string) => ((await (await fetch(`${fx.cloudBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-openmausbot-test-capability": KEY }, body: JSON.stringify({ botId, threadId }) })).json()) as any).token as string;
+    const capabilityFor = async (botId: string, threadId: string) => ((await (await fetch(`${fx.cloudBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-lunabot-test-capability": KEY }, body: JSON.stringify({ botId, threadId }) })).json()) as any).token as string;
     const call = async (capability: string, from: string, path: string, body: object) => {
       const response = await fetch(`${fx.cloudBase}${path}?fromBotId=${chief.id}`, { method: "POST", headers: { authorization: `Bearer ${capability}`, "content-type": "application/json" }, body: JSON.stringify({ fromBotId: chief.id, fromThreadId: from, ...body }) });
       return { status: response.status, body: await response.json().catch(() => null) as any };
@@ -567,7 +567,7 @@ describe("a personal Cloud someone else has used", () => {
     writeFileSync(release, "");
     await sleep(1_500);
     rmSync(release, { force: true });
-    markLeftBehind(join(fx.root, "cloud", ".openmausbot"), { threadIds: [theirs] });
+    markLeftBehind(join(fx.root, "cloud", ".lunabot"), { threadIds: [theirs] });
     await fx.relaunch({ kill: false, cloud: {} });
     expect((await cloud("POST", `/api/bots/${chief.id}/messages`, { text: "their-line", threadId: theirs })).status).toBe(202);
     expect(confined(await turnWith("their-line"))).toBe(true);
@@ -629,7 +629,7 @@ describe("a desktop", () => {
     expect((await fetch(`http://127.0.0.1:${port}/hooks/${hook.webhook.endpointId}/${encodeURIComponent(hook.credential.secret)}`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": randomBytes(6).toString("hex") }, body: JSON.stringify({ text: "marker-desktop" }) })).status).toBe(202);
     expect(atFull(await turnWith("marker-desktop"))).toBe(true);
     const thread = ((await local("GET", "/api/routines")).body.runs as any[]).find((run) => run.webhookId === hook.webhook.id).threadId as string;
-    const minted = await (await fetch(`${fx.desktopBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-openmausbot-test-capability": KEY }, body: JSON.stringify({ botId: chief.id, threadId: thread }) })).json() as any;
+    const minted = await (await fetch(`${fx.desktopBase}/api/testing/internal-capability`, { method: "POST", headers: { "content-type": "application/json", "x-lunabot-test-capability": KEY }, body: JSON.stringify({ botId: chief.id, threadId: thread }) })).json() as any;
     const sent = await fetch(`${fx.desktopBase}/api/internal/coordinate-bots?fromBotId=${chief.id}`, { method: "POST", headers: { authorization: `Bearer ${minted.token}`, "content-type": "application/json" }, body: JSON.stringify({ fromBotId: chief.id, fromThreadId: thread, botIds: [mate.id], message: "brief-desktop", reply: "none" }) });
     expect(sent.status).toBe(200);
     expect(atFull(await turnWith("brief-desktop"))).toBe(false);

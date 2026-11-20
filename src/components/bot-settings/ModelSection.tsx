@@ -6,6 +6,7 @@ import { useBotEditor } from "./BotEditorContext";
 import { ProposalStatus } from "./ProposalStatus";
 import { ThreadModelsLine } from "../ThreadModelsLine";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import { Select } from "../Select";
 
 export function ModelSection({ bot }: { bot: Bot }) {
@@ -89,7 +90,10 @@ export function FallbackChain({ bot, onChange }: { bot: Bot; onChange: (fallback
     .find((model) => model.trim() && !taken(instance.instanceId, model));
   const available = state.instances.filter((instance) =>
     instance.snapshot.state === "available" && Boolean(instance.models.default.trim()) && freeModel(instance) !== undefined);
-  const nameOf = (instanceId: string) => state.instances.find((instance) => instance.instanceId === instanceId)?.displayName ?? instanceId;
+  const nameOf = (instanceId: string) => {
+    const instance = state.instances.find((candidate) => candidate.instanceId === instanceId);
+    return instance ? engineDisplayName(instance) : instanceId;
+  };
   const modelsOf = (entry: NonNullable<Bot["fallback"]>[number], index: number) => {
     const offered = offeredBy(state.instances.find((candidate) => candidate.instanceId === entry.instanceId))
       .filter((model) => !taken(entry.instanceId, model.id, index));
@@ -144,7 +148,7 @@ export function FallbackChain({ bot, onChange }: { bot: Bot; onChange: (fallback
             {available.map((instance) => (
               <option key={instance.instanceId} value={instance.instanceId}>
                 {instance.instanceId === bot.modelSelection.instanceId
-                  ? `${instance.displayName} · ${t("botPanel.backups.sameAccount")}` : instance.displayName}
+                  ? `${engineDisplayName(instance)} · ${t("botPanel.backups.sameAccount")}` : engineDisplayName(instance)}
               </option>
             ))}
           </Select>

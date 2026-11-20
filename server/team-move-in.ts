@@ -277,4 +277,3 @@ export function createTeamMoveIn(deps: TeamMoveInDeps) {
   };
 }
 
-export type TeamMoveIn = ReturnType<typeof createTeamMoveIn>;

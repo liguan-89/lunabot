@@ -113,7 +113,7 @@ export function piInstanceEnvs(
   };
 }
 
-/** Create DEX BOT's own pi agent dir for this instance and link `auth.json` + `models.json` from the operator's
+/** Create Luna Bot's own pi agent dir for this instance and link `auth.json` + `models.json` from the operator's
  * `~/.pi/agent`, so a bot's turn does not inherit the operator's AGENTS.md, skills or extensions. The dir sits under
  * the real HOME (`~/.pi/instances/<id>`) rather than the data folder, which a bot box hides behind a tmpfs. */
 export function ensurePiInstanceAgentDir(

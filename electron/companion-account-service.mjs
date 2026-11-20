@@ -977,6 +977,38 @@ export function createCompanionAccountService({
     return settledState();
   });
 
+  /** The installation credential this computer signs its control-plane calls with, or null. */
+  const installationCredential = () => {
+    const document = credentials();
+    const account = storedAccount(document);
+    return account?.installationCredential ?? null;
+  };
+
+  /**
+   * Phones asking this computer to connect. Empty while signed out or before an
+   * installation exists; a control-plane failure is reported as none rather than
+   * surfacing a toast for every poll.
+   */
+  const pairRequests = async () => {
+    const credential = installationCredential();
+    if (!configured || !credential || typeof client.pairRequests !== "function") return [];
+    try {
+      return await client.pairRequests(credential);
+    } catch (error) {
+      if (error instanceof ControlPlaneError && error.status === 401) return [];
+      writeLog(`companion account: pair requests unreadable (${error?.message ?? error})`);
+      return [];
+    }
+  };
+
+  /** Answer one: `allow` carries the link this computer minted, `deny` carries nothing. */
+  const answerPairRequest = async (requestId, { decision, link = null } = {}) => {
+    const credential = installationCredential();
+    if (!configured || !credential) throw new Error("Sign in to answer a connection request.");
+    if (typeof requestId !== "string" || !/^[0-9a-f-]{36}$/.test(requestId)) throw new Error("Unknown request.");
+    return client.answerPairRequest(credential, requestId, { decision, link });
+  };
+
   const dispose = () => {
     disposed = true;
     cancelAutoRetry();
@@ -995,6 +1027,8 @@ export function createCompanionAccountService({
     prepare,
     signOut,
     restore,
+    pairRequests,
+    answerPairRequest,
     dispose,
   });
 }

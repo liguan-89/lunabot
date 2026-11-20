@@ -61,7 +61,7 @@ const wrapper = (data: string, fakeCli: string, mapPath: string) => [
 beforeAll(async () => {
   chmodSync(FAKE_PI, 0o755);
   home = mkdtempSync(join(tmpdir(), "omb-goal-wait-cap-"));
-  const data = join(home, ".openmausbot");
+  const data = join(home, ".lunabot");
   const staticDir = join(home, "static");
   botMapPath = join(home, "goal-cap-bots.json");
   const cliPath = join(home, "goal-cap-cli.mjs");

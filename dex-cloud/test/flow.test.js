@@ -191,6 +191,18 @@ test("control plane creates installations and mints a relay token the relay key 
     assert.equal(claims.v, 1);
     assert.equal(claims.hid, grant.body.hostId);
     assert.equal(claims.exp - claims.iat, 12 * 3600);
+
+    // A second token keeps the same identity: a paired phone pins the
+    // descriptor's `h` and keeps dialling it, so a fresh one would leave it at
+    // the relay's 4404 while both ends are online.
+    const renewed = await call(app.base, "POST", "/v1/installations/self/relay-token", {
+      appVersion: "2.0.0",
+      devices: { e2e: true, legacy: 0 },
+    }, installation.body.credential);
+    assert.equal(renewed.status, 200);
+    assert.equal(renewed.body.hostId, grant.body.hostId);
+    const renewedClaims = JSON.parse(Buffer.from(renewed.body.token.split(".")[0], "base64url").toString("utf8"));
+    assert.equal(renewedClaims.hid, grant.body.hostId);
   } finally {
     app.server.close();
     app.store.close();
@@ -336,6 +348,192 @@ test("the bundled OG card is served at /og.png", async () => {
     assert.deepEqual(Array.from(body.slice(1, 4)), [0x50, 0x4e, 0x47]);
     const missing = await fetch(`${app.base}/og.png`, { method: "HEAD" });
     assert.equal(missing.status, 200);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});
+
+test("a signed-in phone asks a computer to connect and the computer answers with a pairing link", async () => {
+  const app = await start(config());
+  try {
+    const signIn = await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", {
+      email: "owner@example.com",
+      type: "sign-in",
+    });
+    assert.equal(signIn.status, 200);
+    const verify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "owner@example.com",
+      otp: app.codes.at(-1).code,
+      name: "owner",
+    });
+    assert.equal(verify.status, 200);
+    const accountToken = verify.headers.get("set-auth-token");
+
+    const created = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "9d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b",
+      name: "Studio Mac",
+      platform: "darwin",
+      appVersion: "2.1.0",
+      kind: "desktop",
+    }, accountToken);
+    assert.equal(created.status, 201);
+    const installationId = created.body.installation.id;
+    const credential = created.body.credential;
+
+    const listed = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(listed.status, 200);
+    assert.equal(listed.body.installations[0].name, "Studio Mac");
+    assert.equal(listed.body.installations[0].online, true);
+    // The phone tells a computer it can ask from one it cannot by `kind`: the
+    // account lists every installation, the phone's own included.
+    assert.equal(listed.body.installations[0].kind, "desktop");
+    assert.equal(listed.body.installations[0].clientInstanceId, "9d1f2a3b-4c5d-4e6f-8a9b-0c1d2e3f4a5b");
+
+    const asked = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "OnePlus 15T" }, accountToken);
+    assert.equal(asked.status, 201);
+    const requestId = asked.body.requestId;
+    assert.match(requestId, /^[0-9a-f-]{36}$/);
+
+    const waiting = await call(app.base, "GET", "/v1/installations/self/pair-requests", undefined, credential);
+    assert.equal(waiting.status, 200);
+    assert.equal(waiting.body.requests.length, 1);
+    assert.equal(waiting.body.requests[0].deviceName, "OnePlus 15T");
+
+    const stillPending = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, accountToken);
+    assert.equal(stillPending.status, 200);
+    assert.equal(stillPending.body.status, "pending");
+    assert.equal(stillPending.body.link, undefined);
+
+    const link = "lunabot://pair?address=192.168.10.120%3A8810&token=omb_pair_example";
+    const allowed = await call(app.base, "POST", `/v1/installations/self/pair-requests/${requestId}`, { decision: "allow", link }, credential);
+    assert.equal(allowed.status, 200);
+    assert.equal(allowed.body.status, "allowed");
+
+    const answered = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, accountToken);
+    assert.equal(answered.status, 200);
+    assert.equal(answered.body.status, "allowed");
+    assert.equal(answered.body.link, link);
+
+    // A second answer cannot rewrite an already-answered request.
+    const again = await call(app.base, "POST", `/v1/installations/self/pair-requests/${requestId}`, { decision: "deny" }, credential);
+    assert.equal(again.status, 409);
+
+    // Another account neither sees the computer nor its request.
+    await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", { email: "stranger@example.com", type: "sign-in" });
+    const strangerVerify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "stranger@example.com",
+      otp: app.codes.at(-1).code,
+      name: "stranger",
+    });
+    const strangerToken = strangerVerify.headers.get("set-auth-token");
+    const peek = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${requestId}`, undefined, strangerToken);
+    assert.equal(peek.status, 404);
+    const askForeign = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "x" }, strangerToken);
+    assert.equal(askForeign.status, 404);
+
+    // A decline is terminal and carries no link.
+    const denied = await call(app.base, "POST", `/v1/installations/${installationId}/pair-requests`, { deviceName: "Old phone" }, accountToken);
+    await call(app.base, "POST", `/v1/installations/self/pair-requests/${denied.body.requestId}`, { decision: "deny" }, credential);
+    const denial = await call(app.base, "GET", `/v1/installations/${installationId}/pair-requests/${denied.body.requestId}`, undefined, accountToken);
+    assert.equal(denial.body.status, "denied");
+    assert.equal(denial.body.link, undefined);
+
+    // The phone can drop the record itself, which is what 我的电脑's 移除 does.
+    // Its own credential dies with the row: the desktop must sign in again.
+    const removed = await call(app.base, "DELETE", `/v1/installations/${installationId}`, undefined, accountToken);
+    assert.equal(removed.status, 200);
+    const afterRemoval = await call(app.base, "GET", "/v1/installations", undefined, accountToken);
+    assert.equal(afterRemoval.body.installations.some((item) => item.id === installationId), false);
+    const orphaned = await call(app.base, "GET", "/v1/installations/self", undefined, credential);
+    assert.equal(orphaned.status, 401);
+
+    // Another account's id is a no-op rather than an error: the route is scoped
+    // by account, and a 404 there would confirm which ids exist.
+    const foreign = await call(app.base, "DELETE", `/v1/installations/${installationId}`, undefined, strangerToken);
+    assert.equal(foreign.status, 200);
+  } finally {
+    app.server.close();
+    app.store.close();
+  }
+});
+
+test("a signed-in phone reports it is still here, and silent ones are swept", async () => {
+  const app = await start(config());
+  try {
+    await call(app.base, "POST", "/api/auth/email-otp/send-verification-otp", { email: "owner@example.com", type: "sign-in" });
+    const verify = await call(app.base, "POST", "/api/auth/sign-in/email-otp", {
+      email: "owner@example.com",
+      otp: app.codes.at(-1).code,
+      name: "owner",
+    });
+    const accountToken = verify.headers.get("set-auth-token");
+
+    // A phone registers at sign-in and never gets an installation credential:
+    // it authenticates with the account session.
+    const phone = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000001",
+      name: "OnePlus",
+      platform: "android",
+      appVersion: "2.1.3",
+      kind: "phone",
+    }, accountToken);
+    assert.equal(phone.status, 201);
+    const phoneId = phone.body.installation.id;
+    const phoneCredential = phone.body.credential;
+
+    // Presence refreshes the row in place — same id, newer clock, no credential.
+    app.store.db.prepare("UPDATE installations SET last_seen_at = ? WHERE id = ?").run(1, phoneId);
+    const presence = await call(app.base, "POST", "/v1/installations/self/presence", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000001",
+      name: "OnePlus",
+      appVersion: "2.1.4",
+    }, accountToken);
+    assert.equal(presence.status, 200);
+    assert.equal(presence.body.installation.id, phoneId);
+    assert.equal(presence.body.installation.kind, "phone");
+    assert.equal(presence.body.installation.appVersion, "2.1.4");
+    assert.equal(presence.body.credential, undefined);
+    const seen = app.store.db.prepare("SELECT last_seen_at FROM installations WHERE id = ?").get(phoneId);
+    assert.ok(Number(seen.last_seen_at) > 1);
+
+    // A swept row comes back when the phone reports again, still as a phone.
+    const swept = await call(app.base, "POST", "/v1/installations/self/presence", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000002",
+      name: "Spare phone",
+      platform: "android",
+      appVersion: "2.1.3",
+    }, accountToken);
+    assert.equal(swept.status, 200);
+    assert.equal(swept.body.installation.kind, "phone");
+
+    // The sweep removes phones that stopped reporting — and only those.
+    const desktop = await call(app.base, "POST", "/v1/installations", {
+      clientInstanceId: "a1b2c3d4-0000-4000-8000-000000000003",
+      name: "Studio Mac",
+      platform: "darwin",
+      appVersion: "2.1.3",
+      kind: "desktop",
+    }, accountToken);
+    const desktopId = desktop.body.installation.id;
+    const week = 7 * 24 * 60 * 60_000;
+    const stale = Date.now() - week - 60_000;
+    app.store.db.prepare("UPDATE installations SET last_seen_at = ? WHERE id IN (?, ?)").run(stale, phoneId, desktopId);
+    // A pending request on the stale row must not outlive it.
+    const waiting = await call(app.base, "POST", `/v1/installations/${phoneId}/pair-requests`, { deviceName: "ipad" }, accountToken);
+    assert.equal(waiting.status, 201);
+
+    const dropped = app.store.purgeStalePhones(Date.now() - week);
+    assert.equal(dropped, 1, "the silent phone goes; the desktop beside it stays");
+    const left = app.store.installationsFor(app.store.db.prepare("SELECT account_id FROM installations WHERE id = ?").get(desktopId).account_id);
+    assert.deepEqual(left.map((row) => row.id).sort(), [desktopId, swept.body.installation.id].sort());
+    // The desktop keeps working; the swept phone's credential is revoked.
+    const desktopStill = await call(app.base, "GET", "/v1/installations/self", undefined, desktop.body.credential);
+    assert.equal(desktopStill.status, 200);
+    const phoneGone = await call(app.base, "GET", "/v1/installations/self", undefined, phoneCredential);
+    assert.equal(phoneGone.status, 401);
+    const requestGone = app.store.pairRequest(waiting.body.requestId);
+    assert.equal(requestGone, null);
   } finally {
     app.server.close();
     app.store.close();

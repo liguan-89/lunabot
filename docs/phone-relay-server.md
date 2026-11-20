@@ -102,9 +102,32 @@ real check is one phone scanning a relay QR from a server; if the store build
 refuses the relay-only QR, the change it needs is to try the relay when no
 direct route resolves, which is what the spec's route order already says.
 
+One thing this repository does settle: the Android build here dials the direct
+routes first and falls back to the relay (`android/core/.../e2e/E2eTransport.kt`),
+and a close that arrives before the handshake is a failure of that route rather
+than a session with no keys, so a relay that refuses the phone no longer leaves
+it with nothing while the LAN route sits untried.
+
 Computer viewing and live browser views use WebSocket upgrades. Over the relay
-these answer `501` for now, so a phone shows computer access as unavailable;
-chat, approvals, events and files work.
+these reach the same gate as the phone's HTTP requests — the route that owns the
+path answers, so computer viewing, the live browser and a WebSocket live call
+work through the relay as they do over HTTPS. A path no route owns still answers
+404, and a pairing window may not open one at all.
+
+## Wi-Fi and Tailscale on a server
+
+The server answers `/v1/e2e` on its own listener, with the same responder and
+connection key the desktop's companion runs, so a phone on the same network or
+the same tailnet pairs and connects without the relay. `serve --lan` publishes
+the machine's private address in the QR; `tailscale serve` gives it a `.ts.net`
+one. `GET /api/companion/endpoints` (over HTTPS as well as inside a session)
+re-reads the list on every ask, so a new DHCP lease reaches an already-paired
+phone without a new QR.
+
+A paired device can be kept on those networks: `lunabot devices routes ID local`
+(or `PUT /api/auth/sessions/:id/routes`) stops the relay admitting it, closes
+the relay sessions it holds, and tells it `routes: "local"` so its own side stops
+dialling the relay. Direct routes keep working.
 
 ## Shared code; the desktop is unchanged
 
@@ -247,7 +270,7 @@ The server keeps working on every other way in; the relay only adds one. What
 | The relay does not answer | Can't reach Luna Bot Relay yet. The server keeps working here and keeps trying; phones pair once it connects. |
 
 The server log says `phone relay: connecting`, `phone relay: connected via
-relay2.openmausbot.com` and `phone relay: relay token …`. It redials at once,
+<the node it reached>` and `phone relay: relay token …`. It redials at once,
 then backs off to a minute, moves to the next node on a restart or refusal, and
 renews its token hourly; sessions already open survive a token renewal. A phone
 that cannot reach the relay shows "Can't reach Luna Bot Relay right now. Trying
@@ -255,16 +278,15 @@ again…".
 
 ## Not yet
 
-- WebSocket routes through the relay (Local VM and computer viewing, live
-  browser): they need the upgrade path to accept a socket that is not a TCP
-  socket. Medium.
 - The web UI: a relay QR in the server's own Settings → Remote access, and the
   relay's state there. Medium.
 - `lunabot setup` and `start` offering the relay, `status` showing it, and
   saving it with the startup choices. Small.
 - Moving a phone already paired over HTTPS onto the relay without pairing
   again (trust on first use of `k` from `/api/companion/endpoints`). Small to
-  medium, and needs the phone apps' behaviour confirmed.
+  medium, and needs the phone apps' behaviour confirmed. A server pairing here
+  deliberately does not adopt a snapshot's `e2e`: it learns routes, never a
+  transport key.
 - Dropping the server's own tunnel refusal and allowing `--relay` with
   `--tunnel`, once no supported control plane predates the server exemption.
   Small.

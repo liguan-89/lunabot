@@ -430,7 +430,7 @@ describe("Windows on a pull request", () => {
   });
 
   it.each([
-    "electron/main.mjs", "build/installer.nsh", "electron-builder.yml", "maus.ps1", "scripts/build-cua-win.mjs",
+    "electron/main.mjs", "build/installer.nsh", "electron-builder.yml", "lunabot.ps1", "scripts/build-cua-win.mjs",
     "scripts/smoke-cua-win-embedded.mjs", "server/win32-paths.ts", "server/shell/windows.ts", "server/foo.win32.test.ts",
     ".github/workflows/package-win.yml", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml", ".gitattributes", "vite.config.ts",
     "third_party/browser/agent-browser-windows-stdio.patch", ".github/workflows/ci.yml", "scripts/ci-scope.mjs",

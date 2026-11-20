@@ -125,7 +125,7 @@ describe("serve --relay", () => {
     const session = await waitFor(() => phone(reply.token).catch(() => null), 8_000);
     expect(json(await http(session, "GET", "/api/auth/session", { token: reply.token }))).toMatchObject({ kind: "session", id: reply.device.id, scopes: ["client"] });
     // No session, a loopback Host and the CLI's owner header: still a remote request through the relay.
-    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: base.slice("http://".length), "x-openmausbot-cli": "1" } });
+    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: base.slice("http://".length), "x-lunabot-cli": "1" } });
     expect(spoofed.status).toBe(403);
     // Chat-only stays chat-only: the server's own scope rule answers.
     expect((await http(session, "POST", "/api/auth/pairing", { token: reply.token, body: "{}", headers: { "content-type": "application/json" } })).status).toBe(403);

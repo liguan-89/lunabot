@@ -3,9 +3,10 @@ import { useState } from "react";
 import { useStore } from "@/state/store";
 import { EngineGroupLabel } from "@/components/EngineGroupLabel";
 import { EngineSetup, installCommandFor } from "@/components/EngineSetup";
-import { InstanceProviderMark } from "@/components/ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "@/components/ProviderIcons";
 import { WindowDragStrip } from "@/components/DesktopCapabilities";
 import { splitEngineRail } from "@/lib/engine-rail";
+import { engineDisplayName } from "@/lib/engine-name";
 import { t } from "@/lib/i18n";
 import { productName } from "../lib/brand";
 import { openKeySettings } from "./keys/key-focus";
@@ -63,8 +64,8 @@ export function NoEngines() {
             const card = (instance: (typeof engines)[number]) => (
               <div key={instance.instanceId} className="rounded-xl border border-hairline/40 bg-card p-3.5">
                 <div className="flex items-center gap-2 text-[14px] font-medium text-ink">
-                  <InstanceProviderMark instance={instance} size={16} />
-                  {instance.displayName}
+                  {hasProviderMark(instance) && <InstanceProviderMark instance={instance} size={16} />}
+                  {engineDisplayName(instance)}
                 </div>
                 <EngineSetup
                   instance={instance}

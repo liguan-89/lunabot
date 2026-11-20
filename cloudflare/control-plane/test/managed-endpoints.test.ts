@@ -11,7 +11,7 @@ import { forgetCachedCapacity } from "../src/tunnel-capacity";
 import { rolloutBucket } from "../src/relay";
 import { forgetTunnelRelease } from "../src/tunnel-release";
 
-const BASE_URL = "https://auth.openmausbot.test";
+const BASE_URL = "https://auth.lunabot.test";
 const CONNECTOR_TOKEN = "eyJhbGciOiJIUzI1NiJ9.test-only-connector-token.signature";
 /** An endpoint whose hostname is not under its account's suffix refuses to act. */
 const HOST_SUFFIX = env.COMPANION_HOST_SUFFIX;
@@ -1222,7 +1222,7 @@ describe("managed companion endpoints", () => {
     cloudflare.dns.set(hostname, {
       ...record,
       content: "203.0.113.50",
-      name: "repurposed.openmausbot.test",
+      name: "repurposed.lunabot.test",
       proxied: false,
       type: "A",
     });
@@ -1236,7 +1236,7 @@ describe("managed companion endpoints", () => {
     expect(cloudflare.calls.some((entry) => entry.method === "DELETE")).toBe(false);
     expect(cloudflare.dns.get(hostname)).toMatchObject({
       content: "203.0.113.50",
-      name: "repurposed.openmausbot.test",
+      name: "repurposed.lunabot.test",
       type: "A",
     });
     const retained = await env.DB.prepare(

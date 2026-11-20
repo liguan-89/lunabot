@@ -253,12 +253,6 @@ export interface EnrollResponse {
 }
 
 /** Admin → connector, the first message on every connection. `nonce`: 32 random bytes, base64url. */
-export interface Challenge {
-  t: "challenge";
-  v: 1;
-  nonce: string;
-}
-
 /** Connector → Admin: `sig` is the box key's signature of `authText(box, challenge nonce, nonce, count)`. */
 export interface Auth {
   t: "auth";
@@ -289,15 +283,6 @@ export interface HelloPayload {
 }
 
 /** Admin → connector, `{job: envelope}`. Only for this box, only while `exp` (the Admin's clock) has not passed. */
-export interface JobPayload {
-  t: "job";
-  kid: string;
-  box: string;
-  iat: number;
-  exp: number;
-  job: Job;
-}
-
 /** The update window, in the server's time zone (`days`: 0 is Sunday; `end` before `start` runs past midnight). */
 export interface UpdateWindow {
   days: number[];

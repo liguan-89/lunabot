@@ -268,7 +268,7 @@ describe("pairing codes", () => {
     const a = registry.openPairing();
     expect(registry.exchange({ code: `https://maus.example.com/pair#code=${formatPairingCode(a.code)}`, label: "", source: "s" }).ok).toBe(true);
     const b = registry.openPairing();
-    expect(registry.exchange({ code: `openmausbot://pair?address=https%3A%2F%2Fmaus.example.com&token=${b.credential}`, label: "", source: "s" }).ok).toBe(true);
+    expect(registry.exchange({ code: `lunabot://pair?address=https%3A%2F%2Fmaus.example.com&token=${b.credential}`, label: "", source: "s" }).ok).toBe(true);
   });
 
   it("answers a lost-response retry with the same session for a minute, keyed on the client's attempt id", () => {
@@ -826,5 +826,31 @@ describe("a member's own phone on a Team Cloud", () => {
     const later = phoneOf(fromAdmin());
     clock = registry.authenticate(later.token)!.expiresAt;
     expect(registry.memberPhones(), "an ended phone is not listed").toEqual([]);
+  });
+});
+
+describe("where a paired device may connect from", () => {
+  it("is anywhere until set, survives a reload, and is listed for the person who set it", () => {
+    const phone = registry.issue({ label: "Pixel", scopes: ["client"] });
+    expect(registry.routesOf(phone.session.id)).toBe("any");
+    expect(registry.list().find((session) => session.id === phone.session.id)?.routes).toBeUndefined();
+
+    expect(registry.setRoutes(phone.session.id, "local")).toBe(true);
+    expect(registry.routesOf(phone.session.id)).toBe("local");
+    expect(registry.list().find((session) => session.id === phone.session.id)?.routes).toBe("local");
+    expect(registry.deviceDigests(new Set([phone.session.id]))).toEqual([
+      { id: phone.session.id, tokenHash: expect.any(String), routes: "local" },
+    ]);
+
+    // A restart reads it back: the restriction is stored, not held in memory.
+    const reopened = new SessionRegistry({ file: file(), now: () => clock });
+    expect(reopened.routesOf(phone.session.id)).toBe("local");
+    reopened.close();
+
+    // Widening drops the field rather than storing "any", so a session written before it existed reads the same.
+    expect(registry.setRoutes(phone.session.id, "any")).toBe(true);
+    expect(registry.routesOf(phone.session.id)).toBe("any");
+    expect(registry.deviceDigests(new Set([phone.session.id]))[0]).not.toHaveProperty("routes");
+    expect(registry.setRoutes("no-such-device", "local")).toBe(false);
   });
 });
