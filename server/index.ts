@@ -5157,8 +5157,8 @@ bus.subscribe((event: RuntimeEvent) => {
 
 const sideJobs = createSideJobs({
   bot: (botId) => store.bot(botId),
-  // pi's one-off text call serves "notice" only; waking the dormant jobs on it is a separate decision.
-  instance: (instanceId) => { const i = registry.get(instanceId); return i?.driverKind === "piAgent" ? { ...i, oneOffTextJobs: ["notice"] } : i; },
+  // pi's one-off text call serves "notice" only; the registry surface stays generateText-free so dormant readers never wake.
+  instance: (instanceId) => { const i = registry.get(instanceId); return i?.driverKind === "piAgent" ? { ...i, generateText: i.oneOffText, oneOffTextJobs: ["notice"] } : i; },
   refusal: (instance) => policyModelRefusal(instance), smallModels: quickFallback,
   helper: cacheUntilConfigChanges((config) => helperSelection(config)),
   ...(hostedModels ? { modelAllowed: (selection: ModelSelection) => hostedModels.allows(selection) } : {}),

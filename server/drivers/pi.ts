@@ -1212,7 +1212,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return () => listeners.delete(listener);
         },
       },
-      generateText: createSidejobText({ sendTurn, active, listeners, defaultModel: models.default }),
+      oneOffText: createSidejobText({ sendTurn, active, listeners, defaultModel: models.default }),
       dispose: async () => {
         try {
           await stopAll();
