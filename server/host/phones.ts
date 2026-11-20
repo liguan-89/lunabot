@@ -1,15 +1,18 @@
 // The owner's paired phones as bot tools, wired once by server/index.ts: the registry and the jobs a phone polls, which
 // sends came from a phone, whose turn may reach the phones, what a turn mounts and is told, and the /api/phones routes.
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 
 import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
-import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type LearnLevel, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { createNoticeLearn, type NoticeLearn } from "./notice-learn.ts";
 import { createNoticeTriage, type NoticeSurfacedItem, type NoticeTriage } from "./notice-triage.ts";
+import { renderObserved, type TopicPoolData } from "../notice-learn.ts";
+import { writeFileAtomic } from "../atomic.ts";
 import type { Decider } from "../decider/index.ts";
 import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TURNS, type Intent } from "../intent-gate.ts";
 import { personKey } from "../person-key.ts";
@@ -20,7 +23,7 @@ import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from 
 import { PhoneRegistry } from "../phones/registry.ts";
 import { createPhoneSends } from "../phones/sends.ts";
 import { PhoneSteer } from "../phones/steer.ts";
-import { PhoneRoutes } from "../phone-routes.ts";
+import { PhoneRoutes, ownerDirectoryName } from "../phone-routes.ts";
 import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
@@ -105,6 +108,11 @@ export interface PhonesDeps {
   noticeSurfaced?(ownerKey: string, packageName: string, items: NoticeSurfacedItem[]): void;
   /** Triage reasons are written in this language's English name. */
   noticeLanguage?(): string;
+  /**
+   * The owner's notice-learn level: "off" keeps the whole pipeline quiet (nothing captures, no judge calls);
+   * a level runs it and only gates what `intoTasks` lets through to the prompt. Absent reads as "off".
+   */
+  noticeLearnLevel?(ownerKey: string): LearnLevel | "off";
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -123,12 +131,19 @@ export function createPhones(deps: PhonesDeps) {
   const intents = new Map<string, Promise<Intent | null | undefined>>();
   /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
   const routeOffers = new Map<string, { ownerKey: string; id: string }>();
-  /** Each owner's learned-notice pile: a bounded inbox, the dedup that keeps reposts from filling it, and its triage. */
-  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage }>();
-  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage } => {
+  /** Each owner's learned-notice pile: a bounded inbox, the dedup that keeps reposts from filling it, and its consumers. */
+  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn }>();
+  /** An owner's topic pool file, per the same directory rule the route store follows. */
+  const noticeTopicsFile = (ownerKey: string) => join(deps.dataDir, "notice-topics", ownerDirectoryName(ownerKey), "topics.json");
+  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn } => {
     let sink = noticeInboxes.get(ownerKey);
     if (!sink) {
       const inbox = new NoticeInbox();
+      let poolData: TopicPoolData | undefined;
+      try {
+        const parsed = JSON.parse(readFileSync(noticeTopicsFile(ownerKey), "utf8")) as TopicPoolData;
+        if (parsed?.version === 1 && Array.isArray(parsed.topics)) poolData = parsed;
+      } catch {}
       sink = {
         inbox,
         dedup: createNoticeDedup(),
@@ -143,6 +158,22 @@ export function createPhones(deps: PhonesDeps) {
           wait: (ms, run) => setTimeout(run, ms),
           unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
         }),
+        learn: createNoticeLearn({
+          judge: () => deps.noticeJudge?.(ownerKey) ?? null,
+          busy: () => registry.list(ownerKey, () => false).some((phone) => jobs.busy(phone.key)),
+          eligible: (packageName) => registry.list(ownerKey, () => false)
+            .some((phone) => (phone.registration.noticeApps ?? []).includes(packageName)),
+          level: () => deps.noticeLearnLevel?.(ownerKey) ?? "off",
+          language: () => deps.noticeLanguage?.() ?? "English",
+          persist: (data) => {
+            const file = noticeTopicsFile(ownerKey);
+            mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+            writeFileAtomic(file, JSON.stringify(data), { mode: 0o600 });
+          },
+          now: Date.now,
+          wait: (ms, run) => setTimeout(run, ms),
+          unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        }, poolData),
       };
       noticeInboxes.set(ownerKey, sink);
       for (const stale of noticeInboxes.keys()) {
@@ -165,11 +196,26 @@ export function createPhones(deps: PhonesDeps) {
     const sink = noticeSinkFor(phone.owner);
     // An unticked package stops being learned and its kept records go with it.
     sink.inbox.removePackages((pkg) => policy.allow.has(pkg));
+    sink.learn.purge((pkg) => policy.allow.has(pkg));
     sink.inbox.noteReceived();
     if (shouldLearn(record, policy) !== "keep") return;
-    if (sink.dedup.admit(record) === null) return;
+    const admitted = sink.dedup.admit(record);
+    if (admitted === null) return;
     sink.inbox.add(record);
     sink.triage.poke();
+    sink.learn.capture(record, admitted.newMessages);
+  };
+  /**
+   * The owner's "gathered from notifications" section for a prompt: every ticked app sits at Mid until a per-app
+   * tier setting exists, so under Balanced nothing qualifies — Mika's default too (Mid enters tasks only at
+   * Aggressive). Off means the pipeline is not running and this is null anyway.
+   */
+  const learnedNotices = (ownerKey: string): string | null => {
+    const level = deps.noticeLearnLevel?.(ownerKey) ?? "off";
+    if (level === "off") return null;
+    const sink = noticeInboxes.get(ownerKey);
+    if (!sink) return null;
+    return renderObserved(sink.learn.topics(), level, () => "mid", Date.now());
   };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
@@ -356,6 +402,8 @@ export function createPhones(deps: PhonesDeps) {
           routeOffers.delete(stale);
         }
       }
+      const learned = phoneOwner === null ? null : learnedNotices(phoneOwner);
+      if (learned !== null) parts.push({ id: "device-notices", label: "Learned from the owner's phone notifications", text: learned });
       return parts;
     },
     /** The bot settings preview: the owner's phone as a turn at the computer would see it. */
@@ -456,6 +504,6 @@ export function createPhones(deps: PhonesDeps) {
       if (!deps.ownerOrAdmin(auth)) routineAuthors.forget(routine.id);
       else if (ownersAgain) routineAuthors.record(routine.id, routine);
     },
-    close: () => { unsubscribe(); jobs.close(); for (const sink of noticeInboxes.values()) sink.triage.stop(); },
+    close: () => { unsubscribe(); jobs.close(); for (const sink of noticeInboxes.values()) { sink.triage.stop(); sink.learn.stop(); } },
   };
 }

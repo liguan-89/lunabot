@@ -910,6 +910,34 @@ export const NOTICE_TUNING = Object.freeze({
   /** Most messages kept from one conversation-style notification. */
   FILTER_MESSAGES_MAX: 20,
 
+  // Learning
+  /** Title/text caps on what a learn request carries — tighter than the filter's keep caps. */
+  LEARN_TITLE_MAX: 120,
+  LEARN_TEXT_MAX: 200,
+  /** Same key, same text, this far apart is a repost, not a new occurrence — about half a day. */
+  REPEAT_WINDOW_MS: 12 * 3_600_000,
+  /** Most this-time-new messages one conversation notice contributes to a learn line. */
+  NEW_LINES_MAX: 5,
+  /** Most existing topics one learn request offers the model to cite. */
+  LEARN_EXISTING_MAX: 30,
+  /** Most signals one learn reply may carry. */
+  LEARN_SIGNALS_MAX: 8,
+  /** Longest a new topic's label may be. */
+  LEARN_LABEL_MAX: 24,
+  /** A digit run this long in a label fails it — order numbers, phones, codes. */
+  LEARN_DIGIT_RUN_MAX: 5,
+  // The topic pool
+  /** Most distinct days kept per app on one topic, most recent kept. */
+  TOPIC_DAYS_PER_APP: 60,
+  /** Most apps' evidence one topic carries, most recently seen kept. */
+  TOPIC_APPS_PER_TOPIC: 20,
+  /** Forgetting scale: retention = exp(-Δt / (TOPIC_STABILITY_DAYS × (1 + strength))). */
+  TOPIC_STABILITY_DAYS: 7,
+  /** Below this retention a topic is forgotten at the next maintain pass. */
+  TOPIC_FORGET_BELOW: 0.1,
+  /** Most topics the pool keeps, weakest first out. */
+  TOPIC_POOL_CAP: 300,
+
   // Triage
   /** Most notifications one triage request carries. */
   TRIAGE_BATCH_MAX: 8,

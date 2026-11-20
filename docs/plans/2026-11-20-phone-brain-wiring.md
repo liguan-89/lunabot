@@ -153,6 +153,41 @@ reads as an inbound event the bot answers in place, never an autonomous
 phone action. Threads are created inactive; per-app daily surface cap
 (conservative 10) converts overflow verdicts to `ignore`/`surface-capped`.
 
+## Phase 3c — learn pipeline (topics into tasks)
+
+Shipped, opt-in via `config.features.noticeLearn` (`off` default;
+`conservative` runs the pipeline but lets nothing into tasks — Mika's
+default split between learning and showing).
+
+`server/notice-learn.ts` ports the topic half: `LearnBuffer` (kept notices
+become events, the same key+text inside the 12 h repeat window is a
+repost, an app is due at 12 pending or its oldest aged 30 min),
+`buildLearnInput`/`parseLearnReply` (Mika's strict parse: cite `t1…` or
+open `{kind,label}`; labels that look like URLs, long digit runs or
+secrets drop; a sensitive mark drops while inference stays off; contacts
+stayed off so contact items are dropped unread), `TopicPool` (per-app
+day evidence, strength×retention scoring, `maintain` forgetting, an
+unticked app loses its evidence), `qualifiedTopic`/`renderObserved`
+(topics-only `ObservedContext`: only days backed by `intoTasks`-tier
+apps count; the section carries Mika's honesty header).
+
+`server/host/notice-learn.ts` is the runner slice: event-driven like the
+triage runner — one batch in flight, a failed batch drops its events and
+holds by consecutive failures, 20 judge calls per owner per day, the
+same `noticeJudge` general model. `host/phones.ts` feeds it on every
+kept notice (with the dedup's new-message lines), purges buffer +
+pool evidence on untick, and persists the pool per owner at
+`dataDir/notice-topics/<owner>/topics.json`. `promptParts` appends a
+`device-notices` part when `renderObserved` qualifies.
+
+Left out, as the gap doc keeps out: contacts/relations, the
+notes→day→week→month digests, `NoticeJournal` persistence of raw
+notices, open/dismiss outcome tracking (the phone posts on arrival and
+cannot see removal reasons), and the user's topic-management surface —
+so `blocked`/`merged` name maps are unported. Per-app `SourceTier` is
+hard-wired `mid` until a Settings row exists, meaning `balanced` shows
+nothing; `aggressive` is the first level that surfaces Mid-tier topics.
+
 ## Verification
 
 Phase 1/1b: unit tests beside `server/phone-routes.test.ts` for `settle`
@@ -180,3 +215,11 @@ ending, unknown/duplicate/missing/invalid ids, no-JSON batch failure, a
 quoted record never counting) and the runner (gathering window, judged
 marks, one surface delivery, failed-batch cooldown, no-judge no-op, busy
 holding a full batch).
+
+Phase 3c: `server/notice-learn.test.ts` — buffer (repeat window, due,
+begin/fail/finish, purge), parser (cite/new, every drop reason, no-JSON
+batch failure, contact items ignored, sensitive dropped), pool (one-day
+per judgement, same-name cites, forgetting, clearApp, strongest), and
+`qualifiedTopic`/`renderObserved` gating. `server/host/notice-learn.test.ts`
+— the runner (aged batch judged and persisted, waiting timers, failure
+hold, unreadable reply, level off, no judge, purge, busy).

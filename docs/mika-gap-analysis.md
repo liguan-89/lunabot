@@ -435,10 +435,15 @@ Mika's token-ledger budget replaced by a per-owner daily call cap.
 
 Mika's `NoticeShapes` (splitting a chat notification into conversation,
 speaker and line), `LiveUpdates`, `CatchUp` and the shade reconcile,
-`LearnBuffer`, `TopicPool`, `ContactPool` and `NoticeJournal.kt` stay out;
-the runner supplies marks, cooldowns and first-seen clocks. The learn
-pipeline (`learnableTopic`, `LEARN_LEVELS`, `LEARN_*` tuning) still has no
-caller — learned material does not yet reach tasks.
+`ContactPool`, `NoticeJournal.kt` and the notes→day→week→month digests
+stay out; the runner supplies marks, cooldowns and first-seen clocks. The
+learn pipeline has its caller: `server/notice-learn.ts` ports `LearnBuffer`,
+`NoticeLearn` (topics only — contacts stay off), `TopicPool` and the
+`ObservedContext` topics section, and `server/host/notice-learn.ts` runs
+it per owner off `config.features.noticeLearn` (default off; conservative
+learns without reaching tasks). Still absent: the user's topic-management
+surface, per-app `SourceTier` (everything is `mid`), sensitive inference,
+and open/dismiss outcomes — the phone cannot report a removal reason.
 
 ## Intent gate
 

@@ -81,7 +81,13 @@ describe("createNoticeTriage", () => {
       unwait: (handle) => { timers.delete(handle as number); },
     });
     const flush = async () => { for (let i = 0; i < 4; i++) await Promise.resolve(); };
-    const advance = async (ms: number) => { state.now += ms; for (const t of timers.values()) t.run(); timers.clear(); await flush(); };
+    const advance = async (ms: number) => {
+      state.now += ms;
+      const fired = Array.from(timers.values());
+      timers.clear();
+      for (const t of fired) t.run();
+      await flush();
+    };
     return { triage, timers, surfaced, judgeCalls, flush, advance, state };
   };
 
