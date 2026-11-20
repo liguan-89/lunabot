@@ -1,4 +1,4 @@
-"""Builds the self-contained DEX BOT brand vectors from the app's bot-face geometry.
+"""Builds the self-contained Luna Bot brand vectors from the app's bot-face geometry.
 
 Run: python3 design/brand/gen-assets.py
 Outputs SVGs next to this script; no font dependency (the wordmark is outlined).
@@ -23,8 +23,8 @@ OFFSET, DROP = 0.342, -0.150
 LEN, WID = 0.245, 0.125
 
 CAP = 708
-WORD = "DEX BOT"
-O_INDEX = 5  # D E X space B O T
+WORD = "LUNA BOT"
+O_INDEX = 6  # L U N A space B O T
 
 
 def heavy_font() -> TTFont:
@@ -148,11 +148,11 @@ o_d = 720
 o_left = O_X + (O_ADV - o_d) / 2
 o_center = (o_left + o_d / 2, CAP / 2)
 def o_wordmark(text_color, body, eye, uid):
-    dex_b, _, _ = glyph_paths("DEX B")
+    luna_b, _, _ = glyph_paths("LUNA B")
     t_pen = SVGPathPen(GLYPHS)
     GLYPHS[CMAP[ord("T")]].draw(t_pen)
     return (
-        f'<g fill="{text_color}">{dex_b}'
+        f'<g fill="{text_color}">{luna_b}'
         f'<path transform="translate({O_X + O_ADV:.3f} {CAP}) scale(1 -1)" d="{t_pen.getCommands()}"/></g>'
         + flat_face(o_center[0], o_center[1], o_d / 2, fill=("#F7F3ED" if body == "cream" else "#0A0A0A"), eye=eye)
     )
@@ -225,12 +225,12 @@ prev.append('<rect x="512" y="92" width="200" height="200" rx="20" fill="#E9E9E4
 prev.append(f'<g transform="translate(532 112) scale(0.16)">{mono_face(500,500,500,"p3")}</g>')
 prev.append('<text x="48" y="360" font-family="Avenir Next, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#6E6E6A">LOCKUP / WHITE ON BLACK</text>')
 prev.append('<rect x="48" y="384" width="1304" height="240" rx="24" fill="#000"/>')
-prev.append(f'<g transform="translate(80 433) scale(0.2)">{face(525,354,525,"cream",EYE,"p4")}<g fill="{CREAM}" transform="translate(1450 0)">{WORD_SVG}</g></g>')
+prev.append(f'<g transform="translate(80 440) scale(0.18)">{face(525,354,525,"cream",EYE,"p4")}<g fill="{CREAM}" transform="translate(1450 0)">{WORD_SVG}</g></g>')
 prev.append('<text x="48" y="700" font-family="Avenir Next, Helvetica, sans-serif" font-size="13" font-weight="700" letter-spacing="3" fill="#6E6E6A">WORDMARK / O IS THE BOT</text>')
 prev.append('<rect x="48" y="724" width="640" height="220" rx="22" fill="#000"/>')
-prev.append(f'<g transform="translate(78 788) scale(0.13)">{o_wordmark(CREAM,"cream",EYE,"p5")}</g>')
+prev.append(f'<g transform="translate(78 798) scale(0.105)">{o_wordmark(CREAM,"cream",EYE,"p5")}</g>')
 prev.append('<rect x="712" y="724" width="640" height="220" rx="22" fill="#E9E9E4"/>')
-prev.append(f'<g transform="translate(742 788) scale(0.13)">{o_wordmark(INK,"graphite","#FFFFFF","p6")}</g>')
+prev.append(f'<g transform="translate(742 798) scale(0.105)">{o_wordmark(INK,"graphite","#FFFFFF","p6")}</g>')
 prev.append('</svg>')
 (HERE / "assets-preview.svg").write_text("".join(prev))
 print("wrote assets-preview.svg")

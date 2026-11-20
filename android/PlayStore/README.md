@@ -60,11 +60,17 @@ These files are candidates for review, not an approved upload set:
 | --- | --- | --- |
 | Icon, 512×512 | [play-icon-512.png](assets/play-icon-512.png) | Match the release launcher icon. |
 | Feature graphic, 1024×500 | [feature-graphic-1024x500.png](assets/feature-graphic-1024x500.png) | Check Luna Bot branding and supported feature claims. |
-| Threads, 1080×2400 | [01-threads.png](assets/screenshots/01-threads.png) | Compare with the selected release. |
-| Chat, 1080×2400 | [02-chat.png](assets/screenshots/02-chat.png) | Compare with the selected release. |
-| Call, 1080×2400 | [03-call.png](assets/screenshots/03-call.png) | **Unapproved and unusable for submission until the actual release supports and verifies this feature.** |
-| Pairing, 1080×2400 | [04-pairing.png](assets/screenshots/04-pairing.png) | Compare with the selected release. |
-| Updates, 1080×2400 | [05-updates.png](assets/screenshots/05-updates.png) | Compare with the selected release. |
+| Threads, 1200×2400 | [01-threads.png](assets/screenshots/01-threads.png) | Compare with the selected release. |
+| Chat, 1200×2400 | [02-chat.png](assets/screenshots/02-chat.png) | Compare with the selected release. |
+| Call, 1200×2400 | [03-call.png](assets/screenshots/03-call.png) | **Unapproved and unusable for submission until the actual release supports and verifies this feature.** |
+| Pairing, 1200×2400 | [04-pairing.png](assets/screenshots/04-pairing.png) | Compare with the selected release. |
+| Updates, 1200×2400 | [05-updates.png](assets/screenshots/05-updates.png) | Compare with the selected release. |
+| Settings, 1200×2400 | [06-settings.png](assets/screenshots/06-settings.png) | Compare with the selected release. |
+
+The current screenshots were captured 2026-11-20 on physical devices
+(`preview` variant `2.1.4-threads-preview`, commit `bd74e6ca8`) paired with an
+isolated fixture (`scripts/control-omb.ts launch`, scripted `FAKE_PI_*`
+replies); all conversation content is synthetic.
 
 The icon and feature graphic have editable sources in
 [play-icon.html](assets/play-icon.html),

@@ -74,7 +74,7 @@ test("app links naming a server are read; a phone's link to a computer is named"
   assert.equal(parseServerInput("lunabot://pair?address=192.168.1.20&port=8810&token=x").problem, "phoneLink");
   // Links and QR codes made before the rename still pair.
   assert.equal(parseServerInput(`dexbot://pair?address=${encodeURIComponent("https://maus.example.com")}&code=${CODE}`).code, CODE);
-  assert.equal(parseServerInput(`openmausbot://pair?address=${encodeURIComponent("https://maus.example.com")}&code=${CODE}`).code, CODE);
+  assert.equal(parseServerInput(`lunabot://pair?address=${encodeURIComponent("https://maus.example.com")}&code=${CODE}`).code, CODE);
 });
 
 test("anything that is not a server address is refused", () => {

@@ -4,6 +4,7 @@ import { ChevronDown, LifeBuoy, Plus } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { configuredModelInstances } from "@/lib/engine-rail";
+import { engineDisplayName } from "@/lib/engine-name";
 import { t } from "@/lib/i18n";
 import type { Typeahead } from "@/lib/menu-keys";
 import { pickerPlacement, type PickerPlacement } from "@/lib/picker-placement";
@@ -14,7 +15,7 @@ import { useStore, type Bot, type InstanceInfo } from "@/state/store";
 import { useMenuMotion } from "../MenuMotion";
 import { modelMenuKey, modelMenuPointerMove } from "../model-menu-keys";
 import { SIMPLE_POPOVER_WIDTH } from "../ModelPicker";
-import { InstanceProviderMark } from "../ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "../ProviderIcons";
 import { SimpleModelMenu } from "../SimpleModelMenu";
 import { buttonCls, Card, ColRow, RowIcon, RowText, TrashButton } from "./rows";
 
@@ -246,12 +247,12 @@ export function BackupAis({ bot, onChange }: { bot: Bot; onChange: (fallback: Ba
                     exclude={others(index)}
                     onPick={(picked) => onChange(chain.map((candidate, at) => (at === index ? picked : candidate)))}
                     label={t("botPanel.backups.row", { position: index + 1, model: name })}
-                    title={instance ? `${instance.displayName} · ${name}` : name}
+                    title={instance ? `${engineDisplayName(instance)} · ${name}` : name}
                     data-panel-action="backup-change"
                     className="group flex h-8 min-w-0 flex-1 items-center gap-2 rounded-[8px] bg-ink/[0.04] pl-2.5 pr-2 text-left text-[13px] text-ink hover:bg-ink/[0.07] aria-expanded:bg-ink/[0.08]"
                   >
                     {instance
-                      ? <InstanceProviderMark instance={instance} size={14} subtle />
+                      ? hasProviderMark(instance) && <InstanceProviderMark instance={instance} size={14} subtle />
                       : <span className="size-3.5 shrink-0 rounded-full bg-ink/[0.08]" aria-hidden="true" />}
                     <span className="min-w-0 flex-1 truncate">{short}</span>
                     {!instance && <span className="shrink-0 text-[12px] text-warning">{t("model.simple.unavailable")}</span>}

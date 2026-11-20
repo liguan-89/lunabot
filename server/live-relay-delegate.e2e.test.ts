@@ -80,9 +80,9 @@ posixOnly("Live relay delegate e2e", () => {
     chmodSync(FAKE_PI, 0o755);
     duplex = await FakeVolcDuplex.start();
     home = mkdtempSync(join(tmpdir(), "omb-live-relay-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {

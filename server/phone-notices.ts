@@ -9,6 +9,7 @@
 // request; `planTriage` only says whether one may be sent.
 
 import { createHash } from "node:crypto";
+import { z } from "zod";
 
 import { holdsCredential } from "../shared/redact.ts";
 import { hostTimeZone } from "./turn-clock.ts";
@@ -53,6 +54,38 @@ export interface NoticeRecord {
   titleIsSpeaker?: boolean;
   /** The system says this notification is silent. Unknown reads as audible. */
   silent?: boolean;
+}
+
+/** A notification the phone pushes through `/api/phones/self/events` — `NoticeRecord` as the wire carries it. */
+export const phoneNotice = z.object({
+  kind: z.literal("notice"),
+  key: z.string().min(1).max(300),
+  packageName: z.string().min(1).max(200),
+  postedAtMs: z.number().int().nonnegative(),
+  title: z.string().max(2_000),
+  text: z.string().max(8_000),
+  category: z.string().max(80).nullish(),
+  ongoing: z.boolean().optional(),
+  groupSummary: z.boolean().optional(),
+  foregroundService: z.boolean().optional(),
+  clearable: z.boolean().optional(),
+  conversation: z.boolean().optional(),
+  silent: z.boolean().optional(),
+  sender: z.string().max(300).nullish(),
+  group: z.boolean().nullish(),
+  conversationTitle: z.string().max(300).nullish(),
+  titleIsSpeaker: z.boolean().optional(),
+  messages: z.array(z.object({
+    sender: z.string().max(300).nullable(),
+    text: z.string().max(2_000),
+    atMs: z.number().int(),
+  }).strict()).max(30).optional(),
+}).strict();
+
+/** The pushed event read back as the record the filters and the inbox hold. */
+export function noticeRecordOf(event: z.infer<typeof phoneNotice>): NoticeRecord {
+  const { kind: _kind, ...record } = event;
+  return record;
 }
 
 /** One text a notification key showed, oldest first in the inbox's per-key history. */
@@ -876,6 +909,34 @@ export const NOTICE_TUNING = Object.freeze({
   FILTER_TEXT_MAX: 2_000,
   /** Most messages kept from one conversation-style notification. */
   FILTER_MESSAGES_MAX: 20,
+
+  // Learning
+  /** Title/text caps on what a learn request carries — tighter than the filter's keep caps. */
+  LEARN_TITLE_MAX: 120,
+  LEARN_TEXT_MAX: 200,
+  /** Same key, same text, this far apart is a repost, not a new occurrence — about half a day. */
+  REPEAT_WINDOW_MS: 12 * 3_600_000,
+  /** Most this-time-new messages one conversation notice contributes to a learn line. */
+  NEW_LINES_MAX: 5,
+  /** Most existing topics one learn request offers the model to cite. */
+  LEARN_EXISTING_MAX: 30,
+  /** Most signals one learn reply may carry. */
+  LEARN_SIGNALS_MAX: 8,
+  /** Longest a new topic's label may be. */
+  LEARN_LABEL_MAX: 24,
+  /** A digit run this long in a label fails it — order numbers, phones, codes. */
+  LEARN_DIGIT_RUN_MAX: 5,
+  // The topic pool
+  /** Most distinct days kept per app on one topic, most recent kept. */
+  TOPIC_DAYS_PER_APP: 60,
+  /** Most apps' evidence one topic carries, most recently seen kept. */
+  TOPIC_APPS_PER_TOPIC: 20,
+  /** Forgetting scale: retention = exp(-Δt / (TOPIC_STABILITY_DAYS × (1 + strength))). */
+  TOPIC_STABILITY_DAYS: 7,
+  /** Below this retention a topic is forgotten at the next maintain pass. */
+  TOPIC_FORGET_BELOW: 0.1,
+  /** Most topics the pool keeps, weakest first out. */
+  TOPIC_POOL_CAP: 300,
 
   // Triage
   /** Most notifications one triage request carries. */

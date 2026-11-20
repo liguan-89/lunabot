@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { denyReason, isBrowserControlAccess, isCloudDesktopAccess, isCompanionNotice } from "../src/routes.ts";
+import { denyReason, isBrowserControlAccess, isCloudDesktopAccess, isCompanionNotice, isDesktopScreenAccess } from "../src/routes.ts";
 
 const ask = (method: string, path: string, authenticated = true) =>
   denyReason({ method, path, authenticated });
@@ -103,6 +103,10 @@ describe("what the app may do", () => {
     ["GET", "/api/attachments/avatar-123.webp"],
     ["GET", "/api/attachments/voice-note-1.mp3"],
     ["GET", "/api/attachments/voice-note-1.wav"],
+    ["DELETE", "/api/attachments/uploaded-1.png"],
+    ["GET", "/api/notifications"],
+    ["POST", "/api/notifications/read-all"],
+    ["POST", "/api/notifications/n-1/read"],
     ["POST", "/api/files"],
     ["GET", "/api/tts/voices"],
     ["POST", "/api/tts/prepare"],
@@ -268,6 +272,21 @@ describe("what it may not", () => {
     expect(allowed("POST", "/api/local-computer/join")).toBe(false);
   });
 
+  it("watches and drives this computer's own screen behind its own grant", () => {
+    expect(allowed("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(true);
+    expect(allowed("POST", "/api/bots/bot_123/desktop/action")).toBe(true);
+    // Its own capability, never the VM's: the person's real desktop is a different risk from a disposable container.
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(true);
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/desktop/action")).toBe(true);
+    expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/desktop/screenshot")).toBe(false);
+    expect(isCloudDesktopAccess("POST", "/api/bots/bot_123/desktop/action")).toBe(false);
+    // Read-only verbs, other bots' paths and other actions stay closed.
+    expect(allowed("GET", "/api/bots/bot_123/desktop/screenshot")).toBe(false);
+    expect(allowed("POST", "/api/desktop/screenshot")).toBe(false);
+    expect(allowed("POST", "/api/bots/bot_123/desktop/launch")).toBe(false);
+    expect(isDesktopScreenAccess("POST", "/api/bots/bot_123/local-computer/screenshot")).toBe(false);
+  });
+
   it("allows only the exact encrypted credential submission verb", () => {
     expect(allowed("POST", "/api/bots/bot_123/secret-cards/message_1/provide")).toBe(true);
     expect(allowed("GET", "/api/bots/bot_123/secret-cards/message_1/provide")).toBe(false);
@@ -286,7 +305,11 @@ describe("what it may not", () => {
     expect(allowed("GET", "/api/bots")).toBe(true);
     expect(allowed("DELETE", "/api/bots/bot_123")).toBe(false);
     expect(allowed("POST", "/api/threads/th_1/messages")).toBe(false);
-    expect(allowed("GET", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
+    // The read half is the renderer's inline preview; the harness answers it only for `?preview=1&ref=<offset>` that
+    // names an image the message rendered, and 400s a bare GET.
+    expect(allowed("GET", "/api/threads/th_1/messages/msg_2/file")).toBe(true);
+    expect(allowed("PUT", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
+    expect(allowed("DELETE", "/api/threads/th_1/messages/msg_2/file")).toBe(false);
     expect(allowed("POST", "/api/threads/th_1/messages/msg_2/file/extra")).toBe(false);
     expect(allowed("GET", "/api/groups/room-1")).toBe(false);
     expect(allowed("GET", "/api/bots/bot_123")).toBe(false);

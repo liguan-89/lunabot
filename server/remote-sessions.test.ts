@@ -120,11 +120,11 @@ async function pairingCode(scopes?: string[]): Promise<{ code: string; credentia
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-remote-test-"));
   const staticDir = join(home, "static");
-  mkdirSync(join(home, ".openmausbot"), { recursive: true });
+  mkdirSync(join(home, ".lunabot"), { recursive: true });
   mkdirSync(join(staticDir, "assets"), { recursive: true });
   writeFileSync(join(staticDir, "index.html"), "<!doctype html><title>Served UI</title>");
   // Avoid probing whatever agent CLIs the test machine has installed.
-  writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({
+  writeFileSync(join(home, ".lunabot", "config.json"), JSON.stringify({
     instances: { fixture: { driver: "remote-session-test-shadow" } },
     profile: { name: "Security fixture", email: "private@example.invalid" },
     vps: { sshAlias: "fixture-private-host" },
@@ -179,7 +179,7 @@ describe("before pairing", () => {
   });
 
   it("describes itself to anyone, but serves nothing else off-machine", async () => {
-    const descriptor = await call("/.well-known/openmausbot/environment", { headers: remote("10.0.0.1") });
+    const descriptor = await call("/.well-known/lunabot/environment", { headers: remote("10.0.0.1") });
     expect(descriptor.status).toBe(200);
     expect(descriptor.body.environmentId).toMatch(/^[0-9a-f-]{36}$/);
     expect(descriptor.body.label).toBe("cab mini");

@@ -14,18 +14,18 @@ afterAll(() => removeTempDir(dir));
 
 describe("the server and the credential", () => {
   it("takes flags before the environment, and --url before --port", () => {
-    expect(namedServer({ url: "https://a.example", port: "1" }, { OPENMAUSBOT_URL: "https://b.example" })).toEqual({ url: "https://a.example" });
-    expect(namedServer({ port: "19990" }, { OPENMAUSBOT_URL: "https://b.example" })).toEqual({ port: "19990" });
-    expect(namedServer({}, { OPENMAUSBOT_URL: "https://b.example", OMB_PORT: "1" })).toEqual({ url: "https://b.example" });
+    expect(namedServer({ url: "https://a.example", port: "1" }, { LUNABOT_URL: "https://b.example" })).toEqual({ url: "https://a.example" });
+    expect(namedServer({ port: "19990" }, { LUNABOT_URL: "https://b.example" })).toEqual({ port: "19990" });
+    expect(namedServer({}, { LUNABOT_URL: "https://b.example", OMB_PORT: "1" })).toEqual({ url: "https://b.example" });
     expect(namedServer({}, { OMB_PORT: "8123" })).toEqual({ port: "8123" });
     expect(namedServer({}, {})).toBeUndefined();
   });
 
-  it("reads the token from --token-file or OPENMAUSBOT_TOKEN, never from the command line", () => {
+  it("reads the token from --token-file or LUNABOT_TOKEN, never from the command line", () => {
     const file = join(dir, "token");
     writeFileSync(file, "omb_sess_from_file\n");
-    expect(readToken({ "token-file": file }, { OPENMAUSBOT_TOKEN: "omb_sess_env" })).toBe("omb_sess_from_file");
-    expect(readToken({}, { OPENMAUSBOT_TOKEN: " omb_sess_env " })).toBe("omb_sess_env");
+    expect(readToken({ "token-file": file }, { LUNABOT_TOKEN: "omb_sess_env" })).toBe("omb_sess_from_file");
+    expect(readToken({}, { LUNABOT_TOKEN: " omb_sess_env " })).toBe("omb_sess_env");
     expect(readToken({}, {})).toBeUndefined();
     writeFileSync(join(dir, "empty"), "\n");
     expect(() => readToken({ "token-file": join(dir, "empty") }, {})).toThrow("is empty");
@@ -34,11 +34,11 @@ describe("the server and the credential", () => {
 
   it("sends the token with every call to a named server, and never while looking for one", async () => {
     const request = vi.fn(async () => ({ ok: true }));
-    const client = await openClient({ url: "http://127.0.0.1:19990" }, { env: { OPENMAUSBOT_TOKEN: "omb_sess_abc" }, request }, false);
+    const client = await openClient({ url: "http://127.0.0.1:19990" }, { env: { LUNABOT_TOKEN: "omb_sess_abc" }, request }, false);
     await client.json("/api/bots?messages=0");
     expect(request).toHaveBeenCalledWith("/api/bots?messages=0", expect.objectContaining({ headers: expect.any(Headers) }), "http://127.0.0.1:19990");
     expect((request.mock.calls[0] as unknown as [string, RequestInit])[1].headers).toEqual(new Headers({ Authorization: "Bearer omb_sess_abc" }));
-    await expect(openClient({}, { env: { OPENMAUSBOT_TOKEN: "omb_sess_abc" } }, false)).rejects.toMatchObject({ exitCode: 2, message: expect.stringContaining("never sent while looking") });
+    await expect(openClient({}, { env: { LUNABOT_TOKEN: "omb_sess_abc" } }, false)).rejects.toMatchObject({ exitCode: 2, message: expect.stringContaining("never sent while looking") });
     await expect(openClient({ url: "http://203.0.113.9:8799" }, { env: {} }, false)).rejects.toMatchObject({ exitCode: 2, message: expect.stringContaining("open internet") });
     await expect(openClient({ port: "70000" }, { env: {} }, false)).rejects.toMatchObject({ exitCode: 2 });
   });

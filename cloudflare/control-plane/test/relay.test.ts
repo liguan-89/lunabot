@@ -9,7 +9,7 @@ import { createWorker } from "../src/index";
 import { forgetTunnelRelease, releaseTunnels } from "../src/tunnel-release";
 import { forgetRelayAdoption, importSigningSeed, mintRelayToken, orderNodes, RELAY_TOKEN_LIMIT, rolloutBucket } from "../src/relay";
 
-const BASE_URL = "https://auth.openmausbot.test";
+const BASE_URL = "https://auth.lunabot.test";
 const hex = (text: string) => Uint8Array.from(text.match(/../g)!.map((pair) => Number.parseInt(pair, 16)));
 const b64u = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const fromB64u = (text: string) => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (text.length % 4)) % 4)), (c) => c.charCodeAt(0));

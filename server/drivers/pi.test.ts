@@ -379,7 +379,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("refuses a restricted turn when the loaded extension has not confirmed enforcement", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-missing-scope-"));
     const dump = join(dir, "rpc.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     await expect(instance.adapter.sendTurn({ threadId: "missing-enforcement", text: "Must not reach a provider", toolScope: { allow: [] } })).rejects.toThrow(/tool selection.*enforcement/i);
     const rows = readFileSync(dump, "utf8").trim().split("\n").map((line) => JSON.parse(line));
     expect(rows.some((row) => row.argv?.includes("-e"))).toBe(true);
@@ -390,7 +390,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("confines a guest turn: every native tool denied on the wire, and fail-closed without enforcement", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-guest-"));
     const dump = join(dir, "rpc.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     await expect(instance.adapter.sendTurn({
       threadId: "t-guest", text: "hi", guestConfined: true,
       toolScope: { deny: ["native:write"] },
@@ -1026,7 +1026,7 @@ describe("PiDriver turns (fake CLI)", () => {
         .map((line) => Object.keys(JSON.parse(line) as object).find((key) => key !== "pid"))
         .filter((key) => key !== undefined && ["sessionReplied", "setModel", "prompt"].includes(key));
       expect(order).toEqual(["sessionReplied", "setModel", "prompt"]);
-      expect(recorder.events.find((e) => e.type === "runtime.notice" && e.turnId === turnId)).toMatchObject({ message: expect.stringMatching(/Pi is taking longer than usual/) });
+      expect(recorder.events.find((e) => e.type === "runtime.notice" && e.turnId === turnId)).toMatchObject({ text: { key: "chat.notice.piSessionSlow" } });
     } finally {
       vi.useRealTimers();
       removeTempDir(dir);
@@ -1152,7 +1152,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("loads the extension's ask_user on a plain turn unless the tool selection excludes it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-ask-user-"));
     const dump = join(dir, "dump.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     const { turnId } = await instance.adapter.sendTurn({ threadId: "t-ask-user", text: "hi" });
     await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
     await expect(instance.adapter.sendTurn({ threadId: "t-ask-user-scoped", text: "hi", toolScope: { allow: ["native:read"] } })).rejects.toThrow(/enforcement/i);
@@ -1682,7 +1682,7 @@ describe("applyPiLocalCatalog", () => {
           { id: "omlx/MiniMax-M3-4bit", label: "MiniMax-M3-4bit", custom: true },
         ],
       },
-      { VITEST: "true", OPENMAUSBOT_PROBE_LOCAL_INJECT: "1" },
+      { VITEST: "true", LUNABOT_PROBE_LOCAL_INJECT: "1" },
       async (url) => {
         if (String(url).includes(":8080")) {
           return new Response(JSON.stringify({ data: [{ id: "MiniMax-M3-4bit" }] }), { status: 200 });
@@ -1759,6 +1759,33 @@ describe("PiDriver mid-turn steer (fake CLI)", () => {
     await recorder.until((e) => e.type === "turn.completed");
   });
 
+  it("steers a running turn with its images on the wire, and refuses the steer when one is unreadable", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-steer-img-"));
+    const dump = join(dir, "dump.jsonl");
+    const imagePath = join(dir, "tiny.png");
+    const bytes = Buffer.from("steer-image-bytes");
+    writeFileSync(imagePath, bytes);
+    await create({ FAKE_PI_DUMP: dump, FAKE_PI_MODE: "permission" });
+    expect(instance.adapter.capabilities.steerImages).toBe(true);
+    await instance.adapter.sendTurn({ threadId: "t-steer-img", text: "go" });
+    await recorder.until((e) => e.type === "request.opened");
+    await expect(
+      instance.adapter.steer!("t-steer-img", "look at this", [{ path: imagePath, mime: "image/png", bytes: bytes.length }]),
+    ).resolves.toBe("steered");
+    const frame = readFileSync(dump, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as { steer?: { images?: unknown[] } })
+      .find((row) => row.steer)?.steer;
+    expect(frame?.images).toEqual([{ type: "image", data: bytes.toString("base64"), mimeType: "image/png" }]);
+    // A lost image file refuses the whole steer rather than steering without it.
+    await expect(
+      instance.adapter.steer!("t-steer-img", "again", [{ path: join(dir, "gone.png"), mime: "image/png", bytes: 1 }]),
+    ).resolves.toBe("refused");
+    await instance.adapter.respondToRequest("t-steer-img", "ask-1", { behavior: "allow" });
+    await recorder.until((e) => e.type === "turn.completed");
+  });
+
   it("correlates concurrent steers by frame id so a refusal lands only on its own caller", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-steer-"));
     const dump = join(dir, "dump.jsonl");
@@ -1779,6 +1806,118 @@ describe("PiDriver mid-turn steer (fake CLI)", () => {
     expect(new Set(frames.map((frame) => frame.id)).size).toBe(2);
     await instance.adapter.respondToRequest("t-race", "ask-1", { behavior: "allow" });
     await recorder.until((e) => e.type === "turn.completed");
+  });
+});
+
+describe("PiDriver strict resume + effort notice (fake CLI)", () => {
+  let instance: ProviderInstance;
+  let recorder: EventRecorder;
+
+  const create = async (environment: Record<string, string> = {}) => {
+    instance = await PiDriver.create({
+      instanceId: "pi-resume-test",
+      displayName: "pi Resume Test",
+      environment,
+      enabled: true,
+      config: { cli: FAKE_CLI, fullAuto: false },
+    });
+    recorder = recordEvents(instance.adapter);
+  };
+
+  beforeEach(() => {
+    ensureDirs();
+    chmodSync(FAKE_CLI, 0o755);
+  });
+  afterEach(async () => {
+    recorder?.stop();
+    await instance?.dispose();
+  });
+
+  it("rebuilds on a fresh session when the provider refuses the resume cursor", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-rebuild-"));
+    const dump = join(dir, "dump.jsonl");
+    await create({ FAKE_PI_DUMP: dump, FAKE_PI_SWITCH_FAIL: "1" });
+
+    const first = await instance.adapter.sendTurn({ threadId: "t-rebuild", text: "first", model: "ollama-cloud/glm-5.2" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const firstSession = recorder.events.find((e) => e.type === "session.started") as { sessionId: string };
+    expect(firstSession.sessionId).toBe("/fake/pi-session-1.json");
+
+    const recovery = "[Your previous session for this conversation could not be resumed]\n\nUser: first\n\n[Now reply to the user's latest message:]\n\nsecond";
+    const second = await instance.adapter.sendTurn({
+      threadId: "t-rebuild",
+      text: "second",
+      // A different model changes the spawn contract, so the turn cannot ride
+      // the warm child and must switch_session — which the fixture refuses.
+      model: "openai/gpt-4o",
+      resumeCursor: firstSession.sessionId,
+      recoveryText: recovery,
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+
+    const rows = readFileSync(dump, "utf8")
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as Record<string, unknown>);
+    expect(rows.filter((row) => row.switchSession)).toEqual([{ switchSession: "/fake/pi-session-1.json" }]);
+    expect(rows.filter((row) => row.newSession)).toHaveLength(2);
+    const prompts = rows.filter((row) => row.prompt).map((row) => (row.prompt as { message: string }).message);
+    expect(prompts.at(-1)).toBe(recovery);
+
+    const secondSession = recorder.events.find((e) => e.type === "session.started" && e.turnId === second.turnId) as {
+      sessionId: string;
+      rebuilt?: boolean;
+    };
+    // The refused cursor is gone: the turn discloses a fresh session instead.
+    // (The fixture numbers sessions per process, so the respawned child's file
+    // reuses the same name — the second newSession row is what proves the
+    // rebuild actually ran.)
+    expect(secondSession.rebuilt).toBe(true);
+    expect(typeof secondSession.sessionId).toBe("string");
+    const notice = recorder.events.find((e) => e.type === "runtime.notice") as { message?: string } | undefined;
+    expect(notice?.message).toContain("went on in a new one");
+  });
+
+  it("fails the turn when neither the cursor nor a fresh session opens", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-resume-dead-"));
+    const dump = join(dir, "dump.jsonl");
+    await create({ FAKE_PI_DUMP: dump, FAKE_PI_MODE: "session-error" });
+    const { turnId } = await instance.adapter.sendTurn({
+      threadId: "t-resume-dead",
+      text: "hi",
+      resumeCursor: "/fake/gone.json",
+      recoveryText: "recovered",
+    });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    expect(recorder.events.at(-1)).toMatchObject({ type: "turn.completed", ok: false, stopReason: "failed" });
+    const failure = recorder.events.find((e) => e.type === "runtime.error") as { message?: string } | undefined;
+    expect(failure?.message).toContain("could not reopen");
+    // Never a blank session: the prompt never went out.
+    expect(readFileSync(dump, "utf8").includes('"prompt"')).toBe(false);
+  });
+
+  it("rejects a startup-recovery turn quietly when no session opens, so the harness replays it", async () => {
+    await create({ FAKE_PI_MODE: "session-error" });
+    await expect(
+      instance.adapter.sendTurn({
+        threadId: "t-resume-dead-quiet",
+        text: "hi",
+        resumeCursor: "/fake/gone.json",
+        recoveryText: "recovered",
+        startupRecovery: true,
+      }),
+    ).rejects.toBeInstanceOf(TurnNotStartedError);
+    expect(recorder.events.some((e) => e.type === "runtime.error")).toBe(false);
+    expect(recorder.events.some((e) => e.type === "turn.completed")).toBe(false);
+  });
+
+  it("says the level did not apply when the model refuses set_thinking_level", async () => {
+    await create({ FAKE_PI_THINKING_REFUSE: "1" });
+    const { turnId } = await instance.adapter.sendTurn({ threadId: "t-effort", text: "hi", effort: "high" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
+    const notice = recorder.events.find((e) => e.type === "runtime.notice") as { text?: { key?: string } } | undefined;
+    expect(notice?.text?.key).toBe("chat.notice.piEffortUnsupported");
+    expect(recorder.events.at(-1)).toMatchObject({ type: "turn.completed", ok: true });
   });
 });
 

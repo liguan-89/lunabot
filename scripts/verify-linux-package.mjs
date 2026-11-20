@@ -164,7 +164,7 @@ function verifyCompliance(licenses, label) {
   const registryIds = new Set();
   for (const component of registry) {
     const packageId = component.properties?.find(
-      (property) => property.name === "openmausbot:cargo:package-id",
+      (property) => property.name === "lunabot:cargo:package-id",
     )?.value;
     if (typeof packageId !== "string" || !packageId.startsWith("registry+")) {
       fail(`${label} SBOM registry component has no exact Cargo package ID`);
@@ -434,7 +434,7 @@ for (const expected of [
 const extracted = mkdtempSync(path.join(tmpdir(), "omb-deb-verify-"));
 try {
   execFileSync("dpkg-deb", ["--extract", deb, extracted]);
-  const debAppRoot = path.join(extracted, "opt", "Luna Bot");
+  const debAppRoot = path.join(extracted, "opt", "LunaBot");
   requireDirectoryMode(debAppRoot, 0o755);
   const debResources = path.join(debAppRoot, "resources");
   // Routes the in-app updater to the package-manager hand-off.

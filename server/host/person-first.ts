@@ -175,4 +175,3 @@ export function createPersonFirst(deps: PersonFirstDeps) {
   };
 }
 
-export type PersonFirst = ReturnType<typeof createPersonFirst>;

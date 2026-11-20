@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import type { SendTurnInput, TurnImageInput } from "../contracts.ts";
 
+/** pi answered success:false: an explicit refusal from a live runtime, not a transport failure. */
+export class PiRpcRefusalError extends Error {}
+
 /** omp's RPC v2 splits a frame over 1 MiB into base64 `rpc_chunk` pieces (`chunkId`/`count`/
  *  `byteLength` per frame, sequential `index`, `data` per piece). Any inconsistency drops the sequence. */
 export class PiRpcChunks {
@@ -114,19 +117,24 @@ export function piLineReader(onLine: (line: string) => boolean | void): (chunk: 
   };
 }
 
-type PiPromptImage = {
+export type PiPromptImage = {
   type: "image";
   data: string;
   mimeType: TurnImageInput["mime"];
 };
 
-/** pi's prompt frame carries each attached image as base64. */
-export function readPiPromptImages(turn: SendTurnInput): PiPromptImage[] {
-  return (turn.images ?? []).map((image) => ({
+/** Each attached image as base64, the shape pi's prompt/steer/follow_up frames carry. */
+export function piImagesOf(images: readonly TurnImageInput[]): PiPromptImage[] {
+  return images.map((image) => ({
     type: "image",
     data: readFileSync(image.path).toString("base64"),
     mimeType: image.mime,
   }));
+}
+
+/** pi's prompt frame carries each attached image as base64. */
+export function readPiPromptImages(turn: SendTurnInput): PiPromptImage[] {
+  return piImagesOf(turn.images ?? []);
 }
 
 /** Native logs go into bug reports: keep the RPC shape and size, never image bytes. */

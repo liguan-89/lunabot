@@ -42,33 +42,29 @@ jobs:
           set -euo pipefail
           docker run -d --name omb openmausbot:ci
           for i in $(seq 1 40); do
-            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot; then break; fi
+            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot; then break; fi
             sleep 2
             if [ "$i" = "40" ]; then docker logs omb; echo "server never became healthy"; exit 1; fi
           done
           # the renderer is served by the server itself (OMB_STATIC_DIR)
           docker exec omb curl -sf http://127.0.0.1:8799/ | grep -qi "<html" || { docker logs omb; echo "UI not served"; exit 1; }
           docker logs omb | tail -5
-      - name: Prove the image finds its enterprise layer
-        # The image ships dist-server/ alone, so the bundled layer sits inside
-        # the server root (server/enterprise.ts looks there after the sibling
-        # folder). A key that is not genuine proves the layer loaded and
-        # checked it; a missing layer would report "no enterprise layer exists"
-        # and a licensed self-hoster would silently run the open-source edition.
+      - name: Prove the image degrades cleanly without an enterprise layer
+        # This fork ships no enterprise layer, so a bogus OMB_LICENSE_KEY must
+        # leave the server up on the oss edition, not crash it or claim a
+        # license.
         run: |
           set -euo pipefail
           docker run -d --name omb-ent -e OMB_LICENSE_KEY=omb1.not.real openmausbot:ci
           for i in $(seq 1 40); do
-            if docker exec omb-ent curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot; then break; fi
+            if docker exec omb-ent curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot; then break; fi
             sleep 2
             if [ "$i" = "40" ]; then docker logs omb-ent; echo "server never became healthy"; exit 1; fi
           done
           edition=$(docker exec omb-ent curl -sf http://127.0.0.1:8799/api/edition)
           echo "$edition"
-          if grep -q 'no enterprise layer exists' <<<"$edition"; then echo "the image cannot find its enterprise layer"; exit 1; fi
           grep -q '"edition":"oss"' <<<"$edition"
-          grep -q 'enterprise layer disabled: OMB_LICENSE_KEY signature does not match' <<<"$edition"
-          docker exec omb-ent test -f /app/dist-server/enterprise/LICENSE
+          grep -q 'no enterprise layer exists' <<<"$edition"
           docker rm -f omb-ent >/dev/null
       - name: Prove the non-root user can browse with the baked-in Chrome
         run: |
@@ -120,16 +116,18 @@ jobs:
           docker tag openmausbot:ci ghcr.io/milind-soni/openmausbot:latest
           printf 'DOMAIN=localhost\nENGINES=\n' > deploy/.env
           docker compose -f deploy/docker-compose.yml up -d --no-build
+          # Caddy answers within a second but the server takes a few more; an early
+          # answer is a 502, which plain `curl -sk` still reports as success.
           for i in $(seq 1 45); do
-            curl -sk -o /dev/null --max-time 2 https://localhost/.well-known/openmausbot/environment && break
+            [ "$(curl -sk -o /dev/null -w '%{http_code}' --max-time 2 https://localhost/.well-known/lunabot/environment)" = 200 ] && break
             sleep 2
             if [ "$i" = "45" ]; then docker compose -f deploy/docker-compose.yml logs; echo "caddy never answered"; exit 1; fi
           done
           code() { curl -sk -o /dev/null -w '%{http_code}' --max-time 5 "$@"; }
           body() { curl -sk --max-time 10 "$@"; }
           H=https://localhost
-          grep -q '"environmentId"' <<<"$(body $H/.well-known/openmausbot/environment)"   # descriptor is public
-          grep -q '^{"app":"openmausbot"}$' <<<"$(body $H/api/health)"             # the probe is public, and says only the app name
+          grep -q '"environmentId"' <<<"$(body $H/.well-known/lunabot/environment)"   # descriptor is public
+          grep -q '^{"app":"dexbot"}$' <<<"$(body $H/api/health)"             # the probe is public, and says only the app name
           test "$(code $H/api/bots)" = 403                                        # nothing else before pairing
           grep -q 'pair this device' <<<"$(body $H/api/bots)"
           grep -qi '<html' <<<"$(body $H/pair)"                                    # the UI shell is served so /pair can load
@@ -144,7 +142,7 @@ jobs:
           grep -qi 'Secure' <<<"$paired"                                          # over TLS the cookie is Secure
           grep -qi 'HttpOnly' <<<"$paired"
           test "$(code -b "$jar" $H/api/health)" = 200                              # paired: the API answers
-          grep -q openmausbot <<<"$(body -b "$jar" $H/api/health)"
+          grep -q dexbot <<<"$(body -b "$jar" $H/api/health)"
           test "$(code -b "$jar" -H 'Origin: https://evil.example' -X POST -d '{}' $H/api/bots)" = 403   # cookie is same-origin only
           test "$(code -b "$jar" -H 'Origin: https://localhost' $H/api/auth/session)" = 200
           grep -q '"via":"cookie"' <<<"$(body -b "$jar" $H/api/auth/session)"
@@ -162,7 +160,7 @@ jobs:
           C="docker compose -f deploy/docker-compose.yml"
           back() { # $1: what happened; HTTPS through Caddy answers again within two minutes, and is still remote
             for i in $(seq 1 60); do
-              if grep -q '^{"app":"openmausbot"}$' <<<"$(body $H/api/health || true)" && [ "$(code $H/api/bots)" = 403 ]; then echo "HTTPS back after: $1"; return 0; fi
+              if grep -q '^{"app":"dexbot"}$' <<<"$(body $H/api/health || true)" && [ "$(code $H/api/bots)" = 403 ]; then echo "HTTPS back after: $1"; return 0; fi
               sleep 2
             done
             $C ps; $C logs --tail 30; echo "HTTPS did not come back after: $1"; return 1
@@ -209,7 +207,7 @@ jobs:
           E=http://127.0.0.1:18080
           healthy() {
             for i in $(seq 1 45); do
-              curl -sf --max-time 2 "$E/api/health" | grep -q openmausbot && return 0
+              curl -sf --max-time 2 "$E/api/health" | grep -q dexbot && return 0
               sleep 2
             done
             docker logs home; echo "the cloud home never became healthy"; return 1
@@ -308,7 +306,7 @@ jobs:
           }
           healthy() { # name port
             for i in $(seq 1 45); do
-              curl -sf --max-time 2 "http://127.0.0.1:$2/api/health" | grep -q openmausbot && return 0
+              curl -sf --max-time 2 "http://127.0.0.1:$2/api/health" | grep -q dexbot && return 0
               if [ "$(docker inspect -f '{{.State.Running}}' "$1")" != true ]; then docker logs "$1" 2>&1 | tail -20; echo "$1 exited"; return 1; fi
               sleep 2
             done
@@ -373,7 +371,7 @@ jobs:
           grep -qF "caddy run --config /app/cloud/Caddyfile.tls --adapter caddyfile" <<<"$(docker top tls -eo pid,uid,args)"
           served() { # name: the certificate the edge serves on 443, once it answers there
             for i in $(seq 1 30); do
-              if docker exec "$1" curl -sfk --max-time 2 --resolve home.own-server.internal:443:127.0.0.1 https://home.own-server.internal/api/health | grep -q openmausbot; then
+              if docker exec "$1" curl -sfk --max-time 2 --resolve home.own-server.internal:443:127.0.0.1 https://home.own-server.internal/api/health | grep -q dexbot; then
                 docker exec "$1" sh -c 'echo | openssl s_client -connect 127.0.0.1:443 -servername home.own-server.internal 2>/dev/null | openssl x509 -noout -fingerprint -sha256'
                 return 0
               fi
@@ -426,15 +424,16 @@ jobs:
           # Fly: the proxy's private address names the client in Fly-Client-IP, exactly as before.
           run_home fly omb-fly-ci 18082 -e FLY_APP_NAME=omb-t-ci
           healthy fly 18082
-          for i in $(seq 1 10); do test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.7' -H "Cf-Connecting-IP: 198.51.100.$i")" = 401; done
-          test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.7')" = 429
-          test "$(bad_pair 18082 -H 'Fly-Client-IP: 203.0.113.8')" = 401
+          want() { local code=$1; shift; local got; got=$(bad_pair "$@") || true; [ "$got" = "$code" ] || { echo "pairing: wanted $code, got '$got'"; docker logs fly 2>&1 | tail -15; return 1; }; }
+          for i in $(seq 1 10); do want 401 18082 -H 'Fly-Client-IP: 203.0.113.7' -H "Cf-Connecting-IP: 198.51.100.$i"; done
+          want 429 18082 -H 'Fly-Client-IP: 203.0.113.7'
+          want 401 18082 -H 'Fly-Client-IP: 203.0.113.8'
           docker rm -f fly >/dev/null
           docker volume rm omb-fly-ci >/dev/null
 
           # A SIGKILL leaves the server's lease behind; the same container starts again, and so does a new one.
           docker kill -s KILL own >/dev/null
-          docker run --rm -v omb-own-ci:/data:ro --entrypoint test omb-cloud-home:ci -s /data/.openmausbot/openmausbot-server.lease
+          docker run --rm -v omb-own-ci:/data:ro --entrypoint test omb-cloud-home:ci -s /data/.openmausbot/lunabot-server.lease
           docker start own >/dev/null
           healthy own 18081
           docker kill -s KILL own >/dev/null
@@ -444,7 +443,7 @@ jobs:
           grep -q 7d1e2f3a-4b5c-4d6e-8f70-8192a3b4c5d6 <<<"$(docker run --rm -v omb-own-ci:/data:ro --entrypoint cat omb-cloud-home:ci /data/.omb-cloud-home.json)"
           # A second home on the volume the live one holds refuses to start, and the live one carries on.
           if timeout 90 docker run --name own3 -v omb-own-ci:/data "${contract[@]}" omb-cloud-home:ci; then echo "a second home started on a held volume"; exit 1; fi
-          grep -qF "Another MausBot home is already running on this volume. No data was changed." <<<"$(docker logs own3 2>&1)"
+          grep -qF "Another Luna Bot home is already running on this volume. No data was changed." <<<"$(docker logs own3 2>&1)"
           docker rm -f own3 >/dev/null
           healthy own2 18081
           docker rm -f own2 >/dev/null
@@ -508,7 +507,7 @@ jobs:
           test "$(docker image inspect -f '{{.Architecture}}' openmausbot:arm64)" = arm64
           docker run -d --init --shm-size=512m --name omb openmausbot:arm64
           for i in $(seq 1 40); do
-            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot; then break; fi
+            if docker exec omb curl -sf http://127.0.0.1:8799/api/health | grep -q dexbot; then break; fi
             sleep 2
             if [ "$i" = "40" ]; then docker logs omb; echo "server never became healthy"; exit 1; fi
           done

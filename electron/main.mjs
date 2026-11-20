@@ -28,6 +28,7 @@ import { activateExistingWindow, releaseSingleInstanceLock } from "./single-inst
 import { bootFailureMessage, listeningSignal, pollServerIdentity, SERVER_BOOT_TIMEOUT_MS, SERVER_LISTENING_GRACE_MS } from "./server-boot-probe.mjs";
 import { createServerSupervisor } from "./server-supervisor.mjs";
 import { serverChildLaunch } from "./server-child-launch.mjs";
+import { watchPairRequests, createPairRequestNotice } from "./companion-pair-watch.mjs";
 import { packageUrlFromCommandLine, packageUrlFromDeepLink } from "./package-link.mjs";
 import { chatLinkFrom, chatLinkFromCommandLine } from "./chat-link.mjs"; import { installDesktopNotifications } from "./desktop-notifications.mjs";
 import { createOrganizationEntry, isOrganizationDeepLink, ORGANIZATION_DEEP_LINK, takeOrganizationDeepLink, organizationRestartIntent, withOrganizationRestartIntent, withoutOrganizationRestartIntent } from "./organization-entry.mjs";
@@ -160,6 +161,7 @@ const cloudEntry = createCloudEntry({
 cloudEntry.fromLaunch(process.argv); const teamLinks = installTeamJoin({ argv: process.argv, account: () => (app.isPackaged && !desktopRemoteAccess ? ensureCloudAccount() : null), addAccount: () => accountRing()?.addBrowser() ?? Promise.resolve(), openTeam: team => workspaceMenuAction(async () => { homeWindow.cancel(); await showHome({ place: { team: team.id, name: team.name } }); }), confirm: async (message, detail, button) => (await dialog.showMessageBox({ type: "question", buttons: [button, nativeT("native.common.cancel")], defaultId: 0, cancelId: 1, message, detail })).response === 0, t: (key, params) => nativeT(key, params), reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); }, store: jsonFile(path.join(app.getPath("userData"), "team-landing.json")), ownPlace: () => Boolean(homeWindow.cloudOrigin()) || Boolean(homePlaces.remembered()), log: line => slog(line) });
 let pendingPackageInstallUrl = pendingOrganizationEntry ? null : packageUrlFromCommandLine(process.argv);
 let pendingChatLink = pendingOrganizationEntry ? null : chatLinkFromCommandLine(process.argv);
+let pendingMountCallBotId = null;
 let organizationEntryReady = false;
 let mainWindow = null;
 const serverUnavailableWindows = new WeakSet();
@@ -217,6 +219,10 @@ function deliverPackageInstall(win = mainWindow) {
 
 function deliverChatLink(win = mainWindow) {
   if (pendingChatLink && sendToPage(win, "chat:open", pendingChatLink)) pendingChatLink = null;
+}
+
+function deliverMountCall(win = mainWindow) {
+  if (pendingMountCallBotId && sendToPage(win, "desktop-mount:start-call", pendingMountCallBotId)) pendingMountCallBotId = null;
 }
 
 let openWindowForLink = null;
@@ -454,7 +460,7 @@ const DESKTOP_CRASH_LOG_MAX_BYTES = 512 * 1024;
 let logStream = null;
 let desktopShutdownStarted = false;
 import { companionAdvertisedHostedUrl, companionEnabledAtRest, companionOriginTarget, companionPairing, companionPairingRenew, companionDeviceRoutes, companionStartsAtLaunch, companionCloudDesktopAccess, companionRouteOn, dismissCompanionNotice, rememberCompanionRoute, setCompanionMigrationFacts,
-  companionBrowserControlAccess, companionRevoke, companionRunning, companionState, rememberCompanionKeepAwake, setCompanionHostedUrl, setCompanionLifecycleListener, startCompanion, stopCompanion } from "./companion.mjs";
+  companionBrowserControlAccess, companionDesktopScreenAccess, companionRevoke, companionRunning, companionState, rememberCompanionKeepAwake, setCompanionHostedUrl, setCompanionLifecycleListener, startCompanion, stopCompanion } from "./companion.mjs";
 import { createDesktopCompanionE2E, deviceCounts } from "./companion-e2e-desktop.mjs";
 import { autoStartCompanion } from "./companion-autostart.mjs";
 import { createPhoneLinkRoutes } from "./phone-link-routes.mjs";
@@ -1081,7 +1087,7 @@ async function runCompanyBackup(kind, input, scheduled = null) {
 function syncDesktopMutationToken(proc) {
   try {
     proc.postMessage({
-      type: "openmausbot:desktop-mutation-token",
+      type: "lunabot:desktop-mutation-token",
       token: desktopMutationToken,
       companionToken: companionMutationToken,
     });
@@ -1222,7 +1228,7 @@ function syncManagedComposioCredentials() {
   if (!serverProc) return;
   try {
     serverProc.postMessage({
-      type: "openmausbot:managed-composio",
+      type: "lunabot:managed-composio",
       access: managedComposioAccess(composioBrokerUrl(), secureCredentials),
     });
   } catch (error) {
@@ -1947,7 +1953,7 @@ function createWindow({ deferNavigation = false } = {}) {
     icon: APP_ICON,
     backgroundColor: windowBackground(nativeTheme.shouldUseDarkColors),
     autoHideMenuBar: process.platform !== "darwin",
-    ...windowChromeOptions(process.platform, windowFrameMade = desktopPrefs?.windowFrame() !== false),
+    ...windowChromeOptions(process.platform, windowFrameMade = desktopPrefs?.windowFrame() === true),
     webPreferences: {
       contextIsolation: true,
       preload: path.join(__dirname, "preload.cjs"),
@@ -2046,7 +2052,7 @@ function createWindow({ deferNavigation = false } = {}) {
   // Not did-finish-load: Electron still reports the main frame as loading then.
   win.webContents.on("did-stop-loading", () => {
     deliverPackageInstall(win);
-    deliverChatLink(win); desktopNotifications.arrived();
+    deliverChatLink(win); deliverMountCall(win); desktopNotifications.arrived();
   });
   win.webContents.on("did-finish-load", () => void serverLending.offer(win));
 
@@ -2179,7 +2185,7 @@ function createWindow({ deferNavigation = false } = {}) {
 installFileDialogs({ ipcMain, localOnly, localOrHome, app, nativeT, logDir: LOG_DIR, remoteAccess: () => desktopRemoteAccess, diagnostics: gatherDiagnostics });
 ipcMain.handle("desktop:skin", (event, skin) => {
   if (!isKnownSkin(skin)) return false;
-  if (chromeRail.owns(event)) return true;
+  if (chromeRail.owns(event) || desktopMount.owns(event)) return true;
   try {
     talk.skin(skin); const { color } = skinChrome(skin);
     const win = BrowserWindow.fromWebContents(event.sender) ?? mainWindow;
@@ -2289,9 +2295,31 @@ const desktopMount = createDesktopMountManager({
     ...(linuxSoftwareRendering ? [SOFTWARE_RENDERING_ARG] : []),
   ],
   rendererUrl: (botId) => `${rendererOrigin()}/mount?botId=${encodeURIComponent(botId)}`,
+  captureScreen: async () => {
+    try {
+      const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+      const sources = await desktopCapturer.getSources({
+        types: ["screen"],
+        thumbnailSize: { width: Math.min(1600, display.size.width), height: Math.min(1000, display.size.height) },
+      });
+      const source = sources.find((item) => item.display_id === String(display.id)) ?? sources[0];
+      const png = source?.thumbnail?.toPNG?.();
+      if (!png || png.length === 0) return { ok: false, error: "No screen capture available" };
+      return { ok: true, dataUrl: `data:image/png;base64,${png.toString("base64")}`, name: `screenshot-${Date.now()}.png` };
+    } catch (error) {
+      return { ok: false, error: error?.message ?? "Screen capture failed" };
+    }
+  },
   onOpenMain: (botId) => {
     revealForLink();
     if (botId) queueChatLink(`lunabot://bot/${encodeURIComponent(botId)}`);
+  },
+  onStartCall: (botId) => {
+    revealForLink();
+    if (botId) {
+      pendingMountCallBotId = botId;
+      deliverMountCall();
+    }
   },
   onState: (state) => {
     if (mainWindow && !mainWindow.isDestroyed() && senderIsLocal({ sender: mainWindow.webContents })) {
@@ -2329,6 +2357,9 @@ ipcMain.handle("companion:cloud-desktop", localOnly("companion:cloud-desktop", (
 ));
 ipcMain.handle("companion:browser-control", localOnly("companion:browser-control", (_event, deviceId, allowed) =>
   companionBrowserControlAccess(deviceId, Boolean(allowed)).then(() => desktopCompanionState()),
+));
+ipcMain.handle("companion:desktop-screen", localOnly("companion:desktop-screen", (_event, deviceId, allowed) =>
+  companionDesktopScreenAccess(deviceId, Boolean(allowed)).then(() => desktopCompanionState()),
 ));
 ipcMain.handle("companion:revoke", localOnly("companion:revoke", (_event, deviceId) =>
   companionRevoke(deviceId).then(() => desktopCompanionState()),
@@ -2404,6 +2435,12 @@ ipcMain.handle("companion-account:prepare", localOnly("companion-account:prepare
   return rememberCompanionRoute("https", true).then(() => ensureCompanionAccountService().prepare());
 }));
 ipcMain.handle("companion-account:sign-out", localOnly("companion-account:sign-out", () => ensureCompanionAccountService().signOut()));
+ipcMain.handle("companion-account:pair-requests", localOnly("companion-account:pair-requests", () =>
+  ensureCompanionAccountService().pairRequests(),
+));
+ipcMain.handle("companion-account:answer-pair-request", localOnly("companion-account:answer-pair-request", (_event, id, decision, link) =>
+  ensureCompanionAccountService().answerPairRequest(id, { decision: decision === "allow" ? "allow" : "deny", link: typeof link === "string" ? link : null }),
+));
 
 const workspaceOnly = (handler) => (event, ...args) => {
   if (!workspaceSenderAllowed(event, mainWindow?.webContents, environmentsState, rendererOrigin())) throw new Error("These controls are only available in the main desktop window");
@@ -2726,7 +2763,7 @@ ipcMain.handle("approvals:set-trusted-mode", localOnly("approvals:set-trusted-mo
 }));
 
 // Electron fixes a Windows window's title bar when the window is made; on macOS the choice applies at once.
-const windowFrameNow = () => (process.platform === "win32" ? windowFrameMade : null) ?? desktopPrefs?.windowFrame() !== false;
+const windowFrameNow = () => (process.platform === "win32" ? windowFrameMade : null) ?? desktopPrefs?.windowFrame() === true;
 async function broadcastDesktopCapabilities() {
   const localConnection = await cuaReady;
   const build = (remote) =>
@@ -2843,6 +2880,18 @@ app.whenReady().then(async () => {
   if (app.isPackaged) await ensurePhoneSecretIdentity();
   companionE2E = createDesktopCompanionE2E({ isPackaged: app.isPackaged, appVersion: app.getVersion(), readCredentials: () => secureCredentialState?.read() ?? secureCredentials, updateCredentials: updateSecureCredentialDocument, powerMonitor, log: slog });
   void companionE2E.start();
+  // The delivery half of the phone-asks-a-computer loop; main.mjs is at its
+  // line ratchet, so the poll itself lives beside it.
+  watchPairRequests(
+    () => ensureCompanionAccountService().pairRequests(),
+    () => mainWindow,
+    {
+      // A card in a window nobody is looking at asks nobody: raise the system
+      // notification too, unless the window is already in front.
+      notify: createPairRequestNotice({ Notification, t: nativeT, reveal: () => { if (!desktopTray?.show()) activateExistingWindow(appWindows()); } }),
+      focused: () => Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isFocused()),
+    },
+  );
   desktopRemoteAccess = desktopCompanionAccess(secureCredentials);
   const hostedAccount = desktopRemoteAccess ? null : ensureCompanionAccountService();
   // Display capture needs a one-shot renderer intent from the same frame/origin, no audio, and a user gesture.

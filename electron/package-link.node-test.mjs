@@ -15,7 +15,7 @@ describe("BotMRR package deep links", () => {
 
   it("rejects other commands, hosts, protocols, credentials, and unsupported file types", () => {
     assert.equal(packageUrlFromDeepLink("lunabot://settings"), null);
-    assert.equal(packageUrlFromDeepLink("lunabot://settings"), null);
+    assert.equal(packageUrlFromDeepLink("openmausbot://settings"), null);
     assert.equal(packageUrlFromDeepLink("lunabot://install?url=https://evil.example/bot.json"), null);
     assert.equal(packageUrlFromDeepLink("lunabot://install?url=http://raw.githubusercontent.com/a/b/main/bot.json"), null);
     assert.equal(packageUrlFromDeepLink("lunabot://install?url=https://user@example.com/bot.json"), null);

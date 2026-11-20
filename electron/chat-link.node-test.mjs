@@ -14,6 +14,7 @@ test("recognizes the links Copy link and a dashboard make", () => {
   assert.equal(chatLinkFrom("LUNABOT://Bot/abc"), "LUNABOT://Bot/abc");
   // A link copied before the rename still opens.
   assert.equal(chatLinkFrom("dexbot://bot/abc"), "dexbot://bot/abc");
+  assert.equal(chatLinkFrom("openmausbot://bot/abc"), "openmausbot://bot/abc");
   const task = `lunabot://task?bot=scout&text=${encodeURIComponent("订明天的票")}`;
   assert.equal(chatLinkFrom(task), task);
 });

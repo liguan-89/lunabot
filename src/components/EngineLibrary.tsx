@@ -4,7 +4,8 @@ import { ArrowUpRight, Check, ChevronDown, RefreshCw } from "lucide-react";
 import { useStore, type InstanceInfo } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { InstanceProviderMark } from "./ProviderIcons";
+import { engineDisplayName } from "@/lib/engine-name";
+import { hasProviderMark, InstanceProviderMark } from "./ProviderIcons";
 
 export function engineReady(instance: InstanceInfo): boolean {
   // pi with no provider configured lists only the synthetic default: it cannot answer until one is saved.
@@ -16,11 +17,10 @@ export function engineReady(instance: InstanceInfo): boolean {
     (instance.access === "custom" || instance.snapshot.authenticated !== false);
 }
 
-const providers: Record<string, string> = {
-  piAgent: "pi.dev", "openai-compat": "Custom",
-};
+const providers: Record<string, string> = { "openai-compat": "Custom" };
 
 export function providerName(instance: InstanceInfo): string {
+  if (instance.driverKind === "piAgent") return t("keys.openaiCompat.label");
   return providers[instance.driverKind] ?? instance.driverKind;
 }
 
@@ -32,7 +32,7 @@ export function EngineCard({ instance, children, summary, bare = false }: { inst
   if (bare) return <div data-engine-card={instance.instanceId} className="min-w-0">{children}</div>;
   const ready = summary?.ready ?? engineReady(instance);
   const email = instance.snapshot.authenticated === true ? instance.snapshot.account?.email : undefined;
-  const title = summary?.title ?? instance.displayName;
+  const title = summary?.title ?? engineDisplayName(instance);
   const subtitle = summary?.subtitle ?? email ?? (instance.access === "custom"
     ? t("engines.library.custom")
     : providerName(instance));
@@ -43,9 +43,11 @@ export function EngineCard({ instance, children, summary, bare = false }: { inst
     <details data-engine-card={instance.instanceId} className="group/engine min-w-0 rounded-2xl border border-hairline/40 bg-card transition-colors open:col-span-full open:border-hairline/70 hover:border-hairline/70">
       <summary className="cursor-pointer list-none rounded-2xl p-4 outline-none focus-visible:ring-2 focus-visible:ring-accent [&::-webkit-details-marker]:hidden">
         <div className="flex min-w-0 items-center gap-3">
-          <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-hairline/30 bg-panel">
-            <InstanceProviderMark instance={instance} size={28} />
-          </span>
+          {hasProviderMark(instance) && (
+            <span aria-hidden="true" className="flex size-12 shrink-0 items-center justify-center rounded-xl border border-hairline/30 bg-panel">
+              <InstanceProviderMark instance={instance} size={28} />
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-semibold tracking-[-0.015em] text-ink" title={title}>{title}</div>
             <div className="mt-1 truncate text-[12px] text-ink-secondary" title={subtitle}>{subtitle}</div>

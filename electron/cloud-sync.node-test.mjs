@@ -178,6 +178,28 @@ test("a Documents/DEX BOT folder from before the rename moves to Documents/Luna 
   assert.equal(service.state().outputs.dir, join(documents, "Luna Bot"));
 });
 
+test("a Documents/DexBot or Documents/MausBot folder moves to Documents/Luna Bot the same way", async (t) => {
+  for (const old of ["DexBot", "MausBot"]) {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-rename-")));
+    const home = join(dir, "home");
+    const documents = join(home, "Documents");
+    mkdirSync(join(documents, old, "Owl"), { recursive: true });
+    writeFileSync(join(documents, old, "Owl", "plan.md"), "the plan");
+    const service = createCloudFilesService({
+      settingsFile: join(dir, "user", "settings.json"), stateFile: join(dir, "user", "state.db"),
+      documentsDir: documents, localDataDir: join(home, ".lunabot"), homeDir: home,
+      platform: process.platform, hostname: "Ash-PC", cloudOrigin: () => "https://omb-u-aaaaaaaaaaaa.fly.dev",
+      fetch: async () => { throw new Error("no network in tests"); },
+      trashItem: async (file) => rmSync(file), markDownloaded: async () => {},
+      createClient: () => fakeCloud().client, watch: () => () => {}, freeBytes: () => 100 * 1024 ** 3, now: () => AT,
+    });
+    t.after(() => { service.close(); rmSync(dir, { recursive: true, force: true }); });
+
+    assert.equal(existsSync(join(documents, old)), false, old);
+    assert.equal(readFileSync(join(documents, "Luna Bot", "Owl", "plan.md"), "utf8"), "the plan", old);
+  }
+});
+
 test("a new Documents/Luna Bot folder is never merged with an old Documents/DEX BOT one", async (t) => {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "omb-files-rename-")));
   const home = join(dir, "home");

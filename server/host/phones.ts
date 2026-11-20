@@ -1,13 +1,20 @@
 // The owner's paired phones as bot tools, wired once by server/index.ts: the registry and the jobs a phone polls, which
 // sends came from a phone, whose turn may reach the phones, what a turn mounts and is told, and the /api/phones routes.
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 
 import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
+import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type LearnLevel, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { createNoticeLearn, type NoticeLearn } from "./notice-learn.ts";
+import { createNoticeTriage, type NoticeSurfacedItem, type NoticeTriage } from "./notice-triage.ts";
+import { renderObserved, type TopicPoolData } from "../notice-learn.ts";
+import { writeFileAtomic } from "../atomic.ts";
+import type { Decider } from "../decider/index.ts";
+import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TURNS, type Intent } from "../intent-gate.ts";
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
 import { createPhoneHost, verifyPhoneTurn, verifyPrompt, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput, type PhoneTurnEnd, type PhoneTurnEnded } from "../phones/host.ts";
@@ -16,7 +23,7 @@ import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from 
 import { PhoneRegistry } from "../phones/registry.ts";
 import { createPhoneSends } from "../phones/sends.ts";
 import { PhoneSteer } from "../phones/steer.ts";
-import { PhoneRoutes } from "../phone-routes.ts";
+import { PhoneRoutes, ownerDirectoryName } from "../phone-routes.ts";
 import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
@@ -80,12 +87,32 @@ export interface PhonesDeps {
   /** The turn's effective approval mode, read at call time; absent is `ask`, so every screen write waits. */
   approvalMode?(botId: string, threadId: string): string;
   /**
-   * The answer check's one model call, per bot, as a plain one-off text call; null when its engine cannot make one.
-   * Only called when the check is on; the mode itself lives beside the check in server/phones/host.ts.
+   * The intent gate's decision call (server/intent-gate.ts). With neither this nor `verify` wired there is no gate,
+   * exactly as Mika without an IntentGate: a fitting route is offered and every call runs.
+   */
+  decider?: Pick<Decider, "choose">;
+  /**
+   * A plain one-off text call on the bot's engine; null when the engine cannot make one. The answer check calls it
+   * only when that check is on (its mode beside it in server/phones/host.ts); the intent gate calls it as its judge
+   * when the decision call could not answer.
    */
   verify?(botId: string): ((prompt: string) => Promise<string>) | null;
   /** The check's mode, read at call time from Settings; absent is `off`, so nothing is checked. */
   verifyMode?: () => "off" | "log";
+  /**
+   * The notice triage's judge: a plain text call on the owner's chief bot's engine (Mika uses a general chat model,
+   * never the decision model). Absent is no triage — notices are still learned into the inbox.
+   */
+  noticeJudge?(ownerKey: string): ((prompt: string) => Promise<string>) | null;
+  /** The batch the judge said was worth interrupting for; index.ts turns it into a thread the person sees. */
+  noticeSurfaced?(ownerKey: string, packageName: string, items: NoticeSurfacedItem[]): void;
+  /** Triage reasons are written in this language's English name. */
+  noticeLanguage?(): string;
+  /**
+   * The owner's notice-learn level: "off" keeps the whole pipeline quiet (nothing captures, no judge calls);
+   * a level runs it and only gates what `intoTasks` lets through to the prompt. Absent reads as "off".
+   */
+  noticeLearnLevel?(ownerKey: string): LearnLevel | "off";
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -99,6 +126,97 @@ export function createPhones(deps: PhonesDeps) {
   const steer = new PhoneSteer();
   /** The routes a turn's phone calls walked: recorded on by default, offered for reuse only where a caller asks. */
   const phoneRoutes = new PhoneRoutes({ root: join(deps.dataDir, "phone-routes"), enabled: true });
+  /** A person's own request, judged at most once a turn — Mika's gate: the verdict, null when the answer could not
+   * be read, undefined when the gate does not apply. The route part and the call gate share one lazy promise. */
+  const intents = new Map<string, Promise<Intent | null | undefined>>();
+  /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
+  const routeOffers = new Map<string, { ownerKey: string; id: string }>();
+  /** Each owner's learned-notice pile: a bounded inbox, the dedup that keeps reposts from filling it, and its consumers. */
+  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn }>();
+  /** An owner's topic pool file, per the same directory rule the route store follows. */
+  const noticeTopicsFile = (ownerKey: string) => join(deps.dataDir, "notice-topics", ownerDirectoryName(ownerKey), "topics.json");
+  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn } => {
+    let sink = noticeInboxes.get(ownerKey);
+    if (!sink) {
+      const inbox = new NoticeInbox();
+      let poolData: TopicPoolData | undefined;
+      try {
+        const parsed = JSON.parse(readFileSync(noticeTopicsFile(ownerKey), "utf8")) as TopicPoolData;
+        if (parsed?.version === 1 && Array.isArray(parsed.topics)) poolData = parsed;
+      } catch {}
+      sink = {
+        inbox,
+        dedup: createNoticeDedup(),
+        triage: createNoticeTriage({
+          snapshot: () => inbox.snapshot(),
+          judge: () => deps.noticeJudge?.(ownerKey) ?? null,
+          // Mika's "a task is running": any job in flight to one of this owner's phones.
+          busy: () => registry.list(ownerKey, () => false).some((phone) => jobs.busy(phone.key)),
+          language: () => deps.noticeLanguage?.() ?? "English",
+          surface: (packageName, items) => deps.noticeSurfaced?.(ownerKey, packageName, items),
+          now: Date.now,
+          wait: (ms, run) => setTimeout(run, ms),
+          unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        }),
+        learn: createNoticeLearn({
+          judge: () => deps.noticeJudge?.(ownerKey) ?? null,
+          busy: () => registry.list(ownerKey, () => false).some((phone) => jobs.busy(phone.key)),
+          eligible: (packageName) => registry.list(ownerKey, () => false)
+            .some((phone) => (phone.registration.noticeApps ?? []).includes(packageName)),
+          level: () => deps.noticeLearnLevel?.(ownerKey) ?? "off",
+          language: () => deps.noticeLanguage?.() ?? "English",
+          persist: (data) => {
+            const file = noticeTopicsFile(ownerKey);
+            mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
+            writeFileAtomic(file, JSON.stringify(data), { mode: 0o600 });
+          },
+          now: Date.now,
+          wait: (ms, run) => setTimeout(run, ms),
+          unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        }, poolData),
+      };
+      noticeInboxes.set(ownerKey, sink);
+      for (const stale of noticeInboxes.keys()) {
+        if (noticeInboxes.size <= 16) break;
+        noticeInboxes.delete(stale);
+      }
+    }
+    return sink;
+  };
+  /**
+   * A pushed notification is learned only inside the package list the person ticked on the phone — the phone filters
+   * before posting and the registration declares the same list, so this check is a second reading of the same consent.
+   */
+  const noticeFor = (key: string, event: Extract<PhoneEvent, { kind: "notice" }>): void => {
+    const phone = registry.get(key);
+    if (!phone) return;
+    const policy: NoticePolicy = { allow: new Set(phone.registration.noticeApps ?? []), listenerGranted: true };
+    const record = sanitizeNotice(noticeRecordOf(event));
+    if (shouldLearnPackage(record.packageName, policy) !== "keep") return;
+    const sink = noticeSinkFor(phone.owner);
+    // An unticked package stops being learned and its kept records go with it.
+    sink.inbox.removePackages((pkg) => policy.allow.has(pkg));
+    sink.learn.purge((pkg) => policy.allow.has(pkg));
+    sink.inbox.noteReceived();
+    if (shouldLearn(record, policy) !== "keep") return;
+    const admitted = sink.dedup.admit(record);
+    if (admitted === null) return;
+    sink.inbox.add(record);
+    sink.triage.poke();
+    sink.learn.capture(record, admitted.newMessages);
+  };
+  /**
+   * The owner's "gathered from notifications" section for a prompt: every ticked app sits at Mid until a per-app
+   * tier setting exists, so under Balanced nothing qualifies — Mika's default too (Mid enters tasks only at
+   * Aggressive). Off means the pipeline is not running and this is null anyway.
+   */
+  const learnedNotices = (ownerKey: string): string | null => {
+    const level = deps.noticeLearnLevel?.(ownerKey) ?? "off";
+    if (level === "off") return null;
+    const sink = noticeInboxes.get(ownerKey);
+    if (!sink) return null;
+    return renderObserved(sink.learn.topics(), level, () => "mid", Date.now());
+  };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
     try { registry.remove(key); } catch {}
@@ -166,7 +284,81 @@ export function createPhones(deps: PhonesDeps) {
     steer,
     routes: phoneRoutes,
     verifyMode: deps.verifyMode ?? (() => "off"),
+    intent: (turn) => intentFor(turn),
   });
+
+  /** The line the thread's latest direct request answers, as the route recorder and the route part both read it. */
+  const goalFor = (threadId: string): string => {
+    const request = deps.request(threadId);
+    const line = request?.messageId ? store.messagesFor(threadId).find((message) => message.id === request.messageId) : undefined;
+    return line?.text ?? "";
+  };
+
+  const intentKey = (turn: Turn): string => `${turn.threadId}${turn.botId}${turn.generation}`;
+
+  /**
+   * Mika's scope for the question: only the person's own line is judged — a routine, an automation or a handoff is
+   * never a discussion — and only where a decision model or a judge exists to answer. The judge prompt is the
+   * gate's own question asked in prose, so either leg alone is a working gate.
+   */
+  async function assessTurn(turn: Turn): Promise<Intent | null | undefined> {
+    if (!deps.originIsUser(turn)) return undefined;
+    const decide = deps.decider;
+    const complete = deps.verify?.(turn.botId) ?? null;
+    if (!decide && !complete) return undefined;
+    const request = deps.request(turn.threadId);
+    const messages = request?.messageId === undefined ? [] : store.messagesFor(turn.threadId);
+    const at = messages.findIndex((message) => message.id === request?.messageId);
+    const message = (at < 0 ? "" : messages[at]?.text ?? "").trim();
+    if (!message) return undefined;
+    const recentContext = messages.slice(Math.max(0, at - MAX_CONTEXT_TURNS), at)
+      .map((entry) => {
+        const text = entry.text?.trim();
+        return text ? `${entry.role}: ${text}` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+    const { state, question } = intentGateRequest({ message, recentContext });
+    const judgeText = `${question.instructions}\n\ncurrentMessage: ${state.currentMessage}\n${state.recentContext ? `${state.recentContext}\n` : ""}\nAnswer with exactly one word: DISCUSS, READ, or ACT.`;
+    // The judge borrows the answer check's text call, whose own budget is far wider: the gate's 10 s is imposed
+    // around it, so a stalled engine never holds a turn — a timeout reads the same as no reply.
+    const judged = complete
+      ? async () => {
+          let timer: ReturnType<typeof setTimeout> | undefined;
+          try {
+            return await Promise.race<string | null>([
+              complete(judgeText).catch(() => null),
+              new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), INTENT_GATE_TIMEOUT_MS); }),
+            ]);
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+      : () => null;
+    try {
+      const { intent } = await assessIntent(
+        () => decide?.choose("botDecide", state, question, { timeoutMs: INTENT_GATE_TIMEOUT_MS })
+          ?? { ok: false as const, reason: "disabled" as const },
+        judged,
+      );
+      return intent;
+    } catch {
+      return null;
+    }
+  }
+
+  function intentFor(turn: Turn): Promise<Intent | null | undefined> {
+    const key = intentKey(turn);
+    const cached = intents.get(key);
+    if (cached) return cached;
+    const promise = assessTurn(turn);
+    intents.set(key, promise);
+    for (const stale of intents.keys()) {
+      if (intents.size <= 64) break;
+      intents.delete(stale);
+    }
+    return promise;
+  }
 
   return {
     routineAuthors,
@@ -188,14 +380,31 @@ export function createPhones(deps: PhonesDeps) {
       if (sends.has(line?.sendId)) return "phone";
       return personAsked && !request?.automation && request?.origin?.kind === "user" ? "computer" : "unattended";
     },
+    goalFor,
     /** Only for the owner's own turn and a bot granted an app one of the owner's phones allows. */
     integration(bot: BotRecord, turn: { threadId: string; generation: string }) {
       return host.integration(bot, turnOwner({ botId: bot.id, ...turn }), () => deps.mint(bot.id, turn), deps.harnessUrl);
     },
     /** A turn's phone parts: what it may use and where the person is, or (unmounted) why the owner's phone is not here. */
-    promptParts(bot: PhoneBot, input: { mounted: boolean; offered: boolean; turn: Turn; place: PhonePlace }): PromptPart[] {
-      if (input.mounted) return host.parts(bot, turnOwner(input.turn), input.place);
-      return [{ id: "device", label: "Phone", text: input.offered ? host.withheld(bot, owner()) : "" }];
+    async promptParts(bot: PhoneBot, input: { mounted: boolean; offered: boolean; turn: Turn; place: PhonePlace }): Promise<PromptPart[]> {
+      if (!input.mounted) return [{ id: "device", label: "Phone", text: input.offered ? host.withheld(bot, owner()) : "" }];
+      const phoneOwner = turnOwner(input.turn);
+      const request = goalFor(input.turn.threadId);
+      // Mika's order: the intent question is spent only where a route could actually be told — one fitting candidate.
+      const matched = phoneOwner !== null && request !== "" ? phoneRoutes.match(phoneOwner, request) : [];
+      const intent = matched.length === 1 ? await intentFor(input.turn) : undefined;
+      const parts = host.parts(bot, phoneOwner, input.place, request, intent);
+      // Only a route the prompt actually carries is owed the turn-end settle; the offer is spent once the turn ends.
+      if (phoneOwner !== null && matched.length === 1 && parts.some((part) => part.id === "device-route" && part.text !== "")) {
+        routeOffers.set(intentKey(input.turn), { ownerKey: phoneOwner, id: matched[0].id });
+        for (const stale of routeOffers.keys()) {
+          if (routeOffers.size <= 64) break;
+          routeOffers.delete(stale);
+        }
+      }
+      const learned = phoneOwner === null ? null : learnedNotices(phoneOwner);
+      if (learned !== null) parts.push({ id: "device-notices", label: "Learned from the owner's phone notifications", text: learned });
+      return parts;
     },
     /** The bot settings preview: the owner's phone as a turn at the computer would see it. */
     previewParts(bot: PhoneBot, offered: boolean): PromptPart[] {
@@ -211,9 +420,13 @@ export function createPhones(deps: PhonesDeps) {
      * behind, so the caller can check the reply and log the route; never throws.
      */
     endTurn: (turn: Turn, input: PhoneTurnEnd): PhoneTurnEnded => {
+      const key = intentKey(turn);
+      intents.delete(key);
+      const offeredRoute = routeOffers.get(key) ?? null;
+      routeOffers.delete(key);
       // The owner is only worked out when there is something to learn, since that reads the thread's messages.
       const ownerKey = input.ownerKey ?? (host.evidenceFor(turn).length ? turnOwner(turn) : null);
-      return host.endTurn(turn, { ...input, ownerKey });
+      return host.endTurn(turn, { ...input, ownerKey, offeredRoute });
     },
     /**
      * The turn is over, for a caller that has only the bot and the settled reply: learn the route when it earned one,
@@ -221,13 +434,16 @@ export function createPhones(deps: PhonesDeps) {
      * reply or throws; the goal comes from the thread's latest direct request, and only the person's own line counts.
      */
     turnEnded(turn: Turn, input: { reply: string; stopped: boolean }): void {
+      const key = intentKey(turn);
+      intents.delete(key);
+      const offeredRoute = routeOffers.get(key) ?? null;
+      routeOffers.delete(key);
       if (!store.bot(turn.botId)) return;
       const request = deps.request(turn.threadId);
-      const goal = request?.messageId
-        ? store.messagesFor(turn.threadId).find((message) => message.id === request.messageId)?.text ?? "" : "";
+      const goal = goalFor(turn.threadId);
       // A routine's run, a handoff and an unattended wake are nobody's own line: their calls are evidence, not a route.
       const personLine = request !== undefined && request.automation === undefined && request.origin?.kind === "user";
-      const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine });
+      const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine, offeredRoute });
       // The mode is asked for now, not captured at start-up: turning the switch on reaches the next turn that ends.
       const mode = host.verifyMode();
       const complete = mode === "off" || input.stopped || input.reply.trim() === "" ? null : deps.verify?.(turn.botId) ?? null;
@@ -239,7 +455,11 @@ export function createPhones(deps: PhonesDeps) {
      * bot told about a route would start trusting one before any replay exists to run it.
      */
     matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
-    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => { if (event.kind === "sms") smsHandler?.(key, event); else wechatHandler?.(key, event); } }),
+    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
+      if (event.kind === "notice") noticeFor(key, event);
+      else if (event.kind === "sms") smsHandler?.(key, event);
+      else wechatHandler?.(key, event);
+    } }),
     /** The SMS relay installs itself here once channels exist. */
     onSmsEvent: (handler: (key: string, event: PhoneEvent) => void) => { smsHandler = handler; },
     /** The WeChat relay installs itself here once channels exist. */
@@ -264,6 +484,10 @@ export function createPhones(deps: PhonesDeps) {
     },
     /** How many phones run the phone app here. */
     paired: (): number => registry.list(null, () => false).length,
+    /** The notices one owner's phones pushed and the server kept, oldest first; null while nothing was learned. */
+    noticeInbox(ownerKey: string): NoticeSnapshot | null {
+      return noticeInboxes.get(ownerKey)?.inbox.snapshot() ?? null;
+    },
     /** Routines written before records were kept are the owner's on a single-person desktop: record them once. */
     adoptRoutines() {
       if (!routineAuthors) return;
@@ -280,6 +504,6 @@ export function createPhones(deps: PhonesDeps) {
       if (!deps.ownerOrAdmin(auth)) routineAuthors.forget(routine.id);
       else if (ownersAgain) routineAuthors.record(routine.id, routine);
     },
-    close: () => { unsubscribe(); jobs.close(); },
+    close: () => { unsubscribe(); jobs.close(); for (const sink of noticeInboxes.values()) { sink.triage.stop(); sink.learn.stop(); } },
   };
 }

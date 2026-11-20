@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Model Context Protocol (MCP) server for OpenMausBot over JSON-RPC 2.0 stdio,
+// Model Context Protocol (MCP) server for Luna Bot over JSON-RPC 2.0 stdio,
 // for external agents (Hermes, Claude Desktop, Cursor, etc.).
 import readline from "node:readline";
 import { allowedServerOrigin, EXAMPLE_ADDRESS } from "../electron/server-address.mjs";
@@ -18,7 +18,7 @@ export function validateBaseUrl(url: string): string {
     throw new Error("Luna Bot URL must use http:// or https://");
   }
   if (parsed.username || parsed.password) {
-    throw new Error("Luna Bot URL must not contain credentials; use DEXBOT_TOKEN (or OPENMAUSBOT_TOKEN) instead");
+    throw new Error("Luna Bot URL must not contain credentials; use DEXBOT_TOKEN (or LUNABOT_TOKEN) instead");
   }
   if ((parsed.pathname !== "/" && parsed.pathname !== "") || parsed.search || parsed.hash) {
     throw new Error("Luna Bot URL must be an origin without a path, query, or fragment");
@@ -29,9 +29,9 @@ export function validateBaseUrl(url: string): string {
   return parsed.origin;
 }
 
-const configuredUrl = process.env.DEXBOT_URL || process.env.OPENMAUSBOT_URL ||
+const configuredUrl = process.env.DEXBOT_URL || process.env.LUNABOT_URL ||
   (process.env.OMB_PORT ? `http://127.0.0.1:${process.env.OMB_PORT}` : undefined);
-const configuredToken = () => (process.env.DEXBOT_TOKEN ?? process.env.OPENMAUSBOT_TOKEN)?.trim();
+const configuredToken = () => (process.env.DEXBOT_TOKEN ?? process.env.LUNABOT_TOKEN)?.trim();
 
 export const OMB_BASE_URL = validateBaseUrl(configuredUrl || "http://127.0.0.1:8799");
 const DISCOVERY_URLS = configuredUrl
@@ -40,13 +40,13 @@ const DISCOVERY_URLS = configuredUrl
 let discoveredBaseUrl: string | undefined;
 
 export function log(msg: string) {
-  process.stderr.write(`[dexbot-mcp] ${msg}\n`);
+  process.stderr.write(`[lunabot-mcp] ${msg}\n`);
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
 function requestTimeoutMs(): number {
-  const raw = Number(process.env.DEXBOT_MCP_TIMEOUT_MS ?? process.env.OPENMAUSBOT_MCP_TIMEOUT_MS);
+  const raw = Number(process.env.DEXBOT_MCP_TIMEOUT_MS ?? process.env.LUNABOT_MCP_TIMEOUT_MS);
   return Number.isFinite(raw) && raw >= 1_000 && raw <= 120_000 ? Math.floor(raw) : DEFAULT_REQUEST_TIMEOUT_MS;
 }
 
@@ -111,7 +111,7 @@ export async function probeBaseUrls(candidates: string[]): Promise<string> {
 export async function resolveBaseUrl(): Promise<string> {
   if (discoveredBaseUrl) return discoveredBaseUrl;
   if (configuredToken() && !configuredUrl) {
-    throw new Error("Set DEXBOT_URL (or OPENMAUSBOT_URL) or OMB_PORT when using a token so credentials are never sent during port discovery");
+    throw new Error("Set DEXBOT_URL (or LUNABOT_URL) or OMB_PORT when using a token so credentials are never sent during port discovery");
   }
   discoveredBaseUrl = await probeBaseUrls(DISCOVERY_URLS);
   return discoveredBaseUrl;
@@ -1278,7 +1278,7 @@ export async function processMcpMessage(
           tools: {},
         },
         serverInfo: {
-          name: "dexbot-mcp",
+          name: "lunabot-mcp",
           version: "1.1.0",
         },
         instructions: "Use bounded read tools before mutating the Luna Bot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",

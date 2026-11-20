@@ -12,8 +12,6 @@ import { clashPath, validWirePath, windowsProblem } from "./cloud-sync-rules.mjs
 import { sha256File } from "./cloud-sync-scan.mjs";
 import { assertOutsideProtected, insideGitInternals, protectedIdentities, sharedPath } from "./shared-computer-access.mjs";
 
-export const BESIDE_LABEL = "new from My Cloud";
-
 const same = (a, b) => a && b && a.size === b.size && a.mtimeMs === b.mtimeMs && a.ino === b.ino;
 
 /** Windows refuses a rename for a moment while anything (a virus scanner, the indexer) holds the file, as EPERM, EACCES or

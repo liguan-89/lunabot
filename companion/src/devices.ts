@@ -20,6 +20,10 @@ export interface DeviceRecord {
    * person's real accounts is a different risk from a disposable VM. Off on
    * every new and migrated device until the computer owner enables it. */
   browserControlAccess: boolean;
+  /** A third grant, and the broadest of the three: the person's OWN screen —
+   * their mail, their bank, whatever happens to be open — not a disposable VM.
+   * Absent on a device from before this switch existed, which reads as off. */
+  desktopScreenAccess?: boolean;
   /** "local": Wi-Fi and Tailscale only. The relay never admits it and its psk is never tried there. */
   routes: DeviceRoutes;
   /** First end-to-end encrypted session. From then on its token is refused on the plain listener. */
@@ -102,6 +106,8 @@ function normalizeDevice(record: Partial<DeviceRecord> & { id: string; tokenHash
     lastSeenAt: timestamp(record.lastSeenAt, createdAt),
     cloudDesktopAccess: record.cloudDesktopAccess === true,
     browserControlAccess: record.browserControlAccess === true,
+    // Absent on a device from before this switch: off, never inherited from either other grant.
+    ...(record.desktopScreenAccess === true ? { desktopScreenAccess: true } : {}),
     routes: record.routes === "local" ? "local" : "any",
     ...(typeof record.e2eAt === "number" && record.e2eAt > 0 ? { e2eAt: record.e2eAt } : {}),
   };
@@ -478,6 +484,23 @@ export class DeviceRegistry {
       this.persist();
     } catch (error) {
       device.browserControlAccess = previous;
+      throw error;
+    }
+    return true;
+  }
+
+  /** The person's own screen. Never implied by either of the other two grants. */
+  setDesktopScreenAccess(id: string, allowed: boolean): boolean {
+    const device = this.devices.find((candidate) => candidate.id === id);
+    if (!device) return false;
+    const previous = device.desktopScreenAccess;
+    if (allowed) device.desktopScreenAccess = true;
+    else delete device.desktopScreenAccess;
+    try {
+      this.persist();
+    } catch (error) {
+      if (previous) device.desktopScreenAccess = previous;
+      else delete device.desktopScreenAccess;
       throw error;
     }
     return true;

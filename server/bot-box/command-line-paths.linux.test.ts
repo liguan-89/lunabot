@@ -19,7 +19,7 @@ const ubuntu26 = /^VERSION_ID="26/m.test(osRelease);
 
 describe.skipIf(detection.box !== "bwrap" || ubuntu26)(`paths on a boxed command line (${detection.box === "bwrap" && !ubuntu26 ? "bubblewrap works here" : `skipped: ${detection.reason ?? "ubuntu-26.04 bwrap"}`})`, () => {
   const root = mkdtempSync(join(tmpdir(), "omb-argv-real-"));
-  const home = join(root, "home"), dataDir = join(home, ".openmausbot"), cwd = join(dataDir, "task-workspaces", "bot-1", "thread-1");
+  const home = join(root, "home"), dataDir = join(home, ".lunabot"), cwd = join(dataDir, "task-workspaces", "bot-1", "thread-1");
   const settings = join(dataDir, "config.json"), handed = join(dataDir, "hook-tokens", "t", "token"), outside = join(root, "turn", "mcp.json");
   const box = new BotBox();
   beforeAll(async () => {

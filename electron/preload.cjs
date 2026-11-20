@@ -33,6 +33,17 @@ ipcRenderer.on("desktop-notifications:open", (_event, target) => {
   for (const listener of notificationOpenListeners) listener(target);
 });
 
+let pendingMountCallBotId = null;
+const mountCallListeners = new Set();
+ipcRenderer.on("desktop-mount:start-call", (_event, botId) => {
+  if (typeof botId !== "string" || !botId) return;
+  if (!mountCallListeners.size) {
+    pendingMountCallBotId = botId;
+    return;
+  }
+  for (const listener of mountCallListeners) listener(botId);
+});
+
 // Only fixed actions are retained, never a destination supplied by a renderer.
 const FIXED_SETTINGS_ACTIONS = new Set(["organization", "cloud", "cloud-settings", "cloud-add", "cloud-add-howto"]);
 let pendingSettingsAction = null;
@@ -106,10 +117,10 @@ const remoteKeys = isLocalPage ? REMOTE_SAFE : new Set([...REMOTE_SAFE, ...(upda
 // Keep in parity with shared/workspace-backup-client.ts (a sandboxed preload cannot import it).
 const COMPANY_BACKUP_CLIENT_KEYS = [
   "omb-drafts", "omb-draft-attachments", "omb-draft-send-ids", "omb-draft-channel-modes",
-  "omb-skin", "omb-show-threads", "omb-show-run-card", "omb-send-key", "omb-color-user-bubbles", "omb-chat-width", "openmausbot.sidebarDensity",
-  "openmausbot.sidebarToolsLayout",
-  "openmausbot.sidebarCollapsedSections.v1", "openmausbot.sidebarSectionOrder.v1",
-  "omb-analytics-opt-out", "openmausbot.remote-voice.v1",
+  "omb-skin", "omb-show-threads", "omb-show-run-card", "omb-send-key", "omb-color-user-bubbles", "omb-chat-width", "lunabot.sidebarDensity",
+  "lunabot.sidebarToolsLayout",
+  "lunabot.sidebarCollapsedSections.v1", "lunabot.sidebarSectionOrder.v1",
+  "omb-analytics-opt-out", "lunabot.remote-voice.v1",
 ];
 if (isLocalPage && !desktopRemoteClient && process.argv.includes("--omb-company-desktop=1")) {
   ipcRenderer.on("company-backups:collect-client-state", (_event, request) => {
@@ -273,6 +284,7 @@ const bridge = {
     pairing: (open, expectedToken) => ipcRenderer.invoke("companion:pairing", open, expectedToken),
     cloudDesktop: (deviceId, allowed) => ipcRenderer.invoke("companion:cloud-desktop", deviceId, allowed),
     browserControl: (deviceId, allowed) => ipcRenderer.invoke("companion:browser-control", deviceId, allowed),
+    desktopScreen: (deviceId, allowed) => ipcRenderer.invoke("companion:desktop-screen", deviceId, allowed),
     revoke: (deviceId) => ipcRenderer.invoke("companion:revoke", deviceId),
     renewPairing: () => ipcRenderer.invoke("companion:pairing-renew"),
     routes: (deviceId, routes) => ipcRenderer.invoke("companion:routes", deviceId, routes),
@@ -289,6 +301,13 @@ const bridge = {
     retry: () => ipcRenderer.invoke("companion-account:retry"),
     prepare: () => ipcRenderer.invoke("companion-account:prepare"),
     signOut: () => ipcRenderer.invoke("companion-account:sign-out"),
+    pairRequests: () => ipcRenderer.invoke("companion-account:pair-requests"),
+    answerPairRequest: (id, decision, link) => ipcRenderer.invoke("companion-account:answer-pair-request", id, decision, link),
+    onPairRequest: (listener) => {
+      const handler = (_event, requests) => listener(requests);
+      ipcRenderer.on("companion-account:pair-request", handler);
+      return () => ipcRenderer.removeListener("companion-account:pair-request", handler);
+    },
   },
   /** Full/Custom never go through the loopback API, only the embedded server's private utilityProcess port. */
   approvals: {
@@ -412,11 +431,22 @@ const bridge = {
     unmount: () => ipcRenderer.invoke("desktop-mount:unmount"),
     state: () => ipcRenderer.invoke("desktop-mount:state"),
     openMain: (botId) => ipcRenderer.invoke("desktop-mount:open-main", typeof botId === "string" ? botId : undefined),
+    startCall: (botId) => ipcRenderer.invoke("desktop-mount:start-call", typeof botId === "string" ? botId : undefined),
+    captureScreen: () => ipcRenderer.invoke("desktop-mount:capture-screen"),
     setInteractiveRects: (rects) => ipcRenderer.send("desktop-mount:interactive-rects", rects),
     onState: (cb) => {
       const handler = (_event, state) => cb(state);
       ipcRenderer.on("desktop-mount:state", handler);
       return () => ipcRenderer.removeListener("desktop-mount:state", handler);
+    },
+    onStartCall: (cb) => {
+      mountCallListeners.add(cb);
+      if (pendingMountCallBotId) {
+        const botId = pendingMountCallBotId;
+        pendingMountCallBotId = null;
+        cb(botId);
+      }
+      return () => mountCallListeners.delete(cb);
     },
   },
   pickFolder: (current) => ipcRenderer.invoke("desktop:pick-folder", current),

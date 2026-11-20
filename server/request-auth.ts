@@ -326,6 +326,10 @@ export const CLIENT_ALLOW: ReadonlyArray<{ methods: readonly string[]; path: Reg
   { methods: ["GET", "PUT", "DELETE"], path: /^\/api\/phones\/self$/ },
   { methods: ["GET"], path: /^\/api\/phones\/self\/jobs$/ },
   { methods: ["POST"], path: /^\/api\/phones\/self\/jobs\/[\w-]+\/(?:lease|result)$/ },
+  // The ways in this very device may take, as the desktop sidecar answers it: its own server's address, which the phone
+  // paired with, and the descriptor its QR already carried. A paired phone re-reads it on every reconnect, so a new LAN
+  // address or a later `--lan` reaches it without a new QR — a chat-only session included, which is what a phone gets.
+  { methods: ["GET"], path: /^\/api\/companion\/endpoints$/ },
   { methods: ["GET"], path: /^\/api\/health$/ },
   { methods: ["GET"], path: /^\/api\/edition$/ },
   { methods: ["GET"], path: /^\/api\/brand$/ },
@@ -562,10 +566,10 @@ export interface ResolveOptions {
   scopeRefusal?(method: string, path: string): string | null;
 }
 
-const CLI_OWNER_HEADERS = ["x-dexbot-cli-owner", "x-openmausbot-cli-owner"] as const;
+const CLI_OWNER_HEADERS = ["x-dexbot-cli-owner", "x-lunabot-cli-owner"] as const;
 const CLI_OWNER_ROUTE = /^\/api\/auth\/pairing$/;
 
-const DESKTOP_OWNER_HEADERS = ["x-dexbot-desktop-owner", "x-openmausbot-desktop-owner"] as const;
+const DESKTOP_OWNER_HEADERS = ["x-dexbot-desktop-owner", "x-lunabot-desktop-owner"] as const;
 
 function mutatingPublicRoute(method: string, path: string): boolean {
   const upper = method.toUpperCase();
@@ -648,15 +652,15 @@ export function resolveRequestAuth(req: IncomingMessage, options: ResolveOptions
   const proxied = isProxied(req);
   const loopback = !proxied && isLoopbackHost(headerValue(req.headers.host)) && isAllowedOrigin(headerValue(req.headers.origin));
   if (loopback) {
-    const companionToken = headerValue(req.headers["x-openmausbot-companion-auth"]);
+    const companionToken = headerValue(req.headers["x-lunabot-companion-auth"]);
     if (companionToken && options.loopbackMutationToken !== undefined) {
       if (
         !secureTokenMatch(companionToken, options.companionMutationToken ?? "") ||
-        req.headers["x-openmausbot-companion"] !== "1" ||
-        !/^[\w-]{1,128}$/.test(headerValue(req.headers["x-openmausbot-companion-device"]) ?? "") ||
+        req.headers["x-lunabot-companion"] !== "1" ||
+        !/^[\w-]{1,128}$/.test(headerValue(req.headers["x-lunabot-companion-device"]) ?? "") ||
         (companionDenial({ path, method, authenticated: true }) && !isCompanionNotice(method, path))
       ) return deny(403, "forbidden: invalid companion request");
-      return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES, companionDevice: headerValue(req.headers["x-openmausbot-companion-device"]) }, status: 401, error: "" };
+      return { auth: { kind: "loopback", scopes: LOOPBACK_SCOPES, companionDevice: headerValue(req.headers["x-lunabot-companion-device"]) }, status: 401, error: "" };
     }
     const mutationToken = options.loopbackMutationToken;
     const desktopOwner = mutationToken !== undefined &&

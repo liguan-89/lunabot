@@ -21,7 +21,7 @@ plugins {
 }
 
 android {
-    namespace = "com.openmausbot.companion.baselineprofile"
+    namespace = "com.lunabot.companion.baselineprofile"
     compileSdk = 37
 
     defaultConfig {

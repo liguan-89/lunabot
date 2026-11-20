@@ -342,4 +342,3 @@ export function createTestedAi(deps: TestedAiDeps) {
   };
 }
 
-export type TestedAi = ReturnType<typeof createTestedAi>;

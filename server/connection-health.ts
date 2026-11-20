@@ -168,4 +168,3 @@ export function createConnectionHealth(options: { file: string; now?: () => numb
   };
 }
 
-export type ConnectionHealth = ReturnType<typeof createConnectionHealth>;

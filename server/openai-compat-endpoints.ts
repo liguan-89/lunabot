@@ -1,6 +1,5 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import type { InstanceConfig, InstanceConfigMap } from "./contracts.ts";
+import type { InstanceConfig } from "./contracts.ts";
 import { compatBaseUrlProblem } from "../shared/compat-base-url.ts";
 
 export { compatBaseUrlProblem, MAX_COMPAT_BASE_URL_LENGTH } from "../shared/compat-base-url.ts";
@@ -35,32 +34,7 @@ export const addEndpointSchema = z.object({
   catalog: z.enum(["lmstudio", "ollama"]).optional(),
 }).strict();
 
-export type AddEndpoint = z.infer<typeof addEndpointSchema>;
-
 export function isAddedEndpoint(instanceId: string, entry: InstanceConfig | undefined): boolean {
   return entry?.driver === "openai-compat" && instanceId.startsWith(ADDED_ENDPOINT_PREFIX);
 }
 
-export function addEndpoint(instances: InstanceConfigMap, body: AddEndpoint): { instanceId: string } | { error: string } {
-  const url = endpointBaseUrl(body.url);
-  if (!url) return { error: "Enter an http or https base URL without a user name, password or query string." };
-  if (/^https?:\/\//i.test(body.key)) return { error: "That API key looks like a URL. Paste the secret key itself, not a web address." };
-  const instanceId = `${ADDED_ENDPOINT_PREFIX}${randomUUID()}`;
-  const models = [...new Set(body.models ?? [])];
-  instances[instanceId] = {
-    driver: "openai-compat", displayName: body.displayName, access: "api",
-    config: { key: body.key, url, ...(models.length ? { managedModels: models } : {}), ...(body.catalog ? { catalog: body.catalog } : {}) },
-  };
-  return { instanceId };
-}
-
-export function withEndpointUrls(described: unknown, configs: InstanceConfigMap): unknown {
-  if (!Array.isArray(described)) return described;
-  return described.map((instance: { instanceId?: string }) => {
-    const entry = instance.instanceId ? configs[instance.instanceId] : undefined;
-    if (!entry || !isAddedEndpoint(instance.instanceId!, entry)) return instance;
-    const url = endpointDisplayUrl(entry.config);
-    const managedModels = (entry.config as { managedModels?: unknown } | undefined)?.managedModels;
-    return { ...instance, ...(url ? { url } : {}), ...(Array.isArray(managedModels) ? { managedModels } : {}) };
-  });
-}

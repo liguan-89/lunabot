@@ -535,7 +535,7 @@ function v7() {
     { name: "relay_host_suffix", value: raw({ v: 1, k, h, r: ["relay1.openmausbot.com.example.net"] }) },
     { name: "relay_host_zero", value: raw({ v: 1, k, h, r: ["relay0.openmausbot.com"] }) },
     { name: "relay_host_upper", value: raw({ v: 1, k, h, r: ["Relay1.openmausbot.com"] }) },
-    { name: "relay_host_other_domain", value: raw({ v: 1, k, h, r: ["relay1.openmausbot.org"] }) },
+    { name: "relay_host_other_domain", value: raw({ v: 1, k, h, r: ["relay1.lunabot.org"] }) },
     { name: "h_without_r", value: raw({ v: 1, k, h }) },
     { name: "r_without_h", value: raw({ v: 1, k, r }) },
     { name: "no_relays", value: raw({ v: 1, k, h, r: [] }) },

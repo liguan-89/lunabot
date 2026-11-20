@@ -119,10 +119,6 @@ const MAX_ITEMS = 500;
 const FIELDS_BATCH = 50;
 const STALE_MS = 10 * 60_000;
 
-export function isOnePasswordLoginId(id: string): boolean {
-  return id.startsWith(ID_PREFIX);
-}
-
 function bySite(hosts: Iterable<string>): Map<string, string[]> {
   const sites = new Map<string, string[]>();
   for (const host of hosts) {

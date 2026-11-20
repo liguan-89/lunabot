@@ -147,7 +147,8 @@ export function KeysPage() {
 
   // With an own provider chosen, Live calls do not use the OpenAI key that row points at.
   const ownLive = state.config?.live?.provider !== undefined && state.config.live.provider !== "openai";
-  const rows = KEY_CATALOG.filter((entry) => keyMatches(entry, q) && !(ownLive && entry.id === "liveCalls"));
+  // The custom model provider lives in AI → Luna Bot models; keeping it here would be a second editor for one config.
+  const rows = KEY_CATALOG.filter((entry) => entry.id !== "openaiCompat" && keyMatches(entry, q) && !(ownLive && entry.id === "liveCalls"));
   const sections = KEY_SECTIONS.flatMap((section) => {
     const own = rows.filter((entry) => entry.section === section.id);
     return own.length > 0 ? [{ id: section.id, rows: own }] : [];

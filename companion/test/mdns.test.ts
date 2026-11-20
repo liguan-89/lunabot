@@ -29,7 +29,7 @@ const service: ServiceInfo = {
   name: "Milind's computer",
   type: "_lunabot._tcp",
   port: 8800,
-  host: "openmausbot-1a2b3c4d.local",
+  host: "lunabot-1a2b3c4d.local",
   addresses: ["192.168.1.42"],
   txt: ["v=1", "name=Milind's computer"],
 };
@@ -329,7 +329,7 @@ describe("naming", () => {
 
   it("claims a host name the system responder will not fight us for", () => {
     const name = defaultHostName("Milinds-MacBook-Pro");
-    expect(name).toMatch(/^openmausbot-[0-9a-f]{8}\.local$/);
+    expect(name).toMatch(/^lunabot-[0-9a-f]{8}\.local$/);
     expect(defaultHostName("Milinds-MacBook-Pro")).toBe(name);
     expect(defaultHostName("another-machine")).not.toBe(name);
     expect(name).not.toContain("Milinds-MacBook-Pro");

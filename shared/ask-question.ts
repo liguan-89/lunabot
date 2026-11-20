@@ -5,7 +5,6 @@
  * payload is bot-authored: validated rather than cast, and capped.
  */
 
-export const ASK_USER_QUESTION_TOOL = "AskUserQuestion";
 export const QUESTION_DISMISS_MESSAGE = "The user closed this question without answering. Use your best judgment and continue.";
 
 /** Claude Code's own limits are 1-4 questions and 2-4 options; these leave
@@ -343,10 +342,6 @@ export function parseProtocolAskQuestions(entries: unknown): ProtocolAskQuestion
 }
 
 /** A card reply answers by question text, so it cannot tell two questions with the same text apart. */
-export function repeatsQuestionText(questions: readonly ProtocolAskQuestion[]): boolean {
-  return new Set(questions.map(({ question }) => question.question)).size !== questions.length;
-}
-
 /**
  * Answers by id (codex's requestUserInput). Only ids with a real block are
  * answered; without blocks, the whole message answers a lone question.

@@ -48,7 +48,7 @@ posixOnly("a steered message does not lift the unattended mark on its own", () =
   beforeAll(async () => {
     chmodSync(FAKE_PI, 0o755);
     home = mkdtempSync(join(tmpdir(), "omb-steer-unattended-"));
-    const data = join(home, ".openmausbot");
+    const data = join(home, ".lunabot");
     mkdirSync(data, { recursive: true });
     finishGate = join(home, "finish.gate");
     writeFileSync(join(data, "config.json"), JSON.stringify({

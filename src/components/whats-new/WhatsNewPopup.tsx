@@ -1,7 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ArrowRight, Check, X } from "lucide-react";
-import cloudHomeDark from "@/assets/whats-new/cloud-home-dark.webp";
-import cloudHomeLight from "@/assets/whats-new/cloud-home-light.webp";
 import { cn } from "@/lib/cn";
 import { useColorScheme } from "@/lib/color-scheme";
 import { t } from "@/lib/i18n";
@@ -24,6 +22,37 @@ const focusLost = (focus: Element | null) => !focus || focus === document.body |
 const titleId = (slide: WhatsNewSlide) => `whats-new-${slide}-title`;
 const controls = (popup: Element | null) => [...(popup?.querySelectorAll<HTMLElement>("button:not([disabled])") ?? [])].filter(button => !button.closest("[inert]"));
 
+function CloudHomePicture({ scheme }: { scheme: "dark" | "light" }) {
+  return (
+    <div
+      role="img"
+      aria-label={t("whatsNew.cloud.pictureAlt")}
+      data-cloud-home-picture={scheme}
+      className="flex size-full flex-col justify-between rounded-t-xl border border-b-0 border-ink/10 bg-card p-3.5 shadow-sm"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <img src="/app-icon.svg" alt="" width={18} height={18} className="size-[18px] rounded-[5px]" />
+          <span className="text-[12px] font-semibold tracking-tight text-ink">Luna Bot Cloud</span>
+        </div>
+        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-500">Pro · Online</span>
+      </div>
+      <div className="my-auto grid grid-cols-2 gap-2.5 pt-2.5">
+        <div className="rounded-lg border border-ink/10 bg-ink/[0.03] p-2.5">
+          <div className="text-[10px] text-ink-tertiary">Cloud</div>
+          <div className="mt-1 text-[12px] font-medium text-ink">Personal Cloud</div>
+          <div className="mt-2 h-1.5 w-3/4 rounded-full bg-ink/15" />
+        </div>
+        <div className="rounded-lg border border-ink/10 bg-ink/[0.03] p-2.5">
+          <div className="text-[10px] text-ink-tertiary">Usage</div>
+          <div className="mt-1 text-[12px] font-medium text-ink">Monthly Allowance</div>
+          <div className="mt-2 h-1.5 w-1/2 rounded-full bg-emerald-500/60" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** A slide's picture, at least half as tall as it is wide; the new Cloud's grows into the room the taller Team slide leaves,
  * showing more of the page, centered once all of it fits. */
 function Picture({ slide, active }: { slide: WhatsNewSlide; active: boolean }) {
@@ -31,8 +60,7 @@ function Picture({ slide, active }: { slide: WhatsNewSlide; active: boolean }) {
   return <div data-whats-new-picture={slide} className="relative aspect-[2/1] shrink-0 grow overflow-hidden bg-ink/[0.035] [@media(max-height:600px)]:hidden">
     {slide === "pro"
       ? <div className="absolute inset-0 flex flex-col items-center px-[4%] pt-3.5">
-        <img src={scheme === "dark" ? cloudHomeDark : cloudHomeLight} alt={t("whatsNew.cloud.pictureAlt")} width={1120} height={762} decoding="async" draggable={false}
-          className="my-auto w-full max-w-none select-none" />
+        <CloudHomePicture scheme={scheme} />
       </div>
       : <TeamPicture active={active} />}
   </div>;

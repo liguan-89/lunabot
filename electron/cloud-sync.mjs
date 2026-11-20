@@ -1,5 +1,5 @@
 // Files, the desktop service: the folders the person shared go to My Cloud, and what Cloud bots make comes to
-// Documents/MausBot. This computer decides what is shared (settings.shared); a folder My Cloud names is never synced
+// Documents/Luna Bot. This computer decides what is shared (settings.shared); a folder My Cloud names is never synced
 // unless this computer registered it. It drives every pass over the Cloud sign-in the window holds.
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
@@ -64,17 +64,20 @@ export function createCloudFilesService({
   let settings = readSettings(settingsFile);
   const state = openSyncState(stateFile);
   const outputsDir = path.join(documentsDir, "Luna Bot");
-  // The bots' work used to arrive in Documents/DEX BOT. Move that folder once, so a person updating keeps
-  // every file their bots made; a failed move leaves the old folder where it is and starts the new one empty.
+  // The bots' work used to arrive in Documents/<old product name>. Move that folder once, so a person
+  // updating keeps every file their bots made; a failed move leaves the old folder where it is and starts
+  // the new one empty. Newest first — the name a person still has decides which files follow them.
   if (!fs.existsSync(outputsDir)) {
-    const legacy = path.join(documentsDir, "DEX BOT");
-    if (fs.existsSync(legacy)) {
+    for (const old of ["DEX BOT", "DexBot", "MausBot"]) {
+      const legacy = path.join(documentsDir, old);
+      if (!fs.existsSync(legacy)) continue;
       try {
         fs.renameSync(legacy, outputsDir);
         console.error(`[files] moved ${legacy} to ${outputsDir}`);
       } catch (error) {
         console.error(`[files] could not move ${legacy} to ${outputsDir}: ${error?.message ?? error}`);
       }
+      break;
     }
   }
   let closed = false, interval = null, poller = null, cursor = 0, chain = Promise.resolve(), pending = null;
@@ -135,7 +138,7 @@ export function createCloudFilesService({
     return { name, pcPath: real, files, bytes, partial, refusal: null };
   }
 
-  /** Bot output folders that hold work from since the person turned this on, each in Documents/MausBot/<bot>/<conversation>. */
+  /** Bot output folders that hold work from since the person turned this on, each in Documents/Luna Bot/<bot>/<conversation>. */
   async function outputPlaces(cloud, folders) {
     const places = new Map();
     const taken = (dir) => {

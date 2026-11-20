@@ -61,7 +61,7 @@ export async function launchOwnHomeFixture({ env = {} }: { env?: NodeJS.ProcessE
 
   async function start(name: string, own: NodeJS.ProcessEnv, port: number, extra: string[] = [], ipc = false): Promise<ChildProcess> {
     const home = join(root, name);
-    const dataDir = join(home, ".openmausbot");
+    const dataDir = join(home, ".lunabot");
     mkdirSync(dataDir, { recursive: true });
     const cli = join(home, "fixture-pi.mjs");
     // The synthetic engine is the fake pi (server/testing/fake-pi-cli.ts), run with the retired Claude fixture's knobs
@@ -115,12 +115,12 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   const desktopBase = `http://127.0.0.1:${desktopPort}`;
   const startDesktop = async () => {
     const child = await start("desktop", { OMB_DESKTOP_PARENT: "1", OMB_ENVIRONMENT_LABEL: "Work laptop" }, desktopPort, ["--import", parentPort], true);
-    child.send({ type: "openmausbot:desktop-mutation-token", token: capability });
+    child.send({ type: "lunabot:desktop-mutation-token", token: capability });
     return child;
   };
   let desktop = await startDesktop();
   const local: Side = async (method, path, body) => {
-    const response = await fetch(`${desktopBase}${path}`, { method, headers: { "x-openmausbot-desktop-owner": capability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
+    const response = await fetch(`${desktopBase}${path}`, { method, headers: { "x-lunabot-desktop-owner": capability, ...(body === undefined ? {} : { "content-type": "application/json" }) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     return { status: response.status, body: parse(await response.text()) };
   };
@@ -150,7 +150,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
         ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
       return { status: response.status, body: parse(await response.text()) };
     };
-    const server: OwnServer = { name, base, dataDir: join(root, `server-${servers.length + 1}`, ".openmausbot"), token, as,
+    const server: OwnServer = { name, base, dataDir: join(root, `server-${servers.length + 1}`, ".lunabot"), token, as,
       place: { id: `place-${servers.length + 1}`, kind: "remote", name, origin: base } };
     servers.push(server);
     return server;
@@ -166,7 +166,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   const asks = createLoginHandoffClient();
   const port = { postMessage: (message: unknown) => { desktop.send(message as object); } };
   const wire = () => installOwnHome({
-    localRequest: (route, init = {}) => fetch(`${desktopBase}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-openmausbot-desktop-owner": capability } }),
+    localRequest: (route, init = {}) => fetch(`${desktopBase}${route}`, { ...init, headers: { ...init.headers as Record<string, string>, "x-lunabot-desktop-owner": capability } }),
     fetch: windowFetch,
     environments: () => servers.map((server) => server.place),
     handoff: (what) => asks.request(port, what as never),
@@ -186,7 +186,7 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
   listen();
 
   return {
-    root, desktopBase, desktopDataDir: join(root, "desktop", ".openmausbot"), ownerCapability: capability, local, addServer, journalFile, spies, windowFetch, logs: () => logs,
+    root, desktopBase, desktopDataDir: join(root, "desktop", ".lunabot"), ownerCapability: capability, local, addServer, journalFile, spies, windowFetch, logs: () => logs,
     get main() { return main; },
     get beforeJournalWrite() { return fixture.beforeJournalWrite; },
     set beforeJournalWrite(hook) { fixture.beforeJournalWrite = hook; },

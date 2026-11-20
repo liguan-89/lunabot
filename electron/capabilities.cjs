@@ -113,7 +113,7 @@ function desktopCapabilities({
   localConnection = null,
   homeDir = require("node:os").homedir(),
   // Whether the page draws the window's frame now.
-  frame = true,
+  frame = false,
   // A remote server's page: this computer's screen, voice and local control are never on offer.
   remote = false,
 } = {}) {
@@ -226,7 +226,7 @@ function desktopCapabilities({
     },
     windowChrome:
       isMac ? "mac-inset" : hostPlatform === "win32" && frame ? "win-caption" : "native",
-    windowFrame: frame !== false,
+    windowFrame: frame === true,
     screenPreview,
     dictation,
     localComputer,

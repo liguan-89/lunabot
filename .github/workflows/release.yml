@@ -165,8 +165,8 @@ jobs:
         # macos-15 runners have 7 GB, so Node's default heap stops near 2 GB; the server typecheck now needs a little more.
         env:
           NODE_OPTIONS: --max-old-space-size=4096
-          OPENMAUSBOT_CUA_ARCHES: arm64
-          OPENMAUSBOT_CUA_ARCHES_PARTIAL: "1"
+          LUNABOT_CUA_ARCHES: arm64
+          LUNABOT_CUA_ARCHES_PARTIAL: "1"
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           pnpm package:prepare

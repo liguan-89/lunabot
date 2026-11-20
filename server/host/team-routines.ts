@@ -108,4 +108,3 @@ export function createTeamRoutines(deps: TeamRoutinesDeps) {
   };
 }
 
-export type TeamRoutines = ReturnType<typeof createTeamRoutines>;

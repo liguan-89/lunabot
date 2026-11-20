@@ -25,6 +25,14 @@ export const MESSAGE_FILE_ROUTE = {
   path: /^\/api\/threads\/[\w-]+\/messages\/[\w-]+\/file$/,
 } as const;
 
+/** The same path as [MESSAGE_FILE_ROUTE], read-only: the renderer's inline preview of an image a message shared. The
+ * harness answers it only with `?preview=1&ref=<offset>` and a `ref` that names an image the message rendered; a bare
+ * GET falls through to no handler. */
+export const MESSAGE_PREVIEW_ROUTE = {
+  method: "GET",
+  path: MESSAGE_FILE_ROUTE.path,
+} as const;
+
 export const CLOUD_DESKTOP_CONTROL_ROUTE = {
   method: "POST",
   path: /^\/api\/bots\/[\w-]+\/computer\/(?:control|screenshot|viewer-close)$/,
@@ -54,6 +62,18 @@ export const LOCAL_VM_SCREENSHOT_ROUTE = {
   path: /^\/api\/bots\/[\w-]+\/local-computer\/screenshot$/,
 } as const;
 
+/** This computer's OWN screen — the person's mail and bank, not a disposable VM — so it is its own grant and its own
+ * two routes. Watching needs only the grant; acting also needs the control lease, checked in the handler. */
+export const DESKTOP_SCREEN_VIEW_ROUTE = {
+  method: "POST",
+  path: /^\/api\/bots\/[\w-]+\/desktop\/screenshot$/,
+} as const;
+
+export const DESKTOP_SCREEN_ACTION_ROUTE = {
+  method: "POST",
+  path: /^\/api\/bots\/[\w-]+\/desktop\/action$/,
+} as const;
+
 export function isCloudDesktopJoin(method: string, path: string): boolean {
   return method === CLOUD_DESKTOP_JOIN_ROUTE.method && CLOUD_DESKTOP_JOIN_ROUTE.path.test(path);
 }
@@ -68,6 +88,12 @@ export function isCloudDesktopAccess(method: string, path: string): boolean {
     || (method === CLOUD_DESKTOP_CONTROL_ROUTE.method && CLOUD_DESKTOP_CONTROL_ROUTE.path.test(path))
     || (method === LOCAL_VM_SCREENSHOT_ROUTE.method && LOCAL_VM_SCREENSHOT_ROUTE.path.test(path))
     || (method === LOCAL_VM_JOIN_ROUTE.method && LOCAL_VM_JOIN_ROUTE.path.test(path));
+}
+
+/** This computer's own screen: its own grant, never the VM's. */
+export function isDesktopScreenAccess(method: string, path: string): boolean {
+  return (method === DESKTOP_SCREEN_VIEW_ROUTE.method && DESKTOP_SCREEN_VIEW_ROUTE.path.test(path))
+    || (method === DESKTOP_SCREEN_ACTION_ROUTE.method && DESKTOP_SCREEN_ACTION_ROUTE.path.test(path));
 }
 
 /** Watching and driving are one permission: seeing a logged-in session is
@@ -157,6 +183,10 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   LOCAL_VM_SCREENSHOT_ROUTE,
   // Behind the same capability, while a person holds the computer.
   LOCAL_VM_JOIN_ROUTE,
+  // This computer's own screen: a separate grant in the proxy, because it is
+  // the person's real desktop rather than a disposable VM.
+  DESKTOP_SCREEN_VIEW_ROUTE,
+  DESKTOP_SCREEN_ACTION_ROUTE,
   { method: "POST", path: /^\/api\/groups$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/messages$/ },
   { method: "POST", path: /^\/api\/groups\/[\w-]+\/interrupt$/ },
@@ -177,6 +207,7 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/apps\/[\w-]+\/rpc$/ },
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/apps\/[\w-]+\/context$/ },
   MESSAGE_FILE_ROUTE,
+  MESSAGE_PREVIEW_ROUTE,
   { method: "POST", path: /^\/api\/threads\/[\w-]+\/messages\/[\w-]+\/reactions$/ },
   { method: "GET", path: /^\/api\/threads\/[\w-]+\/export$/ },
   { method: "POST", path: /^\/api\/threads\/[\w-]+\/respond$/ },
@@ -187,8 +218,17 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   { method: "POST", path: /^\/api\/attachments$/ },
   // The harness honors Range on voice notes so a phone player can seek.
   { method: "GET", path: /^\/api\/attachments\/[\w-]+\.(?:png|jpe?g|gif|webp|mp3|wav)$/i },
+  // Discarding an upload the person never sent. The harness answers 404 unless the asking session uploaded it and no
+  // message references it, so the name alone grants nothing.
+  { method: "DELETE", path: /^\/api\/attachments\/[\w-]+\.(?:png|jpe?g|gif|webp|mp3|wav)$/i },
   // Raw upload, capped and stored under a generated filename by the harness.
   { method: "POST", path: /^\/api\/files$/ },
+
+  // The person's own notification list and its read marks. `spend` entries are withheld from a non-admin by the
+  // harness; the feed itself is the one the host's own tray shows.
+  { method: "GET", path: /^\/api\/notifications$/ },
+  { method: "POST", path: /^\/api\/notifications\/read-all$/ },
+  { method: "POST", path: /^\/api\/notifications\/[\w-]+\/read$/ },
 
   // Never expose or mutate the workspace ElevenLabs key.
   { method: "GET", path: /^\/api\/tts\/voices$/ },

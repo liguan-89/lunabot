@@ -74,6 +74,7 @@ jobs:
         env:
           OUT: ${{ runner.temp }}/server-installer
           OMB_INSTALL_IMAGE: ${{ steps.image.outputs.image }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash deploy/e2e/run.sh
       - name: Keep the evidence
         if: always()

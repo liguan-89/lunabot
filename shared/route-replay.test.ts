@@ -14,8 +14,10 @@ import {
   matchesRoute,
   needsDecision,
   recordRoute,
+  ROUTE_PROMPT_MAX_STEPS,
   routeCandidates,
   routeFingerprint,
+  routePrompt,
   routeSlots,
   selectorFor,
   stableAnchor,
@@ -24,7 +26,9 @@ import {
   type Route,
   type RouteAction,
   type RouteRun,
+  type RouteStep,
   type ScreenElement,
+  type Selector,
 } from "./route-replay.ts";
 
 const routeOf = (template: string, slots: number): Route => ({
@@ -460,5 +464,52 @@ describe("routeFingerprint", () => {
   it("is the same path whether packages were listed once or twice", () => {
     const base = routeOfStep({});
     expect(routeFingerprint({ ...base, packages: ["a", "b"] })).toBe(routeFingerprint({ ...base, packages: ["b", "a"] }));
+  });
+});
+
+describe("routePrompt: the path a matched route tells the bot", () => {
+  const selector: Selector = { role: "Button", name: "搜索", resourceId: null, bounds: [0, 0, 10, 10], ordinal: 0, uniqueAtRecord: true };
+  const step = (over: Partial<RouteStep>): RouteStep => ({
+    tool: "PHONE_UI_TAP",
+    args: {},
+    target: null,
+    before: { packageName: "com.tencent.mm", texts: [] },
+    after: { packageName: null, texts: [] },
+    ...over,
+  });
+
+  it("renders each step with its slot values filled from the request", () => {
+    const route: Route = {
+      ...routeOf("在{1}里搜索{2}", 2),
+      packages: ["com.tencent.mm"],
+      steps: [
+        step({ tool: "PHONE_UI_LAUNCH", args: { app: "com.tencent.mm" }, before: { packageName: null, texts: [] } }),
+        step({ tool: "PHONE_UI_TAP", args: { text: "搜索" }, target: selector }),
+        step({ tool: "PHONE_UI_TYPE", args: { text: "{2}" } }),
+        step({ tool: "PHONE_UI_TAP", args: {}, target: { ...selector, name: "{1}" } }),
+      ],
+    };
+    const prompt = routePrompt(route, "在微信里搜索奶茶店");
+    expect(prompt).toContain('("在{1}里搜索{2}")');
+    expect(prompt).toContain("It starts on com.tencent.mm.");
+    expect(prompt).toContain("1. launch com.tencent.mm");
+    expect(prompt).toContain('2. tap "搜索"');
+    expect(prompt).toContain('3. type "奶茶店"');
+    expect(prompt).toContain('4. tap "微信"');
+    expect(prompt).toContain("the path does not apply");
+  });
+
+  it("is empty for a route with no steps, and caps a long one with an ellipsis", () => {
+    expect(routePrompt(routeOf("打开{1}", 1), "打开设置")).toBe("");
+    const long: Route = { ...routeOf("打开{1}", 1), steps: Array.from({ length: ROUTE_PROMPT_MAX_STEPS + 3 }, () => step({})) };
+    const prompt = routePrompt(long, "打开设置");
+    expect(prompt).toContain(`${ROUTE_PROMPT_MAX_STEPS}. tap`);
+    expect(prompt).toContain("… 3 more steps");
+    expect(prompt).not.toContain(`${ROUTE_PROMPT_MAX_STEPS + 1}. tap`);
+  });
+
+  it("falls back to the tool name and its arguments for a step it has no words for", () => {
+    const route: Route = { ...routeOf("定一个{1}的闹钟", 1), steps: [step({ tool: "PHONE_SET_ALARM", args: { hour: 7, minute: 30 } })] };
+    expect(routePrompt(route, "定一个七点半的闹钟")).toContain('PHONE_SET_ALARM {"hour":7,"minute":30}');
   });
 });

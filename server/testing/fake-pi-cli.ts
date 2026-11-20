@@ -10,6 +10,9 @@
 //   FAKE_PI_MODELS  provider/model pairs (default "ollama-cloud/glm-5.2,openai/gpt-4o")
 //   FAKE_PI_DUMP  path to append {argv, env} JSON to
 //   FAKE_PI_STEER_REFUSE  answer a steer with an explicit success:false
+//   FAKE_PI_NO_SCOPE_RECEIPT  never write the boot scope receipt, as an extension that could not enforce would
+//   FAKE_PI_SWITCH_FAIL  refuse switch_session while new_session still succeeds (strict-resume rebuild)
+//   FAKE_PI_THINKING_REFUSE  answer set_thinking_level with success:false (effort notice)
 //   FAKE_PI_STEER_OUT_OF_ORDER  hold the first steer until a second arrives, then refuse the first and accept the second
 //   FAKE_PI_REPLIES  JSON array of replies (string, or string[] for several items) used in order
 //   FAKE_PI_REPLY_FILE  path whose text is the reply while it exists, read again each turn
@@ -83,7 +86,11 @@ async function mountMcpTools(): Promise<MountedTool[]> {
         for (const name of names) activeTools.add(name);
       },
     });
-    for (const hook of sessionStartHooks) await hook();
+    // FAKE_PI_NO_SCOPE_RECEIPT simulates an old pi that loads the extension but never fires session_start:
+    // the driver's fail-closed path then has to reject the scoped turn, as it would against stale pi.
+    if (!process.env.FAKE_PI_NO_SCOPE_RECEIPT) {
+      for (const hook of sessionStartHooks) await hook();
+    }
     return tools;
   } catch (error) {
     process.stderr.write(`[fake-pi] mounting MCP tools failed: ${String((error as Error)?.message ?? error)}\n`);
@@ -93,7 +100,17 @@ async function mountMcpTools(): Promise<MountedTool[]> {
 
 // A scripted turn that calls through an MCP server needs its tools mounted at boot: the driver removes the config once
 // the real extension has mounted it, so a later mount would find nothing. FAKE_PI_MOUNT_TOOLS=1 asks for that.
-let mountedTools: MountedTool[] = (process.env.FAKE_PI_ROOM_PLAN || process.env.FAKE_PI_MOUNT_TOOLS === "1") && !argv.includes("--version") && !argv.includes("-v")
+// A scoped turn never calls a tool at all, so laziness starves it of the session_start receipt the driver waits on:
+// mount eagerly whenever the config asks for one, as real pi fires session_start at boot.
+function scopeReceiptDemanded(): boolean {
+  try {
+    const config = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG ?? "", "utf8")) as { scopeReadyPath?: unknown };
+    return typeof config.scopeReadyPath === "string";
+  } catch {
+    return false;
+  }
+}
+let mountedTools: MountedTool[] = (process.env.FAKE_PI_ROOM_PLAN || process.env.FAKE_PI_MOUNT_TOOLS === "1" || scopeReceiptDemanded()) && !argv.includes("--version") && !argv.includes("-v")
   ? await mountMcpTools()
   : [];
 let mountPromise: Promise<MountedTool[]> | null = null;
@@ -182,6 +199,19 @@ if (claudeCompat && process.env.FAKE_CLAUDE_MODE === "exit-early") {
   process.exit(1);
 }
 
+// Real pi fires session_start at boot, and the extension's scope enforcement writes its receipt
+// there; the fake only mounts tools on use, so a scoped turn would wait on a receipt that only
+// a tool call could produce. The config's toolScope is already the driver's normalized scope, so
+// the receipt echoes it verbatim, as intersect() does.
+if (process.env.OMB_MCP_CONFIG && process.env.FAKE_PI_NO_SCOPE_RECEIPT !== "1") {
+  try {
+    const bootConfig = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8")) as { scopeReadyPath?: unknown; toolScope?: unknown };
+    if (typeof bootConfig?.scopeReadyPath === "string" && bootConfig.toolScope !== undefined) {
+      writeFileSync(bootConfig.scopeReadyPath, JSON.stringify({ ok: true, toolScope: bootConfig.toolScope }), { mode: 0o600 });
+    }
+  } catch { /* A config the extension could not read leaves no receipt, which fails closed. */ }
+}
+
 const send = (obj: any) => process.stdout.write(JSON.stringify(obj) + "\n");
 // omp's RPC v2: the runtime announces v1 with a 1 MiB frame cap and stubs bigger responses unless the
 // client negotiated protocol 2; v2 sends them as `rpc_chunk` frames to reassemble.
@@ -211,11 +241,12 @@ let sessionCounter = 0;
 let currentSessionFile: string | null = null;
 const heldSteerFrames: any[] = [];
 
-const streamTurn = () => {
+const streamTurn = (promptText: string) => {
   send({ type: "agent_start" });
   send({ type: "turn_start" });
   send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
-  for (const delta of ["Hello", " from", " pi"]) {
+  const marked = markerReply(promptText);
+  for (const delta of marked !== undefined ? [marked] : ["Hello", " from", " pi"]) {
     send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta } });
   }
   send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 3 } }, usage: { input: 12, output: 3 } });
@@ -775,12 +806,14 @@ function handle(cmd: any) {
       }, Number(process.env.FAKE_PI_SESSION_DELAY_MS ?? 800));
       return;
     case "switch_session":
-      if (mode === "session-error") {
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ switchSession: cmd.sessionPath ?? null }) + "\n");
+      // FAKE_PI_SWITCH_FAIL=1 refuses only the resume; a fresh new_session still
+      // works, so a strict-resume driver can rebuild on it.
+      if (mode === "session-error" || process.env.FAKE_PI_SWITCH_FAIL === "1") {
         send({ type: "response", command: "switch_session", success: false, error: "fake pi: session unavailable" });
         return;
       }
       currentSessionFile = cmd.sessionPath ?? currentSessionFile;
-      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ switchSession: cmd.sessionPath ?? null }) + "\n");
       send({ type: "response", command: "switch_session", success: true, data: { sessionId: "s-resumed", sessionFile: currentSessionFile } });
       return;
     case "set_model": {
@@ -803,6 +836,11 @@ function handle(cmd: any) {
         try {
           appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ thinkingLevel: cmd.level }) + "\n");
         } catch {}
+      }
+      // FAKE_PI_THINKING_REFUSE=1 answers as a model that takes no level.
+      if (process.env.FAKE_PI_THINKING_REFUSE === "1") {
+        send({ type: "response", command: "set_thinking_level", success: false, error: "fake pi: model takes no thinking level" });
+        return;
       }
       send({ type: "response", command: "set_thinking_level", success: true });
       return;
@@ -885,12 +923,14 @@ function handle(cmd: any) {
       else if (mode === "compaction-recovery") streamCompactionRecoveryTurn();
       else if (mode === "compaction-recovery-upstream") streamCompactionRecoveryUpstreamTurn();
       else if (mode === "omp-chunk") streamChunkedTurn();
-      else streamTurn();
+      else streamTurn(promptText);
       return;
     case "steer": {
       if (process.env.FAKE_PI_DUMP) {
         try {
-          appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ steer: { id: cmd.id, message: cmd.message } }) + "\n");
+          appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({
+            steer: { id: cmd.id, message: cmd.message, ...(Array.isArray(cmd.images) ? { images: cmd.images } : {}) },
+          }) + "\n");
         } catch {}
       }
       if (typeof cmd.message === "string") {

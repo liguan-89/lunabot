@@ -18,7 +18,7 @@ const cuaGrant = () => {
   try {
     connection = JSON.parse(readFileSync(cuaFile, "utf8"));
   } catch {}
-  return { type: "openmausbot:local-computer", connection };
+  return { type: "lunabot:local-computer", connection };
 };
 
 if (token || cuaFile) {
@@ -35,8 +35,8 @@ if (token || cuaFile) {
       on(event, listener) {
         if (event !== "message") return;
         listeners.push(listener);
-        if (token) queueMicrotask(() => listener({ data: { type: "openmausbot:desktop-mutation-token", token } }));
-        if (pages) queueMicrotask(() => listener({ data: { type: "openmausbot:included-pages", access: JSON.parse(pages) } }));
+        if (token) queueMicrotask(() => listener({ data: { type: "lunabot:desktop-mutation-token", token } }));
+        if (pages) queueMicrotask(() => listener({ data: { type: "lunabot:included-pages", access: JSON.parse(pages) } }));
         if (cuaFile) queueMicrotask(() => listener({ data: cuaGrant() }));
       },
       postMessage() {},

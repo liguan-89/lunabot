@@ -35,4 +35,3 @@ export function createDoneNotice(deps: DoneNoticeDeps) {
   };
 }
 
-export type DoneNotice = ReturnType<typeof createDoneNotice>;

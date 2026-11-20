@@ -31,7 +31,7 @@ const companion = (device: string): RequestAuth => ({ kind: "loopback", scopes: 
 const registration = {
   installId: "install-0001", name: "Maus's iPhone", platform: "ios", appVersion: "1.5.0", timeZone: "Asia/Kolkata", capabilities: { calendar: "full" },
 };
-const fromPhone = (device = "d1") => ({ "x-openmausbot-companion": "1", "x-openmausbot-companion-device": device });
+const fromPhone = (device = "d1") => ({ "x-lunabot-companion": "1", "x-lunabot-companion-device": device });
 
 async function setup(options: { auth?: RequestAuth; owner?: () => string | null; live?: () => boolean; afterBody?: () => void; onEvent?: (key: string, event: unknown) => void } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "phones-routes-"));
@@ -71,7 +71,7 @@ async function setup(options: { auth?: RequestAuth; owner?: () => string | null;
 describe("phone routes", () => {
   it("a loopback request without the companion marker has no phone key", async () => {
     const { call } = await setup();
-    const out = await call("PUT", "/api/phones/self", registration, { "x-openmausbot-companion-device": "d1" });
+    const out = await call("PUT", "/api/phones/self", registration, { "x-lunabot-companion-device": "d1" });
     expect(out.status).toBe(403);
     expect(out.body.error).toBe("Only a paired phone can register its apps, and only for itself.");
   });
@@ -240,6 +240,18 @@ describe("phone routes", () => {
     expect((await call("POST", "/api/phones/self/events", sms, fromPhone("d1"))).status).toBe(202);
     expect(events).toEqual([{ key: "companion:d1", event: sms }]);
     expect((await call("POST", "/api/phones/self/events", { kind: "nope" }, fromPhone("d1"))).status).toBe(400);
+  });
+
+  it("a notice event stands on the phoneData grant, not messages", async () => {
+    const events: Array<{ key: string; event: unknown }> = [];
+    const { call } = await setup({ auth: companion("d1"), onEvent: (key, event) => events.push({ key, event }) });
+    const notice = { kind: "notice", key: "n1", packageName: "com.chat.app", postedAtMs: 1_000, title: "Alex", text: "到了吗" };
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { messages: "full" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", notice, fromPhone("d1"))).status).toBe(403);
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { phoneData: "full" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", notice, fromPhone("d1"))).status).toBe(202);
+    expect(events).toEqual([{ key: "companion:d1", event: notice }]);
+    expect((await call("POST", "/api/phones/self/events", { ...notice, text: "x".repeat(8_001) }, fromPhone("d1"))).status).toBe(400);
   });
 
   it("a team Cloud offers no phones", async () => {

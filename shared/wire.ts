@@ -969,10 +969,6 @@ export interface SkillsLibrarySkillWire {
 
 /** PUT body for a bot's assignment list: the full list, applied
  * idempotently. */
-export interface BotAssignedSkillsWire {
-  skills: string[];
-}
-
 export type ServerFrame =
   | { kind: "sections"; sections: string[] }
   | { kind: "bot.queued"; queues: BotQueuedMessages }

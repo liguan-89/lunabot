@@ -171,4 +171,3 @@ export function createReadAndDraft(deps: ReadAndDraftDeps) {
   return { confines, answers, refusesRoute, refusesConnectorCall };
 }
 
-export type ReadAndDraft = ReturnType<typeof createReadAndDraft>;

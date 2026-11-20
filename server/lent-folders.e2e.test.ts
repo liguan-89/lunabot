@@ -62,7 +62,7 @@ async function ownerPairing(): Promise<string> {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-lent-e2e-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
     instances: {
@@ -115,7 +115,7 @@ const desktopFetch = (url: string, init: RequestInit & { headers?: Record<string
 
 /** The bot's own agents MCP tools, from its live turn. */
 async function botTools(botId: string) {
-  const dump = piDumpPath(join(home, ".openmausbot"));
+  const dump = piDumpPath(join(home, ".lunabot"));
   expect((await api("POST", `/api/bots/${botId}/messages`, { body: { text: "Work on my Notes folder tonight." } })).status).toBe(202);
   const agents = await vi.waitFor(() => {
     const launch = piTurns(dump).at(-1)?.launch;
@@ -158,7 +158,7 @@ it("a lent folder keeps working while the Mac is away: read from the copy, chang
   });
   const files = createCloudFilesService({
     settingsFile: join(pc, "user", "files.json"), stateFile: join(pc, "user", "state.db"),
-    documentsDir: join(pc, "Documents"), localDataDir: join(pc, ".openmausbot"), homeDir: join(pc, "home"), platform: process.platform, hostname: hostname(),
+    documentsDir: join(pc, "Documents"), localDataDir: join(pc, ".lunabot"), homeDir: join(pc, "home"), platform: process.platform, hostname: hostname(),
     cloudOrigin: () => PC_ORIGIN, fetch: desktopFetch as typeof fetch, markDownloaded: async () => {}, watch: () => () => {}, now: () => Date.now() + 60_000,
     trashItem: async (file: string) => renameSync(file, join(trash, `${readdirSync(trash).length}-${file.split(/[\\/]/).at(-1)}`)),
     lending: lendingForFiles({ environment: () => env, sharing: () => connector, validate: validateSharedFolders }),
@@ -171,7 +171,7 @@ it("a lent folder keeps working while the Mac is away: read from the copy, chang
     await files.pass();
     expect(files.state().shared, JSON.stringify(files.state())).toMatchObject([{ name: "Notes", lent: true, status: "synced" }]);
     // The copy is in the data folder, which no bot's box shows: only shared_computer, with lending's rules, reaches it.
-    const copy = join(home, ".openmausbot", "sync", "lent");
+    const copy = join(home, ".lunabot", "sync", "lent");
     const [computerDir] = readdirSync(copy);
     expect(readFileSync(join(copy, computerDir!, "Notes", "plan.md"), "utf8")).toBe("the plan");
     expect(existsSync(join(home, "Synced", computerDir!, "Notes"))).toBe(false);
@@ -179,7 +179,7 @@ it("a lent folder keeps working while the Mac is away: read from the copy, chang
     const bot = (await api("POST", "/api/bots", { body: { name: "Night Owl", modelSelection: { instanceId: "pi", model: "ollama-cloud/glm-5.2" } } })).body.bot;
     const tools = await botTools(bot.id);
     // The bot is told how lent folders behave while the Mac is away, and is never handed the copy's place on disk.
-    const turns = piTurns(piDumpPath(join(home, ".openmausbot")));
+    const turns = piTurns(piDumpPath(join(home, ".lunabot")));
     const prompt = piInstructionsFor(turns, turns.length - 1);
     expect(prompt).toContain("each folder it lends that the Cloud keeps a copy of still works from that copy");
     expect(prompt).not.toContain(join("sync", "lent"));

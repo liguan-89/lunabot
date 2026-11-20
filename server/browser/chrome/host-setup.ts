@@ -60,29 +60,6 @@ profile ${APPARMOR_PROFILE_NAME} ${quoted} flags=(unconfined) {
  * pages do not render as boxes. Ubuntu 24.04 and Debian 13 renamed some with a
  * `t64` suffix; setup installs whichever name the host's apt offers.
  */
-export const DEBIAN_PACKAGES: ReadonlyArray<ReadonlyArray<string>> = [
-  ["libnss3"],
-  ["libglib2.0-0t64", "libglib2.0-0"],
-  ["libatk1.0-0t64", "libatk1.0-0"],
-  ["libatk-bridge2.0-0t64", "libatk-bridge2.0-0"],
-  ["libatspi2.0-0t64", "libatspi2.0-0"],
-  ["libdbus-1-3"],
-  ["libx11-6"],
-  ["libxcb1"],
-  ["libxcomposite1"],
-  ["libxdamage1"],
-  ["libxext6"],
-  ["libxfixes3"],
-  ["libxrandr2"],
-  ["libxkbcommon0"],
-  ["libgbm1"],
-  ["libasound2t64", "libasound2"],
-  ["libexpat1"],
-  ["fonts-liberation"],
-  ["fonts-noto-color-emoji"],
-  ["fonts-noto-cjk"],
-];
-
 export class BrowserHostError extends Error {
   readonly kind: "sandbox" | "libraries";
   readonly libraries: readonly string[];

@@ -80,4 +80,3 @@ export function createConnectorCards(deps: ConnectorCardsDeps) {
   return { request };
 }
 
-export type ConnectorCards = ReturnType<typeof createConnectorCards>;

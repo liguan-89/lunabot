@@ -19,7 +19,7 @@ function defaultDataDir(): string {
   const home = homedir();
   const current = join(home, ".lunabot-companion");
   // A paired fleet kept under an earlier name is moved here once, newest first; a failed move leaves it where it is.
-  const legacy = [join(home, ".dexbot-companion"), join(home, ".openmausbot-companion")].find((dir) => existsSync(dir));
+  const legacy = [join(home, ".dexbot-companion"), join(home, ".lunabot-companion")].find((dir) => existsSync(dir));
   if (legacy && !existsSync(current)) {
     try {
       renameSync(legacy, current);

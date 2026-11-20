@@ -1,8 +1,6 @@
 import { currentTaskBot, type Bot, type InstanceInfo, type ModelSelection } from "@/state/store";
 import { approvalModeFor, modelSwitchNeedsAsk } from "../../shared/approval-mode";
 
-export type CompanyProviderId = "anthropic" | "openai" | "openrouter";
-
 export function isCompanyInstance(instance: InstanceInfo): boolean {
   return instance.readOnly === true && instance.managed !== undefined && instance.instanceId.startsWith("company.");
 }

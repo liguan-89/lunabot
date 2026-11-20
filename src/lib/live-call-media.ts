@@ -55,6 +55,11 @@ const CAPTION_CHARS = 240;
 const HEARD_CHARS = 160;
 const HEARD_CLEAR_MS = 2_500;
 const ENDED_NOTICE_MS = 4_000;
+/** A failed call's notice carries the only "Try again" button, so it outlives the ended one — but not forever: the
+ * strip used to sit over the composer until it was dismissed by hand, which meant a call that failed once was still
+ * on screen twenty minutes and a dozen turns later. Half a minute is long enough to press the button and short enough
+ * to be gone before it becomes furniture. */
+const FAILED_NOTICE_MS = 30_000;
 const SERVER_CLOSE_GRACE_MS = 3_000;
 export const MEDIA_CONNECT_TIMEOUT_MS = 20_000;
 
@@ -430,9 +435,10 @@ function finish(notice: { text: string; dropped: boolean }, detail?: string) {
     ...IDLE, phase: notice.dropped ? "failed" : "ended", botId, threadId,
     notice: detail?.trim() || notice.text, action: notice.dropped ? "retry" : null,
   });
-  if (!notice.dropped) {
-    noticeTimer = setTimeout(dismissLiveNotice, ENDED_NOTICE_MS);
-  }
+  // Both notices clear themselves. An ended one goes almost at once; a failed
+  // one keeps its "Try again" for half a minute, because that button is the
+  // whole reason the strip is still there.
+  noticeTimer = setTimeout(dismissLiveNotice, notice.dropped ? FAILED_NOTICE_MS : ENDED_NOTICE_MS);
 }
 
 async function dropped(text: string) {

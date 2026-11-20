@@ -127,7 +127,7 @@ describe("desktop companion endpoint", () => {
         expect(normalizeDesktopCompanionEndpoint(near), near).toBe("");
       }
     }
-    for (const unlisted of ["example.net", "openmausbot.net", "mausbot.com", "si", "com", ""]) {
+    for (const unlisted of ["example.net", "lunabot.net", "mausbot.com", "si", "com", ""]) {
       expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.${unlisted}`), unlisted).toBe("");
     }
   });
@@ -374,6 +374,88 @@ describe("desktop companion loopback relay", () => {
       path: "/vps-viewer/session-id/websockify",
     });
     for (const socket of upgraded) socket.destroy();
+  });
+
+  it("forwards a live call's WebSocket and refuses every other upgrade", async () => {
+    const reached = [];
+    const companion = createServer();
+    companion.on("upgrade", (req, socket) => {
+      sockets.push(socket);
+      reached.push(req.url);
+      socket.write(
+        "HTTP/1.1 101 Switching Protocols\r\n"
+          + "Upgrade: websocket\r\n"
+          + "Connection: Upgrade\r\n\r\nlive-ready",
+      );
+    });
+    servers.push(companion);
+    const companionPort = await new Promise((resolve) =>
+      companion.listen(0, "127.0.0.1", () => resolve(companion.address().port)));
+    const relay = createServer();
+    relay.on("upgrade", (req, socket, head) =>
+      proxyDesktopCompanionUpgrade(req, socket, head, { ...access, endpoint: `http://127.0.0.1:${companionPort}` }, new Set()));
+    servers.push(relay);
+    const relayPort = await new Promise((resolve) =>
+      relay.listen(0, "127.0.0.1", () => resolve(relay.address().port)));
+
+    const open = (pathname) => new Promise((resolve) => {
+      const socket = createConnection({ host: "127.0.0.1", port: relayPort });
+      sockets.push(socket);
+      let text = "";
+      socket.setEncoding("utf8");
+      socket.on("data", (chunk) => {
+        text += chunk;
+        if (text.includes("live-ready")) resolve("upgraded");
+      });
+      socket.once("close", () => resolve("closed"));
+      socket.once("error", () => resolve("closed"));
+      socket.once("connect", () => socket.write(
+        `GET ${pathname} HTTP/1.1\r\n`
+          + `Host: 127.0.0.1:${relayPort}\r\n`
+          + "Connection: Upgrade\r\nUpgrade: websocket\r\n\r\n",
+      ));
+      socket.setTimeout(1_500, () => resolve(text || "closed"));
+    });
+
+    expect(await open("/api/live/relay?botId=b1&threadId=t1")).toBe("upgraded");
+    // The companion's own allowlist is the boundary; a path it does not serve must not be reachable through this relay.
+    expect(await open("/api/bots/b1/browser/stream")).toBe("closed");
+    expect(await open("/api/companion/devices")).toBe("closed");
+    expect(reached).toEqual(["/api/live/relay?botId=b1&threadId=t1"]);
+  });
+
+  it("carries a Range request and the 206 answer through to the browser", async () => {
+    let seenRange;
+    const companion = createServer((req, res) => {
+      seenRange = req.headers.range;
+      res.writeHead(206, {
+        "content-type": "audio/mpeg",
+        "content-length": "4",
+        "content-range": "bytes 0-3/10",
+        "accept-ranges": "bytes",
+      });
+      res.end("abcd");
+    });
+    servers.push(companion);
+    const companionPort = await new Promise((resolve) =>
+      companion.listen(0, "127.0.0.1", () => resolve(companion.address().port)));
+    const relay = createServer((req, res) => proxyDesktopCompanionApi(
+      req,
+      res,
+      { ...access, endpoint: `http://127.0.0.1:${companionPort}` },
+    ));
+    servers.push(relay);
+    const relayPort = await new Promise((resolve) =>
+      relay.listen(0, "127.0.0.1", () => resolve(relay.address().port)));
+
+    const response = await fetch(`http://127.0.0.1:${relayPort}/api/attachments/voice-1.mp3`, {
+      headers: { range: "bytes=0-3" },
+    });
+    expect(seenRange).toBe("bytes=0-3");
+    expect(response.status).toBe(206);
+    expect(response.headers.get("content-range")).toBe("bytes 0-3/10");
+    expect(response.headers.get("accept-ranges")).toBe("bytes");
+    expect(await response.text()).toBe("abcd");
   });
 
   it("answers a request target that is not a URL with 400 and keeps serving", async () => {

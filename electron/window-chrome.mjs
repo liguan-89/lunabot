@@ -12,7 +12,7 @@ export const TRAFFIC_LIGHTS = { framed: { x: 12, y: 7 }, unframed: { x: 16, y: 1
 
 /** `frame`: the window draws its own frame (the person may turn it off): on macOS the traffic lights open where it puts
  * them, and on Windows the app draws its caption buttons, or else the system's own title bar comes back. */
-export function windowChromeOptions(platform, frame = true) {
+export function windowChromeOptions(platform, frame = false) {
   if (platform === "darwin") {
     return { titleBarStyle: "hiddenInset", trafficLightPosition: frame ? TRAFFIC_LIGHTS.framed : TRAFFIC_LIGHTS.unframed };
   }

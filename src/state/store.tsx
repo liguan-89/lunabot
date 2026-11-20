@@ -410,7 +410,7 @@ export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 // A section left out here is wiped from state.config whenever a config frame lands.
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
+  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
 >;
 
 export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
@@ -423,7 +423,7 @@ export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
     anthropic: frame.anthropic,
     openai: frame.openai,
     openrouter: frame.openrouter,
-    openaiCompat: frame.openaiCompat,
+    openaiCompat: frame.openaiCompat, defaultModelSelection: frame.defaultModelSelection, hiddenModels: frame.hiddenModels,
     fleet: frame.fleet,
     composio: frame.composio,
     box: frame.box,

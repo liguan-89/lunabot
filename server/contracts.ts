@@ -511,28 +511,7 @@ export interface ModelCatalog {
 }
 
 /** "gpt-5.4-mini" → "Gpt 5.4 Mini", splitting on the caller's word breaks. */
-export function titleCaseModelId(id: string, wordBreaks: RegExp): string {
-  return id
-    .split(wordBreaks)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
 /** A picker label with a second facet (display name, provider host) unless the id already says it. */
-export function qualifiedModelLabel(
-  id: string,
-  qualifier: string | null | undefined,
-  options: {
-    redundantWhen?: (id: string, qualifier: string) => boolean;
-    decorate?: (qualifier: string) => string;
-  } = {},
-): string {
-  const { redundantWhen = () => false, decorate = (facet) => ` — ${facet}` } = options;
-  if (!qualifier || redundantWhen(id, qualifier)) return id;
-  return `${id}${decorate(qualifier)}`;
-}
-
 export interface DriverCreateInput<Config> {
   instanceId: InstanceId;
   displayName: string | undefined;
@@ -598,6 +577,10 @@ export interface ProviderInstance {
   generateText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
   /** One-shot text for background steps only, on engines whose turns are whole agent processes; never for titles or compaction. */
   generateMemoryText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
+  /** A one-off text call exposed to named jobs only — not generateText, so capability checks that
+   * would wake dormant behavior (titles, upkeep, summaries) never see it. Composition decides which
+   * side jobs may reach it; see SideJobInstance.oneOffTextJobs. */
+  oneOffText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
   /** Isolated, tool-free permission review; separate from generateText so no security capability is inferred from a generic helper. */
   reviewPermission?(prompt: string, signal?: AbortSignal): Promise<string>;
   dispose(): Promise<void>;

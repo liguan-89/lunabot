@@ -239,8 +239,8 @@
   --frame-shade: 30%;
   /* ink carried by a filled accent / danger surface (see the rule at the
      bottom of this file, which is what makes them take effect) */
-  --color-accent-ink: #ffffff;
-  --color-danger-ink: #ffffff;
+  --color-accent-ink: #041226;
+  --color-danger-ink: #240508;
   /* ink carried by the user's own bubble. A hex rather than the ink token so
      the contrast check can measure it; every dark skin repeats its ink here. */
   --color-bubble-user-ink: #f5f5f5;
@@ -256,10 +256,9 @@
    (rather than relying on the `@theme` defaults) so that a `[data-skin]`
    subtree can switch *back* to it — the picker needs that.
 
-   Two upstream contrast gaps are preserved deliberately, because this skin's
-   job is to be the original: white on the accent fill measures 3.65:1 and
-   white on the danger fill 3.32:1, both short of AA for the 13–15px labels
-   they carry. Atelier and Foundry fix this via --color-accent-ink.
+   Dark ink tokens on the bright accent (#1084fe) and danger (#ff5667) fills
+   clear WCAG AA (5.23:1 and 6.28:1) while preserving Midnight's luminous
+   blue and coral fills.
    ───────────────────────────────────────────────────────────────────────── */
 [data-skin="midnight"] {
   --code-color-scheme: dark;
@@ -282,12 +281,12 @@
   --color-accent: #1084fe;
   --color-accent-border: #459ffe;
   --color-accent-text: #7fc0ff;
-  --color-accent-ink: #ffffff;
+  --color-accent-ink: #041226;
   --color-bubble-user: #5a5a5a;
   --color-bubble-user-ink: #f5f5f5;   /* = ink: unchanged */
   --color-success: #38d591;
   --color-danger: #ff5667;
-  --color-danger-ink: #ffffff;
+  --color-danger-ink: #240508;
   --color-success-ink: #072114;
   --color-warning: #ff9800;
   --color-scrollbar: #3d3d3d;
@@ -1679,13 +1678,15 @@ body {
     background: color-mix(in srgb, black 50%, transparent);
   }
 }
-/* Linux without a GPU (electron/linux-gpu.mjs): the blur is redrawn on the CPU and keeps the fan busy, so pop-ups are solid. */
+/* Software rendering without a GPU (electron/linux-gpu.mjs): backdrop blur is redrawn on the CPU, so glass surfaces stay solid. */
 :root[data-software-rendering] .glass-surface {
   background: var(--color-menu);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+:root[data-software-rendering] .glass-card,
 :root[data-software-rendering] .glass-surface .bg-card { background: var(--color-card); }
+:root[data-software-rendering] .glass-rail { background: var(--color-app); }
 @media (forced-colors: active) {
   .glass-surface,
   .glass-card {
@@ -1894,6 +1895,11 @@ body {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+}
+:root[data-software-rendering] .glass-bar::before {
+  background: var(--glass-tint, var(--color-panel));
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
 }
 @media (forced-colors: active) {
   .glass-bar::before,
@@ -3101,7 +3107,7 @@ html[data-cloud-intent-morph] [data-tour="composer"] { view-transition-name: clo
 }
 
 @media (prefers-reduced-transparency: no-preference) and (forced-colors: none) {
-  @scope ([data-skin="aurora"]:not([data-skin-preview])) to ([data-skin]) {
+  @scope ([data-skin="aurora"]:not([data-skin-preview]):not([data-software-rendering])) to ([data-skin]) {
     main.bg-app :is(.bg-card, .bg-composer, .bg-bubble-user) {
       -webkit-backdrop-filter: blur(28px) saturate(150%);
       backdrop-filter: blur(28px) saturate(150%);
@@ -3121,7 +3127,7 @@ html[data-cloud-intent-morph] [data-tour="composer"] { view-transition-name: clo
   }
   /* In Tailwind's own layer, at a utility's weight, so hover and expanded fills still win over the glass. */
   @layer utilities {
-    @scope ([data-skin="aurora"]:not([data-skin-preview])) to ([data-skin]) {
+    @scope ([data-skin="aurora"]:not([data-skin-preview]):not([data-software-rendering])) to ([data-skin]) {
       :where(main.bg-app) :is(.bg-card, .bg-composer) {
         background-color: color-mix(in srgb, var(--color-card) 62%, transparent);
       }

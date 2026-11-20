@@ -19,7 +19,7 @@ import { submenuPosition } from "./SidebarPopoverMenu";
 import { submenuIntent, type SubmenuIntent } from "@/lib/submenu-intent";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { useMoveToTeam } from "./MoveToTeam";
-import type { MenuState } from "./Sidebar";
+import type { MenuState } from "./SidebarBotList";
 import { departmentNames, moveBotsToSection, useMayMoveBots } from "./bot-sections";
 import { openBotSettings } from "./bot-panel/panel-link";
 import { isArchived } from "./SidebarThreadRow";

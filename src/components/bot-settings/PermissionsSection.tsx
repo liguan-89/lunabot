@@ -5,6 +5,7 @@ import { Crown } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
+import { engineDisplayName } from "@/lib/engine-name";
 import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
 import { useStore, type Bot } from "@/state/store";
 import type { ApprovalMode } from "../../../shared/approval-mode";
@@ -115,7 +116,7 @@ export function PermissionsSection({
           <ApprovalModeSelector
             approvalMode={bot.approvalMode}
             autoApprove={bot.autoApprove}
-            providerName={engine?.displayName ?? bot.name}
+            providerName={engine ? engineDisplayName(engine) : bot.name}
             driverKind={engine?.driverKind ?? ""}
             onSelect={setApprovalMode}
             menuDirection="down"

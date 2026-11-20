@@ -19,6 +19,7 @@ import {
   denyReason,
   isBrowserControlAccess,
   isCloudDesktopAccess,
+  isDesktopScreenAccess,
   isMessageFileDownload,
 } from "./routes.ts";
 import { createJsonScrubber } from "./json-scrub.ts";
@@ -32,7 +33,7 @@ export interface ProxyOptions {
   mutationToken?: () => string | null;
   authenticate: (
     token: string | undefined,
-  ) => { id?: string; cloudDesktopAccess: boolean; browserControlAccess: boolean; e2eAt?: number } | null;
+  ) => { id?: string; cloudDesktopAccess: boolean; browserControlAccess: boolean; desktopScreenAccess?: boolean; e2eAt?: number } | null;
   /** Pairing is handled here and never forwarded: the harness has no such route. */
   redeem: (
     code: string,
@@ -296,13 +297,13 @@ const endpointSnapshot = (options: ProxyOptions): CompanionEndpointSnapshot => {
 export function companionIdentityHeaders(authenticatedDeviceId?: string, mutationToken?: string): Record<string, string> {
   const out: Record<string, string> = {
     // Carries no authority; it only narrows behavior at the harness.
-    "x-openmausbot-companion": "1",
+    "x-lunabot-companion": "1",
   };
   // Never a caller-supplied header: this id comes only from the registry entry
   // that authenticated the bearer.
   if (authenticatedDeviceId && /^[\w-]{1,128}$/.test(authenticatedDeviceId)) {
-    out["x-openmausbot-companion-device"] = authenticatedDeviceId;
-    if (mutationToken) out["x-openmausbot-companion-auth"] = mutationToken;
+    out["x-lunabot-companion-device"] = authenticatedDeviceId;
+    if (mutationToken) out["x-lunabot-companion-auth"] = mutationToken;
   }
   return out;
 }
@@ -348,10 +349,10 @@ function harnessControlCheck(options: ProxyOptions) {
       accept: "application/json",
       "content-type": "application/json",
       "content-length": String(Buffer.byteLength(body)),
-      "x-openmausbot-companion": "1",
-      "x-openmausbot-companion-device": deviceId,
+      "x-lunabot-companion": "1",
+      "x-lunabot-companion-device": deviceId,
     };
-    if (mutationToken) headers["x-openmausbot-companion-auth"] = mutationToken;
+    if (mutationToken) headers["x-lunabot-companion-auth"] = mutationToken;
     const request = httpRequest({
       hostname: "127.0.0.1",
       port: options.harnessPort,
@@ -445,6 +446,13 @@ export function createProxyHandler(options: ProxyOptions) {
     if (isBrowserControlAccess(method, path) && !device?.browserControlAccess) {
       return sendJson(res, 403, {
         error: "browser control is off for this device — open Remote access on the computer and turn on \"Allow browser control\" for it",
+      });
+    }
+
+    // The broadest grant of the three: the person's own desktop, not a disposable VM. Never implied by either other one.
+    if (isDesktopScreenAccess(method, path) && device?.desktopScreenAccess !== true) {
+      return sendJson(res, 403, {
+        error: "this computer's own screen is off for this device — open Remote access on the computer and turn on \"Allow this computer's screen\" for it",
       });
     }
 

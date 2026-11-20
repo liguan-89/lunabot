@@ -11,7 +11,7 @@
 //   lunabot logout
 //   lunabot run | send | wait | doctor | team apply | export | …
 //
-// This module only exports: openmausbot.ts runs main(), so bundling this file into other entries never runs it twice.
+// This module only exports: lunabot.ts runs main(), so bundling this file into other entries never runs it twice.
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, mkdirSync, openSync, readFileSync } from "node:fs";
@@ -38,7 +38,8 @@ import { defaultSetupIo, SetupCancelled, type SetupIo } from "./cli-prompts.ts";
 import { HEADLESS_VERB_NAMES, usage } from "./cli-usage.ts";
 import { runConfigCli } from "./config-cli.ts";
 import { normalizePhoneOrigin, phonePairingInstructions, runPhoneSetup } from "./cli-phone-setup.ts";
-import { browserSignInLines, desktopOwnedRefusal, formatSessions, pairingBlock, RELAY_NOT_WITH_TUNNEL, relayPairingBlock, showRelayPairing } from "./cli-pairing.ts";
+import { browserSignInLines, desktopOwnedRefusal, pairingBlock, RELAY_NOT_WITH_TUNNEL, relayPairingBlock, showRelayPairing } from "./cli-pairing.ts";
+import { createSessionsCommand } from "./cli-sessions.ts";
 import { cliCommand, cliPrefix } from "./cli-invocation.ts";
 import { resolveDataDir } from "./data-dir.ts";
 import { checkReach, envPublicUrl, lanProblem, localLinkBase, noRouteLines, publicUrlProblem, reachLines, waitForReach, type Route } from "./cli-reach.ts";
@@ -84,6 +85,8 @@ export interface CliOptions {
   client: boolean;
   pair: boolean;
   revoke?: string;
+  /** `devices routes <id> any|local`: where one paired device may connect from. */
+  routes?: { id: string; routes: "any" | "local" };
   /** `access list|add|remove` */
   accessAction?: "list" | "add" | "remove";
   chatOnly?: boolean;
@@ -178,6 +181,13 @@ export function parseArgs(argv: string[], env: NodeJS.ProcessEnv = process.env):
       else if (arg === "--json") options.json = true;
       else if (arg === "--email") options.email = value();
       else if (options.command === "sessions" && (arg === "revoke" || arg === "list")) { if (arg === "revoke") options.revoke = value(); }
+      else if (options.command === "sessions" && arg === "routes") {
+        const id = value();
+        const where = rest[i + 1];
+        if (where !== "any" && where !== "local") throw new Error('routes needs "any" or "local" after the device id');
+        i += 1;
+        options.routes = { id, routes: where };
+      }
       else if (options.command === "access" && !options.accessAction && (arg === "list" || arg === "add" || arg === "remove")) {
         options.accessAction = arg;
         if (arg !== "list") options.email = value();
@@ -387,45 +397,12 @@ export async function runPair(options: CliOptions): Promise<number> {
   return 0;
 }
 
-export async function runSessions(options: CliOptions): Promise<number> {
-  if (!(await serverUp(options.port))) {
-    console.error(`no Luna Bot server on http://127.0.0.1:${options.port}`);
-    return 1;
-  }
-  if (options.revoke) {
-    const { status, body } = await api(options.port, `/api/auth/sessions/${encodeURIComponent(options.revoke)}`, { method: "DELETE" });
-    if (refusedAsService(status, body)) {
-      console.error(SERVICE_TRUST_HELP);
-      return 1;
-    }
-    if (status !== 200) {
-      console.error(`could not revoke: ${typeof body?.error === "string" ? body.error : status}`);
-      return 1;
-    }
-    console.log(`revoked ${options.revoke}: that device is signed out and its stream is closed`);
-    return 0;
-  }
-  const { status, body } = await api(options.port, "/api/auth/sessions");
-  if (refusedAsService(status, body)) {
-    console.error(SERVICE_TRUST_HELP);
-    return 1;
-  }
-  if (status !== 200) {
-    console.error(`could not list sessions: ${typeof body?.error === "string" ? body.error : status}`);
-    return 1;
-  }
-  const sessions: Array<{ id: string; label: string; scopes: string[]; lastSeenAt: number; expiresAt: number }> = Array.isArray(body?.sessions) ? body.sessions : [];
-  if (options.json) {
-    console.log(JSON.stringify(sessions, null, 2));
-    return 0;
-  }
-  if (!sessions.length) {
-    console.log(`no paired devices yet: run ${cliCommand("pair")}`);
-    return 0;
-  }
-  console.log(formatSessions(sessions));
-  return 0;
-}
+export const runSessions: (options: CliOptions) => Promise<number> = createSessionsCommand({
+  api,
+  serverUp,
+  refusedAsService,
+  serviceTrustHelp: SERVICE_TRUST_HELP,
+});
 
 export async function runStatus(options: CliOptions, io: CliIo = defaultIo()): Promise<number> {
   const body: any = await fetch(`http://127.0.0.1:${options.port}/.well-known/dexbot/environment`).then((r) => r.json()).catch(() => null);

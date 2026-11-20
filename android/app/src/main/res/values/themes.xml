@@ -6,7 +6,7 @@
       white frame in front of a #F4F4F5 app is the flash this avoids. The colour
       is `MinisTokens.CanvasLight` written as a resource; keep the pair in step.
     -->
-    <style name="Theme.OpenMausMobile" parent="android:Theme.Material.Light.NoActionBar">
+    <style name="Theme.LunaBotMobile" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#FFF4F4F5</item>
     </style>
 </resources>

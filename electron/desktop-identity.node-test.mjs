@@ -6,11 +6,11 @@ import test from "node:test";
 
 import { DESKTOP_PROTOCOLS, LINUX_DESKTOP_NAME, prepareDesktopProfile, registerDesktopProtocols } from "./desktop-identity.mjs";
 
-test("this build answers lunabot:// and still answers dexbot://, in that order", () => {
-  assert.deepEqual(DESKTOP_PROTOCOLS, ["lunabot", "dexbot"]);
+test("this build answers lunabot:// and still answers dexbot:// and openmausbot://, in that order", () => {
+  assert.deepEqual(DESKTOP_PROTOCOLS, ["lunabot", "dexbot", "openmausbot"]);
   const registered = [];
   registerDesktopProtocols({ setAsDefaultProtocolClient: (scheme) => { registered.push(scheme); return true; } });
-  assert.deepEqual(registered, ["lunabot", "dexbot"]);
+  assert.deepEqual(registered, ["lunabot", "dexbot", "openmausbot"]);
 });
 
 test("GNOME's desktop-entry name matches the app id", () => {

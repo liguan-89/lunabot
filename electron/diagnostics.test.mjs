@@ -433,9 +433,9 @@ describe("readSafeLogTail", () => {
 });
 
 describe("diagnosticsFileName", () => {
-  it("uses dexbot-diagnostics-YYYYMMDD-HHmmss.txt", () => {
+  it("uses lunabot-diagnostics-YYYYMMDD-HHmmss.txt", () => {
     expect(diagnosticsFileName(new Date(2026, 7, 22, 16, 5, 9))).toBe(
-      "dexbot-diagnostics-20260822-160509.txt",
+      "lunabot-diagnostics-20260822-160509.txt",
     );
   });
 });
