@@ -2736,6 +2736,19 @@ class Session(
         }
     }
 
+    /** Push one allowed notification for notice learning; false when the computer could not be told. */
+    suspend fun postPhoneNotice(event: PhoneNoticeEvent): Boolean {
+        val active = client ?: return false
+        return try {
+            active.postPhoneNotice(event)
+            true
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            com.lunabot.companion.core.e2e.E2eLog.line("notice post failed: ${error.message}")
+            false
+        }
+    }
+
     private suspend fun <T> guardPhone(block: suspend () -> T?): T? = try {
         block()
     } catch (error: Throwable) {

@@ -41,7 +41,7 @@ function harness(overrides: { cfg?: AppConfig; messages?: Message[] } = {}) {
   return { relay, emits: emit, sends, replies, tasks };
 }
 
-const smsEvent = (extra: Partial<PhoneEvent> = {}): PhoneEvent =>
+const smsEvent = (extra: Partial<Extract<PhoneEvent, { kind: "sms" }>> = {}): PhoneEvent =>
   ({ kind: "sms", sendId: "m1", from: "+8613800138000", text: "bot 帮我查下快递", ...extra });
 
 const completed = (threadId: string, turnId = "turn-1"): RuntimeEvent =>

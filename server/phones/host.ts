@@ -6,11 +6,12 @@ import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 // thing on a screen that does not move is nudged once and then refused, so a loop ends instead of running out the turn.
 import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
-import { effectiveWrite, isReplayablePhoneTool, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
+import { effectiveWrite, isReplayablePhoneTool, needsDecision, routePrompt, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
 import { hit } from "../../shared/sensitive.ts";
 import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type VerifyMessage } from "../answer-verify.ts";
 import { appendDecision } from "../decision-log.ts";
 import { harnessMcpTokenEnv } from "../harness-mcp-token.ts";
+import type { Intent } from "../intent-gate.ts";
 import { elementAtPoint, elementByRef, screenFromAnswer, type PhoneRoutes, type RouteTurn } from "../phone-routes.ts";
 import { AGENTS_NODE_FLAG, SPAWNED_PROXIES } from "../proxy-paths.ts";
 import type { BotRecord } from "../store.ts";
@@ -263,6 +264,12 @@ export interface PhoneHostDeps {
    * the next turn. Absent is `off`: nothing is checked and no model call is made.
    */
   verifyMode?(): PhoneVerifyMode;
+  /**
+   * Mika's per-turn verdict on the person's own request, asked lazily once and shared by the route part and the
+   * call gate: an intent — the verdict; null — asked and unreadable; undefined — not the person's turn or nothing
+   * to judge with. Absent is no gate at all: every call runs as before.
+   */
+  intent?(turn: TurnCapability): Promise<Intent | null | undefined>;
 }
 
 export interface PhoneOutboundHoldInput {
@@ -283,9 +290,11 @@ export interface PhoneHost {
   mounts(bot: PhoneBot, owner: string | null): boolean;
   integration(bot: PhoneBot, owner: string | null, mint: () => string, harnessUrl: string): { command: string; args: string[]; env: Record<string, string> } | null;
   prompt(bot: PhoneBot, owner: string | null): string;
-  /** The phone part and, only beside a non-empty one, where the person is: a section of its own, volatile, so a turn
-   * from the phone after one at the computer does not change the cached system prompt. */
-  parts(bot: PhoneBot, owner: string | null, place: PhonePlace): [PromptPart, PromptPart];
+  /** The phone part and, only beside a non-empty one, where the person is and the one fitting route: sections of
+   * their own, volatile, so a turn from the phone or a repeated request does not change the cached system prompt.
+   * `intent` is the gate's answer when the caller asked it, and like Mika's replay a discussion — or an answer the
+   * gate could not read — keeps the route out. */
+  parts(bot: PhoneBot, owner: string | null, place: PhonePlace, request?: string, intent?: Intent | null): [PromptPart, PromptPart, PromptPart];
   /** For a turn that may not use the phone although the owner's phone would serve this bot: say so, so it does not guess. */
   withheld(bot: PhoneBot, owner: string | null): string;
   /**
@@ -322,6 +331,8 @@ export interface PhoneTurnEnd {
   spoiled?: boolean;
   /** A route is rebuilt from a persisted run, so there must be one; defaults to the turn's generation. */
   runId?: string | null;
+  /** The route this turn's prompt carried, so the calls it made can settle that route's replay bookkeeping. */
+  offeredRoute?: { ownerKey: string; id: string } | null;
 }
 
 /** A route learned from a turn: its file name and the request it answers. */
@@ -410,6 +421,8 @@ export async function verifyPhoneTurn(options: PhoneVerifyOptions): Promise<Veri
 
 const NOT_OWNER_TEXT = "This conversation can't use a phone: only the owner's own turns can.";
 const GONE_TEXT = "This bot no longer exists.";
+/** The tool answer a discussion verdict leaves: the person was talking, so the call never ran and the model answers in text. */
+const PHONE_DISCUSS_TEXT = "The person is discussing or reviewing, not asking anything to be done. Answer their message directly in text — do not read or operate apps, websites or other outside content this turn.";
 
 /** The default phone: used ones first, the latest use first; then never-used ones, the newest pairing first. The poll
  * heartbeat (`seen`) never ranks: a phone that merely polled must not take a send meant for the one in use. */
@@ -503,9 +516,18 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       };
     },
     prompt,
-    parts(bot, owner, place) {
+    parts(bot, owner, place, request?: string, intent?: Intent | null) {
       const text = prompt(bot, owner);
-      return [{ id: "device", label: "Phone", text }, { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] }];
+      // One fitting route is told to the bot so it can replay it; a shortlist it would have to choose between is
+      // not offered, because a classifier has to pick and nothing here may call a model. A gate that answered keeps
+      // the path out too: a discussion, or an answer it could not read, means nothing was asked to be done.
+      const matched = request && owner !== null && routes ? routes.match(owner, request) : [];
+      const route = intent === "discuss" || intent === null ? null : needsDecision(matched) ? null : (matched[0] ?? null);
+      return [
+        { id: "device", label: "Phone", text },
+        { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] },
+        { id: "device-route", label: "A path that worked before", text: text && route ? routePrompt(route, request!) : "" },
+      ];
     },
     withheld: (bot, owner) => (owner !== null && mounts(bot, owner) ? phoneWithheldPrompt(bot, phonesOf(owner).map(({ registration }) => registration)) : ""),
     confirm: confirms,
@@ -524,6 +546,18 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       const generation = ledger.generationOf(turn);
       const { evidence, complete } = ledger.take(turn);
       const ended: PhoneTurnEnded = { evidence, route: null, goal: input.goal };
+      // The route the prompt carried is settled only against calls that ran — a refusal, a timeout or a phone not
+      // there never ran, so it says nothing about the path — and only when the turn's end can judge: a stopped or
+      // spoiled turn just touches the route, the way Mika counts a replay stopped for confirmation as use alone.
+      if (routes && input.offeredRoute) {
+        const ran = evidence.filter((entry) => entry.ok && isReplayablePhoneTool(entry.tool));
+        if (ran.length > 0) {
+          const missed = ran.findIndex((entry) => !entry.changed);
+          routes.settle(input.offeredRoute.ownerKey, input.offeredRoute.id,
+            input.stopped === true || input.spoiled === true ? "used" : missed === -1 ? "success" : "miss",
+            missed === -1 ? undefined : missed);
+        }
+      }
       const ownerKey = input.ownerKey ?? null;
       if (!routes || ownerKey === null || evidence.length === 0 || !complete) return ended;
       try {
@@ -609,6 +643,9 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
             noteEvidence(turn, phone.key, name, args, before, outcome);
             return outcome;
           };
+          // Mika's gate stands at the turn's first outside call: a discussion verdict refuses this call and, through
+          // the cached verdict, every later one — the person was talking, so the model answers in text instead.
+          if ((await deps.intent?.(turn)) === "discuss") return refuse({ ok: false, code: "denied", error: PHONE_DISCUSS_TEXT });
           // A bot looping on a phone is caught before the card asks the person anything: the same action on a screen that
           // did not move earns a nudge in the answer, and then a refusal, so a stuck task ends instead of running on.
           const advice = isPhoneUiWrite(name) ? confirms.advise(turn, phone.key, name, args) : { result: "proceed" as const };

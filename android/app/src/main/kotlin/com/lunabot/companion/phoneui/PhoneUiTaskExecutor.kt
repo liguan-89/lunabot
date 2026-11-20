@@ -200,7 +200,10 @@ internal class PhoneUiTaskExecutor(context: Context) {
      */
     fun release() {
         synchronized(lock) {
-            session?.close()
+            session?.let {
+                it.close()
+                PhoneUiMirror.detach(it)
+            }
             session = null
         }
         when (val decision = afterTask.decide(lastPackage, appContext.packageName)) {
@@ -301,6 +304,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
             session?.let { current ->
                 if (current.shell !== shell || now - lastUsedAtMs > PhoneUiRules.SESSION_IDLE_TIMEOUT_MS) {
                     current.close()
+                    PhoneUiMirror.detach(current)
                     session = null
                 }
             }
@@ -313,6 +317,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
             val dpi = PhoneUiRules.clampedInt(arguments.string("dpi"), PhoneUiRules.DEFAULT_DPI, PhoneUiRules.MIN_DPI, PhoneUiRules.MAX_DPI)
             val created = PhoneUiDisplaySession.open(shell, width, height, dpi) ?: return null
             session = created
+            PhoneUiMirror.attach(created)
             lastUsedAtMs = now
             return created
         }

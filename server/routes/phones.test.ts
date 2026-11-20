@@ -242,6 +242,18 @@ describe("phone routes", () => {
     expect((await call("POST", "/api/phones/self/events", { kind: "nope" }, fromPhone("d1"))).status).toBe(400);
   });
 
+  it("a notice event stands on the phoneData grant, not messages", async () => {
+    const events: Array<{ key: string; event: unknown }> = [];
+    const { call } = await setup({ auth: companion("d1"), onEvent: (key, event) => events.push({ key, event }) });
+    const notice = { kind: "notice", key: "n1", packageName: "com.chat.app", postedAtMs: 1_000, title: "Alex", text: "到了吗" };
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { messages: "full" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", notice, fromPhone("d1"))).status).toBe(403);
+    await call("PUT", "/api/phones/self", { ...registration, capabilities: { phoneData: "full" } }, fromPhone("d1"));
+    expect((await call("POST", "/api/phones/self/events", notice, fromPhone("d1"))).status).toBe(202);
+    expect(events).toEqual([{ key: "companion:d1", event: notice }]);
+    expect((await call("POST", "/api/phones/self/events", { ...notice, text: "x".repeat(8_001) }, fromPhone("d1"))).status).toBe(400);
+  });
+
   it("a team Cloud offers no phones", async () => {
     // A verified phone key, so the refusal comes from there being no owner, not from a missing key.
     const { call } = await setup({ auth: companion("d1"), owner: () => null });

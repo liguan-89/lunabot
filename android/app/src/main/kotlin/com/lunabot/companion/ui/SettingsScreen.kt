@@ -5,9 +5,11 @@ import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.widget.ImageView
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -90,6 +93,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import com.lunabot.companion.R
 import com.lunabot.companion.core.ActivityDetail
 import com.lunabot.companion.account.AccountComputer
@@ -97,6 +101,7 @@ import com.lunabot.companion.account.CloudAccountUi
 import com.lunabot.companion.core.Connection
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.phoneui.PhoneUiAccessibilityService
+import com.lunabot.companion.phoneui.PhoneUiMirror
 import com.lunabot.companion.phoneui.PhoneUiPairingInput
 import com.lunabot.companion.phoneui.PhoneUiStatus
 import com.lunabot.companion.phoneui.SelfCheckReport
@@ -113,6 +118,7 @@ import com.lunabot.companion.wechat.WechatSettingsSection
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.core.app.NotificationManagerCompat
@@ -167,6 +173,9 @@ fun SettingsScreen(
     val phoneFiles by environment.chatPreferences.phoneFiles.collectAsState()
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
+    val phoneUiOverlay by environment.chatPreferences.phoneUiOverlay.collectAsState()
+    val phoneNoticeShare by environment.chatPreferences.phoneNoticeShare.collectAsState()
+    val phoneNoticeApps by environment.chatPreferences.phoneNoticeApps.collectAsState()
     val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -243,6 +252,16 @@ fun SettingsScreen(
             environment.chatPreferences.setPhoneFilesTree(uri.toString())
         }
     }
+    // The floating watch window needs the system's overlay grant; the page is
+    // opened by the switch, and returning with the grant turns the switch on.
+    val overlayContext = LocalContext.current
+    var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(overlayContext)) }
+    val overlayPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) {
+        overlayGranted = Settings.canDrawOverlays(overlayContext)
+        if (overlayGranted) environment.chatPreferences.setPhoneUiOverlay(true)
+    }
 
     var editingAddress by remember { mutableStateOf(false) }
     var addressText by remember { mutableStateOf("") }
@@ -261,8 +280,10 @@ fun SettingsScreen(
     var choosingAvatarStyle by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
     var choosingPhonePace by remember { mutableStateOf(false) }
+    var pickingNoticeApps by remember { mutableStateOf(false) }
     var phoneUiCheckReport by remember { mutableStateOf<SelfCheckReport?>(null) }
     var phoneUiChecking by remember { mutableStateOf(false) }
+    var watchingScreen by remember { mutableStateOf(false) }
     var editingQuickReplies by remember { mutableStateOf(false) }
     var pairingPhoneUi by remember { mutableStateOf(false) }
     val phoneToolsStatus by session.phoneToolsStatus.collectAsState()
@@ -911,6 +932,34 @@ fun SettingsScreen(
                         },
                     )
                     SettingsDivider()
+                    // A live, read-only window into the controlled display:
+                    // the sheet below inside the app, and an opt-in floating
+                    // view over other apps while a task is driving.
+                    SettingsRow(
+                        title = "观看受控屏",
+                        subtitle = "实时显示智能体正在操作的手机画面",
+                        chevron = true,
+                        onClick = { watchingScreen = true },
+                    )
+                    SettingsDivider()
+                    SettingsSwitchRow(
+                        title = "任务期间悬浮显示受控屏",
+                        subtitle = if (overlayGranted) "在其他应用上方显示小窗，只读" else "需要允许在其他应用上层显示",
+                        checked = phoneUiOverlay && overlayGranted,
+                        onCheckedChange = { enabled ->
+                            if (enabled && !overlayGranted) {
+                                overlayPermission.launch(
+                                    Intent(
+                                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                        "package:${overlayContext.packageName}".toUri(),
+                                    ),
+                                )
+                            } else {
+                                environment.chatPreferences.setPhoneUiOverlay(enabled)
+                            }
+                        },
+                    )
+                    SettingsDivider()
                     // Opt-in, and off by default: the grant it needs is
                     // WRITE_SECURE_SETTINGS, which is not limited to the one
                     // switch this feature writes. The screen cannot see whether
@@ -997,6 +1046,36 @@ fun SettingsScreen(
                             }
                         },
                     )
+                    SettingsDivider()
+                    // Sharing is the phone pushing on its own — the consent is
+                    // per package, not per notification, so it needs its own
+                    // switch plus a whitelist instead of one blanket grant.
+                    SettingsSwitchRow(
+                        title = "分享通知给智能体",
+                        checked = phoneNoticeShare,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneNoticeShare(enabled)
+                            if (enabled && !notificationListenerGranted(phoneToolsContext)) {
+                                runCatching {
+                                    phoneToolsContext.startActivity(
+                                        Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }
+                            }
+                            if (enabled && phoneNoticeApps.isEmpty()) pickingNoticeApps = true
+                        },
+                    )
+                    if (phoneNoticeShare) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "分享哪些应用的通知",
+                            value = if (phoneNoticeApps.isEmpty()) "未选择" else "已选 ${phoneNoticeApps.size} 个",
+                            chevron = true,
+                            onClick = { pickingNoticeApps = true },
+                        )
+                        SettingsFootnote("只有勾选应用的通知内容会发送到电脑；验证码等敏感内容会被过滤，其他应用的通知不会离开手机。通知监听需要在系统设置里授权。")
+                    }
                     if (phoneUiStatus == PhoneUiStatus.Ready) {
                         SettingsDivider()
                         SettingsRow(
@@ -1569,6 +1648,49 @@ fun SettingsScreen(
                             onClick = {
                                 environment.chatPreferences.setPhonePace(pace)
                                 choosingPhonePace = false
+                            },
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (watchingScreen) {
+        ControlledScreenSheet(onDismiss = { watchingScreen = false })
+    }
+
+    if (pickingNoticeApps) {
+        // Read once per open: the launcher list is the honest "apps that post"
+        // set and re-querying per recomposition is a Binder round-trip each.
+        val manager = LocalContext.current.packageManager
+        val choices: List<Pair<String, String>> = remember {
+            runCatching {
+                manager.getInstalledApplications(0)
+                    .filter { manager.getLaunchIntentForPackage(it.packageName) != null }
+                    .map { manager.getApplicationLabel(it).toString() to it.packageName }
+                    .sortedWith(compareBy({ it.first.lowercase() }, { it.second }))
+            }.getOrDefault(emptyList())
+        }
+        SettingsSheet(
+            title = "分享哪些应用的通知",
+            onDismiss = { pickingNoticeApps = false },
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection(
+                    footer = {
+                        SettingsFootnote("勾选应用收到的通知内容会发送到电脑；验证码等敏感内容会被过滤。取消勾选即停止该应用的分享。")
+                    },
+                ) {
+                    choices.forEachIndexed { index, (label, pkg) ->
+                        if (index > 0) SettingsDivider()
+                        SettingsSwitchRow(
+                            title = label,
+                            checked = pkg in phoneNoticeApps,
+                            onCheckedChange = { on ->
+                                environment.chatPreferences.setPhoneNoticeApps(
+                                    if (on) phoneNoticeApps + pkg else phoneNoticeApps - pkg,
+                                )
                             },
                         )
                     }
@@ -2457,3 +2579,61 @@ private const val ADDRESS_WRAP_RUN = 16
 
 private fun notificationListenerGranted(context: Context): Boolean =
     NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+
+/**
+ * The live, read-only view of the controlled display the task executor holds.
+ * Frames are pulled from the session's own ImageReader mirror, so watching
+ * never touches the display and never extends its idle lifetime; opened while
+ * no task is running, the sheet just shows the empty state.
+ */
+@Composable
+private fun ControlledScreenSheet(onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val display by PhoneUiMirror.display.collectAsState()
+    val helper by PhoneUiShellBridge.of(context).shell.collectAsState()
+    val live = display?.takeIf { helper != null }
+    SettingsSheet(title = "受控屏", onDismiss = onDismiss) {
+        if (live == null) {
+            Text(
+                text = "现在没有受控屏会话。智能体开始操作手机界面后，这里会显示它的画面。",
+                fontSize = 14.sp,
+                color = secondaryTint,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        } else {
+            val imageRef = remember { arrayOfNulls<ImageView>(1) }
+            LaunchedEffect(live) {
+                val target = imageRef[0] ?: return@LaunchedEffect
+                var shown: Bitmap? = null
+                try {
+                    while (isActive) {
+                        val frame = withContext(Dispatchers.IO) { live.capture(FRAME_WAIT_MS) }
+                        if (frame != null) {
+                            target.setImageBitmap(frame)
+                            shown?.recycle()
+                            shown = frame
+                        }
+                        delay(FRAME_INTERVAL_MS)
+                    }
+                } finally {
+                    // The ImageView outlives the loop on a session swap: drop
+                    // its reference before recycling the frame it drew.
+                    target.setImageBitmap(null)
+                    shown?.recycle()
+                }
+            }
+            AndroidView(
+                factory = { viewContext ->
+                    ImageView(viewContext).apply { scaleType = ImageView.ScaleType.FIT_CENTER }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(live.width.toFloat() / live.height.toFloat()),
+                update = { imageRef[0] = it },
+            )
+        }
+    }
+}
+
+private const val FRAME_WAIT_MS = 500L
+private const val FRAME_INTERVAL_MS = 330L

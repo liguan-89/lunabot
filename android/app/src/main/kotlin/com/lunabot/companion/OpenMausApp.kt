@@ -19,6 +19,7 @@ import com.lunabot.companion.notifications.LocalNotificationPoster
 import com.lunabot.companion.permissions.CompanionPermissions
 import com.lunabot.companion.phone.PhoneJobRunner
 import com.lunabot.companion.phoneui.PhoneUiController
+import com.lunabot.companion.phoneui.PhoneUiScreenOverlay
 import com.lunabot.companion.sharing.ShareInbox
 import com.lunabot.companion.speech.ModelManager
 import com.lunabot.companion.storage.AlwaysOnPreferences
@@ -190,6 +191,10 @@ class OpenMausApp : Application() {
         // Built before the phone-tools runner: the runner observes this
         // controller's status for its phoneUi capability registration.
         phoneUi = PhoneUiController(this, appScope, chatPreferences, permissions)
+        // The opt-in floating watch window: self-managing, so building it is
+        // the whole wiring. Its window only ever exists while a task holds a
+        // controlled display.
+        PhoneUiScreenOverlay(this, appScope, chatPreferences.phoneUiOverlay)
         val versionName = runCatching {
             packageManager.getPackageInfo(packageName, 0).versionName
         }.getOrNull().orEmpty()

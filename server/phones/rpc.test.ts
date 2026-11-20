@@ -174,11 +174,12 @@ describe("phone MCP host", () => {
       expect(h.host.parts(chief, OWNER, place)).toEqual([
         { id: "device", label: "Phone", text: h.host.prompt(chief, OWNER) },
         { id: "device-place", label: "Where the person is", text: PHONE_PLACE_PROMPT[place] },
+        { id: "device-route", label: "A path that worked before", text: "" },
       ]);
     }
     expect(Object.values(PHONE_PLACE_PROMPT).some((text) => h.host.prompt(chief, OWNER).includes(text))).toBe(false);
-    expect(h.host.parts(chief, null, "phone")).toEqual([{ id: "device", label: "Phone", text: "" }, { id: "device-place", label: "Where the person is", text: "" }]);
-    expect(h.host.parts(off, OWNER, "computer").map((part) => part.text)).toEqual(["", ""]);
+    expect(h.host.parts(chief, null, "phone")).toEqual([{ id: "device", label: "Phone", text: "" }, { id: "device-place", label: "Where the person is", text: "" }, { id: "device-route", label: "A path that worked before", text: "" }]);
+    expect(h.host.parts(off, OWNER, "computer").map((part) => part.text)).toEqual(["", "", ""]);
     expect(h.host.toolListing()?.phone.map((tool) => tool.name)).toEqual([...PHONE_TOOL_NAMES]);
     const rows = await h.rows();
     expect(rows.filter((row) => row.decision === "auto-approved").map((row) => row.tool)).toEqual(names);

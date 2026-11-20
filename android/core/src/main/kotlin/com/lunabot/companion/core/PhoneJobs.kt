@@ -29,6 +29,11 @@ data class PhoneRegistration(
      * permission state can honestly claim.
      */
     val capabilities: Map<String, String> = emptyMap(),
+    /**
+     * The packages whose notifications the person allowed this phone to share,
+     * beyond the read grant `phoneData` already declares. Empty means none.
+     */
+    val noticeApps: List<String> = emptyList(),
 )
 
 @Serializable
@@ -87,6 +92,51 @@ data class PhoneEventImage(
     val mime: String,
     val name: String,
     val data: String,
+)
+
+/**
+ * One notification pushed through `/api/phones/self/events`, the `notice`
+ * member of the server-side union (`phoneNotice` in `server/phone-notices.ts`).
+ * The text fields are whatever the posting app showed — content the person
+ * consented to share for that package only; the server re-filters and
+ * sanitizes everything it is sent.
+ */
+@Serializable
+data class PhoneNoticeEvent(
+    @EncodeDefault val kind: String = "notice",
+    /** The system's notification key (it carries the app's tag). */
+    val key: String,
+    val packageName: String,
+    /** The system's post time, not a time the app filled in. */
+    val postedAtMs: Long,
+    val title: String = "",
+    val text: String = "",
+    val category: String? = null,
+    val ongoing: Boolean = false,
+    val groupSummary: Boolean = false,
+    val foregroundService: Boolean = false,
+    /** Wire default is true; the field is pinned on when false only. */
+    val clearable: Boolean = true,
+    val conversation: Boolean = false,
+    val silent: Boolean = false,
+    /** Who said the last line, when it differs from the conversation name. */
+    val sender: String? = null,
+    /** Group chat (true) or one-to-one (false); null when not a chat. */
+    val group: Boolean? = null,
+    val conversationTitle: String? = null,
+    /** The title is the latest speaker, not the conversation's name. */
+    val titleIsSpeaker: Boolean = false,
+    /** MessagingStyle lines, oldest first. */
+    val messages: List<PhoneNoticeMessage> = emptyList(),
+)
+
+@Serializable
+data class PhoneNoticeMessage(
+    /** Who said it; null when the app did not say, or it is the person's own. */
+    val sender: String? = null,
+    val text: String,
+    /** The app's own time for the message. */
+    val atMs: Long,
 )
 
 /**

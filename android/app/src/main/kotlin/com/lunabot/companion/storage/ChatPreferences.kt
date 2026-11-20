@@ -290,6 +290,50 @@ class ChatPreferences(
     }
 
     /**
+     * Whether a small read-only window may float over other apps while a task
+     * drives the controlled display, so the person can watch from anywhere.
+     * Off by default; the switch also needs the system's own overlay grant,
+     * which Settings asks for through ACTION_MANAGE_OVERLAY_PERMISSION.
+     */
+    private val _phoneUiOverlay = MutableStateFlow(storedBoolean(PHONE_UI_OVERLAY))
+    val phoneUiOverlay: StateFlow<Boolean> = _phoneUiOverlay.asStateFlow()
+
+    fun setPhoneUiOverlay(enabled: Boolean) {
+        if (_phoneUiOverlay.value == enabled && prefs.contains(PHONE_UI_OVERLAY)) return
+        prefs.edit { putBoolean(PHONE_UI_OVERLAY, enabled) }
+        _phoneUiOverlay.value = enabled
+    }
+
+    /**
+     * Whether notifications may be pushed to the computer at all. Separate
+     * from [phoneNotices] (the bot *reading* them on demand): this is the
+     * phone *sending* them on its own, and only for packages in
+     * [phoneNoticeApps].
+     */
+    private val _phoneNoticeShare = MutableStateFlow(prefs.getBoolean(PHONE_NOTICE_SHARE, false))
+    val phoneNoticeShare: StateFlow<Boolean> = _phoneNoticeShare.asStateFlow()
+
+    fun setPhoneNoticeShare(enabled: Boolean) {
+        if (_phoneNoticeShare.value == enabled && prefs.contains(PHONE_NOTICE_SHARE)) return
+        prefs.edit { putBoolean(PHONE_NOTICE_SHARE, enabled) }
+        _phoneNoticeShare.value = enabled
+    }
+
+    /**
+     * The packages whose notifications may be pushed. The whitelist is the
+     * consent: nothing outside it leaves the phone, whatever the listener can
+     * see.
+     */
+    private val _phoneNoticeApps = MutableStateFlow(prefs.getStringSet(PHONE_NOTICE_APPS, null) ?: emptySet())
+    val phoneNoticeApps: StateFlow<Set<String>> = _phoneNoticeApps.asStateFlow()
+
+    fun setPhoneNoticeApps(packages: Set<String>) {
+        if (_phoneNoticeApps.value == packages && prefs.contains(PHONE_NOTICE_APPS)) return
+        prefs.edit { putStringSet(PHONE_NOTICE_APPS, packages) }
+        _phoneNoticeApps.value = packages
+    }
+
+    /**
      * This installation's id for the phone-tools registration. Stable for the
      * life of the install so a re-registration updates the same device record;
      * a fresh pairing changes the key the server stores it under, not this.
@@ -376,7 +420,10 @@ class ChatPreferences(
         private const val PHONE_FILES = "companion.prefs.phone.files"
         private const val PHONE_FILES_TREE = "companion.prefs.phone.filesTree"
         private const val PHONE_NOTICES = "companion.prefs.phone.notices"
+        private const val PHONE_UI_OVERLAY = "companion.prefs.phone.uiOverlay"
         private const val PHONE_NOTIFY_RELAY = "companion.prefs.phone.notifyRelay"
+        private const val PHONE_NOTICE_SHARE = "companion.prefs.phone.noticeShare"
+        private const val PHONE_NOTICE_APPS = "companion.prefs.phone.noticeApps"
         private const val PHONE_INSTALL_ID = "companion.prefs.phone.installId"
 
         private fun threadKey(connectionId: String, botId: String): String =
