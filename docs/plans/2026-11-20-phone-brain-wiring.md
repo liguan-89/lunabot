@@ -117,6 +117,42 @@ the session is live. `PhoneJobRunner` re-registers when the allow-list
 changes, like any other capability. The system listener grant is asked for
 from the switch, the same page the SMS relay uses.
 
+## Phase 3b — notification consumer (triage + surface)
+
+Shipped. `server/host/notice-triage.ts` ports Mika's `NoticeTriage.kt` and the
+scheduling slice of `TriageRunner.kt`; `server/host/phones.ts` attaches one
+runner per owner inbox and pokes it on every accepted notice — event-driven,
+no polling.
+
+The judge is a plain text call on the owner's chief bot's engine
+(`deps.noticeJudge`, 30 s) — a general chat model as Mika's NoticeTriage
+takes, never the decision model. Absent wiring is no triage at all; the
+inbox still learns. The batch prompt carries per-app notices oldest-first
+with titles, texts, MessagingStyle lines and short per-key history, all
+cleaned and defused as data. The reply parser is Mika's: the reply must end
+in `{"items":[…]}` or a bare array; unknown ids are dropped, a repeated id
+keeps its first verdict, an unreadable or missing verdict is `ignore` with
+the built-in `no-verdict` note, and a reply carrying no JSON fails the whole
+batch (marks `failed`, consecutive-failure hold) rather than quietly
+ignoring everything.
+
+Scheduling reuses `planTriage`: gather a 20 s window or send early at 8
+pending, oldest-first per app, one judge call in flight, busy = a job in
+flight to any of the owner's phones, budget = a provisional 30 calls per
+owner per day, surface cooldown/backoff per key as `cooldownMs` encodes.
+Deliberate divergence: `unlocked` is always true — the server cannot see
+the phone's lock screen, a surfaced batch lands in a thread that waits for
+the person anyway, and the daily call cap bounds spend. Marks, cooldowns
+and first-seen clocks are in-memory per owner; keys the bounded inbox
+evicts lose their marks.
+
+A `surface` verdict is delivered by `deps.noticeSurfaced`: index.ts routes
+it to the chief bot, one thread per `owner|package` (channel-chats map,
+like an inbound SMS thread), via `acceptDirectSend` — so a surfaced notice
+reads as an inbound event the bot answers in place, never an autonomous
+phone action. Threads are created inactive; per-app daily surface cap
+(conservative 10) converts overflow verdicts to `ignore`/`surface-capped`.
+
 ## Verification
 
 Phase 1/1b: unit tests beside `server/phone-routes.test.ts` for `settle`
@@ -138,3 +174,9 @@ pruning, sms/wechat handlers untouched, grant enforcement);
 `NoticeEventTest` (Robolectric) for the extraction drops and MessagingStyle
 fields. `pnpm typecheck`; `:app:compileDebugKotlin`;
 `:app:testDebugUnitTest`.
+
+Phase 3b: `server/host/notice-triage.test.ts` — the parser (last-JSON
+ending, unknown/duplicate/missing/invalid ids, no-JSON batch failure, a
+quoted record never counting) and the runner (gathering window, judged
+marks, one surface delivery, failed-batch cooldown, no-judge no-op, busy
+holding a full batch).

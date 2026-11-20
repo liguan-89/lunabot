@@ -419,19 +419,26 @@ line), `LiveUpdates`, `CatchUp` and the shade reconcile, `LearnBuffer`,
 `TopicPool`, `ContactPool` and `NoticeJournal.kt` stay out; a caller supplies
 `retainKeys`, marks and cooldowns.
 
-Nothing calls it yet: no server module imports `phone-notices.ts`. The phone's
-own `PHONE_NOTIF_LIST` reads `PhoneNoticeStore`, a separate flat title/text
-store, and never reaches this module.
+Both halves now have callers. Ingress: the phone pushes each notification
+from apps the person ticked (`registration.noticeApps`, `notice` events on
+`/api/phones/self/events`, `phoneData` grant); `server/host/phones.ts` keeps
+a per-owner `{ NoticeInbox, dedup }` and feeds it through `sanitizeNotice` +
+`shouldLearn` against the registered whitelist. Consumer:
+`server/host/notice-triage.ts` ports `NoticeTriage.kt`'s batch prompt and
+strict parser plus the `TriageRunner` scheduling slice — one in-flight judge
+call on the chief bot's engine, gathering window, busy/budget gates, and a
+`surface` verdict delivered into a per-app chief thread via
+`acceptDirectSend`. Divergences are deliberate and documented in the
+module: no lock-screen signal (always unlocked, the daily call cap bounds
+spend), in-memory marks/cooldowns pruned with the bounded inbox, and
+Mika's token-ledger budget replaced by a per-owner daily call cap.
 
-Wiring it is not a matter of adding a caller. This split is server → phone:
-the server sends a job, the phone answers one. Notices are the opposite
-direction — the phone would have to push each notification as it arrives, and
-nothing in the protocol does that today; `PHONE_NOTIF_LIST` is a read the bot
-asks for, not a stream. So a caller needs a phone → server ingress (a new
-authenticated endpoint plus its own retention), and with it a consent decision
-the person makes, because reading every notification is broader than the
-`phoneData` reads they already granted. Until that exists, `NoticeInbox`,
-`shouldLearn` and `planTriage` stay the tested rules for whoever builds it.
+Mika's `NoticeShapes` (splitting a chat notification into conversation,
+speaker and line), `LiveUpdates`, `CatchUp` and the shade reconcile,
+`LearnBuffer`, `TopicPool`, `ContactPool` and `NoticeJournal.kt` stay out;
+the runner supplies marks, cooldowns and first-seen clocks. The learn
+pipeline (`learnableTopic`, `LEARN_LEVELS`, `LEARN_*` tuning) still has no
+caller — learned material does not yet reach tasks.
 
 ## Intent gate
 

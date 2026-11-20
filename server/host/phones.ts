@@ -9,6 +9,7 @@ import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
 import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
+import { createNoticeTriage, type NoticeSurfacedItem, type NoticeTriage } from "./notice-triage.ts";
 import type { Decider } from "../decider/index.ts";
 import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TURNS, type Intent } from "../intent-gate.ts";
 import { personKey } from "../person-key.ts";
@@ -95,6 +96,15 @@ export interface PhonesDeps {
   verify?(botId: string): ((prompt: string) => Promise<string>) | null;
   /** The check's mode, read at call time from Settings; absent is `off`, so nothing is checked. */
   verifyMode?: () => "off" | "log";
+  /**
+   * The notice triage's judge: a plain text call on the owner's chief bot's engine (Mika uses a general chat model,
+   * never the decision model). Absent is no triage — notices are still learned into the inbox.
+   */
+  noticeJudge?(ownerKey: string): ((prompt: string) => Promise<string>) | null;
+  /** The batch the judge said was worth interrupting for; index.ts turns it into a thread the person sees. */
+  noticeSurfaced?(ownerKey: string, packageName: string, items: NoticeSurfacedItem[]): void;
+  /** Triage reasons are written in this language's English name. */
+  noticeLanguage?(): string;
 }
 
 export type Phones = ReturnType<typeof createPhones>;
@@ -113,12 +123,27 @@ export function createPhones(deps: PhonesDeps) {
   const intents = new Map<string, Promise<Intent | null | undefined>>();
   /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
   const routeOffers = new Map<string, { ownerKey: string; id: string }>();
-  /** Each owner's learned-notice pile: a bounded inbox plus the dedup that keeps reposts from filling it. */
-  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore }>();
-  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore } => {
+  /** Each owner's learned-notice pile: a bounded inbox, the dedup that keeps reposts from filling it, and its triage. */
+  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage }>();
+  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage } => {
     let sink = noticeInboxes.get(ownerKey);
     if (!sink) {
-      sink = { inbox: new NoticeInbox(), dedup: createNoticeDedup() };
+      const inbox = new NoticeInbox();
+      sink = {
+        inbox,
+        dedup: createNoticeDedup(),
+        triage: createNoticeTriage({
+          snapshot: () => inbox.snapshot(),
+          judge: () => deps.noticeJudge?.(ownerKey) ?? null,
+          // Mika's "a task is running": any job in flight to one of this owner's phones.
+          busy: () => registry.list(ownerKey, () => false).some((phone) => jobs.busy(phone.key)),
+          language: () => deps.noticeLanguage?.() ?? "English",
+          surface: (packageName, items) => deps.noticeSurfaced?.(ownerKey, packageName, items),
+          now: Date.now,
+          wait: (ms, run) => setTimeout(run, ms),
+          unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
+        }),
+      };
       noticeInboxes.set(ownerKey, sink);
       for (const stale of noticeInboxes.keys()) {
         if (noticeInboxes.size <= 16) break;
@@ -144,6 +169,7 @@ export function createPhones(deps: PhonesDeps) {
     if (shouldLearn(record, policy) !== "keep") return;
     if (sink.dedup.admit(record) === null) return;
     sink.inbox.add(record);
+    sink.triage.poke();
   };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
@@ -430,6 +456,6 @@ export function createPhones(deps: PhonesDeps) {
       if (!deps.ownerOrAdmin(auth)) routineAuthors.forget(routine.id);
       else if (ownersAgain) routineAuthors.record(routine.id, routine);
     },
-    close: () => { unsubscribe(); jobs.close(); },
+    close: () => { unsubscribe(); jobs.close(); for (const sink of noticeInboxes.values()) sink.triage.stop(); },
   };
 }
