@@ -3,13 +3,16 @@ import type { LiveStatus } from "@/state/turn-status";
 import { activeLocale, t } from "./i18n";
 import type { LocaleKey } from "@/locales";
 import { progressSize, type LiveStep } from "../../shared/turn-progress";
+import { legacyNoticeBody } from "@/lib/status-marker";
 
 // Keys, not labels: this array is built at import time, and t() reads the active pack when called.
-const FALLBACK_LABELS: Array<[RegExp, LocaleKey]> = [
-  [/\b(?:bash|shell|terminal|exec|command|run_command)\b/i, "chat.activity.runCommand"],
-  [/\b(?:read|read_file|view|open_file)\b/i, "chat.activity.readFile"],
+// The phone's `ActivityNaming.TOOL_LABELS` carries the same id groups in the same order;
+// activity-vocabulary.test.ts fails if they drift apart.
+export const FALLBACK_LABELS: Array<[RegExp, LocaleKey]> = [
+  [/\b(?:bash|shell|terminal|exec|command|run_command|shell_command)\b/i, "chat.activity.runCommand"],
+  [/\b(?:read|read_file|view|open_file|cat)\b/i, "chat.activity.readFile"],
   [/\b(?:write|write_file|create_file)\b/i, "chat.activity.writeFile"],
-  [/\b(?:edit|apply_patch|replace|str_replace)\b/i, "chat.activity.editFile"],
+  [/\b(?:edit|edit_file|apply_patch|replace|str_replace)\b/i, "chat.activity.editFile"],
   [/\b(?:web_search|search_web)\b/i, "chat.activity.searchWeb"],
   [/\b(?:web_fetch|fetch_url|read_page)\b/i, "chat.activity.readPage"],
   [/\b(?:grep|glob|find|search)\b/i, "chat.activity.searching"],
@@ -119,7 +122,8 @@ export function sidebarMessage(message?: Message): Message | undefined {
  * is waiting for memory, say), else the tool call still running in the chat, else nothing, and the line shows its timer alone. */
 export function turnNowPhrases(status: LiveStatus | null, message?: Message): LiveActivityPhrases | null {
   if (status) return liveStatusPhrases(status);
-  const notice = message?.kind === "activity" && message.tool?.name.startsWith("notice:") ? /[^.!?。！？]+[.!?。！？]?/u.exec(message.tool.name.slice("notice:".length).trim())?.[0] : undefined;
+  const noticeBody = message?.kind === "activity" && message.tool ? (message.tool.name.startsWith("notice:") ? message.tool.name.slice("notice:".length).trim() : legacyNoticeBody(message.tool.name)) : null;
+  const notice = noticeBody ? /[^.!?。！？]+[.!?。！？]?/u.exec(noticeBody)?.[0] : undefined;
   if (notice) return { phase: `notice:${notice}`, phrases: [notice] };
   if (message?.kind !== "activity" || !message.tool || message.tool.ok !== undefined || message.comm) return null;
   const phrases = toolActivityPhrases(message.tool);
