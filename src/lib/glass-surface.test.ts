@@ -62,6 +62,11 @@ describe("glass surface", () => {
     expect(surface).toContain("-webkit-backdrop-filter: none");
     expect(surface).toContain("backdrop-filter: none");
     expect(css.indexOf(":root[data-software-rendering] .glass-surface {")).toBeGreaterThan(css.indexOf(".glass-surface {"));
+    const bar = rule(":root[data-software-rendering] .glass-bar::before");
+    expect(bar).toContain("background: var(--glass-tint, var(--color-panel))");
+    expect(bar).toContain("-webkit-backdrop-filter: none");
+    expect(bar).toContain("backdrop-filter: none");
+    expect(css.indexOf(":root[data-software-rendering] .glass-bar::before {")).toBeGreaterThan(css.indexOf(".glass-bar::before {"));
   });
 
   it("lives outside every skin block, and every skin still defines the tokens it reads", () => {

@@ -14,7 +14,7 @@ import { botTooltip } from "./BotModelBadge";
 import { liveBadgeFor } from "./LiveCallPill";
 import { pinnedCircleDragClass, pinnedCircleDragHandlers, usePinnedCircleDrag, type PinnedCircleDragProps } from "./PinnedCircleThreads";
 import { RenameTitle } from "./RenameTitle";
-import { openBotContextMenu, useVisibleMessages, type BotRowProps } from "./Sidebar";
+import { openBotContextMenu, useVisibleMessages, type BotRowProps } from "./SidebarBotList";
 import { sidebarBotStatus } from "./SidebarBotActivity";
 import { SIMPLE_ROW_FOCUS } from "./SidebarSimpleTop";
 import { useBotUnread } from "./unread-notice";
