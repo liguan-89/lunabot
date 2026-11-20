@@ -60,6 +60,7 @@ import { ASK_USER_TOOL, MAX_QUESTION_TEXT, parseAskQuestions, parseChoices, ques
 import { appendNative } from "./native.ts";
 import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
+import { createSidejobText } from "./pi-sidejob-text.ts";
 import { PiSessionAllow, readPiApprovalRequest } from "./pi-session-allow.ts";
 import { noticeFailure } from "../chat-notices.ts";
 
@@ -1211,6 +1212,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return () => listeners.delete(listener);
         },
       },
+      oneOffText: createSidejobText({ sendTurn, active, listeners, defaultModel: models.default }),
       dispose: async () => {
         try {
           await stopAll();

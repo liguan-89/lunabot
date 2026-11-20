@@ -741,3 +741,54 @@ export function routeFingerprint(route: Route): string {
   for (const step of route.steps) line(step.tool, canonicalJson(step.args), selectorKey(step.target));
   return hash.digest("hex");
 }
+
+/** Steps one injected route renders before an ellipsis; a route can hold 60, the prompt should not. */
+export const ROUTE_PROMPT_MAX_STEPS = 20;
+
+const argText = (args: Record<string, unknown>, key: string): string | null => {
+  const value = args[key];
+  return typeof value === "string" && value !== "" ? value : null;
+};
+
+function routeStepLine(step: RouteStep, args: Record<string, unknown>, name: string | null): string {
+  const target = [name && `"${name}"`, step.target?.resourceId && `id ${step.target.resourceId}`].filter(Boolean).join(" ") || JSON.stringify(args);
+  switch (step.tool) {
+    case "PHONE_UI_LAUNCH": return `launch ${argText(args, "app") ?? target}`;
+    case "PHONE_UI_TAP": return `tap ${target}`;
+    case "PHONE_UI_TAP_AT": return `tap at ${String(args.x)},${String(args.y)}`;
+    case "PHONE_UI_TYPE": return `type ${JSON.stringify(argText(args, "text") ?? "")}`;
+    case "PHONE_UI_SCROLL": return `scroll ${argText(args, "direction") ?? "down"}${name ? ` on "${name}"` : ""}`;
+    case "PHONE_UI_SWIPE": return `swipe ${argText(args, "direction") ?? ""}`;
+    case "PHONE_UI_KEY": return `press ${argText(args, "key") ?? "enter"}`;
+    case "PHONE_UI_BACK": return "back";
+    case "PHONE_UI_WAIT": return `wait ${argText(args, "mode") ?? "change"}${argText(args, "text") ? ` for ${JSON.stringify(argText(args, "text"))}` : ""}`;
+    case "PHONE_UI_RUN": return `run ${JSON.stringify(args.commands ?? args)}`;
+    case "PHONE_OPEN_LINK": return `open ${argText(args, "url") ?? target}`;
+    case "PHONE_SHARE_TEXT": return `share ${JSON.stringify(argText(args, "text") ?? "")}${argText(args, "app") ? ` into ${argText(args, "app")}` : ""}`;
+    case "PHONE_UI_AFTER_TASK": return `after the task, ${argText(args, "mode") ?? "keep"} the app`;
+    default: return `${step.tool} ${JSON.stringify(args)}`;
+  }
+}
+
+/**
+ * The system-prompt text for one route that matched this turn's request, with its slot holes filled from the
+ * request, so the model reads the concrete steps rather than the placeholders. The replay itself is the bot's own
+ * PHONE_UI calls — this text only tells it the path exists: a stored ref is never reused, each step names a text
+ * or a view id the run finds again on the current screen, and a route whose first screen is not in front does not
+ * apply. Empty for a route with no steps.
+ */
+export function routePrompt(route: Route, request: string): string {
+  if (route.steps.length === 0) return "";
+  const values = templateValues(route.template, request) ?? [];
+  const fill = (text: string): string => text.replace(SLOT_PATTERN, (hole, digits: string) => values[Number(digits) - 1] ?? hole);
+  const argsOf = (step: RouteStep): Record<string, unknown> =>
+    Object.fromEntries(Object.entries(step.args).map(([key, value]) => [key, typeof value === "string" ? fill(value) : value]));
+  const shown = route.steps.slice(0, ROUTE_PROMPT_MAX_STEPS);
+  const start = shown[0]!.before.packageName ?? route.packages[0] ?? null;
+  const lines = shown.map((step, index) => `   ${index + 1}. ${routeStepLine(step, argsOf(step), step.target?.name ? fill(step.target.name) : null)}`);
+  const more = route.steps.length > shown.length ? `\n   … ${route.steps.length - shown.length} more steps` : "";
+  return ` A path that worked before exists for a request like this one ("${route.template}").${start ? ` It starts on ${start}.` : ""}` +
+    ` Replay its steps with PHONE_UI_RUN rather than inventing them: a stored ref is never reused, and each command finds its target again on the screen it runs on.` +
+    ` Its steps:\n${lines.join("\n")}${more}` +
+    ` If the screen in front is not the one the path starts on, or a step's target is nowhere to find, the path does not apply — work it out from the screen yourself.`;
+}

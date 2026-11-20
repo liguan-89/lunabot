@@ -89,8 +89,10 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
         if (!parsed.success) return json(res, 400, { error: "Invalid phone event" });
         const phone = registry.get(key);
         if (!phone) return json(res, 404, { error: "Register this phone first" });
-        // Both relays send from the phone (SMS and WeChat), so both stand on the same grant.
-        if (!phone.registration.capabilities["messages"]) return json(res, 403, { error: "Messages is not allowed on this phone" });
+        // Each kind stands on the grant the phone declared for it: channel relays on Messages, pushed notices on the
+        // data reads the phone was given.
+        const needed = parsed.data.kind === "notice" ? "phoneData" : "messages";
+        if (!phone.registration.capabilities[needed]) return json(res, 403, { error: `${needed} is not allowed on this phone` });
         deps.onEvent?.(key, parsed.data);
         return json(res, 202, { ok: true });
       }

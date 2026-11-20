@@ -83,7 +83,11 @@ async function mountMcpTools(): Promise<MountedTool[]> {
         for (const name of names) activeTools.add(name);
       },
     });
-    for (const hook of sessionStartHooks) await hook();
+    // FAKE_PI_NO_SCOPE_RECEIPT simulates an old pi that loads the extension but never fires session_start:
+    // the driver's fail-closed path then has to reject the scoped turn, as it would against stale pi.
+    if (!process.env.FAKE_PI_NO_SCOPE_RECEIPT) {
+      for (const hook of sessionStartHooks) await hook();
+    }
     return tools;
   } catch (error) {
     process.stderr.write(`[fake-pi] mounting MCP tools failed: ${String((error as Error)?.message ?? error)}\n`);
@@ -93,7 +97,17 @@ async function mountMcpTools(): Promise<MountedTool[]> {
 
 // A scripted turn that calls through an MCP server needs its tools mounted at boot: the driver removes the config once
 // the real extension has mounted it, so a later mount would find nothing. FAKE_PI_MOUNT_TOOLS=1 asks for that.
-let mountedTools: MountedTool[] = (process.env.FAKE_PI_ROOM_PLAN || process.env.FAKE_PI_MOUNT_TOOLS === "1") && !argv.includes("--version") && !argv.includes("-v")
+// A scoped turn never calls a tool at all, so laziness starves it of the session_start receipt the driver waits on:
+// mount eagerly whenever the config asks for one, as real pi fires session_start at boot.
+function scopeReceiptDemanded(): boolean {
+  try {
+    const config = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG ?? "", "utf8")) as { scopeReadyPath?: unknown };
+    return typeof config.scopeReadyPath === "string";
+  } catch {
+    return false;
+  }
+}
+let mountedTools: MountedTool[] = (process.env.FAKE_PI_ROOM_PLAN || process.env.FAKE_PI_MOUNT_TOOLS === "1" || scopeReceiptDemanded()) && !argv.includes("--version") && !argv.includes("-v")
   ? await mountMcpTools()
   : [];
 let mountPromise: Promise<MountedTool[]> | null = null;
@@ -211,11 +225,12 @@ let sessionCounter = 0;
 let currentSessionFile: string | null = null;
 const heldSteerFrames: any[] = [];
 
-const streamTurn = () => {
+const streamTurn = (promptText: string) => {
   send({ type: "agent_start" });
   send({ type: "turn_start" });
   send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_start", contentIndex: 0 } });
-  for (const delta of ["Hello", " from", " pi"]) {
+  const marked = markerReply(promptText);
+  for (const delta of marked !== undefined ? [marked] : ["Hello", " from", " pi"]) {
     send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta } });
   }
   send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 3 } }, usage: { input: 12, output: 3 } });
@@ -885,7 +900,7 @@ function handle(cmd: any) {
       else if (mode === "compaction-recovery") streamCompactionRecoveryTurn();
       else if (mode === "compaction-recovery-upstream") streamCompactionRecoveryUpstreamTurn();
       else if (mode === "omp-chunk") streamChunkedTurn();
-      else streamTurn();
+      else streamTurn(promptText);
       return;
     case "steer": {
       if (process.env.FAKE_PI_DUMP) {
