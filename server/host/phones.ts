@@ -450,11 +450,7 @@ export function createPhones(deps: PhonesDeps) {
       if (!complete) return;
       void verifyPhoneTurn({ dataDir: deps.dataDir, threadId: turn.threadId, mode, goal, reply: input.reply, evidence: ended.evidence, complete: async (messages) => complete(verifyPrompt(messages)) }).catch(() => {});
     },
-    /**
-     * The routes that fit a request, best first. Exposed for a later prompt part; nothing injects them yet, because a
-     * bot told about a route would start trusting one before any replay exists to run it.
-     */
-    matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
+
     routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
       if (event.kind === "notice") noticeFor(key, event);
       else if (event.kind === "sms") smsHandler?.(key, event);
