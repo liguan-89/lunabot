@@ -39,6 +39,10 @@ export type SideJob = "compaction" | "memory" | "skill-review" | "setup-suggesti
 
 export type SideJobInstance = Pick<ProviderInstance, "instanceId" | "driverKind" | "enabled" | "generateText" | "generateMemoryText" | "models" | "quickModelsUsable"> & {
   adapter: { capabilities: Pick<ProviderAdapter["capabilities"], "agentsMcp"> };
+  /** When set, only these jobs may use this engine's own one-off text call — the rest keep the
+   * helper path or their fallback. A driver that gained generateText later would otherwise wake
+   * every dormant job at once. */
+  oneOffTextJobs?: readonly SideJob[];
 };
 
 export interface SideJobBot {
@@ -81,6 +85,7 @@ type TextCall = (prompt: string, options?: TextGenerationOptions) => Promise<str
 const ONE_OFF_ONLY: ReadonlySet<SideJob> = new Set(["compaction", "setup-suggestions", "representative", "status-reply", "notice"]);
 
 function ownCall(job: SideJob, instance: SideJobInstance): TextCall | undefined {
+  if (instance.oneOffTextJobs && !instance.oneOffTextJobs.includes(job)) return undefined;
   const call = ONE_OFF_ONLY.has(job) ? instance.generateText : instance.generateText ?? instance.generateMemoryText;
   return call?.bind(instance);
 }
