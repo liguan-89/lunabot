@@ -454,7 +454,7 @@ const Bubble = memo(function Bubble({
           data-chat-bubble={simple ? "simple" : ""}
           className={cn(
             tabled ? "w-full" : "w-fit",
-            simple ? !tabled && (structuredSimple ? formattedReplyWidth(text) : SIMPLE_BUBBLE_MAX) : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl text-[15px] leading-relaxed",
+            simple ? !tabled && (structuredSimple ? formattedReplyWidth(text) : SIMPLE_BUBBLE_MAX) : (isStructuredLongReply(text) && !user && !peer && !viewRaw && !split ? formattedReplyWidth(text) : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl text-[15px] leading-relaxed"),
             emerging && "turn-answer",
             user && webhookView
               ? cn("overflow-hidden border border-accent/25 bg-card text-ink", simple ? cn("rounded-[18px]", SIMPLE_BUBBLE_TEXT) : "shadow-[0_10px_30px_rgba(0,0,0,0.18)]")
@@ -466,7 +466,7 @@ const Bubble = memo(function Bubble({
                     ? cn(formattedReplyWidth(text), "px-1 text-ink")
                     // The same rule the live bubble calls, so a long structured
                     // reply does not change shape when its stream settles.
-                    : simple ? botReplySurface(true, text) : "bg-card px-4 py-2.5 text-ink",
+                    : botReplySurface(Boolean(simple), text),
             simple && join && !split && !attachmentsOnly && !tabled && !structuredSimple && joinedCorners(user ? "end" : "start", join),
           )}
           style={user && !webhookView && !attachmentsOnly ? ownBubbleStyle : undefined}

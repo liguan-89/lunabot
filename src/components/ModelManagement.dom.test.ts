@@ -192,4 +192,29 @@ describe("Luna Bot models", () => {
   it("does not hide the model the engine or new bots default to", () => {
     expect(document.querySelector<HTMLButtonElement>('[data-managed-model="dex/gpt-5"] [data-managed-hide]')!.disabled).toBe(true);
   });
+
+  it("groups models by provider and collapses/expands a provider section", () => {
+    expect(document.querySelector('[data-managed-provider-group="anthropic"]')).not.toBeNull();
+    expect(row("anthropic/claude-sonnet")).not.toBeNull();
+    const toggle = document.querySelector<HTMLButtonElement>('[data-managed-provider-toggle="anthropic"]')!;
+    flushSync(() => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(row("anthropic/claude-sonnet")).toBeNull();
+    flushSync(() => toggle.click());
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(row("anthropic/claude-sonnet")).not.toBeNull();
+  });
+
+  it("tests connectivity and renders latency or failure status", async () => {
+    const testBtn = document.querySelector<HTMLButtonElement>("[data-managed-connectivity-test]")!;
+    flushSync(() => testBtn.click());
+    await vi.waitFor(() => expect(document.querySelector('[data-managed-probe-status="ok"]')).not.toBeNull());
+    expect(fx.refreshModels).toHaveBeenCalledWith("pi");
+    expect(document.querySelector('[data-managed-probe-status="ok"]')!.textContent).toContain("ms");
+
+    fx.refreshModels.mockRejectedValueOnce(new Error("timeout"));
+    flushSync(() => testBtn.click());
+    await vi.waitFor(() => expect(document.querySelector('[data-managed-probe-status="error"]')).not.toBeNull());
+    expect(document.querySelector('[data-managed-probe-status="error"]')!.textContent).toContain("timeout");
+  });
 });

@@ -76,11 +76,14 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
       onContextMenu={(event) => openBotContextMenu(onMenu, bot.id, event)}
       className={cn(
         // No plate behind the portrait: the face and its name sit on the sidebar the way the phone draws them.
-        "flex h-[92px] w-[78px] shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]", SIMPLE_ROW_FOCUS,
+        "group flex h-[92px] w-[78px] shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]", SIMPLE_ROW_FOCUS,
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
     >
-      <span className={cn("relative flex rounded-full transition-shadow duration-150", selected && "ring-2 ring-accent/70 ring-offset-2 ring-offset-[var(--tile)]")}>
+      <span className={cn(
+        "relative flex rounded-full transition-all duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]",
+        selected && "ring-2 ring-accent/75 ring-offset-2 ring-offset-[var(--tile)] shadow-[0_0_18px_-3px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]",
+      )}>
         <BotAvatar
           bot={bot}
           state={stateForBot({ ...bot, messages: visible })}

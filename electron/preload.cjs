@@ -432,6 +432,8 @@ const bridge = {
     state: () => ipcRenderer.invoke("desktop-mount:state"),
     openMain: (botId) => ipcRenderer.invoke("desktop-mount:open-main", typeof botId === "string" ? botId : undefined),
     startCall: (botId) => ipcRenderer.invoke("desktop-mount:start-call", typeof botId === "string" ? botId : undefined),
+    move: (dx, dy) => ipcRenderer.invoke("desktop-mount:move", Number(dx), Number(dy)),
+    snap: () => ipcRenderer.invoke("desktop-mount:snap"),
     captureScreen: () => ipcRenderer.invoke("desktop-mount:capture-screen"),
     setInteractiveRects: (rects) => ipcRenderer.send("desktop-mount:interactive-rects", rects),
     onState: (cb) => {

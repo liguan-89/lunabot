@@ -48,7 +48,10 @@ describe("LiveReplyBubble surfaces", () => {
     expect(html).toContain("bg-card");
   });
 
-  it("keeps Advanced mode's card for both shapes", () => {
-    for (const text of ["Done.", list]) expect(render(text, false)).toContain("bg-card");
+  it("uses a card for short replies and transparent document flow for structured long replies in Advanced mode", () => {
+    expect(render("Done.", false)).toContain("bg-card");
+    const longHtml = render(list, false);
+    expect(longHtml).toContain("bg-transparent");
+    expect(longHtml).not.toContain("bg-card");
   });
 });

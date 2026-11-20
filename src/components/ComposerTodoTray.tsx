@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ListTodo, TriangleAlert } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, CornerLeftUp, ListTodo, TriangleAlert } from "lucide-react";
 import { activeLocale, t } from "@/lib/i18n";
 import { cn } from "@/lib/cn";
 import { isQuestionCard } from "@/lib/question-card";
-import type { Bot, Message } from "@/state/store";
+import { useStore, type Bot, type Message } from "@/state/store";
 import { credentialResumeOutcome } from "../../shared/credential-request";
 import { signInOutcome } from "../../shared/sign-in-request";
 import type { Asker } from "./AskCard";
@@ -113,6 +113,7 @@ export function ComposerTodoTray({
   groupBusyBotId?: string | null;
   onCancelTurn: () => void;
 }) {
+  const { dispatch } = useStore();
   const items = useMemo(() => pendingTodoItems(messages), [messages]);
   const approvals = useMemo(
     () => items.filter((item): item is Extract<TodoItem, { kind: "approval" }> => item.kind === "approval").map((item) => item.pending),
@@ -180,7 +181,7 @@ export function ComposerTodoTray({
     <div
       data-todo-tray="expanded"
       className={cn(
-        "composer-todo-tray mb-1.5 overflow-hidden rounded-t-[20px] rounded-b-[10px] border border-ink/[0.08] bg-[color-mix(in_srgb,var(--color-panel)_92%,var(--color-composer))]",
+        "composer-todo-tray mb-1 overflow-hidden rounded-t-[20px] rounded-b-[10px] border border-ink/[0.08] bg-[color-mix(in_srgb,var(--color-panel)_94%,var(--color-composer))]",
         ELEVATED_CARD,
         current.danger && "ring-1 ring-danger/35",
       )}
@@ -221,6 +222,16 @@ export function ComposerTodoTray({
               </button>
             </div>
           )}
+          <button
+            type="button"
+            data-todo-locate
+            onClick={() => dispatch({ type: "focusMessage", threadId, messageId: current.messageId })}
+            aria-label={t("chat.pinnedJump")}
+            title={t("chat.pinnedJump")}
+            className="flex size-6 items-center justify-center rounded-full text-ink-secondary hover:bg-ink/[0.08] hover:text-ink"
+          >
+            <CornerLeftUp size={13} />
+          </button>
           <button
             type="button"
             onClick={() => setCollapsed(true)}

@@ -320,15 +320,17 @@ function Shell({ viewer }: { viewer: WelcomeViewer | null }) {
   }, [dispatch]);
 
   const framed = windowFramed(capabilities);
-  const strips = <>
-    <UpdateBanner sidebarIndicator={framed || (!calendarFocus && (sidebarInline || drawerOpen))} />
-    <CloudAsleepStrip />
-    <LiveConnectionStrip connected={state.connected} hydrated={state.hydrated === true} />
-    <CloudSendStrip cloudHome={state.config?.cloudHome === true} />
-    <HomeLine />
-    <AppNotices quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} viewer={viewer} />
-    <PairRequestCard />
-  </>;
+  const strips = (
+    <div data-top-strips className="flex shrink-0 flex-col [&>*:nth-child(n+3)]:hidden">
+      <UpdateBanner sidebarIndicator={framed || (!calendarFocus && (sidebarInline || drawerOpen))} />
+      <CloudAsleepStrip />
+      <LiveConnectionStrip connected={state.connected} hydrated={state.hydrated === true} />
+      <CloudSendStrip cloudHome={state.config?.cloudHome === true} />
+      <HomeLine />
+      <AppNotices quiet={paletteOpen || drawerOpen || Boolean(localVmWorkspaceBotId)} viewer={viewer} />
+      <PairRequestCard />
+    </div>
+  );
   return (
     <div className={cn("flex h-full flex-col", framed && "bg-frame")}>
       <WindowFrameBar notifications={notificationTray} />

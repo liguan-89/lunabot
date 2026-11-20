@@ -133,3 +133,67 @@ export function modelUsers(modelId: string, instanceId: string | undefined, sour
     return true;
   });
 }
+
+export interface ModelProviderGroup {
+  key: string;
+  label: string;
+  models: ManagedModel[];
+  hasDefault: boolean;
+  hasCustom: boolean;
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  google: "Google",
+  xai: "xAI",
+  deepseek: "DeepSeek",
+  moonshot: "Moonshot",
+  mistral: "Mistral",
+  groq: "Groq",
+  openrouter: "OpenRouter",
+  cerebras: "Cerebras",
+  meta: "Meta",
+  qwen: "Qwen",
+  zhipu: "Zhipu",
+  minimax: "MiniMax",
+  other: "Other",
+};
+
+export function providerKeyOf(model: Pick<ManagedModel, "id" | "provider">): string {
+  const explicit = model.provider?.trim().toLowerCase();
+  if (explicit) return explicit;
+  const slash = model.id.indexOf("/");
+  if (slash > 0) return model.id.slice(0, slash).trim().toLowerCase();
+  return "other";
+}
+
+export function providerDisplayName(key: string): string {
+  const normalized = key.trim().toLowerCase();
+  if (!normalized) return PROVIDER_LABELS.other;
+  return PROVIDER_LABELS[normalized] ?? `${normalized[0]!.toUpperCase()}${normalized.slice(1)}`;
+}
+
+/** Groups models by provider, keeping the default-holding and custom-model groups on top. */
+export function groupModelsByProvider(models: readonly ManagedModel[]): ModelProviderGroup[] {
+  const buckets = new Map<string, ManagedModel[]>();
+  for (const model of models) {
+    const key = providerKeyOf(model);
+    const list = buckets.get(key);
+    if (list) list.push(model);
+    else buckets.set(key, [model]);
+  }
+  const groups: ModelProviderGroup[] = [...buckets.entries()].map(([key, list]) => ({
+    key,
+    label: providerDisplayName(key),
+    models: list,
+    hasDefault: list.some((m) => m.default),
+    hasCustom: list.some((m) => m.removable),
+  }));
+  groups.sort((a, b) => {
+    if (a.hasDefault !== b.hasDefault) return a.hasDefault ? -1 : 1;
+    if (a.hasCustom !== b.hasCustom) return a.hasCustom ? -1 : 1;
+    return a.label.localeCompare(b.label);
+  });
+  return groups;
+}
