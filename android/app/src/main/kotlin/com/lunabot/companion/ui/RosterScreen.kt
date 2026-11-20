@@ -44,6 +44,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
@@ -522,10 +523,11 @@ fun RosterScreen(navigator: CompanionNavigator) {
                                     item(key = "companions-title") {
                                         Text(
                                             text = "协作助手",
-                                            fontSize = 26.sp,
+                                            fontSize = 25.sp,
                                             fontWeight = FontWeight.Bold,
+                                            letterSpacing = (-0.4).sp,
                                             color = minisInk,
-                                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 10.dp),
+                                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 8.dp),
                                         )
                                     }
                                     state.unsectionedChief?.let { chief ->
@@ -1649,12 +1651,13 @@ private fun ChatRow(
     val hasUnread = chat.unread && !chat.busy
     val formattedPreview = remember(summary.preview) { RosterPreviewFormat.display(summary.preview) }
     val isErrorPreview = formattedPreview.startsWith("错误 ") || formattedPreview.startsWith("请求出错")
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
                 .clickable(role = Role.Button, onClick = onClick)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -1786,13 +1789,6 @@ private fun ChatRow(
                     }
                 }
             }
-        }
-        if (!last) {
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 75.dp, end = 16.dp),
-                thickness = 0.5.dp,
-                color = minisSeparator.copy(alpha = 0.22f),
-            )
         }
     }
 }
@@ -2272,26 +2268,27 @@ private fun MuseDesktopTab(
         Session.Status.Connecting -> MinisTokens.Warning
         else -> MinisTokens.Danger
     }
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
-            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(22.dp))
-                .background(minisGrouped)
+                .background(cardFill)
                 .clickable(enabled = onOpenComputer != null, role = Role.Button) { onOpenComputer?.invoke() }
-                .padding(horizontal = 18.dp, vertical = 18.dp),
+                .padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
                 modifier = Modifier
-                    .size(46.dp)
+                    .size(44.dp)
                     .clip(RoundedCornerShape(14.dp))
                     .background(minisCard),
                 contentAlignment = Alignment.Center,
@@ -2300,7 +2297,7 @@ private fun MuseDesktopTab(
                     painter = painterResource(R.drawable.ic_display_line),
                     contentDescription = null,
                     tint = minisInk,
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(21.dp),
                 )
             }
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -2318,37 +2315,71 @@ private fun MuseDesktopTab(
                     Text(text = "$statusText · 点击查看实时画面", fontSize = 13.sp, color = minisSecondary)
                 }
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(20.dp),
+            )
         }
-        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-        if (onOpenOverview != null) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(cardFill),
+        ) {
+            if (onOpenOverview != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button, onClick = onOpenOverview)
+                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(minisCard),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(painterResource(R.drawable.ic_muse_bots_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("$heroName 记忆与总览", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+                        Text("查看助手能力、记忆与运行状态", fontSize = 12.5.sp, color = minisSecondary)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 65.dp, end = 16.dp),
+                    thickness = 0.5.dp,
+                    color = minisSeparator.copy(alpha = 0.25f),
+                )
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable(role = Role.Button, onClick = onOpenOverview)
-                    .padding(vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    .clickable(role = Role.Button, onClick = onSwitchComputer)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                horizontalArrangement = Arrangement.spacedBy(13.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(painterResource(R.drawable.ic_sparkles), null, tint = minisInk, modifier = Modifier.size(20.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("$heroName 记忆与总览", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
-                    Text("查看助手能力、记忆与运行状态", fontSize = 13.sp, color = minisSecondary)
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(minisCard),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(painterResource(R.drawable.ic_gear_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
                 }
-            }
-            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(role = Role.Button, onClick = onSwitchComputer)
-                .padding(vertical = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(R.drawable.ic_gear_line), null, tint = minisInk, modifier = Modifier.size(20.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text("切换连接的电脑", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
-                Text(computerName ?: "管理已配对设备", fontSize = 13.sp, color = minisSecondary)
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("切换连接的电脑", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+                    Text(computerName ?: "管理已配对设备", fontSize = 12.5.sp, color = minisSecondary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
             }
         }
     }
@@ -2445,6 +2476,7 @@ private fun MuseDrawerContent(
                         size = 30.dp,
                         animated = false,
                         fallback = AvatarFallback.PRESET,
+                        motion = AvatarMotion.SHEEN,
                     )
                     Text(
                         text = summary.chat.name,
@@ -2456,13 +2488,13 @@ private fun MuseDrawerContent(
                         modifier = Modifier.weight(1f),
                     )
                     if (summary.chat.unread) {
-                        Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
+                        Box(Modifier.size(7.dp).background(minisInk, CircleShape))
                     }
                 }
             }
         }
         Spacer(Modifier.height(10.dp))
-        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.25f))
         Spacer(Modifier.height(10.dp))
         Row(
             modifier = Modifier
@@ -2473,8 +2505,8 @@ private fun MuseDrawerContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisAccent, modifier = Modifier.size(20.dp))
-            Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisAccent)
+            Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+            Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
         }
         Row(
             modifier = Modifier
@@ -2485,8 +2517,8 @@ private fun MuseDrawerContent(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(R.drawable.ic_chat_bubbles), null, tint = minisSecondary, modifier = Modifier.size(19.dp))
-            Text("新建群组", fontSize = 15.sp, color = minisInk)
+            Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
+            Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
         }
         if (computerName != null) {
             Spacer(Modifier.height(10.dp))
