@@ -311,28 +311,11 @@ internal class PhoneJobRunner(
                 }
                 when {
                     tool == null -> PhoneToolOutcome.Failure(
-                        "这台 Android 手机目前只接了日历、联系人、提醒、定位和消息；" +
+                        "这台 Android 手机目前只接了日历、联系人、提醒、定位、消息、受控屏、文件和通知；" +
                             "${PhoneToolCatalog.capabilityOf(job.tool) ?: "这个应用"} 还不支持。",
                         code = "unsupported",
                     )
-                    tool.capability == "calendar" -> calendar.execute(tool, job.arguments)
-                    tool.capability == "contacts" -> contacts.execute(tool, job.arguments)
-                    tool.capability == "reminders" -> reminders.execute(tool, job.arguments)
-                    tool.capability == "location" -> location.current()
-                    tool.capability == "messages" -> messages.execute(tool, job.arguments)
-                    tool.capability == "phoneUi" -> {
-                        // A locked phone cannot show anything to the person and
-                        // some ROMs refuse to start an app at all, so a screen
-                        // job unlocks first when the person allowed it. A
-                        // refusal is not fatal: the executor still runs and
-                        // reports whatever the screen gives it.
-                        val unlocked = phoneUi.unlocker.unlock()
-                        if (unlocked != UnlockOutcome.Unlocked && unlocked != UnlockOutcome.AlreadyUnlocked) {
-                            Log.d(TAG, "job=${job.id} unlock skipped: ${unlocked.name}")
-                        }
-                        phoneUiExecutor.execute(tool, job.arguments)
-                    }
-                    else -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
+                    else -> dispatch(tool, job)
                 }.toJson()
             }
             val outcome = try {
@@ -347,6 +330,34 @@ internal class PhoneJobRunner(
             Log.d(TAG, "job=${job.id} outcome posted=$posted")
         }
     }
+
+    /**
+     * The job's own executor by [JobTarget]. Reads that need no screen stand
+     * on their own grants, so they do not borrow the display session the UI
+     * slice keeps.
+     */
+    private suspend fun dispatch(tool: PhoneTool, job: PhoneJob): PhoneToolOutcome =
+        when (JobTarget.of(tool)) {
+            JobTarget.CALENDAR -> calendar.execute(tool, job.arguments)
+            JobTarget.CONTACTS -> contacts.execute(tool, job.arguments)
+            JobTarget.REMINDERS -> reminders.execute(tool, job.arguments)
+            JobTarget.LOCATION -> location.current()
+            JobTarget.MESSAGES -> messages.execute(tool, job.arguments)
+            JobTarget.UI -> {
+                // A locked phone cannot show anything to the person and
+                // some ROMs refuse to start an app at all, so a screen
+                // job unlocks first when the person allowed it. A
+                // refusal is not fatal: the executor still runs and
+                // reports whatever the screen gives it.
+                val unlocked = phoneUi.unlocker.unlock()
+                if (unlocked != UnlockOutcome.Unlocked && unlocked != UnlockOutcome.AlreadyUnlocked) {
+                    Log.d(TAG, "job=${job.id} unlock skipped: ${unlocked.name}")
+                }
+                phoneUiExecutor.execute(tool, job.arguments)
+            }
+            JobTarget.DATA -> phoneUiExecutor.execute(tool, job.arguments)
+            null -> PhoneToolOutcome.Failure("这个工具不属于已开启的应用。", "unsupported")
+        }
 
     /**
      * `PHONE_REPLY_WECHAT` — `{ to, text }` over iLink.
@@ -370,6 +381,27 @@ internal class PhoneJobRunner(
         const val POLL_RETRY_MILLIS = 3_000L
         // Below the server's phone-job timeout so the result still posts in time.
         const val JOB_RUN_TIMEOUT_MILLIS = 40_000L
+    }
+}
+
+/**
+ * Which of this phone's executors answers a job, by the tool's registered
+ * capability. A catalogued capability with no entry here is the runner's
+ * unsupported answer, so the dispatch table and the registration claim can
+ * never drift apart without a test noticing.
+ */
+internal enum class JobTarget(val capability: String) {
+    CALENDAR("calendar"),
+    CONTACTS("contacts"),
+    REMINDERS("reminders"),
+    LOCATION("location"),
+    MESSAGES("messages"),
+    UI("phoneUi"),
+    DATA("phoneData"),
+    ;
+
+    internal companion object {
+        fun of(tool: PhoneTool): JobTarget? = entries.firstOrNull { it.capability == tool.capability }
     }
 }
 
