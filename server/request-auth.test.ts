@@ -178,6 +178,8 @@ describe("scopes", () => {
       ["GET", "/api/bots/x/browser/live"], ["POST", "/api/bots/x/browser/action"],
       ["GET", "/api/threads/t/messages/m/app"], ["GET", "/api/threads/t/messages/m/app/download"], ["POST", "/api/bots/x/apps/m/rpc"], ["POST", "/api/bots/x/apps/m/context"],
       ["POST", "/api/bots/x/queue/q/steer"], ["POST", "/api/groups/g/queue/q/steer"],
+      // A phone's own ways in, re-read on every reconnect: a chat-only session is what a phone gets.
+      ["GET", "/api/companion/endpoints"],
     ] as const) expect(requiredScope(method, path), `${method} ${path}`).toBe("client");
     for (const [method, path] of [
       ["POST", "/api/cli-test"], ["GET", "/api/cli-candidates"], ["GET", "/api/instances"], ["PATCH", "/api/instances/claude"],
@@ -567,6 +569,21 @@ describe("resolveRequestAuth", () => {
     expect(mcpDenied.status).toBe(403);
     expect(mcpDenied.error).toContain("lacks the admin scope");
     expect(resolve({ host: "bots.example.com", authorization: `Bearer ${token}` }, "/api/bots").auth?.kind).toBe("session");
+  });
+
+  it("lets a chat-only phone re-read its own ways in, which is how a moved server reaches it without a new QR", () => {
+    // `lunabot pair --phone android` mints exactly this scope, and the phone asks on every hello. Refused, the walk
+    // stays on the addresses its QR carried and a server that changed address needs a new pairing.
+    const token = pairedToken(["client"]);
+    const headers = { host: "bots.example.com", authorization: `Bearer ${token}` };
+    expect(requiredScope("GET", "/api/companion/endpoints")).toBe("client");
+    expect(resolve(headers, "/api/companion/endpoints").auth).toMatchObject({ kind: "session" });
+    // Still its own list only: the device list and where a device may connect from stay the owner's.
+    for (const [method, path] of [["GET", "/api/auth/sessions"], ["DELETE", "/api/auth/sessions/s1"], ["PUT", "/api/auth/sessions/s1/routes"]] as const) {
+      const denied = resolve(headers, path, method);
+      expect(denied.auth, `${method} ${path}`).toBeNull();
+      expect(denied.status, `${method} ${path}`).toBe(403);
+    }
   });
 
   it.each([
