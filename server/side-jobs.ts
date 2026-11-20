@@ -35,10 +35,14 @@ export function helperSelection(cfg: HelperConfig, env: Record<string, string | 
 }
 
 /** "representative": a person's assistant answering a teammate's question for them, which must never get tools. */
-export type SideJob = "compaction" | "memory" | "skill-review" | "setup-suggestions" | "representative" | "status-reply";
+export type SideJob = "compaction" | "memory" | "skill-review" | "setup-suggestions" | "representative" | "status-reply" | "notice";
 
 export type SideJobInstance = Pick<ProviderInstance, "instanceId" | "driverKind" | "enabled" | "generateText" | "generateMemoryText" | "models" | "quickModelsUsable"> & {
   adapter: { capabilities: Pick<ProviderAdapter["capabilities"], "agentsMcp"> };
+  /** When set, only these jobs may use this engine's own one-off text call — the rest keep the
+   * helper path or their fallback. A driver that gained generateText later would otherwise wake
+   * every dormant job at once. */
+  oneOffTextJobs?: readonly SideJob[];
 };
 
 export interface SideJobBot {
@@ -78,9 +82,10 @@ type TextCall = (prompt: string, options?: TextGenerationOptions) => Promise<str
 
 /** Jobs someone is waiting on, and the representative, which must never get tools, run only on a one-off text call:
  * generateMemoryText starts a whole agent process. */
-const ONE_OFF_ONLY: ReadonlySet<SideJob> = new Set(["compaction", "setup-suggestions", "representative", "status-reply"]);
+const ONE_OFF_ONLY: ReadonlySet<SideJob> = new Set(["compaction", "setup-suggestions", "representative", "status-reply", "notice"]);
 
 function ownCall(job: SideJob, instance: SideJobInstance): TextCall | undefined {
+  if (instance.oneOffTextJobs && !instance.oneOffTextJobs.includes(job)) return undefined;
   const call = ONE_OFF_ONLY.has(job) ? instance.generateText : instance.generateText ?? instance.generateMemoryText;
   return call?.bind(instance);
 }

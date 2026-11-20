@@ -598,6 +598,10 @@ export interface ProviderInstance {
   generateText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
   /** One-shot text for background steps only, on engines whose turns are whole agent processes; never for titles or compaction. */
   generateMemoryText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
+  /** A one-off text call exposed to named jobs only — not generateText, so capability checks that
+   * would wake dormant behavior (titles, upkeep, summaries) never see it. Composition decides which
+   * side jobs may reach it; see SideJobInstance.oneOffTextJobs. */
+  oneOffText?(prompt: string, options?: TextGenerationOptions): Promise<string>;
   /** Isolated, tool-free permission review; separate from generateText so no security capability is inferred from a generic helper. */
   reviewPermission?(prompt: string, signal?: AbortSignal): Promise<string>;
   dispose(): Promise<void>;

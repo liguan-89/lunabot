@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { AppConfig } from "./config.ts";
 import { createChannelChats } from "./channel-chats.ts";
 import { isInternalTurn } from "./internal-turns.ts";
+import { phoneNotice } from "./phone-notices.ts";
 import type { DirectSendInput, DirectSendReceipt } from "./direct-send.ts";
 import type { RuntimeEvent } from "../shared/runtime-events.ts";
 import type { EventBus } from "./harness/bus.ts";
@@ -40,6 +41,7 @@ export const phoneEvent = z.discriminatedUnion("kind", [
   }).strict()
     .refine((event) => event.text.trim() !== "" || (event.images?.length ?? 0) > 0, { message: "text or images is required" })
     .refine((event) => (event.images ?? []).reduce((total, image) => total + image.data.length, 0) <= WECHAT_IMAGES_MAX_BASE64, { message: "images are too large" }),
+  phoneNotice,
 ]);
 export type PhoneEvent = z.infer<typeof phoneEvent>;
 
@@ -87,6 +89,8 @@ export function createSmsRelay(deps: SmsRelayDeps): { push(phoneKey: string, eve
 
   return {
     push(phoneKey, event) {
+      // The events path is shared; a kind that is not an inbound text is not this relay's to read.
+      if (event.kind === "notice") return;
       const botId = cfg.sms?.botId;
       if (!botId) return;
       if (!store.bot(botId)) { console.warn(`sms: no such bot ${botId}`); return; }

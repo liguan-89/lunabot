@@ -1202,6 +1202,15 @@ class CompanionClient(
         ))
     }
 
+    /** Push one notification the person allowed this phone to share. */
+    suspend fun postPhoneNotice(event: PhoneNoticeEvent) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/phones/self/events",
+            body = CompanionJson.encodeToJsonElement(PhoneNoticeEvent.serializer(), event).jsonObject,
+        ))
+    }
+
     /** Answer a leased job: `{ ok: true, result }` or `{ ok: false, error, code }`. */
     suspend fun completePhoneJob(jobId: String, outcome: JsonObject) {
         sendUnit(makeRequest(

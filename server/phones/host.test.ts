@@ -2,17 +2,19 @@
 // that exact step, and only once; everything else reaches the phone exactly as it did before. The loop guard rides the
 // same host: the same action on a screen that does not move is nudged in the answer, then refused. The per-turn ledger
 // keeps what each call read, so the answer check and the route recorder work from the same evidence.
-import { existsSync, mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { Route } from "../../shared/route-replay.ts";
 import { flushDecisionLog, readDecisions } from "../decision-log.ts";
 import { PhoneRoutes, ownerDirectoryName } from "../phone-routes.ts";
 import type { BotRecord } from "../store.ts";
 import { removeTempDir } from "../testing/cleanup.ts";
+import type { PhoneBot } from "./access.ts";
 import { MAX_CONFIRM_TURNS, PhoneConfirms } from "./confirm.ts";
-import { createPhoneHost, verifyPhoneTurn } from "./host.ts";
+import { createPhoneHost, verifyPhoneTurn, type PhoneHostDeps } from "./host.ts";
 import { PhoneJobs, type PhoneJobDelivery, type PhoneJobOutcome } from "./jobs.ts";
 import { PhoneRegistry, type PhoneRegistration } from "./registry.ts";
 import type { PhoneToolsList } from "./rpc.ts";
@@ -52,7 +54,7 @@ const DELETE = {
   ],
 };
 
-function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: () => "off" | "log" } = {}) {
+function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: () => "off" | "log"; intent?: PhoneHostDeps["intent"] } = {}) {
   const dir = mkdtempSync(join(tmpdir(), "omb-phone-host-"));
   dirs.push(dir);
   const registry = new PhoneRegistry(join(dir, "phones.json"));
@@ -68,6 +70,7 @@ function harness(options: { steer?: PhoneSteer; routes?: boolean; verifyMode?: (
     approvalMode: () => "ask",
     ...(options.verifyMode ? { verifyMode: options.verifyMode } : {}),
     ...(options.steer ? { steer: options.steer } : {}),
+    ...(options.intent ? { intent: options.intent } : {}),
     ...(routes ? { routes } : {}),
   });
   registry.register(PIXEL, OWNER, registration({ phoneUi: "full" }));
@@ -456,6 +459,152 @@ describe("the per-turn evidence ledger", () => {
     expect((await pending as PhoneToolResult).isError).toBe(true);
     expect(failed.host.endTurn(TURN, { goal: "打开下一页", ownerKey: OWNER }).route).toBeNull();
     expect(routeFiles(failed.dir)).toBe(0);
+  });
+});
+
+describe("the route a matching request is told about", () => {
+  const BOT: PhoneBot = { id: "chief", name: "Luna Bot", phoneApps: { phoneUi: "write" } };
+  /** A goal long enough that the template it leaves clears the matcher's similarity floor. */
+  const GOAL = "帮我在备忘录里打开下一页";
+  const REQUEST = "帮我在备忘录里打开第 2 页";
+
+  const record = async (h: ReturnType<typeof harness>): Promise<void> => {
+    await see(h, HOME);
+    await tapAnswering(h, page(1));
+    expect(h.host.endTurn(TURN, { goal: GOAL, ownerKey: OWNER }).route).not.toBeNull();
+  };
+
+  it("offers the one fitting route as a prompt part, its slot filled from the request", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const parts = h.host.parts(BOT, OWNER, "computer", REQUEST);
+    const part = parts.find((entry) => entry.id === "device-route");
+    expect(part?.text).toContain('("帮我在备忘录里打开{1}")');
+    expect(part?.text).toContain("It starts on com.example.shop.");
+    expect(part?.text).toContain('tap "第 2 页"');
+  });
+
+  it("offers nothing when two routes fit, rather than guessing between them", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    // A second stored route whose template the same request also fits: the choice needs a classifier, so no part.
+    const owner = join(h.dir, "phone-routes", ownerDirectoryName(OWNER));
+    mkdirSync(owner, { recursive: true });
+    const other: Route = {
+      id: "other", template: "帮我在备忘录里{1}", slots: 1, packages: [], appVersions: {},
+      steps: [{ tool: "PHONE_UI_BACK", args: {}, target: null, before: { packageName: null, texts: [] }, after: { packageName: null, texts: [] } }],
+      successes: 0, consecutiveMisses: 0, missStep: null, disabled: false, lastUsedMs: 0,
+    };
+    writeFileSync(join(owner, "other.json"), JSON.stringify(other));
+    const parts = h.host.parts(BOT, OWNER, "computer", REQUEST);
+    expect(parts.find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+  });
+
+  it("offers nothing without a recorder, a request, or a fit", async () => {
+    const plain = harness();
+    expect(plain.host.parts(BOT, OWNER, "computer", REQUEST).find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    const h = harness({ routes: true });
+    await record(h);
+    expect(h.host.parts(BOT, OWNER, "computer").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    expect(h.host.parts(BOT, OWNER, "computer", "把手机关机").find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+  });
+
+  it("keeps the route out on a discussion or an unreadable verdict, and tells it on read or act", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    for (const intent of ["discuss", null] as const) {
+      expect(h.host.parts(BOT, OWNER, "computer", REQUEST, intent).find((entry) => entry.id === "device-route")?.text ?? "").toBe("");
+    }
+    for (const intent of ["read", "act"] as const) {
+      expect(h.host.parts(BOT, OWNER, "computer", REQUEST, intent).find((entry) => entry.id === "device-route")?.text).toContain("帮我在备忘录里打开{1}");
+    }
+  });
+});
+
+describe("the settle an offered route earns when its turn ends", () => {
+  const GOAL = "帮我在备忘录里打开下一页";
+  const LATER = { ...TURN, generation: "gen-2" };
+
+  /** The run the route was learned from: an observe and one tap that moved the screen. */
+  const record = async (h: ReturnType<typeof harness>): Promise<void> => {
+    await see(h, HOME);
+    await tapAnswering(h, page(1));
+    expect(h.host.endTurn(TURN, { goal: GOAL, ownerKey: OWNER }).route).not.toBeNull();
+  };
+
+  /** Observe then tap on a later turn, answering each job with what it was given. */
+  const drive = async (h: ReturnType<typeof harness>, answer: PhoneJobOutcome): Promise<void> => {
+    const seen = h.handle(call("PHONE_UI_OBSERVE"), LATER);
+    await answerNext(h.jobs, { ok: true, result: HOME });
+    await seen;
+    const tapped = h.handle(call("PHONE_UI_TAP", { ref: "e1" }), LATER);
+    await answerNext(h.jobs, answer);
+    await tapped;
+  };
+
+  it("counts the replay a success when every call that ran moved the screen", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const route = h.routes!.list(OWNER)[0]!;
+    await drive(h, { ok: true, result: page(2) });
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    // The turn is learnable too, and the same path replaces the offered file — the settle lives on the merged copy.
+    const settled = h.routes!.list(OWNER);
+    expect(settled).toHaveLength(1);
+    expect(settled[0]).toMatchObject({ successes: 1, consecutiveMisses: 0, missStep: null });
+  });
+
+  it("marks the first call that changed nothing as the step the replay diverged at", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const route = h.routes!.list(OWNER)[0]!;
+    // The tap ran and the screen came back identical: ok but nothing moved is the one honest miss we can see.
+    await drive(h, { ok: true, result: HOME });
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    expect(h.routes!.list(OWNER).find((one) => one.id === route.id)).toMatchObject({ successes: 0, consecutiveMisses: 1, missStep: 0 });
+  });
+
+  it("settles nothing when every call was refused and none ran, or the turn was stopped", async () => {
+    const h = harness({ routes: true, intent: async () => "discuss" });
+    const owner = join(h.dir, "phone-routes", ownerDirectoryName(OWNER));
+    mkdirSync(owner, { recursive: true });
+    const saved: Route = {
+      id: "saved", template: "帮我在备忘录里打开{1}", slots: 1, packages: [], appVersions: {},
+      steps: [{ tool: "PHONE_UI_BACK", args: {}, target: null, before: { packageName: null, texts: [] }, after: { packageName: null, texts: [] } }],
+      successes: 0, consecutiveMisses: 0, missStep: null, disabled: false, lastUsedMs: 0,
+    };
+    writeFileSync(join(owner, "saved.json"), JSON.stringify(saved));
+    // The discuss refusal never reaches the phone, so the only evidence is a call that did not run.
+    await h.handle(call("PHONE_UI_TAP", { ref: "e1" }), LATER);
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: "saved" } });
+    expect(h.routes!.list(OWNER).find((one) => one.id === "saved")).toMatchObject({ successes: 0, consecutiveMisses: 0, missStep: null });
+
+    const stopped = harness({ routes: true });
+    await record(stopped);
+    const route = stopped.routes!.list(OWNER)[0]!;
+    await drive(stopped, { ok: true, result: page(2) });
+    stopped.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, stopped: true, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    expect(stopped.routes!.list(OWNER).find((one) => one.id === route.id)).toMatchObject({ successes: 0, consecutiveMisses: 0, missStep: null });
+  });
+});
+
+describe("Mika's intent gate at the first phone call", () => {
+  it("refuses the call in a discussion, before any job reaches the phone", async () => {
+    const h = harness({ intent: async () => "discuss" as const });
+    const request = vi.spyOn(h.jobs, "request");
+    const refused = await h.handle(call("PHONE_UI_OBSERVE")) as PhoneToolResult;
+    expect(refused).toMatchObject({ isError: true, structuredContent: { code: "denied" } });
+    expect(text(refused)).toContain("discussing or reviewing");
+    expect(request).not.toHaveBeenCalled();
+  });
+
+  it("lets the call through on a read verdict, and when the gate answered nothing", async () => {
+    for (const intent of [async () => "read" as const, async () => null]) {
+      const h = harness({ intent });
+      const pending = h.handle(call("PHONE_UI_OBSERVE"));
+      await answerNext(h.jobs, { ok: true, result: PAY });
+      expect((await pending as PhoneToolResult).isError).toBeUndefined();
+    }
   });
 });
 

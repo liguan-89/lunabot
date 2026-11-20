@@ -168,6 +168,8 @@ fun SettingsScreen(
     val phoneFilesTree by environment.chatPreferences.phoneFilesTree.collectAsState()
     val phoneNotices by environment.chatPreferences.phoneNotices.collectAsState()
     val phoneUiOverlay by environment.chatPreferences.phoneUiOverlay.collectAsState()
+    val phoneNoticeShare by environment.chatPreferences.phoneNoticeShare.collectAsState()
+    val phoneNoticeApps by environment.chatPreferences.phoneNoticeApps.collectAsState()
     val phoneUiStatus by environment.phoneUi.status.collectAsState()
     val scope = rememberCoroutineScope()
     val clipboard = LocalClipboard.current
@@ -267,6 +269,7 @@ fun SettingsScreen(
     var choosingTheme by remember { mutableStateOf(false) }
     var choosingVoiceAsr by remember { mutableStateOf(false) }
     var choosingPhonePace by remember { mutableStateOf(false) }
+    var pickingNoticeApps by remember { mutableStateOf(false) }
     var phoneUiCheckReport by remember { mutableStateOf<SelfCheckReport?>(null) }
     var phoneUiChecking by remember { mutableStateOf(false) }
     var watchingScreen by remember { mutableStateOf(false) }
@@ -977,6 +980,36 @@ fun SettingsScreen(
                             }
                         },
                     )
+                    SettingsDivider()
+                    // Sharing is the phone pushing on its own — the consent is
+                    // per package, not per notification, so it needs its own
+                    // switch plus a whitelist instead of one blanket grant.
+                    SettingsSwitchRow(
+                        title = "分享通知给智能体",
+                        checked = phoneNoticeShare,
+                        onCheckedChange = { enabled ->
+                            environment.chatPreferences.setPhoneNoticeShare(enabled)
+                            if (enabled && !notificationListenerGranted(phoneToolsContext)) {
+                                runCatching {
+                                    phoneToolsContext.startActivity(
+                                        Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }
+                            }
+                            if (enabled && phoneNoticeApps.isEmpty()) pickingNoticeApps = true
+                        },
+                    )
+                    if (phoneNoticeShare) {
+                        SettingsDivider()
+                        SettingsRow(
+                            title = "分享哪些应用的通知",
+                            value = if (phoneNoticeApps.isEmpty()) "未选择" else "已选 ${phoneNoticeApps.size} 个",
+                            chevron = true,
+                            onClick = { pickingNoticeApps = true },
+                        )
+                        SettingsFootnote("只有勾选应用的通知内容会发送到电脑；验证码等敏感内容会被过滤，其他应用的通知不会离开手机。通知监听需要在系统设置里授权。")
+                    }
                     if (phoneUiStatus == PhoneUiStatus.Ready) {
                         SettingsDivider()
                         SettingsRow(
@@ -1435,6 +1468,45 @@ fun SettingsScreen(
 
     if (watchingScreen) {
         ControlledScreenSheet(onDismiss = { watchingScreen = false })
+    }
+
+    if (pickingNoticeApps) {
+        // Read once per open: the launcher list is the honest "apps that post"
+        // set and re-querying per recomposition is a Binder round-trip each.
+        val manager = LocalContext.current.packageManager
+        val choices: List<Pair<String, String>> = remember {
+            runCatching {
+                manager.getInstalledApplications(0)
+                    .filter { manager.getLaunchIntentForPackage(it.packageName) != null }
+                    .map { manager.getApplicationLabel(it).toString() to it.packageName }
+                    .sortedWith(compareBy({ it.first.lowercase() }, { it.second }))
+            }.getOrDefault(emptyList())
+        }
+        SettingsSheet(
+            title = "分享哪些应用的通知",
+            onDismiss = { pickingNoticeApps = false },
+        ) {
+            Column(Modifier.padding(horizontal = 16.dp)) {
+                SettingsSection(
+                    footer = {
+                        SettingsFootnote("勾选应用收到的通知内容会发送到电脑；验证码等敏感内容会被过滤。取消勾选即停止该应用的分享。")
+                    },
+                ) {
+                    choices.forEachIndexed { index, (label, pkg) ->
+                        if (index > 0) SettingsDivider()
+                        SettingsSwitchRow(
+                            title = label,
+                            checked = pkg in phoneNoticeApps,
+                            onCheckedChange = { on ->
+                                environment.chatPreferences.setPhoneNoticeApps(
+                                    if (on) phoneNoticeApps + pkg else phoneNoticeApps - pkg,
+                                )
+                            },
+                        )
+                    }
+                }
+            }
+        }
     }
 
     phoneUiCheckReport?.let { report ->
