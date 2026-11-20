@@ -36,7 +36,6 @@ import piMcpExtension from "../drivers/pi-mcp-extension.ts";
 import { VOLATILE_CONTEXT_CLEARED_NOTE, VOLATILE_CONTEXT_NOTE_PREFIX } from "../drivers/prompt-split.ts";
 import { TURN_CLOCK_LEAD } from "../turn-clock.ts";
 import { resolveAgentsCall } from "../../shared/agents-tool-names.ts";
-import { parseToolScope } from "../../shared/tool-scope.ts";
 import { ownTurnText, runRoomHandoffAgent, type AgentsIntegration } from "./room-handoff-agent.ts";
 
 const claudeCompat = process.env.FAKE_PI_CLAUDE_COMPAT === "1";
@@ -188,17 +187,13 @@ if (claudeCompat && process.env.FAKE_CLAUDE_MODE === "exit-early") {
 
 // Real pi fires session_start at boot, and the extension's scope enforcement writes its receipt
 // there; the fake only mounts tools on use, so a scoped turn would wait on a receipt that only
-// a tool call could produce.
+// a tool call could produce. The config's toolScope is already the driver's normalized scope, so
+// the receipt echoes it verbatim, as intersect() does.
 if (process.env.OMB_MCP_CONFIG && process.env.FAKE_PI_NO_SCOPE_RECEIPT !== "1") {
   try {
     const bootConfig = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8")) as { scopeReadyPath?: unknown; toolScope?: unknown };
     if (typeof bootConfig?.scopeReadyPath === "string" && bootConfig.toolScope !== undefined) {
-      const parsed = parseToolScope(bootConfig.toolScope);
-      writeFileSync(
-        bootConfig.scopeReadyPath,
-        JSON.stringify(parsed.ok ? { ok: true, toolScope: parsed.scope } : { ok: false }),
-        { mode: 0o600 },
-      );
+      writeFileSync(bootConfig.scopeReadyPath, JSON.stringify({ ok: true, toolScope: bootConfig.toolScope }), { mode: 0o600 });
     }
   } catch { /* A config the extension could not read leaves no receipt, which fails closed. */ }
 }
