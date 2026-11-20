@@ -14,7 +14,7 @@ import { computerStepLine } from "@/lib/computer-step";
 import type { MapComputer, MapComputerState } from "../../shared/map-computer";
 import { BotAvatar } from "./Avatar";
 import { ComputerNode } from "./ComputerNode";
-import { InstanceProviderMark, ProviderMark } from "./ProviderIcons";
+import { hasProviderMark, InstanceProviderMark, ProviderMark } from "./ProviderIcons";
 import { openBotSettings } from "./bot-panel/panel-link";
 
 type Gesture = {
@@ -77,7 +77,7 @@ function BotCard({ bot, selected, moving, connected, tagged = false, sent, onCom
         onClick={() => openBotSettings(dispatch, "model", { botId: bot.id })}
         className="ml-auto flex h-8 min-w-0 max-w-[130px] items-center gap-1.5 rounded-md px-2 text-[10px] text-ink-secondary hover:bg-control hover:text-ink focus-visible:outline-2 focus-visible:outline-accent">
         <span className="flex size-3.5 shrink-0 items-center justify-center">{instance
-          ? <InstanceProviderMark instance={instance} size={13} />
+          ? hasProviderMark(instance) && <InstanceProviderMark instance={instance} size={13} />
           : <ProviderMark driverKind="" size={13} />}</span>
         <span className="truncate">{model || t("canvas.defaultModel")}</span>
       </button>
@@ -158,7 +158,7 @@ export function TeamCanvas({ sections, canManage, onMove, onInstructions, onMemo
   // Keyed to the workspace's identity, so switching hosted workspaces never shares a layout.
   useEffect(() => {
     let active = true;
-    void api("/.well-known/openmausbot/environment", { signal: AbortSignal.timeout(5_000) }).then((environment) => {
+    void api("/.well-known/lunabot/environment", { signal: AbortSignal.timeout(5_000) }).then((environment) => {
       if (!active || typeof environment.environmentId !== "string") return;
       storageKey.current = `omb-team-canvas:${environment.environmentId}`;
       try {

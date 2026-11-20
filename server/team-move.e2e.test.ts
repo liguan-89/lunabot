@@ -43,7 +43,7 @@ beforeAll(async () => {
     "#!/usr/bin/env node",
     'const { mkdirSync } = require("node:fs");',
     'const { join } = require("node:path");',
-    'const dir = join(process.env.HOME || process.cwd(), ".openmausbot");',
+    'const dir = join(process.env.HOME || process.cwd(), ".lunabot");',
     "mkdirSync(dir, { recursive: true });",
     'process.env.FAKE_PI_DUMP = process.env.FAKE_PI_DUMP || join(dir, "fake-pi-dump.jsonl");',
     `import(${JSON.stringify(pathToFileURL(FAKE_PI).href)}).catch((error) => { process.stderr.write(String(error) + "\\n"); process.exit(1); });`,
@@ -92,8 +92,8 @@ async function say(bot: { id: string }, threadId: string, text: string) {
 const onTeam = (who: string) => (method: string, path: string, body?: unknown) => team.as(tokens[who]!, method, path, body);
 const teamBots = async (who: string) => (await onTeam(who)("GET", "/api/bots")).body.bots as Bot[];
 const cloudBots = async () => (await fx.onCloud("GET", "/api/bots")).body.bots as Bot[];
-const cloudHome = (...rest: string[]) => join(fx.root, "cloud", ".openmausbot", ...rest);
-const teamHome = (...rest: string[]) => join(team.home, ".openmausbot", ...rest);
+const cloudHome = (...rest: string[]) => join(fx.root, "cloud", ".lunabot", ...rest);
+const teamHome = (...rest: string[]) => join(team.home, ".lunabot", ...rest);
 
 /** A bot on My Cloud with two chats, a routine that is on, two files and notes about Ada. */
 async function botWithEverything(name: string) {

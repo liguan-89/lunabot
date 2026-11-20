@@ -10,7 +10,7 @@ describe("BotMRR package deep links", () => {
     assert.equal(packageUrlFromCommandLine(["Luna Bot", "--flag", `lunabot://install?url=${encodeURIComponent(target)}`]), target);
     // A link written before the rename still installs.
     assert.equal(packageUrlFromDeepLink(`dexbot://install?url=${encodeURIComponent(target)}`), target);
-    assert.equal(packageUrlFromDeepLink(`openmausbot://install?url=${encodeURIComponent(target)}`), target);
+    assert.equal(packageUrlFromDeepLink(`lunabot://install?url=${encodeURIComponent(target)}`), target);
   });
 
   it("rejects other commands, hosts, protocols, credentials, and unsupported file types", () => {

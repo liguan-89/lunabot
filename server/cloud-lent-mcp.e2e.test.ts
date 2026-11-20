@@ -60,7 +60,7 @@ async function adminPairing(): Promise<string> {
 
 type Spec = { url?: string; headers?: Record<string, string>; command?: string; args?: string[]; env?: Record<string, string> };
 type Turn = { systemPrompt: string; mcpConfig: { mcpServers: Record<string, Spec & { env?: Record<string, string> }> } };
-const dump = () => piDumpPath(join(home, ".openmausbot"));
+const dump = () => piDumpPath(join(home, ".lunabot"));
 
 /** The turn a message to a new bot starts, as its engine was given it: the pi launch, its MCP servers, and the
  * instructions in effect on that turn (pi sends the whole system prompt on a session's first turn). */
@@ -109,7 +109,7 @@ async function connected(call: ReturnType<typeof engineFor>) {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-lent-mcp-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

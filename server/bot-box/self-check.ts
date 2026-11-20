@@ -66,7 +66,7 @@ export async function runBoxSelfCheck(options: SelfCheckOptions): Promise<SelfCh
   const startedAt = Date.now();
   const marker = `${MARKER_PREFIX}${randomBytes(12).toString("hex")}`;
   const root = join(options.root, `check-${randomBytes(4).toString("hex")}`);
-  const home = join(root, "home"), data = join(home, ".openmausbot"), sockets = join(root, "s");
+  const home = join(root, "home"), data = join(home, ".lunabot"), sockets = join(root, "s");
   const cwd = join(data, "task-workspaces", "probe", "t1"), botFolder = join(data, "workspaces", "probe");
   const otherWorkspace = join(data, "workspaces", "other"), otherTask = join(data, "task-workspaces", "other", "t2");
   for (const dir of [cwd, botFolder, otherWorkspace, otherTask, join(data, "providers"), join(data, "tools"), sockets]) mkdirSync(dir, { recursive: true, mode: 0o700 });
@@ -142,7 +142,7 @@ export async function runBoxSelfCheck(options: SelfCheckOptions): Promise<SelfCh
       PATH: [engineBin, process.env.PATH].filter(Boolean).join(delimiter), HOME: home, LANG: process.env.LANG, TMPDIR: "/tmp",
       // What must not get in: a control-plane secret, a workspace credential, an operator's own setting, the CLI's
       // session token and an unlisted name, each holding the marker.
-      OMB_CLOUD_BOOTSTRAP_SECRET: marker, COMPOSIO_API_KEY: marker, OMB_SIGNIN_SMTP_URL: `smtp://user:${marker}@mail.invalid`, OPENMAUSBOT_TOKEN: marker, SOME_OTHER_SECRET: marker,
+      OMB_CLOUD_BOOTSTRAP_SECRET: marker, COMPOSIO_API_KEY: marker, OMB_SIGNIN_SMTP_URL: `smtp://user:${marker}@mail.invalid`, LUNABOT_TOKEN: marker, SOME_OTHER_SECRET: marker,
       // The real-looking key the broker takes over; its upstream is the fixture server, which answers 200 only to the real key.
       ...(credentials ? { ANTHROPIC_API_KEY: brokerKey, ANTHROPIC_BASE_URL: `http://127.0.0.1:${serverPort}/v1` } : {}),
     },

@@ -12,7 +12,7 @@ export function fleetSocketPath(env: NodeJS.ProcessEnv = process.env): string {
   if (configured) return configured;
   const current = "/run/lunabot/fleet.sock";
   // A fleet installed before the rename keeps its agent on the old path until `fleet init` runs again: talk to it there.
-  const legacy = "/run/openmausbot/fleet.sock";
+  const legacy = "/run/lunabot/fleet.sock";
   return existsSync(current) || !existsSync(legacy) ? current : legacy;
 }
 

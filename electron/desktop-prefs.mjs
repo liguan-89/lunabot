@@ -135,11 +135,11 @@ export function createDesktopPrefs({ read, write }) {
       const railHidden = hidden === true;
       if ((current().railHidden === true) !== railHidden) save({ ...current(), railHidden });
     },
-    /** The window draws its own frame until the person turns it off. */
-    windowFrame: () => current().windowFrame !== false,
+    /** The window's own frame is off by default (Grok Bot style), unless explicitly turned on. */
+    windowFrame: () => current().windowFrame === true,
     setWindowFrame(on) {
-      const windowFrame = on !== false;
-      if ((current().windowFrame !== false) !== windowFrame) save({ ...current(), windowFrame });
+      const windowFrame = on === true;
+      if ((current().windowFrame === true) !== windowFrame) save({ ...current(), windowFrame });
     },
   };
 }

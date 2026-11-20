@@ -72,11 +72,11 @@ posixOnly("Live call e2e", () => {
     chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-call-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     toolCallsFile = join(home, "turn-tool-calls.json");
     releaseFile = join(home, "release");
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         // The product runs one pi instance; a test that must park its turn writes the turn's script into
         // toolCallsFile (a held tool call, or ask_user through the mounted agents tools) and releases it after.
@@ -231,7 +231,7 @@ posixOnly("Live call e2e", () => {
   // accepts later; the fake pi refuses steers only statically, so the queue-steer endpoint can never confirm one.
   it("ends a phone's call, and refuses it another, once the companion says it was unpaired", async () => {
     const bot = await createBot();
-    const phone = { "x-openmausbot-companion": "1", "x-openmausbot-companion-device": "phone-e2e" };
+    const phone = { "x-lunabot-companion": "1", "x-lunabot-companion-device": "phone-e2e" };
     const sse = await openSse(`${base}/api/events`);
     try {
       const before = live.sessions.length;
@@ -242,7 +242,7 @@ posixOnly("Live call e2e", () => {
       await live.waitForAttach(session.id);
       await sse.until((frame) => frame.kind === "live.call" && frame.call?.callId === call.callId && frame.call?.status === "live");
 
-      expect(await post("/api/live/device-revoked", {}, { ...phone, "x-openmausbot-companion-device": "phone-other" }))
+      expect(await post("/api/live/device-revoked", {}, { ...phone, "x-lunabot-companion-device": "phone-other" }))
         .toEqual({ status: 200, body: { call: null } });
       expect(await post("/api/live/device-revoked", {}, phone)).toMatchObject({ status: 200, body: { call: { callId: call.callId } } });
       await live.waitForCommand(session.id, (c) => c.type === "session.close", 5_000);
@@ -468,9 +468,9 @@ posixOnly("Live calls on a busy bot", () => {
     chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-queue-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
     writeFileSync(
-      join(home, ".openmausbot", "config.json"),
+      join(home, ".lunabot", "config.json"),
       JSON.stringify({
         instances: {
           pi: {
@@ -620,7 +620,7 @@ posixOnly("Live call on the person's Cloud", () => {
     chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-cloud-"));
-    const dataDir = join(home, ".openmausbot");
+    const dataDir = join(home, ".lunabot");
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({
       instances: {
@@ -720,7 +720,7 @@ posixOnly("Live call on the person's Cloud", () => {
 // No plan anywhere and no Live key: a phone's call starts once the person's own OpenAI key is in Settings → API keys.
 posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
   const OPENAI_KEY = "sk-fake-api-keys-openai";
-  const phone = { "x-openmausbot-companion": "1", "x-openmausbot-companion-device": "phone-byok" };
+  const phone = { "x-lunabot-companion": "1", "x-lunabot-companion-device": "phone-byok" };
   let child: ChildProcess;
   let home = "";
   let base = "";
@@ -741,7 +741,7 @@ posixOnly("Live calls for everyone, with the person's own OpenAI key", () => {
     chmodSync(FAKE_PI, 0o755);
     live = await startFakeOpenAiLive();
     home = mkdtempSync(join(tmpdir(), "omb-live-byok-"));
-    const dataDir = join(home, ".openmausbot");
+    const dataDir = join(home, ".lunabot");
     mkdirSync(dataDir, { recursive: true });
     writeFileSync(join(dataDir, "config.json"), JSON.stringify({
       instances: {

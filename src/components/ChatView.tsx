@@ -1,4 +1,5 @@
 import { createContext, memo, use, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type Dispatch } from "react";
+import { engineDisplayName } from "@/lib/engine-name";
 import { useAdvancedMode } from "@/lib/interface-mode";
 import { PHONE_LAYOUT, useMediaQuery } from "@/lib/use-media-query";
 import { ThreadLinkContext } from "@/components/ThreadLinkMenu";
@@ -290,7 +291,7 @@ export function FailedTurnRow({ tool, engine, onRetry, botId, threadId, messageA
   return (
     <ErrorRow
       message={notice ?? cause}
-      headline={signedOut ? t("chat.error.signedOut", { name: signedOut.displayName }) : notice ?? plainErrorLine(cause)}
+      headline={signedOut ? t("chat.error.signedOut", { name: engineDisplayName(signedOut) }) : notice ?? plainErrorLine(cause)}
       onRetry={onRetry}
       action={resume}
       setupInstance={tool.setup ? engine : undefined}

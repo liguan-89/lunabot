@@ -192,8 +192,6 @@ export function createEmailHost(deps: EmailHostDeps) {
   };
 }
 
-export type EmailHost = ReturnType<typeof createEmailHost>;
-
 function pick<T extends Record<string, unknown>>(source: T, names: readonly string[]): Record<string, any> {
   return Object.fromEntries(names.filter((name) => source[name] !== undefined).map((name) => [name, source[name]]));
 }

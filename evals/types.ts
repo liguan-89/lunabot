@@ -134,9 +134,6 @@ export const scenarioSchema = z.object({
 });
 
 export type ScriptedToolCall = z.infer<typeof scriptedToolCallSchema>;
-export type ScriptedTurn = z.infer<typeof scriptedTurnSchema>;
-export type FixtureSkill = z.infer<typeof fixtureSkillSchema>;
-export type ScenarioBot = z.infer<typeof scenarioBotSchema>;
 export type Step = z.infer<typeof stepSchema>;
 export type Assertion = z.infer<typeof assertionSchema>;
 export type Scenario = z.infer<typeof scenarioSchema>;

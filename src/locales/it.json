@@ -5565,7 +5565,6 @@
   "botAccess.tools.exclude": "Escludi (uno per riga)",
   "botAccess.tools.emptyHint": "Un elenco Consenti vuoto non seleziona alcuno strumento. Salva per applicarlo.",
   "botAccess.tools.syntax": "Usa i nomi originali: native:NAME o mcp:SERVER:NAME. native:* e mcp:SERVER:* includono tutti gli strumenti di quel gruppo. Escludi ha la precedenza.",
-  "botAccess.tools.grok": "La selezione nativa di Grok CLI richiede la versione 1.0.41. Per gli strumenti MCP, consenti anche native:search_tool e native:use_tool, oppure usa Pi.",
   "botAccess.tools.nativeUnsupported": "Questa AI non può limitare gli strumenti nativi. Lascia native:* in Consenti senza esclusioni di strumenti nativi, oppure scegli un'AI supportata. Questa selezione si ferma prima di inviare un prompt.",
   "botAccess.tools.unsupported": "Questa AI non supporta la selezione degli strumenti. Questa selezione si ferma prima di inviare un prompt. Scegli un'AI supportata.",
   "botAccess.tools.busy": "Attendi che questo bot finisca tutte le attività in corso prima di cambiare la selezione degli strumenti.",

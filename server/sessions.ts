@@ -87,11 +87,17 @@ const sessionSchema = z.object({
   moveIn: z.string().regex(/^[\w-]{1,128}$/).optional(),
   /** An access token for a script (`openmausbot token create`): it ends at expiresAt and never renews. */
   token: z.literal(true).optional(),
+  /** Where this device may connect from: `local` keeps it on this machine's own networks (Wi-Fi, tailnet) and off the
+   * relay. Absent is `any`, so a session written before the field existed keeps its behaviour. */
+  routes: z.enum(["any", "local"]).optional(),
 });
 
 const fileSchema = z.object({ version: z.literal(1), sessions: z.array(sessionSchema) });
 
 export type SessionRecord = z.infer<typeof sessionSchema>;
+
+/** Where a device may connect from. `local` is this machine's own networks only: Wi-Fi and the tailnet. */
+export type DeviceRoutes = "any" | "local";
 
 /** What the UI may see: never the hash. */
 export interface PublicSession {
@@ -105,6 +111,7 @@ export interface PublicSession {
   owner?: string;
   teamRole?: TeamRole;
   token?: true;
+  routes?: DeviceRoutes;
 }
 
 export interface PairingCode {
@@ -188,6 +195,7 @@ function publicSession(record: SessionRecord): PublicSession {
   if (record.owner) view.owner = record.owner;
   if (record.teamRole) view.teamRole = record.teamRole;
   if (record.token) view.token = true;
+  if (record.routes) view.routes = record.routes;
   return view;
 }
 
@@ -705,6 +713,29 @@ export class SessionRegistry {
   bearerDigests(ids: ReadonlySet<string>): Array<{ id: string; tokenHash: string }> {
     this.prune();
     return this.sessions.filter((s) => ids.has(s.id) && !s.cookieOnly && !this.personal(s.scopes)).map((s) => ({ id: s.id, tokenHash: s.tokenHash }));
+  }
+
+  /** The same, with where each device may connect from: the phone relay refuses a `local` one on the relay. */
+  deviceDigests(ids: ReadonlySet<string>): Array<{ id: string; tokenHash: string; routes?: DeviceRoutes }> {
+    this.prune();
+    return this.sessions
+      .filter((s) => ids.has(s.id) && !s.cookieOnly && !this.personal(s.scopes))
+      .map((s) => ({ id: s.id, tokenHash: s.tokenHash, ...(s.routes ? { routes: s.routes } : {}) }));
+  }
+
+  /** Where one device may connect from, `any` when nothing was ever set. */
+  routesOf(sessionId: string): DeviceRoutes {
+    return this.sessions.find((s) => s.id === sessionId)?.routes ?? "any";
+  }
+
+  /** A device's way in changes: a narrowing takes its relay sessions with it, which the caller closes. */
+  setRoutes(sessionId: string, routes: DeviceRoutes): boolean {
+    const record = this.sessions.find((s) => s.id === sessionId);
+    if (!record) return false;
+    if (routes === "any") delete record.routes;
+    else record.routes = routes;
+    this.persist();
+    return true;
   }
 
   /** The credential digests of the newest open pairing windows a device may redeem (never a browser sign-in's). */

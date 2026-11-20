@@ -48,7 +48,8 @@ vi.mock("./SettingsPrimitives", async (importOriginal) => {
 const { marker } = vi.hoisted(() => ({
   marker: (name: string) => () => `MARKER:${name};`,
 }));
-vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines") }));
+vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines"), EngineMaintenance: marker("maintenance") }));
+vi.mock("./ModelManagement", () => ({ ModelManagement: marker("models") }));
 vi.mock("./DecisionModelSettings", () => ({ DecisionModelSettings: marker("decisionModel") }));
 vi.mock("./ImageGenerationSettings", () => ({ ImageGenerationSettings: marker("imageGeneration") }));
 vi.mock("./SkillsSection", () => ({ SkillsSection: marker("skills") }));
@@ -281,7 +282,7 @@ describe("Settings in Simple mode", () => {
     const html = render();
     expect(currentPage(html)).toBe("ai");
     expect(blocks(html)).toEqual(["engines", "connections", "imageGeneration", "decisionModel"]);
-    expect(markers(html).filter((name) => name === "engines" || name === "decisionModel")).toEqual(["engines", "decisionModel"]);
+    expect(markers(html).filter((name) => name === "models" || name === "decisionModel")).toEqual(["models", "decisionModel"]);
     expect(html).toMatch(/aria-expanded="false"[^>]*>[\s\S]*?>API keys</);
     expect(html).not.toContain("API keys and connections");
   });

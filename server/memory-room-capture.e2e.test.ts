@@ -13,7 +13,7 @@ import { NO_TEXT_ENGINE } from "./memory-upkeep.ts";
 it("queues a member bot's room turn for capture only once Learn from group chats is on, and says why no model step runs", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-room-capture-"));
   const fixture = await launchVerificationServer({ ...process.env });
-  const env = { OPENMAUSBOT_URL: fixture.info.url };
+  const env = { LUNABOT_URL: fixture.info.url };
   const api = async <T = any>(path: string, method = "GET", body?: unknown): Promise<T> => {
     const response = await fetch(fixture.info.url + path, {
       method,
@@ -64,7 +64,7 @@ it("queues a member bot's room turn for capture only once Learn from group chats
 it("leaves a room turn out of memory upkeep entirely while Learn from group chats is off", async () => {
   const scratch = mkdtempSync(join(tmpdir(), "omb-room-capture-off-"));
   const fixture = await launchVerificationServer({ ...process.env });
-  const env = { OPENMAUSBOT_URL: fixture.info.url };
+  const env = { LUNABOT_URL: fixture.info.url };
   const api = async <T = any>(path: string, method = "GET", body?: unknown): Promise<T> => {
     const response = await fetch(fixture.info.url + path, {
       method,

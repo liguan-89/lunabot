@@ -132,6 +132,7 @@ mac:
     - from: laya-service
       to: laya-service
   extendInfo:
+    UIDesignRequiresCompatibility: true
     NSMicrophoneUsageDescription: Luna Bot uses the microphone for voice dictation into the composer.
     NSSpeechRecognitionUsageDescription: Luna Bot transcribes your voice on-device to type messages for you.
     NSAccessibilityUsageDescription: Luna Bot uses Accessibility when you let a bot control this Mac.

@@ -37,10 +37,6 @@ export class YourComputerDeclined extends Error {
   }
 }
 
-export function yourComputerDeclined(error: unknown): boolean {
-  return error instanceof YourComputerDeclined;
-}
-
 interface Pending {
   threadId: string;
   generation: string;

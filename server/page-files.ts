@@ -198,4 +198,3 @@ export function createPageFiles(deps: { docs: AppDocs; now?: () => number }) {
     },
   };
 }
-export type PageFiles = ReturnType<typeof createPageFiles>;

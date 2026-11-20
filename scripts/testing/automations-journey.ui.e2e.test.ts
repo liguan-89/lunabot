@@ -449,7 +449,7 @@ const OUTSIDE_WHY = "A webhook's run made or changed this routine, so it runs wi
  * no network beyond loopback, the scripted engine, and the owner's paired device. */
 async function launchCloudHome() {
   const home = mkdtempSync(join(SHORT_TMP, "omb-cloud-journey-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(join(home, "tmp"), { recursive: true });
   mkdirSync(dataDir, { recursive: true });
   const planPath = join(home, "room-plan.json");
@@ -581,7 +581,7 @@ async function launchCloudHome() {
     const ownersRun = turns().findLast((turn) => String(JSON.stringify(turn.prompt)).includes("Send me a summary of my inbox."));
     expect(ownersRun).toMatchObject({ restricted: false, permissionMode: ownerTurn.permissionMode });
     // The pi launch the owner's run really got: full access, and nothing held back from it.
-    const ownerLaunch = piTurns(piDumpPath(join(cloud.dataDir, ".openmausbot"))).findLast((turn) => turn.prompt.includes("Send me a summary of my inbox."))?.launch;
+    const ownerLaunch = piTurns(piDumpPath(join(cloud.dataDir, ".lunabot"))).findLast((turn) => turn.prompt.includes("Send me a summary of my inbox."))?.launch;
     expect(ownerLaunch?.mcpConfig?.approvalMode).toBe("full");
     expect(ownerLaunch?.mcpConfig?.toolScope).toBeUndefined();
     const ownersRunThread = (await state()).runs.find((run) => run.routineName === "Morning inbox summary")?.threadId;

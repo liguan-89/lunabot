@@ -29,7 +29,7 @@ test("the Cloud protocol is a fixed action without URL routing or credentials", 
   for (const value of [null, undefined, {}, ["lunabot://cloud"], "", "lunabot://cloud/", "lunabot://cloud?", "lunabot://cloud#",
     "lunabot://cloud?code=ABCDE-FGHJK", "lunabot://cloud#code=ABCD-EFGH-JKLM", "lunabot://cloud?url=https://home.example",
     "lunabot://cloud/pair", "lunabot://user@cloud", "lunabot://cloud:443", "lunabot://cloud.evil", "lunabot://CLOUD",
-    "OPENMAUSBOT://cloud", "openmausbot:cloud", "lunabot:///cloud", "https://cloud", " lunabot://cloud", "lunabot://cloud ",
+    "OPENMAUSBOT://cloud", "lunabot:cloud", "lunabot:///cloud", "https://cloud", " lunabot://cloud", "lunabot://cloud ",
     "lunabot://%63loud", "lunabot://organization", "lunabot://install?url=https://github.com/x/y",
     "dexbot://cloud/", "dexbot://cloud?code=X", "dexbot://cloud.evil"]) {
     assert.equal(isCloudDeepLink(value), false, String(value));

@@ -47,6 +47,10 @@ The Computer panel also shows a periodically refreshed VPS screenshot. Preview a
 
 Remote clients can preview, open, and close the viewer only. VPS provisioning, replacement, sleep, removal, SSH aliases, Local VM controls, and host browser surfaces remain available only on the host.
 
+A remote client's WebSocket upgrades reach the host's own gate: the cloud desktop viewer, a WebSocket live call (`/api/live/relay`) and the browser's v2 stream all work through the loopback relay, each under the same per-device capability the HTTP surface uses. A path the companion does not serve is still refused there.
+
+A server-paired device may be restricted to the machine's own networks. On a self-hosted server, `lunabot devices routes ID local` (or `PUT /api/auth/sessions/:id/routes`) keeps one phone off the relay: the relay stops admitting it, its relay sessions close, and the descriptor it is handed says `routes: "local"`. The desktop's equivalent is the **Connect from** switch on each paired device.
+
 The client Calendar supports scheduled routines end to end: create, edit, move, resize, pause, delete, run now, cancel an active run, and acknowledge failures. Scheduled calls and webhooks remain host-only and are omitted from client mode.
 
 The remote Computer panel includes the host panel's per-agent **Scheduled tasks** card. It lists that agent's next routines and active run, opens the full schedule view, and creates a new schedule already assigned to the agent.

@@ -1,0 +1,368 @@
+package com.lunabot.companion.ui
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * The three first-run surfaces — the behavioural port of
+ * `ios/App/OnboardingViews.swift`.
+ *
+ * What is ported is the **timing and the routing**: the app says what it is
+ * before it asks for anything, offers a way to defer that leads somewhere
+ * useful, and explains notifications only once a pairing has made approvals and
+ * finished work real. The gradient, the hero avatar, the glass inset and the
+ * `DisclosureGroup` are not ported — Material is the right idiom here, and the
+ * standing policy is that behaviour mirrors iOS while painting goes native.
+ */
+
+/** The sentences these screens are made of, named so a test can look them up. */
+object OnboardingCopy {
+    const val NOT_NOW = "暂不"
+
+    const val UNPAIRED_HOME_TITLE = "随身携带您的智能体"
+    const val UNPAIRED_HOME_BODY =
+        "将此手机与 Luna Bot 配对，即可查看对话并回复您的智能体。"
+    const val UNPAIRED_HOME_HINT =
+        "请在电脑上打开 Luna Bot → 设置 → 手机和设备。"
+    const val UNPAIRED_HOME_CONNECT = "连接电脑"
+
+    const val NOTIFICATIONS_TITLE = "随时掌握最新动态"
+
+    /**
+     * The limit is stated here rather than softened, and it is the same sentence
+     * Settings shows, from [SettingsPolicy.NOTIFICATIONS_FOOTER]: someone
+     * deciding whether to grant this should be told what it can and cannot do
+     * before the system sheet appears, not after.
+     */
+    const val NOTIFICATIONS_BODY = SettingsPolicy.NOTIFICATIONS_FOOTER
+    const val NOTIFICATIONS_APPROVALS = "等待您审批的请求"
+    const val NOTIFICATIONS_FINISHED = "已完成的任务和重要更新"
+    const val NOTIFICATIONS_ENABLE = "开启通知"
+}
+
+/**
+ * The one unpaired surface: welcome and home at once. It says what the app is,
+ * how to get a pairing, offers the way in, and — the part iOS puts in a
+ * toolbar and this puts in a header — reaches Settings, so notifications can
+ * be recovered later without first entering a pairing flow.
+ *
+ * Nothing on this screen asks the system for anything: the first frame of a
+ * cold launch must not put a permission dialog or a network search on screen.
+ */
+@Composable
+fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
+    Column(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                // The app's own name, the same one the launcher and every
+                // other surface use. The computer is still OpenMausBot; this
+                // header names the phone client, so it is Luna Bot.
+                text = "Luna Bot",
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            ChromeButton(
+                icon = Icons.Filled.Settings,
+                contentDescription = "设置",
+                onClick = onOpenSettings,
+                surface = true,
+            )
+        }
+        OnboardingLayout(
+            actions = {
+                OnboardingPrimaryButton(OnboardingCopy.UNPAIRED_HOME_CONNECT, onConnect)
+            },
+        ) {
+            // The brand face itself welcomes: the same crowned Luna the paired
+            // hero shows, breathing and blinking instead of a static mark.
+            PresetBotAvatar(
+                color = "white",
+                size = 96.dp,
+                motion = AvatarMotion.BREATH,
+                drowsy = false,
+                crown = true,
+            )
+            Text(
+                text = OnboardingCopy.UNPAIRED_HOME_TITLE,
+                fontSize = 23.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.semantics { heading() },
+            )
+            Text(
+                text = OnboardingCopy.UNPAIRED_HOME_BODY,
+                fontSize = 14.sp,
+                color = secondaryTint,
+                textAlign = TextAlign.Center,
+            )
+            Spacer(Modifier.height(2.dp))
+            Benefit(
+                icon = Icons.AutoMirrored.Filled.Send,
+                title = "对话尽在掌握",
+                detail = "在手机上无缝接续电脑上的同一场对话。",
+            )
+            Benefit(
+                icon = Icons.Filled.CheckCircle,
+                title = "在智能体需要时及时响应",
+                detail = "无需回到电脑桌前即可审阅并批准请求。",
+            )
+            Benefit(
+                icon = Icons.Filled.Lock,
+                title = "原生隐私保护",
+                detail = "由您自主选择此手机连接的受信任电脑。",
+            )
+            Text(
+                text = OnboardingCopy.UNPAIRED_HOME_HINT,
+                fontSize = 12.sp,
+                color = secondaryTint,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+/**
+ * The first frame after a cold start, before the session has said whether this
+ * phone is paired.
+ *
+ * Without it the router answers "unpaired" for a stored bond that has not been
+ * read yet, so a paired phone opened on "随时准备连接" and the chat list arrived
+ * a beat later. The mark is the whole screen: there is nothing honest to add
+ * until the read finishes.
+ */
+@Composable
+fun StartingScreen() {
+    Column(
+        modifier = Modifier.fillMaxSize().background(minisCanvas),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        DexBotMark(72.dp)
+        Text(
+            text = "正在启动…",
+            fontSize = 12.sp,
+            color = secondaryTint,
+            modifier = Modifier.padding(top = 14.dp),
+        )
+    }
+}
+
+/**
+ * The only screen in this app that asks for the notification permission, and it
+ * is reached only after a first pairing has committed.
+ *
+ * Both buttons end the step: [onEnable] fires the system prompt through the one
+ * object allowed to fire it, and "Not now" declines without one. Either way the
+ * step is answered once — see the marker's lifecycle in
+ * [com.lunabot.companion.core.NotificationOnboardingPolicy].
+ */
+@Composable
+fun NotificationOnboardingScreen(
+    enabling: Boolean,
+    onEnable: () -> Unit,
+    onSkip: () -> Unit,
+) {
+    OnboardingLayout(
+        actions = {
+            OnboardingPrimaryButton(
+                label = OnboardingCopy.NOTIFICATIONS_ENABLE,
+                onClick = onEnable,
+                enabled = !enabling,
+                busy = enabling,
+            )
+            TextButton(
+                onClick = onSkip,
+                enabled = !enabling,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(OnboardingCopy.NOT_NOW, fontSize = 14.sp, color = secondaryTint)
+            }
+        },
+    ) {
+        OnboardingHero(Icons.Filled.Notifications)
+        Text(
+            text = OnboardingCopy.NOTIFICATIONS_TITLE,
+            fontSize = 23.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
+        )
+        Text(
+            text = OnboardingCopy.NOTIFICATIONS_BODY,
+            fontSize = 14.sp,
+            color = secondaryTint,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(4.dp))
+        Benefit(
+            icon = Icons.Filled.CheckCircle,
+            title = OnboardingCopy.NOTIFICATIONS_APPROVALS,
+            detail = null,
+        )
+        Benefit(
+            icon = Icons.AutoMirrored.Filled.Send,
+            title = OnboardingCopy.NOTIFICATIONS_FINISHED,
+            detail = null,
+        )
+    }
+}
+
+/** Scrolling body, actions pinned to the bottom — the same frame for all three. */
+@Composable
+private fun OnboardingLayout(
+    actions: @Composable () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            content()
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            actions()
+        }
+    }
+}
+
+/**
+ * The one primary action on an onboarding screen: the Settings card's corners
+ * and the app's ink, not Material's default pill.
+ */
+@Composable
+private fun OnboardingPrimaryButton(
+    label: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = MinisCardShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = minisInk,
+            contentColor = minisPage,
+        ),
+        modifier = Modifier.fillMaxWidth().height(50.dp),
+    ) {
+        if (busy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.dp,
+                color = minisPage,
+            )
+        } else {
+            Text(label, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+/**
+ * A tinted disc behind one glyph. iOS draws a hero mascot here; Android draws
+ * the shape Material draws, which is this.
+ */
+@Composable
+private fun OnboardingHero(icon: ImageVector) {
+    Surface(
+        color = minisInk,
+        shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
+        modifier = Modifier.size(104.dp),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = minisPage,
+                modifier = Modifier.size(44.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun Benefit(icon: ImageVector, title: String, detail: String?) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp),
+        )
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            detail?.let {
+                Text(text = it, fontSize = 13.sp, color = secondaryTint)
+            }
+        }
+    }
+}

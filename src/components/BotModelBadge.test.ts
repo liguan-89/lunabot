@@ -17,7 +17,7 @@ vi.mock("@/state/store", async (importOriginal) => {
   return { ...original, useStore: () => ({ state: { ...original.initialState, ...fixture.state }, dispatch: vi.fn() }) };
 });
 
-import { BotModelBadge, botModel } from "./BotModelBadge";
+import { botModel, botTooltip } from "./BotModelBadge";
 import { BotListItem, botRowProps, type BotRowProps } from "./Sidebar";
 
 const claude = {
@@ -47,25 +47,10 @@ describe("botModel", () => {
   });
 });
 
-describe("BotModelBadge", () => {
-  it("draws the engine mark, names only the model on hover and the engine too for screen readers", () => {
-    const markup = renderToStaticMarkup(createElement(BotModelBadge, { bot: bot("claude", "opus"), instances: [claude], avatarSize: 44 }));
-    expect(markup).toContain('data-testid="model-badge"');
-    expect(markup).toContain('aria-label="Model: Opus 4.1 (pi)"');
-    expect(markup).toContain('title="Opus 4.1"');
-    expect(markup).toContain("<svg");
-  });
-
-  it("draws nothing for an engine that is not installed", () => {
-    expect(renderToStaticMarkup(createElement(BotModelBadge, { bot: bot("gone", "opus"), instances: [claude], avatarSize: 44 }))).toBe("");
-  });
-});
-
 describe("sidebar bot row", () => {
   const botRow = (BotListItem as MemoExoticComponent<(props: BotRowProps) => ReactNode>).type;
   const render = (candidate: Bot, density: SidebarDensity) => renderToStaticMarkup(createElement(botRow,
     botRowProps({ ...initialState, ...fixture.state }, vi.fn(), candidate, { density, query: "", onMenu: vi.fn() })));
-  const badges = (markup: string) => markup.match(/<span data-testid="model-badge"[^>]*>/g) ?? [];
 
   beforeEach(() => {
     fixture.state = { bots: [bot("claude", "opus")], instances: [claude], activeView: "chat", selectedId: "other" };
@@ -76,25 +61,17 @@ describe("sidebar bot row", () => {
   });
   afterEach(() => { vi.unstubAllGlobals(); });
 
-  // Every density puts the badge on the avatar's bottom-left: the status dots own the bottom-right, and a mark at the
-  // row's end sat under the hover actions (+, new folder, …) without lining up with them.
-  it.each<[SidebarDensity, string]>([["comfortable", "absolute -bottom-0.5 -left-0.5"], ["icons", "absolute -bottom-0.5 -left-0.5"]])(
-    "shows the model once in a %s row", (density, placement) => {
-      const found = badges(render(bot("claude", "opus"), density));
-      expect(found).toHaveLength(1);
-      expect(found[0]).toContain('aria-label="Model: Opus 4.1 (pi)"');
-      expect(found[0]).toContain(placement);
-    });
-
-  // Simple mode shows the mark too (the owner's ask, 2026-10-22): a person sees which provider each bot runs on at a glance.
-  it.each<SidebarDensity>(["comfortable", "icons"])("shows the model once in a Simple mode %s row", (density) => {
-    fixture.advanced = false;
-    const found = badges(render(bot("claude", "opus"), density));
-    expect(found).toHaveLength(1);
-    expect(found[0]).toContain('aria-label="Model: Opus 4.1 (pi)"');
+  // pi is the only engine now: a badge saying which engine a bot runs cannot tell two bots apart.
+  it.each<SidebarDensity>(["comfortable", "icons"])("draws no engine badge in a %s row", (density) => {
+    expect(render(bot("claude", "opus"), density)).not.toContain('data-testid="model-badge"');
   });
 
-  it("shows no badge while the bot's engine is missing", () => {
-    expect(render(bot("gone", "opus"), "comfortable")).not.toContain('data-testid="model-badge"');
+  it("draws no engine badge in a Simple mode row", () => {
+    fixture.advanced = false;
+    expect(render(bot("claude", "opus"), "comfortable")).not.toContain('data-testid="model-badge"');
+  });
+
+  it("still names the model and the provider it runs on in the tooltip", () => {
+    expect(botTooltip(bot("claude", "opus"), [claude])).toBe("Atlas · Model: Opus 4.1 (Custom model provider)");
   });
 });

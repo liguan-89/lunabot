@@ -31,7 +31,7 @@ function signed(method: "GET" | "POST", path: string, body = "") {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-team-admin-"));
-  dataDir = join(home, ".openmausbot");
+  dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

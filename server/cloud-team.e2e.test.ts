@@ -43,7 +43,7 @@ afterAll(async () => {
   await broker?.close();
 });
 
-const dumpPath = () => piDumpPath(join(team.home, ".openmausbot"));
+const dumpPath = () => piDumpPath(join(team.home, ".lunabot"));
 /** The last turn this team's pi processes were given whose prompt holds `text`, with the launch it ran on: what the
  * retired Claude fixture's per-turn dump said (its instructions, the turn's words, its mount and its folder). */
 const turnIn = (text: string, since = 0) => {
@@ -62,7 +62,7 @@ const scriptToolCalls = (calls: unknown[] | null) => {
   const file = join(team.home, "tool-calls.json");
   if (calls) writeFileSync(file, JSON.stringify(calls)); else rmSync(file, { force: true });
 };
-const ws = (id: string, ...rest: string[]) => join(team.home, ".openmausbot", "workspaces", id, ...rest);
+const ws = (id: string, ...rest: string[]) => join(team.home, ".lunabot", "workspaces", id, ...rest);
 const layerOf = (audience: string) => `${bot.id}--${audience}`;
 const messages = async (token: string, threadId: string) => team.as(token, "GET", `/api/threads/${threadId}/messages?limit=200`);
 const idle = async (token: string) => ((await team.as(token, "GET", "/api/bots")).body.bots as Array<{ id: string; activity?: string; busy?: boolean }>)
@@ -336,7 +336,7 @@ it("a member cannot save a login from a sign-in card: the team's refusal arrives
 }, hostTimeout(120_000));
 
 it("a member's private chat keeps its own folder when the team's bot is given a working folder; the Owner's own thread moves there", async () => {
-  const ownFolder = (threadId: string) => realpathSync(join(team.home, ".openmausbot", "task-workspaces", bot.id, threadId));
+  const ownFolder = (threadId: string) => realpathSync(join(team.home, ".lunabot", "task-workspaces", bot.id, threadId));
   const cwdOf = async (token: string, threadId: string, text: string) => realpathSync((await turn(token, threadId, text) as unknown as { cwd: string }).cwd);
   const hers = await newThread(ada, "Ada's own folder");
   const olives = await newThread(owner, "Olive's own folder");

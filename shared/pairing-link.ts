@@ -1,7 +1,7 @@
 // The one `lunabot://pair` link builder, read by the Android and iOS
 // scanners (`PairingInvite.parse`). Every value is written with
 // encodeURIComponent, so a space is `%20`. The earlier `dexbot://` and
-// `openmausbot://` spellings stay accepted by those scanners.
+// `lunabot://` spellings stay accepted by those scanners.
 
 export type CompanionEndpointKind = "hosted" | "tailnet" | "lan" | "bonjour";
 
@@ -19,7 +19,8 @@ export interface PairingE2EDescriptor {
 }
 
 const B64U_FIELD = /^[A-Za-z0-9_-]+$/;
-const RELAY_HOST = /^(?:relay[1-9][0-9]?|cloud)\.dexai\.vip$/;
+// The same list companion/src/e2e/descriptor.ts parses; a host this builder writes must survive that parse.
+const RELAY_HOST = /^(?:relay[1-9][0-9]?\.(?:lunabot|openmausbot)\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$/;
 
 /** The QR's `e2e` value, or null for anything a phone would refuse: then the link goes out without it, as from a
  * computer without the encrypted connection. A QR never says "local": a restriction is set per phone, later. */

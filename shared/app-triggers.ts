@@ -148,8 +148,6 @@ export interface AppTriggerRequestCardData {
 
 export const APP_FILTER_MAX = 200;
 export const GMAIL_APP = "gmail";
-export const GMAIL_NEW_MESSAGE = "GMAIL_NEW_GMAIL_MESSAGE";
-
 const quoted = (value: string) => {
   const clean = value.replace(/["\\]/g, " ").replace(/\s+/g, " ").trim();
   return /\s/.test(clean) ? `"${clean}"` : clean;

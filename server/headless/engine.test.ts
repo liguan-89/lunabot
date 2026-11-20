@@ -41,7 +41,7 @@ function workspace(seed: { configured?: boolean; url?: string; available?: strin
     const out: string[] = [];
     const err: string[] = [];
     const io: HeadlessIo = { out: (text) => out.push(text), err: (text) => err.push(text), readStdin: async () => "" };
-    const code = await runHeadless(argv, { io, env: { OPENMAUSBOT_URL: "http://127.0.0.1:19997", ...env }, request: request as any, callTool: callTool as any });
+    const code = await runHeadless(argv, { io, env: { LUNABOT_URL: "http://127.0.0.1:19997", ...env }, request: request as any, callTool: callTool as any });
     return { code, out: out.join("\n"), err: err.join("\n") };
   };
   return { config, writes, run };
@@ -87,7 +87,7 @@ describe("engine set", () => {
   });
 
   it("waits for an install that takes longer than an ordinary request may, as a fresh sandbox's npm install does", async () => {
-    // The server answers the install only once npm is done, which outlasts OPENMAUSBOT_MCP_TIMEOUT_MS (1 s here).
+    // The server answers the install only once npm is done, which outlasts LUNABOT_MCP_TIMEOUT_MS (1 s here).
     const asked: string[] = [];
     let state = "unavailable";
     const server = createServer((req, res) => {
@@ -104,14 +104,14 @@ describe("engine set", () => {
       res.end();
     });
     await new Promise<void>((ready) => server.listen(0, "127.0.0.1", ready));
-    const previous = process.env.OPENMAUSBOT_MCP_TIMEOUT_MS;
-    process.env.OPENMAUSBOT_MCP_TIMEOUT_MS = "1000";
+    const previous = process.env.LUNABOT_MCP_TIMEOUT_MS;
+    process.env.LUNABOT_MCP_TIMEOUT_MS = "1000";
     try {
       const out: string[] = [];
       const err: string[] = [];
       const io: HeadlessIo = { out: (text) => out.push(text), err: (text) => err.push(text), readStdin: async () => "" };
       const code = await runHeadless(["engine", "set", "openai-compatible", "--key-env", "ENGINE_KEY", "--base-url", URL, "--rotate", "--install", "--json"],
-        { io, env: { OPENMAUSBOT_URL: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, ENGINE_KEY: KEY } });
+        { io, env: { LUNABOT_URL: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, ENGINE_KEY: KEY } });
       expect(code, out.join("\n")).toBe(0);
       const result = JSON.parse(out.join("\n"));
       expect(result).toMatchObject({ ok: true, installed: "now", state: "available" });
@@ -119,8 +119,8 @@ describe("engine set", () => {
       expect(err.map((line) => JSON.parse(line))).toEqual([{ event: "installing", engine: "openaiCompat" }]);
       expect(asked).toContain("POST /api/instances/openaiCompat/install");
     } finally {
-      if (previous === undefined) delete process.env.OPENMAUSBOT_MCP_TIMEOUT_MS;
-      else process.env.OPENMAUSBOT_MCP_TIMEOUT_MS = previous;
+      if (previous === undefined) delete process.env.LUNABOT_MCP_TIMEOUT_MS;
+      else process.env.LUNABOT_MCP_TIMEOUT_MS = previous;
       server.closeAllConnections();
       await new Promise((done) => server.close(done));
     }

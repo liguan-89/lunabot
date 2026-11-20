@@ -60,8 +60,8 @@ posixOnly("a Feishu text message reaches the bot and the reply posts back", () =
     const port = workerPort(19200, 5_000);
     const base = `http://127.0.0.1:${port}`;
     const home = mkdtempSync(join(tmpdir(), "omb-feishu-"));
-    mkdirSync(join(home, ".openmausbot"), { recursive: true });
-    writeFileSync(join(home, ".openmausbot", "config.json"), JSON.stringify({
+    mkdirSync(join(home, ".lunabot"), { recursive: true });
+    writeFileSync(join(home, ".lunabot", "config.json"), JSON.stringify({
       features: { smartSetupChoices: false },
       instances: { pi: { driver: "piAgent", config: { cli: fake("fake-pi-cli.ts"), fullAuto: true } } },
     }));
@@ -127,7 +127,7 @@ posixOnly("a Feishu text message reaches the bot and the reply posts back", () =
       expect(JSON.parse(sentToChat[0]!.content!) as { text?: string }).toMatchObject({ text: expect.stringContaining("Hello from pi") });
 
       // The chat maps to a task so a later message in the same chat continues it. The seeded
-      // .openmausbot dir is renamed to .dexbot at startup (legacy data-dir migration).
+      // .lunabot dir is renamed to .dexbot at startup (legacy data-dir migration).
       await waitFor(() => existsSync(join(home, ".lunabot", "feishu-chats.json")), "the chat mapping to persist");
       const mapping = JSON.parse(readFileSync(join(home, ".lunabot", "feishu-chats.json"), "utf8")) as { chats: Record<string, string> };
       expect(Object.keys(mapping.chats)).toEqual(["oc_1"]);

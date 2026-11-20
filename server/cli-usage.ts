@@ -58,7 +58,9 @@ serve   starts the server without prompts; in a terminal it prints a pairing
 pair    a new pairing code for the running server, with its link and QR
         (--phone: chat and approvals only; --ttl keeps it open up to 24h,
         still single use)
-devices lists paired devices; "devices revoke ID" signs one out
+devices lists paired devices; "devices revoke ID" signs one out;
+        "devices routes ID local" keeps one on this machine's own networks
+        (Wi-Fi and tailnet) and off Luna Bot Relay
 status  the running server, the address others reach it at, and whether
         that address answers as this server
 login   signs this machine in to a Luna Bot account (an emailed code)

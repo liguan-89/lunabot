@@ -7,9 +7,4 @@ export const HOSTED_CONTRACT_METADATA = Object.freeze({
   legacyPolicy: "legacy-v1",
 });
 export const HOSTED_CONTRACT_MISMATCH = "HOSTED_CONTRACT_MISMATCH";
-export const HOSTED_CONTRACT_ERROR = "Admin and workspace runtime versions are incompatible. Ask your administrator to update the deployment.";
-
 /** legacy-v1 accepts an omitted version only for the v1 payload; never infer compatibility from app versions. */
-export function hostedContractCompatible(version: unknown): boolean {
-  return version === undefined ? HOSTED_CONTRACT_VERSION === 1 : version === HOSTED_CONTRACT_VERSION;
-}

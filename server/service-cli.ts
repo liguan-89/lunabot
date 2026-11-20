@@ -113,7 +113,7 @@ function pinnedCopy(input: ServiceInstallInput, io: ServiceIo): string | null {
   const command = `npm install --prefix ${prefix} lunabot@${version ?? "latest"}`;
   io.log(`this run comes from npx's cache, which npm prunes: installing lunabot ${version ?? ""} into ${prefix} for the service`.replace("  ", " "));
   const installed = (input.installCopy ?? installWithNpm)(prefix, version ?? "latest");
-  const script = join(prefix, "node_modules", "lunabot", "dist-server", "openmausbot.js");
+  const script = join(prefix, "node_modules", "lunabot", "dist-server", "lunabot.js");
   if (installed && (input.exists ?? existsSync)(script)) return script;
   io.error(`could not install that copy. Run this, then the same service install command again from it:\n  ${command}\n  node ${script} service install …`);
   return null;

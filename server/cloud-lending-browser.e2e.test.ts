@@ -77,7 +77,7 @@ async function until(check: () => unknown | Promise<unknown>, what: string, time
 }
 
 async function proxyFor(start: () => Promise<void>) {
-  const dump = piDumpPath(join(home, ".openmausbot"));
+  const dump = piDumpPath(join(home, ".lunabot"));
   const before = piTurns(dump).length;
   await start();
   let agents: { command: string; args: string[]; env: Record<string, string> } | undefined;
@@ -136,7 +136,7 @@ readline.createInterface({ input: process.stdin }).on("line", async line => {
 
 beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-lent-browser-"));
-  const dataDir = join(home, ".openmausbot");
+  const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

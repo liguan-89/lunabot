@@ -4616,7 +4616,6 @@
   "botAccess.tools.exclude": "Loại trừ (mỗi dòng một mục)",
   "botAccess.tools.emptyHint": "Danh sách Cho phép trống sẽ không chọn công cụ nào. Hãy lưu để áp dụng.",
   "botAccess.tools.syntax": "Sử dụng tên gốc: native:NAME hoặc mcp:SERVER:NAME. native:* và mcp:SERVER:* bao gồm tất cả công cụ trong nhóm đó. Cài đặt loại trừ sẽ được ưu tiên.",
-  "botAccess.tools.grok": "Lựa chọn native của Grok CLI yêu cầu phiên bản 1.0.41. Đối với các công cụ MCP, hãy cho phép cả native:search_tool và native:use_tool, hoặc sử dụng Pi.",
   "botAccess.tools.nativeUnsupported": "AI này không thể giới hạn các công cụ native. Hãy giữ native:* trong danh sách Cho phép mà không có loại trừ native nào, hoặc chọn một AI được hỗ trợ. Lựa chọn này sẽ dừng trước khi gửi prompt.",
   "botAccess.tools.unsupported": "Lựa chọn công cụ không được AI này hỗ trợ. Lựa chọn này sẽ dừng trước khi gửi prompt. Hãy chọn một AI được hỗ trợ.",
   "botAccess.tools.busy": "Hãy đợi cho đến khi bot này hoàn thành tất cả nhiệm vụ đang hoạt động trước khi thay đổi lựa chọn công cụ.",

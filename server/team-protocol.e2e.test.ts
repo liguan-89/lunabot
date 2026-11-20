@@ -31,7 +31,7 @@ let olive = "", mira = "", ben = "";
 let support: Bot, sales: Bot;
 
 const planPath = () => join(team.home, "plan.json");
-const dumpPath = () => piDumpPath(join(team.home, ".openmausbot"));
+const dumpPath = () => piDumpPath(join(team.home, ".lunabot"));
 const gate = () => join(team.home, "hold.gate");
 const turns = (): Turn[] => existsSync(`${planPath()}.evidence.jsonl`)
   ? readFileSync(`${planPath()}.evidence.jsonl`, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as Turn) : [];

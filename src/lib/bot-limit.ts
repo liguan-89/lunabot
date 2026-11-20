@@ -26,10 +26,6 @@ export const closeBotLimit = () => setOpen(null);
 
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 
-export function useBotLimitOpen(): boolean {
-  return useSyncExternalStore(subscribe, botLimitShown);
-}
-
 export function useBotLimitReason(): BotLimitReason | null {
   return useSyncExternalStore(subscribe, botLimitReason);
 }

@@ -43,7 +43,7 @@ beforeEach(() => {
   host = document.createElement("div");
   document.body.append(host);
   fixture.windowChrome = "mac-inset";
-  fixture.windowFrame = undefined;
+  fixture.windowFrame = true;
   fixture.rail = { available: true, hidden: false };
   fixture.update = null;
   fixture.config = {};
@@ -74,7 +74,7 @@ describe("the window frame's top bar", () => {
     expect(bar()!.hasAttribute("data-window-drag"), "the drag region every header marks (window-drag-regions.test.ts)").toBe(true);
     expect(host.querySelector("[data-frame-bar-start]")!.className).toContain("pl-20");
     const buttons = [...bar()!.querySelectorAll("button")].map((button) => button.getAttribute("aria-label"));
-    expect(buttons, "the rail's button, then the app's settings; no update while there is none").toEqual(["Hide your computers", "App settings"]);
+    expect(buttons, "only the rail's button when no update or bell is shown").toEqual(["Hide your computers"]);
     expect(bar()!.querySelector("[data-rail-toggle]")!.className).toContain("size-[22px]");
   });
 
@@ -158,13 +158,7 @@ describe("the window frame's top bar", () => {
     expect(fixture.frameDrawn).toHaveBeenLastCalledWith(true);
   });
 
-  it("opens the app's settings", async () => {
-    await mount(createElement(WindowFrameBar));
-    await act(async () => bar()!.querySelector<HTMLButtonElement>("[data-frame-settings]")!.click());
-    expect(fixture.dispatch).toHaveBeenCalledWith({ type: "toggleAppSettings", open: true });
-  });
-
-  it("holds the Notifications bell beside Settings, with the unread count, and it opens and closes the tray", async () => {
+  it("holds the Notifications bell at the right end, with the unread count, and it opens and closes the tray", async () => {
     fixture.notifications = [{ read: false }, { read: true }, { read: false }];
     await mount(createElement(WindowFrameBar, { notifications: true }));
     const bell = () => bar()!.querySelector<HTMLButtonElement>("[data-notification-bell]")!;
@@ -173,7 +167,7 @@ describe("the window frame's top bar", () => {
     expect(bell().className.split(" ")).toEqual(expect.arrayContaining(["size-[22px]", "relative"]));
     expect(bell().getAttribute("aria-pressed")).toBe("false");
     const order = [...bar()!.querySelectorAll("button")].map((button) => button.hasAttribute("data-notification-bell") ? "bell" : button.getAttribute("aria-label"));
-    expect(order, "right before Settings, at the right end").toEqual(["Hide your computers", "bell", "App settings"]);
+    expect(order, "at the right end").toEqual(["Hide your computers", "bell"]);
     await act(async () => bell().click());
     expect(fixture.dispatch).toHaveBeenCalledWith({ type: "toggleNotifications" });
     fixture.notificationsOpen = true;
@@ -197,7 +191,7 @@ describe("the window frame's top bar", () => {
     expect(arrow().querySelector("svg")!.getAttribute("class"), "it pulses while it downloads").toContain("animate-pulse");
     expect(host.querySelector("aside")!.innerHTML, "one update button in a framed window").toBe("");
     const order = [...bar()!.querySelectorAll("button")].map((button) => button.hasAttribute("data-update-indicator") ? "update" : button.getAttribute("aria-label"));
-    expect(order, "before Settings, at the right end").toEqual(["Hide your computers", "update", "App settings"]);
+    expect(order, "at the right end").toEqual(["Hide your computers", "update"]);
     fixture.update = { status: "downloaded", version: "0.1.136" };
     await act(async () => root!.render(createElement(WindowFrameBar)));
     expect(arrow().getAttribute("aria-label")).toContain("0.1.136");

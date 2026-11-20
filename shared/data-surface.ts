@@ -3,8 +3,6 @@
 
 /** The five tools a bot gets, in the order the catalog lists them. */
 export const DATA_TOOL_NAMES = ["data_load", "data_describe", "data_sql", "data_show", "data_export"] as const;
-export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
-
 /** Bounds. Every result is capped by rows AND bytes; the gate's own trimming
  * is the backstop, never the plan. */
 export const DATA_LIMITS = {
@@ -251,4 +249,3 @@ export const DATA_ROUTES = {
 } as const;
 
 /** The tab's id in the Computer panel and the storage key suffix. */
-export const DATA_PANEL_VIEW = "data" as const;

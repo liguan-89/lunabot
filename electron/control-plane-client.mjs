@@ -445,6 +445,41 @@ export function createControlPlaneClient({
       return payload;
     },
 
+    /** The phones waiting on this computer to approve a connection, as `{id, deviceName, createdAt, expiresAt}[]`. */
+    async pairRequests(installationCredential) {
+      if (typeof installationCredential !== "string" || !INSTALLATION_CREDENTIAL.test(installationCredential)) {
+        throw new ControlPlaneError("signed_out", 401);
+      }
+      const { payload } = await request("/v1/installations/self/pair-requests", { token: installationCredential });
+      const rows = Array.isArray(payload.requests) ? payload.requests : [];
+      return rows.flatMap((row) => {
+        const value = plainObject(row);
+        const id = stringValue(value?.id);
+        const deviceName = stringValue(value?.deviceName);
+        if (!id || !deviceName) return [];
+        return [{
+          id,
+          deviceName,
+          createdAt: Number(value?.createdAt) || 0,
+          expiresAt: Number(value?.expiresAt) || 0,
+        }];
+      });
+    },
+
+    /** Approve with the pairing link this computer minted, or decline. */
+    async answerPairRequest(installationCredential, requestId, { decision, link = null }) {
+      if (typeof installationCredential !== "string" || !INSTALLATION_CREDENTIAL.test(installationCredential)) {
+        throw new ControlPlaneError("signed_out", 401);
+      }
+      if (decision !== "allow" && decision !== "deny") throw new ControlPlaneError("invalid_request");
+      const { payload } = await request(`/v1/installations/self/pair-requests/${encodeURIComponent(requestId)}`, {
+        method: "POST",
+        token: installationCredential,
+        body: decision === "allow" ? { decision, link } : { decision },
+      });
+      return stringValue(payload.status) ?? (decision === "allow" ? "allowed" : "denied");
+    },
+
     /** Never returns or requests a connector token. */
     async getEndpoint(installationCredential) {
       if (

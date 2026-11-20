@@ -3,6 +3,7 @@
 import { generateKeyPairSync, randomBytes } from "node:crypto";
 import { mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { createServer, request } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -13,6 +14,7 @@ import { dial } from "../companion/src/e2e/phone.ts";
 import { SessionClosed, type E2ESession } from "../companion/src/e2e/session.ts";
 import { startFakeRelay, type FakeRelay } from "../companion/test/e2e/fake-relay.ts";
 import { http, json, waitFor } from "../companion/test/e2e/rig.ts";
+import { createUpgrades } from "./routes/upgrades.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 import { MAX_RELAY_PHONES, MAX_SESSIONS_PER_PHONE, PHONE_RELAY_KEY_FILE, PHONE_RELAY_PHONES_FILE, startPhoneRelay, tunnelHolder, type PhoneRelay, type PhoneRelayOptions } from "./phone-relay.ts";
 import { requestSource, resolveRequestAuth } from "./request-auth.ts";
@@ -43,7 +45,7 @@ async function body(req: IncomingMessage): Promise<Record<string, string>> {
 }
 
 /** The parts of the server's handler a phone meets: `/api/pair` as the server answers it, and the real request gate. */
-function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null) {
+function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null, upgrades?: ReturnType<typeof createUpgrades>) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     const url = new URL(req.url ?? "/", "http://server");
     const send = (status: number, payload: unknown) => res.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(payload));
@@ -61,6 +63,15 @@ function serverHandler(sessions: SessionRegistry, relay: () => PhoneRelay | null
       res.writeHead(200, { "content-type": "text/event-stream" });
       const tick = setInterval(() => res.write("data: tick\n\n"), 100);
       res.once("close", () => clearInterval(tick));
+      return;
+    }
+    if (url.pathname === "/api/test-upgrade") {
+      // A route that owns a WebSocket: the same gate a phone's browser view meets, answered by hand here.
+      const pending = upgrades?.pending(req);
+      if (!pending) return send(426, { error: "WebSocket upgrade required" });
+      pending.release();
+      res.detachSocket(pending.socket);
+      pending.socket.write("HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\nupgraded");
       return;
     }
     const gate = resolveRequestAuth(req, { sessions, cookieName: "omb_session", streamPath: "/api/events", url });
@@ -90,18 +101,26 @@ async function startServer(input: Partial<PhoneRelayOptions> & { dir?: string; r
   const hostId = randomBytes(16);
   const logs: string[] = [];
   let phoneRelay: PhoneRelay | null = null;
+  const upgrades = createUpgrades();
+  upgrades.route((path) => path === "/api/test-upgrade");
+  // The gate answers through the handler `attach` registers; a server that never listens is enough here, because the
+  // relay hands it the stream itself rather than an accepted socket.
+  upgrades.attach(createServer(), (req, res) => serverHandler(sessions, () => phoneRelay, upgrades)(req, res));
   phoneRelay = startPhoneRelay({
-    env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url },
     dataDir: dir,
     sessions,
-    handle: serverHandler(sessions, () => phoneRelay),
+    handle: serverHandler(sessions, () => phoneRelay, upgrades),
+    upgrades,
     serverName: () => "VPS",
     publicOrigin: () => null,
+    // A fixed interface set: the endpoint list must not depend on this machine's network.
+    addresses: () => ({ lan: ["192.168.31.175"], tailscale: ["100.101.102.103"] }),
     version: "0.1.152",
     refusal: null,
     fetchGrant: async () => grantFor(hostId),
     log: (line) => logs.push(line),
     ...overrides,
+    env: { OMB_PHONE_RELAY: "1", OMB_PHONE_RELAY_URL: relay.url, ...overrides.env },
   });
   if (!phoneRelay) throw new Error(`the relay did not start: ${logs.join("; ")}`);
   const started = phoneRelay;
@@ -127,6 +146,34 @@ function viaRelay(server: Server, k: Buffer, token: string): Promise<E2ESession<
 }
 
 const connected = (server: Server) => waitFor(() => server.phoneRelay.status().relay === "connected", 5_000);
+
+/** One WebSocket upgrade on a stream of the session, answered with its HTTP status (101 when the route took it). */
+function upgradeOn(session: E2ESession<never>, path: string): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const req = request({
+      method: "GET",
+      path,
+      host: "companion",
+      headers: {
+        connection: "Upgrade",
+        upgrade: "websocket",
+        "sec-websocket-key": "dGhlIHNhbXBsZSBub25jZQ==",
+        "sec-websocket-version": "13",
+      },
+      createConnection: () => session.openStream(),
+    });
+    req.on("upgrade", (res, socket) => {
+      socket.destroy();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on("response", (res) => {
+      res.resume();
+      resolve(res.statusCode ?? 0);
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
 
 async function pairPhone(server: Server): Promise<{ token: string; id: string; k: Buffer; session: E2ESession<never> }> {
   const opened = server.sessions.openPairing({ scopes: ["client"] });
@@ -182,12 +229,13 @@ describe("phones through Luna Bot Relay on a server", () => {
     // The same session now speaks for the new phone, with its own session.
     expect(json(await http(session, "GET", "/api/auth/session", { token: reply.token }))).toEqual({ kind: "session", id: reply.device.id, source: `relay-${reply.device.id}`, host: "phone-relay.invalid", via: "bearer" });
     // Whatever the phone writes, a relayed request is never this machine's.
-    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-openmausbot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
+    const spoofed = await http(session, "GET", "/api/auth/session", { headers: { host: "127.0.0.1:8799", "x-lunabot-cli-owner": "x", "x-forwarded-for": "127.0.0.1", cookie: "omb_session=x" } });
     expect(spoofed.status).toBe(403);
     expect(json(spoofed).error).toMatch(/proxy/);
     // A token inside the session must be the one whose key opened it.
     const other = server.sessions.issue({ label: "Laptop", scopes: ["admin", "client"] });
     expect(await http(session, "GET", "/api/auth/session", { token: other.token }).then((r) => [r.status, json(r).error])).toEqual([401, "this connection belongs to another device"]);
+    // No public origin and no `OMB_LAN`: the relay is the only way in, and the list says so.
     expect(json(await http(session, "GET", "/api/companion/endpoints", { token: reply.token }))).toEqual({ serverName: "VPS", endpoints: [], version: SERVER_VERSION, e2e: descriptor });
     session.shutdown();
 
@@ -201,6 +249,36 @@ describe("phones through Luna Bot Relay on a server", () => {
       const outcome = await viaRelay(server, k, opened.credential).then((check) => (check.shutdown(), null), (error: unknown) => error);
       return outcome instanceof SessionClosed && outcome.code === 4404 ? outcome : null;
     }, 6_000)).toEqual(new SessionClosed(4404));
+  });
+
+  it("stops admitting a phone the owner restricts to its own networks, and closes its relay session", async () => {
+    const server = await startServer();
+    await connected(server);
+    const phone = await pairPhone(server);
+    const session = await waitFor(() => viaRelay(server, phone.k, phone.token).catch(() => null), 6_000);
+    expect(json(await http(session, "GET", "/api/health")).app).toBe("openmausbot");
+
+    // The owner narrows this device: the descriptor it would be given says so, the relay stops admitting it, and the
+    // session it holds over the relay is closed. On a relay-only server that leaves it with no way in until the owner
+    // widens it again — which is what the setting means.
+    expect(server.sessions.setRoutes(phone.id, "local")).toBe(true);
+    expect(server.phoneRelay.endpoints(phone.id).e2e).toMatchObject({ v: 1, routes: "local" });
+    server.phoneRelay.routesChanged(phone.id);
+    await waitFor(() => !server.relay.admitted(b64u(server.hostId)).has(admissionHash(admission(credentialHash(phone.token), server.hostId))), 6_000);
+    await expect(waitFor(async () => {
+      const outcome = await http(session, "GET", "/api/health").then(() => null, (error: unknown) => error);
+      return outcome ?? null;
+    }, 6_000)).resolves.toBeTruthy();
+    // A new relay session for this device is refused outright.
+    await expect(viaRelay(server, phone.k, phone.token)).rejects.toEqual(new SessionClosed(4404));
+
+    // Widened again, it is admitted and the descriptor stops saying `local`.
+    server.sessions.setRoutes(phone.id, "any");
+    server.phoneRelay.routesChanged(phone.id);
+    await waitFor(() => server.relay.admitted(b64u(server.hostId)).has(admissionHash(admission(credentialHash(phone.token), server.hostId))), 6_000);
+    const again = await waitFor(() => viaRelay(server, phone.k, phone.token).catch(() => null), 6_000);
+    expect(json(await http(again, "GET", "/api/companion/endpoints", { token: phone.token })).e2e).not.toHaveProperty("routes");
+    again.shutdown();
   });
 
   it("tells a removed phone so inside the encryption, then the relay admits it no more", async () => {
@@ -291,7 +369,32 @@ describe("phones through Luna Bot Relay on a server", () => {
     const link = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "https://maus.example.com")!);
     expect(link.searchParams.get("address")).toBe("maus.example.com:443");
     expect(JSON.parse(fromB64u(link.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "https://maus.example.com", kind: "hosted", priority: 0 }]);
+    // Loopback is this machine only, so it is no way in for a phone.
     expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://localhost:8080")!).searchParams.get("address")).toBe("relay-only.invalid:443");
+    expect(new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://127.0.0.1:8799")!).searchParams.get("address")).toBe("relay-only.invalid:443");
+    // `OMB_LAN=1` publishes a private LAN address, and the server answers `/v1/e2e` there: a phone on the same network
+    // pairs and connects over Wi-Fi with no relay at all.
+    const lan = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "http://192.168.31.175:8799")!);
+    expect(lan.searchParams.get("address")).toBe("192.168.31.175:8799");
+    expect(JSON.parse(fromB64u(lan.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "http://192.168.31.175:8799", kind: "lan", priority: 200 }]);
+    // A tailnet name reached through `tailscale serve` is HTTPS, and the QR builder accepts `https:` only for a hosted
+    // route; both are protected to a phone, so it travels as one.
+    const tailnet = new URL(server.phoneRelay.invite(server.sessions.openPairing().credential, "VPS", "https://vps.tail1234.ts.net")!);
+    expect(JSON.parse(fromB64u(tailnet.searchParams.get("endpoints")!)!.toString("utf8"))).toEqual([{ url: "https://vps.tail1234.ts.net", kind: "hosted", priority: 0 }]);
+  });
+
+  it("answers the endpoint list a paired phone re-reads, so a new LAN address needs no new QR", async () => {
+    // `--lan` publishes the machine's private address; the list the phone re-reads carries it, and the tailnet one.
+    const server = await startServer({ env: { OMB_PHONE_RELAY: "1", OMB_LAN: "1" }, port: 8799 });
+    await connected(server);
+    const list = server.phoneRelay.endpoints();
+    expect(list.serverName).toBe("VPS");
+    expect(list.endpoints).toEqual([
+      { url: "http://100.101.102.103:8799", kind: "tailnet", priority: 100 },
+      { url: "http://192.168.31.175:8799", kind: "lan", priority: 200 },
+    ]);
+    expect(list.e2e).toMatchObject({ v: 1, h: b64u(server.hostId), r: [NODE] });
+    expect(list.version).toBe(SERVER_VERSION);
   });
 
   it("never asks for a relay token on a machine that holds or needs a tunnel", async () => {
@@ -451,5 +554,29 @@ describe("phones through Luna Bot Relay on a server", () => {
     await waitFor(() => asked >= 2, 6_000);
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(holding.phoneRelay.status()).toMatchObject({ grant: "ok", relay: "connecting" });
+  });
+
+  it("hands a phone's WebSocket to the route that owns it, and refuses one a pairing window opens", async () => {
+    const server = await startServer();
+    await connected(server);
+    const opened = server.sessions.openPairing({ scopes: ["client"] });
+    const link = server.phoneRelay.invite(opened.credential, "VPS", null)!;
+    const k = fromB64u(descriptorOf(link).k)!;
+
+    // Before pairing, a window may pair and nothing else — an upgrade included.
+    const window = await waitFor(() => viaRelay(server, k, opened.credential).catch(() => null), 6_000);
+    expect(await upgradeOn(window, "/api/test-upgrade")).toBe(501);
+
+    const paired = await http(window, "POST", "/api/pair", { body: JSON.stringify({ credential: opened.credential, deviceName: "Pixel" }), headers: { "content-type": "application/json" } });
+    expect(paired.status).toBe(200);
+    const token = (json(paired) as { token: string }).token;
+    window.shutdown();
+
+    const phone = await waitFor(() => viaRelay(server, k, token).catch(() => null), 6_000);
+    // The route answers it: the relay no longer writes a blanket 501 over a path the server serves.
+    expect(await upgradeOn(phone, "/api/test-upgrade")).toBe(101);
+    // A path no route owns is still refused, and so is an upgrade the server has no gate for.
+    expect(await upgradeOn(phone, "/api/nothing-owns-this")).toBe(404);
+    phone.shutdown();
   });
 });

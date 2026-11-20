@@ -90,8 +90,6 @@ const record = (value: unknown): Record<string, unknown> | undefined =>
 const flat = (value: unknown): string => (typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "");
 const seconds = (ms: number): number => Math.floor(ms / 1000);
 const errorText = (error: unknown): string => (error instanceof Error ? error.message : String(error));
-export const isAddress = (value: string): boolean => ADDRESS.test(value);
-
 /** The tool itself answered that it failed, as opposed to the relay or Composio failing around it. */
 class ToolAnswerError extends Error {}
 

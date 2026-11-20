@@ -12,7 +12,7 @@ import { DefaultBotSidebarRow } from "./DefaultBotControls";
 import { TalkShortcutRow } from "./TalkShortcutRow";
 import { AttachmentStorageSettings } from "./AttachmentStorageSettings";
 import { DiagnosticsRow } from "./DiagnosticsRow";
-import { EnginesSettings } from "./EnginesSettings";
+import { ModelManagement } from "./ModelManagement";
 import { LocalComputerSection } from "./LocalComputerSection";
 import { PeopleSection } from "./PeopleSection";
 import { ActivitySection } from "./ActivitySection";
@@ -177,7 +177,7 @@ export function SimpleAiPage({ has, disclose, connections, decisionModel, imageG
       {has("engines") && (
         <div data-settings-block="engines" className="flex scroll-mt-4 flex-col gap-7">
           <AdminOnly>
-            <EnginesSettings simple more={disclose("ai-more")} />
+            <ModelManagement />
             <SettingsRows><DefaultBotSettings simple /></SettingsRows>
           </AdminOnly>
         </div>

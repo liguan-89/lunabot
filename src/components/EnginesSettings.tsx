@@ -11,7 +11,8 @@ import { AppCopyNotice } from "./EngineAppCopy";
 import { forgetAppCopySwitches } from "@/state/engine-install";
 import { Select } from "./Select";
 import { SettingsDisclosureRow, SettingsGroup, SettingsRows } from "./SettingsPrimitives";
-import { InstanceProviderMark } from "./ProviderIcons";
+import { hasProviderMark, InstanceProviderMark } from "./ProviderIcons";
+import { engineDisplayName } from "@/lib/engine-name";
 
 interface ProbeResult {
   ok: boolean;
@@ -99,7 +100,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
             setSelected(e.target.value);
             setManual("");
           }}
-          aria-label={t("engines.detectedAria", { name: instance.displayName })}
+          aria-label={t("engines.detectedAria", { name: engineDisplayName(instance) })}
           disabled={busy}
         >
           <option value="">{t("engines.selectBinary")}</option>
@@ -119,7 +120,7 @@ function CustomPicker({ instance, cliDefault, onClose, onSaved }: {
           save();
         }}
         placeholder={candidates?.length ? t("engines.manualPath") : "/absolute/path/to/cli"}
-        aria-label={t("engines.customAria", { name: instance.displayName })}
+        aria-label={t("engines.customAria", { name: engineDisplayName(instance) })}
         spellCheck={false}
         disabled={busy}
         className="w-full rounded-lg border border-hairline/40 bg-inset px-3 py-2 font-mono text-[12px] text-ink placeholder:font-sans placeholder:text-ink-secondary focus:outline-none disabled:opacity-50"
@@ -346,9 +347,9 @@ function SimpleEngines({ rows, isReady, renderEngine, more }: {
               <div key={instance.instanceId} data-simple-engine={instance.instanceId} className="group">
                 <div className="flex min-h-11 flex-wrap items-center gap-x-5 gap-y-2 px-4 py-2.5">
                   <span className="flex min-w-[min(100%,15rem)] flex-1 items-center gap-3">
-                    <InstanceProviderMark instance={instance} size={14} subtle />
+                    {hasProviderMark(instance) && <InstanceProviderMark instance={instance} size={14} subtle />}
                     <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-[14px] leading-5 text-ink">{instance.displayName}</span>
+                      <span className="truncate text-[14px] leading-5 text-ink">{engineDisplayName(instance)}</span>
                       {status && <span className="truncate text-[13px] leading-[18px] text-ink-secondary">{status}</span>}
                     </span>
                   </span>
@@ -366,7 +367,7 @@ function SimpleEngines({ rows, isReady, renderEngine, more }: {
         <SettingsDisclosureRow
           title={t("settings.simple.ai.more", { count: String(others.length) })}
           trailing={<span aria-hidden="true" className="flex items-center -space-x-1">
-            {others.slice(0, 4).map((instance) => (
+            {others.filter(hasProviderMark).slice(0, 4).map((instance) => (
               <span key={instance.instanceId} className="flex size-[18px] items-center justify-center rounded-full bg-menu"><InstanceProviderMark instance={instance} size={14} subtle /></span>
             ))}
           </span>}
@@ -409,7 +410,7 @@ export function HiddenEngines() {
       <div className="mt-2 flex flex-col gap-1.5">
         {hidden.map((entry) => (
           <div key={entry.instanceId} className="flex items-center justify-between gap-3 rounded-lg border border-hairline/40 bg-inset px-3 py-2">
-            <span className="min-w-0 truncate text-[13px] text-ink">{entry.displayName}</span>
+            <span className="min-w-0 truncate text-[13px] text-ink">{engineDisplayName(entry)}</span>
             <button type="button" data-unhide-engine={entry.instanceId} disabled={busy !== null} onClick={() => unhide(entry.instanceId)}
               className="shrink-0 text-[12px] font-medium text-accent hover:underline disabled:opacity-50">
               {busy === entry.instanceId ? t("engines.unhiding") : t("engines.unhide")}
@@ -443,6 +444,24 @@ export function EnginesSettings({ simple = false, more }: { simple?: boolean; mo
         <RefreshEngines />
       </div>
       <EngineSections instances={rows} isReady={isReady} renderEngine={renderEngine} />
+      <HiddenEngines />
+    </div>
+  );
+}
+
+/** The only engine's CLI, version and update controls, kept apart from model management. */
+export function EngineMaintenance() {
+  const { state } = useStore();
+  const instance = state.instances.find((candidate) => candidate.driverKind === "piAgent");
+  if (!instance) return null;
+  return (
+    <div className="flex min-w-0 flex-col gap-3 px-4 pb-2">
+      <h2 className="text-[16px] font-semibold text-ink">{t("engines.maintenance")}</h2>
+      <EngineCard instance={instance}>
+        {instance.snapshot.update && <EngineUpdateNotice update={instance.snapshot.update} instance={instance} />}
+        {instance.snapshot.warning && <EngineWarningNotice warning={instance.snapshot.warning} />}
+        <EngineAdvanced instance={instance} />
+      </EngineCard>
       <HiddenEngines />
     </div>
   );

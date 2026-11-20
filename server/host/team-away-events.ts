@@ -82,4 +82,3 @@ export function createTeamAwayEvents(deps: TeamAwayEventsDeps) {
   return { delivered, notified };
 }
 
-export type TeamAwayEvents = ReturnType<typeof createTeamAwayEvents>;

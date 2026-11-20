@@ -72,9 +72,10 @@ describe("desktop capabilities", () => {
     expect(localComputer).toMatchObject({ available: false, enabled: false, status: "unavailable" });
   });
 
-  it("reports the renderer-caption window chrome on Windows", () => {
+  it("reports the renderer-caption window chrome on Windows when framed", () => {
     const capabilities = desktopCapabilities({
       platform: "win32",
+      frame: true,
       env: { DISPLAY: ":0" },
       localConnection: readyConnection(),
     });

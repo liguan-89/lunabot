@@ -144,7 +144,7 @@ beforeAll(async () => {
   home = mkdtempSync(join(tmpdir(), "omb-cloud-1password-"));
   // Where a Cloud home keeps its records under this HOME (server/data-dir.ts: `.lunabot`).
   const dataDir = join(home, ".lunabot");
-  // The engine's own config is the one this home boots with; a `.openmausbot` beside it would be ignored.
+  // The engine's own config is the one this home boots with; a `.lunabot` beside it would be ignored.
   mkdirSync(dataDir, { recursive: true });
   const cli = join(SERVER_DIR, "testing", "fake-pi-cli.ts");
   chmodSync(cli, 0o755);

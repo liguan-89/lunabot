@@ -9,13 +9,7 @@ export const APPROVAL_LEVELS_URL = `${DOCS_URL}#permissions`;
 export const PASSKEY_HELP_URL = `${DOCS_URL}#troubleshooting`;
 export const FEEDBACK_URL = `${CLOUD_ORIGIN}/feedback`;
 export const RELEASES_URL = `${CLOUD_ORIGIN}/download`;
-export const PRICING_URL = `${CLOUD_ORIGIN}/pricing`;
 export const CLOUD_PLAN_URL = `${CLOUD_ORIGIN}/cloud`;
-export function withSource(url: string, source: string): string {
-  const target = new URL(url);
-  target.searchParams.set("src", source);
-  return target.href;
-}
 export const LICENSE_URL = "https://www.apache.org/licenses/LICENSE-2.0";
 export const IOS_APP_STORE_URL = `${CLOUD_ORIGIN}/download`;
 export const ANDROID_APK_URL = `${CLOUD_ORIGIN}/download/dexbot.apk`;

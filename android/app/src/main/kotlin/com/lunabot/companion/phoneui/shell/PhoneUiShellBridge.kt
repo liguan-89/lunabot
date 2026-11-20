@@ -1,0 +1,240 @@
+/*
+ * The app-side wrapper around the shell helper's binder, designed against the
+ * PhoneUiShellBridge API agreed for the OpenMausBot/Luna Bot integration.
+ *
+ * The handoff protocol underneath is ported from Mika
+ * (https://github.com/wangzan101/Mika), files
+ * app/src/main/java/com/wangzan101/mika/cap/phone/shell/HelperHub.kt and
+ * core/src/main/kotlin/com/wangzan101/mika/core/shell/HelperHandoff.kt.
+ * Copyright 2026 wangzan101. The originals are licensed under the Apache
+ * License, Version 2.0 (third_party/mika/LICENSE in this repository).
+ *
+ * Modifications Copyright 2026 OpenMausBot contributors: repackaged under
+ * com.lunabot.companion.phoneui.shell, comments in English, no USB-script
+ * or pairing-audit surface, and the launch command reaches the caller only
+ * through the callback set with [setLaunchCallback] — this class never talks
+ * to adbd itself.
+ */
+package com.lunabot.companion.phoneui.shell
+
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Process
+import android.view.Surface
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+
+/**
+ * The app's view of the phone-UI shell helper. A helper process is started
+ * externally (over wireless debugging's exec stream) by the callback registered
+ * with [setLaunchCallback]; once that process hands its binder to the handoff
+ * provider, [shell] carries a [PhoneUiShell] and stays non-null until the
+ * helper's binder dies or [detach] is called.
+ *
+ * This class holds no pairing, discovery or settings logic: the launch callback
+ * owner (the ADB layer) runs the command this bridge builds, and writes the
+ * nonce to the stream's stdin as one line ([HandoffProtocol.stdinLine]).
+ */
+class PhoneUiShellBridge(context: Context, scope: CoroutineScope) {
+    private val app = context.applicationContext
+    private val hub = PhoneUiHandoff.of(app)
+
+    private val _shell = MutableStateFlow<PhoneUiShell?>(null)
+
+    /** The helper interface in hand; null while no helper is attached. */
+    val shell: StateFlow<PhoneUiShell?> = _shell.asStateFlow()
+
+    /** The latest handoff rejection, as a diagnostic label without nonce, binder, path or numeric uid. */
+    val lastHandoffRejection: StateFlow<String?> get() = hub.lastHandoffRejection
+
+    @Volatile
+    private var launchCallback: ((command: String, nonce: String) -> Unit)? = null
+
+    /**
+     * The person's remote-unlock switch, read at handoff time and again on
+     * every unlock call. Off until the owner sets it, so a bridge nobody wired
+     * unlocks nothing.
+     */
+    @Volatile
+    private var unlockAllowed: () -> Boolean = { false }
+
+    init {
+        // The bridge is the owner of the process-wide singleton: the provider
+        // must resolve the same hub, and of(context) must hand back this
+        // instance once one exists.
+        synchronized(PhoneUiHandoff) { if (PhoneUiHandoff.ownerBridge == null) PhoneUiHandoff.ownerBridge = this }
+        hub.setUnlockAllowed { unlockAllowed() }
+        scope.launch {
+            hub.shell.collect { attached ->
+                _shell.value = attached?.let { PhoneUiShell(it) { unlockAllowed() } }
+            }
+        }
+    }
+
+    /**
+     * Point the bridge at the person's switch. The answer travels to the helper
+     * in the handoff that attaches it (no settings write, no credential), and
+     * gates every unlock call made through [shell] in the meantime.
+     */
+    fun setUnlockAllowed(source: () -> Boolean) {
+        unlockAllowed = source
+    }
+
+    /**
+     * Register the executor that starts the helper process. It receives the
+     * ready-made app_process command and the one-time nonce; the nonce must
+     * reach the helper over the exec stream's stdin, never argv. Registering
+     * does not launch anything.
+     */
+    fun setLaunchCallback(exec: ((command: String, nonce: String) -> Unit)?) {
+        launchCallback = exec
+    }
+
+    /**
+     * Start the helper through the registered callback: issue a fresh one-time
+     * nonce and hand the command plus that nonce to it. Returns false — and
+     * launches nothing — when no callback is registered, the helper is already
+     * attached, or the app's signing certificate cannot be pinned.
+     */
+    fun ensureHelper(): Boolean {
+        if (hub.shell.value != null) return false
+        val exec = launchCallback ?: return false
+        val pin = HandoffProtocol.certPin(signingCertificates()) ?: return false
+        val nonce = hub.issueLaunchNonce()
+        val command = HandoffProtocol.command(app.applicationInfo.sourceDir, app.packageName, Process.myUid(), pin)
+        exec(command, nonce)
+        return true
+    }
+
+    /**
+     * Detach: drop the helper interface and void every nonce. The running
+     * helper notices on its next handoff attempt and exits after releasing its
+     * displays; a fresh helper requires a new launch nonce.
+     */
+    fun detach() {
+        val attached = hub.shell.value
+        hub.detach()
+        runCatching { attached?.destroy() }
+    }
+
+    private fun signingCertificates(): List<ByteArray>? = runCatching {
+        app.packageManager.getPackageInfo(app.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+            .signingInfo?.apkContentsSigners?.map { it.toByteArray() }
+    }.getOrNull()
+
+    companion object {
+        @Volatile
+        private var defaultBridge: PhoneUiShellBridge? = null
+
+        /**
+         * The bridge instance every consumer in this process shares. When the
+         * app object provides one of its own it wins; otherwise a default
+         * bridge with its own scope is created once.
+         */
+        fun of(context: Context): PhoneUiShellBridge =
+            PhoneUiHandoff.ownerBridge ?: defaultBridge ?: synchronized(this) {
+                PhoneUiHandoff.ownerBridge ?: defaultBridge ?: PhoneUiShellBridge(
+                    context.applicationContext,
+                    CoroutineScope(SupervisorJob() + Dispatchers.IO),
+                ).also { defaultBridge = it }
+            }
+    }
+}
+
+/** Typed facade over the helper's AIDL surface; every call can fail with a binder exception. */
+class PhoneUiShell(
+    private val aidl: IPhoneUiShell,
+    /** The person's switch, re-read on every unlock call; false when nobody wired one. */
+    private val unlockAllowed: () -> Boolean = { false },
+) {
+    /** -1 means the display could not be created (no trusted flags were usable either). */
+    fun createDisplay(surface: Surface, width: Int, height: Int, dpi: Int): Int = aidl.createDisplay(surface, width, height, dpi)
+
+    fun releaseDisplay(displayId: Int) = aidl.releaseDisplay(displayId)
+
+    /** 0=launched 1=in use on the main display 2=no launcher entry 3=error */
+    fun launchApp(displayId: Int, packageName: String): Int = aidl.launchApp(displayId, packageName)
+
+    fun injectTap(displayId: Int, x: Int, y: Int): Boolean = aidl.injectTap(displayId, x, y)
+
+    fun injectStroke(displayId: Int, xs: IntArray, ys: IntArray, times: LongArray): Boolean =
+        aidl.injectStroke(displayId, xs, ys, times)
+
+    fun injectKey(displayId: Int, keyCode: Int): Boolean = aidl.injectKey(displayId, keyCode)
+
+    /** Printable ASCII into the focused field; the helper refuses anything else. */
+    fun typeText(displayId: Int, text: String): Boolean = aidl.typeText(displayId, text)
+
+    fun topPackage(displayId: Int): String? = aidl.topPackage(displayId)
+
+    /** Task id of the top task on [displayId]; -1 when it has no task. */
+    fun topTaskId(displayId: Int): Int = aidl.topTaskId(displayId)
+
+    fun packageOfTask(taskId: Int): String? = aidl.packageOfTask(taskId)
+
+    /** Move a root task to one of our displays or the main display. */
+    fun moveTask(taskId: Int, displayId: Int): Boolean = aidl.moveTask(taskId, displayId)
+
+    fun readClipboard(): String? = aidl.readClipboard()
+
+    fun writeClipboard(text: String): Boolean = aidl.writeClipboard(text)
+
+    /** 0=opened 2=no handler 3=error; the helper validates the URI, mime and package shape. */
+    fun shareIntent(displayId: Int, contentUri: String, mime: String, packageName: String): Int =
+        aidl.shareIntent(displayId, contentUri, mime, packageName)
+
+    /** Finish [packageName] as `am force-stop` does; the helper refuses the system, the system UI and itself. */
+    fun forceStop(packageName: String): Boolean = aidl.forceStop(packageName)
+
+    /**
+     * Write one of two allow-listed settings as shell: `adb_wifi_enabled`
+     * (global, the wireless debugging switch) or `enabled_accessibility_services`
+     * (secure, the colon separated service list). A null [value] deletes the
+     * setting. The helper owns the allow-list and refuses every other name
+     * without writing, so this is not a general settings writer.
+     */
+    fun putSecureSetting(name: String, value: String?): Boolean = aidl.putSecureSetting(name, value)
+
+    /**
+     * Ask the helper to grant [packageName] WRITE_SECURE_SETTINGS, once, so this
+     * app can keep `adb_wifi_enabled` on after a reboot. The caller must pass
+     * our own package: the helper resolves the calling uid's packages and
+     * refuses anything it does not own, and it can grant only this one
+     * permission. False means the ROM refused the grant or `pm` was
+     * unavailable; nothing was changed.
+     */
+    fun grantOwnWriteSecureSettings(packageName: String): Boolean =
+        aidl.grantOwnWriteSecureSettings(packageName)
+
+    /**
+     * Turn the screen on. Refused while the person's remote-unlock switch is
+     * off: waking the phone is part of unlocking it, and the switch is what
+     * authorizes that.
+     */
+    fun wake(): Boolean = unlockAllowed() && aidl.wakeDevice()
+
+    /** Swipe the keyguard to its credential page; only while the keyguard is up. */
+    fun revealKeyguard(): Boolean = unlockAllowed() && aidl.revealKeyguard()
+
+    /**
+     * Type [bytes] into the keyguard. [kind] is 0 (PIN) or 1 (password), [clear]
+     * the number of DEL presses for a half-entered value. The array is zeroed
+     * here after the call, so a caller need not remember to. The helper
+     * re-checks the switch, the secure keyguard and every key's target.
+     */
+    fun enterDeviceCredential(kind: Int, bytes: ByteArray, clear: Int): Boolean {
+        try {
+            return unlockAllowed() && aidl.enterDeviceCredential(kind, bytes, clear)
+        } finally {
+            bytes.fill(0)
+        }
+    }
+
+    /** One tap on the keyguard's "use PIN" style button; carries no credential. */
+    fun tapKeyguard(x: Int, y: Int): Boolean = unlockAllowed() && aidl.tapKeyguard(x, y)
+}

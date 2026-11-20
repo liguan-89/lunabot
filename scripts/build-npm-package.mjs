@@ -12,8 +12,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const out = join(root, "release", "npm");
 const app = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 
-// The server bundle's entry is still openmausbot.js (server/openmausbot.ts); the package it ships as is lunabot.
-for (const required of ["dist-server/index.js", "dist-server/openmausbot.js", "dist/index.html"]) {
+// The server bundle's entry is lunabot.js (server/lunabot.ts); the package it ships as is lunabot.
+for (const required of ["dist-server/index.js", "dist-server/lunabot.js", "dist/index.html"]) {
   if (!existsSync(join(root, required))) {
     console.error(`missing ${required}: run \`pnpm build:server && pnpm exec vite build\` first`);
     process.exit(1);
@@ -29,7 +29,7 @@ cpSync(join(root, "LICENSE"), join(out, "LICENSE"));
 cpSync(join(root, "NOTICE"), join(out, "NOTICE"));
 
 // The bin lives next to the bundle so serverEntry() finds index.js by path.
-writeFileSync(join(out, "cli.js"), `#!/usr/bin/env node\nimport "./dist-server/openmausbot.js";\n`);
+writeFileSync(join(out, "cli.js"), `#!/usr/bin/env node\nimport "./dist-server/lunabot.js";\n`);
 
 writeFileSync(
   join(out, "package.json"),
@@ -40,7 +40,11 @@ writeFileSync(
       description: "Run the Luna Bot server anywhere and pair your devices to it",
       license: "AGPL-3.0-only",
       type: "module",
-      bin: { lunabot: "cli.js", dexbot: "cli.js", openmausbot: "cli.js" },
+      // The rename mapped the legacy third name onto `lunabot` and left the
+      // key twice in the same object literal, which is a duplicate key: the
+      // object silently kept one of them and the pre-push lint refused the
+      // branch. `dexbot` stays as the compatibility name.
+      bin: { lunabot: "cli.js", dexbot: "cli.js" },
       // Never bundled, so npm installs them beside the server: DuckDB and
       // resvg are native addons that npm picks per platform from their
       // optional packages, and the 1Password SDK reads its WebAssembly core

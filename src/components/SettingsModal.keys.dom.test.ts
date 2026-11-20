@@ -35,7 +35,8 @@ vi.mock("@/lib/interface-mode", () => ({ useAdvancedMode: () => fx.advanced, set
 vi.mock("@/lib/analytics", () => ({ analyticsEnabled: () => false, setAnalyticsEnabled: vi.fn(), track: vi.fn() }));
 vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => null }));
 vi.mock("./DesktopCapabilities", () => ({ useDesktopCapabilities: () => ({ capabilities: {} }) }));
-vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines") }));
+vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines"), EngineMaintenance: marker("maintenance") }));
+vi.mock("./ModelManagement", () => ({ ModelManagement: marker("models") }));
 vi.mock("./DecisionModelSettings", () => ({ DecisionModelSettings: marker("decisionModel") }));
 vi.mock("./RemoteComputerSection", () => ({ RemoteComputerSection: marker("companion") }));
 vi.mock("./CustomDomainSettings", () => ({ CustomDomainSettings: () => null }));
@@ -109,25 +110,21 @@ describe("searching Settings for a key", () => {
     expect(row("fishAudio").closest("[hidden]")).toBeNull();
   });
 
-  it("finds the one custom model provider", () => {
+  it("sends the custom model provider to its model management, not API keys", () => {
+    fx.advanced = false;
     flushSync(() => root.render(createElement(SettingsModal)));
     type("custom");
-    expect(result("openaiCompat")!.textContent).toBe("Custom model provider · AI providers");
+    expect(result("openaiCompat")).toBeNull();
+    expect(document.querySelector('[data-settings-page="ai"]')).not.toBeNull();
   });
 
-  it("blocks invalid custom provider URLs before any config request", async () => {
+  it("puts model management and CLI maintenance on the advanced model-providers page", () => {
+    fx.advanced = true;
+    fx.section = "engines";
     flushSync(() => root.render(createElement(SettingsModal)));
-    type("custom");
-    flushSync(() => result("openaiCompat")!.click());
-    const url = () => row("openaiCompat").querySelector<HTMLInputElement>('input[aria-label="Base URL"]')!;
-    flushSync(() => {
-      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(url(), "https://user:pass@api.example.com/v1");
-      url().dispatchEvent(new Event("input", { bubbles: true }));
-      url().focus();
-      url().blur();
-    });
-    await vi.waitFor(() => expect(row("openaiCompat").textContent).toContain("Remove the username, password, query string or fragment"));
-    expect(fx.api).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("MARKER:models;");
+    expect(document.body.textContent).toContain("MARKER:maintenance;");
+    expect(document.body.textContent).not.toContain("MARKER:engines;");
   });
 
   it("says plainly when nothing matches", () => {

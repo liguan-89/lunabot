@@ -99,21 +99,6 @@ export function forgetToolCountLimits(): void {
 
 /** A turn the provider refused for carrying too many tools, before the model ran: learns the limit and starts `retry` once,
  * which lists the turn's tools within it; `failed` reports a retry that could not start. True when it retried. */
-export function retryUnderToolLimit(error: unknown, turn: {
-  key: string;
-  model?: string;
-  engine: string;
-  retry: () => Promise<unknown>;
-  failed: (error: unknown) => void;
-}): boolean {
-  const limit = toolCountLimitFromError(error);
-  if (limit === undefined) return false;
-  learnToolCountLimit(turn.key, limit);
-  console.warn(`[${turn.engine}] ${turn.model ?? "this model"} takes at most ${limit} tools; retrying the turn once with its MCP tool lists trimmed to fit`);
-  turn.retry().catch(turn.failed);
-  return true;
-}
-
 /** What a limit leaves the MCP servers once the engine's own tools are counted. */
 export function mcpToolBudget(limit: number | undefined, engineTools: number): number | undefined {
   return limit === undefined ? undefined : Math.max(0, limit - engineTools);

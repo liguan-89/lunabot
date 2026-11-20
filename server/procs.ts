@@ -11,7 +11,7 @@ import {
 } from "node:child_process";
 import { closeSync, existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import type { Readable, Writable } from "node:stream";
-import { basename, dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { botBox, type WrappedSpawn } from "./bot-box/box.ts";
 import type { BoxRequest } from "./bot-box/plan.ts";
 import { homeProgramsDistrusted, serverMayRunFrom, serverPath } from "./bot-box/program-trust.ts";
@@ -193,12 +193,6 @@ export function boxedSpawn(resolved: ResolvedSpawn, opts: CliSpawnOptions, owner
 
 /** What a process several conversations share must be boxed with to serve `cwd` (null with the box off): all of the bot's
  * conversation folders for a conversation folder (task-workspaces/<bot>/<thread>, BoxRequest.botThreads), else `cwd`. */
-export function sharedBoxScope(cwd: string): string | null {
-  if (!botBox.enabled()) return null;
-  const parent = dirname(resolve(cwd));
-  return basename(dirname(parent)) === "task-workspaces" ? parent : resolve(cwd);
-}
-
 /** Security (bot-box/program-trust.ts): a spawn outside the box neither starts a program from a folder a boxed bot can
  * write nor looks one up there. */
 export function outsideBoxOptions<T extends { env?: NodeJS.ProcessEnv; cwd?: string | URL }>(command: string, opts: T): T {

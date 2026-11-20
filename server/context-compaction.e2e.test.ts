@@ -54,7 +54,7 @@ async function setup() {
       return result;
     };
     const cli = async (...args: string[]) => {
-      const result = await runControlOmb(args, { env: { OPENMAUSBOT_URL: session.info.url } }) as any;
+      const result = await runControlOmb(args, { env: { LUNABOT_URL: session.info.url } }) as any;
       evidence.push({ command: args, result });
       return result;
     };

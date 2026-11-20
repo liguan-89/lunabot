@@ -14,7 +14,7 @@ import { lanInterfaces, tailnetName, tailscaleAddress } from "./listener.ts";
 import { defaultHostName } from "./mdns.ts";
 import { publicNetworks } from "./windows-network.ts";
 
-export const CONTROL_TOKEN_HEADER = "x-openmausbot-control-token";
+export const CONTROL_TOKEN_HEADER = "x-lunabot-control-token";
 
 export interface ControlOptions {
   devices: DeviceRegistry;
@@ -341,6 +341,19 @@ export function createControlServer(options: ControlOptions): Server {
       options.disconnectDevice?.(browserControl[1]);
       return json(res, 200, companionState(options));
     }
+    const desktopScreen = path.match(/^\/devices\/([\w-]+)\/desktop-screen$/);
+    if (desktopScreen && (method === "POST" || method === "DELETE")) {
+      try {
+        if (!options.devices.setDesktopScreenAccess(desktopScreen[1], method === "POST")) {
+          return json(res, 404, { error: "no such device" });
+        }
+      } catch {
+        return json(res, 500, { error: "could not save this computer's screen access" });
+      }
+      // A viewer already open must stop when the grant is withdrawn.
+      options.disconnectDevice?.(desktopScreen[1]);
+      return json(res, 200, companionState(options));
+    }
     const routes = path.match(/^\/devices\/([\w-]+)\/routes$/);
     if (routes && method === "PUT") {
       readSmallJson(req).then(
@@ -432,7 +445,7 @@ history.replaceState(null, "", location.pathname);
 
 /** Call the control API and return the state it answers with. */
 async function api(path, method) {
-  const res = await fetch(path, { method: method ?? "GET", headers: { "x-openmausbot-control-token": token } });
+  const res = await fetch(path, { method: method ?? "GET", headers: { "x-lunabot-control-token": token } });
   if (res.status === 403) {
     document.querySelector("main").innerHTML = "<h1>Luna Bot Companion</h1><p class=sub>Open this page from the link the companion printed when it started.</p>";
     throw new Error("control token required");

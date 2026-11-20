@@ -197,8 +197,6 @@ export function createCloudHealthLedger(options: { botOf?: (threadId: string) =>
     cursor: (at: number) => `${bootedAt}.${at}`,
   };
 }
-export type CloudHealthLedger = ReturnType<typeof createCloudHealthLedger>;
-
 /** A lookup that may be slow (a provider call): the last answer at once, refreshed in the background when stale. */
 function backgroundLookup<T>(load: () => Promise<T> | null, ttlMs: number, now: () => number) {
   let value: T | null = null, checkedAt: number | null = null, failed = false, running = false;

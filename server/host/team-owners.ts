@@ -68,4 +68,3 @@ export function createTeamOwners(deps: TeamOwnersDeps) {
   };
 }
 
-export type TeamOwners = ReturnType<typeof createTeamOwners>;

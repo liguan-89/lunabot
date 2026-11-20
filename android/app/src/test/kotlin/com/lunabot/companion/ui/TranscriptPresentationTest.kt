@@ -1,0 +1,261 @@
+package com.lunabot.companion.ui
+
+import android.graphics.Bitmap
+import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.MotionDurationScale
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.lifecycle.lifecycleScope
+import com.lunabot.companion.core.ActivityDetail
+import com.lunabot.companion.core.Chat
+import com.lunabot.companion.core.CompanionJson
+import com.lunabot.companion.core.Compaction
+import com.lunabot.companion.core.Connection
+import com.lunabot.companion.core.Fleet
+import com.lunabot.companion.core.Frame
+import com.lunabot.companion.core.Message
+import com.lunabot.companion.core.RuntimeEvent
+import com.lunabot.companion.core.SearchHit
+import com.lunabot.companion.core.StreamFrame
+import com.lunabot.companion.core.ToolActivity
+import com.lunabot.companion.core.target
+import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
+import okhttp3.mockwebserver.Dispatcher
+import okhttp3.mockwebserver.MockResponse
+import okhttp3.mockwebserver.MockWebServer
+import okhttp3.mockwebserver.RecordedRequest
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+/** Real chat UI and session, confined to a synthetic fleet and loopback server. */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34], qualifiers = "w411dp-h891dp-mdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@OptIn(ExperimentalTestApi::class)
+class TranscriptPresentationTest {
+    @get:Rule
+    val compose = createAndroidComposeRule<ComponentActivity>(
+        effectContext = object : MotionDurationScale { override val scaleFactor = 0f },
+    )
+    private lateinit var server: MockWebServer
+    private lateinit var scene: WiringScene
+    private val rawWebhook = "[AUTHENTICATED WEBHOOK TASK]\nTriage the build failure.\n[/AUTHENTICATED WEBHOOK TASK]\n\n[UNTRUSTED WEBHOOK EVENT DATA]\nReceived: now\nDelivery ID: build-418\nEvent: build.failed\n\n{\"service\":\"checkout\"}\n[/UNTRUSTED WEBHOOK EVENT DATA]"
+    private val messages = listOf(Message("webhook", Message.Role.USER, Message.Kind.TEXT, 1000.0, text = rawWebhook)) +
+        CompanionJson.decodeFromString<List<Message>>("""
+            [
+              {"id":"progress","role":"bot","kind":"text","at":2000,"text":"Let me inspect the build logs.","turnId":"turn"},
+              {"id":"step1","role":"bot","kind":"activity","at":2500,"turnId":"turn","tool":{"name":"read","ok":true}},
+              {"id":"step2","role":"bot","kind":"activity","at":3000,"turnId":"turn","tool":{"name":"bash","ok":true}},
+              {"id":"progress2","role":"bot","kind":"text","at":3500,"text":"I found the failing check.","turnId":"turn"},
+              {"id":"answer","role":"bot","kind":"text","at":5000,"text":"A dependency is missing.","turnId":"turn","turnTerminal":true}
+            ]
+        """)
+
+    @Before
+    fun start() {
+        server = MockWebServer()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest) = MockResponse()
+                .setHeader("Content-Type", "application/json")
+                .setBody(if (request.path == "/api/instances") "{\"instances\":[]}" else "{\"messages\":[],\"hasMore\":false}")
+        }
+        server.start()
+    }
+
+    @After
+    fun stop() {
+        if (::scene.isInitialized) scene.session.disconnect()
+        server.shutdown()
+    }
+
+    @Test
+    fun pastedNotesHideWrappersAndClaudeUpdateCanRecoverFromFailure() {
+        val updates = AtomicInteger()
+        server.dispatcher = object : Dispatcher() {
+            override fun dispatch(request: RecordedRequest): MockResponse {
+                if (request.path?.endsWith("/claude-update") == true) {
+                    assertEquals("POST", request.method)
+                    return if (updates.incrementAndGet() == 1) MockResponse().setResponseCode(409)
+                        .setHeader("Content-Type", "application/json")
+                        .setBody("""{"error":"Wait for the running Claude task."}""")
+                    else MockResponse().setHeader("Content-Type", "application/json")
+                        .setBody("""{"ok":true,"version":"2.1.280 (Claude Code)"}""")
+                }
+                return MockResponse().setHeader("Content-Type", "application/json")
+                    .setBody(if (request.path == "/api/instances") "{\"instances\":[]}" else "{\"messages\":[],\"hasMore\":false}")
+            }
+        }
+        mount(ActivityDetail.FULL, transcript = CompanionJson.decodeFromString("""
+            [
+              {"id":"paste","role":"user","kind":"text","at":1000,"text":"Review notes.\n\n<pasted-text index=\"1\">\nThe pasted notes stay visible.\n</pasted-text>"},
+              {"id":"update-error","role":"bot","kind":"activity","at":2000,"tool":{"name":"error: Claude Code is too old","ok":false,"setup":true,"claudeUpdate":true}}
+            ]
+        """))
+        compose.onNodeWithText("The pasted notes stay visible.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("<pasted-text", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("我自己手动更新").assertIsDisplayed()
+        compose.onNodeWithText("帮我更新 Claude").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Wait for the running Claude task.").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("claude update").assertIsDisplayed()
+        compose.onNodeWithText("重试更新").performClick()
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("Claude 已更新至 2.1.280 (Claude Code)，请重新发送你的消息。").fetchSemanticsNodes().isNotEmpty()
+        }
+        assertEquals(2, updates.get())
+        screenshot("claude-update-recovered")
+    }
+
+    @Test
+    fun completedNarrationStaysVisibleAndOnlyItsStepsFold() {
+        mount(ActivityDetail.REDUCED)
+        screenshot("transcript-collapsed")
+        // What the bot said is on the page; only its work is behind the chip.
+        compose.onNodeWithText("Let me inspect the build logs.").assertIsDisplayed()
+        compose.onNodeWithText("I found the failing check.").assertIsDisplayed()
+        compose.onNodeWithText("A dependency is missing.").assertIsDisplayed()
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").assertIsDisplayed()
+        compose.onNodeWithText("Webhook 任务").assertIsDisplayed()
+        compose.onNodeWithText("Triage the build failure.").assertIsDisplayed()
+        compose.onNodeWithText("Delivery ID", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("AUTHENTICATED WEBHOOK", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
+
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
+        compose.onNodeWithText("read").assertIsDisplayed()
+        compose.onNodeWithText("bash").assertIsDisplayed()
+        compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
+        compose.onNodeWithText("bash").assertDoesNotExist()
+
+        compose.onNodeWithText("事件负载").performClick()
+        compose.onNodeWithText("{\"service\":\"checkout\"}").assertIsDisplayed()
+        screenshot("transcript-payload-expanded")
+        compose.onNodeWithText("事件负载").performClick()
+        compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun compactionExpandsItsSummaryAndDigestRemainsHidden() {
+        val summary = "Earlier context preserved for the next turn."
+        val compact = Message("compact", Message.Role.BOT, Message.Kind.COMPACTION, 6000.0,
+            compaction = Compaction(summary, 12345))
+        val digest = Message("digest", Message.Role.BOT, Message.Kind.DIGEST, 7000.0,
+            text = "Digest must stay hidden")
+        mount(ActivityDetail.FULL, transcript = messages + compact + digest)
+        compose.onNodeWithText("Digest must stay hidden").assertDoesNotExist()
+        compose.onNodeWithText(summary).assertDoesNotExist()
+        compose.onNodeWithText(compact.compaction!!.chipText).performClick()
+        compose.onNodeWithText(summary).assertIsDisplayed()
+        assertEquals(summary, MessageActions.copyableText(compact))
+        compose.runOnIdle { scene.environment.chatPreferences.setActivityDetail(ActivityDetail.HIDDEN) }
+        compose.onNodeWithText(compact.compaction!!.chipText).assertDoesNotExist()
+        compose.onNodeWithText(summary).assertDoesNotExist()
+    }
+
+    @Test
+    fun changingActivityToHiddenSuppressesLiveReasoningButKeepsWorkingIndicator() {
+        mount(ActivityDetail.FULL, reasoning = true)
+        compose.onNodeWithText("思考中…").assertIsDisplayed()
+        compose.runOnIdle { scene.environment.chatPreferences.setActivityDetail(ActivityDetail.HIDDEN) }
+        compose.onNodeWithText("思考中…").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Scout 正在工作").assertIsDisplayed()
+        compose.runOnIdle { scene.environment.chatPreferences.setActivityDetail(ActivityDetail.REDUCED) }
+        compose.onNodeWithText("思考中…").assertIsDisplayed()
+    }
+
+    @Test
+    fun webhookActionsCopyOnlyTheTaskAndDoNotOfferTextOnlyRetry() {
+        assertEquals("Triage the build failure.", MessageActions.copyableText(messages.first()))
+        assertNull(MessageActions.editableText(messages.first()))
+    }
+
+    @Test
+    fun aSearchHitRevealsTheStepItLandedOnInsideTheFold() {
+        // A hit on a step is a hit on something the fold is holding shut, so the
+        // fold has to open on it. Narration is never folded, so it needs no such
+        // path — this is the one case the fold still owes the search.
+        val steps = (0..11).map { index ->
+            Message("step-$index", Message.Role.BOT, Message.Kind.ACTIVITY, 2000.0 + index,
+                turnId = "turn", tool = ToolActivity(name = "step-$index", ok = true))
+        }
+        val answer = Message("answer", Message.Role.BOT, Message.Kind.TEXT, 9000.0,
+            text = "Done.", turnId = "turn", turnTerminal = true)
+        mount(ActivityDetail.REDUCED, transcript = listOf(messages.first()) + steps + answer)
+        compose.onNodeWithText("已处理 8秒 · 12 个步骤").assertIsDisplayed()
+        compose.onNodeWithText("step-11").assertDoesNotExist()
+        compose.runOnIdle {
+            compose.activity.lifecycleScope.launch {
+                scene.session.open(SearchHit(
+                    threadId = "thread-bot-1", messageId = "step-11", at = 2011.0,
+                    role = Message.Role.BOT, kind = Message.Kind.ACTIVITY, snippet = "step-11",
+                    matchStart = 0, matchLength = 7, botId = "bot-1", name = "Scout", onActivePath = true,
+                ))
+            }
+        }
+        compose.waitUntil(5_000) {
+            compose.onAllNodesWithText("step-11").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("step-11").assertIsDisplayed()
+    }
+
+    private fun mount(detail: ActivityDetail, reasoning: Boolean = false, transcript: List<Message> = messages) {
+        val fixture = bot(name = "Scout", busy = reasoning).copy(messages = if (reasoning) emptyList() else transcript)
+        scene = WiringScene(
+            connection = Connection(id = "transcript-fixture", name = "Offline fixture", host = "127.0.0.1", port = server.port),
+            fleet = Fleet(listOf(fixture), emptyList()),
+        ) {
+            flow {
+                emit(StreamFrame(Frame.Hello(cursor = "fixture:1", resumed = false), seq = 1))
+                if (reasoning) emit(StreamFrame(Frame.Runtime(RuntimeEvent("content.delta", fixture.threadId, "Reviewing the build", "reasoning_text")), seq = 2))
+                awaitCancellation()
+            }
+        }
+        scene.environment.chatPreferences.setActivityDetail(detail)
+        compose.setContent {
+            CompositionLocalProvider(LocalCompanion provides scene.environment) {
+                CompanionTheme(darkTheme = false) {
+                    val state by scene.session.state.collectAsState()
+                    if (state.bot(fixture.id) != null) ChatScreen(
+                        Destination.Chat(Chat.BotChat(fixture).target),
+                        onResolved = {}, onBack = {}, onOpenComputer = {}, onOpenOverview = {},
+                    )
+                }
+            }
+        }
+        compose.runOnIdle { scene.session.connect() }
+        compose.waitUntil(5_000) { scene.session.state.value.bot(fixture.id) != null }
+        compose.waitForIdle()
+    }
+
+    private fun screenshot(name: String) {
+        compose.runOnIdle {
+            val view = compose.activity.window.decorView
+            val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+            view.draw(android.graphics.Canvas(bitmap))
+            val file = File("build/outputs/transcript-screenshots/$name.png")
+            file.parentFile?.mkdirs()
+            file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        }
+    }
+}

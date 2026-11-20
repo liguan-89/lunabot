@@ -68,7 +68,7 @@ async function within<T>(ms: number, what: () => string, probe: () => T | undefi
   }
 }
 
-const dataDir = () => join(home, ".openmausbot");
+const dataDir = () => join(home, ".lunabot");
 const dump = () => piDumpPath(dataDir());
 /** The env an `agents` mount's own process gets: a gate keeps its upstream in OMB_GATE_UPSTREAM instead. */
 const agentsEnv = (agents: { env?: Record<string, string> } | undefined): Record<string, string> => {

@@ -58,6 +58,8 @@ export function loadConfig(env = process.env) {
     relayNodes: list(env.DEXCLOUD_RELAY_NODES).length ? list(env.DEXCLOUD_RELAY_NODES) : ["relay1.dexai.vip"],
     relayKid: trim(env.DEXCLOUD_RELAY_TOKEN_KID) || "k1",
     relaySeed: trim(env.DEXCLOUD_RELAY_TOKEN_SEED),
+    /** Phone installations silent this long are swept; 0 keeps them forever. */
+    stalePhoneDays: int(env.DEXCLOUD_STALE_PHONE_DAYS, 7, { min: 0, max: 365 }),
     planMode: trim(env.DEXCLOUD_PLAN_MODE) || "pro",
     adminEmails: list(env.DEXCLOUD_ADMIN_EMAILS).map((email) => email.toLowerCase()),
     latestVersion: trim(env.DEXCLOUD_LATEST_VERSION) || "2.0.0",

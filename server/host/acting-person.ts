@@ -159,8 +159,6 @@ export function createActingPeople(deps: ActingPeopleDeps) {
   };
 }
 
-export type ActingPeople = ReturnType<typeof createActingPeople>;
-
 type HandedBack = { ok: boolean; text: string; evidence?: unknown; cards?: { question: string; ids: string[] }; privateQuestion?: boolean };
 type Place = { child: string | null; parent: string | null };
 

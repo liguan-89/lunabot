@@ -14,7 +14,7 @@ import {
 } from "./data-dir-lease.mjs";
 
 const MODULE_URL = new URL("./data-dir-lease.mjs", import.meta.url).href;
-const LEASE_NAME = "openmausbot-server.lease";
+const LEASE_NAME = "lunabot-server.lease";
 const roots = [];
 
 function temporaryDirectory(name = "data") {

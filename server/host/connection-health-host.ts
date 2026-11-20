@@ -287,4 +287,3 @@ export function createConnectionHealthHost<B extends Bot>(deps: ConnectionHealth
   };
 }
 
-export type ConnectionHealthHost = ReturnType<typeof createConnectionHealthHost>;

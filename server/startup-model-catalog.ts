@@ -104,10 +104,6 @@ export function readStartupModelCacheEntry(instanceId: string): StartupModelCach
   }
 }
 
-export function readStartupModelCache(instanceId: string): ModelCatalog | null {
-  return readStartupModelCacheEntry(instanceId)?.catalog ?? null;
-}
-
 export function writeStartupModelCache(instanceId: string, catalog: ModelCatalog, read: { checkedAt?: number; build?: string } = {}): void {
   if (!catalog.options.length) return;
   const path = startupModelCachePath(instanceId);
