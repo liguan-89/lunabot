@@ -73,11 +73,11 @@ object MinisTokens {
     val SeparatorDark = Color(0xFF38383A)
     // Muse-inspired warm oatmeal-taupe user bubble paired with a quiet soft-grey
     // bot bubble — warm, calm, and legible without borders or harsh shadows.
-    val UserBubbleLight = Color(0xFFD5C8BE)
+    val UserBubbleLight = Color(0xFFDDD2C7)
     val UserBubbleDark = Color(0xFF3A342E)
     val BubbleRimLight = Color(0x00000000)
     val BubbleRimDark = Color(0x14FFFFFF)
-    val BotBubbleLight = Color(0xFFEBEBE9)
+    val BotBubbleLight = Color(0xFFEFEFED)
     val BotBubbleDark = Color(0xFF1F1F22)
     val FabLight = Color(0xFFB7AF96)
     val FabDark = Color(0xFF504C42)
@@ -233,7 +233,7 @@ val MinisCardShape = RoundedCornerShape(16.dp)
  * 21dp rather than 18: at a 45dp bubble the smaller radius read as a rounded
  * rectangle, and the reference this transcript is measured against uses 21.
  */
-val MinisBubbleCorner = 24.dp
+val MinisBubbleCorner = 22.dp
 val MinisComposerShape = RoundedCornerShape(26.dp)
 
 /** Muse-style crisp floating white control surface: whisper-soft pillow shadow + 0.75dp hairline. */

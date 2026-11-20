@@ -2090,20 +2090,28 @@ private fun shortHostLabel(rawHost: String): String {
     }
 }
 
+private data class MuseNavSpec(
+    val index: Int,
+    val outlineRes: Int,
+    val filledRes: Int,
+    val label: String,
+)
+
+private val MUSE_NAV_TABS = listOf(
+    MuseNavSpec(0, R.drawable.ic_muse_chat_outline, R.drawable.ic_muse_chat_filled, "主要聊天"),
+    MuseNavSpec(1, R.drawable.ic_muse_bots_outline, R.drawable.ic_muse_bots_filled, "协作助手"),
+    MuseNavSpec(2, R.drawable.ic_muse_schedule_outline, R.drawable.ic_muse_schedule_filled, "定时巡检"),
+    MuseNavSpec(3, R.drawable.ic_muse_hub_outline, R.drawable.ic_muse_hub_filled, "工作空间"),
+)
+
 /** Muse-style minimalist monochrome 4-icon bottom navigation bar (zero text clutter). */
 @Composable
 private fun MuseBottomNavBar(
     activeTab: Int,
     onSelect: (Int) -> Unit,
 ) {
-    val items = listOf(
-        Triple(0, R.drawable.ic_chat_bubbles, "主要聊天"),
-        Triple(1, R.drawable.ic_sparkles, "协作助手"),
-        Triple(2, R.drawable.ic_schedule, "定时巡检"),
-        Triple(3, R.drawable.ic_hub, "工作空间"),
-    )
     val dark = minisIsDark()
-    val inactiveTint = if (dark) minisSecondary.copy(alpha = 0.62f) else Color(0xFF909095)
+    val inactiveTint = if (dark) minisSecondary.copy(alpha = 0.62f) else Color(0xFF8E8E93)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -2118,21 +2126,21 @@ private fun MuseBottomNavBar(
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            items.forEach { (index, iconRes, label) ->
-                val selected = activeTab == index
+            MUSE_NAV_TABS.forEach { tab ->
+                val selected = activeTab == tab.index
                 Box(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .clickable(role = Role.Button, onClick = { onSelect(index) })
-                        .semantics { contentDescription = label },
+                        .clickable(role = Role.Button, onClick = { onSelect(tab.index) })
+                        .semantics { contentDescription = tab.label },
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
-                        painter = painterResource(iconRes),
+                        painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
                         contentDescription = null,
                         tint = if (selected) minisInk else inactiveTint,
-                        modifier = Modifier.size(if (selected) 25.dp else 22.dp),
+                        modifier = Modifier.size(23.dp),
                     )
                 }
             }
@@ -2386,32 +2394,26 @@ private fun MuseDrawerContent(
             color = minisSecondary,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
         )
-        val navItems = listOf(
-            Triple(0, R.drawable.ic_chat_bubbles, "主要聊天"),
-            Triple(1, R.drawable.ic_sparkles, "协作助手"),
-            Triple(2, R.drawable.ic_schedule, "定时巡检"),
-            Triple(3, R.drawable.ic_hub, "工作空间"),
-        )
-        navItems.forEach { (idx, iconRes, title) ->
-            val selected = activeTab == idx
+        MUSE_NAV_TABS.forEach { tab ->
+            val selected = activeTab == tab.index
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .background(if (selected) pillFill else Color.Transparent)
-                    .clickable(role = Role.Button) { onSelectTab(idx) }
+                    .clickable(role = Role.Button) { onSelectTab(tab.index) }
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    painter = painterResource(iconRes),
+                    painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
                     contentDescription = null,
                     tint = minisInk,
                     modifier = Modifier.size(21.dp),
                 )
                 Text(
-                    text = title,
+                    text = tab.label,
                     fontSize = 16.sp,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     color = minisInk,

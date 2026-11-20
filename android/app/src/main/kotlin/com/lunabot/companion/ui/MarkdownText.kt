@@ -92,7 +92,7 @@ fun MarkdownText(
 ) {
     val blocks = Markdown.blocks(source)
     CompositionLocalProvider(LocalLinkOpener provides openLink) {
-        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
             blocks.forEachIndexed { index, block ->
                 MarkdownBlockView(block, tail = caret && index == blocks.lastIndex)
             }
@@ -108,7 +108,13 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
     val muted = secondaryTint
     when (block) {
         is MarkdownBlock.Paragraph ->
-            Text(inline(block.text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp)
+            Text(
+                text = inline(block.text, tail, muted),
+                fontSize = 15.5.sp,
+                lineHeight = 22.sp,
+                letterSpacing = 0.08.sp,
+                color = minisInk,
+            )
 
         is MarkdownBlock.Heading ->
             // Three sizes, not six. A chat bubble is not a document, and an h4

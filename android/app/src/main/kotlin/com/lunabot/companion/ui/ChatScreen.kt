@@ -1360,19 +1360,18 @@ private fun LoadedChat(
                     animationSpec = tween(180),
                     label = "chat-top-haze",
                 )
-                // Muse-style crisp top white-fade veil so scrolling messages
-                // dissolve smoothly before reaching the floating avatar & name pill.
+                // Muse-style crystal-clear pure-white top fade (zero murky blur smear)
+                // so bubbles stay razor-sharp and dissolve cleanly only near the status bar.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(headerClearance + 22.dp)
-                        .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha)
+                        .height(headerClearance - 4.dp)
                         .background(
                             Brush.verticalGradient(
                                 0.00f to minisCanvas,
-                                0.64f to minisCanvas.copy(alpha = 0.96f),
-                                0.84f to minisCanvas.copy(alpha = 0.68f),
+                                0.36f to minisCanvas.copy(alpha = 0.92f * topBandAlpha),
+                                0.70f to minisCanvas.copy(alpha = 0.32f * topBandAlpha),
                                 1.00f to Color.Transparent,
                             ),
                         ),
@@ -1381,8 +1380,14 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(bottomClearance + 24.dp)
-                        .progressiveHazeBand(hazeState, fromTop = false),
+                        .height(bottomClearance + 14.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0.00f to Color.Transparent,
+                                0.42f to minisCanvas.copy(alpha = 0.82f),
+                                1.00f to minisCanvas,
+                            ),
+                        ),
                 )
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -1978,9 +1983,9 @@ internal fun MuseDrawerButton(
                     .museFloatingPill(CircleShape, elevation = 4.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(5.5.dp)) {
-                    Box(Modifier.width(17.dp).height(1.8.dp).background(minisInk, CircleShape))
-                    Box(Modifier.width(17.dp).height(1.8.dp).background(minisInk, CircleShape))
+                Column(verticalArrangement = Arrangement.spacedBy(4.5.dp)) {
+                    Box(Modifier.width(14.dp).height(1.9.dp).background(minisInk, CircleShape))
+                    Box(Modifier.width(14.dp).height(1.9.dp).background(minisInk, CircleShape))
                 }
             }
         }

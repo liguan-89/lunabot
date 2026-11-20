@@ -726,7 +726,7 @@ private fun TextBubble(
                                     bubbleShape,
                                 )
                                 .then(if (mine) Modifier.border(0.5.dp, bubbleRim, bubbleShape) else Modifier)
-                                .padding(horizontal = 17.dp, vertical = 12.dp)
+                                .padding(horizontal = 15.dp, vertical = 10.dp)
                         } else {
                             Modifier
                         },
@@ -913,7 +913,13 @@ private fun UserMessageText(text: String) {
         return
     }
     if (!text.startsWith(">")) {
-        Text(text = text, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
+        Text(
+            text = text,
+            fontSize = 15.5.sp,
+            lineHeight = 22.sp,
+            letterSpacing = 0.08.sp,
+            color = color,
+        )
         return
     }
     val lines = text.lines()
@@ -1373,8 +1379,8 @@ private fun ActivityChip(
     if (tool.rescue?.answered == true) return
     val status = ActivityReceipt.status(tool.ok)
     val dark = minisIsDark()
-    val errorInk = if (dark) Color(0xFFE58A7E) else Color(0xFFB84A39)
-    val errorFill = if (dark) Color(0xFF2D1E1D) else Color(0xFFFDF0EE)
+    val errorInk = if (dark) Color(0xFFE59688) else Color(0xFF9E4B3B)
+    val errorFill = if (dark) Color(0xFF2B211F) else Color(0xFFF5EFEA)
     val tint = when (status) {
         ActivityStatus.RUNNING -> minisAccent
         ActivityStatus.SUCCESS -> secondaryTint
@@ -2497,7 +2503,7 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                     modifier = Modifier
                         .widthIn(max = 640.dp)
                         .background(BubbleColor.botBubble, bubbleShape)
-                        .padding(horizontal = 17.dp, vertical = 12.dp),
+                        .padding(horizontal = 15.dp, vertical = 10.dp),
                 ) {
                     MarkdownText(source = revealed(text), caret = true)
                 }
