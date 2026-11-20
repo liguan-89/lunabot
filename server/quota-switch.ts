@@ -70,6 +70,11 @@ export type QuotaAnswer = "answered" | "rejected" | "unavailable";
 
 export const NOT_NOW = "Not now";
 
+export function turnLimitScope(event: SettledTurn, flags: { limit?: TakeoverScope } | undefined, cause: string | undefined): TakeoverScope | undefined {
+  return signedOutStop(event.stopReason, cause) ? "signed-out"
+    : flags?.limit ?? (event.stopReason !== "tool_error" && classifyError({ text: cause ?? "" }).reason === "quota" ? "engine" : undefined);
+}
+
 const ENDED: ReadonlySet<string> = new Set(["completed", "failed", "cancelled"]);
 
 /** On unless OMB_QUOTA_SWITCH=0: a limited AI's work carries on with another AI by itself. Off, only the backups
@@ -207,8 +212,7 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
       const flags = deps.turnStops.read?.(threadId, event.turnId)?.flags;
       const cause = deps.turnStops.failureCause(event);
       // A tool call's failure names the tool, never the engine's own limit, whatever its words.
-      const scope: TakeoverScope | undefined = signedOutStop(event.stopReason, cause) ? "signed-out"
-        : flags?.limit ?? (event.stopReason !== "tool_error" && classifyError({ text: cause ?? "" }).reason === "quota" ? "engine" : undefined);
+      const scope = turnLimitScope(event, flags, cause);
       if (!scope) return null;
       const thread = store.projectBotForTask(bot.id, threadId) ?? bot;
       const from = thread.modelSelection;
