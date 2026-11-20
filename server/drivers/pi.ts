@@ -1,4 +1,3 @@
-import { piModelId } from "./pi-model-id.ts";
 import {
   mergePiCustomCatalog,
   withPiDefaultOption,
@@ -15,7 +14,6 @@ import {
 } from "./pi-model-catalog.ts";
 export { applyPiLocalCatalog, ensurePiCustomProvider, ensurePiInjectModel, splitPiModel };
 export { parsePiCatalog, preferPiInjectRows } from "./pi-model-catalog.ts";
-import { RuntimeNoticeError, runtimeErrorText } from "./runtime-notice-error.ts";
 // The pi coding agent (@earendil-works/pi-coding-agent) over its own stdio JSON-RPC mode
 // (`pi --mode rpc --no-session`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so
 // this driver holds no key; resumeCursor is pi's `sessionFile` (switch_session).
@@ -43,7 +41,6 @@ import { extractMcpImages } from "../mcp-tool-images.ts";
 
 import type {
   DriverCreateInput,
-  EffortLevel,
   ModelCatalog,
   PrewarmInput,
   ProviderDriver,
@@ -53,6 +50,7 @@ import type {
   RuntimeEventListener,
   SendTurnInput,
   SteerOutcome,
+  TurnImageInput,
 } from "../contracts.ts";
 import { EFFORT_LEVELS } from "../../shared/wire.ts";
 import { newEventId, newId, TurnNotStartedError } from "../contracts.ts";
@@ -62,11 +60,12 @@ import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
 import { createSidejobText } from "./pi-sidejob-text.ts";
 import { PiSessionAllow, readPiApprovalRequest } from "./pi-session-allow.ts";
-import { noticeFailure } from "../chat-notices.ts";
 
-import { decodePiFrame, PiRpcChunks, piLineReader, piNativeLogMessage, readPiPromptImages } from "./pi-rpc.ts";
+import { decodePiFrame, PiRpcChunks, piImagesOf, piLineReader, piNativeLogMessage, PiRpcRefusalError, readPiPromptImages } from "./pi-rpc.ts";
+import { preparePiTurnSession } from "./pi-session.ts";
 import { PiRunUsage, type PiUsage, type TurnUsage } from "./pi-usage.ts";
 export { decodePiFrame, PiRpcChunks, piLineReader } from "./pi-rpc.ts";
+export { piThinkingLevel } from "./pi-session.ts";
 
 const DRIVER_KIND = "piAgent";
 const PI_ARGS = ["--mode", "rpc", "--no-session"];
@@ -77,16 +76,6 @@ const PI_NEGOTIATE_FRAME = { id: "negotiate", type: "negotiate_protocol", protoc
 const PI_PROMPT_RE_ANCHOR_TURNS = 8;
 /** How long to wait after a finished turn_end for agent_end, which some runtimes never send. */
 const PI_AGENT_END_GRACE_MS = 60_000;
-/** A prompt sent before pi answers new_session or switch_session runs on a session pi then replaces, so the turn waits
- *  for that answer however long it takes, and says so in the chat after this long. */
-const PI_SESSION_SLOW_MS = 20_000;
-
-/** pi answered success:false: an explicit refusal from a live runtime, not a transport failure. */
-class PiRpcRefusalError extends Error {}
-
-export function piThinkingLevel(effort: EffortLevel): (typeof EFFORT_LEVELS)[number] | "off" {
-  return effort === "none" ? "off" : effort;
-}
 
 /** Security: Pi loads its extensions from ~/.pi/agent on every start, so while the bot box is on its model list runs in
  * the box, as a bot's turn does. `allowEnv`: the keys the instance's own settings put in `env`. */
@@ -252,7 +241,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       pending: Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>;
       sessionAllow: PiSessionAllow;
       child?: { stdin: { write: (s: string) => void } };
-      steer?: (text: string) => Promise<SteerOutcome>;
+      steer?: (text: string, images?: readonly TurnImageInput[]) => Promise<SteerOutcome>;
     }>();
 
     /** A pi child kept warm between turns, with everything the boot fixed.
@@ -691,13 +680,24 @@ export const PiDriver: ProviderDriver<PiConfig> = {
 
       // pi queues a steer into the running agent without aborting the step, answers success only after
       // session.steer() accepted it, and echoes each frame's id.
-      const steerActiveTurn = async (text: string): Promise<SteerOutcome> => {
+      const steerActiveTurn = async (text: string, images: readonly TurnImageInput[] = []): Promise<SteerOutcome> => {
         if (settled || child.exitCode !== null || child.signalCode !== null) return "refused";
+        // Refuse the whole steer when a queued image is unreadable, per the
+        // contract: the sender gets to queue or fail intact instead of an
+        // image-less text steering the turn by surprise.
+        let steerImages: ReturnType<typeof piImagesOf> | undefined;
+        if (images.length) {
+          try {
+            steerImages = piImagesOf(images);
+          } catch {
+            return "refused";
+          }
+        }
         let ack: Promise<unknown>;
         try {
           const id = `steer:${++steerSeq}`;
           ack = awaitResponse("steer", 20_000, id);
-          send({ type: "steer", id, message: text });
+          send({ type: "steer", id, message: text, ...(steerImages?.length ? { images: steerImages } : {}) });
         } catch {
           return "refused";
         }
@@ -943,95 +943,26 @@ export const PiDriver: ProviderDriver<PiConfig> = {
 
       emit({ ...base(threadId, turnId), type: "turn.started" });
 
-      let sessionId: string | null = sessionFile;
-      let sessionOpened = false;
-      if (!freshSpawn) {
-        // The warmed child already holds this session: reuse it rather than
-        // making pi recreate (or re-read) the same conversation.
-        sessionOpened = sessionReady;
-      } else {
-        try {
-          const command = sessionFile ? "switch_session" : "new_session";
-          const hsPromise = awaitResponse(command, Infinity);
-          send(sessionFile ? { type: "switch_session", sessionPath: sessionFile } : { type: "new_session" });
-          const slow = setTimeout(() => emit({ ...base(threadId, turnId), type: "runtime.notice", ...noticeFailure("chat.notice.piSessionSlow") }), PI_SESSION_SLOW_MS);
-          const hs = (await hsPromise.finally(() => clearTimeout(slow))) as { sessionFile?: string; sessionId?: string } | undefined;
-          if (hs?.sessionFile) sessionFile = hs.sessionFile;
-          sessionId = sessionFile ?? hs?.sessionId ?? null;
-          sessionReady = true;
-          sessionOpened = true;
-        } catch {
-          // pi --no-session accepts a prompt without an explicit session.
-        }
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
-
-      const chosen = typeof turn.model === "string" ? splitPiModel(turn.model) : null;
-      if (chosen && (freshSpawn || !confirmedModel)) {
-        try {
-          const modelPromise = awaitResponse("set_model");
-          send({ type: "set_model", provider: chosen.provider, modelId: chosen.modelId });
-          confirmedModel = piModelId(await modelPromise);
-          if (!confirmedModel) throw new RuntimeNoticeError("The selected model was not confirmed", "chat.notice.piModelNotConfirmed");
-        } catch (error) {
-          const message = prePromptFailure ?? String((error as Error).message);
-          if (prePromptQuiet()) {
-            if (!settled) await settle(false);
-            // The model refusal is a setup failure: the harness replays the
-            // turn on its backup instead of reporting a dead turn.
-            throw new TurnNotStartedError(turnId, message);
-          }
-          if (!settled) {
-            emit({ ...base(threadId, turnId), type: "runtime.error", message: String((error as Error).message), text: runtimeErrorText(error) });
-            await settle(false);
-          }
-          return { turnId };
-        }
-      }
-      if (!chosen && freshSpawn) {
-        try {
-          const statePromise = awaitResponse("get_state");
-          send({ type: "get_state" });
-          const state = await statePromise as { model?: unknown } | undefined;
-          confirmedModel = piModelId(state?.model);
-        } catch {}
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
-      if (sessionOpened) emit({ ...base(threadId, turnId), type: "session.started", sessionId, model: confirmedModel });
-
-      // After the model: the supported level set is model-dependent.
-      if (turn.effort) {
-        try {
-          const levelPromise = awaitResponse("set_thinking_level");
-          send({ type: "set_thinking_level", level: piThinkingLevel(turn.effort) });
-          await levelPromise;
-        } catch {}
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
+      const sessionSetup = await preparePiTurnSession({
+        turn,
+        turnId,
+        freshSpawn,
+        sessionFile,
+        sessionReady,
+        confirmedModel,
+        emit,
+        base: () => base(threadId, turnId),
+        send,
+        awaitResponse,
+        settled: () => settled,
+        settledOk: () => settledOk,
+        prePromptQuiet,
+        prePromptFailure: () => prePromptFailure,
+        settle,
+      });
+      if (!sessionSetup) return { turnId };
+      ({ sessionFile, sessionReady, confirmedModel } = sessionSetup);
+      const { sessionRebuilt } = sessionSetup;
 
       if (scopeReadyPath) {
         let ready = false;
@@ -1057,6 +988,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         mcpTempDir = null;
       }
 
+      const promptText = sessionRebuilt ? (turn.recoveryText ?? turn.text) : turn.text;
       const halves = promptHalves(turn);
       let message: string;
       let pendingReceipt: { key: string; receipt: PromptSplitReceipt } | null = null;
@@ -1067,14 +999,14 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           halves.volatile,
           readPromptSplitReceipt("pi", receiptKey),
           turn.system,
-          turn.text,
+          promptText,
           Boolean(turn.mentionTurn),
           PI_PROMPT_RE_ANCHOR_TURNS,
         );
         message = composed.text;
         pendingReceipt = { key: receiptKey, receipt: composed.receipt };
       } else {
-        message = turn.system ? `${turn.system}\n\n${turn.text}` : turn.text;
+        message = turn.system ? `${turn.system}\n\n${promptText}` : promptText;
       }
       try {
           // pi answers the prompt only after preflight accepts it, and rejects it while a compaction runs.
@@ -1178,6 +1110,12 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // pi rejects an unsupported level and the turn keeps the engine default.
           effortLevels: EFFORT_LEVELS,
           queueing: true, askTool: { kind: "native", name: "ask_user" },
+          // steer/follow_up/prompt all carry images in pi's RPC schema; an
+          // unreadable image refuses the whole steer (see steerActiveTurn).
+          steerImages: true,
+          // A refused switch_session rebuilds on a fresh session from
+          // recoveryText or fails the turn — never a silent blank one.
+          strictResume: true,
           // A guest turn runs with every native tool denied and without the owner's
           // custom MCP connectors (see sendTurn and buildMcpServers).
           guestTurns: "confined",
@@ -1201,9 +1139,9 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           });
           return decision.behavior === "allow" ? "allowed-once" : decision.behavior === "answer" ? "answered" : "rejected";
         },
-        steer: async (threadId, text) => {
+        steer: async (threadId, text, images) => {
           const entry = active.get(threadId);
-          return entry?.steer ? await entry.steer(text) : "refused";
+          return entry?.steer ? await entry.steer(text, images) : "refused";
         },
         hasSession: (threadId) => active.has(threadId),
         stopAll,

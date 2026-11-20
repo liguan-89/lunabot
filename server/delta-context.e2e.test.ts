@@ -174,8 +174,9 @@ it("replays the conversation it ran and gives it each of three results exactly o
     expect(count(text, `RESULT_${tag}_START`)).toBe(1);
     expect(count(text, `RESULT_${tag}_END`)).toBe(1);
   }
-  // pi keeps no native resume for a delegated return, so the turn replays the source conversation — once.
-  expect(count(text, "ORCHID_7Q")).toBe(1);
+  // strictResume: the ledger proves the session still holds this conversation, so the return resumes natively
+  // and the results land through the unseen block — the source conversation is not replayed again.
+  expect(count(text, "ORCHID_7Q")).toBe(0);
   expect(text).not.toMatch(/^Assistant: @/m);
 }), hostTimeout(60_000));
 
@@ -214,7 +215,7 @@ it("stops the teammate with the source it worked for, so no result of it lands l
   expect(count(f.prompt(f.turns().at(-1)), "STOPPED_SOURCE_RESULT")).toBe(0);
 }), hostTimeout(90_000));
 
-it("sends a steered message into the running turn once, and no later turn offers it again", () => fixture(async (f) => {
+it("steers a message into the running turn, re-offers it once marked, and no later turn repeats it", () => fixture(async (f) => {
   await warmUp(f);
   f.plan[f.chief.id] = { script: [
     { key: "S-START", match: ["Start on the report."], reply: "Working", echoSteered: true, readyFile: f.gate("turn-ready"), gateFile: f.gate("turn") },
@@ -235,7 +236,9 @@ it("sends a steered message into the running turn once, and no later turn offers
   await f.send("Is it done?");
   await f.wait();
   const next = f.prompt(f.turns().at(-1));
-  expect(next).not.toContain("STEERED_MID_TURN");
+  // strictResume: a steer is never counted as received (the call already running may have answered before it
+  // landed), so the ledger offers it once more, marked as a maybe-already-seen steer — then never again.
+  expect(next).toContain("User (sent while an earlier turn was running; you may already have it): STEERED_MID_TURN");
   expect(next).toContain("Is it done?");
 
   await f.send("Anything else?");
