@@ -1,4 +1,3 @@
-import { piModelId } from "./pi-model-id.ts";
 import {
   mergePiCustomCatalog,
   withPiDefaultOption,
@@ -15,7 +14,6 @@ import {
 } from "./pi-model-catalog.ts";
 export { applyPiLocalCatalog, ensurePiCustomProvider, ensurePiInjectModel, splitPiModel };
 export { parsePiCatalog, preferPiInjectRows } from "./pi-model-catalog.ts";
-import { RuntimeNoticeError, runtimeErrorText } from "./runtime-notice-error.ts";
 // The pi coding agent (@earendil-works/pi-coding-agent) over its own stdio JSON-RPC mode
 // (`pi --mode rpc --no-session`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so
 // this driver holds no key; resumeCursor is pi's `sessionFile` (switch_session).
@@ -43,7 +41,6 @@ import { extractMcpImages } from "../mcp-tool-images.ts";
 
 import type {
   DriverCreateInput,
-  EffortLevel,
   ModelCatalog,
   PrewarmInput,
   ProviderDriver,
@@ -62,12 +59,12 @@ import { appendNative } from "./native.ts";
 import { allowsTool, parseToolScope } from "../../shared/tool-scope.ts";
 import { buildMcpServers } from "./pi-mcp-servers.ts";
 import { PiSessionAllow, readPiApprovalRequest } from "./pi-session-allow.ts";
-import { noticeFailure } from "../chat-notices.ts";
 
-import { decodePiFrame, PiRpcChunks, piImagesOf, piLineReader, piNativeLogMessage, readPiPromptImages } from "./pi-rpc.ts";
+import { decodePiFrame, PiRpcChunks, piImagesOf, piLineReader, piNativeLogMessage, PiRpcRefusalError, readPiPromptImages } from "./pi-rpc.ts";
+import { preparePiTurnSession } from "./pi-session.ts";
 import { PiRunUsage, type PiUsage, type TurnUsage } from "./pi-usage.ts";
-import { rebuiltSessionNotice } from "../resume-recovery.ts";
 export { decodePiFrame, PiRpcChunks, piLineReader } from "./pi-rpc.ts";
+export { piThinkingLevel } from "./pi-session.ts";
 
 const DRIVER_KIND = "piAgent";
 const PI_ARGS = ["--mode", "rpc", "--no-session"];
@@ -78,16 +75,6 @@ const PI_NEGOTIATE_FRAME = { id: "negotiate", type: "negotiate_protocol", protoc
 const PI_PROMPT_RE_ANCHOR_TURNS = 8;
 /** How long to wait after a finished turn_end for agent_end, which some runtimes never send. */
 const PI_AGENT_END_GRACE_MS = 60_000;
-/** A prompt sent before pi answers new_session or switch_session runs on a session pi then replaces, so the turn waits
- *  for that answer however long it takes, and says so in the chat after this long. */
-const PI_SESSION_SLOW_MS = 20_000;
-
-/** pi answered success:false: an explicit refusal from a live runtime, not a transport failure. */
-class PiRpcRefusalError extends Error {}
-
-export function piThinkingLevel(effort: EffortLevel): (typeof EFFORT_LEVELS)[number] | "off" {
-  return effort === "none" ? "off" : effort;
-}
 
 /** Security: Pi loads its extensions from ~/.pi/agent on every start, so while the bot box is on its model list runs in
  * the box, as a bot's turn does. `allowEnv`: the keys the instance's own settings put in `env`. */
@@ -955,137 +942,26 @@ export const PiDriver: ProviderDriver<PiConfig> = {
 
       emit({ ...base(threadId, turnId), type: "turn.started" });
 
-      let sessionId: string | null = sessionFile;
-      let sessionOpened = false;
-      // strictResume: a refused cursor rebuilt on a fresh session discloses
-      // itself through session.started.rebuilt instead of running silently
-      // with no history.
-      let sessionRebuilt = false;
-      const openSession = async (command: "new_session" | "switch_session") => {
-        const hsPromise = awaitResponse(command, Infinity);
-        send(command === "switch_session" ? { type: "switch_session", sessionPath: sessionFile! } : { type: "new_session" });
-        const slow = setTimeout(() => emit({ ...base(threadId, turnId), type: "runtime.notice", ...noticeFailure("chat.notice.piSessionSlow") }), PI_SESSION_SLOW_MS);
-        const hs = (await hsPromise.finally(() => clearTimeout(slow))) as
-          | { sessionFile?: string; sessionId?: string; cancelled?: boolean }
-          | undefined;
-        // pi answers cancelled when a session hook vetoes the open — a refusal
-        // like success:false.
-        if (hs?.cancelled === true) throw new PiRpcRefusalError(`pi refused ${command}`);
-        // A new session must not keep the refused cursor; a switched one may
-        // report a file it rewrote.
-        if (command === "new_session") sessionFile = hs?.sessionFile ?? null;
-        else if (hs?.sessionFile) sessionFile = hs.sessionFile;
-        sessionId = sessionFile ?? hs?.sessionId ?? null;
-        sessionReady = true;
-        sessionOpened = true;
-      };
-      if (!freshSpawn) {
-        // The warmed child already holds this session: reuse it rather than
-        // making pi recreate (or re-read) the same conversation.
-        sessionOpened = sessionReady;
-      } else {
-        const resumeWanted = sessionFile !== null;
-        try {
-          await openSession(resumeWanted ? "switch_session" : "new_session");
-        } catch {
-          if (!resumeWanted || settled) {
-            // pi --no-session accepts a prompt without an explicit session; a
-            // settled child is handled by the check below.
-          } else {
-            try {
-              // The provider refused the cursor: strictResume allows exactly
-              // one fallback — a fresh session fed recoveryText, disclosed as
-              // rebuilt — never a silently blank one.
-              await openSession("new_session");
-              sessionRebuilt = true;
-              emit({ ...base(threadId, turnId), type: "runtime.notice", message: rebuiltSessionNotice("pi") });
-            } catch {
-              const message = "The AI could not reopen this conversation's session";
-              if (prePromptQuiet()) {
-                if (!settled) await settle(false);
-                throw new TurnNotStartedError(turnId, prePromptFailure ?? message);
-              }
-              if (!settled) {
-                emit({ ...base(threadId, turnId), type: "runtime.error", message });
-                await settle(false);
-              }
-              return { turnId };
-            }
-          }
-        }
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
-
-      const chosen = typeof turn.model === "string" ? splitPiModel(turn.model) : null;
-      if (chosen && (freshSpawn || !confirmedModel)) {
-        try {
-          const modelPromise = awaitResponse("set_model");
-          send({ type: "set_model", provider: chosen.provider, modelId: chosen.modelId });
-          confirmedModel = piModelId(await modelPromise);
-          if (!confirmedModel) throw new RuntimeNoticeError("The selected model was not confirmed", "chat.notice.piModelNotConfirmed");
-        } catch (error) {
-          const message = prePromptFailure ?? String((error as Error).message);
-          if (prePromptQuiet()) {
-            if (!settled) await settle(false);
-            // The model refusal is a setup failure: the harness replays the
-            // turn on its backup instead of reporting a dead turn.
-            throw new TurnNotStartedError(turnId, message);
-          }
-          if (!settled) {
-            emit({ ...base(threadId, turnId), type: "runtime.error", message: String((error as Error).message), text: runtimeErrorText(error) });
-            await settle(false);
-          }
-          return { turnId };
-        }
-      }
-      if (!chosen && freshSpawn) {
-        try {
-          const statePromise = awaitResponse("get_state");
-          send({ type: "get_state" });
-          const state = await statePromise as { model?: unknown } | undefined;
-          confirmedModel = piModelId(state?.model);
-        } catch {}
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
-      if (sessionOpened) emit({ ...base(threadId, turnId), type: "session.started", sessionId, model: confirmedModel, ...(sessionRebuilt ? { rebuilt: true } : {}) });
-
-      // After the model: the supported level set is model-dependent.
-      if (turn.effort) {
-        try {
-          const levelPromise = awaitResponse("set_thinking_level");
-          send({ type: "set_thinking_level", level: piThinkingLevel(turn.effort) });
-          await levelPromise;
-        } catch {
-          // pi rejects a level its model does not take and keeps the engine
-          // default — say so, instead of letting the choice look applied.
-          if (!settled) emit({ ...base(threadId, turnId), type: "runtime.notice", ...noticeFailure("chat.notice.piEffortUnsupported") });
-        }
-      }
-      if (settled) {
-        // The child ended the attempt before the prompt went out: a recoverable
-        // start-up failure, so the dispatch rejects and the harness replays it.
-        // A Stop in the same window settled ok and stays a cancellation.
-        if (prePromptQuiet() && !settledOk) {
-          throw new TurnNotStartedError(turnId, prePromptFailure ?? "The AI exited before the turn started");
-        }
-        return { turnId };
-      }
+      const sessionSetup = await preparePiTurnSession({
+        turn,
+        turnId,
+        freshSpawn,
+        sessionFile,
+        sessionReady,
+        confirmedModel,
+        emit,
+        base: () => base(threadId, turnId),
+        send,
+        awaitResponse,
+        settled: () => settled,
+        settledOk: () => settledOk,
+        prePromptQuiet,
+        prePromptFailure: () => prePromptFailure,
+        settle,
+      });
+      if (!sessionSetup) return { turnId };
+      ({ sessionFile, sessionReady, confirmedModel } = sessionSetup);
+      const { sessionRebuilt } = sessionSetup;
 
       if (scopeReadyPath) {
         let ready = false;

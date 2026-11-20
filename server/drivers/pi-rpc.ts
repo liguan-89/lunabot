@@ -1,6 +1,9 @@
 import { readFileSync } from "node:fs";
 import type { SendTurnInput, TurnImageInput } from "../contracts.ts";
 
+/** pi answered success:false: an explicit refusal from a live runtime, not a transport failure. */
+export class PiRpcRefusalError extends Error {}
+
 /** omp's RPC v2 splits a frame over 1 MiB into base64 `rpc_chunk` pieces (`chunkId`/`count`/
  *  `byteLength` per frame, sequential `index`, `data` per piece). Any inconsistency drops the sequence. */
 export class PiRpcChunks {
