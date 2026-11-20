@@ -12,11 +12,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { wholeScreenshot } from "./container-computer.ts";
+import { desktopComputer } from "./desktop-computer.ts";
 import { augmentedPath } from "./env-path.ts";
 import type { LocalComputerConnection } from "./local-computer.ts";
 
-/** One capture: the picture the phone draws, and the frame an action's x/y must be expressed in. */
-export interface DesktopScreenFrame {
+/**
+ * This computer's own screen as a turn's preview: the same capture the phone's viewer polls, read through whatever
+ * driver connection the desktop app last handed over. Lives here rather than in index.ts so the capture contract has
+ * one home, and index.ts keeps its size.
+ */
+export async function thisComputerCapture(): Promise<{ png: string; format: string }> {
+  const live = desktopComputer.connection();
+  if (!live) throw new Error("this computer is no longer available");
+  const frame = await captureDesktopScreen(live, { maxImageDimension: 900 });
+  return { png: frame.png, format: frame.mime === "image/jpeg" ? "jpeg" : "png" };
+}
+
+/** One capture: the picture the phone draws, and the frame an action's x/y must be expressed in. */export interface DesktopScreenFrame {
   png: string;
   mime: "image/png" | "image/jpeg";
   /** Pixels in [png]; what the phone's touch maps against. */
