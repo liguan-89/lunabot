@@ -240,7 +240,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       turnId: string;
       pending: Map<string, (decision: { behavior: "allow" | "deny" | "answer"; message?: string }) => void>;
       sessionAllow: PiSessionAllow;
-      child?: { stdin: { write: (s: string) => void } };
+      child?: { stdin: { write: (s: string) => void }; pid?: number };
       steer?: (text: string, images?: readonly TurnImageInput[]) => Promise<SteerOutcome>;
     }>();
 
@@ -1123,6 +1123,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
         sendTurn,
         prewarm,
         interruptTurn: async (threadId) => { await active.get(threadId)?.stop(); },
+        enginePid: (threadId) => active.get(threadId)?.child?.pid,
         respondToRequest: async (threadId, requestId, decision) => {
           const entry = active.get(threadId);
           const answer = entry?.pending.get(requestId);

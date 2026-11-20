@@ -7,6 +7,7 @@ import type { RuntimeEvent } from "./contracts.ts";
 import { OwnedFile } from "./atomic.ts"; import { saveSoon } from "./save-batch.ts"; import { RunProgressSave } from "./routine-progress-save.ts";
 import { redactSecretsInText } from "./redact.ts";
 import { activeRunsOf, nextDueOf, schedulerDueOf, wakeHoldOf } from "./routine-due.ts";
+import { keepUnreadableAside } from "./unreadable-aside.ts";
 import { startDueTimer, type DueTimer } from "./due-timer.ts";
 import type { GroupGoalRunStatus } from "../shared/group-goal-run.ts";
 import type { RoutineRequestOperation } from "../shared/routine-request.ts";
@@ -353,6 +354,7 @@ export class RoutineManager {
       this.routines = []; this.unloadedRoutines = []; this.runs = []; this.routineRequestReceipts = []; this.webhookRunReceipts = [];
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
         this.unreadable = true;
+        keepUnreadableAside(this.file);
         // JSON.parse errors can echo a fragment of the input, so they never reach the log.
         const reason = error instanceof SyntaxError ? "invalid JSON"
           : error instanceof Error ? error.message : "unable to read routines";

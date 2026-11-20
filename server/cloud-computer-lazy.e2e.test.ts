@@ -103,12 +103,12 @@ describe("a cloud computer starts only when the bot uses it", () => {
   };
   /** The newest turn's launch, with the instructions in effect on it: pi sends the whole system prompt on a session's
    * first turn and only the note that replaced part of it afterwards, so the session's own launches rebuild it. */
-  const dump = (): Promise<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig }> => until<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig }>((): any => {
+  const dump = (): Promise<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig; pid?: number }> => until<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig; pid?: number }>((): any => {
     const turns = piTurns(dumpFile);
     const turn = turns.at(-1);
     if (!turn?.launch) return null;
     const session = turns.filter((candidate) => candidate.launch === turn.launch);
-    return { cwd: turn.launch.cwd, systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch.mcpConfig ?? {} };
+    return { cwd: turn.launch.cwd, systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch.mcpConfig ?? {}, pid: turn.launch.pid };
   }, Boolean);
   /** One JSON-RPC request on the mounted cloud computer, exactly as
    * harness-mcp-proxy sends it for the engine. */
@@ -289,6 +289,29 @@ describe("a cloud computer starts only when the bot uses it", () => {
     expect(starts(bot.id)).toEqual([]);
     await apiOk("DELETE", `/api/bots/${bot.id}`);
   }, 30_000);
+
+  it("a second turn on Cloud computer runs in the engine the first one started, and its tools answer only while a turn runs", async () => {
+    const bot = await cloudBot("Returner");
+    const first = await startTurn(bot.id, "hi");
+    await finish(bot.id);
+    expect((await computerCall(first, "tools/list")).status).toBe(401);
+    const second = await startTurn(bot.id, "again");
+    expect(second.pid).toBe(first.pid);
+    expect((await computerCall(first, "tools/list")).body.result.tools.map((tool: { name: string }) => tool.name)).toContain("screenshot");
+    await finish(bot.id);
+    expect((await computerCall(first, "tools/list")).status).toBe(401);
+    // A stop ends the engine and the credential with it: the next turn starts its own, with a new one.
+    const third = await startTurn(bot.id, "once more");
+    expect(third.pid).toBe(first.pid);
+    await apiOk("POST", `/api/bots/${bot.id}/interrupt`, { threadId: bot.threadId });
+    await idle(bot.id);
+    const fourth = await startTurn(bot.id, "after the stop");
+    expect(fourth.pid).not.toBe(first.pid);
+    expect(fourth.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER).not.toBe(first.mcpConfig.mcpServers!.computer!.env!.OMB_MCP_TOKEN_COMPUTER);
+    expect((await computerCall(first, "tools/list")).status).toBe(401);
+    await finish(bot.id);
+    await apiOk("DELETE", `/api/bots/${bot.id}`);
+  }, 60_000);
 
   it("a room message to a member on Cloud computer makes no relay call either", async () => {
     const bot = await cloudBot("Room member");

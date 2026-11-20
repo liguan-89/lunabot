@@ -15,6 +15,7 @@ import type { Coordinator } from "../coordinator.ts";
 import type { WorkspaceAccess } from "../enterprise.ts";
 import type { GroupUsageReader } from "../group-thread-usage.ts";
 import { readMessage, searchMessagesAsync } from "../message-db.ts";
+import { cappedMediaRange, MessageMediaLinks, STREAMABLE_MEDIA_MIMES } from "../message-media-links.ts";
 import {
   listMessageFolder, MESSAGE_FILE_DOWNLOAD_MAX_BYTES, MESSAGE_FILE_MAX_BYTES, messageAttachmentName, messageFileDisposition, messageFileDownloadName, messageFolderEntryName,
   messageImageTargetAt, messageReferencesFile, openMessageFile, openMessageFolderEntry, referencedFileName,
@@ -49,7 +50,8 @@ export interface ThreadRouteDeps {
   cliOwnerToken(): string | undefined;
   defaultPage: number;
   pageSize(raw: string | null): number | null | undefined;
-  messagePage(threadId: string, limit: number | undefined, before?: string | null): MessagePage;
+  messagePage(threadId: string, limit: number | undefined): MessagePage;
+  messagePageBefore(threadId: string, before: string, limit: number): MessagePage | null;
   messageWindow(threadId: string, messageId: string, limit: number): { messages: Array<Message | Record<string, unknown>>; hasMore: boolean } | null;
   publicBotQueuedMessages(): ReturnType<typeof queuedSteerSnapshot>;
   publicGroupState(record: GroupRecord): WireGroup;
@@ -75,9 +77,10 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
   const {
     store, userName: userNameFor, sessions, groupUsageReader, lendingEnabled,
     hostedWorkspace: HOSTED_WORKSPACE, sessionCookie: SESSION_COOKIE, loopback: LOOPBACK, defaultPage: DEFAULT_PAGE,
-    pageSize, messagePage, messageWindow, publicBotQueuedMessages, publicGroupState, wireBot,
+    pageSize, messagePage, messagePageBefore, messageWindow, publicBotQueuedMessages, publicGroupState, wireBot,
     botComputerControlSnapshot, messageFileRootsForThread, viewerFor, visibleTo,
   } = deps;
+  const mediaLinks = new MessageMediaLinks();
   const jobs = createJobRoutes({ store, coordinator: deps.coordinator, groupThreadIsWorking: deps.groupThreadIsWorking, viewerFor, visibleTo, sessions });
   const handle = async ({ req, res, url, path, method, auth, json, readBody }: RouteContext): Promise<unknown> => {
     let m: RegExpMatchArray | null = null;
@@ -137,10 +140,11 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         return json(res, 200, { ...window, activeLeafId: store.activeLeaf(threadId) });
       }
       // An unknown cursor must not answer with the newest page: the client would paginate in a circle.
-      if (before && !store.messagesFor(threadId).some((msg) => msg.id === before)) {
-        return json(res, 404, { error: "no such message" });
+      if (before) {
+        const page = messagePageBefore(threadId, before, limit ?? DEFAULT_PAGE);
+        return page ? json(res, 200, page) : json(res, 404, { error: "no such message" });
       }
-      return json(res, 200, { ...messagePage(threadId, limit ?? DEFAULT_PAGE, before), activeLeafId: store.activeLeaf(threadId) });
+      return json(res, 200, { ...messagePage(threadId, limit ?? DEFAULT_PAGE), activeLeafId: store.activeLeaf(threadId) });
     }
 
     m = path.match(/^\/api\/threads\/([\w-]+)\/messages\/([\w-]+)\/image$/);
@@ -173,7 +177,9 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
     const streamsMessageImage = Boolean(
       m && method === "GET" && url.searchParams.get("preview") === "1",
     );
-    if (m && (method === "POST" || streamsMessageImage)) {
+    // A <video> element can only GET, so a POST first trades its body for a link id (see message-media-links.ts).
+    const mediaId = m && method === "GET" && !streamsMessageImage ? url.searchParams.get("media") : null;
+    if (m && (method === "POST" || streamsMessageImage || mediaId)) {
       if (method === "POST" && !String(req.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) {
         return json(res, 415, { error: "content-type must be application/json" });
       }
@@ -188,14 +194,20 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         return json(res, 403, { error: "that message does not share this file" });
       }
       const messageText = message.text ?? "";
+      // Only this viewer's link for this message; every check below runs again on what it stands for.
+      const mediaGrant = mediaId ? mediaLinks.use(mediaId, threadId, message.id, auth) : null;
+      if (mediaId && !mediaGrant) return json(res, 404, { error: "that video link has expired", code: "media_link_expired" });
       const body = method === "POST" ? await readBody(req) : null;
+      const asksMediaLink = body?.media === true;
       const rawReference = streamsMessageImage ? url.searchParams.get("ref") : null;
       if (streamsMessageImage && (!rawReference || !/^\d+$/.test(rawReference))) {
         return json(res, 400, { error: "ref must identify a rendered image" });
       }
-      const href = method === "POST"
-        ? (typeof body.path === "string" ? body.path : "")
-        : messageImageTargetAt(messageText, Number(rawReference));
+      const href = mediaGrant
+        ? mediaGrant.path
+        : method === "POST"
+          ? (typeof body.path === "string" ? body.path : "")
+          : messageImageTargetAt(messageText, Number(rawReference));
       if (!href) return json(res, 400, { error: "path is required" });
 
       let roots: string[];
@@ -226,9 +238,11 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         roots = [...new Set([...messageFileRootsForThread(senderId, threadId), ...fromRun])];
       }
 
-      const folderEntry = method === "POST" && body.entry !== undefined
-        ? messageFolderEntryName(body.entry)
-        : undefined;
+      const folderEntry = mediaGrant
+        ? mediaGrant.entry
+        : method === "POST" && body.entry !== undefined
+          ? messageFolderEntryName(body.entry)
+          : undefined;
       if (folderEntry === null) return json(res, 400, { error: "entry must be one file name" });
       // An inline image is read whole by the browser; a saved file is streamed below, so it may be larger.
       const maxBytes = streamsMessageImage ? MESSAGE_FILE_MAX_BYTES : MESSAGE_FILE_DOWNLOAD_MAX_BYTES;
@@ -260,19 +274,42 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         await file.handle.close();
         return json(res, 415, { error: "only images can be previewed here" });
       }
-      res.writeHead(200, {
+      if ((asksMediaLink || mediaGrant) && !STREAMABLE_MEDIA_MIMES.has(file.mime)) {
+        await file.handle.close();
+        return json(res, 415, { error: "only videos and audio can be played here" });
+      }
+      if (asksMediaLink) {
+        await file.handle.close();
+        const id = mediaLinks.issue({ threadId, messageId: message.id, path: href, ...(folderEntry ? { entry: folderEntry } : {}) }, auth);
+        res.setHeader("x-openmausbot-media", "1");
+        res.setHeader("cache-control", "private, no-store");
+        return json(res, 200, { url: `/api/threads/${encodeURIComponent(threadId)}/messages/${encodeURIComponent(message.id)}/file?media=${id}`, mime: file.mime, bytes: file.bytes });
+      }
+      const inline = streamsMessageImage || Boolean(mediaGrant);
+      const rawRange = Array.isArray(req.headers.range) ? req.headers.range[0] : req.headers.range;
+      // Without a Range header (Save As) the whole file streams; a player's range never ties up more than one chunk.
+      const range = mediaGrant ? cappedMediaRange(parseAudioRange(rawRange, file.bytes)) : { kind: "none" as const };
+      if (range.kind === "unsatisfiable") {
+        await file.handle.close();
+        res.writeHead(416, { "content-range": `bytes */${file.bytes}`, "cache-control": "private, no-store", "x-content-type-options": "nosniff" });
+        return res.end();
+      }
+      const [start, end] = range.kind === "range" ? [range.start, range.end] : [0, file.bytes - 1];
+      res.writeHead(range.kind === "range" ? 206 : 200, {
         "content-type": file.mime,
-        "content-length": String(file.bytes),
-        ...(streamsMessageImage
-          ? { "content-disposition": "inline" }
-          : { "content-disposition": messageFileDisposition(messageFileDownloadName(downloadName, file.name)) }),
+        "content-length": String(end - start + 1),
+        ...(range.kind === "range" ? { "content-range": `bytes ${start}-${end}/${file.bytes}` } : {}),
+        ...(mediaGrant ? { "accept-ranges": "bytes" } : {}),
+        "content-disposition": mediaGrant
+          ? messageFileDisposition(messageFileDownloadName(downloadName, file.name), "inline")
+          : inline ? "inline" : messageFileDisposition(messageFileDownloadName(downloadName, file.name)),
         "cache-control": "private, no-store",
         "cdn-cache-control": "no-store",
         "cloudflare-cdn-cache-control": "no-store",
         pragma: "no-cache",
         vary: "Authorization",
         "x-content-type-options": "nosniff",
-        ...(streamsMessageImage
+        ...(inline
           ? {
               "cross-origin-resource-policy": "same-origin",
               "referrer-policy": "no-referrer",
@@ -283,7 +320,7 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         await file.handle.close();
         return res.end();
       }
-      const stream = file.handle.createReadStream({ start: 0, end: file.bytes - 1, autoClose: true });
+      const stream = file.handle.createReadStream({ start, end, autoClose: true });
       stream.on("error", () => res.destroy());
       res.on("close", () => stream.destroy());
       stream.pipe(res);

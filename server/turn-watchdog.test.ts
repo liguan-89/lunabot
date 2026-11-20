@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
@@ -8,20 +9,22 @@ import type { ProviderAdapter, RuntimeEvent } from "./contracts.ts";
 import { EngineMemory } from "./engine-memory.ts";
 import type { Message } from "./store.ts";
 import { TurnStops, stoppedTurnOutcome } from "./turn-outcome.ts";
-import { engineProcessGone, stallLimitMs, TurnWatchdog, type WatchedTurn } from "./turn-watchdog.ts";
+import { engineProcessExited, engineProcessGone, ENGINE_EXIT_STALL_MS, stallLimitMs, TurnWatchdog, type StallReason, type TurnWatchdogOptions, type WatchedTurn } from "./turn-watchdog.ts";
 
 const STALL = 10_000;
 const TOOL_STALL = 50_000;
 const PARKED_STALL = 1_000 * STALL;
+const ENGINE_EXIT_STALL = 2_000;
 const base = { eventId: "e1", provider: "claudeAgent", threadId: "t1", createdAt: "2026-01-01T00:00:00.000Z" };
 const text: RuntimeEvent = { ...base, type: "content.delta", streamKind: "assistant_text", delta: "working" };
 const toolStarted = (itemId: string): RuntimeEvent => ({ ...base, type: "item.started", itemType: "tool", itemId });
 const toolEnded = (itemId: string): RuntimeEvent => ({ ...base, type: "item.completed", itemType: "tool", itemId, ok: true });
 
-function rig() {
+function rig(extra: Partial<TurnWatchdogOptions> = {}) {
   let now = 0;
   const stalls: WatchedTurn[] = [];
   const limits: number[] = [];
+  const reasons: StallReason[] = [];
   const adapters = new Map<string, Pick<ProviderAdapter, "enginePid">>();
   const alive = new Set<number>();
   const working: Array<{ threadId: string; botId: string }> = [];
@@ -30,16 +33,19 @@ function rig() {
     stallMs: STALL,
     toolStallMs: TOOL_STALL,
     parkedStallMs: PARKED_STALL,
+    engineExitStallMs: ENGINE_EXIT_STALL,
     checkMs: 60_000,
     engineGone: (turn) => engineProcessGone(adapters.get(turn.threadId), turn.threadId, (pid) => alive.has(pid)),
-    onStall: (turn, silentMs) => { stalls.push(turn); limits.push(silentMs); },
+    engineExited: (turn) => engineProcessExited(adapters.get(turn.threadId), turn.threadId, (pid) => alive.has(pid)),
+    onStall: (turn, silentMs, reason) => { stalls.push(turn); limits.push(silentMs); reasons.push(reason); },
     unheld: {
       threads: () => [...working],
       free: (threadId) => { freed.push(threadId); working.splice(working.findIndex((thread) => thread.threadId === threadId), 1); },
     },
     now: () => now,
+    ...extra,
   });
-  return { dog, stalls, limits, adapters, alive, working, freed, tick: (ms: number) => (now += ms) };
+  return { dog, stalls, limits, reasons, adapters, alive, working, freed, tick: (ms: number) => (now += ms) };
 }
 
 const ENGINE_PID = 4242;
@@ -139,6 +145,83 @@ describe("TurnWatchdog", () => {
     expect(engineProcessGone(tracked(undefined), "t1")).toBe(true);
     expect(engineProcessGone(tracked(process.pid), "t1")).toBe(false);
     expect(engineProcessGone(tracked(ENGINE_PID), "t1", () => false)).toBe(true);
+  });
+
+  it("reads an engine's process as exited only when its driver names one that is gone", () => {
+    expect(engineProcessExited(undefined, "t1")).toBe(false);
+    expect(engineProcessExited({}, "t1")).toBe(false);
+    expect(engineProcessExited(tracked(undefined), "t1")).toBe(false);
+    expect(engineProcessExited(tracked(process.pid), "t1")).toBe(false);
+    expect(engineProcessExited(tracked(ENGINE_PID), "t1", () => false)).toBe(true);
+  });
+
+  it("stops a turn whose engine process exited, without waiting for the tool's own limit", () => {
+    const { dog, stalls, limits, reasons, adapters, alive, tick } = rig();
+    adapters.set("t1", tracked(ENGINE_PID));
+    alive.add(ENGINE_PID);
+    dog.watch("t1", "bot1");
+    dog.observe(toolStarted("tool-1"));
+    alive.delete(ENGINE_PID);
+    tick(ENGINE_EXIT_STALL - 1);
+    dog.sweep();
+    expect(stalls).toHaveLength(0);
+    tick(2);
+    dog.sweep();
+    expect(stalls).toEqual([expect.objectContaining({ threadId: "t1", botId: "bot1" })]);
+    expect(limits).toEqual([ENGINE_EXIT_STALL]);
+    expect(reasons).toEqual(["engine-exited"]);
+    expect(dog.watching("t1")).toBe(false);
+  });
+
+  it("leaves a turn whose engine still runs to the tool's own limit", () => {
+    const { dog, stalls, limits, reasons, adapters, alive, tick } = rig();
+    adapters.set("t1", tracked(ENGINE_PID));
+    alive.add(ENGINE_PID);
+    dog.watch("t1", "bot1");
+    dog.observe(toolStarted("tool-1"));
+    tick(ENGINE_EXIT_STALL * 2);
+    dog.sweep();
+    expect(stalls).toHaveLength(0);
+    tick(TOOL_STALL);
+    dog.sweep();
+    expect(limits).toEqual([TOOL_STALL]);
+    expect(reasons).toEqual(["silent"]);
+  });
+
+  it("does not stop a turn for an engine it cannot see: a driver that names no process proves nothing", () => {
+    for (const adapter of [tracked(undefined), {}] as const) {
+      const { dog, stalls, limits, reasons, adapters, alive, tick } = rig();
+      adapters.set("t1", adapter);
+      alive.add(ENGINE_PID);
+      dog.watch("t1", "bot1");
+      dog.observe(toolStarted("tool-1"));
+      tick(ENGINE_EXIT_STALL * 2);
+      dog.sweep();
+      expect(stalls).toHaveLength(0);
+      tick(TOOL_STALL);
+      dog.sweep();
+      expect(limits).toEqual([TOOL_STALL]);
+      expect(reasons).toEqual(["silent"]);
+    }
+  });
+
+  it("stops a turn whose engine's own process is gone, the way a killed engine leaves it", async () => {
+    const child = spawn(process.execPath, ["-e", "setTimeout(() => {}, 25)"], { stdio: "ignore" });
+    const pid = child.pid!;
+    await new Promise((resolve) => child.once("exit", resolve));
+    let now = 0;
+    const stalls: StallReason[] = [];
+    const dog = new TurnWatchdog({
+      stallMs: STALL, toolStallMs: TOOL_STALL, parkedStallMs: PARKED_STALL, engineExitStallMs: ENGINE_EXIT_STALL, checkMs: 60_000,
+      engineExited: (turn) => engineProcessExited(tracked(pid), turn.threadId),
+      onStall: (_turn, _silentMs, reason) => stalls.push(reason),
+      now: () => now,
+    });
+    dog.watch("t1", "bot1");
+    dog.observe(toolStarted("tool-1"));
+    now = ENGINE_EXIT_STALL;
+    dog.sweep();
+    expect(stalls).toEqual(["engine-exited"]);
   });
 
   it("a settled turn is forgotten", () => {
@@ -258,7 +341,7 @@ describe("TurnWatchdog", () => {
   it("does not count the time the computer slept as a turn's silence", () => {
     vi.useFakeTimers({ now: 0 });
     const stalls: WatchedTurn[] = [];
-    const dog = new TurnWatchdog({ stallMs: STALL, toolStallMs: TOOL_STALL, parkedStallMs: PARKED_STALL, checkMs: 1_000, onStall: (turn) => stalls.push(turn) });
+    const dog = new TurnWatchdog({ stallMs: STALL, toolStallMs: TOOL_STALL, parkedStallMs: PARKED_STALL, engineExitStallMs: ENGINE_EXIT_STALL, checkMs: 1_000, onStall: (turn) => stalls.push(turn) });
     try {
       dog.start();
       dog.watch("t1", "bot1");
@@ -280,7 +363,7 @@ describe("TurnWatchdog", () => {
   it("still counts silence across sweeps that are only a little late", () => {
     vi.useFakeTimers({ now: 0 });
     const stalls: WatchedTurn[] = [];
-    const dog = new TurnWatchdog({ stallMs: STALL, toolStallMs: TOOL_STALL, parkedStallMs: PARKED_STALL, checkMs: 1_000, onStall: (turn) => stalls.push(turn) });
+    const dog = new TurnWatchdog({ stallMs: STALL, toolStallMs: TOOL_STALL, parkedStallMs: PARKED_STALL, engineExitStallMs: ENGINE_EXIT_STALL, checkMs: 1_000, onStall: (turn) => stalls.push(turn) });
     try {
       dog.start();
       dog.watch("t1", "bot1");
@@ -382,7 +465,7 @@ describe("the stall handler", () => {
     const context = vm.createContext({
       process: { env },
       RoomTurnStallRegistry: class { stall() {} },
-      TurnStops, stoppedTurnOutcome, reportsToRequester: () => true, stallLimitMs,
+      TurnStops, stoppedTurnOutcome, reportsToRequester: () => true, stallLimitMs, ENGINE_EXIT_STALL_MS,
       TurnWatchdog: class { options: unknown; constructor(options: { onStall: (turn: WatchedTurn) => void }) { this.options = options; } },
       store: { messagesFor: () => messages, activePath: () => messages, appendMessage() {} },
       turnResourceOwners: new Map(), directTurnGenerationByThread: new Map([["t1", "gen-1"]]), directRequestOwners: new Map(),
@@ -412,6 +495,12 @@ describe("the stall handler", () => {
     const { context, settled } = load();
     context.watchdog.options.onStall({ threadId: "t1", botId: "eli" }, 120 * 60_000);
     expect(settled[0]!.text).toMatch(/^No activity for 120 minutes — the turn was stopped\. Before it stopped/);
+  });
+
+  it("says the engine's process ended when the turn was stopped for that", () => {
+    const { context, settled } = load();
+    context.watchdog.options.onStall({ threadId: "t1", botId: "eli" }, 2 * 60_000, "engine-exited");
+    expect(settled[0]!.text).toMatch(/^The process running this turn's AI ended — the turn was stopped\. Before it stopped/);
   });
 
   it("never lets the environment switch the watchdog off", () => {

@@ -11,9 +11,9 @@ export interface RoomRoundLine { current?: string; pending: string[] }
 export interface RoomJobsDeps {
   store: Store;
   // Read lazily: index.ts builds the coordinator after this module.
-  coordinator: Pick<Coordinator, "all">;
+  coordinator: Pick<Coordinator, "active">;
   cfg: AppConfig;
-  operations: (groupId: string) => Iterable<{ threadId: string; cancelled: boolean; line?: RoomRoundLine }>;
+  operations: (groupId: string) => Iterable<{ threadId: string; cancelled: boolean; botIds: ReadonlySet<string>; line?: RoomRoundLine }>;
   speakerOf: (threadId: string) => string | undefined;
   laneRoomThread: (n: Pick<HandoffView, "botId" | "threadId" | "groupId">) => string | undefined;
 }
@@ -25,6 +25,18 @@ export function parallelRoomJobsEnabled(cfg: AppConfig): boolean {
 const live = (n: HandoffView) => n.parentId !== undefined && (n.status === "queued" || n.status === "running");
 
 export function createRoomJobs({ store, coordinator, cfg, operations, speakerOf, laneRoomThread }: RoomJobsDeps) {
+  /** Where a member runs now outside this room, if anywhere: a turn in another room, else a busy thread of its own. */
+  function busyElsewhere(botId: string, roomId: string): RoomQueueEntry["busyIn"] {
+    for (const other of store.groups) {
+      if (other.id === roomId) continue;
+      const turn = [...operations(other.id)].find(operation => !operation.cancelled && operation.botIds.has(botId));
+      if (turn) return { groupId: other.id, threadId: turn.threadId };
+      if (other.busyBotId === botId || speakerOf(other.threadId) === botId) return { groupId: other.id, threadId: other.threadId };
+    }
+    const task = store.tasks(botId).find(candidate => candidate.busy);
+    return task ? { threadId: task.threadId } : undefined;
+  }
+
   function roomLineOf(record: GroupRecord): RoomQueueEntry[] {
     const items: RoomLineItem[] = [];
     for (const operation of operations(record.id)) {
@@ -33,14 +45,17 @@ export function createRoomJobs({ store, coordinator, cfg, operations, speakerOf,
       if (current) items.push({ botId: current, threadId: operation.threadId, state: "running" });
       for (const botId of pending) items.push({ botId, threadId: operation.threadId, state: "queued" });
     }
-    const jobs = coordinator.all().filter(n => n.groupId === record.id && live(n)).sort((a, b) => a.createdAt - b.createdAt);
+    const jobs = coordinator.active().filter(n => n.groupId === record.id && live(n)).sort((a, b) => a.createdAt - b.createdAt);
     for (const n of jobs) items.push({ botId: n.botId, threadId: n.threadId, state: n.status === "running" ? "running" : "queued", assignmentId: n.id });
     const speakers = new Map<string, string>();
     for (const threadId of new Set(items.map(item => item.threadId))) {
       const speaker = speakerOf(threadId);
       if (speaker) speakers.set(threadId, speaker);
     }
-    return roomQueue(items, speakers);
+    return roomQueue(items, speakers).map(entry => {
+      const busyIn = entry.state === "queued" ? busyElsewhere(entry.botId, record.id) : undefined;
+      return busyIn ? { ...entry, busyIn } : entry;
+    });
   }
 
   function advanceRound(operation: { line?: RoomRoundLine }, current: string | undefined, spoken: ReadonlySet<string>): boolean {
@@ -51,7 +66,7 @@ export function createRoomJobs({ store, coordinator, cfg, operations, speakerOf,
 
   function useLanes(room: GroupRecord, roomThreadId: string, jobs: number, mode: string): boolean {
     if (mode === "notify" || !parallelRoomJobsEnabled(cfg)) return false;
-    return jobs > 1 || coordinator.all().some(n => live(n) && (n.groupId === room.id ? n.threadId === roomThreadId : laneRoomThread(n) === roomThreadId));
+    return jobs > 1 || coordinator.active().some(n => live(n) && (n.groupId === room.id ? n.threadId === roomThreadId : laneRoomThread(n) === roomThreadId));
   }
 
   function openLane(room: GroupRecord, roomThreadId: string, botId: string, sender: { id: string; name: string }, brief: string) {

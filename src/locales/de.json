@@ -3732,5 +3732,7 @@
   "server.wait.parkedHolder": "Computer nach {duration} noch beschäftigt — {holder}. Geparkt — er fährt automatisch fort, wenn der Computer frei ist.",
   "server.wait.parked": "Computer nach {duration} noch beschäftigt. Geparkt — er fährt automatisch fort, wenn der Computer frei ist.",
   "server.wait.personAway": "Eine Person hatte über {duration} die Kontrolle über diesen Computer, deshalb wurde dieser Aufruf NICHT ausgeführt und dieser Lauf wartet nicht weiter auf sie. Pausiere diese Aufgabe: sag der Person, dass du darauf wartest, dass sie die Kontrolle zurückgibt, und mache nach ihrer Rückgabe einen neuen Screenshot vor deiner nächsten Aktion.",
-  "server.surface.couldNotContinue": "Konnte auf {surface} nicht fortfahren: {error}"
+  "server.surface.couldNotContinue": "Konnte auf {surface} nicht fortfahren: {error}",
+  "chat.newChatHint": "Starte einen neuen Chat, um Tokens zu sparen.",
+  "chat.newChatHintButton": "Neuer Chat"
 }

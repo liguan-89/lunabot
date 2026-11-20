@@ -150,7 +150,7 @@ function db(): DatabaseSync {
 }
 
 /** One prepared statement per SQL text for the life of the open database. */
-function prepared(sql: string): StatementSync {
+export function prepared(sql: string): StatementSync {
   const database = db();
   let statement = statements.get(sql);
   if (!statement) statements.set(sql, statement = database.prepare(sql));
@@ -354,18 +354,21 @@ export function cancelledChatFollowup(kind: ChatFollowup["kind"], ownerId: strin
   ).get(kind, ownerId, threadId, sendId));
 }
 
-const rowToMessage = (row: { json: string }): Message => JSON.parse(row.json) as Message;
+export const rowToMessage = (row: { json: string }): Message => JSON.parse(row.json) as Message;
 
 export interface ThreadRows {
   messages: Message[];
   activeLeafId: string | null;
 }
 
+export function readStoredActiveLeaf(threadId: string): string | null {
+  return (prepared(ACTIVE_LEAF).get(threadId) as { active_leaf_id: string | null } | undefined)?.active_leaf_id ?? null;
+}
+
 export function readThread(threadId: string, legacyFile: string): ThreadRows {
   const rows = prepared("SELECT json FROM messages WHERE thread_id = ? ORDER BY rowid").all(threadId) as Array<{ json: string }>;
   if (rows.length) {
-    const state = prepared(ACTIVE_LEAF).get(threadId) as { active_leaf_id: string | null } | undefined;
-    return { messages: rows.map(rowToMessage), activeLeafId: state?.active_leaf_id ?? null };
+    return { messages: rows.map(rowToMessage), activeLeafId: readStoredActiveLeaf(threadId) };
   }
   return importLegacy(threadId, legacyFile);
 }
@@ -385,8 +388,7 @@ export function readThreadTail(threadId: string, legacyFile: string, limit: numb
     const hasMore = rows.length > limit;
     if (hasMore) rows.length = limit;
     rows.reverse();
-    const state = prepared(ACTIVE_LEAF).get(threadId) as { active_leaf_id: string | null } | undefined;
-    return { messages: rows.map(rowToMessage), activeLeafId: state?.active_leaf_id ?? null, hasMore };
+    return { messages: rows.map(rowToMessage), activeLeafId: readStoredActiveLeaf(threadId), hasMore };
   }
   return importLegacy(threadId, legacyFile);
 }

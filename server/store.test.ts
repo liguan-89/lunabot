@@ -2810,3 +2810,43 @@ describe("soul", () => {
     expect(store.messagesFor(bot.threadId).find((m) => m.id === live.id)?.widget?.withdrawn?.at).toBe(at);
   });
 });
+
+describe("cursor pages over a thread's history", () => {
+  beforeEach(() => {
+    rmSync(DATA_DIR, { recursive: true, force: true });
+  });
+
+  const fill = (store: Store, threadId: string, count: number) =>
+    Array.from({ length: count }, (_, i) => store.appendMessage(threadId, { role: "user", kind: "text", text: `note ${i}` }));
+
+  it("answers a bounded page from the database without loading the thread, and flags what is older", () => {
+    const first = new Store(selection);
+    const bot = first.createBot({ name: "Pager" });
+    const sent = fill(first, bot.threadId, 8);
+
+    // A second store has the thread uncached: the page must come from messages.db.
+    const cold = new Store(selection);
+    const page = cold.messagesBefore(bot.threadId, sent[6]!.id, 3);
+    expect(page).not.toBeNull();
+    expect(page!.messages.map((m) => m.text)).toEqual(["note 3", "note 4", "note 5"]);
+    expect(page!.hasMore).toBe(true);
+    expect(page!.activeLeafId).toBe(sent[7]!.id);
+
+    const firstPage = cold.messagesBefore(bot.threadId, sent[2]!.id, 5);
+    expect(firstPage!.messages.map((m) => m.text)).toEqual([expect.stringContaining("Pager"), "note 0", "note 1"]);
+    expect(firstPage!.hasMore).toBe(false);
+
+    expect(cold.messagesBefore(bot.threadId, "no-such-id", 3)).toBeNull();
+  });
+
+  it("slices the same page from a cached thread", () => {
+    const store = new Store(selection);
+    const bot = store.createBot({ name: "Pager" });
+    const sent = fill(store, bot.threadId, 5);
+
+    const page = store.messagesBefore(bot.threadId, sent[4]!.id, 2);
+    expect(page!.messages.map((m) => m.text)).toEqual(["note 2", "note 3"]);
+    expect(page!.hasMore).toBe(true);
+    expect(store.messagesBefore(bot.threadId, "no-such-id", 2)).toBeNull();
+  });
+});

@@ -3,7 +3,7 @@ import { act, createElement, type ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const server = vi.hoisted(() => ({ calls: [] as Array<{ path: string; method: string; body?: unknown }>, view: null as null | { rows: Array<{ id: string; tab: string }> } }));
+const server = vi.hoisted(() => ({ calls: [] as Array<{ path: string; method: string; body?: unknown }>, view: null as null | { rows: Array<{ id: string; tab: string; kind?: string; unread?: boolean }> } }));
 vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => true }));
 vi.mock("../../state/api", () => ({
   api: vi.fn(async (path: string, init?: RequestInit) => {
@@ -18,7 +18,7 @@ import { initialState, StoreContext, type AppState, type Bot } from "@/state/sto
 import { BOT_BUTTON, botButtonTone } from "@/lib/bot-button";
 import { closeInbox, currentInboxPanel, inboxVersion, openInbox, setInboxView, useInboxLoader } from "@/state/inbox";
 import { approvalRow, inboxView, messageRow, questionRow, reportRow, settledRow } from "@/testing/inbox-fixture";
-import type { InboxView } from "../../../shared/inbox";
+import type { InboxRow, InboxView } from "../../../shared/inbox";
 import { InboxCardSlot } from "./InboxCard";
 import { InboxPanel } from "./InboxPanel";
 
@@ -76,6 +76,27 @@ describe("the inbox panel", () => {
     await click(`[data-inbox-row="${reportRow.id}"] [data-inbox-action="done"]`);
     expect(server.calls).toContainEqual({ path: `/api/inbox/${reportRow.id}/done`, method: "POST" });
     expect(document.querySelector(`[data-inbox-row="${reportRow.id}"]`), "it leaves the list at once").toBeNull();
+  });
+
+  it("opens the conversation a finished notice came from when the person clicks it", async () => {
+    const notice: InboxRow = { ...reportRow, id: "line-notice", origin: { botId: "reporter", threadId: "rep-daily", title: "Daily digest", messageId: "m-report" } };
+    shown(inboxView([notice]));
+    openInbox();
+    await mount(createElement(InboxPanel), [{ id: "reporter", name: "Reporter", color: "orange" } as Bot]);
+    await click(`[data-inbox-row="${notice.id}"] button`);
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "revealThread", threadId: "rep-daily" }));
+    expect(dispatch).toHaveBeenCalledWith(expect.objectContaining({ type: "focusMessage", threadId: "rep-daily", messageId: "m-report" }));
+    expect(document.querySelector(`[data-inbox-reading="${notice.id}"]`), "it is not read in the panel").toBeNull();
+  });
+
+  it("keeps what it took out of the list where the person can find it again", async () => {
+    shown(inboxView([approvalRow, { ...reportRow, tab: "done" }]));
+    openInbox();
+    await mount(createElement(InboxPanel));
+    const listed = () => [...document.querySelectorAll<HTMLElement>("[data-inbox-row]")].map((row) => row.dataset.inboxRow);
+    expect(listed(), "a settled line is not listed again").toEqual([approvalRow.id]);
+    await click("[data-inbox-done-toggle]");
+    expect(listed()).toEqual([approvalRow.id, reportRow.id]);
   });
 
   it("is a sheet at phone width", async () => {
