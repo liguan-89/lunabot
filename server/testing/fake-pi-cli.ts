@@ -10,6 +10,7 @@
 //   FAKE_PI_MODELS  provider/model pairs (default "ollama-cloud/glm-5.2,openai/gpt-4o")
 //   FAKE_PI_DUMP  path to append {argv, env} JSON to
 //   FAKE_PI_STEER_REFUSE  answer a steer with an explicit success:false
+//   FAKE_PI_NO_SCOPE_RECEIPT  never write the boot scope receipt, as an extension that could not enforce would
 //   FAKE_PI_SWITCH_FAIL  refuse switch_session while new_session still succeeds (strict-resume rebuild)
 //   FAKE_PI_THINKING_REFUSE  answer set_thinking_level with success:false (effort notice)
 //   FAKE_PI_STEER_OUT_OF_ORDER  hold the first steer until a second arrives, then refuse the first and accept the second
@@ -35,6 +36,7 @@ import piMcpExtension from "../drivers/pi-mcp-extension.ts";
 import { VOLATILE_CONTEXT_CLEARED_NOTE, VOLATILE_CONTEXT_NOTE_PREFIX } from "../drivers/prompt-split.ts";
 import { TURN_CLOCK_LEAD } from "../turn-clock.ts";
 import { resolveAgentsCall } from "../../shared/agents-tool-names.ts";
+import { parseToolScope } from "../../shared/tool-scope.ts";
 import { ownTurnText, runRoomHandoffAgent, type AgentsIntegration } from "./room-handoff-agent.ts";
 
 const claudeCompat = process.env.FAKE_PI_CLAUDE_COMPAT === "1";
@@ -182,6 +184,23 @@ if (mode === "exit-early") {
 
 if (claudeCompat && process.env.FAKE_CLAUDE_MODE === "exit-early") {
   process.exit(1);
+}
+
+// Real pi fires session_start at boot, and the extension's scope enforcement writes its receipt
+// there; the fake only mounts tools on use, so a scoped turn would wait on a receipt that only
+// a tool call could produce.
+if (process.env.OMB_MCP_CONFIG && process.env.FAKE_PI_NO_SCOPE_RECEIPT !== "1") {
+  try {
+    const bootConfig = JSON.parse(readFileSync(process.env.OMB_MCP_CONFIG, "utf8")) as { scopeReadyPath?: unknown; toolScope?: unknown };
+    if (typeof bootConfig?.scopeReadyPath === "string" && bootConfig.toolScope !== undefined) {
+      const parsed = parseToolScope(bootConfig.toolScope);
+      writeFileSync(
+        bootConfig.scopeReadyPath,
+        JSON.stringify(parsed.ok ? { ok: true, toolScope: parsed.scope } : { ok: false }),
+        { mode: 0o600 },
+      );
+    }
+  } catch { /* A config the extension could not read leaves no receipt, which fails closed. */ }
 }
 
 const send = (obj: any) => process.stdout.write(JSON.stringify(obj) + "\n");
