@@ -27,6 +27,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 class NoticeRelay : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
+        Log.i(TAG, "posted pkg=${sbn?.packageName}")
         if (sbn == null) return
         if (sbn.packageName == packageName) return
         runCatching { PhoneNoticeStore.record(sbn) }
@@ -35,16 +36,17 @@ class NoticeRelay : NotificationListenerService() {
 
     private fun relay(sbn: StatusBarNotification) {
         val prefs = ChatPreferences(this)
-        if (!prefs.phoneNoticeShare.value) return
-        if (sbn.packageName !in prefs.phoneNoticeApps.value) return
-        val event = NoticeEvent.of(this, sbn) ?: return
-        if (!NoticePostDedup.note(event)) return
+        if (!prefs.phoneNoticeShare.value) { Log.i(TAG, "drop: share off"); return }
+        if (sbn.packageName !in prefs.phoneNoticeApps.value) { Log.i(TAG, "drop: ${sbn.packageName} not ticked in ${prefs.phoneNoticeApps.value}"); return }
+        val event = NoticeEvent.of(this, sbn) ?: run { Log.i(TAG, "drop: event null ${sbn.packageName}"); return }
+        if (!NoticePostDedup.note(event)) { Log.i(TAG, "drop: dedup ${event.key}"); return }
         val app = applicationContext as? OpenMausApp ?: return
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
             app.session.connect()
             val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
                 app.session.status.first { it is Session.Status.Live }
-            } ?: return@launch
+            } ?: run { Log.i(TAG, "drop: session not live"); return@launch }
+            Log.i(TAG, "posting pkg=${event.packageName}")
             if (!app.session.postPhoneNotice(event)) {
                 Log.i(TAG, "notice post failed pkg=${event.packageName}")
             }

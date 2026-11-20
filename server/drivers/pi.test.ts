@@ -379,7 +379,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("refuses a restricted turn when the loaded extension has not confirmed enforcement", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-missing-scope-"));
     const dump = join(dir, "rpc.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     await expect(instance.adapter.sendTurn({ threadId: "missing-enforcement", text: "Must not reach a provider", toolScope: { allow: [] } })).rejects.toThrow(/tool selection.*enforcement/i);
     const rows = readFileSync(dump, "utf8").trim().split("\n").map((line) => JSON.parse(line));
     expect(rows.some((row) => row.argv?.includes("-e"))).toBe(true);
@@ -390,7 +390,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("confines a guest turn: every native tool denied on the wire, and fail-closed without enforcement", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-guest-"));
     const dump = join(dir, "rpc.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     await expect(instance.adapter.sendTurn({
       threadId: "t-guest", text: "hi", guestConfined: true,
       toolScope: { deny: ["native:write"] },
@@ -1152,7 +1152,7 @@ describe("PiDriver turns (fake CLI)", () => {
   it("loads the extension's ask_user on a plain turn unless the tool selection excludes it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "omb-pi-ask-user-"));
     const dump = join(dir, "dump.jsonl");
-    await create(undefined, { FAKE_PI_DUMP: dump });
+    await create(undefined, { FAKE_PI_DUMP: dump, FAKE_PI_NO_SCOPE_RECEIPT: "1" });
     const { turnId } = await instance.adapter.sendTurn({ threadId: "t-ask-user", text: "hi" });
     await recorder.until((e) => e.type === "turn.completed" && e.turnId === turnId);
     await expect(instance.adapter.sendTurn({ threadId: "t-ask-user-scoped", text: "hi", toolScope: { allow: ["native:read"] } })).rejects.toThrow(/enforcement/i);

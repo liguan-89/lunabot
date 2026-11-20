@@ -7,6 +7,7 @@ import { createChannelChats } from "../channel-chats.ts";
 import type { DirectSendInput } from "../direct-send.ts";
 import type { PhonesDeps } from "./phones.ts";
 import type { NoticeSurfacedItem } from "./notice-triage.ts";
+import type { SideJobInstance, SideJobs } from "../side-jobs.ts";
 
 const JUDGE_TIMEOUT_MS = 30_000;
 
@@ -14,8 +15,10 @@ export function createNoticeDelivery(deps: {
   dataDir: string;
   /** The owner's chief bot, looked up at call time. */
   chiefBot(): { id: string; modelSelection: { instanceId: string } } | undefined;
-  /** The engine registry, same shape `verify` reads. */
-  engine(instanceId: string): { generateText?(prompt: string, options: { timeoutMs: number }): Promise<string> } | null | undefined;
+  /** The engine registry — what side-jobs routes a text call through. */
+  engine(instanceId: string): SideJobInstance | null | undefined;
+  /** Late-bound: index.ts builds side-jobs after the phones host. */
+  sideJobs(): SideJobs;
   taskByThread(botId: string, threadId: string): unknown;
   createTask(botId: string, title: string): { threadId: string } | null;
   /** acceptDirectSend — a surfaced batch is an inbound event the bot answers in place. */
@@ -30,8 +33,9 @@ export function createNoticeDelivery(deps: {
     noticeJudge: () => {
       const chief = deps.chiefBot();
       const instance = chief ? deps.engine(chief.modelSelection.instanceId) : null;
-      const call = instance?.generateText?.bind(instance);
-      return call ? (prompt: string) => call(prompt, { timeoutMs: JUDGE_TIMEOUT_MS }) : null;
+      // side-jobs falls to the helper model when the engine has no one-off text call — pi never does.
+      const write = chief ? deps.sideJobs().text("notice", chief.id, { instance: instance ?? undefined })?.generateText : null;
+      return write ? (prompt: string) => write(prompt, { timeoutMs: JUDGE_TIMEOUT_MS }) : null;
     },
     noticeLanguage: () => (deps.language()?.startsWith("zh") ? "Chinese" : "English"),
     noticeSurfaced: (ownerKey: string, packageName: string, items: NoticeSurfacedItem[]) => {
