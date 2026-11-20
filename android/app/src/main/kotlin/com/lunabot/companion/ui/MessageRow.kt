@@ -1372,24 +1372,20 @@ private fun ActivityChip(
     // it too; this is the second door, for a caller that draws a row directly.
     if (tool.rescue?.answered == true) return
     val status = ActivityReceipt.status(tool.ok)
+    val dark = minisIsDark()
+    val errorInk = if (dark) Color(0xFFE58A7E) else Color(0xFFB84A39)
+    val errorFill = if (dark) Color(0xFF2D1E1D) else Color(0xFFFDF0EE)
     val tint = when (status) {
         ActivityStatus.RUNNING -> minisAccent
         ActivityStatus.SUCCESS -> secondaryTint
-        ActivityStatus.ERROR -> MaterialTheme.colorScheme.error
+        ActivityStatus.ERROR -> errorInk
     }
-    // A receipt is a pill that wraps its sentence, not a full-width row. Stretched
-    // edge to edge it read as a log line, and the state word sat marooned at the
-    // screen edge; a capsule keeps the mark, the sentence and the state together.
     val shape = RoundedCornerShape(50)
-    // Lightweight trace pill: softer fill + hairline border so tool steps never
-    // compete visually with the bot's reply bubbles.
+    // Muse-style borderless quiet trace pill: muted warm rose on error, soft
+    // warm stone on normal tool steps, with zero harsh outlines.
     val wash = when (status) {
-        ActivityStatus.ERROR -> tint.copy(alpha = 0.08f)
-        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.03f)
-    }
-    val borderTint = when (status) {
-        ActivityStatus.ERROR -> tint.copy(alpha = 0.24f)
-        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisSeparator.copy(alpha = 0.55f)
+        ActivityStatus.ERROR -> errorFill
+        ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisInk.copy(alpha = 0.045f)
     }
     val haptics = rememberHaptics()
     val label = readableActivityName(
@@ -1411,9 +1407,8 @@ private fun ActivityChip(
             .widthIn(max = 280.dp)
             .clip(shape)
             .background(wash)
-            .border(0.5.dp, borderTint, shape)
             .then(linked)
-            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .padding(horizontal = 11.dp, vertical = 5.5.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = ActivityReceipt.announcement(label, status)
             },
@@ -2258,23 +2253,75 @@ private fun SignInRequestCard(
 @Composable
 private fun RoutineRunCard(message: Message) {
     val data = message.routineRun ?: return
+    val isFailed = data.status == "failed"
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFEEEEEC)
+    val badgeBg = if (isFailed) {
+        MinisTokens.Danger.copy(alpha = 0.12f)
+    } else if (minisIsDark()) {
+        Color(0xFF2B2823)
+    } else {
+        Color(0xFFE6DED4)
+    }
+    val badgeTint = if (isFailed) MinisTokens.Danger else Color(0xFF6B5A45)
 
-    RemoteCard(title = data.routineName.ifBlank { "例行任务" }, body = null) {
-        Text(
-            text = routineStatusLabel(data),
-            fontSize = 13.sp,
-            color = if (data.status == "failed") minisWarning else secondaryTint,
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(cardFill)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(badgeBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_schedule),
+                contentDescription = null,
+                tint = badgeTint,
+                modifier = Modifier.size(22.dp),
+            )
+        }
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                text = data.routineName.ifBlank { "预定任务" },
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisInk,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "预定任务 · ${routineStatusLabel(data)}",
+                fontSize = 13.sp,
+                color = if (isFailed) minisWarning else minisSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (data.deferredAt != null && data.status == "queued") {
+                Text("目标正忙，这次运行已延后。", fontSize = 12.sp, color = secondaryTint)
+            }
+            data.summary?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 13.5.sp, color = minisInk.copy(alpha = 0.85f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+            data.error?.takeIf { it.isNotBlank() }?.let {
+                Text(it, fontSize = 12.5.sp, color = minisWarning, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = minisTertiary,
+            modifier = Modifier.size(18.dp),
         )
-        if (data.deferredAt != null && data.status == "queued") {
-            Text("目标正忙，这次运行已延后。", fontSize = 12.sp, color = secondaryTint)
-        }
-        data.goalStatus?.let {
-            Text("团队目标：${goalStatusLabel(it)}", fontSize = 12.sp, color = secondaryTint)
-        }
-        data.summary?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 14.sp) }
-        data.error?.takeIf { it.isNotBlank() }?.let {
-            Text(it, fontSize = 13.sp, color = minisWarning)
-        }
     }
 }
 

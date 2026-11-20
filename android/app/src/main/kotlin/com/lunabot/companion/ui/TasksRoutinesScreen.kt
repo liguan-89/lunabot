@@ -98,6 +98,7 @@ internal fun TasksRoutinesScreen(
      * a filter, not a second request.
      */
     botId: String? = null,
+    embedded: Boolean = false,
 ) {
     val session = LocalCompanion.current.session
     val state by session.state.collectAsState()
@@ -178,8 +179,8 @@ internal fun TasksRoutinesScreen(
             ) {
                 LazyColumn(
                     state = listState,
-                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                    contentPadding = PaddingValues(top = 68.dp, bottom = 36.dp),
+                    modifier = Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.navigationBarsPadding()),
+                    contentPadding = PaddingValues(top = if (embedded) 114.dp else 68.dp, bottom = if (embedded) 24.dp else 36.dp),
                     verticalArrangement = Arrangement.spacedBy(18.dp),
                 ) {
                 // The explainer describes tasks *and* routines; a bot-scoped
@@ -301,22 +302,29 @@ internal fun TasksRoutinesScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(
+                    start = if (embedded) 20.dp else 12.dp,
+                    end = 12.dp,
+                    top = if (embedded) 64.dp else 8.dp,
+                    bottom = 8.dp,
+                ),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChromeButton(
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "返回",
-                onClick = onBack,
-                size = 40.dp,
-                glyph = 20.dp,
-                surface = true,
-            )
+            if (!embedded) {
+                ChromeButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                    size = 40.dp,
+                    glyph = 20.dp,
+                    surface = true,
+                )
+            }
             Text(
-                text = if (botId == null) "会话与例程" else "定时任务",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
+                text = if (botId == null) "定时巡检" else "定时任务",
+                fontSize = if (embedded) 26.sp else 17.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f),
             )
             ChromeButton(
@@ -456,6 +464,8 @@ private fun RoutineRow(
                 size = 42.dp,
                 state = if (routine.enabled) MausState.IDLE else MausState.SLEEPING,
                 animated = false,
+                fallback = AvatarFallback.PRESET,
+                drowsy = !routine.enabled,
             )
         } else {
             Icon(

@@ -211,6 +211,7 @@ fun CompanionRoot(
     // The phone's answer unless someone chose otherwise in Settings → 外观.
     val themeMode by environment.chatPreferences.themeMode.collectAsState()
     val avatarStyle by environment.chatPreferences.avatarStyle.collectAsState()
+    val customLunaAvatarPath by environment.chatPreferences.customLunaAvatarPath.collectAsState()
     val systemDark = isSystemInDarkTheme()
     val darkTheme = when (themeMode) {
         ThemeMode.SYSTEM -> systemDark
@@ -218,7 +219,10 @@ fun CompanionRoot(
         ThemeMode.DARK -> true
     }
 
-    CompositionLocalProvider(LocalBotAvatarStyle provides avatarStyle) {
+    CompositionLocalProvider(
+        LocalBotAvatarStyle provides avatarStyle,
+        LocalCustomLunaAvatarPath provides customLunaAvatarPath,
+    ) {
     CompanionTheme(darkTheme = darkTheme) {
         // One place for system insets: the app draws edge to edge, and every
         // screen keeps clear of the gesture bar and keyboard. Conversation

@@ -78,6 +78,17 @@ internal fun BotAvatar(
     val store = LocalCompanion.current.avatars
     val context = LocalContext.current
     val resources = LocalResources.current
+    val customLunaPath = if (bot.chiefOfStaff == true) LocalCustomLunaAvatarPath.current else null
+    var customBitmap by remember(customLunaPath) { mutableStateOf<Bitmap?>(null) }
+    LaunchedEffect(customLunaPath) {
+        customBitmap = if (customLunaPath != null) {
+            withContext(Dispatchers.IO) {
+                runCatching { android.graphics.BitmapFactory.decodeFile(customLunaPath) }.getOrNull()
+            }
+        } else {
+            null
+        }
+    }
 
     // `BotAvatarView` keys its fetch on the attachment and the crop together, and
     // clears the rendered image whenever either changes. Keying the state itself
@@ -109,6 +120,21 @@ internal fun BotAvatar(
         modifier
     } else {
         modifier.semantics { this.contentDescription = contentDescription }
+    }
+
+    val localPortrait = customBitmap
+    if (localPortrait != null) {
+        val bitmap = remember(localPortrait) { localPortrait.asImageBitmap() }
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = named
+                .size(size)
+                .clip(CircleShape)
+                .portraitMotion(motion),
+        )
+        return
     }
 
     val painted = image
@@ -153,9 +179,20 @@ internal fun BotAvatar(
             )
         }
     } else {
+        val resolvedColor = remember(bot.id, bot.color, bot.chiefOfStaff, libraryFace) {
+            val raw = libraryFace ?: bot.color
+            if (bot.chiefOfStaff == true) {
+                raw
+            } else if (raw.isNullOrBlank() || raw.equals("white", ignoreCase = true)) {
+                val mineralPalette = listOf("blue", "orange", "mint", "purple", "coral")
+                mineralPalette[(bot.id.hashCode() and 0x7FFFFFFF) % mineralPalette.size]
+            } else {
+                raw
+            }
+        }
         when (fallback) {
             AvatarFallback.PRESET -> PresetBotAvatar(
-                color = libraryFace ?: bot.color,
+                color = resolvedColor,
                 size = size,
                 modifier = named,
                 contentDescription = null,
@@ -168,7 +205,7 @@ internal fun BotAvatar(
                 crown = crown,
             )
             AvatarFallback.MASCOT -> MausAvatar(
-                color = bot.color,
+                color = resolvedColor,
                 bodyId = bot.mascotBody,
                 size = size,
                 state = state,
