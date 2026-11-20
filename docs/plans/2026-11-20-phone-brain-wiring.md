@@ -94,13 +94,28 @@ the same instruction to the model.
 
 ## Phase 3 — notification learning ingress
 
-`server/phone-notices.ts` needs a phone → server push path that does not
-exist: a new authenticated endpoint on `/api/phones/self/events` (sibling of
-the sms/wechat `onEvent` path), per-owner retention, and a consent decision
-broader than the `phoneData` reads already granted — the person must opt in
-to the phone reading *every* notification, not just answering list queries.
-Phone side: `PhoneNoticeStore` gains a posting hook on insert. Deferred;
-needs the consent copy and the retention numbers decided first.
+Shipped. Consent is per-package, never blanket: the phone pushes only
+notifications from apps the person ticked in Settings →「分享哪些应用的通知」,
+and only while the「分享通知给智能体」switch is on.
+
+Wire: `phoneEvent` grew a `notice` member (`phoneNotice` in
+`server/phone-notices.ts`, the `NoticeRecord` fields plus `key`); the
+registration declares the whitelist as `noticeApps`. `POST
+/api/phones/self/events` switches on `kind`: `sms`/`wechat` ride the
+`messages` grant, `notice` stands on `phoneData`. `server/host/phones.ts`
+keeps a per-owner `{ NoticeInbox, dedup }` (bounded, evicted at 16 owners);
+each event is sanitized, gated by `shouldLearn` against the *registered*
+allow-list — a phone lying about its grants lands in no inbox — deduped,
+then added. `noticeInbox(ownerKey)` exposes the snapshot; an unticked
+package's kept records are pruned on the next event (`removePackages`).
+
+Phone side: `NoticeRelay` still records locally for `PHONE_NOTIF_LIST`; when
+sharing is on it builds a `PhoneNoticeEvent` (`NoticeEvent.of`, which already
+drops ongoing/foreground-service/non-clearable/group-summary posts and
+extracts MessagingStyle lines), dedupes reposts in memory, and posts once
+the session is live. `PhoneJobRunner` re-registers when the allow-list
+changes, like any other capability. The system listener grant is asked for
+from the switch, the same page the SMS relay uses.
 
 ## Verification
 
@@ -109,3 +124,17 @@ Phase 1/1b: unit tests beside `server/phone-routes.test.ts` for `settle`
 only) and beside `server/phones/host.test.ts` for the end-turn settle
 (success, unchanged-call miss, refused-only and stopped settle nothing);
 `vitest run` the phones directory; `oxlint` the touched files.
+
+Phase 2: `server/host/phones.test.ts` drives the gate through `promptParts`
+(three verdicts on the route part, one question a turn, non-person turns
+skipped, no candidate no question, judge fallback, no wiring no gate) and
+`server/phones/host.test.ts` drives the tool-call gate (DISCUSS refuses the
+first call before any job reaches the phone).
+
+Phase 3: `server/routes/phones.test.ts` for the `phoneData`-vs-`messages`
+grant split and the notice wire bounds; `server/host/phones.test.ts` for
+ingestion (whitelist keep, non-whitelisted/sensitive/repost drops, untick
+pruning, sms/wechat handlers untouched, grant enforcement);
+`NoticeEventTest` (Robolectric) for the extraction drops and MessagingStyle
+fields. `pnpm typecheck`; `:app:compileDebugKotlin`;
+`:app:testDebugUnitTest`.

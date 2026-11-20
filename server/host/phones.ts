@@ -8,6 +8,7 @@ import { Readable } from "node:stream";
 import { extensionForFileMime, extensionForMime, FILE_MAX_BYTES, IMAGE_MAX_BYTES, saveFile, saveImage } from "../attachments.ts";
 
 import { cloudHomeLendingRefusal, createCloudRoutineAuthors, type CloudLendingTurn } from "../cloud-lending.ts";
+import { createNoticeDedup, NoticeInbox, noticeRecordOf, sanitizeNotice, shouldLearn, shouldLearnPackage, type NoticeDedupStore, type NoticePolicy, type NoticeSnapshot } from "../phone-notices.ts";
 import type { Decider } from "../decider/index.ts";
 import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TURNS, type Intent } from "../intent-gate.ts";
 import { personKey } from "../person-key.ts";
@@ -112,6 +113,38 @@ export function createPhones(deps: PhonesDeps) {
   const intents = new Map<string, Promise<Intent | null | undefined>>();
   /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
   const routeOffers = new Map<string, { ownerKey: string; id: string }>();
+  /** Each owner's learned-notice pile: a bounded inbox plus the dedup that keeps reposts from filling it. */
+  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore }>();
+  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore } => {
+    let sink = noticeInboxes.get(ownerKey);
+    if (!sink) {
+      sink = { inbox: new NoticeInbox(), dedup: createNoticeDedup() };
+      noticeInboxes.set(ownerKey, sink);
+      for (const stale of noticeInboxes.keys()) {
+        if (noticeInboxes.size <= 16) break;
+        noticeInboxes.delete(stale);
+      }
+    }
+    return sink;
+  };
+  /**
+   * A pushed notification is learned only inside the package list the person ticked on the phone — the phone filters
+   * before posting and the registration declares the same list, so this check is a second reading of the same consent.
+   */
+  const noticeFor = (key: string, event: Extract<PhoneEvent, { kind: "notice" }>): void => {
+    const phone = registry.get(key);
+    if (!phone) return;
+    const policy: NoticePolicy = { allow: new Set(phone.registration.noticeApps ?? []), listenerGranted: true };
+    const record = sanitizeNotice(noticeRecordOf(event));
+    if (shouldLearnPackage(record.packageName, policy) !== "keep") return;
+    const sink = noticeSinkFor(phone.owner);
+    // An unticked package stops being learned and its kept records go with it.
+    sink.inbox.removePackages((pkg) => policy.allow.has(pkg));
+    sink.inbox.noteReceived();
+    if (shouldLearn(record, policy) !== "keep") return;
+    if (sink.dedup.admit(record) === null) return;
+    sink.inbox.add(record);
+  };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
     try { registry.remove(key); } catch {}
@@ -348,7 +381,11 @@ export function createPhones(deps: PhonesDeps) {
      * bot told about a route would start trusting one before any replay exists to run it.
      */
     matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
-    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => { if (event.kind === "sms") smsHandler?.(key, event); else wechatHandler?.(key, event); } }),
+    routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
+      if (event.kind === "notice") noticeFor(key, event);
+      else if (event.kind === "sms") smsHandler?.(key, event);
+      else wechatHandler?.(key, event);
+    } }),
     /** The SMS relay installs itself here once channels exist. */
     onSmsEvent: (handler: (key: string, event: PhoneEvent) => void) => { smsHandler = handler; },
     /** The WeChat relay installs itself here once channels exist. */
@@ -373,6 +410,10 @@ export function createPhones(deps: PhonesDeps) {
     },
     /** How many phones run the phone app here. */
     paired: (): number => registry.list(null, () => false).length,
+    /** The notices one owner's phones pushed and the server kept, oldest first; null while nothing was learned. */
+    noticeInbox(ownerKey: string): NoticeSnapshot | null {
+      return noticeInboxes.get(ownerKey)?.inbox.snapshot() ?? null;
+    },
     /** Routines written before records were kept are the owner's on a single-person desktop: record them once. */
     adoptRoutines() {
       if (!routineAuthors) return;

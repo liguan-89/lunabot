@@ -103,6 +103,10 @@ internal class PhoneJobRunner(
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }.getOrDefault(false)
 
+    /** The share-declared whitelist; empty while sharing is off so the server learns nothing. */
+    private fun noticeAppsToShare(): List<String> =
+        if (preferences.phoneNoticeShare.value) preferences.phoneNoticeApps.value.sorted() else emptyList()
+
     fun start() {
         scope.launch {
             // The WeChat relay, if the person left it on. Its service is
@@ -214,6 +218,7 @@ internal class PhoneJobRunner(
                 phoneUi = switches.phoneUi,
                 phoneData = switches.files || switches.notices,
             ),
+            noticeApps = noticeAppsToShare(),
         )
         // Registration is retried instead of ending the run: the computer is
         // often asleep at the moment the switch is turned on.
@@ -229,6 +234,7 @@ internal class PhoneJobRunner(
         }
 
         var claimed = registration.capabilities
+        var claimedApps = registration.noticeApps
         while (currentCoroutineContext().isActive) {
             val calendarNow = calendar.access()
             val contactsNow = contacts.access()
@@ -259,8 +265,12 @@ internal class PhoneJobRunner(
                 phoneUi = switches.phoneUi,
                 phoneData = filesNow || noticesNow,
             )
-            if (current != claimed && session.registerPhone(registration.copy(capabilities = current)) == null) {
+            val appsNow = noticeAppsToShare()
+            if ((current != claimed || appsNow != claimedApps) &&
+                session.registerPhone(registration.copy(capabilities = current, noticeApps = appsNow)) == null
+            ) {
                 claimed = current
+                claimedApps = appsNow
             }
             val job = try {
                 session.pollPhoneJob()

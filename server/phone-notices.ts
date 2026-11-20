@@ -9,6 +9,7 @@
 // request; `planTriage` only says whether one may be sent.
 
 import { createHash } from "node:crypto";
+import { z } from "zod";
 
 import { holdsCredential } from "../shared/redact.ts";
 import { hostTimeZone } from "./turn-clock.ts";
@@ -53,6 +54,38 @@ export interface NoticeRecord {
   titleIsSpeaker?: boolean;
   /** The system says this notification is silent. Unknown reads as audible. */
   silent?: boolean;
+}
+
+/** A notification the phone pushes through `/api/phones/self/events` — `NoticeRecord` as the wire carries it. */
+export const phoneNotice = z.object({
+  kind: z.literal("notice"),
+  key: z.string().min(1).max(300),
+  packageName: z.string().min(1).max(200),
+  postedAtMs: z.number().int().nonnegative(),
+  title: z.string().max(2_000),
+  text: z.string().max(8_000),
+  category: z.string().max(80).nullish(),
+  ongoing: z.boolean().optional(),
+  groupSummary: z.boolean().optional(),
+  foregroundService: z.boolean().optional(),
+  clearable: z.boolean().optional(),
+  conversation: z.boolean().optional(),
+  silent: z.boolean().optional(),
+  sender: z.string().max(300).nullish(),
+  group: z.boolean().nullish(),
+  conversationTitle: z.string().max(300).nullish(),
+  titleIsSpeaker: z.boolean().optional(),
+  messages: z.array(z.object({
+    sender: z.string().max(300).nullable(),
+    text: z.string().max(2_000),
+    atMs: z.number().int(),
+  }).strict()).max(30).optional(),
+}).strict();
+
+/** The pushed event read back as the record the filters and the inbox hold. */
+export function noticeRecordOf(event: z.infer<typeof phoneNotice>): NoticeRecord {
+  const { kind: _kind, ...record } = event;
+  return record;
 }
 
 /** One text a notification key showed, oldest first in the inbox's per-key history. */

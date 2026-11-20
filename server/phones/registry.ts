@@ -19,6 +19,8 @@ export const phoneRegistration = z.object({
   timeZone: z.string().max(64),
   /** Capability → the OS grant the phone holds ("full", "limited", "when_in_use", "send", "listener"); present means allowed. */
   capabilities: z.preprocess(knownCapabilities, z.partialRecord(z.enum(PHONE_CAPABILITIES), z.string().min(1).max(32))),
+  /** The packages the person ticked for notice learning; absent or empty means nothing is learned. */
+  noticeApps: z.array(z.string().min(1).max(200)).max(200).optional(),
 });
 export type PhoneRegistration = z.infer<typeof phoneRegistration>;
 

@@ -255,3 +255,78 @@ describe("Mika's intent gate over a fitting route", () => {
     expect(failing.calls).toBe(1);
   });
 });
+
+describe("pushed notices", () => {
+  const phoneAuth = session(PHONE_SESSION);
+  const notice = (extra: Record<string, unknown> = {}) => ({
+    kind: "notice", key: "n1", packageName: "com.chat.app", postedAtMs: 1_000, title: "Alex", text: "到了吗", ...extra,
+  });
+  /** A /api/phones/self or /self/events call on the routes the host built, with the body already read. */
+  const call = async (phones: Phones, method: string, path: string, body?: unknown) => {
+    let status = 0;
+    let payload: unknown;
+    await phones.routes({
+      req: { headers: { "content-type": "application/json" } } as never,
+      res: { setHeader: () => {} } as never,
+      url: new URL(`http://x${path}`), path, method, auth: phoneAuth,
+      json: (_res: never, code: number, data: unknown) => { status = code; payload = data; return undefined as never; },
+      readBody: async () => body as never,
+    } as never);
+    return { status, payload };
+  };
+  /** The phone re-declares its grants and the ticked packages, over the seeded registration. */
+  const enroll = async (phones: Phones, noticeApps: string[] = ["com.chat.app"], capabilities: Record<string, string> = { phoneData: "full" }) => {
+    const out = await call(phones, "PUT", "/api/phones/self", {
+      installId: "install-0001", name: "Omkar's iPhone", platform: "ios", appVersion: "1.6.0", timeZone: "Asia/Kolkata",
+      capabilities, noticeApps,
+    });
+    expect(out.status).toBe(200);
+  };
+
+  it("keeps a whitelisted notice in the owner's inbox and only there", async () => {
+    const { phones } = world();
+    await enroll(phones);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(202);
+    const inbox = phones.noticeInbox("owner");
+    expect(inbox?.records.map((record) => record.packageName)).toEqual(["com.chat.app"]);
+    expect(inbox?.kept).toBe(1);
+    expect(phones.noticeInbox("someone-else")).toBeNull();
+  });
+
+  it("drops a package the person never ticked, a sensitive post, and a reposted copy", async () => {
+    const { phones } = world();
+    await enroll(phones);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice({ packageName: "com.other.app" }))).status).toBe(202);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice({ key: "n2", text: "验证码 482913" }))).status).toBe(202);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(202);
+    const inbox = phones.noticeInbox("owner");
+    expect(inbox?.kept).toBe(1);
+    expect(inbox?.received).toBe(2);
+  });
+
+  it("an unticked package loses its kept records on the next event", async () => {
+    const { phones } = world();
+    await enroll(phones, ["com.chat.app", "com.other.app"]);
+    await call(phones, "POST", "/api/phones/self/events", notice());
+    await call(phones, "POST", "/api/phones/self/events", notice({ key: "n2", packageName: "com.other.app", text: "ping" }));
+    expect(phones.noticeInbox("owner")?.kept).toBe(2);
+    await enroll(phones, ["com.chat.app"]);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice({ key: "n3", text: "again" }))).status).toBe(202);
+    const left = phones.noticeInbox("owner")?.records.map((record) => record.packageName) ?? [];
+    expect(left).toHaveLength(2);
+    expect(new Set(left)).toEqual(new Set(["com.chat.app"]));
+  });
+
+  it("does not reach the sms or wechat relays, and needs the phoneData grant", async () => {
+    const { phones } = world();
+    const seen: string[] = [];
+    phones.onSmsEvent(() => seen.push("sms"));
+    phones.onWechatEvent(() => seen.push("wechat"));
+    await enroll(phones, ["com.chat.app"], { messages: "full" });
+    expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(403);
+    await enroll(phones);
+    expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(202);
+    expect(seen).toEqual([]);
+    expect(phones.noticeInbox("owner")?.kept).toBe(1);
+  });
+});
