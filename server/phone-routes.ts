@@ -103,6 +103,8 @@ export const PHONE_ROUTE_LIMITS = {
   maxTurns: 64,
   /** Texts a finished route is scanned for. Past this the run is refused rather than half-checked. */
   maxSensitiveTexts: 128,
+  /** Replays diverging at the same step in a row before the route retires — Mika's ROUTE_MISSES_TO_DISABLE. */
+  maxConsecutiveMisses: 2,
 } as const;
 
 export type PhoneRouteLimits = { -readonly [Key in keyof typeof PHONE_ROUTE_LIMITS]: number };
@@ -300,6 +302,7 @@ export class PhoneRoutes {
       maxElementsPerTurn: Math.max(1, limits.maxElementsPerTurn),
       maxTurns: Math.max(1, limits.maxTurns),
       maxSensitiveTexts: Math.max(1, limits.maxSensitiveTexts),
+      maxConsecutiveMisses: Math.max(1, limits.maxConsecutiveMisses),
     };
   }
 
@@ -420,6 +423,37 @@ export class PhoneRoutes {
         .filter((route) => matchesRoute(route, request));
     } catch {
       return [];
+    }
+  }
+
+  /**
+   * The bookkeeping an offered route is owed when its turn ends — Mika's RouteReplay.update/noteResult, with a verdict
+   * the caller works out since here the model replays rather than the store: "success" needs every call that ran to
+   * have moved the screen on a turn that ended done; "miss" names the first call that changed nothing as the step it
+   * diverged at, and two misses at the same step retire the route while one elsewhere only counts; "used" touches
+   * lastUsedMs alone, for a turn whose calls ran but whose end proves nothing. Never fatal.
+   */
+  settle(ownerKey: string | null, id: string, outcome: "success" | "miss" | "used", step?: number): boolean {
+    if (!this.enabled || ownerKey === null || !ROUTE_ID.test(id)) return false;
+    const dir = this.ownerDir(ownerKey, false);
+    if (!dir) return false;
+    try {
+      const route = this.readOwner(ownerKey).find((route) => route.id === id);
+      if (!route || route.steps.length === 0) return false;
+      const next: Route =
+        outcome === "success"
+          ? { ...route, successes: route.successes + 1, consecutiveMisses: 0, missStep: null, lastUsedMs: this.now() }
+          : outcome === "used"
+            ? { ...route, lastUsedMs: this.now() }
+            : (() => {
+                const at = Math.max(0, Math.min(step ?? route.missStep ?? 0, route.steps.length - 1));
+                const misses = route.missStep === at ? route.consecutiveMisses + 1 : 1;
+                return { ...route, consecutiveMisses: misses, missStep: at, disabled: route.disabled || misses >= this.limits.maxConsecutiveMisses, lastUsedMs: this.now() };
+              })();
+      writeFileAtomic(join(dir, `${id}.json`), JSON.stringify(next), { mode: 0o600 });
+      return true;
+    } catch {
+      return false;
     }
   }
 

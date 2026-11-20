@@ -521,6 +521,73 @@ describe("the route a matching request is told about", () => {
   });
 });
 
+describe("the settle an offered route earns when its turn ends", () => {
+  const GOAL = "帮我在备忘录里打开下一页";
+  const LATER = { ...TURN, generation: "gen-2" };
+
+  /** The run the route was learned from: an observe and one tap that moved the screen. */
+  const record = async (h: ReturnType<typeof harness>): Promise<void> => {
+    await see(h, HOME);
+    await tapAnswering(h, page(1));
+    expect(h.host.endTurn(TURN, { goal: GOAL, ownerKey: OWNER }).route).not.toBeNull();
+  };
+
+  /** Observe then tap on a later turn, answering each job with what it was given. */
+  const drive = async (h: ReturnType<typeof harness>, answer: PhoneJobOutcome): Promise<void> => {
+    const seen = h.handle(call("PHONE_UI_OBSERVE"), LATER);
+    await answerNext(h.jobs, { ok: true, result: HOME });
+    await seen;
+    const tapped = h.handle(call("PHONE_UI_TAP", { ref: "e1" }), LATER);
+    await answerNext(h.jobs, answer);
+    await tapped;
+  };
+
+  it("counts the replay a success when every call that ran moved the screen", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const route = h.routes!.list(OWNER)[0]!;
+    await drive(h, { ok: true, result: page(2) });
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    // The turn is learnable too, and the same path replaces the offered file — the settle lives on the merged copy.
+    const settled = h.routes!.list(OWNER);
+    expect(settled).toHaveLength(1);
+    expect(settled[0]).toMatchObject({ successes: 1, consecutiveMisses: 0, missStep: null });
+  });
+
+  it("marks the first call that changed nothing as the step the replay diverged at", async () => {
+    const h = harness({ routes: true });
+    await record(h);
+    const route = h.routes!.list(OWNER)[0]!;
+    // The tap ran and the screen came back identical: ok but nothing moved is the one honest miss we can see.
+    await drive(h, { ok: true, result: HOME });
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    expect(h.routes!.list(OWNER).find((one) => one.id === route.id)).toMatchObject({ successes: 0, consecutiveMisses: 1, missStep: 0 });
+  });
+
+  it("settles nothing when every call was refused and none ran, or the turn was stopped", async () => {
+    const h = harness({ routes: true, intent: async () => "discuss" });
+    const owner = join(h.dir, "phone-routes", ownerDirectoryName(OWNER));
+    mkdirSync(owner, { recursive: true });
+    const saved: Route = {
+      id: "saved", template: "帮我在备忘录里打开{1}", slots: 1, packages: [], appVersions: {},
+      steps: [{ tool: "PHONE_UI_BACK", args: {}, target: null, before: { packageName: null, texts: [] }, after: { packageName: null, texts: [] } }],
+      successes: 0, consecutiveMisses: 0, missStep: null, disabled: false, lastUsedMs: 0,
+    };
+    writeFileSync(join(owner, "saved.json"), JSON.stringify(saved));
+    // The discuss refusal never reaches the phone, so the only evidence is a call that did not run.
+    await h.handle(call("PHONE_UI_TAP", { ref: "e1" }), LATER);
+    h.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, offeredRoute: { ownerKey: OWNER, id: "saved" } });
+    expect(h.routes!.list(OWNER).find((one) => one.id === "saved")).toMatchObject({ successes: 0, consecutiveMisses: 0, missStep: null });
+
+    const stopped = harness({ routes: true });
+    await record(stopped);
+    const route = stopped.routes!.list(OWNER)[0]!;
+    await drive(stopped, { ok: true, result: page(2) });
+    stopped.host.endTurn(LATER, { goal: GOAL, ownerKey: OWNER, stopped: true, offeredRoute: { ownerKey: OWNER, id: route.id } });
+    expect(stopped.routes!.list(OWNER).find((one) => one.id === route.id)).toMatchObject({ successes: 0, consecutiveMisses: 0, missStep: null });
+  });
+});
+
 describe("Mika's intent gate at the first phone call", () => {
   it("refuses the call in a discussion, before any job reaches the phone", async () => {
     const h = harness({ intent: async () => "discuss" as const });

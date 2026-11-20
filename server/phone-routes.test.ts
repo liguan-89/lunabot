@@ -431,4 +431,52 @@ describe("PhoneRoutes", () => {
     expect(routes.list(OWNER)).toHaveLength(1);
     expect(readdirSync(join(root, ownerDirectoryName(OWNER)))).toHaveLength(1);
   });
+
+  it("settles a replayed route: success counts and clears, two misses at one step retire it", () => {
+    let clock = 1_000;
+    const routes = new PhoneRoutes({ root, enabled: true, now: () => clock });
+    const saved = recordMessaging(routes)!;
+
+    clock = 2_000;
+    expect(routes.settle(OWNER, saved.id, "success")).toBe(true);
+    let route = routes.list(OWNER)[0]!;
+    expect(route).toMatchObject({ successes: 1, consecutiveMisses: 0, missStep: null, disabled: false, lastUsedMs: 2_000 });
+
+    // A miss at another step counts on its own; only the same step failing twice in a row retires the route.
+    clock = 3_000;
+    expect(routes.settle(OWNER, saved.id, "miss", 1)).toBe(true);
+    clock = 4_000;
+    expect(routes.settle(OWNER, saved.id, "miss", 0)).toBe(true);
+    route = routes.list(OWNER)[0]!;
+    expect(route).toMatchObject({ consecutiveMisses: 1, missStep: 0, disabled: false });
+    clock = 5_000;
+    expect(routes.settle(OWNER, saved.id, "miss", 0)).toBe(true);
+    route = routes.list(OWNER)[0]!;
+    expect(route).toMatchObject({ consecutiveMisses: 2, missStep: 0, disabled: true });
+    expect(routes.match(OWNER, "给李四发一条消息")).toEqual([]);
+  });
+
+  it("clears the miss run on the next success, and only touches lastUsedMs for a turn that proved nothing", () => {
+    let clock = 1_000;
+    const routes = new PhoneRoutes({ root, enabled: true, now: () => clock });
+    const saved = recordMessaging(routes)!;
+    expect(routes.settle(OWNER, saved.id, "miss", 0)).toBe(true);
+    expect(routes.list(OWNER)[0]).toMatchObject({ consecutiveMisses: 1, missStep: 0 });
+    expect(routes.settle(OWNER, saved.id, "success")).toBe(true);
+    expect(routes.list(OWNER)[0]).toMatchObject({ consecutiveMisses: 0, missStep: null, successes: 1 });
+
+    clock = 2_000;
+    expect(routes.settle(OWNER, saved.id, "used")).toBe(true);
+    expect(routes.list(OWNER)[0]).toMatchObject({ successes: 1, consecutiveMisses: 0, lastUsedMs: 2_000 });
+  });
+
+  it("settles nothing for a route that is not there or a store that is off", () => {
+    const routes = new PhoneRoutes({ root, enabled: true });
+    const saved = recordMessaging(routes)!;
+    expect(routes.settle(OWNER, "not-a-route", "success")).toBe(false);
+    expect(routes.settle(OWNER, saved.id.slice(1) + "x", "success")).toBe(false);
+    expect(routes.settle(null, saved.id, "success")).toBe(false);
+    expect(new PhoneRoutes({ root, enabled: false }).settle(OWNER, saved.id, "success")).toBe(false);
+    expect(routes.list(OWNER)[0]).toMatchObject({ successes: 0, consecutiveMisses: 0 });
+  });
 });

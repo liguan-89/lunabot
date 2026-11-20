@@ -36,10 +36,30 @@ Wiring:
 - Disabled routes and routes with `consecutiveMisses` past a bound are
   already filtered by `match`/`routeCandidates`; nothing new there.
 
-Deliberately not in this batch: miss/success bookkeeping after a replay
-(needs the turn-end outcome comparison — phase 1b), and a dedicated replay
-job the phone could run while the server is unreachable (a real on-device
-executor — separate work).
+Deliberately not in this batch: a dedicated replay job the phone could run
+while the server is unreachable (a real on-device executor — separate work).
+
+## Phase 1b — replay bookkeeping (this batch)
+
+Mika settles a replay against the route immediately (`RouteReplay.update`):
+a divergence counts a miss at the step it died on — two misses at the same
+step retire the route (`ROUTE_MISSES_TO_DISABLE = 2`), one elsewhere only
+counts — and a completed replay is credited `successes + 1` only when the
+whole task ends `done` (`noteResult` + `LearnGate.done`). Here the model
+replays, so the verdict comes from the turn's call ledger instead:
+
+- `promptParts` remembers the route the `device-route` part carried, per
+  turn key; `endTurn`/`turnEnded` hand it to `host.endTurn` as
+  `offeredRoute`.
+- `host.endTurn` settles it against the evidence: only calls that ran
+  (`ok`, replayable) count — a refusal, a timeout or a missing phone never
+  ran, so a `discuss`-gated turn does not punish the path. Every ran call
+  `changed` the screen on an unstopped, unspoiled turn → `success`; the
+  first call that changed nothing → `miss` at that index (our `done`); a
+  stopped or spoiled turn → `used`, a `lastUsedMs` touch alone.
+- `PhoneRoutes.settle` ports the write: `success` clears the miss run;
+  `miss` keeps `consecutiveMisses` only when `missStep` repeats, else
+  resets to 1, and disables at the bound.
 
 ## Phase 2 — intent gate (this batch)
 
@@ -84,6 +104,8 @@ needs the consent copy and the retention numbers decided first.
 
 ## Verification
 
-Phase 1: new unit tests beside `server/phones/host.test.ts` for the injected
-part (one match, ambiguous match, no recorder, no goal); `vitest run` the
-phones directory; `oxlint` the touched files.
+Phase 1/1b: unit tests beside `server/phone-routes.test.ts` for `settle`
+(success clears, same-step misses retire, elsewhere resets, `used` touches
+only) and beside `server/phones/host.test.ts` for the end-turn settle
+(success, unchanged-call miss, refused-only and stopped settle nothing);
+`vitest run` the phones directory; `oxlint` the touched files.

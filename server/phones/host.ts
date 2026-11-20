@@ -331,6 +331,8 @@ export interface PhoneTurnEnd {
   spoiled?: boolean;
   /** A route is rebuilt from a persisted run, so there must be one; defaults to the turn's generation. */
   runId?: string | null;
+  /** The route this turn's prompt carried, so the calls it made can settle that route's replay bookkeeping. */
+  offeredRoute?: { ownerKey: string; id: string } | null;
 }
 
 /** A route learned from a turn: its file name and the request it answers. */
@@ -544,6 +546,18 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       const generation = ledger.generationOf(turn);
       const { evidence, complete } = ledger.take(turn);
       const ended: PhoneTurnEnded = { evidence, route: null, goal: input.goal };
+      // The route the prompt carried is settled only against calls that ran — a refusal, a timeout or a phone not
+      // there never ran, so it says nothing about the path — and only when the turn's end can judge: a stopped or
+      // spoiled turn just touches the route, the way Mika counts a replay stopped for confirmation as use alone.
+      if (routes && input.offeredRoute) {
+        const ran = evidence.filter((entry) => entry.ok && isReplayablePhoneTool(entry.tool));
+        if (ran.length > 0) {
+          const missed = ran.findIndex((entry) => !entry.changed);
+          routes.settle(input.offeredRoute.ownerKey, input.offeredRoute.id,
+            input.stopped === true || input.spoiled === true ? "used" : missed === -1 ? "success" : "miss",
+            missed === -1 ? undefined : missed);
+        }
+      }
       const ownerKey = input.ownerKey ?? null;
       if (!routes || ownerKey === null || evidence.length === 0 || !complete) return ended;
       try {

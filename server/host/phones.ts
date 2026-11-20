@@ -110,6 +110,8 @@ export function createPhones(deps: PhonesDeps) {
   /** A person's own request, judged at most once a turn — Mika's gate: the verdict, null when the answer could not
    * be read, undefined when the gate does not apply. The route part and the call gate share one lazy promise. */
   const intents = new Map<string, Promise<Intent | null | undefined>>();
+  /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
+  const routeOffers = new Map<string, { ownerKey: string; id: string }>();
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
     try { registry.remove(key); } catch {}
@@ -286,7 +288,16 @@ export function createPhones(deps: PhonesDeps) {
       // Mika's order: the intent question is spent only where a route could actually be told — one fitting candidate.
       const matched = phoneOwner !== null && request !== "" ? phoneRoutes.match(phoneOwner, request) : [];
       const intent = matched.length === 1 ? await intentFor(input.turn) : undefined;
-      return host.parts(bot, phoneOwner, input.place, request, intent);
+      const parts = host.parts(bot, phoneOwner, input.place, request, intent);
+      // Only a route the prompt actually carries is owed the turn-end settle; the offer is spent once the turn ends.
+      if (phoneOwner !== null && matched.length === 1 && parts.some((part) => part.id === "device-route" && part.text !== "")) {
+        routeOffers.set(intentKey(input.turn), { ownerKey: phoneOwner, id: matched[0].id });
+        for (const stale of routeOffers.keys()) {
+          if (routeOffers.size <= 64) break;
+          routeOffers.delete(stale);
+        }
+      }
+      return parts;
     },
     /** The bot settings preview: the owner's phone as a turn at the computer would see it. */
     previewParts(bot: PhoneBot, offered: boolean): PromptPart[] {
@@ -302,10 +313,13 @@ export function createPhones(deps: PhonesDeps) {
      * behind, so the caller can check the reply and log the route; never throws.
      */
     endTurn: (turn: Turn, input: PhoneTurnEnd): PhoneTurnEnded => {
-      intents.delete(intentKey(turn));
+      const key = intentKey(turn);
+      intents.delete(key);
+      const offeredRoute = routeOffers.get(key) ?? null;
+      routeOffers.delete(key);
       // The owner is only worked out when there is something to learn, since that reads the thread's messages.
       const ownerKey = input.ownerKey ?? (host.evidenceFor(turn).length ? turnOwner(turn) : null);
-      return host.endTurn(turn, { ...input, ownerKey });
+      return host.endTurn(turn, { ...input, ownerKey, offeredRoute });
     },
     /**
      * The turn is over, for a caller that has only the bot and the settled reply: learn the route when it earned one,
@@ -313,13 +327,16 @@ export function createPhones(deps: PhonesDeps) {
      * reply or throws; the goal comes from the thread's latest direct request, and only the person's own line counts.
      */
     turnEnded(turn: Turn, input: { reply: string; stopped: boolean }): void {
-      intents.delete(intentKey(turn));
+      const key = intentKey(turn);
+      intents.delete(key);
+      const offeredRoute = routeOffers.get(key) ?? null;
+      routeOffers.delete(key);
       if (!store.bot(turn.botId)) return;
       const request = deps.request(turn.threadId);
       const goal = goalFor(turn.threadId);
       // A routine's run, a handoff and an unattended wake are nobody's own line: their calls are evidence, not a route.
       const personLine = request !== undefined && request.automation === undefined && request.origin?.kind === "user";
-      const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine });
+      const ended = host.endTurn(turn, { goal, stopped: input.stopped, spoiled: !personLine, offeredRoute });
       // The mode is asked for now, not captured at start-up: turning the switch on reaches the next turn that ends.
       const mode = host.verifyMode();
       const complete = mode === "off" || input.stopped || input.reply.trim() === "" ? null : deps.verify?.(turn.botId) ?? null;
