@@ -104,6 +104,14 @@ export function toWireTask(task: TaskRecord, botModel: ModelSelection): WireTask
 
 const ASK_NOW = { approvalMode: "ask" as const, autoApprove: false, alwaysAllow: [] as string[] };
 
+/** A new thread starts at its bot's level. A pending grant is not that level: a composer grant belongs to its own
+ * thread, and a bot-wide one may still roll back, so a thread made meanwhile follows the bot live instead of keeping
+ * the Ask mask the grant shows (or a Full access that was never confirmed). */
+function botLevel(bot: BotRecord): Pick<TaskRecord, "approvalMode" | "autoApprove" | "alwaysAllow"> {
+  if (bot.approvalGrant && !bot.approvalGrant.threadOnly) return {};
+  return { approvalMode: approvalModeFor({ ...bot, approvalGrant: undefined }), autoApprove: Boolean(bot.autoApprove), alwaysAllow: [...(bot.alwaysAllow ?? [])] };
+}
+
 const TASK_PATCH_FIELDS = [
   "title", "projectId", "modelSelection", "approvalMode", "autoApprove", "alwaysAllow",
   "unread", "lastReadMessageId", "rewound", "archivedAt", "pinned", "pinnedMessageId", "resumeCursors", "lastInstanceId", "cwd",
@@ -2157,9 +2165,7 @@ export class Store {
       ...(openedBy ? { openedBy: structuredClone(openedBy) } : {}),
       resumeCursors: {},
       ...(modelSelection && !sameModelSelection(modelSelection, bot.modelSelection) ? { modelSelection: structuredClone(modelSelection) } : {}),
-      approvalMode: approvalMode ?? approvalModeFor(bot),
-      autoApprove: approvalMode ? false : Boolean(bot.autoApprove),
-      alwaysAllow: approvalMode ? [] : [...(bot.alwaysAllow ?? [])],
+      ...(approvalMode ? { approvalMode, autoApprove: false, alwaysAllow: [] as string[] } : botLevel(bot)),
       unread: false,
       activity: "idle",
       busy: false,
