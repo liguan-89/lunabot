@@ -143,10 +143,12 @@ class TranscriptPresentationTest {
         compose.onNodeWithText("checkout", substring = true).assertDoesNotExist()
 
         compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
-        compose.onNodeWithText("read").assertIsDisplayed()
-        compose.onNodeWithText("bash").assertIsDisplayed()
+        // The steps are named the way the desktop names them: an engine tool id
+        // is read as the thing the call does, not printed as `read` / `bash`.
+        compose.onNodeWithText("正在读取文件").assertIsDisplayed()
+        compose.onNodeWithText("正在执行命令").assertIsDisplayed()
         compose.onNodeWithText("已处理 4秒 · 2 个步骤").performClick()
-        compose.onNodeWithText("bash").assertDoesNotExist()
+        compose.onNodeWithText("正在执行命令").assertDoesNotExist()
 
         compose.onNodeWithText("事件负载").performClick()
         compose.onNodeWithText("{\"service\":\"checkout\"}").assertIsDisplayed()

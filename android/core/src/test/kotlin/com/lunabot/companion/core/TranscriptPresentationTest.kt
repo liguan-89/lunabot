@@ -202,4 +202,36 @@ class TranscriptPresentationTest {
         assertEquals("已处理 1分 05秒 · 1 个步骤", fold.label)
         assertEquals("已处理 · 1 个步骤", fold.copy(elapsed = 999.0).label)
     }
+
+    @Test
+    fun aFirstReplyNoticeLeavesOnceTheAiHasAnswered() {
+        val messages = messages("""
+            [
+              {"id":"user","role":"user","kind":"text","at":1000,"text":"Hello"},
+              {"id":"waiting","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"notice: pi 在缓慢启动后回复了。","ok":true,
+               "rescue":{"botId":"b","threadId":"th","turnId":"t","instanceId":"pi","ai":"pi","settled":true}}},
+              {"id":"answer","role":"bot","kind":"text","at":30000,"text":"Hi","turnId":"t","turnTerminal":true}
+            ]
+        """)
+        // The desktop drops this row the moment `settled` lands; the phone could
+        // not see the payload at all and printed "still waiting" under a reply
+        // that had already arrived, in every thread, for as long as the history
+        // was kept.
+        assertEquals(listOf("user", "answer"), transcriptRows(messages, ActivityDetail.FULL).map { it.id })
+        assertEquals(listOf("user", "answer"), transcriptRows(messages, ActivityDetail.REDUCED).map { it.id })
+    }
+
+    @Test
+    fun aNoticeThatNeverGotAnAnswerStaysAsHistory() {
+        val messages = messages("""
+            [
+              {"id":"user","role":"user","kind":"text","at":1000,"text":"Hello"},
+              {"id":"over","role":"bot","kind":"activity","at":21000,"turnId":"t","tool":{"name":"notice: pi 在缓慢启动后回复了。","ok":true,
+               "rescue":{"botId":"b","threadId":"th","turnId":"t","instanceId":"pi","ai":"pi","over":true}}}
+            ]
+        """)
+        // An over notice is what actually happened — the AI never spoke — so it
+        // is history and keeps its line, exactly as the desktop's row does.
+        assertEquals(listOf("user", "over"), transcriptRows(messages, ActivityDetail.FULL).map { it.id })
+    }
 }

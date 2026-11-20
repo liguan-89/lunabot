@@ -250,7 +250,10 @@ object ModelRules {
         "droid" to "Droid",
         "hermes" to "Hermes",
         "cline" to "Cline",
-        "pi" to "Pi",
+        // `pi` is the only engine this build runs, and the desktop never shows
+        // its internal name: it names the provider it drives (`engine-name.ts`).
+        // The picker says the same thing as the transcript's notices.
+        "pi" to ActivityNaming.engineName("pi"),
     )
 
     fun effortLabel(effort: String): String = when (effort.lowercase()) {

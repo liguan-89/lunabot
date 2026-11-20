@@ -722,10 +722,25 @@ describe("waiting for a Live call's audio to connect", () => {
   it("stops waiting once the harness has ended the call", async () => {
     await startLiveCall({ botId: "b1", threadId: "t1" });
     onServerCall({ ...call, status: "ended", endReason: "sideband-lost" });
-    expect(vi.getTimerCount()).toBe(0);
     await vi.advanceTimersByTimeAsync(25_000);
+    // The 20 s connect watch is gone: had it fired it would have dropped the
+    // call again and asked the harness to end it a second time.
     expect(liveMedia()).toMatchObject({ phase: "failed", notice: "Call dropped." });
     expect(endRequests()).toEqual([]);
+  });
+
+  it("takes a failed call's notice away by itself, after long enough to press Try again", async () => {
+    await startLiveCall({ botId: "b1", threadId: "t1" });
+    onServerCall({ ...call, status: "ended", endReason: "sideband-lost" });
+    expect(liveMedia()).toMatchObject({ phase: "failed", action: "retry" });
+
+    // Half a minute: the button is the reason the strip stays, and the strip
+    // used to stay until it was dismissed by hand — over the composer, for the
+    // rest of the session.
+    await vi.advanceTimersByTimeAsync(29_000);
+    expect(liveMedia()).toMatchObject({ phase: "failed", notice: "Call dropped." });
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(liveMedia()).toMatchObject({ phase: "idle", notice: null });
   });
 });
 

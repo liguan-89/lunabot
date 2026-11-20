@@ -1367,6 +1367,10 @@ private fun ActivityChip(
     openThread: ((ThreadRef) -> Unit)? = null,
 ) {
     if (tool == null) return
+    // The AI has answered since: the notice said "no answer yet" about a turn
+    // that has one, and the desktop drops the same row. [transcriptRows] hides
+    // it too; this is the second door, for a caller that draws a row directly.
+    if (tool.rescue?.answered == true) return
     val status = ActivityReceipt.status(tool.ok)
     val tint = when (status) {
         ActivityStatus.RUNNING -> minisAccent
@@ -1388,7 +1392,9 @@ private fun ActivityChip(
         ActivityStatus.RUNNING, ActivityStatus.SUCCESS -> minisSeparator.copy(alpha = 0.55f)
     }
     val haptics = rememberHaptics()
-    val label = readableActivityName(tool.name)
+    val label = readableActivityName(
+        ActivityNaming.toolLabel(ActivityNaming.rescueEngine(tool.name, tool.rescue)),
+    )
     val linked = if (threadRef != null && openThread != null) {
         Modifier
             .heightIn(min = MIN_TOUCH_TARGET)

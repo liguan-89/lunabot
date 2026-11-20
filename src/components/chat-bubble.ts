@@ -1,6 +1,7 @@
 import { cn } from "@/lib/cn";
 import { failedTurnCause } from "@/lib/failed-turn";
 import { isStatusActivity } from "@/lib/activity-runs";
+import { formattedReplyWidth, isStructuredLongReply } from "@/lib/formatted-reply";
 import { peerLine, peerRequest } from "@/lib/peer-message";
 import { localDay } from "@/lib/transcript-derivations";
 import type { TranscriptItem } from "@/lib/activity-runs";
@@ -27,6 +28,28 @@ export function plainBotBubble(simple: boolean): string {
   return simple
     ? cn("chat-text w-fit whitespace-pre-wrap", SIMPLE_BUBBLE_MAX, SIMPLE_BOT_BUBBLE)
     : "chat-text w-fit max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink";
+}
+
+/**
+ * What a bot's words are drawn on, live and settled — one rule, called from both
+ * places, so the answer does not change shape when the stream lands.
+ *
+ * Simple mode has one bubble tone, and a structured long reply (headings, code,
+ * a table, more than a handful of list lines) deliberately wears none: it reads
+ * as a document, not as a chat line. The streaming bubble knew only the first
+ * half of that rule, so a twenty-line list arrived in a bubble and then
+ * deflated the moment it settled. Advanced mode keeps its own surfaces — a plain
+ * reply is a card, a formatted one is a page.
+ */
+export function botReplySurface(simple: boolean, text: string): string {
+  if (!simple) return "rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink";
+  return isStructuredLongReply(text) ? "bg-transparent px-1 py-0.5 text-ink" : SIMPLE_BOT_BUBBLE;
+}
+
+/** The width that goes with [botReplySurface]: a document reads at prose width, a chat line stops at the bubble cap. */
+export function botReplyWidth(simple: boolean, text: string): string {
+  if (!simple) return "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))]";
+  return isStructuredLongReply(text) ? formattedReplyWidth(text) : SIMPLE_BUBBLE_MAX;
 }
 
 /** Simple mode's transcript spaces rows 16px apart (ChatView's data-simple-rows); a row in the same group pulls up 12px, to 4px. */
