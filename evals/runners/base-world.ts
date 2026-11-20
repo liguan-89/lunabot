@@ -163,7 +163,9 @@ export abstract class BaseWorld {
 
   async snapshot(ctx: WorldContext): Promise<WorldSnapshot> {
     const evidence = await this.evidence();
-    const turns = evidence.map((turn) => ({
+    // Side-job text calls (pi-sidejob-* threads) are infrastructure, not conversation
+    // turns: they fire asynchronously, so where they land in the order is noise.
+    const turns = evidence.filter((turn) => turn.botId && !(turn.threadId ?? "").startsWith("pi-sidejob-")).map((turn) => ({
       bot: this.botKeyOf(turn.botId),
       index: turn.turnIndex,
       threadId: turn.threadId,
