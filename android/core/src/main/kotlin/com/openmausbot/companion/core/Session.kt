@@ -77,6 +77,10 @@ class Session(
     private val metadataFn: suspend (CompanionClient) -> CompanionConnectionMetadata = { client ->
         client.connectionMetadata()
     },
+    /** Test seam: override the restore-time live-call capability probe. */
+    private val configProbeFn: suspend (CompanionClient) -> ConfigStatus? = { client ->
+        client.config()
+    },
     /** Test seam for the handoff between a completed transfer and its caller. */
     private val afterAttachmentDownload: suspend () -> Unit = {},
     /**
@@ -825,7 +829,7 @@ class Session(
         val warming = client
         scope.launch {
             try {
-                val status = warming?.config()
+                val status = warming?.let { configProbeFn(it) }
                 if (status != null && client === warming) liveCallRelayCapable = status.hasSocketLiveCall
             } catch (error: Throwable) {
                 if (error is CancellationException) throw error

@@ -398,6 +398,7 @@ class ProfileRoutineWireTest {
             onboardingStore = InMemoryOnboardingStore(),
             deviceNameProvider = { "Pixel" },
             eventsFn = { _, _, _ -> emptyFlow() },
+            configProbeFn = { null },
             hydrateFn = { _, _ -> Fleet(emptyList(), emptyList()) },
         ).also { it.awaitRestored() }
     }
