@@ -1,7 +1,7 @@
 // The one `lunabot://pair` link builder, read by the Android and iOS
 // scanners (`PairingInvite.parse`). Every value is written with
 // encodeURIComponent, so a space is `%20`. The earlier `dexbot://` and
-// `lunabot://` spellings stay accepted by those scanners.
+// `openmausbot://` spellings stay accepted by those scanners.
 
 export type CompanionEndpointKind = "hosted" | "tailnet" | "lan" | "bonjour";
 

@@ -4,7 +4,7 @@ artifactName: LUNABOT-${version}-${arch}.${ext}
 
 protocols:
   - name: Luna Bot package install
-    schemes: [lunabot, dexbot]
+    schemes: [lunabot, dexbot, openmausbot]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
 # the NSIS .exe (Windows) from DEX Cloud, which this fork controls. A private
@@ -231,7 +231,7 @@ linux:
       to: browser-engine
     - from: dist-native/duckdb/linux-x64/node_modules
       to: duckdb/node_modules
-    - from: build/linux-dexbot-browser.apparmor
+    - from: build/linux-lunabot-browser.apparmor
       to: dexbot-browser.apparmor
   desktop:
     entry:

@@ -228,7 +228,7 @@ class ReminderReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_dexbot_mark)
+            .setSmallIcon(R.drawable.ic_lunabot_mark)
             .setContentTitle(title)
             .apply { if (text.isNotBlank()) setContentText(text) }
             .setAutoCancel(true)

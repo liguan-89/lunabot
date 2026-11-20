@@ -48,7 +48,7 @@ class PhoneUiPairingNotification(context: Context) {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE,
         )
         val action = NotificationCompat.Action.Builder(
-            R.drawable.ic_dexbot_mark,
+            R.drawable.ic_lunabot_mark,
             "输入配对码",
             pending,
         )
@@ -64,7 +64,7 @@ class PhoneUiPairingNotification(context: Context) {
             "点「输入配对码」，填入系统窗口显示的 6 位数字即可。配对端口由本机自动发现，" +
             "不需要手动填写；配对成功后这条通知会自动消失。"
         val notification = NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_dexbot_mark)
+            .setSmallIcon(R.drawable.ic_lunabot_mark)
             .setContentTitle("配对无线调试")
             .setContentText(collapsed)
             .setStyle(NotificationCompat.BigTextStyle().bigText(expanded))
@@ -89,7 +89,7 @@ class PhoneUiPairingNotification(context: Context) {
         if (!posted && !isActive()) return
         val text = "手机界面已连接，可以关闭系统配对窗口了。"
         val notification = NotificationCompat.Builder(app, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_dexbot_mark)
+            .setSmallIcon(R.drawable.ic_lunabot_mark)
             .setContentTitle("配对成功")
             .setContentText(text)
             .setPriority(NotificationCompat.PRIORITY_HIGH)

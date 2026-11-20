@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Model Context Protocol (MCP) server for OpenMausBot over JSON-RPC 2.0 stdio,
+// Model Context Protocol (MCP) server for Luna Bot over JSON-RPC 2.0 stdio,
 // for external agents (Hermes, Claude Desktop, Cursor, etc.).
 import readline from "node:readline";
 import { allowedServerOrigin, EXAMPLE_ADDRESS } from "../electron/server-address.mjs";
@@ -40,7 +40,7 @@ const DISCOVERY_URLS = configuredUrl
 let discoveredBaseUrl: string | undefined;
 
 export function log(msg: string) {
-  process.stderr.write(`[dexbot-mcp] ${msg}\n`);
+  process.stderr.write(`[lunabot-mcp] ${msg}\n`);
 }
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
@@ -1278,7 +1278,7 @@ export async function processMcpMessage(
           tools: {},
         },
         serverInfo: {
-          name: "dexbot-mcp",
+          name: "lunabot-mcp",
           version: "1.1.0",
         },
         instructions: "Use bounded read tools before mutating the Luna Bot team. Approval grants, deletion, and computer lifecycle are intentionally unavailable.",

@@ -20,7 +20,7 @@ import androidx.compose.ui.unit.Dp
  * cannot blink (a list row, a header, a screen that is about to be replaced).
  */
 @Composable
-internal fun DexBotMark(diameter: Dp, modifier: Modifier = Modifier) {
+internal fun LunaBotMark(diameter: Dp, modifier: Modifier = Modifier) {
     val disc = minisInk
     val eye = minisPage
     Canvas(modifier = modifier.size(diameter)) {

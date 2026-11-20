@@ -399,7 +399,7 @@ const __APP_VERSION__: string;
       /** Receives a GitHub package URL opened through lunabot://install (or an older dexbot://install). */
       onPackageInstall?(cb: (url: string) => void): () => void;
       /** Receives a chat link (lunabot://thread/… or lunabot://bot/…, and the
-       * dexbot:// / lunabot:// spellings earlier builds wrote) opened from
+       * dexbot:// / openmausbot:// spellings earlier builds wrote) opened from
        * outside the app. */
       onChatLink?(cb: (link: string) => void): () => void;
       /** The desktop shell's app-menu Preferences… item was activated; open

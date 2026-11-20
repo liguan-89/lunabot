@@ -100,7 +100,7 @@ class CloudAccountException(
 ) : Exception(message)
 
 /**
- * The DEX Cloud companion control plane: email-code sign-in for a phone, the
+ * The Luna Bot Cloud companion control plane: email-code sign-in for a phone, the
  * installations the account owns, and the Cloud desktops it can open.
  *
  * This is the same account the desktop signs in with, so one address manages the
@@ -109,7 +109,7 @@ class CloudAccountException(
  */
 class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
     init {
-        require(origin.startsWith("https://")) { "DEX Cloud must be HTTPS." }
+        require(origin.startsWith("https://")) { "Luna Bot Cloud must be HTTPS." }
     }
 
     suspend fun sendCode(email: String) {
@@ -333,7 +333,7 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
         } catch (error: CloudAccountException) {
             throw error
         } catch (error: Exception) {
-            throw CloudAccountException("连不上 DEX Cloud，请检查网络后重试。")
+            throw CloudAccountException("连不上 Luna Bot Cloud，请检查网络后重试。")
         } finally {
             connection.disconnect()
         }
@@ -347,7 +347,7 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
             code == "signup_closed" -> "这个服务器暂不开放新账号。"
             code == "email_unavailable" -> "服务器暂时发不了邮件，请稍后再试。"
             answer.status in 400..499 -> "请求没有被接受，请检查邮箱或登录码。"
-            else -> "DEX Cloud 暂时不可用（${answer.status}）。"
+            else -> "Luna Bot Cloud 暂时不可用（${answer.status}）。"
         }
         return CloudAccountException(message, unauthorized = answer.status == 401)
     }
@@ -361,7 +361,7 @@ class CloudAccountApi(private val origin: String = CLOUD_ORIGIN) {
 
 /**
  * The control session, Keystore-encrypted and device-only, in its own file so a
- * cleared pairing never touches the DEX account and vice versa.
+ * cleared pairing never touches the Cloud account and vice versa.
  */
 class CloudAccountStore(context: Context) {
     private val appContext = context.applicationContext
@@ -390,7 +390,7 @@ class CloudAccountStore(context: Context) {
             putString(KEY_EMAIL, email)
         }
         check(prefs.getString(KEY_TOKEN, null) == token) {
-            "The DEX account session write did not land."
+            "The Cloud account session write did not land."
         }
     }
 
@@ -410,7 +410,7 @@ class CloudAccountStore(context: Context) {
     }
 
     companion object {
-        const val PREFS_NAME = "dex_cloud_account"
+        const val PREFS_NAME = "luna_cloud_account"
         private const val KEY_TOKEN = "session"
         private const val KEY_EMAIL = "email"
         private const val KEY_CLIENT = "client_instance"
@@ -538,7 +538,7 @@ class CloudAccountController(
      */
     suspend fun pairComputer(computer: AccountComputer): String? {
         val token = storedToken() ?: run {
-            _state.update { it.copy(error = "请先登录 DEX 账号。") }
+            _state.update { it.copy(error = "请先登录 Cloud 账号。") }
             return null
         }
         if (!computer.connectable) {
@@ -609,7 +609,7 @@ class CloudAccountController(
         }
         scope.launch {
             val token = storedToken() ?: run {
-                _state.update { it.copy(error = "请先登录 DEX 账号。") }
+                _state.update { it.copy(error = "请先登录 Cloud 账号。") }
                 return@launch
             }
             _state.update { it.copy(busy = true, error = null, notice = null) }
@@ -632,7 +632,7 @@ class CloudAccountController(
      * redeems the grant with the ordinary pairing flow. */
     suspend fun pairCloud(cloud: CloudMachine): CloudPairingGrant? {
         val token = storedToken() ?: run {
-            _state.update { it.copy(error = "请先登录 DEX 账号。") }
+            _state.update { it.copy(error = "请先登录 Cloud 账号。") }
             return null
         }
         _state.update { it.copy(busy = true, error = null) }

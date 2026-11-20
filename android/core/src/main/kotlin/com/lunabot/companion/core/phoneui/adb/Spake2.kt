@@ -5,10 +5,10 @@
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
  * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
- * original: repackaged under com.dexbot.companion.core.phoneui.adb and
+ * original: repackaged under com.lunabot.companion.core.phoneui.adb and
  * comments translated into English.
  */
-package com.dexbot.companion.core.phoneui.adb
+package com.lunabot.companion.core.phoneui.adb
 
 import java.math.BigInteger
 import java.security.MessageDigest

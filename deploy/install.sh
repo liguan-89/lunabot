@@ -511,7 +511,10 @@ note_sandbox() { # tag or sha256:digest
 }
 
 newest_release() {
-  curl -fsS --max-time 15 "$RELEASES_URL" 2>/dev/null | sed -n 's/.*"tag_name": *"\(v[0-9][0-9.]*\)".*/\1/p' | head -n 1
+  set -- -fsS --max-time 15
+  # Unauthenticated calls share a 60/hour limit per address, which a CI runner's shared egress exhausts.
+  [ -n "${GITHUB_TOKEN:-}" ] && set -- "$@" -H "Authorization: Bearer $GITHUB_TOKEN"
+  curl "$@" "$RELEASES_URL" 2>/dev/null | sed -n 's/.*"tag_name": *"\(v[0-9][0-9.]*\)".*/\1/p' | head -n 1
 }
 
 # The stable channel when it is published, else the newest release. Never `latest`, which follows every commit.
@@ -663,7 +666,7 @@ services:
       # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb openmausbot login --relay
       OMB_PHONE_RELAY:
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -q openmausbot"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -925,7 +928,7 @@ wait_healthy() {
 }
 
 https_answers() {
-  curl -fsS --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" 2>/dev/null | grep -q openmausbot
+  curl -fsS --max-time 10 --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/api/health" 2>/dev/null | grep -qE 'dexbot|openmausbot'
 }
 
 wait_https() {

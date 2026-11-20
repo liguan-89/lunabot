@@ -67,6 +67,7 @@ const ALLOWED: ReadonlyArray<{ file: string; snippet?: string; why: string }> = 
   { file: "electron/company-backups.mjs", snippet: "OMB-WORKSPACE-1", why: "a backup file's format marker" },
   { file: "electron/user-data-migration.mjs", why: "the profile and data folder names earlier builds wrote, moved once on update" },
   { file: "electron/cloud-sync.mjs", snippet: "DEX BOT", why: "the Documents folder earlier builds wrote, moved once on update" },
+  { file: "electron/cloud-sync.mjs", snippet: "DexBot", why: "the Documents folder earlier builds wrote, moved once on update" },
   { file: "server/peer-provenance.ts", snippet: "another bot in this DEX BOT workspace", why: "normalizes peer notes written before the rename" },
   { file: "server/phone-secret.ts", snippet: "DEX BOT phone credential v1", why: "the HPKE info string existing phone envelopes were encrypted under" },
   { file: "server/default-bot.ts", snippet: "DexBot", why: "the built-in bot's name in places made before the rename, recognized so one is not added twice" },

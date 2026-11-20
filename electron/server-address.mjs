@@ -93,7 +93,7 @@ function decoded(value) {
   }
 }
 
-/** `{ address, secret }` from a `lunabot://pair` link (or an older `dexbot://`/`lunabot://` one); only one naming a server's own http(s) origin. */
+/** `{ address, secret }` from a `lunabot://pair` link (or an older `dexbot://`/`openmausbot://` one); only one naming a server's own http(s) origin. */
 function appLink(url) {
   const address = url.searchParams.get("address") ?? "";
   if (!/^https?:\/\//i.test(address)) return null;

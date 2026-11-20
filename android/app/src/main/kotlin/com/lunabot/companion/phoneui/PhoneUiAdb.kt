@@ -8,12 +8,12 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import androidx.core.content.edit
-import com.dexbot.companion.core.phoneui.adb.AdbConnection
-import com.dexbot.companion.core.phoneui.adb.AdbIdentity
-import com.dexbot.companion.core.phoneui.adb.AdbKeyUnreadableException
-import com.dexbot.companion.core.phoneui.adb.AdbTls
-import com.dexbot.companion.core.phoneui.adb.KeyingMaterialExporter
-import com.dexbot.companion.core.phoneui.adb.AdbPairing
+import com.lunabot.companion.core.phoneui.adb.AdbConnection
+import com.lunabot.companion.core.phoneui.adb.AdbIdentity
+import com.lunabot.companion.core.phoneui.adb.AdbKeyUnreadableException
+import com.lunabot.companion.core.phoneui.adb.AdbTls
+import com.lunabot.companion.core.phoneui.adb.KeyingMaterialExporter
+import com.lunabot.companion.core.phoneui.adb.AdbPairing
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import java.io.File
@@ -75,7 +75,7 @@ internal class PhoneUiAdb(context: Context) {
         }
     }
 
-    private fun adbName(): String = "dexbot@${Build.MODEL.orEmpty()}"
+    private fun adbName(): String = "lunabot@${Build.MODEL.orEmpty()}"
 
     fun hasIdentity(): Boolean {
         if (cachedIdentity != null) return true
@@ -226,7 +226,7 @@ internal class PhoneUiAdb(context: Context) {
 
     private companion object {
         const val AdbServiceType = "_adb-tls-connect._tcp."
-        const val PAIRED_PREFS = "dexbot.phoneui.adb"
+        const val PAIRED_PREFS = "lunabot.phoneui.adb"
         const val PAIRED_FLAG = "paired"
     }
 }

@@ -4,7 +4,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
-import com.dexbot.companion.core.phoneui.adb.AdbConnectionException
+import com.lunabot.companion.core.phoneui.adb.AdbConnectionException
 import com.lunabot.companion.permissions.CompanionPermissions
 import com.lunabot.companion.phoneui.shell.PhoneUiShellBridge
 import com.lunabot.companion.storage.ChatPreferences
