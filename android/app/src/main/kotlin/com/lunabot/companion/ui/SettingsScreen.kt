@@ -1478,14 +1478,21 @@ fun SettingsScreen(
             onDismiss = { phoneUiCheckReport = null },
         ) {
             Column(Modifier.padding(horizontal = 16.dp)) {
-                SettingsSection {
+                SettingsSection(
+                    footer = {
+                        // The row details stay English on purpose: they are the
+                        // tokens a developer greps for. Say so, so a Chinese
+                        // reader does not take them for an untranslated screen.
+                        SettingsFootnote("破折号后是技术细节，方便复制反馈；检查项和结论已译为中文。")
+                    },
+                ) {
                     SelectionContainer {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Text(
-                                text = report.summary(),
+                                text = selfCheckSummary(report),
                                 fontSize = 12.sp,
                                 lineHeight = 17.sp,
                                 fontFamily = FontFamily.Monospace,
@@ -1493,12 +1500,20 @@ fun SettingsScreen(
                             )
                             report.rows.forEach { row ->
                                 Text(
-                                    text = report.line(row),
+                                    text = selfCheckLine(row),
                                     fontSize = 12.sp,
                                     lineHeight = 17.sp,
                                     fontFamily = FontFamily.Monospace,
                                     color = secondaryTint,
                                 )
+                                selfCheckFix(row)?.let { fix ->
+                                    Text(
+                                        text = "    → $fix",
+                                        fontSize = 12.sp,
+                                        lineHeight = 17.sp,
+                                        color = secondaryTint,
+                                    )
+                                }
                             }
                         }
                     }

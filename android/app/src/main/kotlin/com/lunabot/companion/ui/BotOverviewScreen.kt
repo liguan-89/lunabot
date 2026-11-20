@@ -76,6 +76,7 @@ fun BotOverviewScreen(
     onBack: () -> Unit,
     onOpenRoutines: (String) -> Unit = {},
     onOpenComputer: (String) -> Unit = {},
+    onOpenBrowser: (String) -> Unit = {},
 ) {
     val environment = LocalCompanion.current
     val session = environment.session
@@ -215,6 +216,13 @@ fun BotOverviewScreen(
                             title = "电脑",
                             detail = if (record.busy == true) "工作中" else "空闲",
                             onClick = { onOpenComputer(botId) },
+                        )
+                        MinisDivider()
+                        OverviewActionRow(
+                            icon = R.drawable.ic_display,
+                            title = "浏览器",
+                            detail = "看它正在看的网页",
+                            onClick = { onOpenBrowser(botId) },
                         )
                     }
                 }

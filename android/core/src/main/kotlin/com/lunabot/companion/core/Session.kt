@@ -824,15 +824,10 @@ class Session(
         client = clientFactory(first, storedToken)
         _restoreState.value = RestoreState.Ready
         _status.value = Status.Connecting
-        val warming = client
-        scope.launch {
-            try {
-                val status = warming?.config()
-                if (status != null && client === warming) liveCallRelayCapable = status.hasSocketLiveCall
-            } catch (error: Throwable) {
-                if (error is CancellationException) throw error
-            }
-        }
+        // No eager `/api/config` here. Its answer is the socket-relay capability, and both readers ask for it themselves:
+        // `liveCallRelayReady` when someone opens a call, `configStatus` when a screen shows voice settings. A probe on
+        // every restore spent a request the person did not ask for and put an unexpected `/api/config` in front of every
+        // request a test harness expects to see first.
     }
 
     /**
@@ -954,6 +949,15 @@ class Session(
         } catch (_: Exception) {
             null
         }
+    }
+
+    /** A bot's browser as the view sees it: the stream itself, and the actions it posts back. Both go through the
+     * active client, so the session's own bearer and route carry them like every other request. */
+    fun browserLive(botId: String, threadId: String? = null, size: Pair<Int, Int>? = null, resume: String? = null): Flow<SSEEvent>? =
+        client?.browserLive(botId, threadId, size, resume)
+
+    suspend fun browserAction(botId: String, viewerId: String, threadId: String?, body: JsonObject) {
+        client?.browserAction(botId, viewerId, body, threadId)
     }
 
     fun watchScreen(ofBotId: String) {

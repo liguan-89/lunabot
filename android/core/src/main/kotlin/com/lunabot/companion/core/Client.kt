@@ -1179,6 +1179,47 @@ class CompanionClient(
         return eventStream(request, streamingClient)
     }
 
+    // MARK: - A bot's browser, live
+
+    /**
+     * The bot's browser as server-sent events, undecoded: this view names each message with `event:` (`frame`, `ready`,
+     * `control`, `tabs`, `url`, `status`, `waiting`, `heartbeat`, `error`) and a frame's payload is base64 image data
+     * plus its own metadata, not one of the general feed's frame kinds.
+     *
+     * `size` is the panel's CSS pixels, which the page fills; the server answers with the frames that match it.
+     */
+    fun browserLive(botId: String, threadId: String? = null, size: Pair<Int, Int>? = null, resume: String? = null): Flow<SSEEvent> {
+        val query = buildList {
+            threadId?.let { add("threadId" to it) }
+            size?.let { (width, height) ->
+                add("width" to width.toString())
+                add("height" to height.toString())
+            }
+            resume?.let { add("resume" to it) }
+        }
+        val request = makeRequest("GET", "/api/bots/${segment(botId)}/browser/live", query).newBuilder()
+            .header("Accept", "text/event-stream")
+            .build()
+        return namedEventStream(request, streamingClient)
+    }
+
+    /**
+     * One action on that view. The server routes it by `viewerId`, the id its `ready` event handed out, so it travels
+     * inside the body on every call — a frame's acknowledgement included.
+     */
+    suspend fun browserAction(botId: String, viewerId: String, body: JsonObject, threadId: String? = null) {
+        val withViewer = buildJsonObject {
+            put("viewerId", viewerId)
+            body.forEach { (name, value) -> put(name, value) }
+        }
+        sendUnit(makeRequest(
+            "POST",
+            "/api/bots/${segment(botId)}/browser/action",
+            query = threadId?.let { listOf("threadId" to it) }.orEmpty(),
+            body = withViewer,
+        ))
+    }
+
     // MARK: - Phone apps as bot tools
 
     /** Tell the computer what this phone allows. The key is the paired device, never the body. */

@@ -516,11 +516,16 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
             botId = destination.botId,
             onBack = navigator::pop,
         )
+        is Destination.Browser -> BrowserScreen(
+            botId = destination.botId,
+            onBack = navigator::pop,
+        )
         is Destination.Overview -> BotOverviewScreen(
             botId = destination.botId,
             onBack = navigator::pop,
             onOpenRoutines = { navigator.push(Destination.BotRoutines(it)) },
             onOpenComputer = { navigator.push(Destination.Computer(it)) },
+            onOpenBrowser = { navigator.push(Destination.Browser(it)) },
         )
         is Destination.BotRoutines -> TasksRoutinesScreen(
             onBack = navigator::pop,
