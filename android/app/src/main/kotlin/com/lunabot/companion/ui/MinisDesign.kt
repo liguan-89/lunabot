@@ -63,7 +63,7 @@ object MinisTokens {
     val GroupedLight = Color(0xFFF3F3F1)
     val GroupedDark = Color(0xFF1C1C1E)
     val RaisedDark = Color(0xFF2C2C2E)
-    val InkLight = Color(0xFF141414)
+    val InkLight = Color(0xFF111111)
     val InkDark = Color(0xFFFFFFFF)
     val SecondaryLight = Color(0x993C3C43)
     val SecondaryDark = Color(0x99EBEBF5)

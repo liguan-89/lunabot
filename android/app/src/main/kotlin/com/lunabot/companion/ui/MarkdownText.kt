@@ -112,6 +112,7 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                 text = inline(block.text, tail, muted),
                 fontSize = 15.5.sp,
                 lineHeight = 22.sp,
+                fontWeight = FontWeight.Medium,
                 letterSpacing = 0.08.sp,
                 color = minisInk,
             )
@@ -126,7 +127,8 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                     block.level == 2 -> 17.5.sp
                     else -> 16.sp
                 },
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
+                color = minisInk,
                 modifier = Modifier.padding(top = 2.dp),
             )
 
@@ -145,7 +147,13 @@ private fun MarkdownBlockView(block: MarkdownBlock, tail: Boolean) {
                         .fillMaxHeight()
                         .background(muted.copy(alpha = 0.4f), RoundedCornerShape(1.5.dp)),
                 )
-                Text(inline(block.text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp, color = muted)
+                Text(
+                    text = inline(block.text, tail, muted),
+                    fontSize = 15.5.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = muted,
+                )
             }
 
         is MarkdownBlock.Table -> {
@@ -264,11 +272,19 @@ private fun MarkerRow(symbol: String, indent: Int, text: String, tail: Boolean, 
         Text(
             text = symbol,
             fontSize = 15.5.sp,
-            lineHeight = 22.5.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Medium,
             color = muted,
             modifier = Modifier.widthIn(min = 16.dp),
         )
-        Text(inline(text, tail, muted), fontSize = 15.5.sp, lineHeight = 22.5.sp)
+        Text(
+            text = inline(text, tail, muted),
+            fontSize = 15.5.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.08.sp,
+            color = minisInk,
+        )
     }
 }
 

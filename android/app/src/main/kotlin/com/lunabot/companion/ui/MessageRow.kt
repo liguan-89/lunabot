@@ -917,6 +917,7 @@ private fun UserMessageText(text: String) {
             text = text,
             fontSize = 15.5.sp,
             lineHeight = 22.sp,
+            fontWeight = FontWeight.Medium,
             letterSpacing = 0.08.sp,
             color = color,
         )
@@ -930,7 +931,14 @@ private fun UserMessageText(text: String) {
         .dropWhile { it.isBlank() }
         .joinToString("\n")
     if (quote.isEmpty()) {
-        Text(text = text, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
+        Text(
+            text = text,
+            fontSize = 15.5.sp,
+            lineHeight = 22.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.08.sp,
+            color = color,
+        )
         return
     }
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -953,7 +961,14 @@ private fun UserMessageText(text: String) {
             )
         }
         if (body.isNotEmpty()) {
-            Text(text = body, fontSize = 15.5.sp, lineHeight = 22.5.sp, color = color)
+            Text(
+                text = body,
+                fontSize = 15.5.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.08.sp,
+                color = color,
+            )
         }
     }
 }
