@@ -34151,7 +34151,10 @@
       "settings.group.chat": "460b3a7da007b7af9d35bca54181dc91382263b2bf133ca214871ca1fed1fc1c",
       "settings.group.sidebar": "f7efa7bc1fc535ab733d92a56639bed62229ae3646bc9fd137e9cef2f6c1f1b2",
       "settings.group.team": "5985039f106df054b43c3529139613bf7c2372937539f344c7c5ee47d00a0d63",
-      "settings.simple.page.limitsBackups": "0d41ed5885f693f5b5ebaedbea10232d95d5c0d920f4e0037dc234eeb976155b"
+      "settings.simple.page.limitsBackups": "0d41ed5885f693f5b5ebaedbea10232d95d5c0d920f4e0037dc234eeb976155b",
+      "native.pairRequest.title": "c8961b010ca92a4068ef29b0f452f0e899c2e68c00cb78239dadc4d986f3fafa",
+      "native.pairRequest.body": "763e91dcb3a8b27811ef6594ed17ea9068194a16c1715eaf443cce0489b6df1b",
+      "native.pairRequest.bodyNoDevice": "ffad700f03104a43f138dad084c163aa79f518aa8d2d8b55112c7f9ae7df245b"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -44795,7 +44798,21 @@
       "desktopMount.unpin": "1db76955eedce6a4728019e7e9229e13d6cc9740d612af2d21a1caac3128f540",
       "desktopMount.placeholder": "d3e9c5b80896f4b83b23f31f445c65e0dbe4ef4529aba2afdd14aad870664a5e",
       "desktopMount.openChat": "f8ccd95f5dbb1626d1d7ab8c5ec3e94328da6d8174cacb90bb28ec2d8a4d6bd7",
-      "desktopMount.dropHint": "1ab1b095c1ed143e05cfebb9bd67a4594ced2ec7679efa2e48559f913e0d2f9d"
+      "desktopMount.dropHint": "1ab1b095c1ed143e05cfebb9bd67a4594ced2ec7679efa2e48559f913e0d2f9d",
+      "remote.devices.allowDesktopScreen": "cdecd5f5e7f41fe9d33170cf0169f5b391e0ec007b2dc359f16e2f00ebcdcf8a",
+      "remote.devices.allowDesktopScreenDetail": "b0736fa09402d7b90816069fd4496164bff64c054e42cbc5d6555e8c4adb6129",
+      "remote.devices.desktopScreenAria": "65eeb865787535fc4f3379f49798f2c257ae198a75d839a0cc472efb7ac44626",
+      "native.pairRequest.title": "c8961b010ca92a4068ef29b0f452f0e899c2e68c00cb78239dadc4d986f3fafa",
+      "native.pairRequest.body": "763e91dcb3a8b27811ef6594ed17ea9068194a16c1715eaf443cce0489b6df1b",
+      "native.pairRequest.bodyNoDevice": "ffad700f03104a43f138dad084c163aa79f518aa8d2d8b55112c7f9ae7df245b",
+      "chat.notice.piEffortUnsupported": "f98ea26f3ce1e1ab86ab1ea0d1e14870797b8ac0d1b909e8be79408a4a7a1212",
+      "pairRequest.title": "c8961b010ca92a4068ef29b0f452f0e899c2e68c00cb78239dadc4d986f3fafa",
+      "pairRequest.body": "12c507238dad667fb2e55abb574e5d3ec5aaf520c8275773dd7a3642bb2774f2",
+      "pairRequest.allow": "e213c161d5cefa520c8dd4155c9569076d9a40406111465136a6f1b207045761",
+      "pairRequest.deny": "05a2d7332eb9d8bf164487c743a2e93c21b16bb2061a93e3ee2ceb508eadb753",
+      "pairRequest.waiting": "e99dcb0a97a2320d918759da7764db0150f7d4198018b700840cdb78cde90b2f",
+      "pairRequest.failed": "ab8892938a365263da84bdcfe3e2d0bbfa0c2316402365b8f83bd10583a62a6c",
+      "pairRequest.noLink": "54a292740a9e1067c7b14cd14d9d61853ce130f5234faa5c65214f3d82c151a0"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -55053,7 +55070,10 @@
       "server.wait.parkedHolder": "55e71c05ba74101cedf34bf3bf745665f420374054a66ad4a54b77d93961f77f",
       "server.wait.parked": "14b5e1b20e9954d1578bd7f9ba4d74f5e7767cb6ba2828eb8e7b2384a44e577e",
       "server.wait.personAway": "694ecd701d9e3f302d7cc5f2c79e76435aa727447f9f46ff01b2026b2eca9883",
-      "server.surface.couldNotContinue": "559f15490af7cc4a0e95432d78e2a8c64a125312d5ed3c485f836a71577bceb6"
+      "server.surface.couldNotContinue": "559f15490af7cc4a0e95432d78e2a8c64a125312d5ed3c485f836a71577bceb6",
+      "native.pairRequest.title": "c8961b010ca92a4068ef29b0f452f0e899c2e68c00cb78239dadc4d986f3fafa",
+      "native.pairRequest.body": "763e91dcb3a8b27811ef6594ed17ea9068194a16c1715eaf443cce0489b6df1b",
+      "native.pairRequest.bodyNoDevice": "ffad700f03104a43f138dad084c163aa79f518aa8d2d8b55112c7f9ae7df245b"
     },
     "uk": {
       "voice.gemini.keyPlaceholder": "8c87ba2043a4a89d63c90cae8a6dafd5cbd193652e923b97988e381a74773e10",

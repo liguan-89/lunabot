@@ -9613,7 +9613,7 @@
   "chat.notice.stop.maxRequests": "此回合在完成前已发出一个回合允许的最大模型请求数（停止原因：{reason}）。请让它从停止处继续，或拆分任务。",
   "chat.notice.unaskedStop": "AI 的请求在完成前被截断，且没有人停止它（它只说了「{said}」）。重新发送该消息可再试一次。",
   "chat.notice.piSessionSlow": "这次对话的会话启动时间比平时长。模型响应后回合会继续。按「停止」可取消。",
-  "chat.notice.piEffortUnsupported": "该模型不支持所选的思考强度，本回合保持引擎默认设置。",
+  "chat.notice.piEffortUnsupported": "该模型不支持所选的思考强度，本回合沿用该 AI 的默认强度。",
   "chat.notice.unreadMessage": "此回合在模型读取运行期间发来的一条消息前结束了。请重新发送那条消息。",
   "chat.notice.codexUnsupportedOne": "Codex 无法运行工具 {tools}（「unsupported call」）：AI 提供方返回调用时缺少工具的应用名，因此调用从未到达该工具。请为此机器人选择一个由完整处理工具调用的提供方支持的模型。",
   "chat.notice.codexUnsupportedMany": "Codex 无法运行工具 {tools}（「unsupported call」）：AI 提供方返回调用时缺少工具的应用名，因此调用从未到达这些工具。请为此机器人选择一个由完整处理工具调用的提供方支持的模型。",
