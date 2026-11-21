@@ -119,3 +119,17 @@
 6. `e5b9ae8f9b`/`f7b4ff1450` transcript 与 Muse UI 改造的落点核对
 7. `fe171fbea2` bot 声线——与 elevenlabs feat（P2）决策解耦，可单独摘
 8. 主 worktree 本地 main 未推送的 12 个 Android/桌面打磨提交与 B12 组潜在重叠
+
+---
+
+## 执行状态（2026-11-21 首批）
+
+**已摘 9 提交**（`origin/main..HEAD`）：connector 脱敏恢复、线程可见性两修、MCP 列表崩溃、safety-floor 三连、routine 空 item 保留报告（手术取核心）。验证：threads/safety-floor/routines 731 测试过。
+
+**复核后改判跳 6**：
+- `e0293d60a1`：依赖 `server/routine-bounds.ts`（fork 已删的 missed-run 模块），bug 本体不存在
+- `6cec8c6ef9`：依赖 `registry-store.ts` 窄序列化架构（fork 全量序列化，无此 bug）
+- `e3bbc68914`/`3b9c7b9a4e`/`207fdc5be6`：fork pi 重构后 spawn 辅助统一带 `box:{rw:[mcpTempDir]}`，等价实现已在
+- `66de394c0e`：fork `98a5d8cb19` 已实现相同 shell 超时边界（常量+tool_call 钩子一致）
+
+**待续**：B1 剩余 4（`b35b91f93c`/`26edd8dc12`/`97b3301938`/`31ddcdc23f`，pi 会话组）、B2-B13、P2 评审。`66de394c0e` 的 docs/verify 脚本可留作参考不摘。
