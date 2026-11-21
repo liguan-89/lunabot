@@ -1,3 +1,4 @@
+import { chosenBackups } from "../automatic-recovery.ts";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -83,6 +84,13 @@ describe("which AI carries on while one is limited", () => {
     const { instance } = takeover();
     expect(instance.backups("kai", on("claude", "claude-sonnet-5"), "model")).toEqual([on("claude", "claude-opus-5-5"), on("codex", "gpt-6")]);
     expect(instance.backups("kai", on("claude", "claude-opus-5-5"), "credits")).toEqual([on("codex", "gpt-6")]);
+  });
+
+  it("counts the installation's saved backup only while Automatic recovery is on", () => {
+    const backup = on("codex", "gpt-6");
+    expect(chosenBackups(undefined, { enabled: false, backup })).toEqual([]);
+    expect(chosenBackups({ fallback: [] }, { enabled: true, backup })).toEqual([backup]);
+    expect(chosenBackups({ fallback: [on("claude", "claude-opus-5-5")] }, { enabled: false, backup }), "the bot's own list always counts").toEqual([on("claude", "claude-opus-5-5")]);
   });
 
   it("leaves out an AI that is signed out, held by its own limit, short of this AI's tools, or another sign-in to the same plan", () => {
