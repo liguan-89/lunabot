@@ -125,12 +125,14 @@ export interface RoomEngineView {
   approvalMode?: string | null;
   onToolStart?: (trace: { id: string; name: string; args: unknown }) => void;
   onToolEnd?: (trace: { id: string; name: string; args: unknown; result: unknown; ok: boolean }) => void;
+  /** `compacts` in a plan calls this mid-turn: the engine reports its own compaction between the steps and the reply. */
+  onCompact?: () => void;
 }
 
 /** Plan fields: `launch` replaces Claude's argv files; `progress`/`progressAfterGate` stream around the
  * gate; `approve` asks through Claude's permission-prompt tool (`replyIfDenied` otherwise);
  * `screenCalls` calls the mounted computer that many times; `echoSteered` ends a scripted reply with what
- * `steered` says was sent into the turn while it ran. */
+ * `steered` says was sent into the turn while it ran; `compacts` runs the engine's `onCompact` mid-turn. */
 export async function runRoomHandoffAgent(argv: string[], planPath: string, prompt?: unknown,
   launch?: { integration: AgentsIntegration; system: string; evidence?: Record<string, unknown> },
   progress?: (text: string) => void, steered: () => readonly string[] = () => [],
@@ -267,6 +269,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
           captured[name] = found;
         }
       }
+      if (plan.compacts) view.onCompact?.();
       // A person's answer, like a test gate, is owned by the parent test's timeout.
       if (plan.gateFile || plan.approve || plan.screenCalls) clearTimeout(timer);
       if (plan.approve) {

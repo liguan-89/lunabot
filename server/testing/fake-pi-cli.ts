@@ -704,6 +704,10 @@ function streamRoomTurn(message: string): void {
       callTool: (name, args) => callMountedTool(name, args),
       onToolStart: (trace) => send({ type: "tool_execution_start", toolCallId: trace.id, toolName: trace.name, args: trace.args }),
       onToolEnd: (trace) => send({ type: "tool_execution_end", toolCallId: trace.id, toolName: trace.name, isError: !trace.ok, result: trace.result }),
+      onCompact: () => {
+        send({ type: "compaction_start", reason: "threshold" });
+        send({ type: "compaction_end", reason: "threshold", result: { summary: "fake summary", firstKeptEntryId: "e1", tokensBefore: 100 }, aborted: false, willRetry: false });
+      },
     }).then((reply) => {
       if (turnAborted) return;
       finishCompatTurn([reply]);

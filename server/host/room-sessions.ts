@@ -9,7 +9,7 @@ import { roomSessionsEnabled } from "../room-context-settings.ts";
 import type { Message } from "../store.ts";
 import { isRoomContextMessage, type RoomLine, type RoomWindow } from "./room-transcript.ts";
 
-export const ROOM_SESSION_ENGINES: Readonly<Record<string, string>> = { claudeAgent: "CLAUDE" };
+export const ROOM_SESSION_ENGINES: Readonly<Record<string, string>> = { claudeAgent: "CLAUDE", piAgent: "PI" };
 
 // Known gap: a process kept warm past this (prompt-cache keep-warm) goes on in the recorded session after a start, so a line can be sent twice.
 export function roomSessionIdleMs(driverKind: string, env: Record<string, string | undefined> = process.env): number | undefined {
@@ -23,7 +23,7 @@ const ABANDONED_TURN_MS = 24 * 60 * 60_000;
 export interface RoomSessionEngine {
   instanceId: string;
   driverKind: string;
-  adapter: { capabilities: { strictResume?: boolean } };
+  adapter: { capabilities: { strictResume?: boolean; compactionNotice?: "native" } };
 }
 
 export interface RoomSessionsDeps {
@@ -276,7 +276,10 @@ export function createRoomSessions(deps: RoomSessionsDeps): RoomSessions {
     speakers.set(instance.instanceId, { botId, at });
 
     const idleMs = roomSessionIdleMs(instance.driverKind);
-    if (idleMs === undefined || instance.adapter.capabilities.strictResume !== true || !input.hooks || input.guestConfined) {
+    // The delta ledger is only safe when the host can tell the engine compacted its session itself: through the
+    // harness hook channel, or through the engine's own compaction notice (context.compacted).
+    const compactionKnown = input.hooks || instance.adapter.capabilities.compactionNotice === "native";
+    if (idleMs === undefined || instance.adapter.capabilities.strictResume !== true || !compactionKnown || input.guestConfined) {
       drop(threadId, botId);
       const untracked = traces.get(threadId)?.get(botId);
       if (untracked) untracked.ended = undefined;
@@ -336,6 +339,15 @@ export function createRoomSessions(deps: RoomSessionsDeps): RoomSessions {
 
   function onEvent(event: RuntimeEvent): void {
     handoffs.onEvent(event);
+    // The running member's engine rewrote its own session: the delta ledger no longer describes it.
+    if (event.type === "context.compacted") {
+      const flight = inFlight.get(event.threadId);
+      if (flight) {
+        drop(event.threadId, flight.botId);
+        flight.distrusted = true;
+      }
+      return;
+    }
     if (event.type !== "turn.completed" && event.type !== "session.started") return;
     const flight = inFlight.get(event.threadId);
     if (!flight || event.providerInstanceId !== flight.instanceId) return;
