@@ -7,10 +7,10 @@ import { bodyName, colorName, festivalName } from "@/lib/mascot-names";
 import type { LocaleKey } from "@/locales";
 import { colorSwatch, MAUS_COLOR_LABEL, MAUS_COLOR_NAMES, PICKABLE_STATES, type MausState } from "@/lib/mascot";
 import type { Bot } from "@/state/store";
-import { MASCOT_BODY_IDS } from "../../../shared/mascot-bodies";
-import { FESTIVAL_IDS, FESTIVALS, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
+import { FESTIVAL_IDS, FESTIVALS, PRESET_STYLE_BODY_IDS, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
 import { useFestivalDress, wornBody } from "@/lib/festival-dress";
-import { MausAvatar } from "../Avatar";
+import { CarvedAvatar } from "../CarvedAvatar";
+import { PresetFace } from "../PresetFace";
 import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
 import { Segmented } from "./rows";
@@ -84,7 +84,11 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         !showsImage && body === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]",
       )}
     >
-      <MausAvatar color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={40} animated={false} trackPointer={false} />
+      {isCarvedBody(id) ? (
+        <CarvedAvatar body={id} color={bot.color} faceColor={bot.mascotFaceColor} size={40} animated={false} trackPointer={false} />
+      ) : (
+        <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={38} life="still" />
+      )}
     </button>
   );
 
@@ -134,8 +138,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       <div className="p-3">
         {tab === "bot" && (
           <>
-            <div className="grid grid-cols-5 gap-1.5">
-              {MASCOT_BODY_IDS.filter((id) => id !== "cursor").map((id) => bodyButton(id, bodyName(id)))}
+            <div className="grid grid-cols-4 gap-1.5">
+              {PRESET_STYLE_BODY_IDS.map((id) => bodyButton(id, bodyName(id)))}
             </div>
             <div className="flex flex-wrap justify-center gap-2 px-1 pb-1 pt-3.5">
               {MAUS_COLOR_NAMES.map((color) => (

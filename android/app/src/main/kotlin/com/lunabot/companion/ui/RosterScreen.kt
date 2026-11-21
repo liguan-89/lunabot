@@ -1714,7 +1714,7 @@ private fun ChatRow(
                         Text(
                             text = chat.name,
                             fontSize = 17.sp,
-                            fontWeight = if (hasUnread) FontWeight.SemiBold else FontWeight.Medium,
+                            fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -1760,11 +1760,11 @@ private fun ChatRow(
                     // One line for every bot, so the rows keep one rhythm.
                     Text(
                         text = formattedPreview.ifEmpty { " " },
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         color = when {
                             isErrorPreview -> minisDanger.copy(alpha = 0.86f)
-                            hasUnread -> minisInk.copy(alpha = 0.84f)
-                            else -> minisSecondary
+                            hasUnread -> minisInk.copy(alpha = 0.76f)
+                            else -> minisTertiary
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2497,7 +2497,7 @@ private fun MuseDrawerContent(
                     Text(
                         text = summary.chat.name,
                         fontSize = 15.5.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

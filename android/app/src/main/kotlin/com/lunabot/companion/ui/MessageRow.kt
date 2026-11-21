@@ -2656,119 +2656,98 @@ private fun Entrance(content: @Composable () -> Unit) {
  * fill, the `TimelineView`, the scale wave — is left where it was; see
  * [WorkingDots].
  */
+private val THINKING_PHRASES = listOf("正在仔细思考", "正在整理思路", "正在处理中")
+
 @Composable
 fun WorkingBubble(chat: Chat, whisper: String? = null) {
     val label = LiveTail.workingLabel(chat.name)
-    Entrance {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics {
-                contentDescription = label
-                liveRegion = LiveRegionMode.Polite
-            },
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The running face: the bot's own portrait inside a slow arc, so the
-        // row is visibly alive without pretending to know a percentage.
-        Box(modifier = Modifier.size(34.dp), contentAlignment = Alignment.Center) {
-            PresetBotAvatar(
-                color = chat.color,
-                size = 24.dp,
-                contentDescription = null,
-                motion = AvatarMotion.SHEEN,
-                // Eyes up: the row's face is doing the same thing the header's
-                // is, which is what makes the two read as one bot.
-                mood = FaceMood.WORKING,
-            )
-            WorkingRing(minisAccent)
-        }
-        Spacer(Modifier.width(10.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = "正在工作",
-                    fontSize = 15.sp,
-                    color = minisSecondary,
-                )
-                Spacer(Modifier.width(6.dp))
-                WorkingDotsView(minisTertiary)
-            }
-            // The computer's own status line, or the reasoning tail it is
-            // currently producing. This is the "碎碎念": real work, never a
-            // carousel of invented reassurances. The reasoning is one line
-            // here even in 精简 mode — the full chamber is the verbose view.
-            // "working" is the harness's generic flag, not a sentence: under a
-            // line that already says 正在工作 it would be the same word twice,
-            // in another language. Only a specific activity earns this line;
-            // otherwise the reasoning tail speaks.
-            val generic = setOf("working", "busy", "running", "thinking")
-            val mutter = chat.activity
-                ?.trim()
-                ?.takeIf { it.isNotBlank() && it.lowercase() !in generic }
-                ?: whisper?.takeIf { it.isNotBlank() }
-            mutter?.let { line ->
-                // The line changes whenever the computer has something new to
-                // say, and a hard cut between two sentences reads as a glitch.
-                // One line out, the next in, in two hundred milliseconds.
-                AnimatedContent(
-                    targetState = line,
-                    transitionSpec = {
-                        (fadeIn(tween(200)) + slideInVertically(tween(200)) { it / 3 }) togetherWith
-                            (fadeOut(tween(120)) + slideOutVertically(tween(120)) { -it / 3 })
-                    },
-                    label = "mutter",
-                ) { current ->
-                    Text(
-                        text = current,
-                        fontSize = 12.sp,
-                        color = minisTertiary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
+    val generic = remember { setOf("working", "busy", "running", "thinking") }
+    val liveDetail = chat.activity
+        ?.trim()
+        ?.takeIf { it.isNotBlank() && it.lowercase() !in generic }
+        ?: whisper?.takeIf { it.isNotBlank() }
+    var phraseIndex by remember(chat.threadId) { mutableIntStateOf(0) }
+    LaunchedEffect(chat.threadId, liveDetail == null) {
+        if (liveDetail != null) return@LaunchedEffect
+        while (true) {
+            delay(3_600)
+            phraseIndex = (phraseIndex + 1) % THINKING_PHRASES.size
         }
     }
+    val statusText = liveDetail ?: THINKING_PHRASES[phraseIndex]
+    val botBodyId = (chat as? Chat.BotChat)?.bot?.mascotBody
+
+    Entrance {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 4.dp, top = 2.dp, bottom = 2.dp)
+                .semantics {
+                    contentDescription = label
+                    liveRegion = LiveRegionMode.Polite
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PresetBotAvatar(
+                color = chat.color,
+                size = 28.dp,
+                bodyId = botBodyId,
+                contentDescription = null,
+                motion = AvatarMotion.SHEEN,
+                mood = FaceMood.WORKING,
+            )
+            Spacer(Modifier.width(9.dp))
+            AnimatedContent(
+                targetState = statusText,
+                transitionSpec = {
+                    (fadeIn(tween(260)) + slideInVertically(tween(260)) { it / 4 }) togetherWith
+                        (fadeOut(tween(160)) + slideOutVertically(tween(160)) { -it / 4 })
+                },
+                label = "working-phrase",
+            ) { current ->
+                ShimmerStatusText(
+                    text = current,
+                    baseColor = minisSecondary,
+                    highlightColor = minisInk,
+                )
+            }
+        }
     }
 }
 
-/** A 110° arc going round the working portrait once every 1.4 s. */
+/** Desktop-aligned gentle horizontal shimmer sweep across the live status phrase. */
 @Composable
-private fun WorkingRing(color: Color) {
-    val transition = rememberInfiniteTransition(label = "working-ring")
-    val angle by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
+private fun ShimmerStatusText(
+    text: String,
+    baseColor: Color,
+    highlightColor: Color,
+) {
+    val transition = rememberInfiniteTransition(label = "working-shimmer")
+    val shift by transition.animateFloat(
+        initialValue = -0.35f,
+        targetValue = 1.35f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1_400, easing = LinearEasing),
+            animation = tween(durationMillis = 2_000, easing = LinearEasing),
         ),
-        label = "angle",
+        label = "shimmer-shift",
     )
-    Canvas(modifier = Modifier.size(34.dp)) {
-        val stroke = 2.dp.toPx()
-        // A sweep gradient rather than one flat colour: a solid arc is a dial,
-        // an arc that fades along its length is something loading. The gradient
-        // is rotated with the arc so its bright head stays at the front.
-        val brush = Brush.sweepGradient(
-            0f to color,
-            0.02f to color,
-            0.30f to Color.Transparent,
-            1f to Color.Transparent,
-            center = center,
-        )
-        rotate(angle) {
-            drawArc(
-                brush = brush,
-                startAngle = 0f,
-                sweepAngle = 110f,
-                useCenter = false,
-                topLeft = Offset(stroke / 2f, stroke / 2f),
-                size = Size(size.width - stroke, size.height - stroke),
-                style = Stroke(width = stroke, cap = StrokeCap.Round),
-            )
-        }
-    }
+    val span = 320f
+    val center = shift * span
+    val brush = Brush.linearGradient(
+        colors = listOf(baseColor, highlightColor, baseColor),
+        start = Offset(center - span * 0.35f, 0f),
+        end = Offset(center + span * 0.35f, 0f),
+    )
+    Text(
+        text = text,
+        style = TextStyle(
+            brush = brush,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 /** `WorkingDots`' alpha curve, drawn — three dots breathing out of phase. */

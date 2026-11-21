@@ -8,42 +8,69 @@ import { useEffect, useId, useRef } from "react";
 
 import { useAvatarStyle, type AvatarStyleId } from "@/lib/avatar-style";
 import { cn } from "@/lib/cn";
+import type { MausState } from "@/lib/mascot";
 import { facePose, lookAt, withLook, type FaceLife, type FaceMood } from "@/lib/preset-face-rig";
 import { handsPose, Hands, handIsMirrored, HAND_BASE_X, HAND_BASE_Y, HAND_RADIUS, HAND_TIP_X, HAND_TIP_Y } from "@/lib/preset-hands-rig";
+import { mascotFaceInk, type MascotFaceColor } from "../../shared/bot-avatar";
+import { isPresetStyleBody, type BotBodyId } from "../../shared/bot-body";
 
-type PresetKey = "black" | "white" | "blue" | "orange" | "purple" | "mint" | "coral" | "grey";
+type PresetKey =
+  | "black"
+  | "white"
+  | "silver"
+  | "blue"
+  | "cyan"
+  | "orange"
+  | "yellow"
+  | "purple"
+  | "pink"
+  | "green"
+  | "teal"
+  | "mint"
+  | "red"
+  | "coral"
+  | "grey";
 
 const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string }> = {
   black: { light: "#2E2E2E", body: "#000000", edge: "#000000", eye: "#FDFEFD" },
   white: { light: "#FFFFFF", body: "#F7F3ED", edge: "#D9D5CD", eye: "#1C1C1E" },
-  blue: { light: "#3F7CFF", body: "#0E5AFD", edge: "#0A42BE", eye: "#FEFEFE" },
+  silver: { light: "#E2E7EE", body: "#B9C2CE", edge: "#8E98A8", eye: "#1C1C1E" },
+  blue: { light: "#4F8BFF", body: "#1B66FA", edge: "#0F48BD", eye: "#FEFEFE" },
+  cyan: { light: "#5CE1F5", body: "#12B8D4", edge: "#0B839B", eye: "#FEFEFE" },
   orange: { light: "#FFB266", body: "#FF9432", edge: "#D96F0C", eye: "#FEFEFE" },
+  yellow: { light: "#FFE07D", body: "#F2BE2C", edge: "#C99210", eye: "#1C1C1E" },
   purple: { light: "#B87DFF", body: "#9443F4", edge: "#6D21C3", eye: "#FEFEFE" },
+  pink: { light: "#FF8EC3", body: "#E85399", edge: "#BA2F72", eye: "#FEFEFE" },
+  green: { light: "#6BE092", body: "#1FB85E", edge: "#128542", eye: "#FEFEFE" },
+  teal: { light: "#5BE0CE", body: "#14B09D", edge: "#0C7D6F", eye: "#FEFEFE" },
   mint: { light: "#8DF1B0", body: "#57E58C", edge: "#2FAF62", eye: "#FEFEFE" },
+  red: { light: "#FF7D78", body: "#E54542", edge: "#B42422", eye: "#FEFEFE" },
   coral: { light: "#FF9588", body: "#FD5C59", edge: "#D63B3B", eye: "#FEFEFE" },
   grey: { light: "#A2A3A2", body: "#777877", edge: "#555655", eye: "#FEFEFE" },
 };
 
-/** The preset a bot's own colour maps to, word for word from the phone's PresetAvatars.forColor. */
+/** Maps every bot palette colour cleanly to its unified PresetFace swatch. */
 export function presetFaceForColor(color: string | null | undefined): PresetKey {
   switch (color?.toLowerCase()) {
-    case "blue":
-    case "cyan": return "blue";
-    case "orange":
-    case "yellow": return "orange";
-    case "red":
+    case "blue": return "blue";
+    case "cyan": return "cyan";
+    case "orange": return "orange";
+    case "yellow": return "yellow";
+    case "red": return "red";
     case "coral": return "coral";
-    case "green":
-    case "teal": return "mint";
+    case "green": return "green";
+    case "teal": return "teal";
+    case "mint": return "mint";
     case "purple":
     case "violet": return "purple";
+    case "pink": return "pink";
+    case "silver": return "silver";
+    case "grey":
+    case "gray": return "grey";
     case "white":
     case "cream":
     case "sand":
-    case "grey":
-    case "gray":
-    case "chrome":
-    case "silver": return "white";
+    case "chrome": return "white";
     default: return "black";
   }
 }
@@ -212,15 +239,15 @@ function FaceBody({
     case "orb":
       return (
         <>
-          <circle cx="50" cy="50" r="49" fill={`url(#${gradient})`} />
+          <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} />
           <g clipPath={`url(#${clip})`}>
             {/* Soft radial warm subsurface bounce + diffused porcelain specular + feathered blush */}
-            <circle cx="50" cy="50" r="49" fill={`url(#${bounceGradient})`} />
-            <ellipse cx="35" cy="26" rx="25" ry="18" transform="rotate(-22 35 26)" fill={`url(#${specularGradient})`} />
-            <circle cx="24" cy="58" r="13.5" fill={`url(#${blushGradient})`} />
-            <circle cx="76" cy="58" r="13.5" fill={`url(#${blushGradient})`} />
+            <circle cx="50" cy="50" r="45" fill={`url(#${bounceGradient})`} />
+            <ellipse cx="36" cy="28" rx="23" ry="16" transform="rotate(-22 36 28)" fill={`url(#${specularGradient})`} />
+            <circle cx="26" cy="57" r="12.5" fill={`url(#${blushGradient})`} />
+            <circle cx="74" cy="57" r="12.5" fill={`url(#${blushGradient})`} />
           </g>
-          <circle cx="50" cy="50" r="49" fill="none" stroke={rimStroke} strokeWidth="1.5" />
+          <circle cx="50" cy="50" r="45" fill="none" stroke={rimStroke} strokeWidth="1.5" />
         </>
       );
 
@@ -228,28 +255,28 @@ function FaceBody({
       return (
         <>
           {/* Sculpted cat ears */}
-          <path d="M18 36 L14 11 C13.5 7 18 5.5 21 8 L40 22 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
-          <path d="M82 36 L86 11 C86.5 7 82 5.5 79 8 L60 22 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M19 37 L15 13 C14.5 9 19 7.5 22 10 L40 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M81 37 L85 13 C85.5 9 81 7.5 78 10 L60 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
           {/* Soft blush inner ears */}
-          <path d="M21 30 L18.5 15 L33 24 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
-          <path d="M79 30 L81.5 15 L67 24 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
+          <path d="M22 31 L19.5 17 L33 25 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
+          <path d="M78 31 L80.5 17 L67 25 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
           {/* Rounded porcelain cat head */}
-          <ellipse cx="50" cy="55" rx="45" ry="41" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
-          <ellipse cx="36" cy="33" rx="20" ry="12" transform="rotate(-14 36 33)" fill={`url(#${specularGradient})`} />
+          <ellipse cx="50" cy="55" rx="43" ry="39" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          <ellipse cx="36" cy="34" rx="19" ry="11" transform="rotate(-14 36 34)" fill={`url(#${specularGradient})`} />
           {/* Tiny nose + feathered blush */}
-          <path d="M47 61.5 Q50 64.5 53 61.5 Q50 60 47 61.5 Z" fill={face.eye} opacity="0.72" />
-          <circle cx="26" cy="61" r="12" fill={`url(#${blushGradient})`} />
-          <circle cx="74" cy="61" r="12" fill={`url(#${blushGradient})`} />
+          <path d="M47 61 Q50 64 53 61 Q50 59.5 47 61 Z" fill={face.eye} opacity="0.72" />
+          <circle cx="27" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
+          <circle cx="73" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
         </>
       );
 
     case "liquid":
       return (
         <>
-          <circle cx="50" cy="50" r="49" fill={`url(#${opalGradient})`} stroke="rgba(255,255,255,0.42)" strokeWidth="1.6" />
-          <circle cx="50" cy="50" r="44.5" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
-          <path d="M20 34 C28 16, 54 12, 72 22" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="4.5" strokeLinecap="round" />
-          <path d="M28 78 C44 86, 66 82, 78 68" fill="none" stroke={mixHex(face.light, "#A5F3FC", 0.5)} strokeWidth="3.5" strokeLinecap="round" opacity="0.55" />
+          <circle cx="50" cy="50" r="45" fill={`url(#${opalGradient})`} stroke="rgba(255,255,255,0.42)" strokeWidth="1.6" />
+          <circle cx="50" cy="50" r="41" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
+          <path d="M22 35 C30 19, 54 15, 70 24" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="4.2" strokeLinecap="round" />
+          <path d="M30 76 C44 83, 64 79, 76 66" fill="none" stroke={mixHex(face.light, "#A5F3FC", 0.5)} strokeWidth="3.2" strokeLinecap="round" opacity="0.55" />
         </>
       );
 
@@ -257,15 +284,15 @@ function FaceBody({
       return (
         <>
           {/* Dieter Rams / Teenage Engineering pocket synth chassis */}
-          <rect x="4" y="6" width="92" height="88" rx="22" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.6" />
+          <rect x="8" y="9" width="84" height="82" rx="20" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.6" />
           {/* Top-right coral status dial */}
-          <circle cx="80" cy="18" r="4.2" fill="#FF5A36" stroke="rgba(0,0,0,0.25)" strokeWidth="0.9" />
+          <circle cx="78" cy="20" r="4" fill="#FF5A36" stroke="rgba(0,0,0,0.25)" strokeWidth="0.9" />
           {/* Recessed obsidian LCD visor */}
-          <rect x="15" y="25" width="70" height="39" rx="12" fill="#101216" stroke="rgba(255,255,255,0.16)" strokeWidth="1.2" />
-          <rect x="18" y="28" width="64" height="12" rx="6" fill="rgba(255,255,255,0.06)" />
+          <rect x="18" y="27" width="64" height="36" rx="11" fill="#101216" stroke="rgba(255,255,255,0.16)" strokeWidth="1.2" />
+          <rect x="21" y="30" width="58" height="11" rx="5.5" fill="rgba(255,255,255,0.06)" />
           {/* Speaker micro-grille dots */}
-          {[32, 41, 50, 59, 68].map((cx) => (
-            <circle key={cx} cx={cx} cy="77" r="2.1" fill={light ? "rgba(28,28,30,0.28)" : "rgba(255,255,255,0.32)"} />
+          {[33, 41.5, 50, 58.5, 67].map((cx) => (
+            <circle key={cx} cx={cx} cy="75" r="2" fill={light ? "rgba(28,28,30,0.28)" : "rgba(255,255,255,0.32)"} />
           ))}
         </>
       );
@@ -273,18 +300,18 @@ function FaceBody({
     case "spirit":
       return (
         <>
-          {/* Plump organic moon-spirit pebble with soft ear nubs */}
+          {/* Plump organic moon-spirit pebble normalized to match optical size of orb/classic */}
           <path
-            d="M25 26 C21 15, 31 11, 37 20 C44 17, 56 17, 63 20 C69 11, 79 15, 75 26 C87 35, 92 49, 89 65 C86 83, 70 93, 50 93 C30 93, 14 83, 11 65 C8 49, 13 35, 25 26 Z"
+            d="M22 22 C18 10, 29 6, 36 16 C43 13, 57 13, 64 16 C71 6, 82 10, 78 22 C91 32, 95 48, 92 66 C89 85, 72 95, 50 95 C28 95, 11 85, 8 66 C5 48, 9 32, 22 22 Z"
             fill={`url(#${gradient})`}
             stroke={rimStroke}
             strokeWidth="1.4"
           />
-          <ellipse cx="37" cy="33" rx="19" ry="11" transform="rotate(-12 37 33)" fill={`url(#${specularGradient})`} />
-          <circle cx="26" cy="59" r="12.5" fill={`url(#${blushGradient})`} />
-          <circle cx="74" cy="59" r="12.5" fill={`url(#${blushGradient})`} />
+          <ellipse cx="36" cy="30" rx="20" ry="12" transform="rotate(-12 36 30)" fill={`url(#${specularGradient})`} />
+          <circle cx="24" cy="59" r="13" fill={`url(#${blushGradient})`} />
+          <circle cx="76" cy="59" r="13" fill={`url(#${blushGradient})`} />
           {/* Floating champagne-gold crescent moon */}
-          <path d="M84 8 A7.5 7.5 0 1 0 92 18 A5.8 5.8 0 1 1 84 8 Z" fill="#E8C77B" stroke="#B68E35" strokeWidth="0.6" />
+          <path d="M87 6 A7.5 7.5 0 1 0 95 16 A5.8 5.8 0 1 1 87 6 Z" fill="#E8C77B" stroke="#B68E35" strokeWidth="0.6" />
         </>
       );
 
@@ -292,29 +319,56 @@ function FaceBody({
       return (
         <>
           {/* Floating brushed-gold halo ring */}
-          <ellipse cx="50" cy="11" rx="22" ry="4.5" fill="none" stroke="#E2B95F" strokeWidth="3.2" />
-          <ellipse cx="50" cy="10.3" rx="21" ry="3.8" fill="none" stroke="#F8E1A0" strokeWidth="1" opacity="0.85" />
+          <ellipse cx="50" cy="10" rx="21" ry="4.2" fill="none" stroke="#E2B95F" strokeWidth="3" />
+          <ellipse cx="50" cy="9.3" rx="20" ry="3.5" fill="none" stroke="#F8E1A0" strokeWidth="1" opacity="0.85" />
           {/* Matte ceramic squircle head */}
-          <rect x="7" y="18" width="86" height="75" rx="26" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.5" />
+          <rect x="8" y="17" width="84" height="75" rx="25" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.5" />
           {/* Side ear pods */}
-          <rect x="2" y="44" width="6" height="22" rx="3" fill={face.edge} />
-          <rect x="92" y="44" width="6" height="22" rx="3" fill={face.edge} />
+          <rect x="3" y="44" width="6" height="22" rx="3" fill={face.edge} />
+          <rect x="91" y="44" width="6" height="22" rx="3" fill={face.edge} />
           {/* Recessed obsidian glass visor */}
-          <rect x="17" y="30" width="66" height="39" rx="16" fill="#0F1117" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
-          <path d="M25 36 Q50 32 75 36" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="2.5" strokeLinecap="round" />
+          <rect x="18" y="30" width="64" height="38" rx="15" fill="#0F1117" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
+          <path d="M26 36 Q50 32 74 36" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="2.4" strokeLinecap="round" />
         </>
       );
 
     case "classic":
     default:
-      return <circle cx="50" cy="50" r="50" fill={`url(#${gradient})`} />;
+      return <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} />;
   }
 }
 
-export function PresetFace({ color, preset, avatarStyle, size = 44, label, className, life = "glance", mood = "idle", seed = 0 }: {
+function ExpressionAccent({ expression, color, visor }: { expression?: MausState; color: string; visor: boolean }) {
+  if (!expression || expression === "idle" || expression === "working" || expression === "thinking" || expression === "listening" || expression === "drowsy") return null;
+  const y = visor ? 56 : 64;
+  switch (expression) {
+    case "happy":
+    case "celebrate":
+      return <path d={`M42 ${y - 2} Q50 ${y + 6.5} 58 ${y - 2}`} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" opacity="0.88" />;
+    case "proud":
+      return <path d={`M43 ${y - 1} Q51 ${y + 4.5} 58 ${y - 3.5}`} fill="none" stroke={color} strokeWidth="3.2" strokeLinecap="round" opacity="0.86" />;
+    case "curious":
+      return <circle cx="51" cy={y + 1} r="3.2" fill="none" stroke={color} strokeWidth="2.6" opacity="0.82" />;
+    case "surprised":
+      return <ellipse cx="50" cy={y + 1.5} rx="4" ry="5" fill={color} opacity="0.86" />;
+    case "sad":
+      return <path d={`M43 ${y + 4} Q50 ${y - 3} 57 ${y + 4}`} fill="none" stroke={color} strokeWidth="3.1" strokeLinecap="round" opacity="0.82" />;
+    case "suspicious":
+      return <line x1="43" y1={y + 1} x2="57" y2={y - 1} stroke={color} strokeWidth="3.1" strokeLinecap="round" opacity="0.82" />;
+    case "sleeping":
+      return <path d={`M45 ${y + 1} Q50 ${y + 3.5} 55 ${y + 1}`} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" opacity="0.65" />;
+    default:
+      return null;
+  }
+}
+
+export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expression, size = 44, label, className, life = "glance", mood = "idle", seed = 0 }: {
   color?: string | null;
   preset?: PresetKey;
   avatarStyle?: AvatarStyleId;
+  bodyId?: BotBodyId | null;
+  faceColor?: MascotFaceColor | null;
+  expression?: MausState;
   size?: number;
   label?: string;
   className?: string;
@@ -326,7 +380,7 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
 }) {
   const id = useId().replace(/[^A-Za-z0-9_-]/g, "");
   const storedStyle = useAvatarStyle();
-  const activeStyle = avatarStyle ?? storedStyle;
+  const activeStyle: AvatarStyleId = avatarStyle ?? (isPresetStyleBody(bodyId) ? bodyId : storedStyle);
   const spec = eyeSpecFor(activeStyle);
   const face = FACES[preset ?? presetFaceForColor(color)];
   const light = isLightBody(face.body);
@@ -338,7 +392,8 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
   const clip = `preset-clip-${id}`;
   const handGradient = `preset-hand-${id}`;
   const handEdge = handEdgeFor(face.body);
-  const eyeFill = spec.visor ? "#F5F9FF" : face.eye;
+  const customInk = mascotFaceInk(faceColor);
+  const eyeFill = spec.visor ? "#F5F9FF" : (customInk ?? face.eye);
   const showsHands = life === "alive";
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -497,7 +552,7 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           <stop offset="0.55" stopColor="#FF9A7A" stopOpacity={light ? "0.12" : "0.07"} />
           <stop offset="1" stopColor="#FF9A7A" stopOpacity="0" />
         </radialGradient>
-        <clipPath id={clip}><circle cx="50" cy="50" r="49" /></clipPath>
+        <clipPath id={clip}><circle cx="50" cy="50" r="45" /></clipPath>
         {showsHands && (
           <radialGradient id={handGradient} gradientUnits="userSpaceOnUse" cx="-0.34" cy="-0.55" r="2.2">
             <stop offset="0" stopColor={mixHex(face.body, "#FFFFFF", 0.18)} />
@@ -518,8 +573,18 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           clip={clip}
         />
         <g clipPath={activeStyle === "classic" ? `url(#${clip})` : undefined}>
-          {eye(-1, "left")}
-          {eye(1, "right")}
+          {expression === "sleeping" ? (
+            <>
+              <path d={`M${50 + spec.left.x - 6} ${50 + spec.left.y + 1} Q${50 + spec.left.x} ${50 + spec.left.y + 6} ${50 + spec.left.x + 6} ${50 + spec.left.y + 1}`} fill="none" stroke={eyeFill} strokeWidth="3.4" strokeLinecap="round" />
+              <path d={`M${50 + spec.right.x - 6} ${50 + spec.right.y + 1} Q${50 + spec.right.x} ${50 + spec.right.y + 6} ${50 + spec.right.x + 6} ${50 + spec.right.y + 1}`} fill="none" stroke={eyeFill} strokeWidth="3.4" strokeLinecap="round" />
+            </>
+          ) : (
+            <>
+              {eye(-1, "left")}
+              {eye(1, "right")}
+            </>
+          )}
+          <ExpressionAccent expression={expression} color={eyeFill} visor={spec.visor} />
         </g>
         {showsHands && <PresetHands gradient={handGradient} edge={handEdge} />}
       </g>
