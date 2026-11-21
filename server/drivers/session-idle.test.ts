@@ -147,4 +147,41 @@ describe("idle engines on a small box", () => {
       vi.useRealTimers();
     }
   });
+
+  it("never closes an engine a turn took again when its idle timer runs out", () => {
+    vi.useFakeTimers();
+    try {
+      const working = engine();
+      const quiet = engine();
+      const timers = [armIdleClose("working", 150_000, working.warm), armIdleClose("quiet", 150_000, quiet.warm)];
+      working.state.busy = true;
+      vi.advanceTimersByTime(150_000);
+      expect([working.state.closed, quiet.state.closed]).toEqual([0, 1]);
+      working.state.busy = false;
+      const again = armIdleClose("working", 150_000, working.warm);
+      vi.advanceTimersByTime(150_000);
+      expect(working.state.closed).toBe(1);
+      stopIdleClose("working", again);
+      stopIdleClose("quiet", timers[1]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("leaves a later arm's engine alone when an old timer still fires", () => {
+    vi.useFakeTimers();
+    try {
+      const old = engine();
+      const fresh = engine();
+      armIdleClose("g", 150_000, old.warm);
+      const freshTimer = armIdleClose("g", 300_000, fresh.warm);
+      vi.advanceTimersByTime(150_000);
+      expect(old.state.closed).toBe(0);
+      vi.advanceTimersByTime(150_000);
+      expect(fresh.state.closed).toBe(1);
+      stopIdleClose("g", freshTimer);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

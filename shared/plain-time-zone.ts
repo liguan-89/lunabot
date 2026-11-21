@@ -34,8 +34,10 @@ const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 
 /** Local weekdays (Sunday = 0) as people say them: "every day", "weekdays", "Monday, Wednesday". */
 export function plainWeekdays(weekdays: readonly number[]): string {
-  const days = [...weekdays].sort((a, b) => a - b).join(",");
-  return days === "0,1,2,3,4,5,6" ? "every day" : days === "1,2,3,4,5" ? "weekdays" : weekdays.map((day) => WEEKDAYS[day]).join(", ");
+  // 去重排序后用同一份列表：调用方数组顺序不定，原样映射会把两天念反、把重复的一天念两遍。
+  const days = [...new Set(weekdays)].sort((a, b) => a - b);
+  const joined = days.join(",");
+  return joined === "0,1,2,3,4,5,6" ? "every day" : joined === "1,2,3,4,5" ? "weekdays" : days.map((day) => WEEKDAYS[day]).join(", ");
 }
 
 /** The same days in `locale` ("星期一", "Montag"): callers choose the every-day/weekdays phrase themselves. */

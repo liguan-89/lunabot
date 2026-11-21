@@ -3,9 +3,12 @@ set -eu
 
 # dpkg runs the old postrm during an upgrade too. Keep the installed profile
 # until the package is actually removed or purged. pacman's post_remove runs
-# only on removal and passes the old version instead of an action word.
+# only on removal and passes the old version instead of an action word. rpm's
+# %postun passes how many copies stay installed: 0 on erase, 1 or more after
+# an upgrade, where it runs after the new package's install hook.
 case "${1:-}" in
-  remove|purge|[0-9]*) ;;
+  remove|purge|0) ;;
+  [0-9]*[!0-9]*) ;;
   *) exit 0 ;;
 esac
 
@@ -31,8 +34,10 @@ fi
 
 # Preserve electron-builder's cleanup of the exact launcher, and of the one an
 # install from before the rename left behind. Never remove an unrelated file
-# that now happens to use the same command name.
-if [ "$TEST_MODE" -eq 0 ]; then
+# that now happens to use the same command name. The rpm (erase passes 0)
+# never shipped that launcher, and Fedora's update-alternatives fails on a
+# link group that does not exist.
+if [ "$TEST_MODE" -eq 0 ] && [ "${1:-}" != 0 ]; then
   for launcher in lunabot dexbot; do
     case "$launcher" in
       lunabot) legacy_root=/opt/Luna\ Bot ;;

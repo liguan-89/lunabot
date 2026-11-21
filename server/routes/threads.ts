@@ -23,6 +23,7 @@ import {
 import { resolveRequestAuth, type RequestAuth, type ResolveOptions } from "../request-auth.ts";
 import type { queuedSteerSnapshot } from "../steer-queue.ts";
 import type { BotRecord, GroupRecord, Message, Store } from "../store.ts";
+import { heldTail } from "../host/snapshot-tail.ts";
 import { createJobRoutes } from "./jobs.ts";
 import { PASS, type RouteContext, type RouteHandler } from "./table.ts";
 
@@ -95,6 +96,9 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
       try { groupUsageReader.refresh(); } catch { }
       const limit = pageSize(url.searchParams.get("messages"));
       if (limit === null) return json(res, 400, { error: "messages must be a non-negative whole number" });
+      const tail = pageSize(url.searchParams.get("tail"));
+      if (tail === null) return json(res, 400, { error: "tail must be a non-negative whole number" });
+      const open = new Set(url.searchParams.get("open")?.split(",") ?? []);
       // tasks stays explicit: clients expect [] where wireBot() would omit the key.
       const shownBots = (deps.botOrderFor?.(auth, store.bots) ?? store.bots).filter((bot) => visible.bot(bot.id));
       const queued = publicBotQueuedMessages();
@@ -103,7 +107,11 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
           const wired = wireBot(bot);
           // Narrowed first: on a Team Cloud the selected conversation may be someone else's, and its words never go out.
           const shown = memberBot({ ...wired, tasks: wired.tasks ?? [] }, visible);
-          return { ...shown, ...(typeof shown.threadId === "string" ? messagePage(shown.threadId, limit) : { messages: [], hasMore: false, activeLeafId: null }) };
+          const threadId = shown.threadId;
+          if (typeof threadId !== "string") return { ...shown, messages: [], hasMore: false, activeLeafId: null };
+          const botTail = open.has(bot.id) ? undefined : tail;
+          const cursor = shown.tasks?.find((task) => task.threadId === threadId)?.lastReadMessageId;
+          return { ...shown, ...(botTail !== undefined && limit !== undefined && botTail < limit ? heldTail((size) => messagePage(threadId, size), botTail, limit, cursor) : messagePage(threadId, limit)) };
         }),
         botQueuedMessages: visible.everything ? queued : Object.fromEntries(Object.entries(queued).filter(([threadId]) => visible.thread(threadId))),
         sections: visible.sections(store.sections),
@@ -190,7 +198,10 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
 
       const message = store.messagesFor(threadId).find((candidate) => candidate.id === m![2]);
       if (!message) return json(res, 404, { error: "no such message" });
-      if (message.kind !== "text" || (!message.text && !message.attachments?.length)) {
+      if (!visible.thread(threadId)) return json(res, 404, { error: "no such conversation" });
+      // A non-text card (a hand-off result is an activity message) shares only what it explicitly attaches.
+      const attachmentsOnly = message.kind !== "text";
+      if ((attachmentsOnly && !message.attachments?.length) || (!message.text && !message.attachments?.length)) {
         return json(res, 403, { error: "that message does not share this file" });
       }
       const messageText = message.text ?? "";
@@ -198,6 +209,8 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
       const mediaGrant = mediaId ? mediaLinks.use(mediaId, threadId, message.id, auth) : null;
       if (mediaId && !mediaGrant) return json(res, 404, { error: "that video link has expired", code: "media_link_expired" });
       const body = method === "POST" ? await readBody(req) : null;
+      // Access may have been revoked while the body was in flight; ask again before any file is opened.
+      if (body && !visibleTo(viewerFor(auth)).thread(threadId)) return json(res, 404, { error: "no such conversation" });
       const asksMediaLink = body?.media === true;
       const rawReference = streamsMessageImage ? url.searchParams.get("ref") : null;
       if (streamsMessageImage && (!rawReference || !/^\d+$/.test(rawReference))) {
@@ -215,6 +228,9 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
       const botAttachment = message.role === "bot"
         ? message.attachments?.find((attachment) => attachment.path === href)
         : undefined;
+      if (attachmentsOnly && !botAttachment) {
+        return json(res, 403, { error: "that message does not share this file" });
+      }
       if (message.role === "user") {
         downloadName = messageAttachmentName(messageText, href) ?? undefined;
         if (!downloadName) {

@@ -104,6 +104,14 @@ export function toWireTask(task: TaskRecord, botModel: ModelSelection): WireTask
 
 const ASK_NOW = { approvalMode: "ask" as const, autoApprove: false, alwaysAllow: [] as string[] };
 
+/** A new thread starts at its bot's level. A pending grant is not that level: a composer grant belongs to its own
+ * thread, and a bot-wide one may still roll back, so a thread made meanwhile follows the bot live instead of keeping
+ * the Ask mask the grant shows (or a Full access that was never confirmed). */
+function botLevel(bot: BotRecord): Pick<TaskRecord, "approvalMode" | "autoApprove" | "alwaysAllow"> {
+  if (bot.approvalGrant && !bot.approvalGrant.threadOnly) return {};
+  return { approvalMode: approvalModeFor({ ...bot, approvalGrant: undefined }), autoApprove: Boolean(bot.autoApprove), alwaysAllow: [...(bot.alwaysAllow ?? [])] };
+}
+
 const TASK_PATCH_FIELDS = [
   "title", "projectId", "modelSelection", "approvalMode", "autoApprove", "alwaysAllow",
   "unread", "lastReadMessageId", "rewound", "archivedAt", "pinned", "pinnedMessageId", "resumeCursors", "lastInstanceId", "cwd",
@@ -1164,7 +1172,7 @@ export class Store {
     return pruned;
   }
 
-  branchMessage(threadId: string, sourceId: string, text: string, sendId?: string, sender?: Message["sender"], dataContext?: Message["dataContext"]): Message | null {
+  branchMessage(threadId: string, sourceId: string, text: string, sendId?: string, sender?: Message["sender"], dataContext?: Message["dataContext"], from?: Pick<Message, "via">): Message | null {
     const t = this.thread(threadId);
     const source = t.messages.find((m) => m.id === sourceId);
     if (!source) return null;
@@ -1179,7 +1187,7 @@ export class Store {
       ...(source.reaction && source.text === text ? { reaction: source.reaction } : {}),
       ...(sendId ? { sendId } : {}),
       ...(sender ? { sender } : {}),
-      ...(dataContext ? { dataContext } : {}),
+      ...(dataContext ? { dataContext } : {}), ...from,
     };
     t.messages.push(full);
     t.activeLeafId = full.id;
@@ -1300,7 +1308,7 @@ export class Store {
     return bot;
   }
 
-  applyTeamSetup(request: TeamSetupRequest): TeamSetupResult {
+  applyTeamSetup(request: TeamSetupRequest, newBotApproval?: Exclude<ApprovalMode, "custom">): TeamSetupResult {
     const chief = this.bot(request.botId);
     if (!chief) throw new Error("The requesting Chief no longer exists");
     if (chief.lastTeamSetupReceipt?.requestId === request.requestId) return chief.lastTeamSetupReceipt.result;
@@ -1319,7 +1327,7 @@ export class Store {
         next = { id: operation.botId, threadId: operation.threadId, name: operation.fields.name,
           title: "", description: "", soul: "", notifications: true, color: rotationColor(nextBots.length), unread: false,
           resumeCursors: {}, createdAt, ...operation.fields, modelSelection,
-          autoApprove: false,
+          ...(newBotApproval ? { approvalMode: newBotApproval } : {}), autoApprove: newBotApproval === "auto",
           // A restricted Chief never creates a bot everyone sees.
           ...(chief.visibility && chief.visibility !== "everyone" ? { visibility: structuredClone(chief.visibility) } : {}),
           // A Chief's new specialist reports to the Chief's own person.
@@ -2157,9 +2165,7 @@ export class Store {
       ...(openedBy ? { openedBy: structuredClone(openedBy) } : {}),
       resumeCursors: {},
       ...(modelSelection && !sameModelSelection(modelSelection, bot.modelSelection) ? { modelSelection: structuredClone(modelSelection) } : {}),
-      approvalMode: approvalMode ?? approvalModeFor(bot),
-      autoApprove: approvalMode ? false : Boolean(bot.autoApprove),
-      alwaysAllow: approvalMode ? [] : [...(bot.alwaysAllow ?? [])],
+      ...(approvalMode ? { approvalMode, autoApprove: false, alwaysAllow: [] as string[] } : botLevel(bot)),
       unread: false,
       activity: "idle",
       busy: false,

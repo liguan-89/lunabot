@@ -117,6 +117,12 @@ describe("a bot's conversations in its panel", () => {
     expect(more()!.textContent).toBe("Show 6 more");
   });
 
+  it("keeps the main thread listed when it is older than the first three", () => {
+    render(research({ mainThreadId: "gift" }));
+    expect(listed()).toEqual(["hiring", "launch", "who", "gift"]);
+    expect(more()!.textContent).toBe("Show 6 more");
+  });
+
   it("offers only New conversation while the open one is the bot's only conversation", () => {
     render(research({ tasks: [task("who", "Who am I?", 2)] }));
     expect(host.querySelector("[data-conversations-new]")).not.toBeNull();

@@ -467,6 +467,12 @@ wait_healthy() {
     cid=$(container)
     if [ -z "$cid" ]; then WHY="its container is gone"; return 1; fi
     state=$(inspect '{{.State.Status}} {{.RestartCount}} {{.Image}}' "$cid")
+    # 两次读之间容器没了：Podman 会删掉一启动就退出的容器，下次读给出它的下落；空答不当异镜像判。
+    if [ -z "$state" ]; then
+      if [ "$(date +%s)" -ge "$deadline" ]; then WHY="its container is gone"; return 1; fi
+      sleep "$POLL_S"
+      continue
+    fi
     status=${state%% *}
     restarts=$(printf '%s' "$state" | cut -d' ' -f2)
     image=${state##* }

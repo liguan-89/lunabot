@@ -31,7 +31,7 @@ const {
   reapStaleAppImageCuaBundles,
   stageAppImageCuaBundle,
 } = require("./cua-linux-bundle.cjs");
-const { driverBlocked, linuxLocalControlSupport } = require("./capabilities.cjs");
+const { driverBlocked, linuxLocalControlSupport, macDriverUnsupported } = require("./capabilities.cjs");
 const { probeCuaHyprlandPlugin } = require("./cua-hyprland.cjs");
 
 const INSTALLED_DRIVER = "/Applications/CuaDriver.app/Contents/MacOS/cua-driver";
@@ -317,6 +317,8 @@ async function startEmbedded(binary, signal) {
 
 export async function startCua({ attempt = 0 } = {}) {
   if (process.platform === "linux") return (await ensureLinuxRuntime()).initialize();
+  const tooOld = macDriverUnsupported(process.platform, os.release());
+  if (tooOld) return persistAndNotify({ mode: "unavailable", ...tooOld });
   clearTimeout(retryTimer);
   retryTimer = null;
   lifecycleGeneration++;
@@ -460,7 +462,7 @@ function restartCua() {
       return {
         enabled: ready,
         status: ready ? "ready" : "error",
-        reasonCode: ready ? undefined : "permissions-required",
+        reasonCode: ready ? undefined : connection?.reasonCode ?? "permissions-required",
         message: connection?.reason,
       };
     } catch (error) {

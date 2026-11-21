@@ -29,6 +29,7 @@ import {
   type AppState,
   type Bot,
   type BotAnnouncement,
+  type ConfigStatus,
   type ConfigStatusFrame,
   type Group,
   type Message,
@@ -170,6 +171,16 @@ describe("independent bot threads", () => {
     expect(updated.bots[0]?.modelSelection).toEqual(bot.modelSelection);
     expect(updated.bots[0]?.tasks?.[0]).toMatchObject({ modelSelection, approvalMode: "ask" });
     expect(updated.bots[0]?.tasks?.[1]).toEqual(bot.tasks?.[1]);
+  });
+
+  it("moves following threads with a default-only model change and leaves own picks alone", () => {
+    const following = { threadId: "third", title: "Third", createdAt: 3, modelSelection: bot.modelSelection, followsBotModel: true };
+    const own = { ...bot.tasks![0]!, followsBotModel: false };
+    const selection = { instanceId: "codex", model: "new-default", effort: "low" as const };
+    const updated = reducer({ ...start(), bots: [{ ...bot, tasks: [own, following] }] }, { type: "setModel", botId: bot.id, selection });
+    expect(updated.bots[0]?.modelSelection).toEqual(selection);
+    expect(currentTaskBot(updated.bots[0]!, "third").modelSelection).toEqual(selection);
+    expect(updated.bots[0]?.tasks?.[0]).toEqual(own);
   });
 
   it("does not persist request-only model scope on a task", () => {
@@ -1026,6 +1037,37 @@ describe("config status frames", () => {
     expect(status.openai).toEqual({ configured: true });
     expect(status.openrouter).toEqual({ configured: false });
     expect(status.anthropic).toEqual({ configured: true, everyClaudeBot: false });
+  });
+
+  it("takes the place fields from a frame that carries them, one left out meaning unset", () => {
+    const status = configStatusFromFrame(
+      { computerName: "Studio", newBots: { effort: "high" }, cloudStarter: true, planTurns: { running: 1, waiting: 0 }, botLimit: 3 } as ConfigStatusFrame,
+      { computerName: "Old", waitingForRoom: true, botLimit: 9 } as ConfigStatus,
+    );
+    expect(status.computerName).toBe("Studio");
+    expect(status.newBots).toEqual({ effort: "high" });
+    expect(status.cloudStarter).toBe(true);
+    expect(status.planTurns).toEqual({ running: 1, waiting: 0 });
+    expect(status.botLimit).toBe(3);
+    expect(status.waitingForRoom).toBeUndefined();
+  });
+
+  it("keeps the held place fields through a frame that carries none of them", () => {
+    const held = {
+      computerName: "Studio",
+      newBots: { effort: "low" as const },
+      cloudStarter: true,
+      waitingForRoom: true,
+      planTurns: { running: 2, waiting: 1 },
+      botLimit: 3,
+    } as ConfigStatus;
+    const status = configStatusFromFrame({ openai: { configured: true } } as ConfigStatusFrame, held);
+    expect(status.computerName).toBe("Studio");
+    expect(status.newBots).toEqual({ effort: "low" });
+    expect(status.cloudStarter).toBe(true);
+    expect(status.waitingForRoom).toBe(true);
+    expect(status.planTurns).toEqual({ running: 2, waiting: 1 });
+    expect(status.botLimit).toBe(3);
   });
 
   it("keeps every saved key's hint through a live config update, so a masked key never empties", () => {
@@ -2969,6 +3011,7 @@ describe("restoring the open conversation", () => {
       const answers: Record<string, unknown> = {
         "/api/bots/bot-1/queue/q-image/steer": { ok: true, queued: true, threadId: "bot-1-thread", blockedBy: "images" },
         "/api/groups/room-1/queue/q-room/steer": { ok: true, queued: true, threadId: "room-thread", blockedBy: "images" },
+        "/api/groups/room-1/queue/q-room-plain/steer": { ok: true, queued: true, threadId: "room-thread" },
         "/api/bots/bot-1/queue/q-plain/steer": { ok: true, queued: true, threadId: "bot-1-thread" },
       };
       vi.stubGlobal("fetch", (path: string) => Promise.resolve(new Response(JSON.stringify(answers[path.replace(/\?since=[^&]*$/, "")] ?? {}))));
@@ -2982,13 +3025,144 @@ describe("restoring the open conversation", () => {
       flushSync(() => dispatch({ type: "steerQueued", botId: "bot-1", queueId: "q-image", onSettled: settled }));
       await settle();
       expect(settled).toHaveBeenCalledTimes(2);
-      expect(seen.notice).toEqual({ kind: "steer-images", botName: null });
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
 
       flushSync(() => dispatch({ type: "notice", notice: null }));
+      flushSync(() => dispatch({ type: "select", id: "room-1" }));
       flushSync(() => dispatch({ type: "steerGroupQueued", groupId: "room-1", queueId: "q-room", onSettled: settled }));
       await settle();
       expect(settled).toHaveBeenCalledTimes(3);
-      expect(seen.notice).toEqual({ kind: "steer-images", botName: null });
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "room-thread" });
+
+      flushSync(() => dispatch({ type: "notice", notice: null }));
+      flushSync(() => dispatch({ type: "steerGroupQueued", groupId: "room-1", queueId: "q-room-plain", onSettled: settled }));
+      await settle();
+      expect(settled).toHaveBeenCalledTimes(4);
+      expect(seen.notice).toMatchObject({ kind: "note", text: expect.stringContaining("Nothing was stopped"), threadId: "room-thread" });
+    });
+
+    it("a Steer send that stays queued because of pictures says why", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.stubGlobal("fetch", (path: string) => Promise.resolve(new Response(JSON.stringify(
+        path.replace(/\?since=[^&]*$/, "").startsWith("/api/bots/bot-1/messages")
+          ? { ok: true, queued: true, threadId: "bot-1-thread", queueId: "q-image-send", blockedBy: "images" }
+          : {},
+      ))));
+      flushSync(() => dispatch({
+        type: "send",
+        botId: "bot-1",
+        text: "see this",
+        threadId: "bot-1-thread",
+        followUp: "steer",
+        sendId: "send-image",
+      }));
+      await settle();
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+    });
+
+    it("an earlier notice timer does not clear a newer pictures notice", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      try {
+        flushSync(() => dispatch({ type: "notice", notice: { kind: "note", botName: null, text: "held" } }));
+        flushSync(() => vi.advanceTimersByTime(19_000));
+        flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+        flushSync(() => vi.advanceTimersByTime(2_000));
+        expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+        flushSync(() => vi.advanceTimersByTime(6_000));
+        expect(seen.notice).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("a pictures notice leaves when the person opens another conversation", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+      flushSync(() => dispatch({ type: "select", id: "bot-1" }));
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+      flushSync(() => dispatch({ type: "select", id: "bot-2" }));
+      expect(seen.notice).toBeNull();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "thread-gone", botName: "bot-1" } }));
+      flushSync(() => dispatch({ type: "select", id: "bot-1" }));
+      expect(seen.notice).toEqual({ kind: "thread-gone", botName: "bot-1" });
+    });
+
+    it("a Steer send that stays queued because of pictures says why", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.stubGlobal("fetch", (path: string) => Promise.resolve(new Response(JSON.stringify(
+        path.replace(/\?since=[^&]*$/, "").startsWith("/api/bots/bot-1/messages")
+          ? { ok: true, queued: true, threadId: "bot-1-thread", queueId: "q-image-send", blockedBy: "images" }
+          : {},
+      ))));
+      flushSync(() => dispatch({
+        type: "send",
+        botId: "bot-1",
+        text: "see this",
+        threadId: "bot-1-thread",
+        followUp: "steer",
+        sendId: "send-image",
+      }));
+      await settle();
+      expect(seen.notice).toEqual({ kind: "steer-images", botName: null, threadId: "bot-1-thread" });
+    });
+
+    it("clears a pictures notice while the next task snapshot is still pending", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      vi.stubGlobal("fetch", () => new Promise<Response>(() => {}));
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "bot-1-thread" } }));
+      flushSync(() => dispatch({ type: "switchTask", botId: "bot-1", threadId: "task-b" }));
+      expect(seen.bots.find((bot) => bot.id === "bot-1")).toMatchObject({ threadId: "bot-1-thread", switchingTo: "task-b" });
+      expect(seen.notice).toBeNull();
+      flushSync(() => dispatch({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: "task-b" } }));
+      expect(seen.notice).toMatchObject({ threadId: "task-b" });
+    });
+
+    it("ignores a pictures-held response arriving after navigation without erasing the current notice", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      let respond!: (response: Response) => void;
+      vi.stubGlobal("fetch", () => new Promise<Response>((resolve) => { respond = resolve; }));
+      const settled = vi.fn();
+      flushSync(() => dispatch({ type: "steerQueued", botId: "bot-1", queueId: "delayed-image", onSettled: settled }));
+      await settle();
+      flushSync(() => dispatch({ type: "select", id: "bot-2" }));
+      const current = { kind: "steer-images" as const, botName: null, threadId: "bot-2-thread" };
+      flushSync(() => dispatch({ type: "notice", notice: current }));
+      respond(new Response(JSON.stringify({ ok: true, queued: true, threadId: "bot-1-thread", blockedBy: "images" })));
+      await settle();
+      expect(settled).toHaveBeenCalledOnce();
+      expect(seen.notice).toEqual(current);
+    });
+
+    it("ignores a held room-steer note arriving after navigation without erasing the current notice", async () => {
+      const { stream } = await boot();
+      stream.send(hello());
+      await settle();
+      let respond!: (response: Response) => void;
+      vi.stubGlobal("fetch", () => new Promise<Response>((resolve) => { respond = resolve; }));
+      const settled = vi.fn();
+      flushSync(() => dispatch({ type: "select", id: "room-1" }));
+      flushSync(() => dispatch({ type: "steerGroupQueued", groupId: "room-1", queueId: "delayed-room-plain", onSettled: settled }));
+      await settle();
+      flushSync(() => dispatch({ type: "select", id: "bot-2" }));
+      const current = { kind: "steer-images" as const, botName: null, threadId: "bot-2-thread" };
+      flushSync(() => dispatch({ type: "notice", notice: current }));
+      respond(new Response(JSON.stringify({ ok: true, queued: true, threadId: "room-thread" })));
+      await settle();
+      expect(settled).toHaveBeenCalledOnce();
+      expect(seen.notice).toEqual(current);
     });
 
     it("the provider restores the conversation remembered on this device", async () => {

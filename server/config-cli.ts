@@ -1,7 +1,7 @@
-import { homedir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 
 import { listConfigBackups, restoreConfigBackup } from "./config-backup.ts";
+import { resolveDataDir } from "./data-dir.ts";
 import { parseStoredConfig } from "./config.ts";
 import { parseJson } from "./schema.ts";
 
@@ -52,7 +52,7 @@ export function parseConfigArgs(argv: string[], env: NodeJS.ProcessEnv = process
   const help = argv.includes("--help") || argv.includes("-h");
   const dryRun = argv.includes("--dry-run");
   const fail = (error: string): ConfigCliError => ({ error, json });
-  let dataDir = env.OMB_DATA_DIR || join(homedir(), ".openmausbot");
+  let dataDir = resolveDataDir(env);
   let name: string | undefined;
   const words = argv.filter((arg) => arg !== "--json" && arg !== "--help" && arg !== "-h" && arg !== "--dry-run");
   const command = words[0];
