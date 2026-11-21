@@ -188,8 +188,10 @@ computer), a sandbox change, an action the provider marks as needing explicit
 approval, an unconfigured server, or a guest's turn. A remembered apps batch
 or workbench call still holds each send inside it for its own approval. A custom MCP server controls its own tool names, so only remember tools
 from a server you trust. The grant applies to the bot's current and future
-conversations, including newly delegated work. Saved entries are visible and
-revocable in the bot's Access settings.
+conversations, including newly delegated work and a conversation opened before
+the grant was saved or set back to Ask since. Saved entries are visible and
+revocable in the bot's Access settings; removing one there takes it from every
+conversation of the bot at once, a running turn included.
 
 The harness's own agents tools (coordinating teammates, threads, memory) never
 ask on Claude, Codex or API models: Luna Bot authorizes each of those
