@@ -220,6 +220,12 @@ export function createPhones(deps: PhonesDeps) {
     sink.triage.poke();
     sink.learn.capture(record, admitted.newMessages);
   };
+  /** The phone re-read its shade: records whose keys are no longer there were handled while we were not looking. */
+  const shadeFor = (key: string, event: Extract<PhoneEvent, { kind: "notice-shade" }>): void => {
+    const phone = registry.get(key);
+    if (!phone) return;
+    noticeSinkFor(phone.owner).inbox.retainKeys(new Set(event.keys));
+  };
   /**
    * The owner's "gathered from notifications" section for a prompt: conversation-sourced apps sit at High, so
    * Balanced surfaces only what chat notices taught; everything else stays Mid and needs Aggressive to enter a
@@ -468,6 +474,7 @@ export function createPhones(deps: PhonesDeps) {
 
     routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
       if (event.kind === "notice") noticeFor(key, event);
+      else if (event.kind === "notice-shade") shadeFor(key, event);
       else if (event.kind === "sms") smsHandler?.(key, event);
       else wechatHandler?.(key, event);
     } }),

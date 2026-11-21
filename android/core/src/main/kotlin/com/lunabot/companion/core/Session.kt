@@ -2749,6 +2749,19 @@ class Session(
         }
     }
 
+    /** Push the shade's key set so the server can drop records already handled on the phone. */
+    suspend fun postPhoneShade(event: PhoneShadeEvent): Boolean {
+        val active = client ?: return false
+        return try {
+            active.postPhoneShade(event)
+            true
+        } catch (error: Throwable) {
+            if (error is CancellationException) throw error
+            com.lunabot.companion.core.e2e.E2eLog.line("shade post failed: ${error.message}")
+            false
+        }
+    }
+
     private suspend fun <T> guardPhone(block: suspend () -> T?): T? = try {
         block()
     } catch (error: Throwable) {

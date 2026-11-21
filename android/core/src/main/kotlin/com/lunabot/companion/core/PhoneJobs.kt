@@ -130,6 +130,19 @@ data class PhoneNoticeEvent(
     val messages: List<PhoneNoticeMessage> = emptyList(),
 )
 
+/**
+ * The shade as the phone last read it, the `notice-shade` member of the
+ * server-side union (`phoneNoticeShade` in `server/phone-notices.ts`): every
+ * active notification key across the ticked packages. Sent after the listener
+ * binds and after a removal, so the server can drop records the person already
+ * dismissed — and re-converge after either side restarted.
+ */
+@Serializable
+data class PhoneShadeEvent(
+    @EncodeDefault val kind: String = "notice-shade",
+    val keys: List<String>,
+)
+
 @Serializable
 data class PhoneNoticeMessage(
     /** Who said it; null when the app did not say, or it is the person's own. */

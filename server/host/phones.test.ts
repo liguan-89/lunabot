@@ -324,10 +324,21 @@ describe("pushed notices", () => {
     phones.onWechatEvent(() => seen.push("wechat"));
     await enroll(phones, ["com.chat.app"], { messages: "full" });
     expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(403);
+    expect((await call(phones, "POST", "/api/phones/self/events", { kind: "notice-shade", keys: [] })).status).toBe(403);
     await enroll(phones);
     expect((await call(phones, "POST", "/api/phones/self/events", notice())).status).toBe(202);
     expect(seen).toEqual([]);
     expect(phones.noticeInbox("owner")?.kept).toBe(1);
+  });
+
+  it("a shade snapshot drops the records whose keys are no longer on the phone", async () => {
+    const { phones } = world();
+    await enroll(phones);
+    await call(phones, "POST", "/api/phones/self/events", notice());
+    await call(phones, "POST", "/api/phones/self/events", notice({ key: "n2", text: "still here" }));
+    expect(phones.noticeInbox("owner")?.kept).toBe(2);
+    expect((await call(phones, "POST", "/api/phones/self/events", { kind: "notice-shade", keys: ["n2"] })).status).toBe(202);
+    expect(phones.noticeInbox("owner")?.records.map((record) => record.key)).toEqual(["n2"]);
   });
 
   it("a conversation-source app reaches High and surfaces under Balanced; a plain app stays Mid", async () => {

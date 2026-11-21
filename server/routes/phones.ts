@@ -91,7 +91,7 @@ export function createPhoneRoutes(deps: PhoneRouteDeps): RouteHandler {
         if (!phone) return json(res, 404, { error: "Register this phone first" });
         // Each kind stands on the grant the phone declared for it: channel relays on Messages, pushed notices on the
         // data reads the phone was given.
-        const needed = parsed.data.kind === "notice" ? "phoneData" : "messages";
+        const needed = parsed.data.kind === "sms" || parsed.data.kind === "wechat" ? "messages" : "phoneData";
         if (!phone.registration.capabilities[needed]) return json(res, 403, { error: `${needed} is not allowed on this phone` });
         deps.onEvent?.(key, parsed.data);
         return json(res, 202, { ok: true });
