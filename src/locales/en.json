@@ -7669,7 +7669,7 @@
   "homeScreen.setupBody": "This takes about a minute. It opens by itself when it's ready.",
   "homeScreen.offline": "Can't reach My Cloud right now.",
   "homeScreen.offlineNetwork": "This computer couldn't connect to {host}. If My Cloud opens on another device or network, check whether a VPN, firewall or DNS filter here blocks that address.",
-  "homeScreen.offlineWait": "MausBot Cloud asked this app to wait before it signs in to My Cloud again. The app tries again by itself at {time}.",
+  "homeScreen.offlineWait": "Luna Bot Cloud asked this app to wait before it signs in to My Cloud again. The app tries again by itself at {time}.",
   "homeScreen.offlineBack": "It comes back by itself when it answers.",
   "homeScreen.signIn": "Sign in to open My Cloud",
   "homeScreen.signInEnded": "This computer's sign-in to Luna Bot Cloud has ended. Your bots and chats are safe on My Cloud.",
