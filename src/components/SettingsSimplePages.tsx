@@ -236,7 +236,8 @@ export function SimpleComputerPage({ has, remoteAccess, servers, disclose }: { h
           <BrowserProfilesRow />
         </SettingsGroup>
       )}
-      {has("logins") && <div data-settings-block="logins" className="scroll-mt-4"><VaultSettings /><PaymentCardsSettings /><ChannelsSettings /></div>}
+      {has("logins") && <div data-settings-block="logins" className="scroll-mt-4"><VaultSettings /><PaymentCardsSettings /></div>}
+      {has("channels") && <div data-settings-block="channels" className="scroll-mt-4"><ChannelsSettings /></div>}
       {(has("companion") || has("desktopWorkspaces")) && (
         <SettingsDisclosureRow title={t("settings.simple.computer.elsewhere")} block="elsewhere" {...disclose("computer-elsewhere")}>
           {has("desktopWorkspaces") && <div data-settings-block="desktopWorkspaces" className="flex scroll-mt-4 flex-col gap-4">{servers}</div>}

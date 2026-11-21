@@ -525,6 +525,7 @@ export type AppSettingsSection =
   | "remote"
   | "computer"
   | "logins"
+  | "channels"
   | "usage"
   | "people" | "botAccess"
   | "activity"

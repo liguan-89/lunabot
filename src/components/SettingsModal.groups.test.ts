@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setLocale } from "@/lib/i18n";
 import type { AppSettingsSection } from "@/state/store";
 import type { Switch } from "./SettingsPrimitives";
-import { SECTIONS, SETTINGS_GROUPS, SettingsModal } from "./SettingsModal";
+import { ADVANCED_PAGES, SECTIONS, SETTINGS_GROUPS, SettingsModal } from "./SettingsModal";
 
 const fixture = vi.hoisted(() => ({
   section: "appearance" as AppSettingsSection,
@@ -86,71 +86,76 @@ afterEach(() => {
 vi.mock("@/lib/use-owner-or-admin", () => ({ useOwnerOrAdmin: () => fixture.ownerOrAdmin }));
 
 const render = () => renderToStaticMarkup(createElement(SettingsModal));
+const pages = (html: string) => [...html.matchAll(/data-settings-page="([^"]+)"/g)].map((match) => match[1]);
+const blocks = (html: string) => [...html.matchAll(/data-settings-block="([^"]+)"/g)].map((match) => match[1]);
 
-function rail(html: string): Record<string, string[]> {
-  const groups: Record<string, string[]> = {};
-  let current = "";
-  for (const match of html.matchAll(/data-settings-(group|section)="([^"]+)"/g)) {
-    if (match[1] === "group") groups[(current = match[2]!)] = [];
-    else groups[current]!.push(match[2]!);
-  }
-  return groups;
-}
-
-describe("Settings rail groups", () => {
-  it("files every page under You, AI, Devices or Account, in that order", () => {
+describe("Settings flat Advanced rail (Muse style)", () => {
+  it("files every section under one of the flat Advanced pages without duplicates", () => {
     expect(SETTINGS_GROUPS.map((group) => group.id)).toEqual(["you", "ai", "computers", "account"]);
     const ids = SECTIONS.map((entry) => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(23); // 16 + the shared Skills library (AI group) + Image & Video generation (AI) + Logins (Devices) + Import, a team's Bot access, and the TK1688 API subscription (Account)
-    for (const entry of SECTIONS) expect(SETTINGS_GROUPS.map((group) => group.id)).toContain(entry.group);
+    expect(ids).toHaveLength(24);
+    const placed = ADVANCED_PAGES.flatMap((page) => page.sections);
+    expect(new Set(placed).size).toBe(placed.length);
+    expect(ids.filter((id) => !placed.includes(id))).toEqual([]);
   });
 
-  it("shows every desktop page under its labelled group", () => {
+  it("draws the desktop Advanced pages as a flat list with no group headers", () => {
     vi.stubGlobal("window", { ogb: { environments: {}, organization: {}, cloudAccount: {} } });
     const html = render();
-    for (const label of ["You", "AI", "Devices", "Account"]) expect(html).toContain(`>${label}</div>`);
     expect(html).toContain("glass-surface");
-    expect(rail(html)).toEqual({
-      you: ["general", "appearance", "companion"],
-      ai: ["engines", "connections", "decisionModel", "imageGeneration", "videoGeneration"],
-      computers: ["desktopWorkspaces", "computer", "logins"],
-      account: ["cloudAccount", "organization", "usage", "backups", "import", "experimental"],
-    });
-    expect(html).toContain('<optgroup label="AI">');
+    expect(html).not.toContain("data-settings-group=");
+    expect(pages(html)).toEqual([
+      "general", "appearance", "ai", "connectors", "computer", "vault", "channels", "devices", "data", "billing", "team", "experimental",
+    ]);
+    expect(html).toContain(">Models &amp; AI</span>");
+    expect(html).toContain(">Message channels</span>");
+    expect(html).toContain(">Data controls</span>");
   });
 
-  it("keeps the browser-only pages for a hosted workspace's admins", () => {
+  it("shows Team & permissions for a hosted workspace's admins, and renders People and Activity blocks there", () => {
+    vi.stubGlobal("window", { location: { origin: "http://localhost:8799" } });
     fixture.ownerOrAdmin = true;
-    const groups = rail(render());
-    expect(groups.account).toEqual(["usage", "backups", "import", "people", "activity", "experimental"]);
-    expect(Object.values(groups).flat()).not.toContain("desktopWorkspaces");
-    expect(Object.values(groups).flat()).not.toContain("cloudAccount");
+    fixture.section = "people";
+    const html = render();
+    expect(pages(html)).toContain("team");
+    expect(blocks(html)).toEqual(["people", "activity"]);
   });
 
-  it("gives a team's admins its Bot access page, and nobody else", () => {
+  it("gives a team's admins its Bot access block under Team & permissions, and nobody else", () => {
     fixture.config = { team: { id: "team-acme", name: "Acme" }, cloudHome: true };
     fixture.ownerOrAdmin = true;
-    expect(rail(render()).account).toContain("botAccess");
+    fixture.section = "botAccess";
+    expect(pages(render())).toContain("team");
+    expect(blocks(render())).toContain("botAccess");
     fixture.ownerOrAdmin = false;
-    expect(Object.values(rail(render())).flat()).not.toContain("botAccess");
+    expect(pages(render())).not.toContain("team");
     fixture.config = {};
     fixture.ownerOrAdmin = true;
-    expect(Object.values(rail(render())).flat()).not.toContain("botAccess");
+    expect(blocks(render())).not.toContain("botAccess");
   });
 
-  it("shows a paired remote client only Appearance, Remote access and Servers", () => {
+  it("shows a paired remote client only Appearance and Devices", () => {
     vi.stubGlobal("window", { ogb: { remoteClient: { active: true }, environments: {}, organization: {}, cloudAccount: {} } });
-    expect(rail(render())).toEqual({ you: ["appearance", "companion"], computers: ["desktopWorkspaces"] });
+    expect(pages(render())).toEqual(["appearance", "devices"]);
   });
 
-  it("lands the old deep links where their cards now live", () => {
+  it("lands deep links on their owning flat page and renders the target block", () => {
     vi.stubGlobal("window", { ogb: { environments: {} } });
     fixture.section = "remote" as AppSettingsSection;
-    expect(render()).toContain('data-settings-section="desktopWorkspaces" aria-current="page"');
-    vi.stubGlobal("window", { ogb: {} });
-    expect(render()).toContain('data-settings-section="companion" aria-current="page"');
+    const remoteHtml = render();
+    expect(remoteHtml).toContain('data-settings-page="devices"');
+    expect(remoteHtml).toContain('aria-current="page"');
+    expect(blocks(remoteHtml)).toEqual(["companion", "desktopWorkspaces"]);
+
     fixture.section = "connections";
-    expect(render()).toContain('data-settings-section="connections" aria-current="page"');
+    const keysHtml = render();
+    expect(keysHtml).toMatch(/data-settings-page="connectors"[^>]*aria-current="page"/);
+    expect(blocks(keysHtml)).toContain("connections");
+
+    fixture.section = "channels";
+    const channelsHtml = render();
+    expect(channelsHtml).toMatch(/data-settings-page="channels"[^>]*aria-current="page"/);
+    expect(blocks(channelsHtml)).toEqual(["channels"]);
   });
 });

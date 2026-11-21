@@ -290,11 +290,11 @@ describe("Settings in Simple mode", () => {
     expect(html).not.toContain("API keys and connections");
   });
 
-  it("orders Computer as your bots' computers, Phone & devices, the browser, logins, then Connect from elsewhere", () => {
+  it("orders Computer as your bots' computers, Phone & devices, the browser, logins, channels, then Connect from elsewhere", () => {
     fixture.section = "companion";
     const html = render();
     expect(currentPage(html)).toBe("computer");
-    expect(blocks(html)).toEqual(["computer", "companion", "browser", "logins", "elsewhere", "desktopWorkspaces", "remote"]);
+    expect(blocks(html)).toEqual(["computer", "companion", "browser", "logins", "channels", "elsewhere", "desktopWorkspaces", "remote"]);
     expect(groupLabels(html)).toEqual(["Your bots’ computers", "Phone &amp; devices", "Built-in browser"].map((label) => label.replace("’", "&#x27;")));
     expect(html).toContain('aria-label="Enable the built-in browser"');
   });
@@ -401,25 +401,25 @@ describe("Settings in Simple mode", () => {
 describe("Settings in Advanced mode", () => {
   beforeEach(() => { fixture.advancedMode = true; });
 
-  it("keeps the grouped rail and General, Advanced mode switch first, on the same Settings look as Simple", () => {
+  it("uses the flat Muse-style rail and keeps General with Advanced mode switch first", () => {
     const html = render();
     expect(html).toContain("glass-surface");
     expect(html).toContain('data-settings-look="advanced"');
-    expect(html).not.toContain("data-settings-page=");
-    expect([...html.matchAll(/data-settings-group="([^"]+)"/g)].map((match) => match[1])).toEqual(["you", "ai", "computers", "account"]);
+    expect(html).not.toContain("data-settings-group=");
+    expect(pages(html)).toEqual(["general", "appearance", "ai", "connectors", "computer", "vault", "channels", "devices", "data", "billing", "team", "experimental"]);
     expect(html.indexOf('aria-label="Advanced mode"')).toBeLessThan(html.indexOf("Language"));
     expect(html).toContain("Show every technical control on this device");
     expect(html).not.toContain("More settings");
-    // The effort for new bots is one row now: Defaults for new bots carries the same select.
-    for (const kept of ["Group turns", ">Defaults for new bots<", 'aria-label="Send usage analytics"', "Diagnostics"]) {
+    for (const kept of [">Defaults for new bots<", 'aria-label="Send usage analytics"', "Diagnostics"]) {
       expect(placement(html, kept), kept).toBe("shown");
     }
+    expect(placement(open("backups"), "Group turns")).toBe("shown");
   });
 
   it("treats a link to Updates as General", () => {
     fixture.section = "updates";
     const html = render();
-    expect(html).toContain('data-settings-section="general" aria-current="page"');
+    expect(html).toMatch(/data-settings-page="general"[^>]*aria-current="page"/);
   });
 });
 

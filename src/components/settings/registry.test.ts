@@ -1,14 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { setLocale } from "@/lib/i18n";
-import { SECTIONS, SETTINGS_GROUPS, simpleSettingsPages, SIMPLE_PAGES } from "./registry";
+import { ADVANCED_PAGES, SECTIONS, SETTINGS_GROUPS, SIMPLE_PAGES, advancedSettingsPages, simpleSettingsPages } from "./registry";
 
 const all = new Set(SECTIONS.map((entry) => entry.id));
 
 describe("the settings map", () => {
-  it("files every section under exactly one page", () => {
-    const placed = SIMPLE_PAGES.flatMap((page) => page.sections);
-    expect(new Set(placed).size).toBe(placed.length);
-    expect(SECTIONS.map((entry) => entry.id).filter((id) => !placed.includes(id))).toEqual([]);
+  it("files every section under exactly one Simple page and one Advanced page", () => {
+    const placedSimple = SIMPLE_PAGES.flatMap((page) => page.sections);
+    expect(new Set(placedSimple).size).toBe(placedSimple.length);
+    expect(SECTIONS.map((entry) => entry.id).filter((id) => !placedSimple.includes(id))).toEqual([]);
+
+    const placedAdvanced = ADVANCED_PAGES.flatMap((page) => page.sections);
+    expect(new Set(placedAdvanced).size).toBe(placedAdvanced.length);
+    expect(SECTIONS.map((entry) => entry.id).filter((id) => !placedAdvanced.includes(id))).toEqual([]);
   });
 
   it("puts every section in a rail group", () => {
@@ -25,12 +29,16 @@ describe("the settings map", () => {
     const generalOnly = simpleSettingsPages(new Set(["general"]));
     expect(generalOnly.map((page) => page.id)).toEqual(["general"]);
     expect(generalOnly[0]!.sections).toEqual(["general"]);
+
+    expect(advancedSettingsPages(all).map((page) => page.id)).toEqual(ADVANCED_PAGES.map((page) => page.id));
+    expect(advancedSettingsPages(new Set())).toEqual([]);
+    expect(advancedSettingsPages(new Set(["appearance", "companion", "desktopWorkspaces"])).map((page) => page.id)).toEqual(["appearance", "devices"]);
   });
 
   it("keeps a page's label in every language", () => {
     for (const locale of ["zh", "ja", "de"] as const) {
       setLocale(locale);
-      for (const page of SIMPLE_PAGES) expect(page.labelKey, locale).toBeTruthy();
+      for (const page of [...SIMPLE_PAGES, ...ADVANCED_PAGES]) expect(page.labelKey, locale).toBeTruthy();
     }
     setLocale("en");
   });
