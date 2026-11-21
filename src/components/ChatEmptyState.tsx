@@ -73,7 +73,7 @@ export function EmptyChat({ bot }: { bot: Bot }) {
                     <ArrowUpRight
                       size={13}
                       aria-hidden="true"
-                      className="text-ink-tertiary opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100"
+                      className="text-ink-tertiary opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100 group-focus-within:opacity-100 touch:opacity-100"
                     />
                   </div>
                   <span className="line-clamp-2 text-[13px] font-medium leading-[1.45] text-ink/90 group-hover:text-ink">
