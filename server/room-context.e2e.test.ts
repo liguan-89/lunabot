@@ -1,11 +1,10 @@
-// Room context on the fixture's fake pi. The pi engine reports no provider context-window measurement, so the
-// server never records a room member's context: `memberContext` stays null and the 90%-threshold fold has
-// nothing to time. The Claude-only subtests that measured it — "compacts on request, and compacts before a
-// turn above the threshold" (driven by FAKE_CLAUDE_CONTEXT_TOKENS) and "drops a member's reading once another
-// member's turn replaces its warm process" (a reading pi never has) — were removed with that engine rather
-// than faked. What the fixture can still drive is the product's room context carry-over (each room turn is
-// handed the room's transcript) and the warm-process rule behind the retired per-member reading (another
-// member's turn in the same room thread replaces the previous member's warm pi child).
+// Room context on the fixture's fake pi. pi now reports a context-window reading (the fake reports 12 of
+// 128000 tokens), so `memberContext` fills and a member compact request is accepted. What stays below the
+// fold threshold (90%) never times a compaction by itself; the Claude-only threshold subtests were removed
+// with that engine rather than faked. The other fixtures still covered here are the room transcript
+// carry-over (each room turn is handed the room's transcript) and the warm-process rule behind per-member
+// readings (another member's turn in the same room thread replaces the previous member's warm pi child and
+// drops its reading).
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
@@ -35,7 +34,7 @@ it("carries the room's transcript into each warm pi turn, and reports no member 
     const dumpPath = piDumpPath(dataDir);
     const turns = () => piTurnsForThread(dumpPath, room.activeTaskId);
 
-    // pi does not report a context-window measurement, so there is nothing for the route to compact yet.
+    // No turn has run yet, so there is nothing measured for the route to compact.
     expect((await post(`/api/groups/${room.id}/members/${bot.id}/compact`)).status).toBe(409);
     expect((await post(`/api/groups/${room.id}/members/${other.id}/compact`)).status).toBe(404);
 
@@ -50,9 +49,9 @@ it("carries the room's transcript into each warm pi turn, and reports no member 
     expect(piTurnText(second!)).toContain("Edited.");
     expect(piTurnText(second!)).toContain("@Editor Trim the middle.");
     expect(second!.launch?.pid).toBe(first!.launch?.pid);
-    // Two complete turns measured nothing: pi reports usage, not a context-window reading.
-    expect((await read()).memberContext).toBeNull();
-    expect((await post(`/api/groups/${room.id}/members/${bot.id}/compact`)).status).toBe(409);
+    // pi reports its context usage, so the member's reading is recorded — and a compact request is taken.
+    expect((await read()).memberContext).toMatchObject({ [bot.id]: { tokens: 12, window: 128000 } });
+    expect((await post(`/api/groups/${room.id}/members/${bot.id}/compact`)).status).toBe(202);
   } finally { await fixture.close(); }
 }, 90_000);
 
@@ -78,8 +77,7 @@ it("replaces a member's warm pi process when another member takes a room turn", 
     await send("@Editor Cut the intro.");
     await expect.poll(() => turnsFor(first.id).length, { timeout: 15_000 }).toBe(1);
     // Another member's turn in the same room thread boots a different child (the agents env names the bot),
-    // so the driver closes Editor's warm process. The retired per-member context reading was dropped on the
-    // same dispatch; pi has no reading, but the warm-process rule behind it is still observable.
+    // so the driver closes Editor's warm process, and the same dispatch drops its context reading.
     await send("@Cutter Trim the middle.");
     await expect.poll(() => turnsFor(second.id).length, { timeout: 15_000 }).toBe(1);
     await send("@Editor Tighten the outro.");
@@ -87,7 +85,7 @@ it("replaces a member's warm pi process when another member takes a room turn", 
     const editorTurns = turnsFor(first.id);
     expect(editorTurns[1]!.launch?.pid).not.toBe(editorTurns[0]!.launch?.pid);
     expect(turnsFor(second.id)[0]!.launch?.pid).not.toBe(editorTurns[0]!.launch?.pid);
-    // Nothing was measured, so nothing is retained or shown for either member.
-    expect((await read()).memberContext).toBeNull();
+    // Cutter's reading was displaced when Editor took the thread back; only the last member's stays.
+    expect((await read()).memberContext).toMatchObject({ [first.id]: { tokens: 12, window: 128000 } });
   } finally { await fixture.close(); }
 }, 90_000);

@@ -238,6 +238,7 @@ if (ompChunkMode) {
   send({ type: "ready", protocolVersion: 1, supportedProtocolVersions: [1, 2], maxFrameBytes: 1048576, maxReassembledFrameBytes: 67108864 });
 }
 let sessionCounter = 0;
+let forkCounter = 0;
 let currentSessionFile: string | null = null;
 const heldSteerFrames: any[] = [];
 
@@ -249,7 +250,9 @@ const streamTurn = (promptText: string) => {
   for (const delta of marked !== undefined ? [marked] : ["Hello", " from", " pi"]) {
     send({ type: "message_update", usage: { input: 0, output: 0 }, assistantMessageEvent: { type: "text_delta", contentIndex: 0, delta } });
   }
-  send({ type: "turn_end", message: { stopReason: "end_turn", usage: { input: 12, output: 3 } }, usage: { input: 12, output: 3 } });
+  const context = Number(process.env.FAKE_PI_CONTEXT_TOKENS ?? process.env.FAKE_CLAUDE_CONTEXT_TOKENS);
+  const usage = Number.isSafeInteger(context) && context > 0 ? { input: context, output: 3 } : { input: 12, output: 3 };
+  send({ type: "turn_end", message: { stopReason: "end_turn", usage }, usage });
   send({ type: "agent_end" });
 };
 
@@ -795,7 +798,9 @@ function handle(cmd: any) {
       sessionCounter += 1;
       currentSessionFile = `/fake/pi-session-${sessionCounter}.json`;
       if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ newSession: true }) + "\n");
-      const sessionReply = { type: "response", command: "new_session", success: true, data: { sessionId: `s-${sessionCounter}`, sessionFile: currentSessionFile } };
+      // Real pi's open answer is `{cancelled}` alone; the file only surfaces
+      // through get_state — same as this fake reports it.
+      const sessionReply = { type: "response", command: "new_session", success: true, data: { cancelled: false } };
       if (mode !== "session-slow") {
         send(sessionReply);
         return;
@@ -814,8 +819,37 @@ function handle(cmd: any) {
         return;
       }
       currentSessionFile = cmd.sessionPath ?? currentSessionFile;
-      send({ type: "response", command: "switch_session", success: true, data: { sessionId: "s-resumed", sessionFile: currentSessionFile } });
+      send({ type: "response", command: "switch_session", success: true, data: { cancelled: false } });
       return;
+    case "clone":
+      // Real pi forks the session file at the leaf entry and moves this child
+      // onto the branch; the original file stays on disk untouched.
+      if (mode === "session-error") {
+        send({ type: "response", command: "clone", success: false, error: "fake pi: session unavailable" });
+        return;
+      }
+      forkCounter += 1;
+      currentSessionFile = `${currentSessionFile ?? `/fake/pi-session-${sessionCounter}.json`}.fork${forkCounter}.json`;
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ clone: currentSessionFile }) + "\n");
+      send({ type: "response", command: "clone", success: true, data: { cancelled: false } });
+      return;
+    case "compact": {
+      if (process.env.FAKE_PI_DUMP) appendFileSync(process.env.FAKE_PI_DUMP, JSON.stringify({ compact: { instructions: cmd.customInstructions ?? null } }) + "\n");
+      if (process.env.FAKE_PI_COMPACT_FAIL === "1") {
+        send({ type: "response", command: "compact", success: false, error: "fake pi: compaction failed" });
+        return;
+      }
+      send({ type: "compaction_start", reason: "manual" });
+      const result = {
+        summary: "fake pi summary",
+        firstKeptEntryId: "entry-1",
+        tokensBefore: 2000,
+        usage: { input: 1500, output: 80, cacheRead: 200, cacheWrite: 0, totalTokens: 1780, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0.0042 } },
+      };
+      send({ type: "compaction_end", reason: "manual", result, aborted: false, willRetry: false });
+      send({ type: "response", command: "compact", success: true, data: result });
+      return;
+    }
     case "set_model": {
       if (process.env.FAKE_PI_DUMP) {
         try {

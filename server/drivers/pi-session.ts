@@ -97,7 +97,7 @@ export async function preparePiTurnSession(deps: PiSessionSetupDeps): Promise<Pi
       await openSession(resumeWanted ? "switch_session" : "new_session");
     } catch {
       if (!resumeWanted || settled()) {
-        // pi --no-session accepts a prompt without an explicit session; a
+        // pi accepts a prompt without an explicit session; a
         // settled child is handled by the check below.
       } else {
         try {
@@ -121,6 +121,20 @@ export async function preparePiTurnSession(deps: PiSessionSetupDeps): Promise<Pi
         }
       }
     }
+  }
+  // Real pi reports the session file only through get_state — new_session and
+  // switch_session answer with `{cancelled}` alone. Without it the resume
+  // cursor would never exist; one read covers both open paths.
+  let sessionState: { sessionFile?: string; sessionId?: string; model?: unknown } | undefined;
+  if (freshSpawn && sessionOpened) {
+    try {
+      const statePromise = awaitResponse("get_state");
+      send({ type: "get_state" });
+      sessionState = (await statePromise) as typeof sessionState;
+    } catch {}
+    if (sessionState?.sessionFile) sessionFile = sessionState.sessionFile;
+    if (sessionFile) sessionId = sessionFile;
+    else if (sessionState?.sessionId) sessionId = sessionState.sessionId;
   }
   if (abortedEarly()) return null;
 
@@ -146,14 +160,7 @@ export async function preparePiTurnSession(deps: PiSessionSetupDeps): Promise<Pi
       return null;
     }
   }
-  if (!chosen && freshSpawn) {
-    try {
-      const statePromise = awaitResponse("get_state");
-      send({ type: "get_state" });
-      const state = await statePromise as { model?: unknown } | undefined;
-      confirmedModel = piModelId(state?.model);
-    } catch {}
-  }
+  if (!chosen && freshSpawn && !confirmedModel) confirmedModel = piModelId(sessionState?.model);
   if (abortedEarly()) return null;
   if (sessionOpened) emit({ ...base(), type: "session.started", sessionId, model: confirmedModel, ...(sessionRebuilt ? { rebuilt: true } : {}) });
 

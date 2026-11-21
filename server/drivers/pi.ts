@@ -15,8 +15,9 @@ import {
 export { applyPiLocalCatalog, ensurePiCustomProvider, ensurePiInjectModel, splitPiModel };
 export { parsePiCatalog, preferPiInjectRows } from "./pi-model-catalog.ts";
 // The pi coding agent (@earendil-works/pi-coding-agent) over its own stdio JSON-RPC mode
-// (`pi --mode rpc --no-session`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so
-// this driver holds no key; resumeCursor is pi's `sessionFile` (switch_session).
+// (`pi --mode rpc`), not ACP. pi is BYOK and reads ~/.pi/agent/auth.json itself, so this
+// driver holds no key; resumeCursor is pi's `sessionFile` (switch_session) — sessions
+// persist under the instance's own PI_CODING_AGENT_DIR, never the operator's `~/.pi`.
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -40,6 +41,7 @@ import { commandSummary, toolDetailPreview } from "../tool-summary.ts";
 import { extractMcpImages } from "../mcp-tool-images.ts";
 
 import type {
+  CacheWarmPingResult,
   DriverCreateInput,
   ModelCatalog,
   PrewarmInput,
@@ -64,11 +66,14 @@ import { PiSessionAllow, readPiApprovalRequest } from "./pi-session-allow.ts";
 import { decodePiFrame, PiRpcChunks, piImagesOf, piLineReader, piNativeLogMessage, PiRpcRefusalError, readPiPromptImages } from "./pi-rpc.ts";
 import { preparePiTurnSession } from "./pi-session.ts";
 import { PiRunUsage, type PiUsage, type TurnUsage } from "./pi-usage.ts";
+import { piWarmCompact, piWarmHold, type PiWarmDeps } from "./pi-warm.ts";
 export { decodePiFrame, PiRpcChunks, piLineReader } from "./pi-rpc.ts";
 export { piThinkingLevel } from "./pi-session.ts";
 
 const DRIVER_KIND = "piAgent";
-const PI_ARGS = ["--mode", "rpc", "--no-session"];
+// No `--no-session`: the session file is the resume cursor and the fork a warm
+// summary compacts — persistence stays on, inside the instance's agent dir.
+const PI_ARGS = ["--mode", "rpc"];
 const PI_MODEL_UPDATE_ARGS = ["update", "--models", "--no-approve"];
 /** omp's RPC transport caps a frame at 1 MiB and chunks bigger ones only after the client
  *  negotiates protocol 2. Vanilla pi has no handshake frame to wait for. */
@@ -260,6 +265,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       confirmedModel: string | null;
       sessionAllow: PiSessionAllow;
       idleTimer: ReturnType<typeof setTimeout> | null;
+      /** An out-of-turn compact RPC owns the child: no warm reuse while it runs. */
+      compacting?: boolean;
     }
     const warmSessions = new Map<string, PiWarmSession>();
     const { idleMs: SESSION_IDLE_MS } = sessionIdlePolicy("PI");
@@ -277,6 +284,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       } catch {}
       void reason;
     };
+
+    const warmDeps: PiWarmDeps = { warmSessions, active, closeWarmSession, idleMs: SESSION_IDLE_MS };
 
     /** A child spawned by prewarm before its turn's sendTurn ran, keyed by the contract it was
      * booted from. sendTurn takes it over on a contract match; anything else — a contract change,
@@ -476,6 +485,7 @@ export const PiDriver: ProviderDriver<PiConfig> = {
       const reuse = Boolean(
         warm &&
           !turn.sessionReset &&
+          !warm.compacting &&
           warm.key === poolKey &&
           warm.child.exitCode === null &&
           warm.child.signalCode === null,
@@ -865,7 +875,16 @@ export const PiDriver: ProviderDriver<PiConfig> = {
             if (agentEndTimer) clearTimeout(agentEndTimer);
             agentEndTimer = null;
             const sr = evt.message?.stopReason;
-            runUsage.endTurn(evt.usage ?? evt.message?.usage);
+            const evtUsage = evt.usage ?? evt.message?.usage;
+            runUsage.endTurn(evtUsage);
+            // pi's `input` excludes cached prompt tokens — the whole window is input + both cache sides.
+            const contextTokens = (evtUsage?.input ?? 0) + (evtUsage?.cacheRead ?? 0) + (evtUsage?.cacheWrite ?? 0);
+            if (contextTokens > 0) {
+              const counted = runUsage.usage;
+              const contextWindow = models.options.find((option) => option.id === confirmedModel)?.contextWindow;
+              emit({ ...base(threadId, turnId), type: "thread.token-usage.updated", input: counted?.input ?? 0, output: counted?.output ?? 0,
+                contextTokens, ...(contextWindow ? { contextWindow } : {}) });
+            }
             // toolUse: pi ran a tool and auto-continues; the next turn_end carries the outcome.
             if (sr === "toolUse" || sr === "tool_use" || sr === "tool_calls") return;
             endStopReason = sr;
@@ -1145,6 +1164,14 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           return entry?.steer ? await entry.steer(text, images) : "refused";
         },
         hasSession: (threadId) => active.has(threadId),
+        cacheKeepWarm: {
+          // pi is BYOK: a keep-warm ping spends the person's own tokens to save a
+          // cache write of the same size — never worth it. The scheduler also
+          // refuses non-subscription billing before it would call this.
+          ping: async (): Promise<CacheWarmPingResult> => ({ ok: false, reason: "pi runs on the person's own provider key — a keep-warm ping would spend it" }),
+          hold: (threadId, until) => piWarmHold(warmDeps, threadId, until),
+          compact: (threadId, options) => piWarmCompact(warmDeps, threadId, options),
+        },
         stopAll,
         onEvent: (listener) => {
           listeners.add(listener);
