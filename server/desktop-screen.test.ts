@@ -165,9 +165,14 @@ describe("captureDesktopScreen", () => {
       ),
       { maxImageDimension: 1280 },
     );
-    expect(frame.png).not.toBe(PNG);
-    // macOS re-encodes the driver's PNG to JPEG (`sips`), so the bytes are not the ones the stand-in wrote. What matters
-    // is that a whole picture came back, in a format the phone can decode, with the sizes a tap is scaled by.
+    // macOS re-encodes the driver's PNG to JPEG (`sips`), so the bytes are not the ones the stand-in wrote; other
+    // platforms keep the PNG untouched. What matters is that a whole picture came back, in a format the phone can
+    // decode, with the sizes a tap is scaled by.
+    if (process.platform === "darwin") {
+      expect(frame.png).not.toBe(PNG);
+    } else {
+      expect(frame.png).toBe(PNG);
+    }
     expect(Buffer.from(frame.png, "base64").length).toBeGreaterThan(512);
     expect(frame.mime).toBe(process.platform === "darwin" ? "image/jpeg" : "image/png");
     expect([frame.imageWidth, frame.imageHeight]).toEqual([1280, 829]);
