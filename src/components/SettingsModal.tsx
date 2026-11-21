@@ -51,7 +51,7 @@ import { LicenseExpiryBanner } from "./LicenseExpiryBanner";
 import { WorkspacesSection, workspacesAvailable } from "./WorkspacesSection";
 import { SkinPicker } from "./SkinPicker";
 import { ThemeRow } from "./ThemeRow";
-import { ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
+import { AvatarStyleRow, ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
 import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
 import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { ProfileFields } from "./ProfileSettings";
@@ -374,6 +374,9 @@ function SettingsDialog() {
               <ThemeRow />
               <Card title={t("settings.skin.title")} subtitle={t("settings.skin.subtitle")}>
                 <SkinPicker />
+              </Card>
+              <Card>
+                <AvatarStyleRow />
               </Card>
               <PlaceLookCard />
               {remoteActive && <AdvancedModeRow />}

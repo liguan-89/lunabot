@@ -1,10 +1,50 @@
 import { useState } from "react";
 import { t } from "@/lib/i18n";
+import { AVATAR_STYLE_IDS, applyAvatarStyle, useAvatarStyle } from "@/lib/avatar-style";
 import { CHAT_WIDTH_IDS, applyChatWidth, readChatWidth, type ChatWidthId } from "@/lib/chat-width";
+import { cn } from "@/lib/cn";
 import { FONT_IDS, applyFont, readFont, type FontId } from "@/lib/fonts";
 import { parseSidebarToolsLayout, setSidebarToolsLayout, SIDEBAR_TOOLS_LAYOUTS, useSidebarToolsLayout } from "@/lib/sidebar-preferences";
+import { PresetFace } from "./PresetFace";
 import { SettingRow } from "./SettingsPrimitives";
 import { Select } from "./Select";
+
+export function AvatarStyleRow() {
+  const current = useAvatarStyle();
+  return (
+    <div data-settings-row={t("settings.avatarStyle.title")} className="flex flex-col gap-2.5 py-2">
+      <div>
+        <div className="text-[13px] font-medium text-ink">{t("settings.avatarStyle.title")}</div>
+        <div className="mt-0.5 text-[12px] text-ink-secondary">{t("settings.avatarStyle.subtitle")}</div>
+      </div>
+      <div role="radiogroup" aria-label={t("settings.avatarStyle.aria")} className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+        {AVATAR_STYLE_IDS.map((id) => {
+          const selected = current === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              aria-checked={selected}
+              onClick={() => applyAvatarStyle(id)}
+              className={cn(
+                "flex cursor-pointer flex-col items-center gap-1.5 rounded-xl border px-2 py-2.5 text-center transition",
+                selected
+                  ? "border-accent bg-accent/10 text-ink ring-1 ring-accent/30"
+                  : "border-hairline/40 bg-panel/60 text-ink-secondary hover:border-hairline hover:bg-raised hover:text-ink",
+              )}
+            >
+              <PresetFace preset="blue" avatarStyle={id} size={32} life="still" />
+              <span className="w-full truncate text-[11px] font-medium leading-tight">
+                {t(`settings.avatarStyle.${id}`)}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function FontRow() {
   const [current, setCurrent] = useState<FontId>(readFont);

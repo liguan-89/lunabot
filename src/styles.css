@@ -1062,6 +1062,140 @@
   --identity-chrome: #B3BAC4;
 }
 
+/* ── Muse (Light) ─────────────────────────────────────────────────────────
+   Warm gallery linen canvas with borderless oatmeal-taupe user bubbles and
+   quiet stone-grey bot bubbles — matching the Android Muse palette.
+   ───────────────────────────────────────────────────────────────────────── */
+[data-skin="muse"] {
+  --code-color-scheme: light;
+  --frame-shade: 3.5%;
+  --color-app: #faf9f7;
+  --color-panel: #f2efe9;
+  --color-raised: #ffffff;
+  --color-raised-hover: #eae4dc;
+  --color-composer: #ffffff;
+  --color-composer-ring: #dfd8cf;
+  --color-card: #ecebe8;
+  --color-menu: #ffffff;
+  --color-menu-hover: color-mix(in srgb, var(--color-raised) 70%, transparent);
+  --color-menu-active: var(--color-raised);
+  --color-inset: #e4e0d8;
+  --color-control: #dbd4c9;
+  --color-hairline: #bdb5aa;
+
+  --color-ink: #1b1917;
+  --color-ink-secondary: #5c564f;
+  --color-ink-tertiary: #615b53;
+
+  --color-accent: #2f66ad;
+  --color-accent-border: #528ad2;
+  --color-accent-text: #275a9c;
+  --color-focus: #275a9c;
+  --color-accent-ink: #ffffff;
+  --color-bubble-user: #d8cbbe;
+  --color-bubble-user-ink: #1b1917;
+
+  --color-success: #2a6f4c;
+  --color-danger: #b5353a;
+  --color-danger-ink: #ffffff;
+  --color-success-ink: #ffffff;
+  --color-warning: #805719;
+  --color-scrollbar: #c4bbb0;
+  --color-maus-line: #5c564f;
+
+  --color-edge: color-mix(in srgb, var(--color-ink) 8%, transparent);
+
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 18px;
+  --radius-4xl: 20px;
+  --identity-green: #007f48;
+  --identity-blue: #1b6adc;
+  --identity-red: #d12c34;
+  --identity-orange: #a95914;
+  --identity-purple: #8057C8;
+  --identity-cyan: #0a7891;
+  --identity-pink: #ca2d72;
+  --identity-yellow: #896a19;
+  --identity-teal: #017c6f;
+  --identity-coral: #cd361e;
+  --identity-silver: #686f79;
+  --identity-chrome: #646f80;
+  --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 24px -8px rgb(27 25 23 / 0.08), 0 2px 6px -2px rgb(27 25 23 / 0.04);
+}
+
+/* ── Muse Dark ────────────────────────────────────────────────────────────
+   Quiet obsidian gallery canvas with warm umber user bubbles and soft
+   charcoal bot cards — matching the Android Muse dark palette.
+   ───────────────────────────────────────────────────────────────────────── */
+[data-skin="muse-dark"] {
+  --code-color-scheme: dark;
+  --color-app: #0f0f11;
+  --color-panel: #161619;
+  --color-raised: #242429;
+  --color-raised-hover: #35353d;
+  --color-composer: #1b1b1f;
+  --color-composer-ring: #303037;
+  --color-card: #222226;
+  --color-menu: #1e1e22;
+  --color-menu-hover: color-mix(in srgb, var(--color-raised) 70%, transparent);
+  --color-menu-active: var(--color-raised);
+  --color-inset: #131316;
+  --color-control: #2d2d34;
+  --color-hairline: #3a3940;
+
+  --color-ink: #f4f1ec;
+  --color-ink-secondary: #b7b1a9;
+  --color-ink-tertiary: #a8a29a;
+
+  --color-accent: #6a9fe0;
+  --color-accent-border: #7fb0ea;
+  --color-accent-text: #8ab8ee;
+  --color-focus: #7fb0ea;
+  --color-accent-ink: #0b1626;
+  --color-bubble-user: #453e36;
+  --color-bubble-user-ink: #f4f1ec;
+
+  --color-success: #5cc489;
+  --color-danger: #eb6f77;
+  --color-danger-ink: #24070a;
+  --color-success-ink: #081c11;
+  --color-warning: #e5a94c;
+  --color-scrollbar: #3f3e45;
+  --color-maus-line: #b7b1a9;
+
+  --color-edge: color-mix(in srgb, var(--color-ink) 8%, transparent);
+
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 18px;
+  --radius-4xl: 20px;
+  --identity-green: #009957;
+  --identity-blue: #377FE6;
+  --identity-red: #D94B52;
+  --identity-orange: #E78531;
+  --identity-purple: #8d69ce;
+  --identity-cyan: #0EA5C6;
+  --identity-pink: #D84F8B;
+  --identity-yellow: #D8A729;
+  --identity-teal: #01A492;
+  --identity-coral: #E5634E;
+  --identity-silver: #A8ADB4;
+  --identity-chrome: #B3BAC4;
+}
+
 [data-skin="aurora"] {
   --code-color-scheme: dark;
   --color-app: #0b0c0b;
@@ -1427,6 +1561,64 @@ body {
   width: 2.5px;
   border-radius: 9999px;
   background: var(--color-accent);
+}
+
+/* Muse-aligned desktop polish: subtle bubble specular rim, light-mode avatar studio halo, and breathing call aura. */
+[data-chat-bubble="simple"]:not(.user-bubble-colored),
+[data-reply-bubble] {
+  box-shadow: inset 0 0.5px 0 color-mix(in srgb, var(--color-ink) 7%, transparent);
+  letter-spacing: 0.005em;
+}
+.avatar-studio-halo {
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-ink) 7%, transparent) 0%,
+    transparent 70%
+  );
+}
+@container style(--code-color-scheme: light) {
+  .avatar-studio-halo {
+    background-image: radial-gradient(
+      circle,
+      rgb(217 206 194 / 0.55) 0%,
+      rgb(228 221 212 / 0.25) 56%,
+      transparent 100%
+    );
+  }
+}
+@keyframes call-aura {
+  from {
+    transform: scale(0.94);
+    opacity: 0.72;
+  }
+  to {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+.call-aura {
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--color-accent) 20%, transparent) 0%,
+    color-mix(in srgb, var(--color-accent) 9%, transparent) 56%,
+    transparent 74%
+  );
+  animation: call-aura 2.2s ease-in-out infinite alternate;
+}
+@container style(--code-color-scheme: light) {
+  .call-aura {
+    background: radial-gradient(
+      circle,
+      rgb(221 210 199 / 0.58) 0%,
+      rgb(221 210 199 / 0.26) 56%,
+      transparent 74%
+    );
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .call-aura {
+    animation: none;
+  }
 }
 
 /* Shared action rhythm. Existing skin tokens supply the colors and radius;
@@ -1848,7 +2040,7 @@ body {
    at the window edge, back to full strength over the last --glass-fade of the bar, which is the whole
    of Simple mode's 60px header. A taller bar (find, a notice) stays plain canvas above that stretch. */
 .glass-bar[data-glass-fade] {
-  --glass-fade: 60px;
+  --glass-fade: 36px;
 }
 .glass-bar[data-glass-fade]::before {
   background: linear-gradient(to bottom, var(--color-app), var(--color-app) calc(100% - var(--glass-fade)), transparent);
@@ -3328,11 +3520,11 @@ button:disabled.bg-danger {
   outline-offset: -1.5px;
 }
 :root,
-:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="aurora"]) {
+:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) {
   --radius-menu: 12px;
   --menu-shadow: 0 14px 32px -10px rgb(0 0 0 / 0.7), 0 2px 8px rgb(0 0 0 / 0.35);
 }
-:is([data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="meadow"], [data-skin="pop"]) {
+:is([data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="meadow"], [data-skin="pop"], [data-skin="muse"]) {
   --menu-shadow: 0 8px 24px -6px rgb(0 0 0 / 0.12), 0 1px 2px rgb(0 0 0 / 0.04);
 }
 :is([data-skin="daylight"]) {

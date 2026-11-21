@@ -37,7 +37,7 @@ import { ImportSettings } from "./ImportSettings";
 import { NotificationRows } from "./NotificationSettingsRows";
 import { useServerUpdateItem } from "./SidebarProfileMenu";
 import { AdvancedModeRow, BrowserProfilesRow, ColorUserBubblesRow, ExperimentalFeaturesRow, FollowUpRow, LanguageRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
-import { ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
+import { AvatarStyleRow, ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
 import { WorkspaceBackupSettings } from "./WorkspaceBackupSettings";
 import { CompanyBackupSettings } from "./CompanyBackupSettings";
 import { SkillsSection } from "./SkillsSection";
@@ -80,6 +80,7 @@ export function SimpleGeneralPage({ has, disclose, toolCalls = true }: { has: Ha
           </SettingsRows>
           <SettingsDisclosureRow title={t("settings.simple.looks.title")} block="looks" {...disclose("looks-more")}>
             <SkinPicker />
+            <AvatarStyleRow />
             <SettingsRows>
               {toolCalls && <ToolCallsRow />}
               <FontRow />

@@ -52,7 +52,7 @@ export function EmptyChat({ bot }: { bot: Bot }) {
 
       <div className="relative z-10 flex flex-col items-center gap-3.5">
         <div
-          className="relative flex items-center justify-center rounded-full p-1.5 ring-1 ring-ink/[0.08] bg-composer/70 shadow-(--shadow-float) backdrop-blur-md"
+          className="avatar-studio-halo relative flex items-center justify-center rounded-full p-2 ring-1 ring-ink/[0.08] bg-composer/75 shadow-(--shadow-float) backdrop-blur-md"
         >
           <BotAvatar bot={bot} state="idle" size={64} fallback="preset" life="alive" motion="none" motionKey={0} />
         </div>

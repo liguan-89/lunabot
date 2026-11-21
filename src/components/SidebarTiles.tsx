@@ -81,7 +81,7 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
       )}
     >
       <span className={cn(
-        "relative flex rounded-full transition-all duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]",
+        "avatar-studio-halo relative flex rounded-full transition-all duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]",
         selected && "ring-2 ring-accent/75 ring-offset-2 ring-offset-[var(--tile)] shadow-[0_0_18px_-3px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]",
       )}>
         <BotAvatar

@@ -9,6 +9,8 @@ describe("expandable question text", () => {
 
   it("treats a long question as expandable", () => {
     expect(expandableTextIsLong("x".repeat(EXPANDABLE_TEXT_LIMIT + 1))).toBe(true);
+    expect(expandableTextIsLong("a\nb\nc\nd")).toBe(false);
+    expect(expandableTextIsLong("a\nb\nc\nd\ne")).toBe(true);
   });
 
   it("clamps only while collapsed", () => {

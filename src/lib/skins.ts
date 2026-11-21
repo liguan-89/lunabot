@@ -14,6 +14,8 @@ export const SKIN_IDS = [
   "pop",
   "halloween",
   "diwali",
+  "muse",
+  "muse-dark",
   "aurora",
 ] as const;
 export type SkinId = (typeof SKIN_IDS)[number];
@@ -37,6 +39,8 @@ export const SKINS: readonly Skin[] = [
   { id: "pop", name: "Pop", tagline: "Cream paper, thick ink outlines, hard shadows. Chunky and cheerful." },
   { id: "halloween", name: "Halloween", tagline: "Plum after dark, lit in pumpkin orange. Bats optional." },
   { id: "diwali", name: "Diwali", tagline: "Indigo night, lit in marigold and diya gold. Fireworks optional." },
+  { id: "muse", name: "Muse", tagline: "Warm linen canvas with borderless oatmeal-taupe bubbles." },
+  { id: "muse-dark", name: "Muse Dark", tagline: "Quiet obsidian canvas with warm umber bubbles." },
   { id: "aurora", name: "Aurora", tagline: "Near-black, crossed by a band of green light. Glass on top." },
 ];
 

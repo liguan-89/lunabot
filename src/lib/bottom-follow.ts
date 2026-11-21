@@ -42,6 +42,7 @@ export function useBottomFollowResize(
       followBottomGrowth(scroller, followingRef.current);
     });
     observer.observe(transcript);
+    observer.observe(scroller);
     return () => observer.disconnect();
   }, [followingRef, observeKey, scrollRef, transcriptRef]);
 }

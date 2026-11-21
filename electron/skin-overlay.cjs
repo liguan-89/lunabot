@@ -15,6 +15,8 @@ const SKIN_CHROME = Object.freeze({
   pop: Object.freeze({ color: "#fdf5ea", symbolColor: "#3a322d" }),
   halloween: Object.freeze({ color: "#110d16", symbolColor: "#c2b3cc" }),
   diwali: Object.freeze({ color: "#100d1f", symbolColor: "#cdbfdc" }),
+  muse: Object.freeze({ color: "#faf9f7", symbolColor: "#5c564f" }),
+  "muse-dark": Object.freeze({ color: "#0f0f11", symbolColor: "#b7b1a9" }),
   aurora: Object.freeze({ color: "#0b0c0b", symbolColor: "#b4bab4" }),
 });
 

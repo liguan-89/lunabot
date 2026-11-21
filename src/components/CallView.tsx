@@ -784,10 +784,16 @@ function Call({ bot }: { bot: Bot }) {
         <X size={18} />
       </button>
 
-      <BotAvatar bot={bot} state={mascotState} size={220} fallback="preset" life="alive" crown={Boolean(bot.chiefOfStaff)} animated trackPointer />
+      <div className="relative flex size-[268px] items-center justify-center">
+        <div
+          aria-hidden="true"
+          className="call-aura pointer-events-none absolute inset-0 rounded-full"
+        />
+        <BotAvatar bot={bot} state={mascotState} size={220} fallback="preset" life="alive" crown={Boolean(bot.chiefOfStaff)} animated trackPointer />
+      </div>
 
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <div className="text-[20px] font-medium text-ink">{bot.name}</div>
+        <div className="text-[20px] font-semibold tracking-[-0.02em] text-ink">{bot.name}</div>
         <div className="flex items-center gap-2 text-[14px] text-ink-secondary">
           {(phase === "working" || phase === "sending") && <Loader2 size={13} className="animate-spin" />}
           {status}
@@ -819,7 +825,7 @@ function Call({ bot }: { bot: Bot }) {
       )}
       {speech.error && <div className="max-w-[420px] text-center text-[13px] text-danger">{speech.error}</div>}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5 rounded-full border border-ink/[0.1] bg-[color-mix(in_srgb,var(--color-composer)_84%,transparent)] p-1.5 shadow-(--shadow-float) backdrop-blur-xl">
         {speaker.isSpeaking() && (
           <button
             onClick={() => {
@@ -827,14 +833,14 @@ function Call({ bot }: { bot: Bot }) {
               speaker.stop();
               listen();
             }}
-            className="rounded-full border border-hairline/50 px-4 py-2 text-[14px] text-ink hover:bg-raised"
+            className="rounded-full border border-ink/[0.12] bg-raised/70 px-4 py-2 text-[14px] font-medium text-ink transition-all hover:bg-raised active:scale-95"
           >
             {t("call.turns.interrupt")}
           </button>
         )}
         <button
           onClick={() => endCall(bot.id)}
-          className="flex items-center gap-2 rounded-full bg-danger px-5 py-2.5 text-[14px] font-medium text-white hover:brightness-110"
+          className="flex items-center gap-2 rounded-full bg-danger px-5 py-2 text-[14px] font-medium text-white shadow-sm transition-all hover:brightness-110 active:scale-95"
         >
           <PhoneOff size={16} /> {t("call.live.hangUp")}
         </button>
