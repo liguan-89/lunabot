@@ -32,21 +32,21 @@ type PresetKey =
   | "grey";
 
 const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string; warm?: boolean }> = {
-  black: { light: "#33353A", body: "#141518", edge: "#070709", eye: "#FDFEFD" },
-  white: { light: "#FFFFFF", body: "#F6F3EE", edge: "#DDD7CE", eye: "#1C1C1E", warm: true },
-  silver: { light: "#E6EBF2", body: "#C1C9D4", edge: "#9AA4B2", eye: "#1C1C1E" },
-  blue: { light: "#6FA0F5", body: "#3B76E1", edge: "#2656B3", eye: "#FEFEFE" },
-  cyan: { light: "#6DD4E6", body: "#28A7BE", edge: "#197C90", eye: "#FEFEFE" },
-  orange: { light: "#F6B47B", body: "#E48A42", edge: "#BD6824", eye: "#FEFEFE", warm: true },
-  yellow: { light: "#F7DE8C", body: "#E5BE4D", edge: "#BE9627", eye: "#1C1C1E", warm: true },
-  purple: { light: "#B594EE", body: "#845ED1", edge: "#613EA8", eye: "#FEFEFE" },
-  pink: { light: "#F39BC4", body: "#DA659D", edge: "#B04277", eye: "#FEFEFE", warm: true },
-  green: { light: "#6FD298", body: "#33A867", edge: "#207E4A", eye: "#FEFEFE" },
-  teal: { light: "#67CFC3", body: "#2AA093", edge: "#1B776D", eye: "#FEFEFE" },
-  mint: { light: "#9BE8B8", body: "#63CE8E", edge: "#3DA368", eye: "#1C1C1E" },
-  red: { light: "#EE8A86", body: "#D45450", edge: "#A63431", eye: "#FEFEFE", warm: true },
-  coral: { light: "#F4A296", body: "#E16E5E", edge: "#B84B3D", eye: "#FEFEFE", warm: true },
-  grey: { light: "#A7ABB2", body: "#7C818A", edge: "#5A5F68", eye: "#FEFEFE" },
+  black:  { light: "#373A40", body: "#191B1F", edge: "#0A0B0D", eye: "#F8FAFC" },
+  white:  { light: "#FFFFFF", body: "#F5F2EC", edge: "#DCD6CC", eye: "#1C1C1E", warm: true },
+  silver: { light: "#EEF1F6", body: "#D5DCE6", edge: "#B4BECA", eye: "#1C1E24" },
+  grey:   { light: "#C7CCD4", body: "#9FA6B2", edge: "#7E8591", eye: "#181A1F" },
+  blue:   { light: "#DCEBFF", body: "#B6D4FA", edge: "#8CB6EC", eye: "#182233" },
+  cyan:   { light: "#D6F5FA", body: "#A5E3EE", edge: "#7AC8D8", eye: "#13262B" },
+  teal:   { light: "#D3F3EE", body: "#9EDCD2", edge: "#74BFB4", eye: "#132624" },
+  green:  { light: "#D8F2E2", body: "#A8DFBE", edge: "#7DC49B", eye: "#16291E" },
+  mint:   { light: "#DFF7EB", body: "#B3E8CE", edge: "#89CFAF", eye: "#162920" },
+  yellow: { light: "#FFF4D1", body: "#F7DF94", edge: "#E2C063", eye: "#2B2313", warm: true },
+  orange: { light: "#FFE7D4", body: "#F7C49B", edge: "#E19E6E", eye: "#2E1E14", warm: true },
+  coral:  { light: "#FFE0DA", body: "#F6B7AC", edge: "#DE8F82", eye: "#2E1917", warm: true },
+  red:    { light: "#FDE0E0", body: "#F2B5B7", edge: "#D98C91", eye: "#2D1719", warm: true },
+  pink:   { light: "#FCE2F0", body: "#F2BEDB", edge: "#DA98BE", eye: "#2B1824", warm: true },
+  purple: { light: "#ECE3FF", body: "#CFC0F8", edge: "#AC98E5", eye: "#201833" },
 };
 
 /** Maps every bot palette colour cleanly to its unified PresetFace swatch. */
@@ -233,8 +233,8 @@ function FaceBody({
   clip: string;
 }) {
   const light = isLightBody(face.body);
-  const rimStroke = light ? "rgba(28,28,30,0.12)" : "rgba(255,255,255,0.22)";
-  const innerEarFill = face.warm ? "#F2B4C2" : mixHex(face.light, "#FFFFFF", 0.55);
+  const rimStroke = light ? "rgba(24,24,28,0.14)" : "rgba(255,255,255,0.22)";
+  const innerEarFill = face.warm ? mixHex(face.edge, "#F497AE", 0.45) : mixHex(face.edge, "#FFFFFF", 0.52);
 
   switch (style) {
     case "orb":
@@ -335,7 +335,7 @@ function FaceBody({
 
     case "classic":
     default:
-      return <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} />;
+      return <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" />;
   }
 }
 
@@ -525,9 +525,9 @@ export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expr
           <stop offset="1" stopColor={mixHex(face.light, "#FFFFFF", 0.55)} stopOpacity="0" />
         </radialGradient>
         <radialGradient id={blushGradient} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity={face.warm ? (light ? "0.24" : "0.18") : "0.16"} />
-          <stop offset="0.55" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity={face.warm ? (light ? "0.09" : "0.06") : "0.05"} />
-          <stop offset="1" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity="0" />
+          <stop offset="0" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity={face.warm ? (light ? "0.22" : "0.16") : (light ? "0.18" : "0.14")} />
+          <stop offset="0.55" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity={face.warm ? (light ? "0.08" : "0.05") : (light ? "0.06" : "0.04")} />
+          <stop offset="1" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity="0" />
         </radialGradient>
         <clipPath id={clip}><circle cx="50" cy="50" r="45" /></clipPath>
         {showsHands && (

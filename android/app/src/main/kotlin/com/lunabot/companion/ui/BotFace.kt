@@ -619,34 +619,36 @@ private fun softBotPaletteForColor(color: String?): SoftBotPalette {
         else -> "black"
     }
     val (top, mid, edge, eye, warm) = when (key) {
-        "white" -> SwatchSpec(Color(0xFFFFFFFF), Color(0xFFF6F3EE), Color(0xFFDDD7CE), Color(0xFF1C1C1E), true)
-        "silver" -> SwatchSpec(Color(0xFFE6EBF2), Color(0xFFC1C9D4), Color(0xFF9AA4B2), Color(0xFF1C1C1E), false)
-        "blue" -> SwatchSpec(Color(0xFF6FA0F5), Color(0xFF3B76E1), Color(0xFF2656B3), Color(0xFFFEFEFE), false)
-        "cyan" -> SwatchSpec(Color(0xFF6DD4E6), Color(0xFF28A7BE), Color(0xFF197C90), Color(0xFFFEFEFE), false)
-        "orange" -> SwatchSpec(Color(0xFFF6B47B), Color(0xFFE48A42), Color(0xFFBD6824), Color(0xFFFEFEFE), true)
-        "yellow" -> SwatchSpec(Color(0xFFF7DE8C), Color(0xFFE5BE4D), Color(0xFFBE9627), Color(0xFF1C1C1E), true)
-        "purple" -> SwatchSpec(Color(0xFFB594EE), Color(0xFF845ED1), Color(0xFF613EA8), Color(0xFFFEFEFE), false)
-        "pink" -> SwatchSpec(Color(0xFFF39BC4), Color(0xFFDA659D), Color(0xFFB04277), Color(0xFFFEFEFE), true)
-        "green" -> SwatchSpec(Color(0xFF6FD298), Color(0xFF33A867), Color(0xFF207E4A), Color(0xFFFEFEFE), false)
-        "teal" -> SwatchSpec(Color(0xFF67CFC3), Color(0xFF2AA093), Color(0xFF1B776D), Color(0xFFFEFEFE), false)
-        "mint" -> SwatchSpec(Color(0xFF9BE8B8), Color(0xFF63CE8E), Color(0xFF3DA368), Color(0xFF1C1C1E), false)
-        "red" -> SwatchSpec(Color(0xFFEE8A86), Color(0xFFD45450), Color(0xFFA63431), Color(0xFFFEFEFE), true)
-        "coral" -> SwatchSpec(Color(0xFFF4A296), Color(0xFFE16E5E), Color(0xFFB84B3D), Color(0xFFFEFEFE), true)
-        "grey" -> SwatchSpec(Color(0xFFA7ABB2), Color(0xFF7C818A), Color(0xFF5A5F68), Color(0xFFFEFEFE), false)
-        else -> SwatchSpec(Color(0xFF33353A), Color(0xFF141518), Color(0xFF070709), Color(0xFFFDFEFD), false)
+        "white" -> SwatchSpec(Color(0xFFFFFFFF), Color(0xFFF5F2EC), Color(0xFFDCD6CC), Color(0xFF1C1C1E), true)
+        "silver" -> SwatchSpec(Color(0xFFEEF1F6), Color(0xFFD5DCE6), Color(0xFFB4BECA), Color(0xFF1C1E24), false)
+        "grey" -> SwatchSpec(Color(0xFFC7CCD4), Color(0xFF9FA6B2), Color(0xFF7E8591), Color(0xFF181A1F), false)
+        "blue" -> SwatchSpec(Color(0xFFDCEBFF), Color(0xFFB6D4FA), Color(0xFF8CB6EC), Color(0xFF182233), false)
+        "cyan" -> SwatchSpec(Color(0xFFD6F5FA), Color(0xFFA5E3EE), Color(0xFF7AC8D8), Color(0xFF13262B), false)
+        "teal" -> SwatchSpec(Color(0xFFD3F3EE), Color(0xFF9EDCD2), Color(0xFF74BFB4), Color(0xFF132624), false)
+        "green" -> SwatchSpec(Color(0xFFD8F2E2), Color(0xFFA8DFBE), Color(0xFF7DC49B), Color(0xFF16291E), false)
+        "mint" -> SwatchSpec(Color(0xFFDFF7EB), Color(0xFFB3E8CE), Color(0xFF89CFAF), Color(0xFF162920), false)
+        "yellow" -> SwatchSpec(Color(0xFFFFF4D1), Color(0xFFF7DF94), Color(0xFFE2C063), Color(0xFF2B2313), true)
+        "orange" -> SwatchSpec(Color(0xFFFFE7D4), Color(0xFFF7C49B), Color(0xFFE19E6E), Color(0xFF2E1E14), true)
+        "coral" -> SwatchSpec(Color(0xFFFFE0DA), Color(0xFFF6B7AC), Color(0xFFDE8F82), Color(0xFF2E1917), true)
+        "red" -> SwatchSpec(Color(0xFFFDE0E0), Color(0xFFF2B5B7), Color(0xFFD98C91), Color(0xFF2D1719), true)
+        "pink" -> SwatchSpec(Color(0xFFFCE2F0), Color(0xFFF2BEDB), Color(0xFFDA98BE), Color(0xFF2B1824), true)
+        "purple" -> SwatchSpec(Color(0xFFECE3FF), Color(0xFFCFC0F8), Color(0xFFAC98E5), Color(0xFF201833), false)
+        else -> SwatchSpec(Color(0xFF373A40), Color(0xFF191B1F), Color(0xFF0A0B0D), Color(0xFFF8FAFC), false)
     }
     val luminance = 0.299f * mid.red + 0.587f * mid.green + 0.114f * mid.blue
     val isLight = luminance > 0.55f
     val bounceTint = lerp(top, Color.White, 0.55f).copy(alpha = if (isLight) 0.26f else 0.16f)
     val blushTint = if (warm) {
-        Color(0xFFF5A3B0).copy(alpha = if (isLight) 0.24f else 0.18f)
+        Color(0xFFEB8B9E).copy(alpha = if (isLight) 0.22f else 0.16f)
+    } else if (isLight) {
+        Color(0xFFD495B8).copy(alpha = 0.18f)
     } else {
-        lerp(top, Color.White, 0.45f).copy(alpha = 0.16f)
+        lerp(top, Color.White, 0.45f).copy(alpha = 0.14f)
     }
     val innerEarTint = if (warm) {
-        Color(0xFFF2B4C2).copy(alpha = if (isLight) 0.52f else 0.36f)
+        lerp(edge, Color(0xFFF497AE), 0.45f).copy(alpha = if (isLight) 0.52f else 0.36f)
     } else {
-        lerp(top, Color.White, 0.55f).copy(alpha = if (isLight) 0.50f else 0.34f)
+        lerp(edge, Color.White, 0.52f).copy(alpha = if (isLight) 0.50f else 0.34f)
     }
     return SoftBotPalette(
         top = top,
