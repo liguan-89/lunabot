@@ -11,7 +11,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { CONTROL_WAITED } from "./control-client.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
-import { piDumpPath, piInstructionsAt, piTurns, type PiMcpConfig } from "./testing/pi-dump.ts";
+import { piDumpPath, piInstructionsAt, piTurns, type PiLaunch, type PiMcpConfig, type PiTurn } from "./testing/pi-dump.ts";
 import { openSse, type SseRecorder } from "./testing/sse.ts";
 import { withoutTurnClock } from "./testing/turn-clock-text.ts";
 
@@ -101,14 +101,20 @@ describe("a cloud computer starts only when the bot uses it", () => {
       ...(surface ? { body: JSON.stringify({ surface }) } : {}),
     }).then(response => response.json() as Promise<any>);
   };
+  /** Launches seen so far, by pid: startTurn truncates the log between turns, so a warm child's next prompt row can
+   * only be re-paired through the pid it carries. */
+  const launches = new Map<number, PiLaunch>();
+  const launchFor = (turn: PiTurn): PiLaunch | undefined => turn.launch ?? (turn.pid !== undefined ? launches.get(turn.pid) : undefined);
   /** The newest turn's launch, with the instructions in effect on it: pi sends the whole system prompt on a session's
    * first turn and only the note that replaced part of it afterwards, so the session's own launches rebuild it. */
   const dump = (): Promise<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig; pid?: number }> => until<{ cwd?: string; systemPrompt: string; mcpConfig: PiMcpConfig; pid?: number }>((): any => {
     const turns = piTurns(dumpFile);
+    for (const turn of turns) if (turn.launch?.pid !== undefined) launches.set(turn.launch.pid, turn.launch);
     const turn = turns.at(-1);
-    if (!turn?.launch) return null;
-    const session = turns.filter((candidate) => candidate.launch === turn.launch);
-    return { cwd: turn.launch.cwd, systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: turn.launch.mcpConfig ?? {}, pid: turn.launch.pid };
+    const launch = turn ? launchFor(turn) : undefined;
+    if (!turn || !launch) return null;
+    const session = turns.filter((candidate) => launchFor(candidate) === launch);
+    return { cwd: launch.cwd, systemPrompt: piInstructionsAt(session, session.length - 1), mcpConfig: launch.mcpConfig ?? {}, pid: launch.pid };
   }, Boolean);
   /** One JSON-RPC request on the mounted cloud computer, exactly as
    * harness-mcp-proxy sends it for the engine. */
@@ -275,14 +281,14 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
   it("a plain chat on Cloud computer makes no relay call at all", async () => {
     const bot = await cloudBot("Chatter");
-    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi" }] };
+    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi", gateFile: finishFile }] };
     savePlan();
     const before = requests.length;
     const sent = await startTurn(bot.id, "hi");
     expect(sent.mcpConfig.mcpServers!.computer!.args).toEqual([expect.stringMatching(/harness-mcp-proxy\.(?:ts|js)$/), "computer"]);
     expect(sent.systemPrompt).toContain("assigned cloud computer");
     const listed = await computerCall(sent, "tools/list");
-    expect(listed.body.result.tools.map((tool: { name: string }) => tool.name)).toContain("screenshot");
+    expect(listed.body.result?.tools.map((tool: { name: string }) => tool.name), JSON.stringify(listed)).toContain("screenshot");
     await finish(bot.id);
     expect(withoutTurnClock((await lastReply(bot.id))?.text ?? "")).toContain("reply to: hi");
     expect(requests.slice(before)).toEqual([]);
@@ -315,7 +321,7 @@ describe("a cloud computer starts only when the bot uses it", () => {
 
   it("a room message to a member on Cloud computer makes no relay call either", async () => {
     const bot = await cloudBot("Room member");
-    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi" }] };
+    plans[bot.id] = { script: [{ key: "chat", match: ["hi"], repeat: true, steps: [], reply: "reply to: hi", gateFile: finishFile }] };
     savePlan();
     const { group } = await apiOk("POST", "/api/groups", { name: "Lazy room", memberIds: [bot.id] });
     await apiOk("PATCH", `/api/groups/${group.id}/setup`, { action: "skip" });

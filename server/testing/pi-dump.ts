@@ -26,6 +26,9 @@ export interface PiLaunch {
 export interface PiTurn {
   /** The launch the turn ran on; null before the first launch line. */
   launch: PiLaunch | null;
+  /** The pid of the process that was given the prompt: a warm child's later turns can be re-paired with their launch
+   * after the log was truncated between turns, when no launch line survives in what remains. */
+  pid?: number;
   /** The message the turn was given: system prompt, time line and the person's words together. */
   prompt: string;
   images?: unknown[];
@@ -58,7 +61,7 @@ export function piTurns(path: string): PiTurn[] {
     const message = row.prompt?.message;
     if (typeof message === "string") {
       const own = typeof row.pid === "number" ? byPid.get(row.pid) ?? launch : launch;
-      turns.push({ launch: own, prompt: message, ...(Array.isArray(row.prompt.images) ? { images: row.prompt.images } : {}) });
+      turns.push({ launch: own, ...(typeof row.pid === "number" ? { pid: row.pid } : {}), prompt: message, ...(Array.isArray(row.prompt.images) ? { images: row.prompt.images } : {}) });
     }
   }
   return turns;
