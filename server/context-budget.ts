@@ -24,6 +24,16 @@ export function compactBudget(window: number, compactAt?: number, nativeCompactA
   return Math.max(1, Math.floor(Math.min(configured, window * 0.9, positive(nativeCompactAt) ? nativeCompactAt * 0.9 : Infinity)));
 }
 
+/** pi compacts by itself once the context passes `contextWindow - 16384` (its
+ * reserveTokens): that is where the engine's own compaction boundary sits.
+ * Engines without native compaction report no boundary. */
+const PI_COMPACT_RESERVE_TOKENS = 16_384;
+export function nativeCompactTokens(instance: { driverKind: string; models?: ModelCatalog }): number | undefined {
+  if (instance.driverKind !== "piAgent") return undefined;
+  const at = contextWindowFor(instance.models?.default, instance.models) - PI_COMPACT_RESERVE_TOKENS;
+  return at > 0 ? at : undefined;
+}
+
 export function shouldCompact(input: { contextTokens?: number; estimatedBytes: number; budget: number; floor?: number; window: number; nativeCompactAt?: number }): boolean {
   // Summed input across tool rounds is NOT a context-window measurement.
   const size = positive(input.contextTokens) ? input.contextTokens : Math.ceil(input.estimatedBytes / 4);

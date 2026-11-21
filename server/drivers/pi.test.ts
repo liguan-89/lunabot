@@ -331,7 +331,7 @@ describe("PiDriver catalog (fake CLI)", () => {
       const refresh = readFileSync(dump, "utf8").trim().split("\n").map((line) => JSON.parse(line));
       expect(refresh.map((entry) => entry.argv)).toEqual([
         ["update", "--models", "--no-approve"],
-        ["--mode", "rpc", "--no-session"],
+        ["--mode", "rpc"],
       ]);
     } finally {
       await instance.dispose();
@@ -460,6 +460,7 @@ describe("PiDriver turns (fake CLI)", () => {
       "content.delta",
       "content.delta",
       "content.delta",
+      "thread.token-usage.updated",
       "item.completed",
       "turn.completed",
     ]);
@@ -1136,7 +1137,7 @@ describe("PiDriver turns (fake CLI)", () => {
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as { argv: string[]; envConfigured: string[] });
-    expect(rows.some((row) => row.argv.join(" ") === "--mode rpc --no-session")).toBe(true);
+    expect(rows.some((row) => row.argv.join(" ") === "--mode rpc")).toBe(true);
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       expect(row.envConfigured).toContain("PATH");
@@ -1262,6 +1263,7 @@ describe("PiDriver turns (fake CLI)", () => {
       "item.started",
       "item.completed",
       "content.delta",
+      "thread.token-usage.updated",
       "item.completed",
       "turn.completed",
     ]);
@@ -1496,6 +1498,105 @@ describe("PiDriver turns (fake CLI)", () => {
     };
     expect(written.providers.omlx.baseUrl).toBe("http://127.0.0.1:8080/v1");
     expect(written.providers.omlx.models.some((m) => m.id === "MiniMax-M3-4bit")).toBe(true);
+  });
+});
+
+describe("PiDriver cacheKeepWarm (fake CLI)", () => {
+  let instance: ProviderInstance;
+  let recorder: EventRecorder;
+
+  const create = async (environment: Record<string, string> = {}) => {
+    instance = await PiDriver.create({
+      instanceId: "pi-test",
+      displayName: "pi Test",
+      environment,
+      enabled: true,
+      config: { cli: FAKE_CLI, fullAuto: false },
+    });
+    recorder = recordEvents(instance.adapter);
+  };
+
+  beforeEach(() => {
+    ensureDirs();
+    chmodSync(FAKE_CLI, 0o755);
+  });
+  afterEach(async () => {
+    await instance?.dispose();
+  });
+
+  const sessionFileOf = (turnId: string) =>
+    (recorder.events.find((e) => e.type === "session.started" && e.turnId === turnId) as { sessionId: string } | undefined)?.sessionId;
+
+  it("advertises the capability and refuses keep-warm pings on BYOK", async () => {
+    await create();
+    expect(instance.adapter.cacheKeepWarm).toBeDefined();
+    await expect(instance.adapter.cacheKeepWarm!.ping!("t-nothing", {} as never)).resolves.toEqual({ ok: false, reason: expect.stringMatching(/provider key/) });
+  });
+
+  it("refuses to summarize a thread with no live warm session", async () => {
+    await create();
+    await expect(instance.adapter.cacheKeepWarm!.compact!("t-cold", { instructions: "summarize" })).resolves.toMatchObject({ ok: false });
+  });
+
+  it("forks the warm session and compacts the fork, then the next turn rides it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-warm-compact-"));
+    const dump = join(dir, "rpc.jsonl");
+    await create({ FAKE_PI_DUMP: dump });
+    writeFileSync(dump, "");
+    const rows = () =>
+      readFileSync(dump, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as Record<string, unknown>);
+    const spawns = () => rows().filter((row) => "argv" in row).length;
+    const threadId = "t-pi-warm-compact-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const before = sessionFileOf(first.turnId)!;
+    expect(before).toMatch(/pi-session-\d+\.json$/);
+    expect(spawns()).toBe(1);
+
+    const result = await instance.adapter.cacheKeepWarm!.compact!(threadId, { instructions: "keep the goal", session: before });
+    expect(result).toMatchObject({ ok: true, sessionBefore: before, input: 1500, output: 80, cacheRead: 200, costUsd: 0.0042 });
+    const fork = (result as { session: string }).session;
+    expect(fork).toBe(`${before}.fork1.json`);
+    expect(rows().some((row) => row.clone === fork)).toBe(true);
+    expect(rows().some((row) => (row.compact as { instructions?: string } | undefined)?.instructions === "keep the goal")).toBe(true);
+
+    const second = await instance.adapter.sendTurn({ threadId, text: "second", resumeCursor: fork });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+    expect(spawns()).toBe(1);
+    expect(sessionFileOf(second.turnId)).toBe(fork);
+    // The fork carries the compacted context — the turn runs on it without a switch.
+    expect(rows().filter((row) => row.switchSession)).toHaveLength(0);
+  });
+
+  it("keeps the warm child on the fork when the compact itself is refused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "omb-pi-warm-compact-fail-"));
+    const dump = join(dir, "rpc.jsonl");
+    await create({ FAKE_PI_DUMP: dump, FAKE_PI_COMPACT_FAIL: "1" });
+    const threadId = "t-pi-warm-compact-fail-" + randomUUID();
+
+    const first = await instance.adapter.sendTurn({ threadId, text: "first" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    const before = sessionFileOf(first.turnId)!;
+
+    const result = await instance.adapter.cacheKeepWarm!.compact!(threadId, { instructions: "x", session: before });
+    expect(result.ok).toBe(false);
+
+    const second = await instance.adapter.sendTurn({ threadId, text: "second", resumeCursor: before });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === second.turnId);
+    // The child was kept (no respawn) — it already sits on the fork it cloned,
+    // and that fork holds the same history, so the turn lands there.
+    expect(sessionFileOf(second.turnId)).toBe(`${before}.fork1.json`);
+  });
+
+  it("hold keeps a parked child and reports false for a cold thread", async () => {
+    await create();
+    expect(instance.adapter.cacheKeepWarm!.hold!("t-cold-hold", null)).toBe(false);
+    const threadId = "t-pi-warm-hold-" + randomUUID();
+    const first = await instance.adapter.sendTurn({ threadId, text: "first" });
+    await recorder.until((e) => e.type === "turn.completed" && e.turnId === first.turnId);
+    expect(instance.adapter.cacheKeepWarm!.hold!(threadId, null)).toBe(true);
+    expect(instance.adapter.cacheKeepWarm!.hold!(threadId, Date.now() + 60_000)).toBe(true);
   });
 });
 

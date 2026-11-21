@@ -345,7 +345,7 @@ export interface ProviderAdapter {
   /** `ping` sends one tool-less forked request without touching the thread's session; `hold` keeps the live session open until
    * `until` (epoch ms; null releases) and says whether one exists. `compact` summarizes the conversation with the engine's own
    * compaction on a fork of its session (`session`: the one it must still be on), so the next turn starts small; on success the
-   * thread's process is closed and `session` is the conversation's session from now on. */
+   * thread's process is closed or left warm on the fork, and `session` is the conversation's session from now on. */
   cacheKeepWarm?: {
     ping(threadId: ThreadId, options?: { signal?: AbortSignal }): Promise<CacheWarmPingResult>;
     hold(threadId: ThreadId, until: number | null): boolean;
