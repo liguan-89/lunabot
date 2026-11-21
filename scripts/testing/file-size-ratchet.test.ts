@@ -16,14 +16,14 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 16083,
-  "src/state/store.tsx": 3382,
+  "server/index.ts": 16088,
+  "src/state/store.tsx": 3384,
   "electron/main.mjs": 3181,
-  "server/store.ts": 2272,
+  "server/store.ts": 2277,
   "src/components/Sidebar.tsx": 1693,
   "server/routines.ts": 1571,
-  "server/drivers/agents-call.ts": 1094,
-  "server/drivers/agents-catalog.ts": 1094,
+  "server/drivers/agents-call.ts": 1096,
+  "server/drivers/agents-catalog.ts": 1096,
   "server/browser-live.ts": 1014,
   // The hosted account service: one file holds the control-plane calls, the
   // credential document and the managed-endpoint watchdog, because they share
@@ -32,7 +32,7 @@ const LINES: Record<string, number> = {
   "electron/companion-account-service.mjs": 1034,
   "shared/wire.ts": 1018,
   "src/components/ComputerPanel.tsx": 1782,
-  "src/components/RoutineCalendarPage.tsx": 1622,
+  "src/components/RoutineCalendarPage.tsx": 1623,
   "server/config.ts": 1297,
   "src/components/ChatView.tsx": 1314,
   "server/routine-requests.ts": 1502,
