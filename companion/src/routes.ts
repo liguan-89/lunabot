@@ -172,6 +172,7 @@ const ALLOWED: ReadonlyArray<{ method: string; path: RegExp }> = [
   // The harness validates the live catalog and refuses changes mid-turn.
   { method: "PATCH", path: /^\/api\/bots\/[\w-]+\/model$/ },
   { method: "POST", path: /^\/api\/bots\/[\w-]+\/avatar\/generate$/ },
+  { method: "POST", path: /^\/api\/bots\/[\w-]+\/avatar\/states\/(?:generate|upload)$/ },
   // The proxy applies a second, per-device capability check.
   CLOUD_DESKTOP_JOIN_ROUTE,
 

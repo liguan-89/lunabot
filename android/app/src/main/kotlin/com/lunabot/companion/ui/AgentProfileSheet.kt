@@ -177,6 +177,9 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
     val currentTask = live?.let { it.forTask(opened?.threadId ?: it.threadId) }
 
     var prompt by rememberSaveable { mutableStateOf("") }
+    var selectedDynamicState by rememberSaveable { mutableStateOf(DynamicAvatarStates.IDLE) }
+    var selectedVideoStyle by rememberSaveable { mutableStateOf(AvatarVideoStyle.AUTO.wire) }
+    var videoGenProgress by remember { mutableStateOf<String?>(null) }
     var voices by remember { mutableStateOf<List<Voice>>(emptyList()) }
     var config by remember { mutableStateOf<ConfigStatus?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -967,6 +970,199 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                         )
                     }
                     ProfileFooter(ProfileRules.generateFooter(config))
+
+                    if (!creating) {
+                        val dynamicStates = current.avatarStates.orEmpty()
+                        val seedanceReady = config?.seedance?.isReady == true
+                        ProfileSectionLabel("动态形象视频")
+                        ProfileCard {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BotAvatar(
+                                    bot = current,
+                                    size = 76.dp,
+                                    fallback = AvatarFallback.PRESET,
+                                    avatarStateOverride = selectedDynamicState,
+                                    breakout = selectedDynamicState == DynamicAvatarStates.WORKING && !dynamicStates.isEmpty(),
+                                )
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    Text(
+                                        text = if (dynamicStates.isEmpty()) "尚未配置动态视频" else "已配置 ${dynamicStates.size} / 5 个状态",
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = minisInk,
+                                    )
+                                    Text(
+                                        text = videoGenProgress ?: if (seedanceReady) {
+                                            "使用电脑端 Seedance（720p）生成循环视频"
+                                        } else {
+                                            "请先在电脑端「设置 → AI → 视频生成」配置 Seedance 密钥"
+                                        },
+                                        fontSize = 12.5.sp,
+                                        color = minisSecondary,
+                                    )
+                                }
+                            }
+                            ProfileCardDivider()
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                DynamicAvatarStates.ALL.forEach { stateKey ->
+                                    val active = selectedDynamicState == stateKey
+                                    val hasMedia = !dynamicStates[stateKey].isNullOrBlank()
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(CircleShape)
+                                            .background(if (active) minisInk else minisGrouped)
+                                            .clickable(role = Role.RadioButton) { selectedDynamicState = stateKey }
+                                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    ) {
+                                        Text(
+                                            text = if (hasMedia) "${DynamicAvatarStates.label(stateKey)} ✓" else DynamicAvatarStates.label(stateKey),
+                                            fontSize = 13.sp,
+                                            fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (active) minisPage else minisInk,
+                                        )
+                                    }
+                                }
+                            }
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                AvatarVideoStyle.entries.forEach { style ->
+                                    val active = selectedVideoStyle == style.wire
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(10.dp))
+                                            .background(if (active) minisAccent.copy(alpha = 0.16f) else minisGrouped)
+                                            .border(
+                                                width = if (active) 1.dp else 0.dp,
+                                                color = if (active) minisAccent else Color.Transparent,
+                                                shape = RoundedCornerShape(10.dp),
+                                            )
+                                            .clickable(role = Role.RadioButton) { selectedVideoStyle = style.wire }
+                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                    ) {
+                                        Text(
+                                            text = style.label,
+                                            fontSize = 12.5.sp,
+                                            color = if (active) minisAccent else minisSecondary,
+                                        )
+                                    }
+                                }
+                            }
+                            ProfileCardDivider()
+                            ProfileActionRow(
+                                text = "一键生成核心三态（待机 / 工作中 / 说话）",
+                                painter = R.drawable.ic_sparkles,
+                                enabled = !busy && seedanceReady,
+                                onClick = {
+                                    scope.launch {
+                                        busy = true
+                                        saveError = null
+                                        try {
+                                            val target = liveBot() ?: return@launch
+                                            var latest = target
+                                            DynamicAvatarStates.CORE_PACK.forEachIndexed { idx, st ->
+                                                videoGenProgress = "正在生成 ${DynamicAvatarStates.label(st)} (${idx + 1}/${DynamicAvatarStates.CORE_PACK.size})…"
+                                                val updated = session.generateAvatarState(
+                                                    forBot = latest,
+                                                    state = st,
+                                                    style = selectedVideoStyle,
+                                                    prompt = prompt.trim().ifEmpty { null },
+                                                )
+                                                if (updated == null) {
+                                                    saveError = NoticeMessageFormat.humanize(
+                                                        session.actionError ?: "生成 ${DynamicAvatarStates.label(st)} 失败，请稍后重试。",
+                                                    )
+                                                    session.actionError = null
+                                                    return@launch
+                                                }
+                                                latest = updated
+                                            }
+                                        } finally {
+                                            videoGenProgress = null
+                                            busy = false
+                                        }
+                                    }
+                                },
+                            )
+                            ProfileCardDivider()
+                            ProfileActionRow(
+                                text = "单独生成「${DynamicAvatarStates.label(selectedDynamicState)}」视频",
+                                painter = R.drawable.ic_sparkles,
+                                enabled = !busy && seedanceReady,
+                                onClick = {
+                                    scope.launch {
+                                        busy = true
+                                        saveError = null
+                                        videoGenProgress = "正在生成 ${DynamicAvatarStates.label(selectedDynamicState)}…"
+                                        try {
+                                            val target = liveBot() ?: return@launch
+                                            val updated = session.generateAvatarState(
+                                                forBot = target,
+                                                state = selectedDynamicState,
+                                                style = selectedVideoStyle,
+                                                prompt = prompt.trim().ifEmpty { null },
+                                            )
+                                            if (updated == null) {
+                                                saveError = NoticeMessageFormat.humanize(
+                                                    session.actionError ?: "动态视频生成失败，请稍后重试。",
+                                                )
+                                                session.actionError = null
+                                            }
+                                        } finally {
+                                            videoGenProgress = null
+                                            busy = false
+                                        }
+                                    }
+                                },
+                            )
+                            if (!dynamicStates[selectedDynamicState].isNullOrBlank()) {
+                                ProfileCardDivider()
+                                ProfileActionRow(
+                                    text = "清除「${DynamicAvatarStates.label(selectedDynamicState)}」视频",
+                                    icon = Icons.Filled.Delete,
+                                    enabled = !busy,
+                                    destructive = true,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val target = liveBot() ?: return@launch
+                                                val next = target.avatarStates.orEmpty() - selectedDynamicState
+                                                session.updateProfile(
+                                                    BotProfilePatch(
+                                                        avatarStates = if (next.isEmpty()) BotProfilePatch.AvatarStates.Clear else BotProfilePatch.AvatarStates.Set(next),
+                                                    ),
+                                                    target,
+                                                )
+                                            } finally {
+                                                busy = false
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                        }
+                        ProfileFooter("视频生成由电脑端完成并自动缓存到手机，通话与对话时自动按状态无缝切换。")
+                    }
 
                     ProfileSectionLabel("身份信息")
                     ProfileCard {

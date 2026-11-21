@@ -1412,6 +1412,8 @@ private fun LoadedChat(
 
                 ChatHeader(
                     chat = chat,
+                    tail = tail,
+                    listening = voiceCardOpen || dictationListening,
                     unreadElsewhere = remember(state, chat) {
                         (state.unreadCount - if (chat.unread) 1 else 0).coerceAtLeast(0)
                     },
@@ -2007,6 +2009,8 @@ internal fun MuseDrawerButton(
 @Composable
 private fun ChatHeader(
     chat: Chat,
+    tail: TranscriptTail,
+    listening: Boolean,
     unreadElsewhere: Int,
     onBack: () -> Unit,
     onOpenDrawer: (() -> Unit)?,
@@ -2063,14 +2067,36 @@ private fun ChatHeader(
                         .semantics { contentDescription = "${chat.name}，打开控制中心" },
                     contentAlignment = Alignment.Center,
                 ) {
+                    val headerMood = when {
+                        listening -> FaceMood.LISTENING
+                        tail == TranscriptTail.STREAM -> FaceMood.SPEAKING
+                        tail == TranscriptTail.REASONING -> FaceMood.THINKING
+                        tail == TranscriptTail.WORKING || chat.busy -> FaceMood.WORKING
+                        else -> FaceMood.IDLE
+                    }
+                    val headerState = when (headerMood) {
+                        FaceMood.LISTENING -> MausState.LISTENING
+                        FaceMood.WORKING -> MausState.WORKING
+                        FaceMood.THINKING -> MausState.THINKING
+                        else -> MausState.IDLE
+                    }
                     ChatAvatar(
                         chat = chat,
                         size = 74.dp,
+                        state = headerState,
                         animated = true,
                         contentDescription = null,
                         fallback = AvatarFallback.PRESET,
                         motion = AvatarMotion.SHEEN,
-                        mood = if (chat.busy) FaceMood.THINKING else FaceMood.IDLE,
+                        mood = headerMood,
+                        breakout = headerMood == FaceMood.WORKING,
+                        avatarStateOverride = when (headerMood) {
+                            FaceMood.SPEAKING -> DynamicAvatarStates.TALKING
+                            FaceMood.LISTENING -> DynamicAvatarStates.LISTENING
+                            FaceMood.THINKING -> DynamicAvatarStates.THINKING
+                            FaceMood.WORKING -> DynamicAvatarStates.WORKING
+                            else -> DynamicAvatarStates.IDLE
+                        },
                     )
                 }
                 Row(

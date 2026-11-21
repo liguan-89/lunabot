@@ -72,6 +72,9 @@ internal fun BotAvatar(
     mood: FaceMood = FaceMood.IDLE,
     drowsy: Boolean = false,
     crown: Boolean = false,
+    breakout: Boolean = false,
+    audioLevel: Float = 0f,
+    avatarStateOverride: String? = null,
 ) {
     val crop = bot.avatarCrop ?: AvatarCrop.MASCOT
     val path = bot.avatarUrl
@@ -134,6 +137,35 @@ internal fun BotAvatar(
                 .clip(CircleShape)
                 .portraitMotion(motion),
         )
+        return
+    }
+
+    val dynamicStates = bot.avatarStates?.filterValues { it.isNotBlank() }
+    if (!dynamicStates.isNullOrEmpty()) {
+        val targetState = DynamicAvatarStates.fromMausAndMood(state, mood, avatarStateOverride)
+        val dynamicShape = if (crop == AvatarCrop.MASCOT) CircleShape else BotAvatarRules.shape(crop, size)
+        DynamicAvatarMedia(
+            avatarStates = dynamicStates,
+            state = targetState,
+            size = size,
+            shape = dynamicShape,
+            modifier = named.portraitMotion(motion),
+            fallbackUrl = path,
+            breakout = breakout,
+            audioLevel = audioLevel,
+        ) {
+            PresetBotAvatar(
+                color = bot.color,
+                size = size,
+                bodyId = bot.mascotBody,
+                contentDescription = null,
+                motion = AvatarMotion.NONE,
+                mood = mood,
+                drowsy = drowsy,
+                seed = bot.id.hashCode(),
+                crown = false,
+            )
+        }
         return
     }
 
@@ -221,6 +253,9 @@ internal fun ChatAvatar(
     mood: FaceMood = FaceMood.IDLE,
     drowsy: Boolean = false,
     crown: Boolean = false,
+    breakout: Boolean = false,
+    audioLevel: Float = 0f,
+    avatarStateOverride: String? = null,
 ) {
     when (chat) {
         is Chat.BotChat -> BotAvatar(
@@ -235,6 +270,9 @@ internal fun ChatAvatar(
             mood = mood,
             drowsy = drowsy,
             crown = crown,
+            breakout = breakout,
+            audioLevel = audioLevel,
+            avatarStateOverride = avatarStateOverride,
         )
         is Chat.RoomChat -> PresetBotAvatar(
             color = "blue",

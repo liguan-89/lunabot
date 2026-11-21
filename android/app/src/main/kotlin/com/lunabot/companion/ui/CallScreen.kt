@@ -259,6 +259,8 @@ internal fun CallScreen(
             CallPhase.SENDING, CallPhase.WORKING -> MausState.THINKING
             CallPhase.SPEAKING -> MausState.HAPPY
         },
+        speaking = phase == CallPhase.SPEAKING,
+        audioLevel = if (phase == CallPhase.SPEAKING) 0.55f else 0f,
         onPrimary = ::interrupt,
         onMute = ::toggleMute,
         onHangUp = ::hangUp,

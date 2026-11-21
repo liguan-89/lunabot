@@ -1134,12 +1134,15 @@ private fun RosterHero(
                 ChatAvatar(
                     chat = summary.chat,
                     size = 76.dp,
+                    state = if (summary.chat.busy) MausState.WORKING else MausState.IDLE,
                     animated = false,
                     contentDescription = null,
                     fallback = AvatarFallback.PRESET,
                     motion = AvatarMotion.BREATH,
+                    mood = if (summary.chat.busy) FaceMood.WORKING else FaceMood.IDLE,
                     drowsy = true,
                     crown = chief,
+                    breakout = summary.chat.busy,
                 )
                 Row(
                     modifier = Modifier
@@ -1666,12 +1669,15 @@ private fun ChatRow(
                 ChatAvatar(
                     chat = chat,
                     size = 46.dp,
+                    state = if (chat.busy) MausState.WORKING else face,
                     animated = false,
                     contentDescription = "${chat.name} 头像",
                     // Rows get only the sweep: a list of discs all breathing in
                     // place would pull the eye away from the names.
                     fallback = AvatarFallback.PRESET,
                     motion = AvatarMotion.SHEEN,
+                    mood = if (chat.busy) FaceMood.WORKING else FaceMood.IDLE,
+                    breakout = chat.busy,
                 )
                 when {
                     chat.busy -> Box(

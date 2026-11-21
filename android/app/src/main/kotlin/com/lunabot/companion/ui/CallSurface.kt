@@ -80,11 +80,27 @@ internal fun CallSurface(
     controlsEnabled: Boolean,
     bottomClearance: Dp,
     avatarState: MausState,
+    speaking: Boolean = false,
+    audioLevel: Float = 0f,
     onPrimary: () -> Unit,
     onSecondary: () -> Unit = {},
     onMute: () -> Unit,
     onHangUp: () -> Unit,
 ) {
+    val dynamicState = when {
+        speaking -> DynamicAvatarStates.TALKING
+        avatarState == MausState.THINKING -> DynamicAvatarStates.THINKING
+        avatarState == MausState.WORKING -> DynamicAvatarStates.WORKING
+        avatarState == MausState.LISTENING -> DynamicAvatarStates.LISTENING
+        else -> DynamicAvatarStates.IDLE
+    }
+    val avatarMood = when {
+        speaking -> FaceMood.SPEAKING
+        avatarState == MausState.THINKING -> FaceMood.THINKING
+        avatarState == MausState.WORKING -> FaceMood.WORKING
+        avatarState == MausState.LISTENING -> FaceMood.LISTENING
+        else -> FaceMood.IDLE
+    }
     val statusText = if (muted) "$phase · 已静音" else phase
     BackHandler {
         if (expanded) onExpandedChange(false) else onHangUp()
@@ -106,6 +122,9 @@ internal fun CallSurface(
                 controlsEnabled = controlsEnabled,
                 bottomClearance = bottomClearance,
                 avatarState = avatarState,
+                avatarMood = avatarMood,
+                dynamicState = dynamicState,
+                audioLevel = audioLevel,
                 onPrimary = onPrimary,
                 onSecondary = onSecondary,
                 onMute = onMute,
@@ -159,17 +178,20 @@ internal fun CallSurface(
         ) {
             Spacer(Modifier.weight(1f))
 
-            // Muse serene centerpiece: breathing warm-linen ambient aura + floating avatar.
+            // Muse serene centerpiece: large rounded portrait card when dynamic avatar is configured,
+            // otherwise breathing warm-linen ambient aura + floating avatar.
+            val hasDynamicAvatar = !bot.avatarStates.isNullOrEmpty()
             Box(
-                modifier = Modifier.size(228.dp),
+                modifier = Modifier.size(if (hasDynamicAvatar) 248.dp else 228.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Canvas(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            scaleX = haloScale
-                            scaleY = haloScale
+                            val speakingBoost = if (speaking) 1.04f + audioLevel * 0.06f else 1f
+                            scaleX = haloScale * speakingBoost
+                            scaleY = haloScale * speakingBoost
                         },
                 ) {
                     drawCircle(
@@ -182,11 +204,15 @@ internal fun CallSurface(
                 }
                 BotAvatar(
                     bot = bot,
-                    size = 140.dp,
+                    size = if (hasDynamicAvatar) 216.dp else 140.dp,
                     state = avatarState,
                     animated = true,
                     contentDescription = "${bot.name} 头像",
                     fallback = AvatarFallback.PRESET,
+                    mood = avatarMood,
+                    breakout = hasDynamicAvatar,
+                    audioLevel = audioLevel,
+                    avatarStateOverride = dynamicState,
                 )
             }
 
@@ -313,6 +339,9 @@ private fun BoxScope.FloatingCallCard(
     controlsEnabled: Boolean,
     bottomClearance: Dp,
     avatarState: MausState,
+    avatarMood: FaceMood,
+    dynamicState: String,
+    audioLevel: Float,
     onPrimary: () -> Unit,
     onSecondary: () -> Unit,
     onMute: () -> Unit,
@@ -389,6 +418,9 @@ private fun BoxScope.FloatingCallCard(
                 animated = true,
                 contentDescription = null,
                 fallback = AvatarFallback.PRESET,
+                mood = avatarMood,
+                audioLevel = audioLevel,
+                avatarStateOverride = dynamicState,
             )
             Column(
                 modifier = Modifier
