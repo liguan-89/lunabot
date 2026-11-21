@@ -152,9 +152,9 @@ export function createSideJobs(deps: SideJobsDeps): SideJobs {
     };
 
   /** Whatever the lookup throws reads as no helper: a helper never fails a job or the turn waiting on one. */
-  function usableHelper(): { instance: SideJobInstance; call: TextCall; model?: string } | null {
+  function usableHelper(job: SideJob): { instance: SideJobInstance; call: TextCall; model?: string } | null {
     try {
-      return findHelper();
+      return findHelper(job);
     } catch (error) {
       // A JSON error can quote the text it failed on.
       const why = error instanceof SyntaxError ? "invalid JSON" : error instanceof Error ? error.message : "unknown";
@@ -163,7 +163,7 @@ export function createSideJobs(deps: SideJobsDeps): SideJobs {
     }
   }
 
-  function findHelper(): { instance: SideJobInstance; call: TextCall; model?: string } | null {
+  function findHelper(job: SideJob): { instance: SideJobInstance; call: TextCall; model?: string } | null {
     const helper = deps.helper();
     if (!helper) {
       say(null);
@@ -177,14 +177,16 @@ export function createSideJobs(deps: SideJobsDeps): SideJobs {
     const instance = deps.instance(helper.instanceId);
     if (!instance) return unused(`the helper instance ${name} is not connected`);
     if (!instance.enabled) return unused(`the helper instance ${name} is switched off`);
-    if (!instance.generateText) return unused(`the helper instance ${name} cannot make a one-off text call`);
+    // The helper serves through the engine's own one-off call, so a job-scoped one stays scoped here too.
+    const scoped = instance.oneOffTextJobs && !instance.oneOffTextJobs.includes(job) ? undefined : instance.generateText;
+    if (!scoped) return unused(`the helper instance ${name} cannot make a one-off text call${instance.generateText ? " for this job" : ""}`);
     const refusal = deps.refusal(instance);
     if (refusal) return unused(`the helper instance ${name} is not used (${refusal})`);
     if (helper.model && deps.modelAllowed && !deps.modelAllowed({ instanceId: helper.instanceId, model: helper.model })) {
       return unused(`the helper model ${JSON.stringify(helper.model)} is not assigned to this workspace`);
     }
     say(`small writing jobs for bots whose engine has no one-off text call are written by ${name}${helper.model ? ` (${helper.model})` : ""}`);
-    return { instance, call: instance.generateText.bind(instance), ...(helper.model ? { model: helper.model } : {}) };
+    return { instance, call: scoped.bind(instance), ...(helper.model ? { model: helper.model } : {}) };
   }
 
   return {
@@ -206,7 +208,7 @@ export function createSideJobs(deps: SideJobsDeps): SideJobs {
         return { via: "engine", generateText: booked(job, bot, own, call, { kind: "bot", botId: bot.id }, () => ({ fallback: ownFallback(bot, own) })) };
       }
       if (!helperModelAllowed(bot)) return null;
-      const helper = usableHelper();
+      const helper = usableHelper(job);
       if (!helper) return null;
       return { via: "helper", generateText: booked(job, bot, helper.instance, helper.call, { kind: "helper", botId: bot.id, job }, () => (helper.model ? { model: helper.model } : {})) };
     },
