@@ -88,6 +88,15 @@ export function noticeRecordOf(event: z.infer<typeof phoneNotice>): NoticeRecord
   return record;
 }
 
+/**
+ * The shade as the phone last read it: every active notification key across the person's ticked packages. The inbox
+ * reconciles to it — a record whose key is not here was dismissed, withdrawn or posted while the listener was unbound.
+ */
+export const phoneNoticeShade = z.object({
+  kind: z.literal("notice-shade"),
+  keys: z.array(z.string().min(1).max(300)).max(500),
+}).strict();
+
 /** One text a notification key showed, oldest first in the inbox's per-key history. */
 export interface NoticeLine {
   title: string;

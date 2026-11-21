@@ -4,11 +4,14 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.lunabot.companion.OpenMausApp
+import com.lunabot.companion.core.PhoneShadeEvent
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.storage.ChatPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -26,12 +29,54 @@ import kotlinx.coroutines.withTimeoutOrNull
  */
 class NoticeRelay : NotificationListenerService() {
 
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var shadeJob: Job? = null
+
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         Log.i(TAG, "posted pkg=${sbn?.packageName}")
         if (sbn == null) return
         if (sbn.packageName == packageName) return
         runCatching { PhoneNoticeStore.record(sbn) }
         runCatching { relay(sbn) }
+    }
+
+    /** Binding re-reads the shade: a restart on either side reconciles back to what is actually posted. */
+    override fun onListenerConnected() {
+        queueShade(null)
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification?) {
+        queueShade(sbn?.key)
+    }
+
+    /**
+     * Removals arrive in bursts (clear-all fires one per key): debounce into one
+     * post carrying the keys still on the shade for the ticked packages.
+     * [removedKey] is excluded explicitly — on some builds the removed entry
+     * still shows in the active list while this callback runs.
+     */
+    private fun queueShade(removedKey: String?) {
+        shadeJob?.cancel()
+        shadeJob = scope.launch {
+            delay(SHADE_DEBOUNCE_MS)
+            postShade(removedKey)
+        }
+    }
+
+    private suspend fun postShade(removedKey: String?) {
+        val prefs = ChatPreferences(this)
+        if (!prefs.phoneNoticeShare.value) return
+        val ticked = prefs.phoneNoticeApps.value
+        if (ticked.isEmpty()) return
+        val keys = shadeKeys(activeNotifications.orEmpty(), ticked, packageName, removedKey)
+        val app = applicationContext as? OpenMausApp ?: return
+        app.session.connect()
+        val live = withTimeoutOrNull(CONNECT_TIMEOUT_MS) {
+            app.session.status.first { it is Session.Status.Live }
+        } ?: run { Log.i(TAG, "shade: session not live"); return }
+        if (!app.session.postPhoneShade(PhoneShadeEvent(keys = keys))) {
+            Log.i(TAG, "shade post failed")
+        }
     }
 
     private fun relay(sbn: StatusBarNotification) {
@@ -74,5 +119,17 @@ class NoticeRelay : NotificationListenerService() {
     private companion object {
         const val TAG = "NoticeRelay"
         const val CONNECT_TIMEOUT_MS = 10_000L
+        const val SHADE_DEBOUNCE_MS = 750L
     }
 }
+
+/** The keys the shade event carries: ticked packages only, never this app, and the just-removed key out. */
+internal fun shadeKeys(
+    active: Array<out StatusBarNotification>,
+    ticked: Set<String>,
+    selfPackage: String,
+    removedKey: String?,
+): List<String> = active.asSequence()
+    .filter { it.packageName in ticked && it.packageName != selfPackage && it.key != removedKey }
+    .map { it.key.take(300) }
+    .toList()

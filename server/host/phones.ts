@@ -133,7 +133,8 @@ export function createPhones(deps: PhonesDeps) {
   /** The route a turn's prompt carried, so `endTurn` can settle it against the calls the turn actually ran. */
   const routeOffers = new Map<string, { ownerKey: string; id: string }>();
   /** Each owner's learned-notice pile: a bounded inbox, the dedup that keeps reposts from filling it, and its consumers. */
-  const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn }>();
+  type NoticeSink = { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn; msgApps: Set<string> };
+  const noticeInboxes = new Map<string, NoticeSink>();
   /** An owner's topic pool file, per the same directory rule the route store follows. */
   const noticeTopicsFile = (ownerKey: string) => join(deps.dataDir, "notice-topics", ownerDirectoryName(ownerKey), "topics.json");
   /**
@@ -144,7 +145,7 @@ export function createPhones(deps: PhonesDeps) {
     registry.list(ownerKey, () => false)
       .map((phone) => phone.registration.timeZone)
       .find((zone): zone is string => Boolean(zone)) ?? hostTimeZone();
-  const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn } => {
+  const noticeSinkFor = (ownerKey: string): NoticeSink => {
     let sink = noticeInboxes.get(ownerKey);
     if (!sink) {
       const inbox = new NoticeInbox({ zone: () => phoneZoneFor(ownerKey) });
@@ -184,6 +185,7 @@ export function createPhones(deps: PhonesDeps) {
           wait: (ms, run) => setTimeout(run, ms),
           unwait: (handle) => clearTimeout(handle as NodeJS.Timeout),
         }, poolData),
+        msgApps: new Set(),
       };
       noticeInboxes.set(ownerKey, sink);
       for (const stale of noticeInboxes.keys()) {
@@ -207,25 +209,34 @@ export function createPhones(deps: PhonesDeps) {
     // An unticked package stops being learned and its kept records go with it.
     sink.inbox.removePackages((pkg) => policy.allow.has(pkg));
     sink.learn.purge((pkg) => policy.allow.has(pkg));
+    for (const pkg of sink.msgApps) if (!policy.allow.has(pkg)) sink.msgApps.delete(pkg);
     sink.inbox.noteReceived();
     if (shouldLearn(record, policy) !== "keep") return;
     const admitted = sink.dedup.admit(record);
     if (admitted === null) return;
+    // An app whose notifications parse as conversations is the high-trust source the level table's balanced tier wants.
+    if (record.conversation === true || (record.messages?.length ?? 0) > 0) sink.msgApps.add(record.packageName);
     sink.inbox.add(record);
     sink.triage.poke();
     sink.learn.capture(record, admitted.newMessages);
   };
+  /** The phone re-read its shade: records whose keys are no longer there were handled while we were not looking. */
+  const shadeFor = (key: string, event: Extract<PhoneEvent, { kind: "notice-shade" }>): void => {
+    const phone = registry.get(key);
+    if (!phone) return;
+    noticeSinkFor(phone.owner).inbox.retainKeys(new Set(event.keys));
+  };
   /**
-   * The owner's "gathered from notifications" section for a prompt: every ticked app sits at Mid until a per-app
-   * tier setting exists, so under Balanced nothing qualifies — Mika's default too (Mid enters tasks only at
-   * Aggressive). Off means the pipeline is not running and this is null anyway.
+   * The owner's "gathered from notifications" section for a prompt: conversation-sourced apps sit at High, so
+   * Balanced surfaces only what chat notices taught; everything else stays Mid and needs Aggressive to enter a
+   * task. Off means the pipeline is not running and this is null anyway.
    */
   const learnedNotices = (ownerKey: string): string | null => {
     const level = deps.noticeLearnLevel?.(ownerKey) ?? "off";
     if (level === "off") return null;
     const sink = noticeInboxes.get(ownerKey);
     if (!sink) return null;
-    return renderObserved(sink.learn.topics(), level, () => "mid", Date.now());
+    return renderObserved(sink.learn.topics(), level, (pkg) => sink.msgApps.has(pkg) ? "high" : "mid", Date.now());
   };
   const unsubscribe = deps.sessions.onSessionRevoked((id) => {
     const key = `session:${id}`;
@@ -463,6 +474,7 @@ export function createPhones(deps: PhonesDeps) {
 
     routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
       if (event.kind === "notice") noticeFor(key, event);
+      else if (event.kind === "notice-shade") shadeFor(key, event);
       else if (event.kind === "sms") smsHandler?.(key, event);
       else wechatHandler?.(key, event);
     } }),

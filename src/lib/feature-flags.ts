@@ -2,7 +2,7 @@ import { t } from "./i18n";
 import { engineDisplayName } from "./engine-name";
 
 export interface FeatureFlagConfig {
-  features?: { skillAuthoring?: boolean; skillReview?: boolean; skillReviewSteps?: number; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; claudeUserSkills?: boolean; llmThreadTitles?: boolean; skillsLibrary?: boolean; shareLearnedSkills?: "off" | "ask" | "auto"; roomMemoryCapture?: boolean; savedSteps?: boolean; savedStepsHere?: boolean; phoneVerify?: "off" | "log" };
+  features?: { skillAuthoring?: boolean; skillReview?: boolean; skillReviewSteps?: number; showToolCalls?: boolean; browser?: boolean; sharedComputers?: boolean; claudeUserMcp?: boolean; claudeUserSkills?: boolean; llmThreadTitles?: boolean; skillsLibrary?: boolean; shareLearnedSkills?: "off" | "ask" | "auto"; roomMemoryCapture?: boolean; savedSteps?: boolean; savedStepsHere?: boolean; phoneVerify?: "off" | "log"; noticeLearn?: "off" | "conservative" | "balanced" | "aggressive" };
   browserEngine?: { kind: "engine" | "unavailable"; reason?: string; installable?: boolean; installing?: boolean; installError?: string };
 }
 
@@ -102,4 +102,11 @@ export function savedStepsHere(config: FeatureFlagConfig | null | undefined): bo
 /** A bot's phone turn is checked against the screens it read. Only `log` is on, and only that writes to the activity log. */
 export function phoneVerifyEnabled(config: FeatureFlagConfig | null | undefined): boolean {
   return config?.features?.phoneVerify === "log";
+}
+
+export type NoticeLearnLevel = "off" | "conservative" | "balanced" | "aggressive";
+
+/** How far the shared phone notifications feed topics into tasks. Unsaid is off: nothing is learned at all. */
+export function noticeLearnLevel(config: FeatureFlagConfig | null | undefined): NoticeLearnLevel {
+  return config?.features?.noticeLearn ?? "off";
 }

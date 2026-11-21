@@ -1280,6 +1280,15 @@ class CompanionClient(
         ))
     }
 
+    /** Push the shade's key set for the ticked packages, for the server's reconcile. */
+    suspend fun postPhoneShade(event: PhoneShadeEvent) {
+        sendUnit(makeRequest(
+            "POST",
+            "/api/phones/self/events",
+            body = CompanionJson.encodeToJsonElement(PhoneShadeEvent.serializer(), event).jsonObject,
+        ))
+    }
+
     /** Answer a leased job: `{ ok: true, result }` or `{ ok: false, error, code }`. */
     suspend fun completePhoneJob(jobId: String, outcome: JsonObject) {
         sendUnit(makeRequest(
