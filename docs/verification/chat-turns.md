@@ -35,8 +35,7 @@ media-upload CLI. The engine needs both native vision input and a file reference
 being able to describe the image does not prove that a file tool can read it.
 
 ```sh
-pnpm exec vitest run server/turn-images.test.ts server/box-attachments.test.ts server/box-attachments.linux.test.ts server/bot-api.test.ts server/host/handoff-files.test.ts
-pnpm exec vitest run server/index.test.ts -t "keeps a channel image|sends an earlier image"
+pnpm exec vitest run server/turn-images.test.ts server/box-attachments.test.ts server/box-attachments.linux.test.ts server/bot-api.test.ts
 ```
 
 For an end-to-end check, launch the isolated fixture above, upload a synthetic
