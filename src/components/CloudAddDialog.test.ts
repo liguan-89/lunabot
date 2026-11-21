@@ -220,7 +220,7 @@ describe("each screen of the sheet says one thing and offers one next step", () 
   it("a sign-in that can't start says why truthfully, never 'couldn't reach', with its one way on", () => {
     const email = (problem: any): CloudAddView => ({ kind: "sign-in", phase: { step: "email", intent: false, problem } });
     const saved = panel(email("saved"));
-    expect(text(saved.html)).toContain("This computer has a saved MausBot Cloud sign-in that it can't read, so a new sign-in can't start.");
+    expect(text(saved.html)).toContain("This computer has a saved Luna Bot Cloud sign-in that it can't read, so a new sign-in can't start.");
     expect(text(saved.html)).not.toContain("Couldn't reach");
     button(saved.tree, "Clear it and send the code")!.props.onClick(); expect(saved.handlers.resetSaved).toHaveBeenCalledOnce();
     const waiting = panel(email("saved-wait"));
@@ -442,7 +442,7 @@ describe("the sheet", () => {
     bridge.resetSaved = vi.fn(async () => ({ status: "signed-out" }));
     tree().find(node => node.type === "form")!.props.onSubmit({ preventDefault() {} }); await flush();
     const html = await settle();
-    expect(html).toContain("saved MausBot Cloud sign-in that it can't read"); expect(html).not.toContain("Couldn't reach");
+    expect(html).toContain("saved Luna Bot Cloud sign-in that it can't read"); expect(html).not.toContain("Couldn't reach");
     await press("Clear it and send the code");
     expect(bridge.resetSaved).toHaveBeenCalledOnce();
     expect(bridge.signInStart).toHaveBeenCalledTimes(2);

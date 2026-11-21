@@ -371,7 +371,7 @@ describe("the model picker in Simple mode", () => {
     expect(String(chip.props.title)).not.toContain("effort");
     expect(String(chip.props.className)).toContain("h-8");
     expect(String(chip.props.className)).toContain("rounded-full");
-    expect(String(chip.props.className)).not.toMatch(/\bborder\b|bg-control/);
+    expect(String(chip.props.className)).not.toMatch(/\bborder(?!-color)|bg-control/);
     expect(markup).not.toContain("@max-4xl/chathead");
     expect(markup).toContain('<span class="min-w-0 truncate max-w-[160px]">Opus 5.5</span>');
     expect(markup).toContain("opacity-60");
