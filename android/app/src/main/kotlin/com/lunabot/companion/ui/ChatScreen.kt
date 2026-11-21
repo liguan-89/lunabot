@@ -64,7 +64,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
@@ -1413,6 +1412,8 @@ private fun LoadedChat(
 
                 ChatHeader(
                     chat = chat,
+                    tail = tail,
+                    listening = voiceCardOpen || dictationListening,
                     unreadElsewhere = remember(state, chat) {
                         (state.unreadCount - if (chat.unread) 1 else 0).coerceAtLeast(0)
                     },
@@ -2008,6 +2009,8 @@ internal fun MuseDrawerButton(
 @Composable
 private fun ChatHeader(
     chat: Chat,
+    tail: TranscriptTail,
+    listening: Boolean,
     unreadElsewhere: Int,
     onBack: () -> Unit,
     onOpenDrawer: (() -> Unit)?,
@@ -2035,15 +2038,26 @@ private fun ChatHeader(
                 }
             }
 
-            // Muse-style generous floating centerpiece: large 68dp avatar with
-            // softly shadowed pure-white name pill cleanly anchored below.
+            // Muse-style generous floating centerpiece: 74dp avatar with a soft
+            // warm-linen studio halo in Light Mode so light/white bots keep crisp
+            // sculptural presence on the pure-white gallery canvas.
+            val dark = minisIsDark()
+            val studioHalo = remember(dark) {
+                Brush.radialGradient(
+                    0.00f to if (dark) Color(0x22FFFFFF) else Color(0x66D9CEC2),
+                    0.56f to if (dark) Color(0x0EFFFFFF) else Color(0x30E4DDD4),
+                    1.00f to Color.Transparent,
+                )
+            }
             Column(
                 modifier = Modifier.align(Alignment.TopCenter),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Box(
                     modifier = Modifier
+                        .size(84.dp)
+                        .background(studioHalo, CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -2053,14 +2067,36 @@ private fun ChatHeader(
                         .semantics { contentDescription = "${chat.name}，打开控制中心" },
                     contentAlignment = Alignment.Center,
                 ) {
+                    val headerMood = when {
+                        listening -> FaceMood.LISTENING
+                        tail == TranscriptTail.STREAM -> FaceMood.SPEAKING
+                        tail == TranscriptTail.REASONING -> FaceMood.THINKING
+                        tail == TranscriptTail.WORKING || chat.busy -> FaceMood.WORKING
+                        else -> FaceMood.IDLE
+                    }
+                    val headerState = when (headerMood) {
+                        FaceMood.LISTENING -> MausState.LISTENING
+                        FaceMood.WORKING -> MausState.WORKING
+                        FaceMood.THINKING -> MausState.THINKING
+                        else -> MausState.IDLE
+                    }
                     ChatAvatar(
                         chat = chat,
-                        size = 68.dp,
+                        size = 74.dp,
+                        state = headerState,
                         animated = true,
                         contentDescription = null,
                         fallback = AvatarFallback.PRESET,
                         motion = AvatarMotion.SHEEN,
-                        mood = if (chat.busy) FaceMood.THINKING else FaceMood.IDLE,
+                        mood = headerMood,
+                        breakout = headerMood == FaceMood.WORKING,
+                        avatarStateOverride = when (headerMood) {
+                            FaceMood.SPEAKING -> DynamicAvatarStates.TALKING
+                            FaceMood.LISTENING -> DynamicAvatarStates.LISTENING
+                            FaceMood.THINKING -> DynamicAvatarStates.THINKING
+                            FaceMood.WORKING -> DynamicAvatarStates.WORKING
+                            else -> DynamicAvatarStates.IDLE
+                        },
                     )
                 }
                 Row(
@@ -2081,9 +2117,9 @@ private fun ChatHeader(
                 ) {
                     Text(
                         text = chat.name,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.15).sp,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 0.4.sp,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2820,10 +2856,10 @@ private fun Composer(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                painter = painterResource(R.drawable.ic_send_up),
                                 contentDescription = null,
                                 tint = minisPage,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(19.dp),
                             )
                         }
                     }

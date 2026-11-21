@@ -67,11 +67,14 @@ internal fun BotAvatar(
      * semantics. Set it where the face stands alone.
      */
     contentDescription: String? = null,
-    fallback: AvatarFallback = AvatarFallback.MASCOT,
+    fallback: AvatarFallback = AvatarFallback.PRESET,
     motion: AvatarMotion = AvatarMotion.NONE,
     mood: FaceMood = FaceMood.IDLE,
     drowsy: Boolean = false,
     crown: Boolean = false,
+    breakout: Boolean = false,
+    audioLevel: Float = 0f,
+    avatarStateOverride: String? = null,
 ) {
     val crop = bot.avatarCrop ?: AvatarCrop.MASCOT
     val path = bot.avatarUrl
@@ -137,6 +140,35 @@ internal fun BotAvatar(
         return
     }
 
+    val dynamicStates = bot.avatarStates?.filterValues { it.isNotBlank() }
+    if (!dynamicStates.isNullOrEmpty()) {
+        val targetState = DynamicAvatarStates.fromMausAndMood(state, mood, avatarStateOverride)
+        val dynamicShape = if (crop == AvatarCrop.MASCOT) CircleShape else BotAvatarRules.shape(crop, size)
+        DynamicAvatarMedia(
+            avatarStates = dynamicStates,
+            state = targetState,
+            size = size,
+            shape = dynamicShape,
+            modifier = named.portraitMotion(motion),
+            fallbackUrl = path,
+            breakout = breakout,
+            audioLevel = audioLevel,
+        ) {
+            PresetBotAvatar(
+                color = bot.color,
+                size = size,
+                bodyId = bot.mascotBody,
+                contentDescription = null,
+                motion = AvatarMotion.NONE,
+                mood = mood,
+                drowsy = drowsy,
+                seed = bot.id.hashCode(),
+                crown = false,
+            )
+        }
+        return
+    }
+
     val painted = image
     // A preset uploaded as a PNG is still a preset: draw the live face so the
     // eyes keep moving, and let the crown ride the drawn head.
@@ -190,29 +222,20 @@ internal fun BotAvatar(
                 raw
             }
         }
-        when (fallback) {
-            AvatarFallback.PRESET -> PresetBotAvatar(
-                color = resolvedColor,
-                size = size,
-                modifier = named,
-                contentDescription = null,
-                motion = motion,
-                mood = mood,
-                drowsy = drowsy,
-                // Each bot keeps its own schedule: the same palette must not
-                // mean the same blink.
-                seed = bot.id.hashCode(),
-                crown = crown,
-            )
-            AvatarFallback.MASCOT -> MausAvatar(
-                color = resolvedColor,
-                bodyId = bot.mascotBody,
-                size = size,
-                state = state,
-                animated = animated,
-                modifier = named,
-            )
-        }
+        PresetBotAvatar(
+            color = resolvedColor,
+            size = size,
+            modifier = named,
+            bodyId = bot.mascotBody,
+            contentDescription = null,
+            motion = motion,
+            mood = mood,
+            drowsy = drowsy,
+            // Each bot keeps its own schedule: the same palette must not
+            // mean the same blink.
+            seed = bot.id.hashCode(),
+            crown = crown,
+        )
     }
 }
 
@@ -225,11 +248,14 @@ internal fun ChatAvatar(
     state: MausState = MausState.IDLE,
     animated: Boolean = true,
     contentDescription: String? = null,
-    fallback: AvatarFallback = AvatarFallback.MASCOT,
+    fallback: AvatarFallback = AvatarFallback.PRESET,
     motion: AvatarMotion = AvatarMotion.NONE,
     mood: FaceMood = FaceMood.IDLE,
     drowsy: Boolean = false,
     crown: Boolean = false,
+    breakout: Boolean = false,
+    audioLevel: Float = 0f,
+    avatarStateOverride: String? = null,
 ) {
     when (chat) {
         is Chat.BotChat -> BotAvatar(
@@ -244,27 +270,21 @@ internal fun ChatAvatar(
             mood = mood,
             drowsy = drowsy,
             crown = crown,
+            breakout = breakout,
+            audioLevel = audioLevel,
+            avatarStateOverride = avatarStateOverride,
         )
-        is Chat.RoomChat -> when (fallback) {
-            AvatarFallback.PRESET -> PresetBotAvatar(
-                color = "blue",
-                size = size,
-                modifier = modifier,
-                contentDescription = contentDescription,
-                motion = motion,
-                mood = mood,
-                drowsy = drowsy,
-                seed = chat.room.id.hashCode(),
-                crown = crown,
-            )
-            AvatarFallback.MASCOT -> MausAvatar(
-                color = "blue",
-                size = size,
-                state = state,
-                animated = animated,
-                modifier = modifier,
-            )
-        }
+        is Chat.RoomChat -> PresetBotAvatar(
+            color = "blue",
+            size = size,
+            modifier = modifier,
+            contentDescription = contentDescription,
+            motion = motion,
+            mood = mood,
+            drowsy = drowsy,
+            seed = chat.room.id.hashCode(),
+            crown = crown,
+        )
     }
 }
 

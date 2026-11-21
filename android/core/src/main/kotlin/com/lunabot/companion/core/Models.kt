@@ -692,6 +692,7 @@ data class Bot(
     val createdAt: Double,
     val avatarUrl: String? = null,
     val avatarCrop: AvatarCrop? = null,
+    val avatarStates: Map<String, String>? = null,
     val busy: Boolean? = null,
     val activity: String? = null,
     /** A dispatched teammate has not settled; the bot waits, it does not work. */
@@ -1174,11 +1175,24 @@ data class ConfigFlag(
 data class Profile(val name: String, val email: String)
 
 @Serializable
+data class SeedanceConfigFlag(
+    val provider: String = "ark",
+    val resolution: String = "720p",
+    val configured: Boolean = false,
+    val ready: Boolean? = null,
+    val arkConfigured: Boolean? = null,
+    val tk1688Configured: Boolean? = null,
+) {
+    val isReady: Boolean get() = ready == true || configured
+}
+
+@Serializable
 data class ConfigStatus(
     val composio: ConfigFlag? = null,
     val box: ConfigFlag? = null,
     val tts: ConfigFlag? = null,
     val imageGen: ConfigFlag? = null,
+    val seedance: SeedanceConfigFlag? = null,
     val profile: Profile? = null,
     /** Live-call readiness as the computer reports it (never its key). */
     val live: ConfigFlag? = null,
@@ -1308,12 +1322,18 @@ data class BotProfilePatch(
     val notifications: Boolean? = null,
     val avatarUrl: AvatarURL? = null,
     val avatarCrop: AvatarCrop? = null,
+    val avatarStates: AvatarStates? = null,
     val voice: String? = null,
     val speakReplies: Boolean? = null,
 ) {
     sealed interface AvatarURL {
         data class Set(val path: String) : AvatarURL
         data object Clear : AvatarURL
+    }
+
+    sealed interface AvatarStates {
+        data class Set(val states: Map<String, String>) : AvatarStates
+        data object Clear : AvatarStates
     }
 }
 
@@ -1325,6 +1345,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
         "notifications",
         "avatarUrl",
         "avatarCrop",
+        "avatarStates",
         "voice",
         "speakReplies",
     )
@@ -1336,6 +1357,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
         element<Boolean>("notifications", isOptional = true)
         element<JsonElement>("avatarUrl", isOptional = true)
         element<String>("avatarCrop", isOptional = true)
+        element<JsonElement>("avatarStates", isOptional = true)
         element<String>("voice", isOptional = true)
         element<Boolean>("speakReplies", isOptional = true)
     }
@@ -1354,6 +1376,16 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
                 null -> Unit
             }
             value.avatarCrop?.let { put("avatarCrop", it.name.lowercase()) }
+            when (val states = value.avatarStates) {
+                is BotProfilePatch.AvatarStates.Set -> put(
+                    "avatarStates",
+                    buildJsonObject {
+                        states.states.forEach { (k, v) -> put(k, v) }
+                    },
+                )
+                BotProfilePatch.AvatarStates.Clear -> put("avatarStates", JsonNull)
+                null -> Unit
+            }
             value.voice?.let { put("voice", it) }
             value.speakReplies?.let { put("speakReplies", it) }
         })
@@ -1394,6 +1426,17 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
             AvatarCrop.entries.firstOrNull { it.name.lowercase() == raw }
                 ?: AvatarCrop.MASCOT
         }
+        val avatarStates = when (val element = value["avatarStates"]) {
+            null -> null
+            JsonNull -> BotProfilePatch.AvatarStates.Clear
+            is JsonObject -> BotProfilePatch.AvatarStates.Set(
+                element.mapNotNull { (k, v) ->
+                    val primitive = v as? JsonPrimitive
+                    if (primitive != null && primitive.isString) k to primitive.content else null
+                }.toMap(),
+            )
+            else -> throw SerializationException("avatarStates must be an object or null")
+        }
         return BotProfilePatch(
             name = string("name"),
             title = string("title"),
@@ -1401,6 +1444,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
             notifications = boolean("notifications"),
             avatarUrl = avatarUrl,
             avatarCrop = crop,
+            avatarStates = avatarStates,
             voice = string("voice"),
             speakReplies = boolean("speakReplies"),
         )
@@ -1631,6 +1675,9 @@ internal data class FileUploadResponse(val path: String, val name: String, val m
 
 @Serializable
 internal data class GeneratedAvatarResponse(val avatarUrl: String, val bot: Bot)
+
+@Serializable
+internal data class GeneratedAvatarStateResponse(val state: String, val url: String, val bot: Bot)
 
 @Serializable
 internal data class ClaudeUpdateResponse(val version: String)

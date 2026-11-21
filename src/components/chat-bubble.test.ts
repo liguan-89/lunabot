@@ -49,7 +49,13 @@ describe("botReplyWidth", () => {
     expect(botReplyWidth(true, table)).toContain("--chat-card-pct");
   });
 
-  it("leaves Advanced mode's own cap alone", () => {
+  it("leaves Advanced mode's own cap alone for short lines", () => {
     expect(botReplyWidth(false, "Done.")).toContain("--chat-bubble-max");
+  });
+
+  it("expands multi-line plain replies past 2 lines to prose width", () => {
+    const threeLines = "Line one.\nLine two.\nLine three.";
+    expect(botReplyWidth(true, threeLines)).toContain("--chat-prose-max");
+    expect(botReplyWidth(false, threeLines)).toContain("--chat-prose-max");
   });
 });

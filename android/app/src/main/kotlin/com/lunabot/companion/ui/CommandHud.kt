@@ -20,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -293,7 +292,7 @@ private fun QuickReplyVectorIcon(icon: String, tint: Color) {
         "explain" -> Icon(Icons.Filled.Info, contentDescription = null, tint = tint, modifier = mod)
         "build" -> Icon(Icons.Filled.Build, contentDescription = null, tint = tint, modifier = mod)
         "bug" -> Icon(Icons.Filled.Warning, contentDescription = null, tint = tint, modifier = mod)
-        "send" -> Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = tint, modifier = mod)
+        "send" -> Icon(painterResource(R.drawable.ic_send_up), contentDescription = null, tint = tint, modifier = mod)
         "search" -> Icon(Icons.Filled.Search, contentDescription = null, tint = tint, modifier = mod)
         "history" -> Icon(Icons.Filled.Refresh, contentDescription = null, tint = tint, modifier = mod)
         "list", "document" -> Icon(painterResource(R.drawable.ic_list_line), contentDescription = null, tint = tint, modifier = mod)

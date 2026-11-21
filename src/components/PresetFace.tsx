@@ -1,49 +1,76 @@
-// The app's flat portrait: one disc, two pill eyes, no mouth — the face the phone's roster draws and the face the
-// launcher icon carries.
+// The app's portrait: seven selectable styles (classic disc, moon-glass orb, porcelain neko, iridescent liquid,
+// pocket synth, moon spirit, ceramic mini-bot) — ported from Android's BotFace.kt.
 //
-// This is a port of Android's BotFace.kt, not a still: BotFaceRig (src/lib/preset-face-rig.ts) schedules blinks, gaze,
-// idle gestures and breath; this component ticks it on requestAnimationFrame and writes the pose straight to the SVG
-// nodes, so a row of faces animates without React re-rendering any of them. The crown is drawn in the same SVG and
-// leans with pose.roll and the gaze, exactly as drawCrown does on the phone.
+// BotFaceRig (src/lib/preset-face-rig.ts) schedules blinks, gaze, idle gestures and breath; this component ticks it
+// on requestAnimationFrame and writes the pose straight to the SVG nodes, so a row of faces animates without React
+// re-rendering any of them. The crown is drawn in the same SVG and leans with pose.roll and the gaze.
 import { useEffect, useId, useRef } from "react";
 
+import { useAvatarStyle, type AvatarStyleId } from "@/lib/avatar-style";
 import { cn } from "@/lib/cn";
+import type { MausState } from "@/lib/mascot";
 import { facePose, lookAt, withLook, type FaceLife, type FaceMood } from "@/lib/preset-face-rig";
 import { handsPose, Hands, handIsMirrored, HAND_BASE_X, HAND_BASE_Y, HAND_RADIUS, HAND_TIP_X, HAND_TIP_Y } from "@/lib/preset-hands-rig";
+import { mascotFaceInk, type MascotFaceColor } from "../../shared/bot-avatar";
+import { isPresetStyleBody, type BotBodyId } from "../../shared/bot-body";
 
-type PresetKey = "black" | "white" | "blue" | "orange" | "purple" | "mint" | "coral" | "grey";
+type PresetKey =
+  | "black"
+  | "white"
+  | "silver"
+  | "blue"
+  | "cyan"
+  | "orange"
+  | "yellow"
+  | "purple"
+  | "pink"
+  | "green"
+  | "teal"
+  | "mint"
+  | "red"
+  | "coral"
+  | "grey";
 
-const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string }> = {
-  black: { light: "#2E2E2E", body: "#000000", edge: "#000000", eye: "#FDFEFD" },
-  white: { light: "#FFFFFF", body: "#F7F3ED", edge: "#D9D5CD", eye: "#1C1C1E" },
-  blue: { light: "#3F7CFF", body: "#0E5AFD", edge: "#0A42BE", eye: "#FEFEFE" },
-  orange: { light: "#FFB266", body: "#FF9432", edge: "#D96F0C", eye: "#FEFEFE" },
-  purple: { light: "#B87DFF", body: "#9443F4", edge: "#6D21C3", eye: "#FEFEFE" },
-  mint: { light: "#8DF1B0", body: "#57E58C", edge: "#2FAF62", eye: "#FEFEFE" },
-  coral: { light: "#FF9588", body: "#FD5C59", edge: "#D63B3B", eye: "#FEFEFE" },
-  grey: { light: "#A2A3A2", body: "#777877", edge: "#555655", eye: "#FEFEFE" },
+const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string; warm?: boolean }> = {
+  black:  { light: "#373A40", body: "#191B1F", edge: "#0A0B0D", eye: "#F8FAFC" },
+  white:  { light: "#FFFFFF", body: "#F5F2EC", edge: "#DCD6CC", eye: "#1C1C1E", warm: true },
+  silver: { light: "#EEF1F6", body: "#D5DCE6", edge: "#B4BECA", eye: "#1C1E24" },
+  grey:   { light: "#C7CCD4", body: "#9FA6B2", edge: "#7E8591", eye: "#181A1F" },
+  blue:   { light: "#DCEBFF", body: "#B6D4FA", edge: "#8CB6EC", eye: "#182233" },
+  cyan:   { light: "#D6F5FA", body: "#A5E3EE", edge: "#7AC8D8", eye: "#13262B" },
+  teal:   { light: "#D3F3EE", body: "#9EDCD2", edge: "#74BFB4", eye: "#132624" },
+  green:  { light: "#D8F2E2", body: "#A8DFBE", edge: "#7DC49B", eye: "#16291E" },
+  mint:   { light: "#DFF7EB", body: "#B3E8CE", edge: "#89CFAF", eye: "#162920" },
+  yellow: { light: "#FFF4D1", body: "#F7DF94", edge: "#E2C063", eye: "#2B2313", warm: true },
+  orange: { light: "#FFE7D4", body: "#F7C49B", edge: "#E19E6E", eye: "#2E1E14", warm: true },
+  coral:  { light: "#FFE0DA", body: "#F6B7AC", edge: "#DE8F82", eye: "#2E1917", warm: true },
+  red:    { light: "#FDE0E0", body: "#F2B5B7", edge: "#D98C91", eye: "#2D1719", warm: true },
+  pink:   { light: "#FCE2F0", body: "#F2BEDB", edge: "#DA98BE", eye: "#2B1824", warm: true },
+  purple: { light: "#ECE3FF", body: "#CFC0F8", edge: "#AC98E5", eye: "#201833" },
 };
 
-/** The preset a bot's own colour maps to, word for word from the phone's PresetAvatars.forColor. */
+/** Maps every bot palette colour cleanly to its unified PresetFace swatch. */
 export function presetFaceForColor(color: string | null | undefined): PresetKey {
   switch (color?.toLowerCase()) {
-    case "blue":
-    case "cyan": return "blue";
-    case "orange":
-    case "yellow": return "orange";
-    case "red":
+    case "blue": return "blue";
+    case "cyan": return "cyan";
+    case "orange": return "orange";
+    case "yellow": return "yellow";
+    case "red": return "red";
     case "coral": return "coral";
-    case "green":
-    case "teal": return "mint";
+    case "green": return "green";
+    case "teal": return "teal";
+    case "mint": return "mint";
     case "purple":
     case "violet": return "purple";
+    case "pink": return "pink";
+    case "silver": return "silver";
+    case "grey":
+    case "gray": return "grey";
     case "white":
     case "cream":
     case "sand":
-    case "grey":
-    case "gray":
-    case "chrome":
-    case "silver": return "white";
+    case "chrome": return "white";
     default: return "black";
   }
 }
@@ -68,62 +95,61 @@ const vision = (side: 1 | -1) => ({
 const LEFT_EYE = vision(-1);
 const RIGHT_EYE = vision(1);
 
-// The crown, as BotFace.kt draws it: a band on the skull's own circle, three ink peaks stroked in gold with light tips,
-// and three ink stones. Sizes are in the same 100-unit face space (radius 50).
-const CROWN_SPAN = 28;
-const CROWN_INNER = 50;
-const CROWN_OUTER = 57;
-const CROWN_PEAK_HALF = 8;
-const CROWN_PEAKS = [-18, 0, 18];
-const CROWN_APEX = [69, 74.5, 69];
-const CROWN_STONES = [-12, 0, 12];
-const CROWN_STONE_RADIUS = 52.5;
-const CROWN_INK = "#17171B";
-const CROWN_GOLD = "#C9A227";
-const CROWN_GOLD_LIGHT = "#ECC564";
-
-const crownAt = (degrees: number, radius: number) => {
-  const angle = (degrees * Math.PI) / 180;
-  return { x: 50 + radius * Math.sin(angle), y: 50 - radius * Math.cos(angle) };
+type EyeSpec = {
+  left: { x: number; y: number };
+  right: { x: number; y: number };
+  width: number;
+  height: number;
+  faceTilt: number;
+  eyeTilt: number;
+  cosTilt: number;
+  sinTilt: number;
+  visor: boolean;
 };
-const crownPath = (points: Array<{ x: number; y: number }>) => `M${points.map((p) => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" L")}Z`;
 
-const CROWN_BAND = (() => {
-  const outer = Array.from({ length: 15 }, (_, index) => crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * index) / 14, CROWN_OUTER));
-  const inner = Array.from({ length: 15 }, (_, index) => crownAt(CROWN_SPAN - (2 * CROWN_SPAN * index) / 14, CROWN_INNER));
-  return crownPath([...outer, ...inner]);
-})();
-const CROWN_EDGE = Array.from({ length: 14 }, (_, index) => [
-  crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * index) / 14, CROWN_OUTER),
-  crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * (index + 1)) / 14, CROWN_OUTER),
-] as const);
-const CROWN_PEAK_PATHS = CROWN_PEAKS.map((angle, index) =>
-  crownPath([crownAt(angle - CROWN_PEAK_HALF, CROWN_OUTER), crownAt(angle, CROWN_APEX[index]!), crownAt(angle + CROWN_PEAK_HALF, CROWN_OUTER)]),
-);
-const CROWN_TIPS = CROWN_PEAKS.map((angle, index) => crownAt(angle, CROWN_APEX[index]!));
-const CROWN_STONE_POINTS = CROWN_STONES.map((angle) => crownAt(angle, CROWN_STONE_RADIUS));
-
-function Crown({ testId }: { testId?: string }) {
-  return (
-    <g data-crown="" data-testid={testId} transform={`rotate(${FACE_TILT_DEG} 50 50)`}>
-      {CROWN_PEAK_PATHS.map((peak, index) => (
-        <g key={CROWN_PEAKS[index]}>
-          <path d={peak} fill={CROWN_INK} stroke={CROWN_GOLD} strokeWidth={2.6} strokeLinejoin="round" />
-          <circle cx={CROWN_TIPS[index]!.x} cy={CROWN_TIPS[index]!.y} r={2.8} fill={CROWN_GOLD_LIGHT} />
-        </g>
-      ))}
-      <path d={CROWN_BAND} fill={CROWN_GOLD} />
-      {CROWN_EDGE.map(([from, to], index) => (
-        <line key={index} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={CROWN_GOLD_LIGHT} strokeWidth={2} strokeLinecap="round" />
-      ))}
-      {CROWN_STONE_POINTS.map((stone, index) => (
-        <circle key={CROWN_STONES[index]} cx={stone.x} cy={stone.y} r={2.2} fill={CROWN_INK} />
-      ))}
-    </g>
-  );
+function eyeSpecFor(style: AvatarStyleId): EyeSpec {
+  if (style === "classic") {
+    return {
+      left: LEFT_EYE,
+      right: RIGHT_EYE,
+      width: EYE_WIDTH * 100,
+      height: EYE_LENGTH * 100,
+      faceTilt: FACE_TILT_DEG,
+      eyeTilt: EYE_TILT_DEG,
+      cosTilt: COS_TILT,
+      sinTilt: SIN_TILT,
+      visor: false,
+    };
+  }
+  if (style === "synth" || style === "minibot") {
+    return {
+      left: { x: -12.5, y: style === "synth" ? -5 : -1.5 },
+      right: { x: 12.5, y: style === "synth" ? -5 : -1.5 },
+      width: 9.2,
+      height: 16,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: true,
+    };
+  }
+  return {
+    left: { x: -14.5, y: style === "neko" ? 2 : -1 },
+    right: { x: 14.5, y: style === "neko" ? 2 : -1 },
+    width: 10.6,
+    height: 18.5,
+    faceTilt: 0,
+    eyeTilt: 0,
+    cosTilt: 1,
+    sinTilt: 0,
+    visor: false,
+  };
 }
 
-const EDGE_UNIT = 0.16;
+
+
+const EDGE_UNIT = 0.11;
 
 const hexRgb = (hex: string) => {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -135,10 +161,12 @@ const mixHex = (from: string, to: string, amount: number) => {
   return `#${[0, 1, 2].map((index) => Math.round(a[index]! + (b[index]! - a[index]!) * amount).toString(16).padStart(2, "0")).join("")}`;
 };
 
-const handEdgeFor = (body: string) => {
+const isLightBody = (body: string) => {
   const [r, g, b] = hexRgb(body);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55 ? mixHex(body, "#000000", 0.22) : mixHex(body, "#FFFFFF", 0.30);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55;
 };
+
+const handEdgeFor = (body: string) => (isLightBody(body) ? mixHex(body, "#000000", 0.16) : mixHex(body, "#FFFFFF", 0.22));
 
 /** One of the phone's hands in unit space (palm radius 1): five round-capped fingers then the palm. */
 function HandShape({ mirror, gradient, edge }: { mirror: 1 | -1; gradient: string; edge: string }) {
@@ -185,9 +213,139 @@ function PresetHands({ gradient, edge }: { gradient: string; edge: string }) {
   );
 }
 
-export function PresetFace({ color, preset, size = 44, label, className, life = "glance", mood = "idle", seed = 0, crown = false }: {
+function FaceBody({
+  style,
+  face,
+  gradient,
+  opalGradient,
+  specularGradient,
+  bounceGradient,
+  blushGradient,
+  clip,
+}: {
+  style: AvatarStyleId;
+  face: { light: string; body: string; edge: string; eye: string; warm?: boolean };
+  gradient: string;
+  opalGradient: string;
+  specularGradient: string;
+  bounceGradient: string;
+  blushGradient: string;
+  clip: string;
+}) {
+  const light = isLightBody(face.body);
+  const rimStroke = light ? "rgba(24,24,28,0.14)" : "rgba(255,255,255,0.22)";
+  const innerEarFill = face.warm ? mixHex(face.edge, "#F497AE", 0.45) : mixHex(face.edge, "#FFFFFF", 0.52);
+
+  switch (style) {
+    case "orb":
+      return (
+        <>
+          <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} />
+          <g clipPath={`url(#${clip})`}>
+            {/* Soft neutral studio bounce + diffused porcelain specular + tone-matched cheek glow */}
+            <circle cx="50" cy="50" r="45" fill={`url(#${bounceGradient})`} />
+            <ellipse cx="36" cy="28" rx="23" ry="16" transform="rotate(-22 36 28)" fill={`url(#${specularGradient})`} />
+            <circle cx="26" cy="57" r="12.5" fill={`url(#${blushGradient})`} />
+            <circle cx="74" cy="57" r="12.5" fill={`url(#${blushGradient})`} />
+          </g>
+          <circle cx="50" cy="50" r="45" fill="none" stroke={rimStroke} strokeWidth="1.5" />
+        </>
+      );
+
+    case "neko":
+      return (
+        <>
+          {/* Sculpted cat ears */}
+          <path d="M19 37 L15 13 C14.5 9 19 7.5 22 10 L40 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M81 37 L85 13 C85.5 9 81 7.5 78 10 L60 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          {/* Harmonious inner ears */}
+          <path d="M22 31 L19.5 17 L33 25 Z" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
+          <path d="M78 31 L80.5 17 L67 25 Z" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
+          {/* Rounded porcelain cat head */}
+          <ellipse cx="50" cy="55" rx="43" ry="39" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          <ellipse cx="36" cy="34" rx="19" ry="11" transform="rotate(-14 36 34)" fill={`url(#${specularGradient})`} />
+          {/* Tiny nose + tone-matched cheek glow */}
+          <path d="M47 61 Q50 64 53 61 Q50 59.5 47 61 Z" fill={face.eye} opacity="0.72" />
+          <circle cx="27" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
+          <circle cx="73" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "liquid":
+      return (
+        <>
+          <circle cx="50" cy="50" r="45" fill={`url(#${opalGradient})`} stroke="rgba(255,255,255,0.42)" strokeWidth="1.6" />
+          <circle cx="50" cy="50" r="41" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
+          <path d="M22 35 C30 19, 54 15, 70 24" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="4.2" strokeLinecap="round" />
+          <path d="M30 76 C44 83, 64 79, 76 66" fill="none" stroke={mixHex(face.light, "#FFFFFF", 0.6)} strokeWidth="3.2" strokeLinecap="round" opacity="0.48" />
+        </>
+      );
+
+    case "synth":
+      return (
+        <>
+          {/* Dieter Rams / Teenage Engineering pocket synth chassis */}
+          <rect x="8" y="9" width="84" height="82" rx="20" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.6" />
+          {/* Top-right coral status dial */}
+          <circle cx="78" cy="20" r="4" fill="#FF5A36" stroke="rgba(0,0,0,0.25)" strokeWidth="0.9" />
+          {/* Recessed obsidian LCD visor */}
+          <rect x="18" y="27" width="64" height="36" rx="11" fill="#101216" stroke="rgba(255,255,255,0.16)" strokeWidth="1.2" />
+          <rect x="21" y="30" width="58" height="11" rx="5.5" fill="rgba(255,255,255,0.06)" />
+          {/* Speaker micro-grille dots */}
+          {[33, 41.5, 50, 58.5, 67].map((cx) => (
+            <circle key={cx} cx={cx} cy="75" r="2" fill={light ? "rgba(28,28,30,0.28)" : "rgba(255,255,255,0.32)"} />
+          ))}
+        </>
+      );
+
+    case "spirit":
+      return (
+        <>
+          {/* Plump organic moon-spirit pebble normalized to match optical size of orb/classic */}
+          <path
+            d="M22 22 C18 10, 29 6, 36 16 C43 13, 57 13, 64 16 C71 6, 82 10, 78 22 C91 32, 95 48, 92 66 C89 85, 72 95, 50 95 C28 95, 11 85, 8 66 C5 48, 9 32, 22 22 Z"
+            fill={`url(#${gradient})`}
+            stroke={rimStroke}
+            strokeWidth="1.4"
+          />
+          <ellipse cx="36" cy="30" rx="20" ry="12" transform="rotate(-12 36 30)" fill={`url(#${specularGradient})`} />
+          <circle cx="24" cy="59" r="13" fill={`url(#${blushGradient})`} />
+          <circle cx="76" cy="59" r="13" fill={`url(#${blushGradient})`} />
+          {/* Floating champagne-gold crescent moon */}
+          <path d="M87 6 A7.5 7.5 0 1 0 95 16 A5.8 5.8 0 1 1 87 6 Z" fill="#E8C77B" stroke="#B68E35" strokeWidth="0.6" />
+        </>
+      );
+
+    case "minibot":
+      return (
+        <>
+          {/* Floating brushed-gold halo ring */}
+          <ellipse cx="50" cy="10" rx="21" ry="4.2" fill="none" stroke="#E2B95F" strokeWidth="3" />
+          <ellipse cx="50" cy="9.3" rx="20" ry="3.5" fill="none" stroke="#F8E1A0" strokeWidth="1" opacity="0.85" />
+          {/* Matte ceramic squircle head */}
+          <rect x="8" y="17" width="84" height="75" rx="25" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.5" />
+          {/* Side ear pods */}
+          <rect x="3" y="44" width="6" height="22" rx="3" fill={face.edge} />
+          <rect x="91" y="44" width="6" height="22" rx="3" fill={face.edge} />
+          {/* Recessed obsidian glass visor */}
+          <rect x="18" y="30" width="64" height="38" rx="15" fill="#0F1117" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
+          <path d="M26 36 Q50 32 74 36" fill="none" stroke="rgba(255,255,255,0.14)" strokeWidth="2.4" strokeLinecap="round" />
+        </>
+      );
+
+    case "classic":
+    default:
+      return <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" />;
+  }
+}
+
+export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expression, size = 44, label, className, life = "glance", mood = "idle", seed = 0 }: {
   color?: string | null;
   preset?: PresetKey;
+  avatarStyle?: AvatarStyleId;
+  bodyId?: BotBodyId | null;
+  faceColor?: MascotFaceColor | null;
+  expression?: MausState;
   size?: number;
   label?: string;
   className?: string;
@@ -198,11 +356,21 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
   crown?: boolean;
 }) {
   const id = useId().replace(/[^A-Za-z0-9_-]/g, "");
+  const storedStyle = useAvatarStyle();
+  const activeStyle: AvatarStyleId = avatarStyle ?? (isPresetStyleBody(bodyId) ? bodyId : storedStyle);
+  const spec = eyeSpecFor(activeStyle);
   const face = FACES[preset ?? presetFaceForColor(color)];
+  const light = isLightBody(face.body);
   const gradient = `preset-face-${id}`;
+  const opalGradient = `preset-opal-${id}`;
+  const specularGradient = `preset-spec-${id}`;
+  const bounceGradient = `preset-bounce-${id}`;
+  const blushGradient = `preset-blush-${id}`;
   const clip = `preset-clip-${id}`;
   const handGradient = `preset-hand-${id}`;
   const handEdge = handEdgeFor(face.body);
+  const customInk = mascotFaceInk(faceColor);
+  const eyeFill = spec.visor ? "#F5F9FF" : (customInk ?? face.eye);
   const showsHands = life === "alive";
   const svgRef = useRef<SVGSVGElement>(null);
 
@@ -216,10 +384,9 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
     const breath = svg.querySelector<SVGGElement>("[data-face-breath]");
     const eyes = [svg.querySelector<SVGGElement>('[data-eye="left"]'), svg.querySelector<SVGGElement>('[data-eye="right"]')] as const;
     const rects = [svg.querySelector<SVGRectElement>('[data-eye-rect="left"]'), svg.querySelector<SVGRectElement>('[data-eye-rect="right"]')] as const;
-    const crownNode = svg.querySelector<SVGGElement>("[data-crown]");
+
     if (!breath || !eyes[0] || !eyes[1] || !rects[0] || !rects[1]) return;
 
-    const width = EYE_WIDTH * 100;
     let frame = 0;
     let last = 0;
     let visible = true;
@@ -241,9 +408,10 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
     }
 
     const moveEye = (side: 1 | -1, open: number, index: 0 | 1, poseRoll: number, poseGazeX: number, poseGazeY: number, poseLookX: number, poseLookY: number) => {
-      const gazeX = poseGazeX * 50 * COS_TILT - poseGazeY * 50 * SIN_TILT + poseLookX * 50;
-      const gazeY = poseGazeX * 50 * SIN_TILT + poseGazeY * 50 * COS_TILT + poseLookY * 50;
-      const base = side === -1 ? LEFT_EYE : RIGHT_EYE;
+      const gazeScale = spec.visor ? 34 : 50;
+      const gazeX = poseGazeX * gazeScale * spec.cosTilt - poseGazeY * gazeScale * spec.sinTilt + poseLookX * gazeScale;
+      const gazeY = poseGazeX * gazeScale * spec.sinTilt + poseGazeY * gazeScale * spec.cosTilt + poseLookY * gazeScale;
+      const base = side === -1 ? spec.left : spec.right;
       const offsetX = base.x + gazeX;
       const offsetY = base.y + gazeY;
       const roll = (poseRoll * Math.PI) / 180;
@@ -251,14 +419,13 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
       const sinRoll = Math.sin(roll);
       const x = offsetX * cosRoll - offsetY * sinRoll;
       const y = offsetX * sinRoll + offsetY * cosRoll;
-      const height = Math.max(EYE_LENGTH * 100 * open, width * 0.34);
-      eyes[index]!.setAttribute("transform", `translate(${50 + x} ${50 + y}) rotate(${FACE_TILT_DEG + EYE_TILT_DEG + poseRoll})`);
+      const height = Math.max(spec.height * open, spec.width * 0.34);
+      eyes[index]!.setAttribute("transform", `translate(${50 + x} ${50 + y}) rotate(${spec.faceTilt + spec.eyeTilt + poseRoll})`);
       rects[index]!.setAttribute("y", String(-height / 2));
       rects[index]!.setAttribute("height", String(height));
     };
 
     const draw = (now: number) => {
-      // A large idle portrait dozes off after 45 s without a touch, exactly as the phone's does; a list face never does.
       const asleep = life === "alive" && mood === "idle" && performance.now() - lastTouch > 45_000;
       const effectiveMood = asleep ? "drowsy" : mood;
       const look = showsHands && pointer
@@ -268,7 +435,6 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
       breath.setAttribute("transform", `translate(50 50) scale(${pose.scale * (1 - pose.squash)} ${pose.scale * (1 + pose.squash)}) translate(-50 -50)`);
       moveEye(-1, pose.openLeft, 0, pose.roll, pose.gazeX, pose.gazeY, pose.lookX, pose.lookY);
       moveEye(1, pose.openRight, 1, pose.roll, pose.gazeX, pose.gazeY, pose.lookX, pose.lookY);
-      crownNode?.setAttribute("transform", `rotate(${FACE_TILT_DEG + pose.roll + pose.gazeX * 90} 50 50)`);
 
       if (hands) {
         handsPose(now, seed, effectiveMood, life, pose.roll, hands);
@@ -277,7 +443,7 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
           const node = svg.querySelector<SVGGElement>(`[data-hand="${side}"]`);
           if (!node) continue;
           node.setAttribute("opacity", String(hand.alpha));
-          node.setAttribute("transform", `translate(${50 + hand.x * 50} ${50 + hand.y * 50}) rotate(${hand.angle}) scale(${10 * hand.scale})`);
+          node.setAttribute("transform", `translate(${50 + hand.x * 50} ${50 + hand.y * 50}) rotate(${hand.angle}) scale(${9.2 * hand.scale})`);
           const mirrored = handIsMirrored(side === "left", hand.palmOut);
           const shape = node.querySelector<SVGGElement>(`[data-hand-shape="${mirrored ? "left" : "right"}"]`);
           node.querySelectorAll<SVGGElement>("[data-hand-shape]").forEach((candidate) => {
@@ -313,15 +479,13 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
         window.removeEventListener("keydown", wake);
       }
     };
-  }, [life, mood, seed, crown, size]);
+  }, [life, mood, seed, size, activeStyle, spec]);
 
   const eye = (side: 1 | -1, index: "left" | "right") => {
-    const centre = side === -1 ? LEFT_EYE : RIGHT_EYE;
-    const width = EYE_WIDTH * 100;
-    const height = EYE_LENGTH * 100;
+    const centre = side === -1 ? spec.left : spec.right;
     return (
-      <g data-eye={index} transform={`translate(${50 + centre.x} ${50 + centre.y}) rotate(${FACE_TILT_DEG + EYE_TILT_DEG})`}>
-        <rect data-eye-rect={index} x={-width / 2} y={-height / 2} width={width} height={height} rx={width / 2} fill={face.eye} />
+      <g data-eye={index} transform={`translate(${50 + centre.x} ${50 + centre.y}) rotate(${spec.faceTilt + spec.eyeTilt})`}>
+        <rect data-eye-rect={index} x={-spec.width / 2} y={-spec.height / 2} width={spec.width} height={spec.height} rx={spec.width / 2} fill={eyeFill} />
       </g>
     );
   };
@@ -337,6 +501,7 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
       aria-hidden={label ? undefined : true}
       className={cn("block shrink-0 overflow-visible", className)}
       data-preset-face={preset ?? presetFaceForColor(color)}
+      data-avatar-style={activeStyle}
     >
       <defs>
         <radialGradient id={gradient} cx="32%" cy="22%" r="82%">
@@ -344,7 +509,27 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
           <stop offset="0.55" stopColor={face.body} />
           <stop offset="1" stopColor={face.edge} />
         </radialGradient>
-        <clipPath id={clip}><circle cx="50" cy="50" r="50" /></clipPath>
+        <linearGradient id={opalGradient} x1="12%" y1="8%" x2="88%" y2="92%">
+          <stop offset="0" stopColor={mixHex(face.light, "#FFFFFF", 0.42)} />
+          <stop offset="0.42" stopColor={face.body} />
+          <stop offset="0.75" stopColor={mixHex(face.body, face.light, 0.35)} />
+          <stop offset="1" stopColor={face.edge} />
+        </linearGradient>
+        <radialGradient id={specularGradient} cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity={light ? "0.72" : "0.42"} />
+          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity={light ? "0.22" : "0.11"} />
+          <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={bounceGradient} cx="50%" cy="88%" r="52%">
+          <stop offset="0" stopColor={mixHex(face.light, "#FFFFFF", 0.55)} stopOpacity={light ? "0.26" : "0.16"} />
+          <stop offset="1" stopColor={mixHex(face.light, "#FFFFFF", 0.55)} stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={blushGradient} cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity={face.warm ? (light ? "0.22" : "0.16") : (light ? "0.18" : "0.14")} />
+          <stop offset="0.55" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity={face.warm ? (light ? "0.08" : "0.05") : (light ? "0.06" : "0.04")} />
+          <stop offset="1" stopColor={face.warm ? "#EB8B9E" : (light ? "#D495B8" : mixHex(face.light, "#FFFFFF", 0.45))} stopOpacity="0" />
+        </radialGradient>
+        <clipPath id={clip}><circle cx="50" cy="50" r="45" /></clipPath>
         {showsHands && (
           <radialGradient id={handGradient} gradientUnits="userSpaceOnUse" cx="-0.34" cy="-0.55" r="2.2">
             <stop offset="0" stopColor={mixHex(face.body, "#FFFFFF", 0.18)} />
@@ -354,13 +539,30 @@ export function PresetFace({ color, preset, size = 44, label, className, life = 
         )}
       </defs>
       <g data-face-breath>
-        <circle cx="50" cy="50" r="50" fill={`url(#${gradient})`} />
-        <g clipPath={`url(#${clip})`}>
-          {eye(-1, "left")}
-          {eye(1, "right")}
+        <FaceBody
+          style={activeStyle}
+          face={face}
+          gradient={gradient}
+          opalGradient={opalGradient}
+          specularGradient={specularGradient}
+          bounceGradient={bounceGradient}
+          blushGradient={blushGradient}
+          clip={clip}
+        />
+        <g clipPath={activeStyle === "classic" ? `url(#${clip})` : undefined}>
+          {expression === "sleeping" ? (
+            <>
+              <path d={`M${50 + spec.left.x - 6} ${50 + spec.left.y + 1} Q${50 + spec.left.x} ${50 + spec.left.y + 6} ${50 + spec.left.x + 6} ${50 + spec.left.y + 1}`} fill="none" stroke={eyeFill} strokeWidth="3.4" strokeLinecap="round" />
+              <path d={`M${50 + spec.right.x - 6} ${50 + spec.right.y + 1} Q${50 + spec.right.x} ${50 + spec.right.y + 6} ${50 + spec.right.x + 6} ${50 + spec.right.y + 1}`} fill="none" stroke={eyeFill} strokeWidth="3.4" strokeLinecap="round" />
+            </>
+          ) : (
+            <>
+              {eye(-1, "left")}
+              {eye(1, "right")}
+            </>
+          )}
         </g>
         {showsHands && <PresetHands gradient={handGradient} edge={handEdge} />}
-        {crown && <Crown testId="chief-badge" />}
       </g>
     </svg>
   );

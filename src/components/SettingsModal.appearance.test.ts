@@ -347,30 +347,32 @@ describe("Settings → Appearance", () => {
     expect(fixture.setShowRunCard).toHaveBeenLastCalledWith(true);
   });
 
-  it("leaves non-appearance General settings in place", () => {
+  it("leaves non-appearance General settings in place and moves limits to Data controls", () => {
     fixture.section = "general";
     const html = render();
     expect(html).toContain("Profile");
-    expect(html).toContain("Stop after no progress for");
-    expect(html).toContain("Maximum running threads per bot");
-    expect(html).toContain("Automatic recovery");
     expect(html).toContain('aria-label="App language"');
     expect(html).toContain("Diagnostics");
     expect(html).not.toContain('aria-label="Show threads"');
     expect(html).not.toContain('aria-label="Choose tools layout"');
     expect(html).not.toContain('aria-label="Show tool calls in chat"');
     expect(html).not.toContain("Midnight");
+    fixture.section = "backups";
+    const dataHtml = render();
+    expect(dataHtml).toContain("Stop after no progress for");
+    expect(dataHtml).toContain("Maximum running threads per bot");
+    expect(dataHtml).toContain("Automatic recovery");
   });
 
   it("makes local appearance available remotely without exposing server settings", () => {
     vi.stubGlobal("window", { ogb: { remoteClient: { active: true } } });
     const html = render();
     expect(html).toContain('<option value="appearance" selected="">Appearance</option>');
-    expect(html).toContain('<option value="companion">This server</option>');
+    expect(html).toContain('<option value="devices">Devices</option>');
     expect(html).not.toContain('<option value="general">');
-    expect(html).not.toContain('<option value="connections">');
-    expect(html).not.toContain('<option value="engines">');
-    expect(html).not.toContain('<option value="backups">');
+    expect(html).not.toContain('<option value="connectors">');
+    expect(html).not.toContain('<option value="ai">');
+    expect(html).not.toContain('<option value="data">');
     expect(html).toContain("Midnight");
     expect(html).toContain('aria-label="Show threads"');
     expect(html).toContain('aria-label="Notification sounds"');
@@ -378,10 +380,10 @@ describe("Settings → Appearance", () => {
     expect(html).not.toContain('aria-label="Show tool calls in chat"');
   });
 
-  it("offers full backups in local Settings", () => {
+  it("offers full backups in local Settings under Data controls", () => {
     fixture.section = "backups";
     const html = render();
-    expect(html).toContain('<option value="backups" selected="">Backups</option>');
+    expect(html).toContain('<option value="data" selected="">Data controls</option>');
     expect(html).toContain("Export full backup");
     expect(html).toContain('type="file" accept=".ombbackup"');
     expect(html).toContain("Older team backups and shareable templates");
@@ -421,40 +423,41 @@ describe("Settings → Appearance", () => {
     }
   });
 
-  it("offers desktop connections as a top-level page without exposing the list remotely", () => {
+  it("offers desktop connections under Devices without exposing the list remotely", () => {
     fixture.section = "desktopWorkspaces";
     vi.stubGlobal("window", { ogb: { environments: {} } });
     const local = render();
-    expect(local).toContain('<option value="desktopWorkspaces" selected="">Servers</option>');
+    expect(local).toContain('<option value="devices" selected="">Devices</option>');
+    expect(local).toContain('data-settings-block="desktopWorkspaces"');
     expect(local).toContain("Your servers");
     expect(local).toContain("Loading servers…");
     expect(local, "connecting is the same sheet as ＋, not a form of its own").not.toContain("Name (optional)");
     fixture.section = "general";
     vi.stubGlobal("window", { ogb: { workspaces: {} } });
-    expect(render()).not.toContain('<option value="desktopWorkspaces"');
+    expect(render()).not.toContain('data-settings-block="desktopWorkspaces"');
   });
 
   it("offers optional Organisation settings only through the local desktop bridge", () => {
     fixture.section = "organization";
     vi.stubGlobal("window", { ogb: { organization: {} } });
     const local = render();
-    expect(local).toContain('<option value="organization" selected="">Organization</option>');
+    expect(local).toContain('<option value="team" selected="">Team &amp; permissions</option>');
     expect(local).toContain("personal and local models");
     fixture.section = "appearance";
     vi.stubGlobal("window", {});
-    expect(render()).not.toContain('<option value="organization"');
+    expect(render()).not.toContain('data-settings-block="organization"');
     vi.stubGlobal("window", { ogb: { organization: {}, remoteClient: { active: true } } });
-    expect(render()).not.toContain('<option value="organization"');
+    expect(render()).not.toContain('<option value="team"');
     expect(render()).toContain("Midnight");
   });
   it("offers personal Cloud separately and only through the local desktop bridge", () => {
     fixture.section = "cloudAccount";
     vi.stubGlobal("window", { ogb: { cloudAccount: {} } });
-    expect(render()).toContain('<option value="cloudAccount" selected="">Luna Bot Cloud</option>');
+    expect(render()).toContain('<option value="billing" selected="">Usage &amp; billing</option>');
     expect(render()).toContain("Free local use");
     fixture.section = "appearance";
-    vi.stubGlobal("window", {}); expect(render()).not.toContain('<option value="cloudAccount"');
+    vi.stubGlobal("window", {}); expect(render()).not.toContain('data-settings-block="cloudAccount"');
     vi.stubGlobal("window", { ogb: { cloudAccount: {}, remoteClient: { active: true } } });
-    expect(render()).not.toContain('<option value="cloudAccount"');
+    expect(render()).not.toContain('<option value="billing"');
   });
 });

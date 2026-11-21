@@ -1433,8 +1433,8 @@ export function EventDetails({
         <div className="min-w-0 flex-1">
           <div className="break-words text-[15px] font-semibold leading-snug text-ink">{title}</div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {routine && <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-medium", routine.enabled ? "bg-success/15 text-success" : "bg-inset text-ink-secondary")}>{routineScheduleState(routine)}</span>}
-            <span className="text-[11px] text-ink-secondary">{niceDate(item.at)} · {niceTime(item.at)}{isCall ? ` – ${niceTime(item.at + item.durationMinutes * 60_000)}` : ""}</span>
+            {routine && <span className={cn("shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ring-[0.5px] ring-inset", routine.enabled ? "bg-success/12 text-success ring-success/25" : "bg-inset text-ink-secondary ring-ink/[0.08]")}>{routineScheduleState(routine)}</span>}
+            <span className="min-w-0 text-[11px] text-ink-secondary">{niceDate(item.at)} · {niceTime(item.at)}{isCall ? ` – ${niceTime(item.at + item.durationMinutes * 60_000)}` : ""}</span>
           </div>
         </div>
         <button type="button" onClick={onClose} className="rounded-full p-1.5 text-ink-secondary hover:bg-raised hover:text-ink" aria-label={t("routines.drawer.close")}><X size={16} /></button>
@@ -1577,15 +1577,17 @@ export function PausedList({
               ? groups.find((candidate) => candidate.id === routine.groupId)
               : undefined;
             return (
-              <div key={routine.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-raised/60">
+              <div key={routine.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-raised/60">
                 {room ? <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent/12 text-accent"><UsersRound size={17} /></span> : bot && <BotAvatar bot={bot} state="sleeping" size={36} animated={false} />}
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[13px] font-medium text-ink">{routine.name}</div>
                   <div className="mt-0.5 truncate text-[11px] text-ink-secondary">{room ? `${t("routines.editor.teamGoal")} · ${room.name} · ` : ""}{scheduleLabel(routine.schedule)}</div>
                 </div>
-                {room && <button onClick={() => { onOpenRoom(room.id); onClose(); }} className="rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary hover:bg-inset">{t("routines.group")}</button>}
-                <button onClick={() => dispatch({ type: "updateRoutine", routineId: routine.id, patch: { enabled: true } })} className="rounded-lg bg-accent/15 px-2.5 py-1.5 text-[11px] font-medium text-accent">{t("routines.resume")}</button>
-                <button onClick={() => onEdit(routine)} className="rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary hover:bg-inset">{t("routines.edit")}</button>
+                <div className="flex shrink-0 items-center gap-1">
+                  {room && <button onClick={() => { onOpenRoom(room.id); onClose(); }} className="whitespace-nowrap rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary transition-colors hover:bg-inset hover:text-ink">{t("routines.group")}</button>}
+                  <button onClick={() => dispatch({ type: "updateRoutine", routineId: routine.id, patch: { enabled: true } })} className="whitespace-nowrap rounded-lg bg-accent/15 px-2.5 py-1.5 text-[11px] font-medium text-accent transition-colors hover:bg-accent/25">{t("routines.resume")}</button>
+                  <button onClick={() => onEdit(routine)} className="whitespace-nowrap rounded-lg px-2 py-1.5 text-[11px] text-ink-secondary transition-colors hover:bg-inset hover:text-ink">{t("routines.edit")}</button>
+                </div>
               </div>
             );
           })}

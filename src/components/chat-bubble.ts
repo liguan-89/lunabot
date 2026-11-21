@@ -14,8 +14,8 @@ export const SIMPLE_BUBBLE_TEXT = "text-[15px] leading-[22px]";
 
 const SIMPLE_BUBBLE_SHAPE = `min-w-9 rounded-[18px] px-3 py-[7px] ${SIMPLE_BUBBLE_TEXT}`;
 
-/** Simple mode's bot bubble: the one surface tone. */
-export const SIMPLE_BOT_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-card text-ink`;
+/** Simple mode's bot bubble: the one surface tone with a crisp hairline rim. */
+export const SIMPLE_BOT_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-card text-ink ring-[0.5px] ring-ink/[0.08]`;
 
 /** Simple mode's own bubble; the bot's colour, when on, comes from its inline style. */
 export const SIMPLE_USER_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-bubble-user font-normal`;
@@ -23,11 +23,20 @@ export const SIMPLE_USER_BUBBLE = `${SIMPLE_BUBBLE_SHAPE} bg-bubble-user font-no
 /** At most 560 wide, 80% of the column, and responsive opposed inset, so a reply never meets the far edge. */
 export const SIMPLE_BUBBLE_MAX = "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct),calc(100%-var(--conversation-opposed-inset,82px)))]";
 
+/** Past two lines (or ~140 chars), plain replies expand to prose width so multi-line answers don't wrap narrowly. */
+export function isLongPlainReply(text: string): boolean {
+  const trimmed = text.trim();
+  if (!trimmed) return false;
+  if (trimmed.length > 140) return true;
+  const nonEmptyLines = trimmed.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  return nonEmptyLines.length > 2;
+}
+
 /** A plain-text bot bubble drawn outside the transcript's own Bubble: a widget's text fallback or a row that failed. */
 export function plainBotBubble(simple: boolean): string {
   return simple
     ? cn("chat-text w-fit whitespace-pre-wrap", SIMPLE_BUBBLE_MAX, SIMPLE_BOT_BUBBLE)
-    : "chat-text w-fit max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink";
+    : "chat-text w-fit max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))] rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed whitespace-pre-wrap text-ink ring-[0.5px] ring-ink/[0.08]";
 }
 
 /**
@@ -43,12 +52,13 @@ export function plainBotBubble(simple: boolean): string {
  */
 export function botReplySurface(simple: boolean, text: string): string {
   if (isStructuredLongReply(text)) return "bg-transparent px-1 py-0.5 text-ink";
-  return simple ? SIMPLE_BOT_BUBBLE : "rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink";
+  return simple ? SIMPLE_BOT_BUBBLE : "rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink ring-[0.5px] ring-ink/[0.08]";
 }
 
-/** The width that goes with [botReplySurface]: a document reads at prose width, a chat line stops at the bubble cap. */
+/** The width that goes with [botReplySurface]: a document or >2-line plain reply reads at prose width, while a short chat line stops at the bubble cap. */
 export function botReplyWidth(simple: boolean, text: string): string {
   if (isStructuredLongReply(text)) return formattedReplyWidth(text);
+  if (isLongPlainReply(text)) return "max-w-[min(var(--chat-prose-max),var(--chat-card-pct))]";
   return simple ? SIMPLE_BUBBLE_MAX : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))]";
 }
 

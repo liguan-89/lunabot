@@ -2307,10 +2307,59 @@ class Session(
 
     suspend fun avatarData(forBot: Bot): ByteArray? {
         val path = forBot.avatarUrl ?: return null
+        return avatarMedia(path)
+    }
+
+    suspend fun avatarMedia(path: String): ByteArray? = try {
+        client?.avatar(path)
+    } catch (error: Throwable) {
+        if (error is kotlinx.coroutines.CancellationException) throw error
+        null
+    }
+
+    suspend fun generateAvatarState(
+        forBot: Bot,
+        state: String,
+        style: String? = null,
+        prompt: String? = null,
+        resolution: String = "720p",
+        loop: Boolean = state != "working",
+    ): Bot? {
+        val activeClient = client ?: return null
         return try {
-            client?.avatar(path)
+            val updated = activeClient.generateAvatarState(
+                botId = forBot.id,
+                state = state,
+                style = style,
+                prompt = prompt,
+                resolution = resolution,
+                loop = loop,
+            )
+            currentCoroutineContext().ensureActive()
+            _state.update { it.apply(Frame.Bot(updated)) }
+            updated
         } catch (error: Throwable) {
             if (error is kotlinx.coroutines.CancellationException) throw error
+            _actionError.value = error.message
+            null
+        }
+    }
+
+    suspend fun uploadAvatarState(
+        forBot: Bot,
+        state: String,
+        data: ByteArray,
+        mime: String,
+    ): Bot? {
+        val activeClient = client ?: return null
+        return try {
+            val updated = activeClient.uploadAvatarState(forBot.id, state, data, mime)
+            currentCoroutineContext().ensureActive()
+            _state.update { it.apply(Frame.Bot(updated)) }
+            updated
+        } catch (error: Throwable) {
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            _actionError.value = error.message
             null
         }
     }

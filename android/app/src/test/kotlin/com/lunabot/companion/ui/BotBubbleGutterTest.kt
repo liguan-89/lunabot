@@ -15,24 +15,22 @@ import kotlin.test.assertEquals
  */
 class BotBubbleGutterTest {
     @Test
-    fun `a short answer keeps the wide gutter`() {
+    fun `two lines or fewer keep the narrow bubble gutter`() {
         assertEquals(BotBubbleGutter.SHORT, BotBubbleGutter.of(lineCount = 1))
-        assertEquals(BotBubbleGutter.SHORT, BotBubbleGutter.of(lineCount = 3))
-        assertEquals(BotBubbleGutter.SHORT, BotBubbleGutter.of(lineCount = 5))
+        assertEquals(BotBubbleGutter.SHORT, BotBubbleGutter.of(lineCount = 2))
     }
 
     @Test
-    fun `past five lines the bubble uses the room`() {
-        assertEquals(BotBubbleGutter.LONG, BotBubbleGutter.of(lineCount = 6))
+    fun `more than two lines use the wider bubble gutter`() {
+        assertEquals(BotBubbleGutter.LONG, BotBubbleGutter.of(lineCount = 3))
         assertEquals(BotBubbleGutter.LONG, BotBubbleGutter.of(lineCount = 40))
     }
 
     @Test
     fun `the two gutters differ, and the long one is the narrower`() {
-        // The whole point: a long answer gets more room, not less.
         assertEquals(true, BotBubbleGutter.LONG < BotBubbleGutter.SHORT)
         assertEquals(32.dp, BotBubbleGutter.SHORT)
         assertEquals(16.dp, BotBubbleGutter.LONG)
-        assertEquals(5, BotBubbleGutter.LONG_ANSWER_LINES)
+        assertEquals(2, BotBubbleGutter.LONG_ANSWER_LINES)
     }
 }

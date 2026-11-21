@@ -16,6 +16,7 @@ import { AttachmentStorageSettings } from "./AttachmentStorageSettings";
 import { DiagnosticsRow } from "./DiagnosticsRow";
 import { DecisionModelSettings } from "./DecisionModelSettings";
 import { ImageGenerationSettings } from "./ImageGenerationSettings";
+import { VideoGenerationSettings } from "./VideoGenerationSettings";
 import { EngineMaintenance } from "./EnginesSettings";
 import { ModelManagement } from "./ModelManagement";
 import { LocalComputerSection } from "./LocalComputerSection";
@@ -51,7 +52,7 @@ import { LicenseExpiryBanner } from "./LicenseExpiryBanner";
 import { WorkspacesSection, workspacesAvailable } from "./WorkspacesSection";
 import { SkinPicker } from "./SkinPicker";
 import { ThemeRow } from "./ThemeRow";
-import { ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
+import { AvatarStyleRow, ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
 import { RoomTurnTimeoutSettings } from "./RoomTurnTimeoutSettings";
 import { McpCallTimeoutSettings } from "./McpCallTimeoutSettings";
 import { ProfileFields } from "./ProfileSettings";
@@ -79,12 +80,14 @@ import type { SettingsRowEntry } from "./settings/rows";
 // The information architecture lives in settings/registry.ts, so a new page or row is one file's edit. It is re-exported
 // here because every caller and test already reaches it through this module.
 import {
-  SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, pageOf, revealSettingsBlock, rowSearchResults,
-  sectionMatches, simplePageMatches, simpleSettingsPages, type SettingsGroup as SettingsRailGroup, type SimpleSettingsPage,
+  ADVANCED_PAGES, SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, advancedSettingsPages, pageOf,
+  revealSettingsBlock, rowSearchResults, sectionMatches, simplePageMatches, simpleSettingsPages,
+  type SettingsGroup as SettingsRailGroup, type SimpleSettingsPage,
 } from "./settings/registry";
 export {
-  SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, pageOf, revealSettingsBlock, rowSearchResults,
-  sectionMatches, simplePageMatches, simpleSettingsPages, type SimpleSettingsPage,
+  ADVANCED_PAGES, SETTINGS_GROUPS, SECTIONS, SIMPLE_FOLDED, SIMPLE_PAGES, advancedSettingsPages, pageOf,
+  revealSettingsBlock, rowSearchResults, sectionMatches, simplePageMatches, simpleSettingsPages,
+  type SimpleSettingsPage,
 };
 export type { SettingsRailGroup as SettingsGroup };
 
@@ -173,19 +176,18 @@ function SettingsDialog() {
   const availableSections = baseSections.filter((entry) => entry.id !== "skills" || skillsLibraryEnabled(state.config));
   const visibleSections = availableSections.filter((entry) => sectionMatches(entry, q));
 
-  const simpleAvailable = new Set<AppSettingsSection>([...availableSections.map((entry) => entry.id), ...(remoteActive ? [] : ["updates" as const])]);
+  const availableSet = new Set<AppSettingsSection>(availableSections.map((entry) => entry.id));
+  const simpleAvailable = new Set<AppSettingsSection>([...availableSet, ...(remoteActive ? [] : ["updates" as const])]);
   const simplePages = advanced ? [] : simpleSettingsPages(simpleAvailable);
-  const visiblePages = simplePages.filter((page) => simplePageMatches(page, q));
-  const currentPage = simplePages.find((page) => page.sections.includes(section));
+  const advancedPages = advanced ? advancedSettingsPages(availableSet) : [];
+  const activePages = advanced ? advancedPages : simplePages;
+  const visiblePages = activePages.filter((page) => simplePageMatches(page, q));
+  const currentPage = activePages.find((page) => page.sections.includes(section));
 
-  const sectionLabelKey = advanced
-    ? sectionsHere.find((entry) => entry.id === section)?.labelKey
-    : currentPage?.labelKey;
-  const nextVisibleSection = advanced
-    ? visibleSections.some((entry) => entry.id === section) ? undefined : visibleSections[0]?.id
-    : currentPage && visiblePages.includes(currentPage)
-      ? undefined
-      : visiblePages[0] && (visiblePages[0].sections.find((id) => visibleSections.some((entry) => entry.id === id)) ?? visiblePages[0].sections[0]);
+  const sectionLabelKey = currentPage?.labelKey;
+  const nextVisibleSection = currentPage && visiblePages.includes(currentPage)
+    ? undefined
+    : visiblePages[0] && (visiblePages[0].sections.find((id) => visibleSections.some((entry) => entry.id === id)) ?? visiblePages[0].sections[0]);
 
   useEffect(() => {
     if (nextVisibleSection) dispatch({ type: "toggleAppSettings", open: true, section: nextVisibleSection });
@@ -200,18 +202,18 @@ function SettingsDialog() {
   };
   const [reveal, setReveal] = useState<SettingsReveal | null>(null);
   const rowResults = advanced ? [] : rowSearchResults(q, simpleAvailable);
-  const advancedRowResults = advanced ? rowSearchResults(q, new Set(availableSections.map((entry) => entry.id))) : [];
+  const advancedRowResults = advanced ? rowSearchResults(q, availableSet) : [];
   const looksMatches = rowResults.filter((entry) => entry.simpleLooks);
   const moreMatches = rowResults.filter((entry) => entry.simpleMore);
   const pageRowMatches = rowResults.filter((entry) => !entry.simpleLooks && !entry.simpleMore);
-  const keyResults = remoteActive || !availableSections.some((entry) => entry.id === "connections") ? [] : keySearchResults(q);
-  /** Advanced keeps its rail; this is the same list for the narrow-window panel, where the rail is hidden. */
+  const keyResults = remoteActive || !availableSet.has("connections") ? [] : keySearchResults(q);
+  /** Advanced uses Muse-style flat pages; this list drives both the rail and the narrow-window search panel. */
   const advancedResults: SettingsSearchResult[] = [
-    ...visibleSections.map((entry) => ({ kind: "section" as const, id: entry.id, label: t(entry.labelKey), icon: entry.icon, current: section === entry.id,
-      select: () => { setQuery(""); openSection(entry.id); } })),
+    ...visiblePages.map((page) => ({ kind: "page" as const, id: page.id, label: t(page.labelKey), icon: page.icon, current: page === currentPage,
+      select: () => { setQuery(""); openSection(page.sections[0]!); } })),
     ...keyResults.map((entry) => ({ kind: "key" as const, id: entry.id, label: t(entry.labelKey), hint: t(keySection(entry).titleKey),
       select: () => { setQuery(""); dispatch(openKeyResult(entry)); } })),
-    ...advancedRowResults.map((entry) => ({ kind: "row" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: t(SECTIONS.find((candidate) => candidate.id === entry.section)?.labelKey ?? "settings.title"),
+    ...advancedRowResults.map((entry) => ({ kind: "row" as const, id: entry.titleKeys[0], label: t(entry.titleKeys[0]), hint: t(advancedPages.find((page) => page.sections.includes(entry.section))?.labelKey ?? SECTIONS.find((candidate) => candidate.id === entry.section)?.labelKey ?? "settings.title"),
       select: () => { setQuery(""); openSection(entry.section); setReveal({ rows: entry.titleKeys.map((key) => t(key)), block: entry.section }); } })),
   ];
   const keyResultButtons = (className: string) => keyResults.map((entry) => (
@@ -224,8 +226,8 @@ function SettingsDialog() {
   const sectionIndex = currentPage?.sections.indexOf(section) ?? 0;
   const revealBlock = !advanced && requested === "remote" ? "remote" : section;
   useEffect(() => {
-    if (scrollRef.current) revealSettingsBlock(scrollRef.current, revealBlock as AppSettingsSection, advanced ? 0 : revealBlock === section ? sectionIndex : 1);
-  }, [advanced, revealBlock, section, sectionIndex]);
+    if (scrollRef.current) revealSettingsBlock(scrollRef.current, revealBlock as AppSettingsSection, revealBlock === section ? sectionIndex : 1);
+  }, [revealBlock, section, sectionIndex]);
   useEffect(() => {
     if (!reveal) return;
     const scroller = scrollRef.current;
@@ -345,25 +347,10 @@ function SettingsDialog() {
               <OpenAtLoginRow />
               <AnalyticsRow />
               <UpdatesConsentRow />
-              <AttachmentStorageSettings />
               <PinnedPanelsSettings />
               <UpdatesRow />
               <DiagnosticsRow />
               {!remoteActive && <ReplayTourRow />}
-            </SettingsGroupBlock>
-
-            <SettingsGroupBlock label={t("settings.simple.more.limits")} stack>
-              <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
-                <RoomTurnTimeoutSettings />
-              </Card>
-              <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
-                <McpCallTimeoutSettings />
-              </Card>
-              <ThreadConcurrencySettings />
-              <AutomaticRecoverySettings />
-              <ThreadCleanupSettings />
-              <SavedStepsRow />
-              <PhoneVerifyRow />
             </SettingsGroupBlock>
           </>
         );
@@ -374,6 +361,9 @@ function SettingsDialog() {
               <ThemeRow />
               <Card title={t("settings.skin.title")} subtitle={t("settings.skin.subtitle")}>
                 <SkinPicker />
+              </Card>
+              <Card>
+                <AvatarStyleRow />
               </Card>
               <PlaceLookCard />
               {remoteActive && <AdvancedModeRow />}
@@ -410,17 +400,37 @@ function SettingsDialog() {
         return <AdminOnly><KeysPage /></AdminOnly>;
       case "decisionModel": return <AdminOnly><DecisionModelSettings /></AdminOnly>;
       case "imageGeneration": return <AdminOnly><ImageGenerationSettings /></AdminOnly>;
+      case "videoGeneration": return <AdminOnly><VideoGenerationSettings /></AdminOnly>;
       case "engines": return <AdminOnly><div className="flex flex-col gap-6"><ModelManagement /><EngineMaintenance /></div></AdminOnly>;
-      case "backups": return <AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly>;
+      case "backups":
+        return (
+          <>
+            <AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly>
+            <SettingsGroupBlock label={t("settings.simple.more.limits")} block="limits" stack>
+              <AttachmentStorageSettings />
+              <Card title={t("settings.roomTurns.title")} subtitle={t("settings.roomTurns.subtitle")}>
+                <RoomTurnTimeoutSettings />
+              </Card>
+              <Card title={t("settings.mcpCalls.title")} subtitle={t("settings.mcpCalls.subtitle")}>
+                <McpCallTimeoutSettings />
+              </Card>
+              <ThreadConcurrencySettings />
+              <AutomaticRecoverySettings />
+              <ThreadCleanupSettings />
+              <SavedStepsRow />
+              <PhoneVerifyRow />
+            </SettingsGroupBlock>
+          </>
+        );
       case "import": return <AdminOnly><ImportSettings /></AdminOnly>;
       case "companion":
         return <>{remoteAccess.companion}{remoteAccess.pairing}{remoteAccess.domain}{window.ogb?.environments ? null : remoteAccess.client}</>;
       case "computer":
         return <><BuiltInBrowserRow /><ServerSitesRow /><BrowserProfilesRow /><AdminOnly><LocalComputerSection /></AdminOnly></>;
       case "logins":
-        // Channels belong with the saved logins: both are credentials a bot uses to speak somewhere. Simple has always
-        // shown them here; Advanced used to drop them, leaving Feishu, DingTalk and WeCom unconfigurable there.
-        return <><VaultSettings /><PaymentCardsSettings /><ChannelsSettings /></>;
+        return <><VaultSettings /><PaymentCardsSettings /></>;
+      case "channels":
+        return <ChannelsSettings />;
       case "usage":
         // The Cloud plan's meters sit here, beside the per-provider plans and the trace table, rather than in General
         // where they would be a second place to read the same numbers.
@@ -446,7 +456,7 @@ function SettingsDialog() {
       case "general": return <SimpleGeneralPage has={has} disclose={disclose} toolCalls={!remoteActive} />;
       case "team": return <SimpleTeamPage has={has} peopleOpen={section === "people"} />;
       case "ai": return <SimpleAiPage has={has} disclose={disclose} connections={renderSection("connections")}
-        imageGeneration={renderSection("imageGeneration")} decisionModel={renderSection("decisionModel")} />;
+        imageGeneration={renderSection("imageGeneration")} videoGeneration={renderSection("videoGeneration")} decisionModel={renderSection("decisionModel")} />;
       case "computer": return <SimpleComputerPage has={has} remoteAccess={remoteAccess} servers={<ConnectedWorkspacesSettings />} disclose={disclose} />;
       case "billing": return <SimpleBillingPage has={has} disclose={disclose} cloudAccount={renderSection("cloudAccount")} />;
       case "advanced": return <SimpleAdvancedPage has={has} limits={simpleAvailable.has("general")} />;
@@ -575,7 +585,7 @@ function SettingsDialog() {
               onClick={close}
               aria-label={t("settings.close")}
               title={`${t("settings.close")} (${shortcutLabel("close-panel")})`}
-              className="absolute right-5 top-[18px] flex size-8 cursor-pointer items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink motion-reduce:transition-none"
+              className="settings-close-btn absolute right-5 top-[18px] flex size-9 cursor-pointer items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink motion-reduce:transition-none"
             >
               <X size={16} aria-hidden="true" />
             </button>
@@ -625,102 +635,95 @@ function SettingsDialog() {
         className="glass-surface glass-popup animate-pop-in relative flex overflow-hidden rounded-2xl outline-none"
       >
         <span id="app-settings-title" className="sr-only">{t("settings.title")}</span>
-        <nav className="glass-rail hidden min-h-0 w-[200px] shrink-0 flex-col gap-1 overflow-y-auto border-r border-hairline/30 p-3 sm:flex">
-          <div className="shrink-0 px-2 py-3 text-[15px] font-semibold text-ink">
+        <nav aria-label={t("settings.title")} className="glass-rail hidden min-h-0 w-[216px] shrink-0 flex-col gap-0.5 overflow-y-auto px-3 py-4 sm:flex">
+          <div className="shrink-0 px-3 pb-2.5 pt-1 text-[17px] font-semibold tracking-[-0.01em] text-ink">
             {t("settings.title")}
           </div>
           {searchField(
-            "mb-2 mt-1 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
+            "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-xl bg-ink/[0.05] px-2.5 text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
             "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-tertiary focus:outline-none",
           )}
-          {visibleSections.length === 0 && advancedRowResults.length === 0 && (
-            <div className="px-2.5 py-4 text-[13px] leading-relaxed text-ink-secondary">
+          {visiblePages.length === 0 && keyResults.length === 0 && advancedRowResults.length === 0 && (
+            <div className="px-3 py-4 text-[13px] leading-relaxed text-ink-secondary">
               {t("settings.noMatch", { query: query.trim() })}
             </div>
           )}
-          {SETTINGS_GROUPS.map((group) => {
-            const entries = visibleSections.filter((entry) => entry.group === group.id);
-            if (entries.length === 0) return null;
+          {visiblePages.map((page) => {
+            const Icon = page.icon;
+            const isCurrent = page === currentPage;
             return (
-              <div key={group.id} role="group" aria-labelledby={`settings-group-${group.id}`} data-settings-group={group.id} className="flex flex-col gap-0.5 pb-2">
-                <div id={`settings-group-${group.id}`} className="px-[9px] pb-1 pt-2 text-[12px] font-medium leading-4 text-ink-tertiary">
-                  {t(group.labelKey)}
-                </div>
-                {entries.map(({ id, labelKey, icon: Icon }) => (
-                  <button
-                    key={id}
-                    data-settings-section={id}
-                    onClick={() => openSection(id)}
-                    aria-current={section === id ? "page" : undefined}
-                    className={cn(
-                      "flex h-8 shrink-0 cursor-pointer items-center gap-[9px] rounded-lg px-[9px] text-left text-[13px] text-ink transition-colors motion-reduce:transition-none",
-                      section === id ? "bg-ink/[0.08]" : "hover:bg-ink/[0.06]",
-                    )}
-                  >
-                    <Icon size={15} className="shrink-0" />
-                    {t(labelKey)}
-                  </button>
-                ))}
-              </div>
+              <button
+                key={page.id}
+                type="button"
+                data-settings-page={page.id}
+                onClick={() => openSection(page.sections[0]!)}
+                aria-current={isCurrent ? "page" : undefined}
+                className={cn(
+                  "flex h-9 shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-left text-[13.5px] text-ink transition-colors motion-reduce:transition-none",
+                  isCurrent ? "bg-ink/[0.08] font-medium" : "hover:bg-ink/[0.05]",
+                )}
+              >
+                <Icon size={17} strokeWidth={1.75} aria-hidden="true" className={cn("shrink-0", isCurrent ? "text-ink" : "text-ink-secondary")} />
+                <span className="truncate">{t(page.labelKey)}</span>
+              </button>
             );
           })}
-          {keyResultButtons("cursor-pointer flex min-h-9 items-center rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors hover:bg-control/50 motion-reduce:transition-none")}
+          {keyResultButtons("cursor-pointer flex min-h-9 items-center rounded-xl px-3 py-2 text-left text-[13px] text-ink transition-colors hover:bg-ink/[0.05] motion-reduce:transition-none")}
           {advancedRowResults.map((entry) => (
             <SearchResultButton
               key={entry.titleKeys[0]}
               result={advancedResults.find((result) => result.kind === "row" && result.id === entry.titleKeys[0])!}
-              className="cursor-pointer flex min-h-9 items-center rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors hover:bg-control/50 motion-reduce:transition-none"
+              className="cursor-pointer flex min-h-9 items-center rounded-xl px-3 py-2 text-left text-[13px] text-ink transition-colors hover:bg-ink/[0.05] motion-reduce:transition-none"
             />
           ))}
         </nav>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <div className="flex shrink-0 flex-col gap-2 border-b border-hairline/30 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pl-9">
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="flex shrink-0 flex-col gap-2 py-3 pl-4 pr-14 sm:flex-row sm:items-center sm:gap-3 sm:pb-2 sm:pl-9 sm:pt-7">
             {narrowSearch}
             <div className="flex min-w-0 items-center gap-3">
               <Select className="min-w-0 sm:hidden"
                 aria-label={t("settings.title")}
-                value={section}
+                value={currentPage?.id ?? ""}
                 onChange={(event) => {
                   setQuery("");
-                  openSection(event.target.value as AppSettingsSection);
+                  const page = advancedPages.find((candidate) => candidate.id === event.target.value);
+                  if (page) openSection(page.sections[0]!);
                 }}
               >
-                {SETTINGS_GROUPS.map((group) => {
-                  const entries = availableSections.filter((entry) => entry.group === group.id);
-                  return entries.length === 0 ? null : (
-                    <optgroup key={group.id} label={t(group.labelKey)}>
-                      {entries.map(({ id, labelKey }) => (
-                        <option key={id} value={id}>{t(labelKey)}</option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
+                {advancedPages.map((page) => (
+                  <option key={page.id} value={page.id}>{t(page.labelKey)}</option>
+                ))}
               </Select>
-              <span className="hidden text-[15px] font-semibold text-ink sm:block">
+              <h2 className="hidden truncate text-[18px] font-semibold leading-6 tracking-[-0.01em] text-ink sm:block">
                 {sectionLabelKey ? t(sectionLabelKey) : null}
-              </span>
+              </h2>
             </div>
-            <button
-              onClick={close}
-              aria-label={t("settings.close")}
-              title={`${t("settings.close")} (${shortcutLabel("close-panel")})`}
-              className="ui-icon-button absolute right-3 top-3 cursor-pointer shrink-0 sm:static max-md:size-9 max-md:rounded-full max-md:border max-md:border-hairline max-md:bg-card"
-            >
-              <X size={18} />
-            </button>
-          </div>
+          </header>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={t("settings.close")}
+            title={`${t("settings.close")} (${shortcutLabel("close-panel")})`}
+            className="settings-close-btn absolute right-5 top-[18px] flex size-9 cursor-pointer items-center justify-center rounded-full text-ink-secondary transition-colors hover:bg-ink/[0.06] hover:text-ink motion-reduce:transition-none"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
 
           {q && (
-            <div className="settings-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3 sm:hidden">
+            <div className="settings-scroll flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-4 pb-10 sm:hidden">
               {advancedResults.length === 0
                 ? <div className="py-3 text-[13px] leading-relaxed text-ink-secondary">{t("settings.noMatch", { query: query.trim() })}</div>
-                : advancedResults.map((result) => <SearchResultButton key={`${result.kind}:${result.id}`} result={result} className={cn("flex min-h-9 shrink-0 cursor-pointer items-center gap-[9px] rounded-lg px-2.5 py-2 text-left text-[13px] text-ink transition-colors motion-reduce:transition-none", result.current ? "bg-ink/[0.08]" : "hover:bg-control/50")} />)}
+                : advancedResults.map((result) => <SearchResultButton key={`${result.kind}:${result.id}`} result={result} className={cn("flex min-h-9 shrink-0 cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] text-ink transition-colors motion-reduce:transition-none", result.current ? "bg-ink/[0.08] font-medium" : "hover:bg-ink/[0.05]")} />)}
             </div>
           )}
-          <div ref={scrollRef} className={cn("min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-3 py-4 sm:flex sm:px-5 sm:pb-5", q ? "hidden sm:flex" : "flex")}>
+          <div ref={scrollRef} data-settings-scroll className={cn("settings-scroll min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 pb-10 pt-3 sm:flex sm:px-9 sm:pb-12 sm:pt-4", q ? "hidden sm:flex" : "flex")}>
             <LicenseExpiryBanner config={state.config} />
-            {renderSection(section)}
+            {currentPage?.sections.map((id) => (
+              <section key={id} data-settings-block={id} className="flex scroll-mt-4 flex-col gap-4">
+                {renderSection(id)}
+              </section>
+            ))}
           </div>
         </div>
       </div>

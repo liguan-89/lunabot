@@ -1,4 +1,4 @@
-import { Loader2, Phone } from "lucide-react";
+import { Loader2, Phone, Wrench } from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
@@ -76,21 +76,20 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
       onContextMenu={(event) => openBotContextMenu(onMenu, bot.id, event)}
       className={cn(
         // No plate behind the portrait: the face and its name sit on the sidebar the way the phone draws them.
-        "group flex h-[92px] w-[78px] shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]", SIMPLE_ROW_FOCUS,
+        "group flex shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]",
+        primary ? "min-h-[104px] w-[82px]" : "min-h-[92px] w-[78px]",
+        SIMPLE_ROW_FOCUS,
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
     >
-      <span className={cn(
-        "relative flex rounded-full transition-all duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]",
-        selected && "ring-2 ring-accent/75 ring-offset-2 ring-offset-[var(--tile)] shadow-[0_0_18px_-3px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]",
-      )}>
+      <span className="relative flex rounded-full transition-transform duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]">
         <BotAvatar
           bot={bot}
           state={stateForBot({ ...bot, messages: visible })}
-          size={56}
+          size={primary ? 68 : 56}
           fallback="preset"
           life={primary ? "alive" : "glance"}
-          crown={primary && Boolean(bot.chiefOfStaff)}
+          breakout={working && Boolean(bot.avatarStates?.working || bot.avatarStates?.thinking)}
           motion={mascotMotion?.kind ?? "none"}
           motionKey={mascotMotion?.nonce ?? 0}
           animated={working || noticing || (mascotMotion?.kind ?? "none") !== "none"}
@@ -119,10 +118,25 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
           title={tooltip}
           onCommit={rename}
           onEditingChange={setRenaming}
-          className="min-w-0 truncate text-center text-[13px] font-medium leading-4 text-ink"
-          inputClassName="w-full rounded bg-inset px-1 text-center text-[13px] font-medium leading-4"
+          className={cn(
+            "min-w-0 truncate text-center text-ink",
+            primary ? "text-[15px] font-light tracking-[0.03em] leading-[18px]" : "text-[13px] font-medium leading-4",
+          )}
+          inputClassName={cn(
+            "w-full rounded bg-inset px-1 text-center",
+            primary ? "text-[15px] font-light tracking-[0.03em] leading-[18px]" : "text-[13px] font-medium leading-4",
+          )}
         />
       </span>
+      {working && Boolean(bot.avatarStates?.working || bot.avatarStates?.thinking) && (
+        <span
+          data-testid="working-scene-pill"
+          className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-medium text-ink-secondary shadow-sm ring-1 ring-ink/[0.06]"
+        >
+          <Wrench size={9} strokeWidth={2.2} aria-hidden="true" />
+          <span>努力工作中</span>
+        </span>
+      )}
     </div>
   );
 });
@@ -172,7 +186,7 @@ export function SidebarTileGrid({ primary, pinned, row, corner = false }: { prim
   if (!primary && order.ranked.length === 0) return null;
   return (
     <div ref={besideCorner.ref} data-sidebar-tiles="" data-beside-corner={besideCorner.beside ? "" : undefined}
-      className="flex max-h-[40vh] flex-wrap justify-center gap-1 overflow-y-auto px-3 pb-4 pt-2.5" {...order.frameProps}>
+      className="flex max-h-[40vh] flex-wrap items-end justify-center gap-1 overflow-y-auto px-3 pb-4 pt-2.5" {...order.frameProps}>
       {primary && <SidebarBotTile {...row(primary)} primary />}
       {order.ranked.map((bot) => <SidebarBotTile key={bot.id} {...row(bot)} {...order.dragProps(bot)} />)}
       <span role="status" className="sr-only">{order.moved}</span>

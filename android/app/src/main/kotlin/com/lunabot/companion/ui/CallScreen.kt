@@ -249,8 +249,8 @@ internal fun CallScreen(
         },
         note = note,
         muted = muted,
-        primaryIcon = R.drawable.ic_pan_tool,
-        primaryLabel = "打断并说话",
+        primaryIcon = if (phase == CallPhase.SPEAKING) R.drawable.ic_pan_tool else null,
+        primaryLabel = if (phase == CallPhase.SPEAKING) "打断并说话" else null,
         primaryEnabled = phase == CallPhase.SPEAKING,
         controlsEnabled = true,
         bottomClearance = bottomClearance,
@@ -259,6 +259,8 @@ internal fun CallScreen(
             CallPhase.SENDING, CallPhase.WORKING -> MausState.THINKING
             CallPhase.SPEAKING -> MausState.HAPPY
         },
+        speaking = phase == CallPhase.SPEAKING,
+        audioLevel = if (phase == CallPhase.SPEAKING) 0.55f else 0f,
         onPrimary = ::interrupt,
         onMute = ::toggleMute,
         onHangUp = ::hangUp,

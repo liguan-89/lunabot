@@ -19,12 +19,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -39,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -160,14 +163,14 @@ fun BotOverviewScreen(
                 Box(
                     modifier = Modifier
                         .size(44.dp)
-                        .chromeCapsule(surface = true),
+                        .museFloatingPill(CircleShape, elevation = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                         contentDescription = null,
                         tint = minisInk,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -205,21 +208,21 @@ fun BotOverviewScreen(
                 bot?.let { record ->
                     OverviewCard(label = null) {
                         OverviewActionRow(
-                            icon = R.drawable.ic_schedule,
+                            icon = R.drawable.ic_muse_schedule_outline,
                             title = "定时任务",
                             detail = routineSummary(routines),
                             onClick = { onOpenRoutines(botId) },
                         )
-                        MinisDivider()
+                        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.22f))
                         OverviewActionRow(
-                            icon = R.drawable.ic_display,
+                            icon = R.drawable.ic_display_line,
                             title = "电脑",
                             detail = if (record.busy == true) "工作中" else "空闲",
                             onClick = { onOpenComputer(botId) },
                         )
-                        MinisDivider()
+                        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.22f))
                         OverviewActionRow(
-                            icon = R.drawable.ic_display,
+                            icon = R.drawable.ic_display_line,
                             title = "浏览器",
                             detail = "看它正在看的网页",
                             onClick = { onOpenBrowser(botId) },
@@ -234,10 +237,14 @@ fun BotOverviewScreen(
                 val current = overview
                 when {
                     loading -> Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
                         horizontalArrangement = Arrangement.Center,
                     ) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = minisTertiary,
+                        )
                     }
                     current != null -> OverviewBody(current)
                     failed -> OverviewCard(label = null) {
@@ -499,21 +506,22 @@ private fun OverviewBody(overview: BotOverview) {
  */
 @Composable
 private fun OverviewCard(label: String?, content: @Composable ColumnScope.() -> Unit) {
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(modifier = Modifier.fillMaxWidth()) {
         label?.let {
             Text(
                 text = it,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 6.dp),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                letterSpacing = 0.2.sp,
                 color = minisSecondary,
             )
         }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(minisCard, MinisCardShape)
+                .clip(RoundedCornerShape(22.dp))
+                .background(cardFill)
                 .padding(horizontal = 16.dp),
             content = content,
         )
@@ -529,7 +537,7 @@ private fun OverviewRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 56.dp)
+            .heightIn(min = 54.dp)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(role = Role.Button, onClick = onClick)
@@ -542,11 +550,6 @@ private fun OverviewRow(
     )
 }
 
-/**
- * The profile's navigation row: icon, title, one state word, chevron. This is
- * the shape Grok Bot uses for 定时任务 / 资料库 / 电脑, and the right side is a
- * state the computer actually reported rather than a decorative subtitle.
- */
 @Composable
 private fun OverviewActionRow(
     icon: Int,
@@ -555,27 +558,36 @@ private fun OverviewActionRow(
     onClick: () -> Unit,
 ) {
     OverviewRow(onClick = onClick) {
-        Icon(
-            painter = painterResource(icon),
-            contentDescription = null,
-            tint = secondaryTint,
-            modifier = Modifier.size(20.dp),
-        )
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(minisCard),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(icon),
+                contentDescription = null,
+                tint = minisInk,
+                modifier = Modifier.size(18.dp),
+            )
+        }
         Spacer(Modifier.width(12.dp))
         Text(
             text = title,
-            fontSize = 17.sp,
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.Medium,
             color = minisInk,
             modifier = Modifier.weight(1f),
         )
         Text(
             text = detail,
-            fontSize = 15.sp,
+            fontSize = 14.sp,
             color = minisSecondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(4.dp))
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,

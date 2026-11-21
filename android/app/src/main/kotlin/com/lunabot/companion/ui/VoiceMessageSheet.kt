@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -268,45 +267,55 @@ internal fun VoiceCard(
                     .semantics { contentDescription = "取消" },
             )
         }
+        val cancelTone = Color(0xFFC85A4A)
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, bottom = 96.dp)
-                .chromeSheet(cornerRadius = 24.dp, elevation = 14.dp)
-                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 16.dp),
+                .museFloatingPill(RoundedCornerShape(28.dp), elevation = 12.dp)
+                .padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                if (capture.recording) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(if (capture.cancelling) cancelTone else minisInk, CircleShape),
+                    )
+                }
                 Text(
-                    text = "语音消息",
+                    text = if (capture.cancelling) "松开取消" else "语音消息",
                     fontSize = 15.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = minisInk,
+                    color = if (capture.cancelling) cancelTone else minisInk,
                 )
                 Spacer(Modifier.weight(1f))
                 Text(
                     text = timer,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
                     fontFamily = FontFamily.Monospace,
-                    color = if (capture.recording) MinisTokens.Danger else minisInk,
+                    color = if (capture.cancelling) cancelTone else minisInk,
                 )
             }
 
             VoiceLevels(
                 levels = capture.levels,
-                color = if (capture.cancelling) MinisTokens.Danger else minisAccent,
+                color = if (capture.cancelling) cancelTone else minisInk,
             )
 
             if (capture.recording && capture.heard.isNotEmpty()) {
                 Text(
                     text = capture.heard,
-                    fontSize = 14.sp,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.Medium,
                     color = minisInk,
                     maxLines = 2,
                 )
@@ -317,14 +326,14 @@ internal fun VoiceCard(
                     capture.permission == false -> "需要麦克风权限才能发送语音消息"
                     capture.permission == null -> "正在请求麦克风权限…"
                     capture.transcribing -> "正在转写…"
-                    capture.recording && capture.cancelling -> "松开取消"
+                    capture.recording && capture.cancelling -> "松开手指取消发送"
                     hold -> "上滑取消 · 松开发送"
-                    capture.recording -> "说完点发送"
+                    capture.recording -> "说完后点击发送"
                     capture.hint != null -> capture.hint!!
                     else -> "正在准备录音…"
                 },
                 fontSize = 13.sp,
-                color = if (capture.cancelling) MinisTokens.Danger else minisSecondary,
+                color = if (capture.cancelling) cancelTone else minisSecondary,
                 maxLines = 1,
             )
 
@@ -378,10 +387,10 @@ internal fun VoiceCard(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    painter = painterResource(R.drawable.ic_send_up),
                                     contentDescription = null,
                                     tint = if (capture.recording) minisPage else minisTertiary,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(21.dp),
                                 )
                             }
                         }
@@ -406,10 +415,12 @@ private fun VoiceLevels(levels: List<Float>, color: Color) {
         val total = levels.size * barWidth + (levels.size - 1) * gap
         var x = (size.width - total) / 2f
         val centerY = size.height / 2f
-        for (level in levels) {
+        val mid = (levels.size - 1) / 2f
+        levels.forEachIndexed { idx, level ->
+            val edgeFade = (1f - kotlin.math.abs(idx - mid) / (mid + 3f)).coerceIn(0.32f, 1f)
             val barHeight = (4.dp.toPx() + level * (size.height - 8.dp.toPx()))
             drawRoundRect(
-                color = color,
+                color = color.copy(alpha = edgeFade),
                 topLeft = Offset(x, centerY - barHeight / 2f),
                 size = Size(barWidth, barHeight),
                 cornerRadius = CornerRadius(barWidth / 2f),

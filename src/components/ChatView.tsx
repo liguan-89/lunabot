@@ -102,12 +102,13 @@ import { CitationSelectionToolbar, SentCitations } from "./CitationUI";
 import { SpeakButton } from "./SpeakButton";
 import { CallOverlay } from "./CallView";
 import { LiveCallBar } from "./LiveCallBar";
+import { LiveCallFloatCard } from "./LiveCallFloatCard";
 import { LiveCallChip } from "./LiveCallPill";
 import { effectivePlace, toolPlace, type EffectivePlace } from "@/lib/place";
 import { cn } from "@/lib/cn";
-import { activeLocale, intlLocale, t } from "@/lib/i18n";
+import { activeLocale, t } from "@/lib/i18n";
 import { COMPACT_BUBBLE } from "@/lib/compact-chip";
-import { groupTranscript, isStatusActivity, turnDurations, workedLabel } from "@/lib/activity-runs";
+import { groupTranscript, isStatusActivity } from "@/lib/activity-runs";
 import { StatusActivityRow } from "@/components/StatusActivityRow";
 import { CancelledTurnRow } from "./CancelledTurnRow";
 import { ActivityRun } from "./ActivityRun";
@@ -169,7 +170,7 @@ function useChatRows(): ChatRows {
 }
 
 const drawnBot = (bot: Bot) =>
-  [bot.id, bot.name, bot.hidden, bot.color, bot.mascotBody, bot.mascotExpression, bot.mascotFaceColor, bot.avatarUrl, bot.avatarCrop, bot.avatarZoom, bot.avatarFocusX, bot.avatarFocusY].join("\u0001");
+  [bot.id, bot.name, bot.hidden, bot.color, bot.mascotBody, bot.mascotExpression, bot.mascotFaceColor, bot.avatarUrl, bot.avatarCrop, bot.avatarZoom, bot.avatarFocusX, bot.avatarFocusY, JSON.stringify(bot.avatarStates ?? "")].join("\u0001");
 
 function useDrawnBots(bots: readonly Bot[]): readonly Bot[] {
   const signature = bots.map(drawnBot).join("\u0002");
@@ -308,7 +309,6 @@ const Bubble = memo(function Bubble({
   eagerAttachments = false,
   joinAbove = false,
   joinBelow = false,
-  workedFor,
   editing,
   pinned,
   versions,
@@ -325,8 +325,6 @@ const Bubble = memo(function Bubble({
   /** Simple mode: this bubble meets the one above (or below) in its sender's group. */
   joinAbove?: boolean;
   joinBelow?: boolean;
-  /** Simple mode: how long the turn this answer ends took, for its tooltip. */
-  workedFor?: number;
   editing: boolean;
   pinned: boolean;
   versions?: readonly Message[];
@@ -470,7 +468,6 @@ const Bubble = memo(function Bubble({
             simple && join && !split && !attachmentsOnly && !tabled && !structuredSimple && joinedCorners(user ? "end" : "start", join),
           )}
           style={user && !webhookView && !attachmentsOnly ? ownBubbleStyle : undefined}
-          title={workedFor === undefined ? new Date(message.at).toLocaleString(intlLocale()) : `${workedLabel(workedFor)} · ${new Date(message.at).toLocaleString(intlLocale())}`}
         >
           {replyTarget && (
             <div className="mb-2">
@@ -670,7 +667,6 @@ const MessagesList = memo(function MessagesList({
   let dividerPlaced = false;
   const layout = useMemo(() => simple ? simpleRowLayout(items, { botId, showToolCalls, unreadIds }) : null, [simple, items, unreadIds, showToolCalls, botId]);
   const joins = layout?.joins;
-  const durations = useMemo(() => simple ? turnDurations(messages) : null, [messages, simple]);
   const dividerAbove = (rows: readonly Message[]) => {
     if (!unreadIds || dividerPlaced || !rows.some((row) => unreadIds.has(row.id))) return null;
     dividerPlaced = true;
@@ -761,7 +757,6 @@ const MessagesList = memo(function MessagesList({
                   eagerAttachments={m.id === newestMessageId || m.id === newestUserMessageId}
                   joinAbove={joins?.[i]?.above}
                   joinBelow={joins?.[i]?.below}
-                  workedFor={durations?.get(m.id)}
                   editing={editingId === m.id}
                   pinned={m.id === pinnedMessageId}
                   versions={lookups.editVersions(m)}
@@ -988,6 +983,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
     <ThreadLinkContext value={threadLink}>
     <main className="relative flex h-full min-w-0 flex-1 flex-col bg-app">
       <CallOverlay bot={bot} />
+      <LiveCallFloatCard bot={bot} />
       <GlassScrollFrame className="flex-1 [--glass-tint:var(--color-app)]">
       {/* z-[25]: above the room set-up card (z-20), below the CallOverlay (z-30). */}
       <GlassBar edge="top" fade={!remoteClient} className="z-[25]">
@@ -1040,9 +1036,9 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
                 }}
                 onActivate={() => dispatch({ type: "toggleSettings", open: true })}
                 showEditButton
-                className="truncate text-[14px] font-semibold text-ink"
+                className="truncate text-[15px] font-light tracking-[0.03em] text-ink"
                 editButtonClassName="size-6 rounded-full"
-                inputClassName="max-w-[220px] rounded-full bg-inset px-2 py-0.5 text-[14px] font-semibold"
+                inputClassName="max-w-[220px] rounded-full bg-inset px-2 py-0.5 text-[15px] font-light tracking-[0.03em]"
               />
               {chiefOfStaffBadge(bot)}
             </div>
@@ -1057,7 +1053,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
             >
               <BotAvatar bot={bot} state={stateForBot({ ...bot, messages })} size={24} fallback="preset"
                 motion={mascotMotion?.kind ?? "none"} motionKey={mascotMotion?.nonce ?? 0} animated={headerAnimated} />
-              <span className="min-w-0 truncate text-[14px] font-medium text-ink">{bot.name}</span>
+              <span className="min-w-0 truncate text-[15px] font-light tracking-[0.03em] text-ink">{bot.name}</span>
               {chiefOfStaffBadge(bot)}
               <ChevronRight size={14} aria-hidden="true" className="-ml-2.5 w-0 shrink-0 text-ink-secondary opacity-0 transition-[width,margin,opacity] duration-150 group-hover:ml-0 group-hover:w-3.5 group-hover:opacity-100 group-focus-visible:ml-0 group-focus-visible:w-3.5 group-focus-visible:opacity-100" />
             </button>

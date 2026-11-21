@@ -34,7 +34,7 @@ import type { TurnDigest } from "../../shared/digest";
 import type { ToolScope } from "../../shared/tool-scope";
 import type { ModelVariantOption, RuntimeEvent } from "../../shared/runtime-events";
 import type { MausColor, MausMotion } from "@/lib/mascot";
-import type { BotAvatarCrop } from "../../shared/bot-avatar";
+import type { BotAvatarCrop, BotAvatarStates } from "../../shared/bot-avatar";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
 import { askResetBridge, desktopCapabilitiesNow } from "@/lib/desktop"; import { isBotLimitRefusal, showCreatedPaused, stoppedAtBotLimit } from "@/lib/bot-limit";
 import { followBotModel, sameModelSelection } from "../../shared/thread-model";
@@ -294,6 +294,7 @@ export interface Bot extends DefaultBotFields, Pick<WireBot, "mascotFaceColor" |
   mascotBody?: BotBodyId | null;
   avatarUrl?: string | null;
   avatarCrop?: BotAvatarCrop;
+  avatarStates?: BotAvatarStates;
   avatarZoom?: number;
   avatarFocusX?: number;
   avatarFocusY?: number;
@@ -411,7 +412,7 @@ export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 // A section left out here is wiped from state.config whenever a config frame lands.
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
-  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
+  "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "seedance" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
   | "computerName" | "newBots" | "cloudStarter" | "waitingForRoom" | "planTurns" | "botLimit"
 >;
 
@@ -451,7 +452,7 @@ export function configStatusFromFrame(frame: ConfigStatusFrame, held?: ConfigSta
     tts: frame.tts,
     decider: frame.decider, helpers: frame.helpers,
     imageGen: frame.imageGen,
-    live: frame.live, savedKeys: frame.savedKeys,
+    live: frame.live, seedance: frame.seedance, savedKeys: frame.savedKeys,
     profile: frame.profile, everyBotRules: frame.everyBotRules,
     language: frame.language,
     features: frame.features,
@@ -531,12 +532,13 @@ export type AppSettingsSection =
   | "appearance"
   | "experimental"
   | "connections"
-  | "decisionModel" | "imageGeneration"
+  | "decisionModel" | "imageGeneration" | "videoGeneration"
   | "engines"
   | "companion"
   | "remote"
   | "computer"
   | "logins"
+  | "channels"
   | "usage"
   | "people" | "botAccess"
   | "activity"

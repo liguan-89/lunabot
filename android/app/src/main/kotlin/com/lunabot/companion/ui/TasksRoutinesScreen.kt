@@ -588,7 +588,7 @@ private fun RoutineRow(
             .fillMaxWidth()
             .heightIn(min = MIN_TOUCH_TARGET)
             .clickable(role = Role.Button, onClick = onEdit)
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(start = 16.dp, end = 8.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -612,35 +612,55 @@ private fun RoutineRow(
 
         Column(
             modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(routine.name, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+            ) {
+                Text(
+                    text = routine.name,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                badge?.let {
+                    val paused = it == RoutineRules.PausedBadge.PAUSED
+                    if (paused) {
+                        Box(
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .background(if (minisIsDark()) minisCard else Color(0xFFEAEAE8))
+                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                        ) {
+                            Text(
+                                text = it.label,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = minisSecondary,
+                                maxLines = 1,
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.CheckCircle,
+                            contentDescription = it.label,
+                            tint = minisSecondary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
             Text(
                 text = RoutineRules.routineSubtitle(routine, bot?.name),
-                fontSize = 12.sp,
-                color = secondaryTint,
-                maxLines = 2,
+                fontSize = 12.5.sp,
+                color = minisSecondary,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-        }
-
-        badge?.let {
-            val paused = it == RoutineRules.PausedBadge.PAUSED
-            if (paused) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_pause_circle),
-                    contentDescription = it.label,
-                    tint = attentionTint,
-                    modifier = Modifier.size(20.dp),
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.CheckCircle,
-                    contentDescription = it.label,
-                    tint = secondaryTint,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
         }
 
         Box {

@@ -117,7 +117,9 @@ class RemoteCardWiringTest {
         // earlier cards' translated copy takes more room; being composed is
         // the property under test — the row is no longer dropped.
         compose.onNodeWithText("Nightly").assertExists()
-        compose.onNodeWithText("运行中").assertExists()
+        // The card's second line is one Text: "预定任务 · 运行中", not a bare
+        // status word, so match on the status inside it.
+        compose.onNodeWithText("运行中", substring = true).assertExists()
         compose.onNodeWithText("正在整理日志").assertExists()
         // The last card sits below the fold of this fixture; being composed is
         // the property under test — the row is no longer dropped.

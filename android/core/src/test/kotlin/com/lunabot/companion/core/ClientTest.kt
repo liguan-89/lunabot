@@ -538,14 +538,16 @@ class ClientTest {
         wired.uploadFile(byteArrayOf(1, 2, 3), "doc.pdf", "application/pdf")
 
         assertEquals(listOf("/api/health", "/api/attachments", "/api/files"), seen.map { it.path })
-        val actionCallTimeout = java.util.concurrent.TimeUnit.SECONDS.toNanos(20)
+        // 30 s, not 20: a relayed screen action outlived 20 s and the phone showed a bare "timeout" for a tap that
+        // had in fact landed (9c3d1b595b). Uploads still get no overall call deadline, only the idle limits.
+        val actionCallTimeout = java.util.concurrent.TimeUnit.SECONDS.toNanos(30)
         assertEquals(actionCallTimeout, seen[0].callTimeoutNanos)
         assertEquals(0L, seen[1].callTimeoutNanos)
         assertEquals(0L, seen[2].callTimeoutNanos)
         seen.forEach { timeouts ->
-            assertEquals(20_000, timeouts.connectMs)
-            assertEquals(20_000, timeouts.readMs)
-            assertEquals(20_000, timeouts.writeMs)
+            assertEquals(30_000, timeouts.connectMs)
+            assertEquals(30_000, timeouts.readMs)
+            assertEquals(30_000, timeouts.writeMs)
         }
     }
 

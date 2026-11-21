@@ -7,7 +7,7 @@ import type { ApprovalMode } from "./approval-mode.ts";
 import type { ToolScope } from "./tool-scope.ts";
 import type { CommandAllowlistCandidate } from "./command-allowlist.ts";
 import type { TurnDigest } from "./digest.ts";
-import type { BotAvatarCrop, MascotFaceColor } from "./bot-avatar.ts";
+import type { BotAvatarCrop, BotAvatarStates, MascotFaceColor } from "./bot-avatar.ts";
 import type { BotBodyId } from "./bot-body.ts";
 import type { ReplyStyle } from "./reply-style.ts";
 import type { CredentialTargetId, CUSTOM_SECRET_TARGET, SecretDelivery } from "./credential-request.ts"; import type { EmailOutgoingFields } from "./email.ts";
@@ -329,6 +329,8 @@ export interface WireBot extends DefaultBotFields, BotAccessFields {
   avatarFocusX?: number;
   /** Vertical point of the image kept in the crop, 0–1. Absent means center. */
   avatarFocusY?: number;
+  /** Optional per-state looping video/image assets (idle, working, listening, talking, thinking). */
+  avatarStates?: BotAvatarStates;
   /** True when any task has unread output. */
   unread: boolean;
   /** The bot's model: every thread without a model of its own runs on it

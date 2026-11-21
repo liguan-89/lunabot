@@ -91,11 +91,13 @@ class SpeechBubbleTest {
     @Test
     fun `the Minis palette stays monochrome with one blue accent`() {
         // The old bubble was the mascot's blue; the Minis redesign made ink and
-        // page the speakers and kept blue for links and live states only.
+        // page the speakers and kept blue for links and live states only. Light
+        // ink is a near-black, not #000000 — the pure-ink pass took it to #111111
+        // so text and page stay distinguishable on a white canvas.
         assertEquals(0xFF000000.toInt(), MinisTokens.PageDark.toArgb())
         assertEquals(0xFFFFFFFF.toInt(), MinisTokens.PageLight.toArgb())
         assertEquals(0xFFFFFFFF.toInt(), MinisTokens.InkDark.toArgb())
-        assertEquals(0xFF000000.toInt(), MinisTokens.InkLight.toArgb())
+        assertEquals(0xFF111111.toInt(), MinisTokens.InkLight.toArgb())
         assertEquals(0xFF528AD2.toInt(), MinisTokens.AccentLight.toArgb())
     }
 

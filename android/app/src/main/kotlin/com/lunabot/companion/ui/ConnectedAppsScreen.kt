@@ -2,7 +2,10 @@ package com.lunabot.companion.ui
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,7 +55,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -68,7 +74,13 @@ import com.lunabot.companion.core.ConnectorCard
 import com.lunabot.companion.core.ConnectorCatalog
 import com.lunabot.companion.core.ConnectorStatus
 import com.lunabot.companion.core.ConnectorStatuses
+import java.io.ByteArrayOutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Collections
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * The paired-phone inventory for apps connected on the computer.
@@ -601,12 +613,44 @@ private fun ConnectorCardView(
 }
 
 /**
- * The app's tile. The catalog carries a `logo` URL, but the app has no image
- * loader to fetch it with, so the honest fallback is the label's initial —
- * the same letter the desktop's favicon resolves to.
+ * The app's icon tile: loads the real logo from `card.logo`, falls back to a
+ * high-res PNG favicon for `card.domain`, and gracefully displays the tinted
+ * initial tile while loading or when offline.
  */
 @Composable
 private fun ConnectorIconTile(card: ConnectorCard) {
+    var bitmap by remember(card.slug, card.logo, card.domain) {
+        mutableStateOf(ConnectorLogoCache.get(card.slug))
+    }
+    LaunchedEffect(card.slug, card.logo, card.domain) {
+        if (bitmap == null && !ConnectorLogoCache.isFailed(card.slug)) {
+            val loaded = withContext(Dispatchers.IO) {
+                ConnectorLogoCache.load(card)
+            }
+            if (loaded != null) bitmap = loaded
+        }
+    }
+
+    val loadedBitmap = bitmap
+    if (loadedBitmap != null) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White)
+                .padding(8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                bitmap = loadedBitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        return
+    }
+
     val dark = minisIsDark()
     val idx = (card.slug.hashCode() and 0x7FFFFFFF) % 5
     val (bg, fg) = if (dark) {
@@ -639,6 +683,104 @@ private fun ConnectorIconTile(card: ConnectorCard) {
             fontWeight = FontWeight.SemiBold,
             color = fg,
         )
+    }
+}
+
+private object ConnectorLogoCache {
+    private const val MAX_BYTES = 512 * 1024
+    private const val TIMEOUT_MS = 4_000
+    private val cache = LruCache<String, ImageBitmap>(128)
+    private val failed = Collections.synchronizedSet(mutableSetOf<String>())
+
+    private val fallbackDomains = mapOf(
+        "gmail" to "mail.google.com",
+        "googlecalendar" to "calendar.google.com",
+        "googledrive" to "drive.google.com",
+        "googledocs" to "docs.google.com",
+        "googlesheets" to "sheets.google.com",
+        "github" to "github.com",
+        "composio" to "composio.dev",
+        "slack" to "slack.com",
+        "notion" to "notion.so",
+        "linear" to "linear.app",
+        "discord" to "discord.com",
+        "figma" to "figma.com",
+        "jira" to "atlassian.com",
+        "twitter" to "x.com",
+        "x" to "x.com",
+    )
+
+    fun get(slug: String): ImageBitmap? = cache.get(slug)
+    fun isFailed(slug: String): Boolean = slug in failed
+
+    fun load(card: ConnectorCard): ImageBitmap? {
+        cache.get(card.slug)?.let { return it }
+        val candidates = buildList {
+            val logo = card.logo?.trim()
+            if (!logo.isNullOrEmpty() && (logo.startsWith("https://") || logo.startsWith("http://")) &&
+                !logo.substringBefore('?').endsWith(".svg", ignoreCase = true)
+            ) {
+                add(logo)
+            }
+            val domain = card.domain?.trim()?.takeIf { it.isNotEmpty() }
+                ?: fallbackDomains[card.slug.lowercase()]
+            if (!domain.isNullOrEmpty()) {
+                val faviconUrl = Uri.Builder()
+                    .scheme("https")
+                    .authority("www.google.com")
+                    .path("s2/favicons")
+                    .appendQueryParameter("domain", domain)
+                    .appendQueryParameter("sz", "128")
+                    .build()
+                    .toString()
+                add(faviconUrl)
+            }
+        }
+        for (url in candidates) {
+            val decoded = fetchBitmap(url)
+            if (decoded != null) {
+                cache.put(card.slug, decoded)
+                failed.remove(card.slug)
+                return decoded
+            }
+        }
+        failed.add(card.slug)
+        return null
+    }
+
+    private fun fetchBitmap(urlString: String): ImageBitmap? {
+        var conn: HttpURLConnection? = null
+        return try {
+            conn = (URL(urlString).openConnection() as HttpURLConnection).apply {
+                connectTimeout = TIMEOUT_MS
+                readTimeout = TIMEOUT_MS
+                instanceFollowRedirects = true
+                setRequestProperty("Accept", "image/png,image/webp,image/jpeg,image/x-icon,*/*;q=0.5")
+            }
+            if (conn.responseCode !in 200..299) return null
+            val contentType = conn.contentType?.lowercase().orEmpty()
+            if ("svg" in contentType || "html" in contentType) return null
+            val out = ByteArrayOutputStream()
+            val buf = ByteArray(8192)
+            var total = 0
+            conn.inputStream.use { input ->
+                while (true) {
+                    val n = input.read(buf)
+                    if (n <= 0) break
+                    total += n
+                    if (total > MAX_BYTES) return null
+                    out.write(buf, 0, n)
+                }
+            }
+            val bytes = out.toByteArray()
+            val bmp = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            if (bmp.width < 16 || bmp.height < 16) return null
+            bmp.asImageBitmap()
+        } catch (_: Throwable) {
+            null
+        } finally {
+            conn?.disconnect()
+        }
     }
 }
 

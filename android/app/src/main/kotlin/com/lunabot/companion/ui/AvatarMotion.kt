@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
+import com.lunabot.companion.storage.BotAvatarStyle
 import kotlin.coroutines.coroutineContext
 
 /**
@@ -133,11 +134,24 @@ internal val AvatarMotion.life: FaceLife
  * circle crop and the face itself are one implementation rather than three
  * that can drift apart.
  */
+private fun styleForBodyId(bodyId: String?, fallback: BotAvatarStyle): BotAvatarStyle =
+    when (bodyId?.lowercase()) {
+        "orb" -> BotAvatarStyle.ORB
+        "neko" -> BotAvatarStyle.NEKO
+        "liquid" -> BotAvatarStyle.LIQUID
+        "synth" -> BotAvatarStyle.SYNTH
+        "spirit" -> BotAvatarStyle.SPIRIT
+        "minibot" -> BotAvatarStyle.MINIBOT
+        "classic" -> BotAvatarStyle.CLASSIC
+        else -> fallback
+    }
+
 @Composable
 internal fun PresetBotAvatar(
     color: String?,
     size: Dp,
     modifier: Modifier = Modifier,
+    bodyId: String? = null,
     contentDescription: String? = null,
     motion: AvatarMotion = AvatarMotion.NONE,
     mood: FaceMood = FaceMood.IDLE,
@@ -145,6 +159,7 @@ internal fun PresetBotAvatar(
     seed: Int = 0,
     crown: Boolean = false,
 ) {
+    val resolvedStyle = styleForBodyId(bodyId, LocalBotAvatarStyle.current)
     BotFace(
         color = color,
         size = size,
@@ -155,6 +170,7 @@ internal fun PresetBotAvatar(
         drowsy = drowsy,
         seed = seed,
         crown = crown,
+        style = resolvedStyle,
     )
 }
 
