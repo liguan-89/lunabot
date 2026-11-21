@@ -691,18 +691,18 @@ private fun TextBubble(
     // shadows landed on each other and the run read as one smudged block.
     val bubbleRim = minisBubbleRim
     val bubbleFill = if (mine) BubbleColor.userBubble else BubbleColor.botBubble
-    // What the bubble will actually lay out, which is what the gutter is
-    // measured against: a diff or a table draws its own card and never reaches
-    // here.
     val bubbleText = attached.text.takeIf { it.isNotEmpty() } ?: message.text
-    // The bot's gutter depends on how many lines the answer takes at the narrow
-    // width, so the column's own width has to be known before the Row is built.
+    val isStandalone = startsRun && endsRun
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val columnWidth = maxWidth
-        val botGutter = if (mine) 0.dp else botBubbleGutter(
-            text = bubbleText,
-            columnWidth = columnWidth,
-        )
+        val botGutter = when {
+            mine -> 0.dp
+            !isStandalone -> BotBubbleGutter.LONG
+            else -> botBubbleGutter(
+                text = bubbleText,
+                columnWidth = columnWidth,
+            )
+        }
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
@@ -2514,13 +2514,18 @@ fun StreamingBubble(text: String?, reasoning: String?) {
                 // Same renderer as the settled text: a live reply showing
                 // `**bold**` that snaps to bold on arrival is the message
                 // jumping, just in a different dimension.
-                Box(
-                    modifier = Modifier
-                        .widthIn(max = 640.dp)
-                        .background(BubbleColor.botBubble, bubbleShape)
-                        .padding(horizontal = 15.dp, vertical = 10.dp),
-                ) {
-                    MarkdownText(source = revealed(text), caret = true)
+                val live = revealed(text)
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                    val gutter = botBubbleGutter(text = live, columnWidth = maxWidth)
+                    Box(
+                        modifier = Modifier
+                            .padding(end = gutter)
+                            .widthIn(max = 640.dp)
+                            .background(BubbleColor.botBubble, bubbleShape)
+                            .padding(horizontal = 15.dp, vertical = 10.dp),
+                    ) {
+                        MarkdownText(source = live, caret = true)
+                    }
                 }
             }
         }
