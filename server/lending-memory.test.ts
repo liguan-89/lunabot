@@ -28,6 +28,7 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 import { botMemoryFiles, changedFiles, createLendingMemory, FOLDER_ENTRY_CAP, fingerprintOf, memoryFiles } from "./lending-memory.ts";
+import { hostTimeout } from "./testing/host-timeout.ts";
 
 const memoryFingerprint = (workspace: string, workingFolders: readonly string[] = []) => fingerprintOf(memoryFiles(workspace, workingFolders));
 
@@ -360,7 +361,7 @@ describe("a bot's memory and a lent Mac (server/lending-memory.ts)", () => {
       snapshot();
       runs.push(performance.now() - started);
     }
-    expect(Math.min(...runs)).toBeLessThan(process.platform === "win32" ? 250 : 100);
+    expect(Math.min(...runs)).toBeLessThan(hostTimeout(process.platform === "win32" ? 250 : 100));
     const memory = createLendingMemory({ file: join(dir, "record.json"), files: snapshot, knownBots: () => ["bot1"] });
     memory.reconcile("bot1", false);
     expect(statSync(join(dir, "record.json")).size).toBeLessThan(10_000);

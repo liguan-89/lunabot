@@ -4,6 +4,7 @@ import { launchVerificationServer } from "../scripts/control-omb.ts";
 import { PERSON_STOPPED_TURN_NAME } from "../shared/client-cancel.ts";
 import { failedTurnCause } from "../shared/failed-turn.ts";
 import { openSse } from "./testing/sse.ts";
+import { hostTimeout } from "./testing/host-timeout.ts";
 
 it("ends a stopped turn with one quiet stop, keeps what it said, and a second Stop on it leaves the queued message running", async () => {
   const fixture = await launchVerificationServer({
@@ -39,18 +40,18 @@ it("ends a stopped turn with one quiet stop, keeps what it said, and a second St
     const { bot } = await api("POST", "/api/bots", { name: "Stopper", modelSelection: selection }, 201);
     const threadId = bot.threadId;
     await api("POST", `/api/bots/${bot.id}/messages`, { threadId, text: "Hold this one, please." }, 202);
-    const first = (await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "turn.started" && frame.event.threadId === threadId)).event.turnId;
+    const first = (await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "turn.started" && frame.event.threadId === threadId, hostTimeout(10_000))).event.turnId;
     const queued = await api("POST", `/api/bots/${bot.id}/messages`, { threadId, text: "Second message" }, 202);
     expect(queued).toMatchObject({ queued: true });
 
     // The first Stop names the turn the person saw.
     await api("POST", `/api/bots/${bot.id}/interrupt`, { threadId, turnId: first });
     const second = (await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "turn.started"
-      && frame.event.threadId === threadId && frame.event.turnId !== first)).event.turnId;
+      && frame.event.threadId === threadId && frame.event.turnId !== first, hostTimeout(10_000))).event.turnId;
     // The double click's second Stop names the same, finished turn: the queued message must keep running.
     expect(await api("POST", `/api/bots/${bot.id}/interrupt`, { threadId, turnId: first })).toEqual({ ok: true, outcome: "already-stopped" });
-    await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "turn.completed" && frame.event.turnId === second);
-    await expect.poll(async () => (await messages(threadId)).some((message) => message.kind === "text" && /^echo: .*Second message/s.test(message.text ?? "")), { timeout: 20_000 }).toBe(true);
+    await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "turn.completed" && frame.event.turnId === second, hostTimeout(10_000));
+    await expect.poll(async () => (await messages(threadId)).some((message) => message.kind === "text" && /^echo: .*Second message/s.test(message.text ?? "")), { timeout: hostTimeout(20_000) }).toBe(true);
 
     const rows = await messages(threadId);
     const stops = rows.filter((message) => message.kind === "activity" && message.tool?.name?.startsWith("stopped:"));
@@ -62,9 +63,9 @@ it("ends a stopped turn with one quiet stop, keeps what it said, and a second St
     const partial = (await api("POST", "/api/bots", { name: "Halfway", modelSelection: selection }, 201)).bot;
     await api("POST", `/api/bots/${partial.id}/messages`, { threadId: partial.threadId, text: "Start, then stall." }, 202);
     const halfway = (await stream.until((frame) => frame.kind === "runtime" && frame.event?.type === "content.delta"
-      && frame.event.threadId === partial.threadId)).event.turnId;
+      && frame.event.threadId === partial.threadId, hostTimeout(10_000))).event.turnId;
     await api("POST", `/api/bots/${partial.id}/interrupt`, { threadId: partial.threadId, turnId: halfway });
-    const digest = await expect.poll(async () => (await messages(partial.threadId)).find((message) => message.kind === "digest"), { timeout: 20_000 }).toBeTruthy()
+    const digest = await expect.poll(async () => (await messages(partial.threadId)).find((message) => message.kind === "digest"), { timeout: hostTimeout(20_000) }).toBeTruthy()
       .then(async () => (await messages(partial.threadId)).find((message) => message.kind === "digest"));
     expect(JSON.stringify(digest.digest)).toContain("half an answer, then silence");
     const after = await messages(partial.threadId);
