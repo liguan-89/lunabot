@@ -1040,9 +1040,9 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
                 }}
                 onActivate={() => dispatch({ type: "toggleSettings", open: true })}
                 showEditButton
-                className="truncate text-[14px] font-semibold text-ink"
+                className="truncate text-[15px] font-light tracking-[0.03em] text-ink"
                 editButtonClassName="size-6 rounded-full"
-                inputClassName="max-w-[220px] rounded-full bg-inset px-2 py-0.5 text-[14px] font-semibold"
+                inputClassName="max-w-[220px] rounded-full bg-inset px-2 py-0.5 text-[15px] font-light tracking-[0.03em]"
               />
               {chiefOfStaffBadge(bot)}
             </div>
@@ -1057,7 +1057,7 @@ export function ChatView({ bot: profile }: { bot: Bot }) {
             >
               <BotAvatar bot={bot} state={stateForBot({ ...bot, messages })} size={24} fallback="preset"
                 motion={mascotMotion?.kind ?? "none"} motionKey={mascotMotion?.nonce ?? 0} animated={headerAnimated} />
-              <span className="min-w-0 truncate text-[14px] font-medium text-ink">{bot.name}</span>
+              <span className="min-w-0 truncate text-[15px] font-light tracking-[0.03em] text-ink">{bot.name}</span>
               {chiefOfStaffBadge(bot)}
               <ChevronRight size={14} aria-hidden="true" className="-ml-2.5 w-0 shrink-0 text-ink-secondary opacity-0 transition-[width,margin,opacity] duration-150 group-hover:ml-0 group-hover:w-3.5 group-hover:opacity-100 group-focus-visible:ml-0 group-focus-visible:w-3.5 group-focus-visible:opacity-100" />
             </button>

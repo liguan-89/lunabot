@@ -2091,9 +2091,9 @@ private fun ChatHeader(
                 ) {
                     Text(
                         text = chat.name,
-                        fontSize = 14.5.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.15).sp,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 0.4.sp,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

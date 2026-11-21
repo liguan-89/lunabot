@@ -793,7 +793,7 @@ function Call({ bot }: { bot: Bot }) {
       </div>
 
       <div className="flex flex-col items-center gap-1.5 text-center">
-        <div className="text-[20px] font-semibold tracking-[-0.02em] text-ink">{bot.name}</div>
+        <div className="text-[22px] font-light tracking-[0.03em] text-ink">{bot.name}</div>
         <div className="flex items-center gap-2 text-[14px] text-ink-secondary">
           {(phase === "working" || phase === "sending") && <Loader2 size={13} className="animate-spin" />}
           {status}

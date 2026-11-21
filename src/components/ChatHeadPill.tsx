@@ -66,7 +66,7 @@ export function ChatHeadPill({ bot, avatar, privacy, onToggle }: {
       )}
     >
       <BotAvatar bot={bot} size={24} fallback="preset" {...avatar} />
-      <span dir="auto" className="min-w-0 truncate text-[14px] font-medium leading-5 tracking-[-0.01em]">{bot.name}</span>
+      <span dir="auto" className="min-w-0 truncate text-[15px] font-light leading-5 tracking-[0.03em]">{bot.name}</span>
       {conversation && (
         <>
           <ChevronRight size={12} aria-hidden="true" className="shrink-0 text-ink-tertiary" />

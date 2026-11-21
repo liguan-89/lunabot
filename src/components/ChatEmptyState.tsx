@@ -26,11 +26,11 @@ export function EmptyChat({ bot }: { bot: Bot }) {
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-16 text-center">
       <div className="relative z-10 flex flex-col items-center gap-3.5">
-        <BotAvatar bot={bot} state="idle" size={64} fallback="preset" life="alive" motion="none" motionKey={0} />
+        <BotAvatar bot={bot} state="idle" size={bot.defaultBot || bot.chiefOfStaff ? 80 : 68} fallback="preset" life="alive" motion="none" motionKey={0} />
 
         <div className="flex flex-col items-center gap-1.5">
           {!advanced ? (
-            <div className="text-[20px] font-semibold tracking-[-0.02em] text-ink">{bot.name}</div>
+            <div className="text-[24px] font-light tracking-[0.03em] text-ink">{bot.name}</div>
           ) : (
             <RenameTitle
               value={bot.name}
@@ -43,8 +43,8 @@ export function EmptyChat({ bot }: { bot: Bot }) {
                   dispatch({ type: "updateBot", botId: bot.id, patch: { name } });
                 }
               }}
-              className="text-[20px] font-semibold tracking-[-0.02em] text-ink"
-              inputClassName="rounded-lg bg-inset px-2 py-0.5 text-center text-[20px] font-semibold tracking-[-0.02em]"
+              className="text-[24px] font-light tracking-[0.03em] text-ink"
+              inputClassName="rounded-lg bg-inset px-2 py-0.5 text-center text-[24px] font-light tracking-[0.03em]"
             />
           )}
           <div className="max-w-[400px] text-[14px] leading-[1.55] text-ink-secondary">

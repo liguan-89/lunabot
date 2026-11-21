@@ -1166,9 +1166,9 @@ private fun RosterHero(
                     }
                     Text(
                         text = summary.chat.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 0.4.sp,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2205,8 +2205,9 @@ private fun MuseLibraryTab(
             ) {
                 Text(
                     text = heroName,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 0.4.sp,
                     color = minisInk,
                 )
                 Spacer(Modifier.width(4.dp))

@@ -42,13 +42,19 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the sidebar tiles", () => {
-  it.each([true, false])("draws the main tile and a pinned tile the same: 78 by 92, no plate behind the portrait, a 56px avatar over a one-line 13px medium name (main %s)", (primary) => {
+  it.each([true, false])("draws the main tile larger (68px avatar in 78x104) and pinned tiles at 56px in 78x92 without a plate behind the portrait (main %s)", (primary) => {
     const html = renderToStaticMarkup(createElement(SidebarBotTile, { ...props(bot({ chiefOfStaff: primary })), primary }));
-    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\bh-\\[92px\\] w-\\[78px\\][^"]*\\[--tile:var\\(--color-panel\\)\\]`));
+    const height = primary ? "104px" : "92px";
+    const avatar = primary ? "68px" : "56px";
+    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\[--tile:var\\(--color-panel\\)\\] h-\\[${height}\\] w-\\[78px\\]`));
     expect(html).not.toContain("bg-[var(--tile)]");
     expect(html).not.toContain("rounded-[8px]");
-    expect(html).toContain('width="56px" height="56px"');
-    expect(html).toMatch(/truncate text-center text-\[13px\] font-medium leading-4 text-ink"[^>]*>Luna Bot</);
+    expect(html).toContain(`width="${avatar}" height="${avatar}"`);
+    expect(html).toMatch(
+      primary
+        ? /truncate text-center text-ink text-\[15px\] font-light tracking-\[0\.03em\] leading-\[18px\]"[^>]*>Luna Bot</
+        : /truncate text-center text-ink text-\[13px\] font-medium leading-4"[^>]*>Luna Bot</,
+    );
     expect(html).not.toContain("data-provider-mark");
   });
 
@@ -111,13 +117,15 @@ describe("the tile grid", () => {
 
   afterEach(() => setPinnedCircleOrder([]));
 
-  it.each([0, 1, 2, 3, 5])("puts the main bot first, then %i pinned bots, as same-size tiles in one centred, wrapping grid", (count) => {
+  it.each([0, 1, 2, 3, 5])("puts the main bot first (68px), then %i pinned bots (56px), in one centred, wrapping grid", (count) => {
     const html = grid(main, pins(count));
     const drag = count > 1 ? ":drag" : "";
     expect(tiles(html)).toEqual(["primary:mausbot", ...pins(count).map((pin) => `pinned:${pin.id}${drag}`)]);
-    expect(html).toMatch(/^<div data-sidebar-tiles="" class="flex max-h-\[40vh\] flex-wrap justify-center gap-1 overflow-y-auto /);
-    expect(html.match(/\bh-\[92px\] w-\[78px\]/g)).toHaveLength(count + 1);
-    expect(html.match(/width="56px" height="56px"/g)).toHaveLength(count + 1);
+    expect(html).toMatch(/^<div data-sidebar-tiles="" class="flex max-h-\[40vh\] flex-wrap items-end justify-center gap-1 overflow-y-auto /);
+    expect(html.match(/\bh-\[104px\] w-\[78px\]/g)).toHaveLength(1);
+    expect(html.match(/width="68px" height="68px"/g)).toHaveLength(1);
+    expect(html.match(/\bh-\[92px\] w-\[78px\]/g) ?? []).toHaveLength(count);
+    expect(html.match(/width="56px" height="56px"/g) ?? []).toHaveLength(count);
     expect(html).not.toContain('data-testid="chief-badge"');
   });
 

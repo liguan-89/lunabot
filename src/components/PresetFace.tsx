@@ -122,7 +122,7 @@ function eyeSpecFor(style: AvatarStyleId): EyeSpec {
 
 
 
-const EDGE_UNIT = 0.16;
+const EDGE_UNIT = 0.11;
 
 const hexRgb = (hex: string) => {
   const value = Number.parseInt(hex.slice(1), 16);
@@ -139,7 +139,7 @@ const isLightBody = (body: string) => {
   return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.55;
 };
 
-const handEdgeFor = (body: string) => (isLightBody(body) ? mixHex(body, "#000000", 0.22) : mixHex(body, "#FFFFFF", 0.30));
+const handEdgeFor = (body: string) => (isLightBody(body) ? mixHex(body, "#000000", 0.16) : mixHex(body, "#FFFFFF", 0.22));
 
 /** One of the phone's hands in unit space (palm radius 1): five round-capped fingers then the palm. */
 function HandShape({ mirror, gradient, edge }: { mirror: 1 | -1; gradient: string; edge: string }) {
@@ -192,12 +192,18 @@ function FaceBody({
   gradient,
   opalGradient,
   specularGradient,
+  bounceGradient,
+  blushGradient,
+  clip,
 }: {
   style: AvatarStyleId;
   face: { light: string; body: string; edge: string; eye: string };
   gradient: string;
   opalGradient: string;
   specularGradient: string;
+  bounceGradient: string;
+  blushGradient: string;
+  clip: string;
 }) {
   const light = isLightBody(face.body);
   const rimStroke = light ? "rgba(28,28,30,0.12)" : "rgba(255,255,255,0.22)";
@@ -206,12 +212,15 @@ function FaceBody({
     case "orb":
       return (
         <>
-          <circle cx="50" cy="50" r="49" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.5" />
-          {/* Warm subsurface bounce + crisp porcelain specular crescent */}
-          <ellipse cx="62" cy="76" rx="26" ry="14" fill={mixHex(face.light, "#FFE4C8", 0.35)} opacity={light ? 0.45 : 0.22} />
-          <ellipse cx="34" cy="24" rx="19" ry="10.5" transform="rotate(-24 34 24)" fill={`url(#${specularGradient})`} />
-          <circle cx="24" cy="58" r="5.5" fill="#FF9AA2" opacity={light ? 0.32 : 0.24} />
-          <circle cx="76" cy="58" r="5.5" fill="#FF9AA2" opacity={light ? 0.32 : 0.24} />
+          <circle cx="50" cy="50" r="49" fill={`url(#${gradient})`} />
+          <g clipPath={`url(#${clip})`}>
+            {/* Soft radial warm subsurface bounce + diffused porcelain specular + feathered blush */}
+            <circle cx="50" cy="50" r="49" fill={`url(#${bounceGradient})`} />
+            <ellipse cx="35" cy="26" rx="25" ry="18" transform="rotate(-22 35 26)" fill={`url(#${specularGradient})`} />
+            <circle cx="24" cy="58" r="13.5" fill={`url(#${blushGradient})`} />
+            <circle cx="76" cy="58" r="13.5" fill={`url(#${blushGradient})`} />
+          </g>
+          <circle cx="50" cy="50" r="49" fill="none" stroke={rimStroke} strokeWidth="1.5" />
         </>
       );
 
@@ -226,11 +235,11 @@ function FaceBody({
           <path d="M79 30 L81.5 15 L67 24 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
           {/* Rounded porcelain cat head */}
           <ellipse cx="50" cy="55" rx="45" ry="41" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
-          <ellipse cx="36" cy="31" rx="15" ry="7.5" transform="rotate(-14 36 31)" fill={`url(#${specularGradient})`} />
-          {/* Tiny nose + subtle blush */}
+          <ellipse cx="36" cy="33" rx="20" ry="12" transform="rotate(-14 36 33)" fill={`url(#${specularGradient})`} />
+          {/* Tiny nose + feathered blush */}
           <path d="M47 61.5 Q50 64.5 53 61.5 Q50 60 47 61.5 Z" fill={face.eye} opacity="0.72" />
-          <circle cx="26" cy="61" r="4.5" fill="#FF9AA2" opacity={light ? 0.35 : 0.25} />
-          <circle cx="74" cy="61" r="4.5" fill="#FF9AA2" opacity={light ? 0.35 : 0.25} />
+          <circle cx="26" cy="61" r="12" fill={`url(#${blushGradient})`} />
+          <circle cx="74" cy="61" r="12" fill={`url(#${blushGradient})`} />
         </>
       );
 
@@ -271,9 +280,9 @@ function FaceBody({
             stroke={rimStroke}
             strokeWidth="1.4"
           />
-          <ellipse cx="37" cy="31" rx="14" ry="7" transform="rotate(-12 37 31)" fill={`url(#${specularGradient})`} />
-          <circle cx="25" cy="59" r="5" fill="#FFA6B2" opacity={light ? 0.36 : 0.25} />
-          <circle cx="75" cy="59" r="5" fill="#FFA6B2" opacity={light ? 0.36 : 0.25} />
+          <ellipse cx="37" cy="33" rx="19" ry="11" transform="rotate(-12 37 33)" fill={`url(#${specularGradient})`} />
+          <circle cx="26" cy="59" r="12.5" fill={`url(#${blushGradient})`} />
+          <circle cx="74" cy="59" r="12.5" fill={`url(#${blushGradient})`} />
           {/* Floating champagne-gold crescent moon */}
           <path d="M84 8 A7.5 7.5 0 1 0 92 18 A5.8 5.8 0 1 1 84 8 Z" fill="#E8C77B" stroke="#B68E35" strokeWidth="0.6" />
         </>
@@ -320,9 +329,12 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
   const activeStyle = avatarStyle ?? storedStyle;
   const spec = eyeSpecFor(activeStyle);
   const face = FACES[preset ?? presetFaceForColor(color)];
+  const light = isLightBody(face.body);
   const gradient = `preset-face-${id}`;
   const opalGradient = `preset-opal-${id}`;
   const specularGradient = `preset-spec-${id}`;
+  const bounceGradient = `preset-bounce-${id}`;
+  const blushGradient = `preset-blush-${id}`;
   const clip = `preset-clip-${id}`;
   const handGradient = `preset-hand-${id}`;
   const handEdge = handEdgeFor(face.body);
@@ -399,7 +411,7 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           const node = svg.querySelector<SVGGElement>(`[data-hand="${side}"]`);
           if (!node) continue;
           node.setAttribute("opacity", String(hand.alpha));
-          node.setAttribute("transform", `translate(${50 + hand.x * 50} ${50 + hand.y * 50}) rotate(${hand.angle}) scale(${10 * hand.scale})`);
+          node.setAttribute("transform", `translate(${50 + hand.x * 50} ${50 + hand.y * 50}) rotate(${hand.angle}) scale(${9.2 * hand.scale})`);
           const mirrored = handIsMirrored(side === "left", hand.palmOut);
           const shape = node.querySelector<SVGGElement>(`[data-hand-shape="${mirrored ? "left" : "right"}"]`);
           node.querySelectorAll<SVGGElement>("[data-hand-shape]").forEach((candidate) => {
@@ -471,11 +483,21 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           <stop offset="0.72" stopColor={mixHex(face.body, "#A78BFA", 0.28)} />
           <stop offset="1" stopColor={mixHex(face.edge, "#38BDF8", 0.25)} />
         </linearGradient>
-        <linearGradient id={specularGradient} x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity="0.62" />
+        <radialGradient id={specularGradient} cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity={light ? "0.75" : "0.44"} />
+          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity={light ? "0.24" : "0.12"} />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
-        </linearGradient>
-        <clipPath id={clip}><circle cx="50" cy="50" r="50" /></clipPath>
+        </radialGradient>
+        <radialGradient id={bounceGradient} cx="50%" cy="88%" r="52%">
+          <stop offset="0" stopColor={mixHex(face.light, "#FFE0A3", 0.55)} stopOpacity={light ? "0.34" : "0.18"} />
+          <stop offset="1" stopColor={mixHex(face.light, "#FFE0A3", 0.55)} stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id={blushGradient} cx="50%" cy="50%" r="50%">
+          <stop offset="0" stopColor="#FF9A7A" stopOpacity={light ? "0.32" : "0.22"} />
+          <stop offset="0.55" stopColor="#FF9A7A" stopOpacity={light ? "0.12" : "0.07"} />
+          <stop offset="1" stopColor="#FF9A7A" stopOpacity="0" />
+        </radialGradient>
+        <clipPath id={clip}><circle cx="50" cy="50" r="49" /></clipPath>
         {showsHands && (
           <radialGradient id={handGradient} gradientUnits="userSpaceOnUse" cx="-0.34" cy="-0.55" r="2.2">
             <stop offset="0" stopColor={mixHex(face.body, "#FFFFFF", 0.18)} />
@@ -491,6 +513,9 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           gradient={gradient}
           opalGradient={opalGradient}
           specularGradient={specularGradient}
+          bounceGradient={bounceGradient}
+          blushGradient={blushGradient}
+          clip={clip}
         />
         <g clipPath={activeStyle === "classic" ? `url(#${clip})` : undefined}>
           {eye(-1, "left")}
