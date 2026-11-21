@@ -27,6 +27,7 @@ import { optimisticMessageId, optimisticUserMessage, sendArrived, sendReconciled
 import { patchedGroups, roomAnswers, snapshotPatch } from "./room-frames";
 import { savedStateAction, type SavedOwner, type SavedSnapshot } from "./saved-state";
 import { keepBotNavigation, keepGroupNavigation, navigatedSince, visibleMessages } from "./snapshot-navigation";
+import { capHeldInBackground, followSnapshotTails, noteSnapshotTails, olderThanHeld, shortHeld, SNAPSHOT_TAIL } from "./snapshot-tail";
 export { visibleMessages } from "./snapshot-navigation";
 export { awayFromMainThread, botOpensTo, markedThread, openBot, openBotRow, openBotThread, openRoomThread, openThread, visibleNotificationThread, type ThreadTarget } from "./thread-navigation";
 import type { TurnDigest } from "../../shared/digest";
@@ -904,6 +905,10 @@ function dismissOnboardingCard(state: AppState, botId: string): AppState {
 export const CLOUD_LINK_SETTINGS = { type: "toggleAppSettings", open: true, section: "cloudAccount", cloudLink: true } as const satisfies Action;
 
 export function reducer(state: AppState, action: Action): AppState {
+  return olderThanHeld(state, action) ? state : capHeldInBackground(reduceApp(state, action), action);
+}
+
+function reduceApp(state: AppState, action: Action): AppState {
   if (action.type === "messageAdded" || action.type === "messagePatched" || action.type === "threadActive" || action.type === "optimisticMessageRemoved") {
     const owner = state.bots.find((bot) => (bot.threadId !== action.threadId || bot.awaitingThreadSnapshot) && bot.tasks?.some((task) => task.threadId === action.threadId));
     if (owner) {
@@ -2328,6 +2333,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (dispatched) rawDispatch(action);
       const cur = dispatched ? reducer(stateRef.current, action) : stateRef.current, opened = threadOf(cur);
       if (previousOpened !== opened && cur.notice?.threadId && opened && cur.notice.threadId !== opened) rawDispatch({ type: "notice", notice: null });
+      followSnapshotTails({ getState: () => stateRef.current }, dispatch);
       switch (action.type) {
         case "loadOlderMessages": {
           // The guard, not the reducer flag: stateRef still holds the pre-dispatch state.
@@ -3054,9 +3060,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (alive && answer) flushSync(() => rawDispatch({ type: "liveCallLookup", call: answer.call, since, seq }));
         })
         .catch(() => {});
-      const chat = () =>
-        api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}`).then((answer) => snapshotArrays(answer, "bots")).then(({ bots, groups, sections, computerControl, botQueuedMessages }) => {
+      const chat = () => {
+        const resume = readLastConversation() ?? undefined;
+        const open = [...new Set<string>([stateRef.current.selectedId, resume].filter((id): id is string => Boolean(id)))].map(encodeURIComponent).join(",");
+        return api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}&tail=${SNAPSHOT_TAIL}${open ? `&open=${open}` : ""}`).then((answer) => snapshotArrays(answer, "bots")).then(async ({ bots, groups, sections, computerControl, botQueuedMessages }) => {
           if (!alive) return;
+          // The owner the hydrate will select gets its whole page before it is applied; when that page cannot be read,
+          // the tail is applied and paged back once the snapshot lands.
+          const picked = (groups as Group[] | undefined)?.find((group) => group.id === stateRef.current.selectedId) ?? (bots as Bot[]).find((bot) => bot.id === stateRef.current.selectedId)
+            ?? (groups as Group[] | undefined)?.find((group) => group.id === resume) ?? (bots as Bot[]).find((bot) => bot.id === resume) ?? bots[0];
+          if (picked && shortHeld(picked)) {
+            const page = await api<{ messages: Message[]; hasMore?: boolean; activeLeafId?: string | null }>(
+              `/api/threads/${encodeURIComponent(picked.threadId)}/messages?limit=${MESSAGE_PAGE_SIZE}`,
+            ).catch(() => null);
+            if (page) {
+              bots = (bots as Bot[]).map((bot) => bot.id === picked.id && bot.threadId === picked.threadId
+                ? { ...bot, messages: page.messages, hasMore: Boolean(page.hasMore), ...(page.activeLeafId !== undefined ? { activeLeafId: page.activeLeafId } : {}) }
+                : bot);
+            }
+          }
+          noteSnapshotTails(bots.filter(shortHeld));
           rawDispatch({
             type: "hydrate",
             bots,
@@ -3070,6 +3093,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             resumeId: readLastConversation() ?? undefined,
           });
         });
+      };
       const peripherals = peripheralParts.map((part) => ({
         key: part.key,
         load: () => loadPeripheral(part, false),
