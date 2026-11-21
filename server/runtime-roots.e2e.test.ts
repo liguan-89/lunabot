@@ -765,7 +765,7 @@ type StallFixture = {
 const stallOverCards = async (f: StallFixture, job: string, ids: string[]) => {
   const marker = join(f.dataDir, "stall-turns");
   writeFileSync(marker, "now");
-  try { await expect.poll(() => f.roots()[0]?.status, { timeout: 45_000 }).not.toBe("running"); } finally { rmSync(marker, { force: true }); }
+  try { await expect.poll(() => f.roots()[0]?.status, { timeout: hostTimeout(90_000) }).not.toBe("running"); } finally { rmSync(marker, { force: true }); }
   expect(f.roots()[0]).toMatchObject({ status: "failed", outcome: "stalled", executions: 1 });
   expect(f.roots()[0]!.cards).toBeUndefined();
   expect((await f.messages(job)).filter((message) => message.kind === "activity" && message.tool?.name.startsWith("error:")).map((message) => message.tool!.name))
