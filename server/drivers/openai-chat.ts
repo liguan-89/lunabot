@@ -716,7 +716,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
               }
               // Never replay a handled call. A stream closed before any completion marker ran nothing upstream, so it may resend even where the caller never opted into retries.
               const truncation = error instanceof StreamTruncatedError, retryScale = truncation ? options.retryScale ?? 1 : options.retryScale;
-              if (retryScale === undefined || abort.signal.aborted || streamed || seenCalls.size || (!truncation && (error instanceof ChatProtocolError || !verdict.transient)) || attempt >= RETRY_MAX_ATTEMPTS - 1) throw error;
+              if (retryScale === undefined || abort.signal.aborted || streamed || seenCalls.size || error instanceof RuntimeNoticeError || (!truncation && (error instanceof ChatProtocolError || !verdict.transient)) || attempt >= RETRY_MAX_ATTEMPTS - 1) throw error;
               const delayMs = computeBackoff(attempt++);
               emit({ ...base(turn.threadId, turnId), type: "turn.retrying", attempt, delayMs, reason: truncation ? "stream_truncated" : verdict.reason });
               await interruptibleDelay(delayMs * retryScale, abort.signal).promise;

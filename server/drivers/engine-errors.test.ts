@@ -243,3 +243,19 @@ describe("engineFailure", () => {
     expect(engineFailure("Grok", "429 Too Many Requests", { kind: "rate_limit" })).toEqual({ message: expect.stringContaining("rate limit") });
   });
 });
+
+describe("classifyError reads an explicit HTTP status before body text", () => {
+  it.each([
+    ["OpenAI HTTP 409: max 500 tokens", { transient: false, reason: "invalid_request" }],
+    ["(status 409 Conflict): max 500 tokens", { transient: false, reason: "invalid_request" }],
+    ["API Error: 409 Conflict", { transient: false, reason: "invalid_request" }],
+    ["xAI HTTP 429: too many requests", { transient: true, reason: "rate_limited" }],
+    ["(status 503 Service Unavailable)", { transient: true, reason: "server_error" }],
+    ["(status 529) overloaded", { transient: true, reason: "overloaded" }],
+    ["HTTP 408: request timed out", { transient: true, reason: "timeout" }],
+    ["Upstream returned 401 Unauthorized", { transient: false, reason: "auth" }],
+    ["Upstream returned 402 Payment Required: exceeded your quota", { transient: false, reason: "quota" }],
+  ])("classifies %s", (message, expected) => {
+    expect(classifyError({ text: message })).toEqual(expected);
+  });
+});
