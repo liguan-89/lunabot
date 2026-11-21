@@ -193,3 +193,10 @@
 - 摘：`3c7cb48980`（云登录失效不锁死+配对不循环——electron/cloud-account+cloud-signin 干净落；`CloudAccountSettings.tsx` 上游 `part` rail 架构 fork 无，手术落 `resetSaved`/`resetButton` 进 fork Card 布局：signedOut 与 signed 按钮行都优先 reset；`cloudBuy.signIn.*` 新 locale 键保 Luna Bot 品牌）；`a468ff2b30`（TOTP 校验不覆盖已存密钥——内容已在 fork，空 pick）；`827ba816aa`（多行 note 遗忘匹配细节）；`d6da38d176`（CRLF note 识别）；`d734dfb857`（CRLF 新条目免逐出）；`72b6fa4d43`（地址组收件人保留）；`82e8e56f60`（重发码不被旧失败覆盖——测试 `Promise.withResolvers` 超 fork lib 目标，改手写 deferred）；`78dc0d23d5`（upkeep 超时下传——`generateText` 加 `timeoutMs`；e2e 用例依赖已删 ClaudeDriver+fake-cli，改写为桩引擎版：断言 `timeoutMs===DREAM_TIMEOUT_MS` 透传 + 180s 中止语义不变）。
 - 跳：`65f33fccb3`（base32 组完整性——fork `decodeBase32Secret` 已有 `bits >= 5` 校验且更严 `allowIncompleteGroups` 参数化，同病不存在）；`1972eea226` `936f3b3b15` `f2ded07eb7` `ea46e8497f` `65c904c8ba`（对应改动的 PR merge 壳，双 hash 去重）。
 - 验证：memory/email/totp/sign-in-mail/workspace/CloudAccountSettings 8 文件 181 测试 + electron node 测试 82（cloud-account/cloud-signin/clouds/home-window-pairing）+ typecheck 绿 + oxlint 净 + i18n:check 绿。
+
+## 执行状态九（2026-11-21 续批，B11）
+
+**B11 完结：摘 7，跳 3（merge 壳）**——
+- 摘：`0af84856e0`（CUA Driver 用 System32 tar 解包+无版本说明）；`360a38f675`（Linux 桌面按 PATH 找 Chrome——`linuxDesktop`/`linuxChromeOnPath`/`noChrome`；`noChrome?: true` 类型加宽属窗前进件同步补 + 兜底行加 `noChrome`，fork 三处断言跟上契约）；`f126f8a4d5`+`1d4a88693d`（macOS 13 组——capabilities.cjs `macDriverUnsupported`、cua.mjs、MacLocalControl 重试保留原因；`source-hashes.json` 冲突重新生成）；`630712556a`（KDE Wayland color-manager 静默——`disableWaylandColorManager`，导入处保 fork `desktop-mount`/`file-dialogs` 增删并集、`setDesktopName` 保 `LINUX_DESKTOP_NAME`）；`c693badfec`（daemon pid 更换后关旧 profile owner）；`1d68f09bf8` docs 部分（Windows 安装目录说明落 mdx，README 表格行 fork 品牌版无对应位置跳过）。
+- 跳：`177248f6b3` `9dc2ee4f0c` `e1e7a171f0`（对应改动的 PR merge 壳，双 hash 去重）。
+- 验证：capabilities/cua-launch/MacLocalControl/local-computer/browser-engine/cua-binary-version/resolve 164 测试 + linux-gpu node 测试 + typecheck 绿 + oxlint 净。
