@@ -360,7 +360,8 @@ internal class PhoneJobRunner(
         }
 
     /**
-     * `PHONE_REPLY_WECHAT` — `{ to, text }` over iLink.
+     * `PHONE_REPLY_WECHAT` — `{ to, text }` over iLink, plus an optional
+     * `image` member for an outbound picture.
      *
      * The answer is the frozen pair, `{ "ok": true }` or
      * `{ "ok": false, "error": "<short code>" }`, built by the same helper the

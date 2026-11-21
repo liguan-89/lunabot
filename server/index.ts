@@ -5316,7 +5316,7 @@ const smsRelay = createSmsRelay({
   ignoreEvent: shouldIgnoreProviderEvent,
   replySms: (key, to, text) => phones.replySms(key, to, text),
 });
-phones.onSmsEvent((key, event) => smsRelay.push(key, event)); const wechatRelay = createWechatRelay({ store, cfg, dataDir: DATA_DIR, bus, acceptDirectSend: (input) => acceptDirectSend(input), routineRunForThread: (threadId) => routines?.runForThread(threadId), ignoreEvent: shouldIgnoreProviderEvent, replyWechat: (key, to, text) => phones.replyWechat(key, to, text) }); phones.onWechatEvent((key, event) => wechatRelay.push(key, event)); // WeChat over the phone's own iLink binding; cfg.wechat.botId is the on switch, as cfg.sms.botId is for SMS
+phones.onSmsEvent((key, event) => smsRelay.push(key, event)); const wechatRelay = createWechatRelay({ store, cfg, dataDir: DATA_DIR, bus, acceptDirectSend: (input) => acceptDirectSend(input), routineRunForThread: (threadId) => routines?.runForThread(threadId), ignoreEvent: shouldIgnoreProviderEvent, replyWechat: (key, to, text, image) => phones.replyWechat(key, to, text, image) }); phones.onWechatEvent((key, event) => wechatRelay.push(key, event)); // WeChat over the phone's own iLink binding; cfg.wechat.botId is the on switch, as cfg.sms.botId is for SMS
 bus.subscribe((event: RuntimeEvent) => {
   if (shouldIgnoreProviderEvent(event)) return;
   try {

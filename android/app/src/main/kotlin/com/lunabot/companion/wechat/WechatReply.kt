@@ -26,8 +26,16 @@ internal suspend fun answerWechatReply(
 ): JsonObject {
     if (runtime == null) return wechatFailure("not_bound")
     val to = arguments.string("to").orEmpty()
-    val text = arguments.string("text").orEmpty()
-    return when (val result = runtime.reply(clientId = jobId, to = to, text = text)) {
+    val image = arguments["image"] as? JsonObject
+    val result = if (image != null) {
+        val data = (image["data"] as? JsonPrimitive)?.contentOrNull
+        val bytes = data?.let { runCatching { java.util.Base64.getDecoder().decode(it) }.getOrNull() }?.takeIf(ByteArray::isNotEmpty)
+        if (bytes == null) WechatReplyResult.Failure("invalid", "图片数据无效。")
+        else runtime.replyImage(clientId = jobId, to = to, bytes = bytes)
+    } else {
+        runtime.reply(clientId = jobId, to = to, text = arguments.string("text").orEmpty())
+    }
+    return when (result) {
         is WechatReplyResult.Success -> buildJsonObject { put("ok", true) }
         is WechatReplyResult.Failure -> wechatFailure(result.code)
     }
