@@ -54,7 +54,7 @@
       "file": "server/cloud-team-inbox.e2e.test.ts",
       "test": "brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn",
       "owner": "liguan-89",
-      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, green in three consecutive local runs each time; the ask-card timing scales with shard load.",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, then all three attempts on Nov 21 (PR #37 ubuntu shard 1); green in every local run. The retry POSTs showed the reply passing back repeatedly — a same-answer dedup now guards it, and the test timeout is 240 s so its inner waits can still report.",
       "since": "2026-11-18"
     },
     {
@@ -96,7 +96,7 @@
       "file": "server/cloud-team-inbox.e2e.test.ts",
       "test": "lets a tag Ben answered in the chat it came from leave his Needs you",
       "owner": "liguan-89",
-      "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1; a sibling test of this suite is already listed and the suite is green in three consecutive local runs each time.",
+      "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1, then again on Nov 21 (main release run + PR #37, all attempts); a sibling test of this suite is already listed and the suite is green in every local run. Test timeout raised to 240 s with it.",
       "since": "2026-11-18"
     },
     {
