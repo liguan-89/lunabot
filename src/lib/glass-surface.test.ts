@@ -15,7 +15,7 @@ function rule(selector: string, from = 0): string {
 }
 
 function skinBlocks(): string[] {
-  return [...css.matchAll(/\[data-skin="[a-z]+"\] \{[\s\S]*?\n\}/g)].map((match) => match[0]);
+  return [...css.matchAll(/\[data-skin="[a-z-]+"\] \{[\s\S]*?\n\}/g)].map((match) => match[0]);
 }
 
 describe("glass surface", () => {

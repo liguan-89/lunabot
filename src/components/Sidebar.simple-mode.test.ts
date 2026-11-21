@@ -128,13 +128,13 @@ describe("bot-first sidebar", () => {
     });
   }
 
-  it.each([false, true])("uses 14px medium names in Simple comfortable rows and keeps 15px semibold otherwise (advanced %s)", (advanced) => {
+  it.each([false, true])("uses 14px normal names in Simple comfortable rows and keeps 15px normal otherwise (advanced %s)", (advanced) => {
     fixture.advanced = advanced;
     fixture.showThreads = false;
     const markup = renderToStaticMarkup(createElement(BotListItem, rowProps("comfortable", { ...bot, tasks: [], projects: [] })));
     const name = markup.match(/<span class="flex min-w-0 grow items-center gap-1\.5 truncate text-ink ([^"]*)"/)?.[1];
-    expect(name).toBe(advanced ? "text-[15px] font-semibold leading-5" : "text-[14px] font-medium leading-5");
-    expect(markup).toContain("truncate text-[13px] leading-[18px]");
+    expect(name).toBe(advanced ? "text-[15px] font-normal leading-5" : "text-[14px] font-normal leading-5");
+    expect(markup).toContain("truncate text-[12.5px] leading-[18px]");
   });
 
   it("puts the bot's role in its name line in Advanced mode", () => {
