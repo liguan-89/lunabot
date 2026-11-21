@@ -99,7 +99,32 @@
 - `71ada2b579`（broker 目录页缓存+Session 复用——fork 自建 broker 直接受益）
 - `9d06188c1c`（limit backup 跳过原因进日志）、`2359c38a09`（面板会话列表主线程星）、`adf4fd0ebc`（长会话摘要进度行）、`a5760dbedc`（Apps 错误态+pt-BR）、`1ba84ae67c`（antigravity 用量菜单——fork 无该引擎，倾向跳）、`237f3cbc10` ≡ `298bbc1c83`（automation 文案，小）
 
-### P2 执行状态（第一批，已落地）
+### P2 执行状态（评审完毕）
+
+**第二批落地：**
+
+- **摘** `9b5fe33446`（`67a1f160d1`）：usage-ledger 月账本解析缓存——fork `server/usage-ledger.ts` 同构适用，干净落。merge 壳 `7b7c5afc5a` 同内容，记 skip。
+
+**评审判跳（含理由）：**
+
+- ElevenLabs Live 三连 `79ac30c3bc` `7315b2f124` `64302dad1e`：`server/live-elevenlabs.ts`、`src/lib/live-call-elevenlabs.ts`、`server/tts/hearing-config.ts` 俱不存在，通话管线整体不在 fork。
+- 空白聊天 `21ed317d41`+`afbff51b7c`：行为级功能（首条发送才建会话），落点在 fork 已分叉的 App/Sidebar/DetailsTab 结构，非修复。
+- `fd8781a731` 快照尾部：主体落在 `src/state/`（store 拆分架构）与 `packages/phone-protocol`，两者 fork 俱无；fork 是单文件 `src/store.tsx`。
+- `adf4fd0ebc` 摘要进度行：依赖 `context.summarizing` 事件+`deps.summarizing` 管线，B13 已确认该链在 fork 整条不存在。
+- `1ba84ae67c` antigravity 用量菜单：引擎已删。
+- `b385217306` model_catalog_json：落点 `server/drivers/codex-catalog.ts` 已删（遗留核查项 5 定案：与 pi-model-catalog 无关）。
+- Hermes/OpenClaw `b453044f36`+`0dab702856`（同一内容）：fork `server/setup-import.ts` 无 Hermes/OpenClaw 导入源。
+- rpm 发布 `84c328bd15`+`29c76c7c82`：上游 release 工作流改动，fork 发布链路不同；如要 Fedora 包需用户拍板后单独立项。
+- `2359c38a09` 主会话星标：fork `SidebarThreadRow` 无 `main` prop/星标实现（上游面板 UI 分叉）。
+- 启动/Apps/设置性能组 `2dedbf5ffd` `b5588a013c` `684eff585b` `464175e297` `ecabd15caa` `c4521f86f4` `9f7f7b1f3c`：全部落在上游 `src/state/`、`server/perf/`、`composio-catalog`、store-select/AppTile/app-catalog-cache 等 fork 不存在或已跳过的重构链上；`464175e297` 试摘确认 PluginsPanel 上游版整体依赖 AppTile 抽取（fork 版 994 行独立实现），abort。
+- `94837949be` 宽屏附件面板：新 UX 功能（FilePreviewPanel 新组件），非修复；fork App.tsx 已分叉，需产品设计判断。
+- 侧边栏 `a90bf36551` `2e836a99be`：改上游 Simple 布局 IA；fork 的 Simple 是自己的设计线（SidebarSimpleTop/Rail 等），上游改版不适用。
+- composer `4fbed9499a` `c8ced85bba`、吉祥物 `336b1d8d2c`：纯上游视觉/动效改造，Muse UI 已分叉。
+- `237f3cbc10` ≡ `298bbc1c83`（已摘后者）。
+
+**遗留核查项终局：** ①widget children-in-object——fork `shared/widget.ts:564` 无上游单键解包约定，非数组 children 一律按单节点走校验（更严格，非 bug）；②R2 白名单——fork broker 无文件上传端点（`files.ts` 不存在），无落点，将来接上传时需同步；③TOTP base32 已更严；④`a468ff2b30` 在 B10 已确认等价；⑤codex-catalog 已删；⑥transcript 两提交已跳（bottom-follow 系）；⑦`fe171fbea2` 已跳（消费链不在）；⑧主线无未推新增。
+
+### P2 第一批（已落地，明细）
 
 - **摘** `298bbc1c83`（`6983f32f30`）：automation 报告——复制的 question 卡随原卡回答/驳回/过期同步结束态，启动时对账。fork 等价实现干净落。
 - **摘** `a5760dbedc`（`d730d0b184`）：Apps 列表加载错误只在无存量列表时替换卡片（`loadError && servers === null`）；pt-BR 文案一并落。
@@ -143,7 +168,7 @@
 - `e3bbc68914`/`3b9c7b9a4e`/`207fdc5be6`：fork pi 重构后 spawn 辅助统一带 `box:{rw:[mcpTempDir]}`，等价实现已在
 - `66de394c0e`：fork `98a5d8cb19` 已实现相同 shell 超时边界（常量+tool_call 钩子一致）
 
-**待续**：B2-B13、P2 评审。`66de394c0e` 的 docs/verify 脚本可留作参考不摘。
+**评审完结**：B1-B13、index.ts 撞点专项、B4 基座、P2 全部评完；各组执行状态见对应小节。`66de394c0e` 的 docs/verify 脚本留作参考不摘。
 
 ## 执行状态二（2026-11-21 续批，已推 `05e3616195`）
 
