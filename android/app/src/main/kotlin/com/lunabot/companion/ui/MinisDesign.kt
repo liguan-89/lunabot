@@ -73,12 +73,12 @@ object MinisTokens {
     val SeparatorDark = Color(0xFF38383A)
     // Muse-inspired warm oatmeal-taupe user bubble paired with a quiet soft-grey
     // bot bubble — warm, calm, and legible without borders or harsh shadows.
-    val UserBubbleLight = Color(0xFFDDD2C7)
-    val UserBubbleDark = Color(0xFF3A342E)
+    val UserBubbleLight = Color(0xFFD2C4B6)
+    val UserBubbleDark = Color(0xFF453E36)
     val BubbleRimLight = Color(0x00000000)
     val BubbleRimDark = Color(0x14FFFFFF)
-    val BotBubbleLight = Color(0xFFEFEFED)
-    val BotBubbleDark = Color(0xFF1F1F22)
+    val BotBubbleLight = Color(0xFFE6E6E3)
+    val BotBubbleDark = Color(0xFF26262A)
     val FabLight = Color(0xFFB7AF96)
     val FabDark = Color(0xFF504C42)
     val Danger = Color(0xFFFF3B30)
