@@ -24,7 +24,7 @@ import { ChatProtocolError, ChatReasoningDetails, ChatToolCalls, object, type Ch
 import { completionError, httpErrorDetail, refusedToolCall, refusedToolCallFailure, rejectsReasoningReplay, rejectsToolsParameter, RejectedToolCallError, StreamTruncatedError, UnsupportedChatToolsError, UnsupportedReasoningReplayError, type ProviderBody } from "./openai-chat-refusals.ts";
 import { ChatRepeatGuard } from "./chat-repeat-guard.ts";
 import { TextCallHoldback, textToolCalls } from "./chat-text-tool-calls.ts";
-import { createModelRoutes, ModelRouteRefused, noRouteLeft, readResponsesStream, responsesRequest, routeRefusal, type ModelRoute, type ResponseItem } from "./openai-responses.ts";
+import { createModelRoutes, isOpenAIAddress, ModelRouteRefused, noRouteLeft, readResponsesStream, responsesRequest, routeRefusal, type ModelRoute, type ResponseItem } from "./openai-responses.ts";
 import { appendNative } from "./native.ts";
 import { classifyError, computeBackoff, interruptibleDelay, RETRY_MAX_ATTEMPTS } from "./retry.ts";
 import { plainFailure } from "./engine-errors.ts";
@@ -672,7 +672,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
               break;
             } catch (value) {
               const error = asError(value);
-              const verdict = classifyError(error);
+              const verdict = classifyError(error, { openAi: isOpenAIAddress(options.apiUrl) });
               // A provider refuses a request with too many tools before running anything: learn its limit and list fewer.
               const refit = streamed || seenCalls.size || abort.signal.aborted ? undefined : await refitChatTools(tools, error, chatToolLimitKey(options.apiUrl, model), [ASK_USER_TOOL_DEFINITION]);
               if (refit) {
