@@ -52,11 +52,11 @@ describe("Settings → Remote access: server pairing card visibility", () => {
 
   it("on an OMB Cloud home, which is personal, tells the card so and offers no People section to invite anyone", () => {
     vi.stubGlobal("window", {});
-    expect(render()).toContain(">People<");
+    expect(render()).toContain(">Team &amp; permissions<");
     fixture.config = { cloudHome: true };
     const html = render();
     expect(html).toContain("SERVER_PAIRING_CARD_MARKER cloud");
-    expect(html).not.toContain(">People<");
+    expect(html).not.toContain(">Team &amp; permissions<");
   });
 });
 
@@ -97,8 +97,8 @@ describe("Settings → Phone & devices opened by Connect your phone", () => {
 
   it("this computer's page is Phone & devices; a server's own page is This server", () => {
     vi.stubGlobal("window", { ogb: { companion: {} } });
-    expect(render()).toContain(">Phone &amp; devices<");
+    expect(render()).toContain(">Devices<");
     vi.stubGlobal("window", {});
-    expect(render()).toContain(">This server<");
+    expect(render()).toContain(">Devices<");
   });
 });

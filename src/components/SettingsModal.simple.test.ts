@@ -226,9 +226,9 @@ describe("Settings in Simple mode", () => {
       expect(placement(open("general"), folded), folded).toBe("folded");
     }
     expect(SETTINGS_ROWS.filter((entry) => entry.simpleLooks).map((entry) => t(entry.titleKeys[0])))
-      .toEqual(["Pinned panels", "Interface font", "Chat width", "Threads", "Pinned bots as circles", "Universal pins", "Tools layout", "This run"]);
+      .toEqual(["Pinned panels", "Bot avatar style", "Interface font", "Chat width", "Threads", "Pinned bots as circles", "Universal pins", "Tools layout", "This run"]);
     expect(SETTINGS_ROWS.filter((entry) => entry.simpleMore).map((entry) => t(entry.titleKeys[0])))
-      .toEqual(["Group turns", "Tool time limit", "Parallel threads", "Automatic recovery", "Event log cleanup", "Repeat computer tasks without AI", "Check what a bot says it did on your phone"]);
+      .toEqual(["Group turns", "Tool time limit", "Parallel threads", "Automatic recovery", "Event log cleanup", "Repeat computer tasks without AI", "Check what a bot says it did on your phone", "Learn from your phone notifications"]);
   });
 
   it("holds the defaults for new bots on AI as one row: the effort they start with, sharing them as a preset, and Edit for the rest", () => {

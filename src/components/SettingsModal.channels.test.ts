@@ -50,6 +50,14 @@ describe("Logins and message channels", () => {
   it.each([true, false])("draws the vault, the cards and the channels in both modes (advanced: %s)", (advanced) => {
     fixture.advanced = advanced;
     const html = render();
-    for (const marker of ["VAULT MARKER", "CARDS MARKER", "CHANNELS MARKER"]) expect(html, marker).toContain(marker);
+    for (const marker of ["VAULT MARKER", "CARDS MARKER"]) expect(html, marker).toContain(marker);
+    if (advanced) {
+      // Advanced files channels under its own page, next to the vault.
+      fixture.section = "channels";
+      expect(render(), "CHANNELS MARKER").toContain("CHANNELS MARKER");
+      fixture.section = "logins";
+    } else {
+      expect(html, "CHANNELS MARKER").toContain("CHANNELS MARKER");
+    }
   });
 });

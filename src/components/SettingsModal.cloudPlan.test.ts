@@ -26,7 +26,7 @@ const render = () => renderToStaticMarkup(createElement(SettingsModal));
 
 describe.each(["Simple", "Advanced"] as const)("%s Settings → OMB Cloud on a server open in the app's window", (mode) => {
   beforeEach(() => { fixture.advanced = mode === "Advanced"; });
-  const reachable = () => fixture.advanced ? 'data-settings-section="cloudAccount"' : 'data-settings-block="cloudAccount"';
+  const reachable = () => 'data-settings-block="cloudAccount"';
   it("is not offered on a server that is not an OMB Cloud home", () => {
     vi.stubGlobal("window", { ogb: { cloudPlan: plan } });
     const html = render();
@@ -37,7 +37,7 @@ describe.each(["Simple", "Advanced"] as const)("%s Settings → OMB Cloud on a s
     fixture.config = { cloudHome: true };
     const html = render();
     expect(html).toContain("CLOUD_PLAN_MARKER home"); expect(html).toContain(reachable());
-    expect(html).toContain(fixture.advanced ? 'value="cloudAccount"' : 'data-settings-page="billing"');
+    expect(html).toContain('data-settings-page="billing"');
   });
   it("is the full account section in the app on this computer", () => {
     vi.stubGlobal("window", { ogb: { cloudAccount: {}, cloudPlan: plan } });
