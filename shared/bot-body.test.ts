@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { BOT_BODY_IDS, FESTIVAL_IDS, FESTIVALS, botBodyId, botBodySchema, isCarvedBody, isFestival } from "./bot-body.ts";
+import { BOT_BODY_IDS, FESTIVAL_IDS, FESTIVALS, PRESET_STYLE_BODY_IDS, botBodyId, botBodySchema, isCarvedBody, isFestival } from "./bot-body.ts";
 import { CARVED_BODY_IDS } from "./carved-bodies.ts";
 import { MASCOT_BODY_IDS } from "./mascot-bodies.ts";
 import { MAUS_COLOR_NAMES } from "./wire.ts";
 
 describe("bot bodies", () => {
   it("accepts every gradient body and every festival body", () => {
-    expect(BOT_BODY_IDS).toEqual([...MASCOT_BODY_IDS, ...CARVED_BODY_IDS]);
+    expect(BOT_BODY_IDS).toEqual([...PRESET_STYLE_BODY_IDS, ...MASCOT_BODY_IDS, ...CARVED_BODY_IDS]);
     for (const id of BOT_BODY_IDS) expect(botBodySchema.safeParse(id).success).toBe(true);
   });
 
