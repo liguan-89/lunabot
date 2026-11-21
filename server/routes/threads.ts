@@ -23,6 +23,7 @@ import {
 import { resolveRequestAuth, type RequestAuth, type ResolveOptions } from "../request-auth.ts";
 import type { queuedSteerSnapshot } from "../steer-queue.ts";
 import type { BotRecord, GroupRecord, Message, Store } from "../store.ts";
+import { heldTail } from "../host/snapshot-tail.ts";
 import { createJobRoutes } from "./jobs.ts";
 import { PASS, type RouteContext, type RouteHandler } from "./table.ts";
 
@@ -95,6 +96,9 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
       try { groupUsageReader.refresh(); } catch { }
       const limit = pageSize(url.searchParams.get("messages"));
       if (limit === null) return json(res, 400, { error: "messages must be a non-negative whole number" });
+      const tail = pageSize(url.searchParams.get("tail"));
+      if (tail === null) return json(res, 400, { error: "tail must be a non-negative whole number" });
+      const open = new Set(url.searchParams.get("open")?.split(",") ?? []);
       // tasks stays explicit: clients expect [] where wireBot() would omit the key.
       const shownBots = (deps.botOrderFor?.(auth, store.bots) ?? store.bots).filter((bot) => visible.bot(bot.id));
       const queued = publicBotQueuedMessages();
@@ -103,7 +107,11 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
           const wired = wireBot(bot);
           // Narrowed first: on a Team Cloud the selected conversation may be someone else's, and its words never go out.
           const shown = memberBot({ ...wired, tasks: wired.tasks ?? [] }, visible);
-          return { ...shown, ...(typeof shown.threadId === "string" ? messagePage(shown.threadId, limit) : { messages: [], hasMore: false, activeLeafId: null }) };
+          const threadId = shown.threadId;
+          if (typeof threadId !== "string") return { ...shown, messages: [], hasMore: false, activeLeafId: null };
+          const botTail = open.has(bot.id) ? undefined : tail;
+          const cursor = shown.tasks?.find((task) => task.threadId === threadId)?.lastReadMessageId;
+          return { ...shown, ...(botTail !== undefined && limit !== undefined && botTail < limit ? heldTail((size) => messagePage(threadId, size), botTail, limit, cursor) : messagePage(threadId, limit)) };
         }),
         botQueuedMessages: visible.everything ? queued : Object.fromEntries(Object.entries(queued).filter(([threadId]) => visible.thread(threadId))),
         sections: visible.sections(store.sections),
