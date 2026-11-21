@@ -5,7 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "@/lib/i18n";
-import { NewBrowserSettings, ServerSitesRow } from "./BrowserSettingsRows";
+import { BuiltInBrowserRow, NewBrowserSettings, ServerSitesRow } from "./BrowserSettingsRows";
 
 const fixture = vi.hoisted(() => ({
   config: undefined as Record<string, unknown> | undefined,
@@ -107,5 +107,34 @@ describe("Open sites on this server", () => {
     });
     show();
     expect(sites()?.getAttribute("aria-checked")).toBe("true");
+  });
+});
+describe("Built-in browser without Google Chrome", () => {
+  const show = () => flushSync(() => root.render(createElement(BuiltInBrowserRow)));
+  const row = () => host.textContent ?? "";
+
+  it("says the bots use a basic browser, and how to fix it, while Google Chrome is not installed", () => {
+    fixture.config = { features: { browser: true }, browserEngine: { kind: "engine", noChrome: true, myChrome: true } };
+    show();
+    expect(row()).toContain("Ready. Bots use a basic browser because Google Chrome isn't installed.");
+    expect(row()).toContain("Many sites block it. Install Google Chrome and restart Luna Bot.");
+    expect(row()).toContain("If a site still blocks bots, give the bot a My Chrome profile in Browser profiles.");
+  });
+
+  it("leaves out My Chrome where there is none to use", () => {
+    fixture.config = { features: { browser: true }, browserEngine: { kind: "engine", noChrome: true, myChrome: false } };
+    show();
+    expect(row()).toContain("Install Google Chrome and restart Luna Bot.");
+    expect(row()).not.toContain("My Chrome");
+  });
+
+  it("says the plain on-state when the bots' browser is Chrome, and nothing of Chrome while the browser is off", () => {
+    fixture.config = { features: { browser: true }, browserEngine: { kind: "engine", myChrome: true } };
+    show();
+    expect(row()).toContain("Enabled for this installation");
+    expect(row()).not.toContain("Google Chrome");
+    fixture.config = { features: { browser: false }, browserEngine: { kind: "engine", noChrome: true, myChrome: true } };
+    show();
+    expect(row()).not.toContain("Google Chrome");
   });
 });

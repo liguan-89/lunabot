@@ -75,7 +75,7 @@ export function MacLocalControl() {
   }, [awaitingGrant, hidden]);
 
   if (capabilities.host.platform !== "darwin" || capabilities.localComputer.reasonCode === "remote-server") return null;
-  if (capabilities.localComputer.available || hidden) return null;
+  if (capabilities.localComputer.available || hidden || capabilities.localComputer.reasonCode === "macos-version-unsupported") return null;
 
   return (
     <section className="mt-4 rounded-xl border border-warning/25 bg-warning/10 p-4">

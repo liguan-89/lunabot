@@ -71,16 +71,26 @@ export function keepWarm(key: string, engine: WarmEngine, box: Pick<BoxMemory, "
   }
 }
 
-/** Closes an idle engine after `ms`, or sooner on a small box once another engine goes idle after it. */
+/** Every key's live idle-close timer: a stale arm's timer must not close the engine armed under that key now. */
+const armed = new Map<string, ReturnType<typeof setTimeout>>();
+
+/** Closes an idle engine after `ms`, or sooner on a small box once another engine goes idle after it. A stale timer,
+ * or one whose engine a turn took again, leaves it alone: its driver arms it again when it next goes idle. */
 export function armIdleClose(key: string, ms: number, engine: WarmEngine): ReturnType<typeof setTimeout> {
-  const timer = setTimeout(engine.close, ms);
+  const timer = setTimeout(() => {
+    if (armed.get(key) !== timer) return;
+    armed.delete(key);
+    if (engine.idle()) engine.close();
+  }, ms);
   timer.unref?.();
+  armed.set(key, timer);
   keepWarm(key, engine);
   return timer;
 }
 
 export function stopIdleClose(key: string, timer: ReturnType<typeof setTimeout> | null): void {
   if (timer) clearTimeout(timer);
+  armed.delete(key);
   warmEngines.delete(key);
 }
 

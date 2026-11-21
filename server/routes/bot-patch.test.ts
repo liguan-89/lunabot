@@ -375,3 +375,13 @@ describe("PATCH /api/bots/:id mainThreadChoice", () => {
     expect(store.bot(bot.id)?.mainThreadChoice).toBeUndefined();
   });
 });
+
+describe("PATCH /api/bots/:id defaultBot: null", () => {
+  it("demotes a hidden Luna Bot to a regular bot that shows in the sidebar again", async () => {
+    const { store, bot, patch } = fixture();
+    store.patchBot(bot.id, { defaultBot: {}, sidebarHidden: true });
+    expect((await patch(bot.id, { defaultBot: null })).status).toBe(200);
+    expect(store.bot(bot.id)?.defaultBot).toBeUndefined();
+    expect(store.bot(bot.id)?.sidebarHidden).toBeUndefined();
+  });
+});

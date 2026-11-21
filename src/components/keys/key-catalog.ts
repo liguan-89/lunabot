@@ -33,6 +33,8 @@ export interface KeyTarget {
   placeholderKey?: LocaleKey;
   href?: string;
   test?: TestableProvider;
+  /** The address the check sends the key to, when it is set beside the key: a new address checks the saved key again. */
+  testAt?: (config: ConfigStatus) => string | undefined;
   verifiedOnSave?: boolean;
   analytics: KeyProvider;
   shape?: RegExp;
@@ -81,9 +83,9 @@ const provider = (driverKind: string, preset?: ProviderIconPreset): KeyMark => (
 
 export const KEY_CATALOG: readonly KeyEntry[] = [
   { id: "openaiCompat", section: "ai", labelKey: "keys.openaiCompat.label", purposeKey: "keys.purpose.openaiCompat", name: "Custom", env: ["OPENAI_COMPAT_API_KEY", "OPENAI_COMPAT_URL"],
-    words: ["openai-compatible", "openai compatible", "ollama", "together", "gemini", "google ai studio", "base url", "server", "endpoint", "custom", "responses", "anthropic"], mark: { icon: Server }, kind: "key",
+    words: ["openai-compatible", "openai compatible", "ollama", "together", "venice", "gemini", "google ai studio", "base url", "server", "endpoint", "custom", "responses", "anthropic"], mark: { icon: Server }, kind: "key",
     target: { patch: (value) => ({ openaiCompat: { key: value } }), slot: "openaiCompatApiKey", saved: (config) => flag(config.openaiCompat), placeholder: "…", placeholderKey: "keys.openaiCompat.placeholder",
-      href: "https://platform.openai.com/docs/api-reference", test: "openaiCompat", analytics: "openai_compat" } },
+      href: "https://platform.openai.com/docs/api-reference", test: "openaiCompat", testAt: (config) => config.openaiCompat?.url, analytics: "openai_compat" } },
   { id: "liveKey", section: "voice", labelKey: "keys.label.liveKey", purposeKey: "keys.purpose.liveKey", name: "OpenAI", env: ["OMB_OPENAI_LIVE_KEY"],
     words: ["openai", "live calls", "calls", "voice", "gpt-live", "azure", "foundry"], mark: { icon: Phone }, kind: "key",
     target: { patch: (value) => ({ live: { key: value } }), slot: "openaiLiveKey",

@@ -27,6 +27,7 @@ import { optimisticMessageId, optimisticUserMessage, sendArrived, sendReconciled
 import { patchedGroups, roomAnswers, snapshotPatch } from "./room-frames";
 import { savedStateAction, type SavedOwner, type SavedSnapshot } from "./saved-state";
 import { keepBotNavigation, keepGroupNavigation, navigatedSince, visibleMessages } from "./snapshot-navigation";
+import { capHeldInBackground, followSnapshotTails, noteSnapshotTails, olderThanHeld, shortHeld, SNAPSHOT_TAIL } from "./snapshot-tail";
 export { visibleMessages } from "./snapshot-navigation";
 export { awayFromMainThread, botOpensTo, markedThread, openBot, openBotRow, openBotThread, openRoomThread, openThread, visibleNotificationThread, type ThreadTarget } from "./thread-navigation";
 import type { TurnDigest } from "../../shared/digest";
@@ -36,7 +37,7 @@ import type { MausColor, MausMotion } from "@/lib/mascot";
 import type { BotAvatarCrop } from "../../shared/bot-avatar";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode";
 import { askResetBridge, desktopCapabilitiesNow } from "@/lib/desktop"; import { isBotLimitRefusal, showCreatedPaused, stoppedAtBotLimit } from "@/lib/bot-limit";
-import { sameModelSelection } from "../../shared/thread-model";
+import { followBotModel, sameModelSelection } from "../../shared/thread-model";
 import type { BotBodyId } from "../../shared/bot-body";
 import { StoreRefContext } from "./store-ref-context";
 import type { QuestionRequestCardData } from "../../shared/ask-question";
@@ -411,10 +412,22 @@ export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
   "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
+  | "computerName" | "newBots" | "cloudStarter" | "waitingForRoom" | "planTurns" | "botLimit"
 >;
 
-export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
+/** What the server says about the place itself; a config frame carries all or none of them, and one that carries
+ * none (an older server's) must not wipe what the store already holds. */
+const CONFIG_PLACE_FIELDS = ["computerName", "newBots", "cloudStarter", "waitingForRoom", "planTurns", "botLimit"] as const;
+
+function configPlaceFields(frame: object, held: ConfigStatus | null | undefined): Partial<ConfigStatus> {
+  const carried = CONFIG_PLACE_FIELDS.some((field) => field in frame);
+  const source = (carried ? frame : held ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(CONFIG_PLACE_FIELDS.flatMap((field) => source[field] === undefined ? [] : [[field, source[field]]]));
+}
+
+export function configStatusFromFrame(frame: ConfigStatusFrame, held?: ConfigStatus | null): ConfigStatus {
   return {
+    ...configPlaceFields(frame, held),
     xai: frame.xai,
     mistral: frame.mistral,
     cerebras: frame.cerebras,
@@ -615,7 +628,7 @@ export interface AppState {
   connected: boolean;
   hydrated?: true;
   error: string | null;
-  notice: { kind: "thread-gone" | "bot-gone" | "steer-images" | "note"; botName: string | null; text?: string } | null;
+  notice: { kind: "thread-gone" | "bot-gone" | "steer-images" | "note"; botName: string | null; text?: string; threadId?: string } | null;
   revealThread: { threadId: string; nonce: number } | null;
   mascotMotion: {
     botId: string;
@@ -892,6 +905,10 @@ function dismissOnboardingCard(state: AppState, botId: string): AppState {
 export const CLOUD_LINK_SETTINGS = { type: "toggleAppSettings", open: true, section: "cloudAccount", cloudLink: true } as const satisfies Action;
 
 export function reducer(state: AppState, action: Action): AppState {
+  return olderThanHeld(state, action) ? state : capHeldInBackground(reduceApp(state, action), action);
+}
+
+function reduceApp(state: AppState, action: Action): AppState {
   if (action.type === "messageAdded" || action.type === "messagePatched" || action.type === "threadActive" || action.type === "optimisticMessageRemoved") {
     const owner = state.bots.find((bot) => (bot.threadId !== action.threadId || bot.awaitingThreadSnapshot) && bot.tasks?.some((task) => task.threadId === action.threadId));
     if (owner) {
@@ -1404,7 +1421,7 @@ export function reducer(state: AppState, action: Action): AppState {
         return updateBot(picked, action.botId, (bot) => ({ ...bot, tasks: bot.tasks?.map((task) => task.threadId !== action.threadId ? task
           : { ...task, followsBotModel: Boolean(action.updateBotDefault) || sameModelSelection(action.selection, bot.modelSelection) }) }));
       }
-      return reconcileModelVariantSessions(updateBot(state, action.botId, (b) => ({ ...b, modelSelection: action.selection })));
+      return reconcileModelVariantSessions(updateBot(state, action.botId, (b) => ({ ...b, modelSelection: action.selection, tasks: followBotModel(action.selection, b.tasks) })));
     case "updateTask": {
       const patch = taskPatchFields(action.patch);
       return reconcileModelVariantSessions(updateBot(state, action.botId, (bot) => ({
@@ -2159,6 +2176,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const olderPagesInFlight = new Set<string>();
     const newTaskOnce = createNewTaskOnce();
     let creatingBot = false;
+    let noticeTimer: ReturnType<typeof setTimeout> | undefined;
     const showError = (e: unknown) => { if (isBotLimitRefusal(e)) return; if (isNoAiRefusal(e)) wrapped({ type: "notice", notice: { kind: "note", botName: null, text: e.message } }); else rawDispatch({ type: "error", message: e instanceof Error ? e.message : String(e) }); };
     const showSavedState = (owner: SavedOwner) => (error: unknown) => {
       showError(error);
@@ -2309,11 +2327,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (action.type !== "send") return undefined;
         return botBeforeSend ? openOnboardingCard(botBeforeSend) : undefined;
       })();
-      if (
-        action.type !== "cancelQueued" &&
-        action.type !== "cancelGroupQueued" &&
-        action.type !== "deleteBot"
-      ) rawDispatch(action);
+      const threadOf = (s: AppState) => { const bot = s.bots.find((b) => b.id === s.selectedId); return s.groups.find((g) => g.id === s.selectedId)?.threadId ?? bot?.switchingTo ?? bot?.threadId; }, previousOpened = threadOf(stateRef.current);
+      if (action.type === "notice" && action.notice?.threadId !== undefined && action.notice.threadId !== previousOpened) return;
+      const dispatched = action.type !== "cancelQueued" && action.type !== "cancelGroupQueued" && action.type !== "deleteBot";
+      if (dispatched) rawDispatch(action);
+      const cur = dispatched ? reducer(stateRef.current, action) : stateRef.current, opened = threadOf(cur);
+      if (previousOpened !== opened && cur.notice?.threadId && opened && cur.notice.threadId !== opened) rawDispatch({ type: "notice", notice: null });
+      followSnapshotTails({ getState: () => stateRef.current }, dispatch);
       switch (action.type) {
         case "loadOlderMessages": {
           // The guard, not the reducer flag: stateRef still holds the pre-dispatch state.
@@ -2346,7 +2366,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           break;
         }
         case "notice":
-          if (action.notice) setTimeout(() => rawDispatch({ type: "notice", notice: null }), action.notice.kind === "note" ? 20_000 : 6000);
+          if (noticeTimer !== undefined) clearTimeout(noticeTimer);
+          noticeTimer = action.notice ? setTimeout((shown) => { if (stateRef.current.notice === shown) rawDispatch({ type: "notice", notice: null }); }, action.notice.kind === "note" ? 20_000 : 6000, action.notice) : undefined;
           break;
         case "createRoutine":
           api("/api/routines", { method: "POST", body: JSON.stringify(action.input) }).catch(showError);
@@ -2401,7 +2422,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   rawDispatch({ type: "consumePendingQueued", threadId: body.threadId, queueId });
                 }
               } else if (body?.queued === true && body.blockedBy === "images") {
-                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null } });
+                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: body.threadId } });
               }
               action.onSettled?.();
             })
@@ -2431,8 +2452,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 for (const queueId of body.queueIds ?? []) {
                   rawDispatch({ type: "consumePendingQueued", threadId: body.threadId, queueId });
                 }
-              } else if (body?.queued === true && body.blockedBy === "images") {
-                wrapped({ type: "notice", notice: { kind: "steer-images", botName: null } });
+              } else if (body?.queued === true) {
+                wrapped({ type: "notice", notice: body.blockedBy === "images" ? { kind: "steer-images", botName: null, threadId: body.threadId } : { kind: "note", botName: null, text: t("composer.queued.roomSteerHeld"), threadId: body.threadId } });
               }
               action.onSettled?.();
             })
@@ -2458,16 +2479,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               if (body?.message && typeof body.threadId === "string") {
                 rawDispatch({ type: "messageAdded", threadId: body.threadId, message: body.message });
               }
-              if (
-                body?.queued &&
-                typeof body.threadId === "string" &&
-                typeof body.queueId === "string"
-              ) {
-                rawDispatch({
-                  type: "optimisticMessageRemoved",
-                  threadId: body.threadId,
-                  sendId,
-                });
+              if (body?.queued && typeof body.threadId === "string" && typeof body.queueId === "string") {
+                rawDispatch({ type: "optimisticMessageRemoved", threadId: body.threadId, sendId });
                 rawDispatch({
                   type: "pendingQueued",
                   threadId: body.threadId,
@@ -2475,6 +2488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                   text: action.text,
                   reason: body.reason === "capacity" || body.reason === "group-turn" ? body.reason : undefined,
                 });
+                if (body.blockedBy === "images") wrapped({ type: "notice", notice: { kind: "steer-images", botName: null, threadId: body.threadId } });
               }
             })
             .catch((error) => {
@@ -3046,9 +3060,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (alive && answer) flushSync(() => rawDispatch({ type: "liveCallLookup", call: answer.call, since, seq }));
         })
         .catch(() => {});
-      const chat = () =>
-        api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}`).then((answer) => snapshotArrays(answer, "bots")).then(({ bots, groups, sections, computerControl, botQueuedMessages }) => {
+      const chat = () => {
+        const resume = readLastConversation() ?? undefined;
+        const open = [...new Set<string>([stateRef.current.selectedId, resume].filter((id): id is string => Boolean(id)))].map(encodeURIComponent).join(",");
+        return api(`/api/bots?messages=${MESSAGE_PAGE_SIZE}&tail=${SNAPSHOT_TAIL}${open ? `&open=${open}` : ""}`).then((answer) => snapshotArrays(answer, "bots")).then(async ({ bots, groups, sections, computerControl, botQueuedMessages }) => {
           if (!alive) return;
+          // The owner the hydrate will select gets its whole page before it is applied; when that page cannot be read,
+          // the tail is applied and paged back once the snapshot lands.
+          const picked = (groups as Group[] | undefined)?.find((group) => group.id === stateRef.current.selectedId) ?? (bots as Bot[]).find((bot) => bot.id === stateRef.current.selectedId)
+            ?? (groups as Group[] | undefined)?.find((group) => group.id === resume) ?? (bots as Bot[]).find((bot) => bot.id === resume) ?? bots[0];
+          if (picked && shortHeld(picked)) {
+            const page = await api<{ messages: Message[]; hasMore?: boolean; activeLeafId?: string | null }>(
+              `/api/threads/${encodeURIComponent(picked.threadId)}/messages?limit=${MESSAGE_PAGE_SIZE}`,
+            ).catch(() => null);
+            if (page) {
+              bots = (bots as Bot[]).map((bot) => bot.id === picked.id && bot.threadId === picked.threadId
+                ? { ...bot, messages: page.messages, hasMore: Boolean(page.hasMore), ...(page.activeLeafId !== undefined ? { activeLeafId: page.activeLeafId } : {}) }
+                : bot);
+            }
+          }
+          noteSnapshotTails(bots.filter(shortHeld));
           rawDispatch({
             type: "hydrate",
             bots,
@@ -3062,6 +3093,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             resumeId: readLastConversation() ?? undefined,
           });
         });
+      };
       const peripherals = peripheralParts.map((part) => ({
         key: part.key,
         load: () => loadPeripheral(part, false),
@@ -3248,7 +3280,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         case "config":
           rawDispatch({
             type: "configStatus",
-            config: configStatusFromFrame(frame as unknown as ConfigStatusFrame),
+            config: configStatusFromFrame(frame as unknown as ConfigStatusFrame, stateRef.current.config),
           });
           {
             const instances = partByKey.get("instances");

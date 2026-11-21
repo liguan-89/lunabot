@@ -21,16 +21,16 @@ import { assertImageTransport, chatImageBudget, chatToolImages, chatUserContent,
 import { promptHalves, volatileContextNote, withContextNote } from "./prompt-split.ts";
 import { createChatToolApproval, refusal } from "./chat-tool-approval.ts";
 import { ChatProtocolError, ChatReasoningDetails, ChatToolCalls, object, type ChatToolCall } from "./openai-chat-protocol.ts";
-import { completionError, httpErrorDetail, refusedToolCall, refusedToolCallFailure, rejectsReasoningReplay, rejectsToolsParameter, RejectedToolCallError, UnsupportedChatToolsError, UnsupportedReasoningReplayError, type ProviderBody } from "./openai-chat-refusals.ts";
+import { completionError, httpErrorDetail, refusedToolCall, refusedToolCallFailure, rejectsReasoningReplay, rejectsToolsParameter, RejectedToolCallError, sseData, StreamTruncatedError, UnsupportedChatToolsError, UnsupportedReasoningReplayError, type ProviderBody } from "./openai-chat-refusals.ts";
 import { ChatRepeatGuard } from "./chat-repeat-guard.ts";
 import { TextCallHoldback, textToolCalls } from "./chat-text-tool-calls.ts";
-import { createModelRoutes, ModelRouteRefused, noRouteLeft, readResponsesStream, responsesRequest, routeRefusal, type ModelRoute, type ResponseItem } from "./openai-responses.ts";
+import { createModelRoutes, isOpenAIAddress, ModelRouteRefused, noRouteLeft, readResponsesStream, responsesRequest, routeRefusal, type ModelRoute, type ResponseItem } from "./openai-responses.ts";
 import { appendNative } from "./native.ts";
 import { classifyError, computeBackoff, interruptibleDelay, RETRY_MAX_ATTEMPTS } from "./retry.ts";
 import { plainFailure } from "./engine-errors.ts";
 import { noticeFailure } from "../chat-notices.ts";
 import { toolFailureMessage } from "./tool-failure.ts";
-import { refusesRequestSize, RequestTooLargeError, sizeChange, smallerResend } from "./chat-size-limit.ts";
+import { refusesRequestSize, RequestTooLargeError, resendsAllowed, shareThatFits, sizeChange, smallerResend } from "./chat-size-limit.ts";
 import { requestTooLargeMessage } from "../../shared/request-too-large.ts";
 import { toolSchemaProfileFor } from "../tool-schema-profile.ts";
 import { classifyContinuable, writeTurnHandoff } from "../turn-continuation.ts";
@@ -303,7 +303,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
         const refused = tools.length ? routeRefusal(route, status, body) : null;
         if (refused) return new ModelRouteRefused(refused, message);
         if (rejectsKey(status, body)) noteKeyRejected(options.apiUrl, options.apiKey);
-        if (refusesRequestSize(status, body)) return new RequestTooLargeError(message, Buffer.byteLength(payload));
+        if (refusesRequestSize(status, body)) return new RequestTooLargeError(message, Buffer.byteLength(payload), shareThatFits(body));
         if (rejectsToolsParameter(status, body)) return new UnsupportedChatToolsError(message);
         const refusal = refusedToolCall(status, body);
         if (refusal) return new RejectedToolCallError(message, refusal);
@@ -377,8 +377,8 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
       const decoder = new TextDecoder();
       let buffer = "";
       const consumeDataLine = (line: string, atEof = false): boolean => {
-        if (!line.startsWith("data:")) return false;
-        const data = line.slice(5).trim();
+        const data = sseData(line, failure);
+        if (data === undefined) return false;
         if (data === "[DONE]") return true;
         let chunk: CompletionJson;
         try {
@@ -431,7 +431,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
               const bodyError = body ? completionError(body, "completion error") : null;
               if (bodyError) throw bodyError;
             }
-            throw new ChatProtocolError("Stream ended before completion");
+            throw new StreamTruncatedError("Stream ended before completion");
           }
           resetIdleTimer();
           buffer += decoder.decode(value, { stream: true });
@@ -625,7 +625,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
           if (unread.length) messages.push({ role: "user", content: unread.join("\n\n") });
           native("out", options.nativeLog.outgoing(turn, messages, model, tools.definitions));
           let attempt = 0;
-          let resized = false;
+          let resends = 0;
           let completion: Completion;
           for (;;) {
             let streamed = false;
@@ -672,7 +672,7 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
               break;
             } catch (value) {
               const error = asError(value);
-              const verdict = classifyError(error);
+              const verdict = classifyError(error, { openAi: isOpenAIAddress(options.apiUrl) });
               // A provider refuses a request with too many tools before running anything: learn its limit and list fewer.
               const refit = streamed || seenCalls.size || abort.signal.aborted ? undefined : await refitChatTools(tools, error, chatToolLimitKey(options.apiUrl, model), [ASK_USER_TOOL_DEFINITION]);
               if (refit) {
@@ -687,15 +687,15 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
                 for (const message of messages) delete message.reasoning_content;
                 continue;
               }
-              // A provider refuses an oversized request before running anything, so one smaller copy may go again.
+              // A provider refuses an oversized request before running anything, so a smaller copy may go again.
               if (error instanceof RequestTooLargeError && !abort.signal.aborted) {
-                const resend = resized ? null : smallerResend(messages, request, error.bytes);
+                const resend = resends < resendsAllowed(error) ? smallerResend(messages, request, error.bytes, error.fits) : null;
                 native("out", { refused: "request_too_large", bytes: error.bytes, ...(resend ? { before: resend.before, after: resend.after } : {}) });
                 console.warn(`${options.driverKind}: ${model} refused a ${error.bytes}-byte request as too large; ${resend ? `resending smaller (${sizeChange(resend.before, resend.after)})` : "not resending"}`);
                 if (!resend) throw new ChatProtocolError(requestTooLargeMessage(options.models().options.find((option) => option.id === model)?.label ?? model));
                 messages.splice(0, messages.length, ...resend.messages);
-                resized = true;
-                emit({ ...base(turn.threadId, turnId), type: "turn.retrying", attempt: 1, delayMs: 0, reason: "request_too_large" });
+                resends += 1;
+                emit({ ...base(turn.threadId, turnId), type: "turn.retrying", attempt: resends, delayMs: 0, reason: "request_too_large" });
                 continue;
               }
               // A refused tool call ran nothing, so the request goes again, but not once answer text streamed.
@@ -715,10 +715,10 @@ export function createOpenAIChatRuntime<Config>(options: RuntimeOptions<Config>)
                 continue;
               }
               // Never replay a handled call. A stream closed before any completion marker ran nothing upstream, so it may resend even where the caller never opted into retries.
-              const truncation = verdict.reason === "stream_truncated", retryScale = truncation ? options.retryScale ?? 1 : options.retryScale;
-              if (retryScale === undefined || abort.signal.aborted || streamed || seenCalls.size || (!truncation && (error instanceof ChatProtocolError || !verdict.transient)) || attempt >= RETRY_MAX_ATTEMPTS - 1) throw error;
+              const truncation = error instanceof StreamTruncatedError, retryScale = truncation ? options.retryScale ?? 1 : options.retryScale;
+              if (retryScale === undefined || abort.signal.aborted || streamed || seenCalls.size || error instanceof RuntimeNoticeError || (!truncation && (error instanceof ChatProtocolError || !verdict.transient)) || attempt >= RETRY_MAX_ATTEMPTS - 1) throw error;
               const delayMs = computeBackoff(attempt++);
-              emit({ ...base(turn.threadId, turnId), type: "turn.retrying", attempt, delayMs, reason: verdict.reason });
+              emit({ ...base(turn.threadId, turnId), type: "turn.retrying", attempt, delayMs, reason: truncation ? "stream_truncated" : verdict.reason });
               await interruptibleDelay(delayMs * retryScale, abort.signal).promise;
               abort.signal.throwIfAborted();
             }

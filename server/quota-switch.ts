@@ -14,7 +14,7 @@ import { spokenLineFields } from "./live-call-record.ts";
 import type { WorkOrigin } from "./peer-provenance.ts";
 import type { BotRecord, Message, Store, TaskRecord } from "./store.ts";
 import type { TurnStops } from "./turn-outcome.ts";
-import { signedOutStop, type LimitTakeover, type TakeoverScope } from "./host/limit-takeover.ts";
+import { signedOutStop, type BackupSkip, type LimitTakeover, type SkippedBackup, type TakeoverScope } from "./host/limit-takeover.ts";
 import { conversationLanguage, serverLine } from "./server-lines.ts";
 
 export interface QuotaSwitchEngine {
@@ -43,7 +43,7 @@ export interface QuotaSwitchDeps {
   registry: { instances(): QuotaSwitchEngine[] };
   turnStops: Pick<TurnStops, "failureCause"> & Partial<Pick<TurnStops, "read">>;
   /** Which AIs carry on while one is limited or signed out, and the one notice for each stretch of either. */
-  takeover?: Pick<LimitTakeover, "backups" | "tell" | "moved">;
+  takeover?: Pick<LimitTakeover, "backups" | "weighBackups" | "passedOver" | "tell" | "moved">;
   /** A custom endpoint brings its own credential, so its sign-in state does not count. */
   access?: (instanceId: string) => EngineAccess | undefined;
   refusal?: (engine: QuotaSwitchEngine) => string | undefined;
@@ -69,6 +69,11 @@ export interface QuotaSwitch {
 export type QuotaAnswer = "answered" | "rejected" | "unavailable";
 
 export const NOT_NOW = "Not now";
+
+export function turnLimitScope(event: SettledTurn, flags: { limit?: TakeoverScope } | undefined, cause: string | undefined): TakeoverScope | undefined {
+  return signedOutStop(event.stopReason, cause) ? "signed-out"
+    : flags?.limit ?? (event.stopReason !== "tool_error" && classifyError({ text: cause ?? "" }).reason === "quota" ? "engine" : undefined);
+}
 
 const ENDED: ReadonlySet<string> = new Set(["completed", "failed", "cancelled"]);
 
@@ -128,20 +133,21 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
   };
 
   /** One rule for the card and for the answer. */
-  const takeover = async (engine: QuotaSwitchEngine, bot: BotRecord, current: QuotaSwitchEngine | undefined): Promise<ModelSelection | "timed-out" | null> => {
+  const takeover = async (engine: QuotaSwitchEngine, bot: BotRecord, current: QuotaSwitchEngine | undefined): Promise<ModelSelection | BackupSkip> => {
     // No current engine: no backup check can be made, so none passes.
-    if (!current || limited.has(engine.instanceId)) return null;
+    if (!current) return "not-configured";
+    if (limited.has(engine.instanceId)) return "limited";
     if (recoveryCapabilityError(
       { driverKind: current.driverKind, capabilities: current.adapter.capabilities },
       { driverKind: engine.driverKind, capabilities: engine.adapter.capabilities },
-    )) return null;
-    if (modelSwitchNeedsAsk(approvalModeFor(bot), current.driverKind, engine.driverKind)) return null;
+    )) return "missing-capability";
+    if (modelSwitchNeedsAsk(approvalModeFor(bot), current.driverKind, engine.driverKind)) return "needs-approval";
     const context = { refusal: () => deps.refusal?.(engine) };
     const instance = await described(engine);
-    if (!instance) return "timed-out";
-    if (!readyToRun(instance, context)) return null;
+    if (!instance) return "probe-timed-out";
+    if (!readyToRun(instance, context)) return "not-ready";
     const selection = selectDefaultModelSelection([instance], undefined, context);
-    return selection.instanceId && selection.model ? selection : null;
+    return selection.instanceId && selection.model ? selection : "unknown-model";
   };
 
   /** The newest root: a backup engine's retry or a change of computer begins another root for the same request. */
@@ -150,24 +156,26 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
     .sort((a, b) => a.createdAt - b.createdAt).at(-1)?.id;
 
   /** Moves the thread to `selection` and sends the person's message that hit the limit (or met a signed-out AI) again
-   * there; false when that AI cannot take it now. No await from the readiness check to the resend: the gate, the switch
-   * and the resend see one state. */
+   * there; null once it does, else why that AI cannot take it now. No await from the readiness check to the resend: the
+   * gate, the switch and the resend see one state. */
   const continueOn = async (botId: string, threadId: string, selection: ModelSelection, request: QuotaRequest, build: { stale: boolean }, resetsAt?: number,
-    scope: TakeoverScope = "engine"): Promise<boolean> => {
+    scope: TakeoverScope = "engine"): Promise<Omit<SkippedBackup, "selection"> | null> => {
     const engines = deps.registry.instances();
     const engine = engines.find((candidate) => candidate.instanceId === selection.instanceId);
     const before = store.projectBotForTask(botId, threadId);
     const current = before && engines.find((candidate) => candidate.instanceId === before.modelSelection.instanceId);
-    if (!engine || !before || !current) return false;
+    if (!before) return { why: "conversation-changed" };
+    if (!engine || !current) return { why: "not-configured" };
     const ready = engine.instanceId === current.instanceId ? selection : await takeover(engine, before, current);
+    if (typeof ready === "string") return { why: ready };
     const bot = store.projectBotForTask(botId, threadId);
-    if (!ready || ready === "timed-out" || !bot || build.stale || !store.taskByThread(botId, threadId)) return false;
+    if (!bot || build.stale || !store.taskByThread(botId, threadId)) return { why: "conversation-changed" };
     const checked = deps.gate(bot, selection);
-    if (!checked.ok) return false;
+    if (!checked.ok) return { why: "switch-refused", detail: checked.error };
     try {
       store.switchTaskModel(botId, threadId, checked.selection, false, false, deps.reset?.(bot.modelSelection, checked.selection));
-    } catch {
-      return false;
+    } catch (error) {
+      return { why: "switch-refused", detail: error instanceof Error ? error.message : String(error) };
     }
     deps.takeover?.moved(botId, threadId, before.modelSelection, checked.selection, resetsAt, scope);
     const name = engine.instanceId === current.instanceId ? `${nameOf(engine)} ${checked.selection.model}` : nameOf(engine);
@@ -192,7 +200,7 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
         if (store.taskByThread(botId, threadId)) notice(threadId, serverLine(language, "server.quota.couldNotContinue", { name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) }), false, false, { key: "chat.notice.backupCouldNotContinue", params: { name, error: (error instanceof Error ? error.message : String(error)).slice(0, 200) } });
       }
     }
-    return true;
+    return null;
   };
 
   /** A turn its AI's usage limit refused, or that met its AI signed out: the person's own message carries on with the
@@ -207,14 +215,13 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
       const flags = deps.turnStops.read?.(threadId, event.turnId)?.flags;
       const cause = deps.turnStops.failureCause(event);
       // A tool call's failure names the tool, never the engine's own limit, whatever its words.
-      const scope: TakeoverScope | undefined = signedOutStop(event.stopReason, cause) ? "signed-out"
-        : flags?.limit ?? (event.stopReason !== "tool_error" && classifyError({ text: cause ?? "" }).reason === "quota" ? "engine" : undefined);
+      const scope = turnLimitScope(event, flags, cause);
       if (!scope) return null;
       const thread = store.projectBotForTask(bot.id, threadId) ?? bot;
       const from = thread.modelSelection;
       if (scope === "engine") limited.add(from.instanceId);
       // OMB_QUOTA_SWITCH=0: nothing carries on by itself; the person still hears once that the bot waits.
-      const backups = enabled() ? deps.takeover?.backups(bot.id, from, scope, approvalModeFor(thread)) ?? [] : [];
+      const { backups, skipped } = enabled() ? deps.takeover?.weighBackups(bot.id, from, scope, approvalModeFor(thread)) ?? { backups: [], skipped: [] } : { backups: [], skipped: [] };
       const resetsAt = scope === "signed-out" ? undefined : flags?.limitResetsAt;
       // A sign-out is told once, first and without a backup's name: what the person must do is sign in again.
       const told = scope === "signed-out" ? deps.takeover?.tell(thread, from, { scope }) : undefined;
@@ -227,6 +234,7 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
         && (!request.turnId || !event.turnId || request.turnId === event.turnId);
       const relayed = request?.messageId && store.messagesFor(threadId).find((message) => message.id === request.messageId)?.peerAsk;
       if (!own || !request || relayed || !enabled() || openCard(threadId)) {
+        deps.takeover?.passedOver(thread, from, scope, skipped);
         tell(backups[0]);
         return null;
       }
@@ -234,13 +242,16 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
       building.add(build);
       try {
         for (const selection of backups) {
-          if (await continueOn(bot.id, threadId, selection, request, build, resetsAt, scope)) {
+          const why = await continueOn(bot.id, threadId, selection, request, build, resetsAt, scope);
+          if (!why) {
             tell(selection);
             return null;
           }
+          skipped.push({ selection, ...why });
         }
       } finally {
         building.delete(build);
+        deps.takeover?.passedOver(thread, from, scope, skipped);
       }
       tell();
       return null;
@@ -306,8 +317,8 @@ export function createQuotaSwitch(deps: QuotaSwitchDeps): QuotaSwitch {
     const card = offer();
     const bot = store.projectBotForTask(botId, threadId);
     if (!card || !bot) return false;
-    if (selection === "timed-out") return refuse(serverLine(language, "server.quota.timedOut", { name: chosen.name }));
-    if (!selection) return refuse(serverLine(language, "server.quota.unavailable", { name: chosen.name }));
+    if (selection === "probe-timed-out") return refuse(serverLine(language, "server.quota.timedOut", { name: chosen.name }));
+    if (typeof selection === "string") return refuse(serverLine(language, "server.quota.unavailable", { name: chosen.name }));
     const already = bot.modelSelection.instanceId === selection.instanceId;
     if (!already) {
       const checked = deps.gate(bot, selection);

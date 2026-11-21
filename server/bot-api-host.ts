@@ -43,7 +43,7 @@ export interface BotApiTurnOptions {
 }
 
 export interface BotApiHostDeps {
-  store: Pick<Store, "bot" | "taskByThread" | "createTask" | "patchTask" | "appendMessage" | "messagesFor" | "onChange">;
+  store: Pick<Store, "bot" | "taskByThread" | "createTask" | "patchTask" | "appendMessage" | "messagesFor" | "onChange" | "branchMessage" | "activeLeaf" | "setActiveLeaf">;
   startTurn(botId: string, text: string, opts: BotApiTurnOptions): Promise<unknown>;
   threadBusy(botId: string, threadId: string): boolean;
   /** Whether a new turn would start now, before anything is written. */
@@ -189,6 +189,34 @@ export function createBotApiHost(deps: BotApiHostDeps) {
     return { status: 200, body: { reply: replyText(after()), thread: threadId } };
   }
 
+  /** Retry, pressed in the app, on a line a caller sent: the same words go again as the caller's, framed, fenced and counted
+   * as the call was, so the thread stays the API's and a status read reports the retried turn. Null for any other line,
+   * which the app retries as an ordinary edit. */
+  async function retry(botId: string, threadId: string, source: Message, sendId?: string): Promise<Message | null> {
+    const store = deps.store;
+    const task = store.taskByThread(botId, threadId);
+    if (source.via !== "api" || source.role !== "user" || typeof source.text !== "string" || task?.botApi !== true) return null;
+    const message = source.text.trim();
+    const leafBefore = store.activeLeaf(threadId);
+    const userMessage = store.branchMessage(threadId, source.id, message, sendId, undefined, undefined, { via: "api" });
+    if (!userMessage) return null;
+    store.patchTask(botId, threadId, { rewound: true });
+    markRunning(botId, threadId, true);
+    try {
+      await deps.startTurn(botId, botApiPrompt(message, source.at), {
+        threadId, automationSource: "api", unattended: true, userMessage,
+        onSettled: () => markRunning(botId, threadId, false),
+        onDispatchError: () => markRunning(botId, threadId, false),
+      });
+    } catch (error) {
+      // A turn that never started leaves the conversation on the branch the person was reading.
+      markRunning(botId, threadId, false);
+      if (leafBefore) store.setActiveLeaf(threadId, leafBefore);
+      throw error;
+    }
+    return userMessage;
+  }
+
   const door: IngressDoor = async (req, res, url) => {
     const match = PUBLIC_PATH.exec(url.pathname);
     if (!match) return false;
@@ -314,5 +342,5 @@ export function createBotApiHost(deps: BotApiHostDeps) {
     }
   };
 
-  return { manager, door, routes };
+  return { manager, door, routes, retry };
 }
