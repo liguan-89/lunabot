@@ -259,41 +259,41 @@ internal object BotHandRig {
         when (mood) {
             FaceMood.IDLE -> idle(now, seed, out)
             FaceMood.THINKING -> {
-                val tap = 0.5f + 0.5f * sin(now / 1000f * TWO_PI * 1.15f)
-                out.right.aim(0.18f, 0.84f - 0.018f * tap, -28f)
-                out.right.aimCurl(0, 12f * tap)
-                out.right.aimCurl(1, -3f)
-                out.right.aimCurl(2, 2f)
-                out.right.aimCurl(3, 4f)
+                val tap = 0.5f + 0.5f * sin(now / 1000f * TWO_PI * 0.85f)
+                out.right.aim(0.20f, 0.80f - 0.014f * tap, -24f, scale = 0.96f)
+                out.right.aimCurl(0, 7f * tap)
+                out.right.aimCurl(1, -2f)
+                out.right.aimCurl(2, 1.5f)
+                out.right.aimCurl(3, 2.5f)
                 out.left.aimHidden()
             }
             FaceMood.WORKING -> {
-                val beat = sin(now / 1000f * TWO_PI * 3.1f)
-                out.left.aim(-0.55f, 0.72f - 0.03f * max(0f, beat), 10f)
-                out.right.aim(0.55f, 0.72f - 0.03f * max(0f, -beat), -10f)
-                out.left.aimCurl(0, -8f * max(0f, beat))
-                out.left.aimCurl(1, -4f * max(0f, beat))
-                out.right.aimCurl(0, -8f * max(0f, -beat))
-                out.right.aimCurl(1, -4f * max(0f, -beat))
+                val beat = sin(now / 1000f * TWO_PI * 2.1f)
+                out.left.aim(-0.54f, 0.74f - 0.022f * max(0f, beat), 12f, scale = 0.96f)
+                out.right.aim(0.54f, 0.74f - 0.022f * max(0f, -beat), -12f, scale = 0.96f)
+                out.left.aimCurl(0, -5f * max(0f, beat))
+                out.left.aimCurl(1, -3f * max(0f, beat))
+                out.right.aimCurl(0, -5f * max(0f, -beat))
+                out.right.aimCurl(1, -3f * max(0f, -beat))
             }
             FaceMood.SPEAKING -> {
-                val beat = sin(now / 1000f * TWO_PI * 1.3f)
-                out.right.aim(0.72f, 0.30f + 0.02f * beat, -12f + 8f * beat, palmOut = true)
-                wiggle(out.right, now, amplitude = 4f, speed = 110f)
+                val beat = sin(now / 1000f * TWO_PI * 1.05f)
+                out.right.aim(0.76f, 0.34f + 0.018f * beat, -10f + 6f * beat, scale = 0.98f, palmOut = true)
+                wiggle(out.right, now, amplitude = 3f, speed = 150f)
                 out.left.aimHidden()
             }
             FaceMood.LISTENING -> {
-                out.right.aim(0.84f, 0.10f, 8f)
-                out.right.aimCurl(0, -4f)
-                out.right.aimCurl(4, -3f)
+                out.right.aim(0.84f, 0.16f, 10f, scale = 0.96f)
+                out.right.aimCurl(0, -3f)
+                out.right.aimCurl(4, -2f)
                 out.left.aimHidden()
             }
             FaceMood.DROWSY -> {
-                val breathe = sin(now / 1000f * TWO_PI * 0.27f)
-                out.right.aim(0.44f, 0.56f + 0.012f * breathe, -20f + 2f * breathe)
+                val breathe = sin(now / 1000f * TWO_PI * 0.25f)
+                out.right.aim(0.48f, 0.60f + 0.01f * breathe, -18f + 2f * breathe, scale = 0.96f)
                 // A sleepy hand is relaxed: the fingers close a little and move
                 // only with the breath.
-                val loose = 4f + 2f * breathe
+                val loose = 3f + 1.5f * breathe
                 out.right.aimCurl(0, -loose * 0.6f)
                 out.right.aimCurl(1, -loose * 0.3f)
                 out.right.aimCurl(2, loose * 0.3f)
@@ -318,18 +318,17 @@ internal object BotHandRig {
     }
 
     /**
-     * A face with nothing to do fidgets: mostly handless, with a gesture every
-     * eight to thirteen seconds. The seed decides both when a bot starts and
+     * A face with nothing to do fidgets: mostly handless, with a calm gesture
+     * every ten to sixteen seconds. The seed decides both when a bot starts and
      * which gesture it does, which is what keeps a screen with two portraits
      * from moving as one.
      */
     private fun idle(now: Long, seed: Int, out: BotHandsPose) {
-        val slot = 8_000L + (BotFaceRig.mix(seed + 31) ushr 8) % 5_000
+        val slot = 10_000L + (BotFaceRig.mix(seed + 31) ushr 8) % 6_000
         val offset = (BotFaceRig.mix(seed + 71) ushr 8) % slot
         val time = now + offset
         val local = time % slot
-        when ((BotFaceRig.mix(seed * 97 + (time / slot).toInt()) ushr 9) % 10) {
-            // Half the slots are empty. A gesture that never stops is a tic.
+        when ((BotFaceRig.mix(seed * 97 + (time / slot).toInt()) ushr 9) % 12) {
             4, 9 -> wave(local, now, out)
             5 -> shrug(local, now, out)
             6 -> cheer(local, now, out)
@@ -339,58 +338,59 @@ internal object BotHandRig {
         }
     }
 
-    /** 👋 — one hand up beside the head, fingers wagging one after another. */
+    /** 👋 — one hand beside the head, waving at a relaxed friendly cadence. */
     private fun wave(local: Long, now: Long, out: BotHandsPose) {
         if (!active(local, 2_800)) return
+        val phase = sin(local / 1000f * TWO_PI * 1.35f)
         out.right.aim(
-            x = 0.91f,
-            y = -0.02f,
-            angle = 15f * sin(local / 1000f * TWO_PI * 2.05f),
-            scale = 1.04f,
+            x = 0.88f + 0.03f * phase,
+            y = 0.10f - 0.02f * kotlin.math.abs(phase),
+            angle = 16f + 16f * phase,
+            scale = 1.02f,
             palmOut = true,
         )
-        wiggle(out.right, local + now, amplitude = 9f, speed = 95f)
+        wiggle(out.right, local + now, amplitude = 4.5f, speed = 160f)
     }
 
     /** 🤷 — both palms out at the sides: "no idea", or "what can you do". */
     private fun shrug(local: Long, now: Long, out: BotHandsPose) {
-        if (!active(local, 2_500)) return
-        val lift = 0.03f * sin(local / 1000f * TWO_PI * 1.4f)
-        out.left.aim(-0.88f, 0.32f + lift, -34f, palmOut = true)
-        out.right.aim(0.88f, 0.32f + lift, 34f, palmOut = true)
-        wiggle(out.left, now, amplitude = 3f, speed = 130f)
-        wiggle(out.right, now, amplitude = 3f, speed = 130f)
+        if (!active(local, 2_400)) return
+        val lift = 0.025f * sin(local / 1000f * TWO_PI * 1.05f)
+        out.left.aim(-0.82f, 0.42f + lift, -24f, scale = 0.98f, palmOut = true)
+        out.right.aim(0.82f, 0.42f + lift, 24f, scale = 0.98f, palmOut = true)
+        wiggle(out.left, now, amplitude = 2f, speed = 180f)
+        wiggle(out.right, now, amplitude = 2f, speed = 180f)
     }
 
-    /** 🙌 — both hands up beside the head, the shape of a small cheer. */
+    /** 🙌 — both hands up beside the head, a soft celebratory sway. */
     private fun cheer(local: Long, now: Long, out: BotHandsPose) {
-        if (!active(local, 3_000)) return
-        val sway = 0.02f * sin(local / 800f)
-        out.left.aim(-0.72f + sway, -0.42f, -10f, palmOut = true)
-        out.right.aim(0.72f - sway, -0.42f, 10f, palmOut = true)
-        wiggle(out.left, now, amplitude = 6f, speed = 85f)
-        wiggle(out.right, now, amplitude = 6f, speed = 85f)
+        if (!active(local, 2_800)) return
+        val sway = sin(local / 1000f * TWO_PI * 1.1f)
+        out.left.aim(-0.76f + 0.025f * sway, -0.18f - 0.025f * kotlin.math.abs(sway), -14f + 6f * sway, palmOut = true)
+        out.right.aim(0.76f - 0.025f * sway, -0.18f - 0.025f * kotlin.math.abs(sway), 14f - 6f * sway, palmOut = true)
+        wiggle(out.left, now, amplitude = 3.5f, speed = 145f)
+        wiggle(out.right, now, amplitude = 3.5f, speed = 145f)
     }
 
-    /** ☺️ — both palms pressed to the cheeks, with a tiny bounce. */
+    /** ☺️ — both palms tucked gently at the cheeks. */
     private fun cheeks(local: Long, now: Long, out: BotHandsPose) {
-        if (!active(local, 2_600)) return
-        val bounce = 0.015f * sin(local / 1000f * TWO_PI * 1.6f)
-        out.left.aim(-0.62f, 0.55f + bounce, 16f)
-        out.right.aim(0.62f, 0.55f + bounce, -16f)
-        wiggle(out.left, now, amplitude = 4f, speed = 150f)
-        wiggle(out.right, now, amplitude = 4f, speed = 150f)
+        if (!active(local, 2_500)) return
+        val bounce = 0.012f * sin(local / 1000f * TWO_PI * 1.0f)
+        out.left.aim(-0.68f, 0.58f + bounce, 22f, scale = 0.96f)
+        out.right.aim(0.68f, 0.58f + bounce, -22f, scale = 0.96f)
+        wiggle(out.left, now, amplitude = 2f, speed = 190f)
+        wiggle(out.right, now, amplitude = 2f, speed = 190f)
     }
 
-    /** 🤔 — one hand under the chin, the index finger tapping while it thinks. */
+    /** 🤔 — one hand under the chin, gently tapping while it thinks. */
     private fun ponder(local: Long, now: Long, out: BotHandsPose) {
-        if (!active(local, 3_100)) return
-        val tap = 0.5f + 0.5f * sin(local / 1000f * TWO_PI * 1.15f)
-        out.right.aim(0.18f, 0.84f - 0.018f * tap, -28f)
-        out.right.aimCurl(0, 12f * tap)
-        out.right.aimCurl(1, -3f)
-        out.right.aimCurl(2, 2f)
-        out.right.aimCurl(3, 4f)
+        if (!active(local, 3_000)) return
+        val tap = 0.5f + 0.5f * sin(local / 1000f * TWO_PI * 0.85f)
+        out.right.aim(0.20f, 0.80f - 0.014f * tap, -24f, scale = 0.96f)
+        out.right.aimCurl(0, 7f * tap)
+        out.right.aimCurl(1, -2f)
+        out.right.aimCurl(2, 1.5f)
+        out.right.aimCurl(3, 2.5f)
     }
 
     /** True while [local] is inside a gesture of [durationMillis]. */
@@ -451,11 +451,11 @@ internal object BotHandShape {
      * The four fingers fan by a hair and are of different lengths, so the
      * silhouette is a hand rather than a comb.
      */
-    private val BASE_X = floatArrayOf(-0.70f, -0.24f, 0.24f, 0.70f, -0.72f)
-    private val TIP_X = floatArrayOf(-0.74f, -0.26f, 0.28f, 0.78f, -1.42f)
-    private val BASE_Y = floatArrayOf(-0.52f, -0.58f, -0.56f, -0.46f, 0.16f)
-    private val TIP_Y = floatArrayOf(-1.56f, -1.78f, -1.64f, -1.30f, -0.62f)
-    private val RADIUS = floatArrayOf(0.155f, 0.160f, 0.155f, 0.145f, 0.175f)
+    private val BASE_X = floatArrayOf(-0.46f, -0.15f, 0.16f, 0.45f, -0.68f)
+    private val TIP_X = floatArrayOf(-0.52f, -0.17f, 0.19f, 0.50f, -1.12f)
+    private val BASE_Y = floatArrayOf(-0.36f, -0.44f, -0.42f, -0.32f, 0.18f)
+    private val TIP_Y = floatArrayOf(-1.18f, -1.30f, -1.22f, -1.00f, -0.36f)
+    private val RADIUS = floatArrayOf(0.230f, 0.240f, 0.230f, 0.210f, 0.240f)
 
     /**
      * Where one finger's root sits, in the portrait's units. Exposed so the
@@ -541,27 +541,27 @@ internal fun botHandEdge(palette: PresetAvatar): Color {
     val body = palette.body
     val luminance = 0.299f * body.red + 0.587f * body.green + 0.114f * body.blue
     return if (luminance > 0.55f) {
-        lerp(body, Color.Black, 0.22f)
+        lerp(body, Color.Black, 0.16f)
     } else {
-        lerp(body, Color.White, 0.30f)
+        lerp(body, Color.White, 0.22f)
     }
 }
 
-/** How big a palm is, in portrait radii. With the fingers, a hand spans ~0.5r. */
-private const val PALM_RADIUS = 0.20f
+/** How big a palm is, in portrait radii. Soft chibi hand proportions. */
+private const val PALM_RADIUS = 0.185f
 /** How far below its pose a hand starts; it rises as it fades in. */
-private const val HAND_RISE = 0.34f
-/** A hand's contour, a touch heavier than the disc's hairline. */
-private val HAND_EDGE_WIDTH = 0.6.dp
+private const val HAND_RISE = 0.26f
+/** A hand's contour, soft enough to blend with the porcelain body. */
+private val HAND_EDGE_WIDTH = 0.5.dp
 
-/** The springs: a little under critical damping, so a hand settles with one small overshoot. */
-private const val POSITION_STIFFNESS = 90f
-private const val POSITION_DAMPING = 13f
-private const val ANGLE_STIFFNESS = 70f
-private const val ANGLE_DAMPING = 11f
+/** The springs: gently damped so hands glide in cleanly without twitchy bounce. */
+private const val POSITION_STIFFNESS = 75f
+private const val POSITION_DAMPING = 14f
+private const val ANGLE_STIFFNESS = 60f
+private const val ANGLE_DAMPING = 12f
 /** Fades and finger bends are eased rather than sprung; a sprung fade flickers. */
-private const val ALPHA_RATE = 9f
-private const val CURL_RATE = 16f
+private const val ALPHA_RATE = 8f
+private const val CURL_RATE = 13f
 
 /**
  * Whether this hand is drawn with the mirrored table.

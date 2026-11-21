@@ -1,24 +1,35 @@
 package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,9 +44,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lunabot.companion.R
 import com.lunabot.companion.core.SharedAttachmentKind
 import com.lunabot.companion.core.SharedAttachmentReference
 import com.lunabot.companion.core.SharedMessageComposer
@@ -352,135 +372,334 @@ private fun ShareSheetContent(
 
     BackHandler(enabled = canCancel) { cancel() }
 
-    Surface(modifier = Modifier.fillMaxSize().imePadding()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            Row(
+    val dark = minisIsDark()
+    val softCardFill = if (dark) minisGrouped else Color(0xFFF5F5F3)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(minisCanvas)
+            .statusBarsPadding()
+            .navigationBarsPadding()
+            .imePadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .size(44.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp)
+                    .clickable(enabled = canCancel, role = Role.Button) { cancel() }
+                    .semantics { contentDescription = "返回" },
+                contentAlignment = Alignment.Center,
             ) {
-                HeaderBackButton(onBack = { if (canCancel) cancel() })
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("发送到 Luna Bot", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    Text(headerSubtitle(phase), color = secondaryTint, fontSize = 13.sp)
-                }
-                if (phase == ShareSheetPhase.SENDING) {
-                    CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = "发送到 Luna Bot",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = (-0.2).sp,
+                    color = minisInk,
+                )
+                Text(headerSubtitle(phase), color = minisSecondary, fontSize = 13.sp)
+            }
+            if (phase == ShareSheetPhase.SENDING || phase == ShareSheetPhase.LOADING) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    strokeWidth = 2.dp,
+                    color = minisInk,
+                )
+            }
+        }
+
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            if (!preview.isEmpty) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(softCardFill)
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(
+                        text = "分享内容",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                    )
+                    SharePolicy.previewChip(preview).forEach { label ->
+                        Text(
+                            text = label,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = minisInk,
+                        )
+                    }
+                    if (preview.ignoredCount > 0) {
+                        Text(
+                            SharePolicy.ignoredCaption(preview.ignoredCount),
+                            color = minisWarning,
+                            fontSize = 13.sp,
+                        )
+                    }
                 }
             }
-            MinisDivider()
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-            ) {
-                if (!preview.isEmpty) {
-                    Card(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
+
+            if (computers.isNotEmpty() || destinations.isNotEmpty()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(softCardFill),
+                ) {
+                    if (computers.isNotEmpty()) {
+                        val computerClickable = (phase == ShareSheetPhase.READY || phase == ShareSheetPhase.FAILED) && computers.size > 1
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = computerClickable, role = Role.Button) {
+                                    choosingComputer = true
+                                }
+                                .padding(horizontal = 18.dp, vertical = 15.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("分享内容", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = secondaryTint)
-                            SharePolicy.previewChip(preview).forEach { label ->
-                                Text(label, fontSize = 15.sp)
-                            }
-                            if (preview.ignoredCount > 0) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("电脑", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = minisSecondary)
                                 Text(
-                                    SharePolicy.ignoredCaption(preview.ignoredCount),
-                                    color = minisWarning,
-                                    fontSize = 13.sp,
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (computers.isNotEmpty()) {
-                    Text("电脑", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = secondaryTint)
-                    TextButton(
-                        onClick = { choosingComputer = true },
-                        enabled = (phase == ShareSheetPhase.READY || phase == ShareSheetPhase.FAILED) && computers.size > 1,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Text(selectedComputer?.name ?: "选择电脑", fontWeight = FontWeight.SemiBold)
-                            selectedComputer?.routeLabel?.let { Text(it, color = secondaryTint, fontSize = 13.sp) }
-                        }
-                    }
-                }
-
-                if (destinations.isNotEmpty()) {
-                    Text("发送到", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = secondaryTint)
-                    TextButton(
-                        onClick = { choosingDestination = true },
-                        enabled = canEdit,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Column(modifier = Modifier.fillMaxWidth()) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text(
-                                    selectedDestination?.name ?: "选择智能体或频道",
+                                    text = selectedComputer?.name ?: "选择电脑",
+                                    fontSize = 15.5.sp,
                                     fontWeight = FontWeight.SemiBold,
+                                    color = minisInk,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
                                 )
-                                if (selectedDestinationId != null && selectedDestinationId == rememberedDestinationId) {
-                                    Text("上次使用", fontSize = 12.sp, color = MaterialTheme.colorScheme.primary)
+                                selectedComputer?.routeLabel?.let {
+                                    Text(it, color = minisSecondary, fontSize = 13.sp)
                                 }
                             }
-                            selectedDestination?.subtitle?.let {
-                                Text(it, color = secondaryTint, fontSize = 13.sp)
+                            if (computerClickable) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = null,
+                                    tint = minisTertiary,
+                                    modifier = Modifier.size(20.dp),
+                                )
                             }
                         }
                     }
-                }
 
-                if (phase == ShareSheetPhase.READY || phase == ShareSheetPhase.SENDING) {
-                    OutlinedTextField(
-                        value = instruction,
-                        onValueChange = {
-                            instruction = it
-                            pendingDelivery = null
-                        },
-                        label = { Text("附加说明（可选）") },
-                        placeholder = { Text("例如：总结这段内容并列出下一步计划") },
-                        enabled = canEdit,
-                        minLines = 2,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
+                    if (computers.isNotEmpty() && destinations.isNotEmpty()) {
+                        HorizontalDivider(
+                            modifier = Modifier.padding(horizontal = 18.dp),
+                            thickness = 0.5.dp,
+                            color = minisSeparator.copy(alpha = 0.25f),
+                        )
+                    }
 
-                errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 14.sp) }
-                if (imageWarning != null && imageWarning != errorMessage) {
-                    Text(imageWarning, color = minisWarning, fontSize = 14.sp)
-                }
-                if (instructionWarning != null && instructionWarning != errorMessage) {
-                    Text(instructionWarning, color = minisWarning, fontSize = 14.sp)
-                }
-
-                if (phase == ShareSheetPhase.LOADING && preview.isEmpty) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
-                        Text("正在读取分享内容", color = secondaryTint)
+                    if (destinations.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(enabled = canEdit, role = Role.Button) {
+                                    choosingDestination = true
+                                }
+                                .padding(horizontal = 18.dp, vertical = 15.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text("发送到", fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = minisSecondary)
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(
+                                        text = selectedDestination?.name ?: "选择智能体或频道",
+                                        fontSize = 15.5.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = minisInk,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (selectedDestinationId != null && selectedDestinationId == rememberedDestinationId) {
+                                        Box(
+                                            modifier = Modifier
+                                                .clip(CircleShape)
+                                                .background(if (dark) minisCard else Color(0xFFEAEAE8))
+                                                .padding(horizontal = 7.dp, vertical = 2.dp),
+                                        ) {
+                                            Text(
+                                                text = "上次使用",
+                                                fontSize = 11.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = minisSecondary,
+                                            )
+                                        }
+                                    }
+                                }
+                                selectedDestination?.subtitle?.let {
+                                    Text(it, color = minisSecondary, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = minisTertiary,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
                     }
                 }
             }
-            MinisDivider()
+
+            if (phase == ShareSheetPhase.READY || phase == ShareSheetPhase.SENDING) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "附加说明（可选）",
+                        fontSize = 12.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                        modifier = Modifier.padding(horizontal = 6.dp),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 84.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(softCardFill)
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                    ) {
+                        if (instruction.isEmpty()) {
+                            Text(
+                                text = "例如：总结这段内容并列出下一步计划",
+                                fontSize = 15.sp,
+                                color = minisTertiary,
+                            )
+                        }
+                        BasicTextField(
+                            value = instruction,
+                            onValueChange = {
+                                instruction = it
+                                pendingDelivery = null
+                            },
+                            enabled = canEdit,
+                            textStyle = LocalTextStyle.current.copy(
+                                fontSize = 15.sp,
+                                color = minisInk,
+                                lineHeight = 22.sp,
+                            ),
+                            cursorBrush = SolidColor(minisInk),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+            }
+
+            errorMessage?.let {
+                Text(
+                    text = it,
+                    color = Color(0xFFC85A4A),
+                    fontSize = 13.5.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
+            if (imageWarning != null && imageWarning != errorMessage) {
+                Text(
+                    text = imageWarning,
+                    color = minisWarning,
+                    fontSize = 13.5.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
+            if (instructionWarning != null && instructionWarning != errorMessage) {
+                Text(
+                    text = instructionWarning,
+                    color = minisWarning,
+                    fontSize = 13.5.sp,
+                    modifier = Modifier.padding(horizontal = 6.dp),
+                )
+            }
+
+            if (phase == ShareSheetPhase.LOADING && preview.isEmpty) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp, color = minisInk)
+                    Text("正在读取分享内容", fontSize = 14.sp, color = minisSecondary)
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (phase == ShareSheetPhase.FAILED) {
+                Box(
+                    modifier = Modifier
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(softCardFill)
+                        .clickable(role = Role.Button, onClick = ::retry)
+                        .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (pendingDelivery != null) "重试发送" else "重试",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisInk,
+                    )
+                }
+            }
             Row(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.End,
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .background(if (canSend) minisInk else softCardFill)
+                    .clickable(enabled = canSend, role = Role.Button, onClick = ::send)
+                    .padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (phase == ShareSheetPhase.FAILED) {
-                    TextButton(onClick = ::retry) { Text(if (pendingDelivery != null) "重试发送" else "重试") }
-                }
-                Button(
-                    onClick = ::send,
-                    enabled = canSend,
-                ) { Text("发送") }
+                Icon(
+                    painter = painterResource(R.drawable.ic_send_up),
+                    contentDescription = null,
+                    tint = if (canSend) minisCanvas else minisTertiary,
+                    modifier = Modifier.size(17.dp),
+                )
+                Text(
+                    text = "发送",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (canSend) minisCanvas else minisTertiary,
+                )
             }
         }
     }

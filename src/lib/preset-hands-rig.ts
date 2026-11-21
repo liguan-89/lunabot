@@ -7,13 +7,13 @@
 import { mix, type FaceMood, type FaceLife } from "./preset-face-rig";
 
 const CURLS = 5;
-const HAND_RISE = 0.34;
-const POSITION_STIFFNESS = 90;
-const POSITION_DAMPING = 13;
-const ANGLE_STIFFNESS = 70;
-const ANGLE_DAMPING = 11;
-const ALPHA_RATE = 9;
-const CURL_RATE = 16;
+const HAND_RISE = 0.26;
+const POSITION_STIFFNESS = 75;
+const POSITION_DAMPING = 14;
+const ANGLE_STIFFNESS = 60;
+const ANGLE_DAMPING = 12;
+const ALPHA_RATE = 8;
+const CURL_RATE = 13;
 const TWO_PI = Math.PI * 2;
 
 export class Hand {
@@ -158,53 +158,54 @@ const active = (local: number, duration: number) => local >= 0 && local < durati
 
 const wave = (local: number, now: number, out: Hands) => {
   if (!active(local, 2_800)) return;
-  out.right.aim(0.91, -0.02, 15 * Math.sin((local / 1000) * TWO_PI * 2.05), 1.04, true, true);
-  wiggle(out.right, local + now, 9, 95);
+  const phase = Math.sin((local / 1000) * TWO_PI * 1.35);
+  out.right.aim(0.88 + 0.03 * phase, 0.10 - 0.02 * Math.abs(phase), 16 + 16 * phase, 1.02, true, true);
+  wiggle(out.right, local + now, 4.5, 160);
 };
 
 const shrug = (local: number, now: number, out: Hands) => {
-  if (!active(local, 2_500)) return;
-  const lift = 0.03 * Math.sin((local / 1000) * TWO_PI * 1.4);
-  out.left.aim(-0.88, 0.32 + lift, -34, 1, true, true);
-  out.right.aim(0.88, 0.32 + lift, 34, 1, true, true);
-  wiggle(out.left, now, 3, 130);
-  wiggle(out.right, now, 3, 130);
+  if (!active(local, 2_400)) return;
+  const lift = 0.025 * Math.sin((local / 1000) * TWO_PI * 1.05);
+  out.left.aim(-0.82, 0.42 + lift, -24, 0.98, true, true);
+  out.right.aim(0.82, 0.42 + lift, 24, 0.98, true, true);
+  wiggle(out.left, now, 2, 180);
+  wiggle(out.right, now, 2, 180);
 };
 
 const cheer = (local: number, now: number, out: Hands) => {
-  if (!active(local, 3_000)) return;
-  const sway = 0.02 * Math.sin(local / 800);
-  out.left.aim(-0.72 + sway, -0.42, -10, 1, true, true);
-  out.right.aim(0.72 - sway, -0.42, 10, 1, true, true);
-  wiggle(out.left, now, 6, 85);
-  wiggle(out.right, now, 6, 85);
+  if (!active(local, 2_800)) return;
+  const sway = Math.sin((local / 1000) * TWO_PI * 1.1);
+  out.left.aim(-0.76 + 0.025 * sway, -0.18 - 0.025 * Math.abs(sway), -14 + 6 * sway, 1, true, true);
+  out.right.aim(0.76 - 0.025 * sway, -0.18 - 0.025 * Math.abs(sway), 14 - 6 * sway, 1, true, true);
+  wiggle(out.left, now, 3.5, 145);
+  wiggle(out.right, now, 3.5, 145);
 };
 
 const cheeks = (local: number, now: number, out: Hands) => {
-  if (!active(local, 2_600)) return;
-  const bounce = 0.015 * Math.sin((local / 1000) * TWO_PI * 1.6);
-  out.left.aim(-0.62, 0.55 + bounce, 16);
-  out.right.aim(0.62, 0.55 + bounce, -16);
-  wiggle(out.left, now, 4, 150);
-  wiggle(out.right, now, 4, 150);
+  if (!active(local, 2_500)) return;
+  const bounce = 0.012 * Math.sin((local / 1000) * TWO_PI * 1.0);
+  out.left.aim(-0.68, 0.58 + bounce, 22, 0.96);
+  out.right.aim(0.68, 0.58 + bounce, -22, 0.96);
+  wiggle(out.left, now, 2, 190);
+  wiggle(out.right, now, 2, 190);
 };
 
 const ponder = (local: number, out: Hands) => {
-  if (!active(local, 3_100)) return;
-  const tap = 0.5 + 0.5 * Math.sin((local / 1000) * TWO_PI * 1.15);
-  out.right.aim(0.18, 0.84 - 0.018 * tap, -28);
-  out.right.aimCurl(0, 12 * tap);
-  out.right.aimCurl(1, -3);
-  out.right.aimCurl(2, 2);
-  out.right.aimCurl(3, 4);
+  if (!active(local, 3_000)) return;
+  const tap = 0.5 + 0.5 * Math.sin((local / 1000) * TWO_PI * 0.85);
+  out.right.aim(0.20, 0.80 - 0.014 * tap, -24, 0.96);
+  out.right.aimCurl(0, 7 * tap);
+  out.right.aimCurl(1, -2);
+  out.right.aimCurl(2, 1.5);
+  out.right.aimCurl(3, 2.5);
 };
 
 const idle = (now: number, seed: number, out: Hands) => {
-  const slot = 8_000 + ((mix(seed + 31) >>> 8) % 5_000);
+  const slot = 10_000 + ((mix(seed + 31) >>> 8) % 6_000);
   const offset = (mix(seed + 71) >>> 8) % slot;
   const time = now + offset;
   const local = time % slot;
-  switch ((mix(seed * 97 + Math.floor(time / slot)) >>> 9) % 10) {
+  switch ((mix(seed * 97 + Math.floor(time / slot)) >>> 9) % 12) {
     case 4:
     case 9: wave(local, now, out); break;
     case 5: shrug(local, now, out); break;
@@ -226,39 +227,39 @@ export function handsPose(now: number, seed: number, mood: FaceMood, life: FaceL
 
   switch (mood) {
     case "thinking": {
-      const tap = 0.5 + 0.5 * Math.sin((now / 1000) * TWO_PI * 1.15);
-      out.right.aim(0.18, 0.84 - 0.018 * tap, -28);
-      out.right.aimCurl(0, 12 * tap);
-      out.right.aimCurl(1, -3);
-      out.right.aimCurl(2, 2);
-      out.right.aimCurl(3, 4);
+      const tap = 0.5 + 0.5 * Math.sin((now / 1000) * TWO_PI * 0.85);
+      out.right.aim(0.20, 0.80 - 0.014 * tap, -24, 0.96);
+      out.right.aimCurl(0, 7 * tap);
+      out.right.aimCurl(1, -2);
+      out.right.aimCurl(2, 1.5);
+      out.right.aimCurl(3, 2.5);
       break;
     }
     case "working": {
-      const beat = Math.sin((now / 1000) * TWO_PI * 3.1);
-      out.left.aim(-0.55, 0.72 - 0.03 * Math.max(0, beat), 10);
-      out.right.aim(0.55, 0.72 - 0.03 * Math.max(0, -beat), -10);
-      out.left.aimCurl(0, -8 * Math.max(0, beat));
-      out.left.aimCurl(1, -4 * Math.max(0, beat));
-      out.right.aimCurl(0, -8 * Math.max(0, -beat));
-      out.right.aimCurl(1, -4 * Math.max(0, -beat));
+      const beat = Math.sin((now / 1000) * TWO_PI * 2.1);
+      out.left.aim(-0.54, 0.74 - 0.022 * Math.max(0, beat), 12, 0.96);
+      out.right.aim(0.54, 0.74 - 0.022 * Math.max(0, -beat), -12, 0.96);
+      out.left.aimCurl(0, -5 * Math.max(0, beat));
+      out.left.aimCurl(1, -3 * Math.max(0, beat));
+      out.right.aimCurl(0, -5 * Math.max(0, -beat));
+      out.right.aimCurl(1, -3 * Math.max(0, -beat));
       break;
     }
     case "speaking": {
-      const beat = Math.sin((now / 1000) * TWO_PI * 1.3);
-      out.right.aim(0.72, 0.30 + 0.02 * beat, -12 + 8 * beat, 1, true, true);
-      wiggle(out.right, now, 4, 110);
+      const beat = Math.sin((now / 1000) * TWO_PI * 1.05);
+      out.right.aim(0.76, 0.34 + 0.018 * beat, -10 + 6 * beat, 0.98, true, true);
+      wiggle(out.right, now, 3, 150);
       break;
     }
     case "listening":
-      out.right.aim(0.84, 0.10, 8);
-      out.right.aimCurl(0, -4);
-      out.right.aimCurl(4, -3);
+      out.right.aim(0.84, 0.16, 10, 0.96);
+      out.right.aimCurl(0, -3);
+      out.right.aimCurl(4, -2);
       break;
     case "drowsy": {
-      const breathe = Math.sin((now / 1000) * TWO_PI * 0.27);
-      out.right.aim(0.44, 0.56 + 0.012 * breathe, -20 + 2 * breathe);
-      const loose = 4 + 2 * breathe;
+      const breathe = Math.sin((now / 1000) * TWO_PI * 0.25);
+      out.right.aim(0.48, 0.60 + 0.01 * breathe, -18 + 2 * breathe, 0.96);
+      const loose = 3 + 1.5 * breathe;
       out.right.aimCurl(0, -loose * 0.6);
       out.right.aimCurl(1, -loose * 0.3);
       out.right.aimCurl(2, loose * 0.3);
@@ -281,11 +282,11 @@ export function handsPose(now: number, seed: number, mood: FaceMood, life: FaceL
   return out;
 }
 
-/** The phone's hand table, in palm radii; `left` mirrors x. Index, middle, ring, pinky, thumb. */
-export const HAND_BASE_X = [-0.70, -0.24, 0.24, 0.70, -0.72];
-export const HAND_TIP_X = [-0.74, -0.26, 0.28, 0.78, -1.42];
-export const HAND_BASE_Y = [-0.52, -0.58, -0.56, -0.46, 0.16];
-export const HAND_TIP_Y = [-1.56, -1.78, -1.64, -1.30, -0.62];
-export const HAND_RADIUS = [0.155, 0.160, 0.155, 0.145, 0.175];
+/** Soft chibi hand proportions in palm radii; `left` mirrors x. Index, middle, ring, pinky, thumb. */
+export const HAND_BASE_X = [-0.46, -0.15, 0.16, 0.45, -0.68];
+export const HAND_TIP_X = [-0.52, -0.17, 0.19, 0.50, -1.12];
+export const HAND_BASE_Y = [-0.36, -0.44, -0.42, -0.32, 0.18];
+export const HAND_TIP_Y = [-1.18, -1.30, -1.22, -1.00, -0.36];
+export const HAND_RADIUS = [0.230, 0.240, 0.230, 0.210, 0.240];
 /** A palm facing the viewer is the hand seen from the other side: the mirrored table. */
 export const handIsMirrored = (leftHand: boolean, palmOut: boolean): boolean => leftHand !== palmOut;

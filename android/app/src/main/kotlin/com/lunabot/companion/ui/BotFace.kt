@@ -466,9 +466,10 @@ internal fun BotFace(
     // A crown rests on the silhouette, which means it lives above the circle —
     // and a Canvas cannot paint past its own node. Wearing one buys the room
     // for it, pushing the head down inside a slightly taller box.
-    val headroom = if (crown) size * CROWN_HEADROOM else 0.dp
-    // Where the disc is on screen, so a touch elsewhere can be turned into a
-    // direction. Null until the first layout pass.
+    // Legacy crowns were retired in favor of clean unified portraits across desktop and mobile.
+    val showCrown = false
+    val headroom = 0.dp
+    val soft = remember(color, preset.key) { softBotPaletteForColor(color ?: preset.key) }
     val density = LocalDensity.current
     var faceCentre by remember { mutableStateOf<Offset?>(null) }
     Box(
@@ -514,11 +515,11 @@ internal fun BotFace(
             }
             val top = headroom.toPx()
             drawFace(
-                palette = preset,
+                soft = soft,
                 style = style,
                 rim = rim,
                 pose = pose,
-                crown = crown,
+                crown = showCrown,
                 diameter = this.size.height - top,
                 middle = Offset(this.size.width / 2f, top + (this.size.height - top) / 2f),
                 hands = hands,
@@ -560,7 +561,7 @@ private const val DROWSY_AFTER_MILLIS = 45_000L
 private const val DROWSY_POLL_MILLIS = 5_000L
 
 private fun DrawScope.drawFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     style: BotAvatarStyle,
     rim: Color,
     pose: FacePose,
@@ -572,13 +573,13 @@ private fun DrawScope.drawFace(
     handEdge: Color,
 ) {
     when (style) {
-        BotAvatarStyle.ORB -> drawOrbFace(palette, pose, crown, diameter, middle, hands, handBrush, handEdge)
-        BotAvatarStyle.NEKO -> drawNekoFace(palette, pose, crown, diameter, middle)
-        BotAvatarStyle.LIQUID -> drawLiquidFace(palette, pose, crown, diameter, middle)
-        BotAvatarStyle.SYNTH -> drawSynthFace(palette, pose, crown, diameter, middle)
-        BotAvatarStyle.SPIRIT -> drawSpiritFace(palette, pose, crown, diameter, middle)
-        BotAvatarStyle.MINIBOT -> drawMiniBotFace(palette, pose, crown, diameter, middle)
-        BotAvatarStyle.CLASSIC -> drawClassicFace(palette, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)
+        BotAvatarStyle.ORB -> drawOrbFace(soft, pose, crown, diameter, middle, hands, handBrush, handEdge)
+        BotAvatarStyle.NEKO -> drawNekoFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.LIQUID -> drawLiquidFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.SYNTH -> drawSynthFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.SPIRIT -> drawSpiritFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.MINIBOT -> drawMiniBotFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.CLASSIC -> drawClassicFace(soft, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)
     }
 }
 
@@ -588,80 +589,91 @@ private data class SoftBotPalette(
     val edge: Color,
     val bounce: Color,
     val blush: Color,
+    val innerEar: Color,
     val eye: Color,
     val visorGlow: Color,
+    val isLight: Boolean,
 )
 
-/** Low-saturation mineral-pastel palettes so companion bots harmonize with Luna and the warm ivory canvas. */
-private fun softBotPalette(key: String): SoftBotPalette = when (key) {
-    "white" -> SoftBotPalette(
-        top = Color(0xFFFFFFFF),
-        mid = Color(0xFFF3F4F8),
-        edge = Color(0xFFDCDFE8),
-        bounce = Color(0x58FFE0A3),
-        blush = Color(0x42FF9A68),
-        eye = Color(0xFF1D1B29),
-        visorGlow = Color(0xFFFFF2D6),
-    )
-    "blue" -> SoftBotPalette(
-        top = Color(0xFFF2F9FF),
-        mid = Color(0xFFCDE5FE),
-        edge = Color(0xFF9EC7F5),
-        bounce = Color(0x55D6EEFF),
-        blush = Color(0x3882B6F5),
-        eye = Color(0xFF1A2538),
-        visorGlow = Color(0xFF9AD8FF),
-    )
-    "orange" -> SoftBotPalette(
-        top = Color(0xFFFFF6EE),
-        mid = Color(0xFFFFD8BC),
-        edge = Color(0xFFF0B892),
-        bounce = Color(0x55FFE5C2),
-        blush = Color(0x48F5966A),
-        eye = Color(0xFF2B1E18),
-        visorGlow = Color(0xFFFFDFB0),
-    )
-    "purple" -> SoftBotPalette(
-        top = Color(0xFFF8F4FF),
-        mid = Color(0xFFE2D4FC),
-        edge = Color(0xFFC3AEF0),
-        bounce = Color(0x50EBDFFF),
-        blush = Color(0x38C69FF5),
-        eye = Color(0xFF231B33),
-        visorGlow = Color(0xFFE0C4FF),
-    )
-    "mint" -> SoftBotPalette(
-        top = Color(0xFFF0FCF5),
-        mid = Color(0xFFC7F0DA),
-        edge = Color(0xFF97DAB8),
-        bounce = Color(0x50D9FFEA),
-        blush = Color(0x347ACFA6),
-        eye = Color(0xFF192B24),
-        visorGlow = Color(0xFFA8FFD0),
-    )
-    "coral" -> SoftBotPalette(
-        top = Color(0xFFFFF3F3),
-        mid = Color(0xFFFFCECC),
-        edge = Color(0xFFF0A5A3),
-        bounce = Color(0x50FFE0DE),
-        blush = Color(0x44F28B88),
-        eye = Color(0xFF2E1A1B),
-        visorGlow = Color(0xFFFFC0B8),
-    )
-    else -> SoftBotPalette(
-        top = Color(0xFF565966),
-        mid = Color(0xFF3A3D49),
-        edge = Color(0xFF23252E),
-        bounce = Color(0x30A9B6D9),
-        blush = Color(0x22FFFFFF),
-        eye = Color(0xFFF5F6FA),
-        visorGlow = Color(0xFFFFF2D6),
+/**
+ * Harmonized 15-color ceramic palettes synced directly with desktop `PresetFace.tsx`.
+ * Every accent (bounce, cheek glow, inner ear) derives from the body's own tone so switching
+ * colors never leaves clashing warm-peach or cyan-pink overlays.
+ */
+private fun softBotPaletteForColor(color: String?): SoftBotPalette {
+    val key = when (color?.lowercase()) {
+        "blue" -> "blue"
+        "cyan" -> "cyan"
+        "orange" -> "orange"
+        "yellow" -> "yellow"
+        "red" -> "red"
+        "coral" -> "coral"
+        "green" -> "green"
+        "teal" -> "teal"
+        "mint" -> "mint"
+        "purple", "violet" -> "purple"
+        "pink" -> "pink"
+        "silver" -> "silver"
+        "grey", "gray" -> "grey"
+        "white", "cream", "sand", "chrome" -> "white"
+        else -> "black"
+    }
+    val (top, mid, edge, eye, warm) = when (key) {
+        "white" -> SwatchSpec(Color(0xFFFFFFFF), Color(0xFFF5F2EC), Color(0xFFDCD6CC), Color(0xFF1C1C1E), true)
+        "silver" -> SwatchSpec(Color(0xFFEEF1F6), Color(0xFFD5DCE6), Color(0xFFB4BECA), Color(0xFF1C1E24), false)
+        "grey" -> SwatchSpec(Color(0xFFC7CCD4), Color(0xFF9FA6B2), Color(0xFF7E8591), Color(0xFF181A1F), false)
+        "blue" -> SwatchSpec(Color(0xFFDCEBFF), Color(0xFFB6D4FA), Color(0xFF8CB6EC), Color(0xFF182233), false)
+        "cyan" -> SwatchSpec(Color(0xFFD6F5FA), Color(0xFFA5E3EE), Color(0xFF7AC8D8), Color(0xFF13262B), false)
+        "teal" -> SwatchSpec(Color(0xFFD3F3EE), Color(0xFF9EDCD2), Color(0xFF74BFB4), Color(0xFF132624), false)
+        "green" -> SwatchSpec(Color(0xFFD8F2E2), Color(0xFFA8DFBE), Color(0xFF7DC49B), Color(0xFF16291E), false)
+        "mint" -> SwatchSpec(Color(0xFFDFF7EB), Color(0xFFB3E8CE), Color(0xFF89CFAF), Color(0xFF162920), false)
+        "yellow" -> SwatchSpec(Color(0xFFFFF4D1), Color(0xFFF7DF94), Color(0xFFE2C063), Color(0xFF2B2313), true)
+        "orange" -> SwatchSpec(Color(0xFFFFE7D4), Color(0xFFF7C49B), Color(0xFFE19E6E), Color(0xFF2E1E14), true)
+        "coral" -> SwatchSpec(Color(0xFFFFE0DA), Color(0xFFF6B7AC), Color(0xFFDE8F82), Color(0xFF2E1917), true)
+        "red" -> SwatchSpec(Color(0xFFFDE0E0), Color(0xFFF2B5B7), Color(0xFFD98C91), Color(0xFF2D1719), true)
+        "pink" -> SwatchSpec(Color(0xFFFCE2F0), Color(0xFFF2BEDB), Color(0xFFDA98BE), Color(0xFF2B1824), true)
+        "purple" -> SwatchSpec(Color(0xFFECE3FF), Color(0xFFCFC0F8), Color(0xFFAC98E5), Color(0xFF201833), false)
+        else -> SwatchSpec(Color(0xFF373A40), Color(0xFF191B1F), Color(0xFF0A0B0D), Color(0xFFF8FAFC), false)
+    }
+    val luminance = 0.299f * mid.red + 0.587f * mid.green + 0.114f * mid.blue
+    val isLight = luminance > 0.55f
+    val bounceTint = lerp(top, Color.White, 0.55f).copy(alpha = if (isLight) 0.26f else 0.16f)
+    val blushTint = if (warm) {
+        Color(0xFFEB8B9E).copy(alpha = if (isLight) 0.22f else 0.16f)
+    } else if (isLight) {
+        Color(0xFFD495B8).copy(alpha = 0.18f)
+    } else {
+        lerp(top, Color.White, 0.45f).copy(alpha = 0.14f)
+    }
+    val innerEarTint = if (warm) {
+        lerp(edge, Color(0xFFF497AE), 0.45f).copy(alpha = if (isLight) 0.52f else 0.36f)
+    } else {
+        lerp(edge, Color.White, 0.52f).copy(alpha = if (isLight) 0.50f else 0.34f)
+    }
+    return SoftBotPalette(
+        top = top,
+        mid = mid,
+        edge = edge,
+        bounce = bounceTint,
+        blush = blushTint,
+        innerEar = innerEarTint,
+        eye = eye,
+        visorGlow = Color(0xFFF5F9FF),
+        isLight = isLight,
     )
 }
 
-/** Style 1: Translucent moon-glass / porcelain orb with warm subsurface bounce, level sparkle eyes, blush & sculpted crown. */
+private data class SwatchSpec(
+    val top: Color,
+    val mid: Color,
+    val edge: Color,
+    val eye: Color,
+    val warm: Boolean,
+)
+
+/** Style 1: Translucent moon-glass / porcelain orb with harmonized subsurface bounce, level sparkle eyes & tone-matched cheek glow. */
 private fun DrawScope.drawOrbFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -673,8 +685,7 @@ private fun DrawScope.drawOrbFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
-    val isLightBody = palette.key != "black" && palette.key != "grey"
+    val isLightBody = soft.isLight
     val baseTop = soft.top
     val baseMid = soft.mid
     val baseEdge = soft.edge
@@ -807,7 +818,7 @@ private fun DrawScope.drawOrbFace(
 
 /** Style: Matte porcelain rounded cat avatar with blush inner ears, glossy eyes & tiny nose. */
 private fun DrawScope.drawNekoFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -816,8 +827,7 @@ private fun DrawScope.drawNekoFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
-    val isLightBody = palette.key != "black" && palette.key != "grey"
+    val isLightBody = soft.isLight
 
     drawOval(
         brush = Brush.radialGradient(
@@ -835,7 +845,7 @@ private fun DrawScope.drawNekoFace(
             start = middle + Offset(0f, -radius * 1.05f),
             end = middle + Offset(0f, -radius * 0.25f),
         )
-        val innerEarColor = Color(0xFFF3B79F).copy(alpha = if (isLightBody) 0.72f else 0.45f)
+        val innerEarColor = soft.innerEar
         for (side in floatArrayOf(-1f, 1f)) {
             val earTwitch = side * pose.roll * 0.6f
             withTransform({ rotate(earTwitch, middle + Offset(side * radius * 0.56f, -radius * 0.45f)) }) {
@@ -902,10 +912,10 @@ private fun DrawScope.drawNekoFace(
                     drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
                 }
             }
-            // Tiny ceramic cat nose
+            // Tiny ceramic cat nose harmonized with the eye tone
             val noseCenter = middle + Offset(gazeX * 0.7f, 0.08f * radius + gazeY * 0.7f)
             drawOval(
-                color = Color(0xFFD69A87),
+                color = soft.eye.copy(alpha = 0.72f),
                 topLeft = Offset(noseCenter.x - radius * 0.085f, noseCenter.y - radius * 0.048f),
                 size = Size(radius * 0.17f, radius * 0.096f),
             )
@@ -917,7 +927,7 @@ private fun DrawScope.drawNekoFace(
 
 /** Style: Translucent iridescent opal liquid-glass droplet with spatial refraction & floating glossy eyes. */
 private fun DrawScope.drawLiquidFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -926,7 +936,6 @@ private fun DrawScope.drawLiquidFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
 
     drawOval(
         brush = Brush.radialGradient(
@@ -972,10 +981,10 @@ private fun DrawScope.drawLiquidFace(
             ),
         )
         clipPath(dropPath) {
-            // Iridescent opal refraction bands
+            // Tone-harmonized opal refraction bands
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0x52B8E6FF), Color(0x2EE3C7FF), Color.Transparent),
+                    colors = listOf(lerp(soft.top, Color.White, 0.55f).copy(alpha = 0.42f), Color.Transparent),
                     center = middle + Offset(-radius * 0.34f, -radius * 0.14f),
                     radius = radius * 0.85f,
                 ),
@@ -984,7 +993,7 @@ private fun DrawScope.drawLiquidFace(
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(Color(0x48FFD3B6), Color(0x22FFF2C2), Color.Transparent),
+                    colors = listOf(lerp(soft.top, Color.White, 0.40f).copy(alpha = 0.30f), Color.Transparent),
                     center = middle + Offset(radius * 0.34f, radius * 0.32f),
                     radius = radius * 0.82f,
                 ),
@@ -1023,7 +1032,7 @@ private fun DrawScope.drawLiquidFace(
 
 /** Style: Dieter Rams / Teenage Engineering pocket synth cube with dot-matrix LCD & coral dial. */
 private fun DrawScope.drawSynthFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -1032,7 +1041,6 @@ private fun DrawScope.drawSynthFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
 
     withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
         val boxW = diameter * 0.90f
@@ -1082,14 +1090,7 @@ private fun DrawScope.drawSynthFace(
             val h = max(lcdH * 0.36f * open, w * 0.34f)
             drawRoundRect(ledColor, Offset(c.x - w / 2f, c.y - h / 2f), Size(w, h), CornerRadius(w * 0.32f, w * 0.32f))
         }
-        // Tiny LCD smile dash
-        val mouthCenter = Offset(lcdTopLeft.x + lcdW / 2f + gazeX * 0.6f, lcdTopLeft.y + lcdH * 0.70f + gazeY * 0.6f)
-        drawRoundRect(
-            color = ledColor.copy(alpha = 0.85f),
-            topLeft = Offset(mouthCenter.x - lcdW * 0.08f, mouthCenter.y - lcdH * 0.045f),
-            size = Size(lcdW * 0.16f, lcdH * 0.09f),
-            cornerRadius = CornerRadius(lcdH * 0.045f, lcdH * 0.045f),
-        )
+
         // Tactile speaker grille dots along bottom
         val dotR = max(0.9.dp.toPx(), boxW * 0.020f)
         val grilleY1 = topLeft.y + boxH * 0.75f
@@ -1105,7 +1106,7 @@ private fun DrawScope.drawSynthFace(
 
 /** Style 2: Plump organic moon-spirit cloud/pebble creature with ear-nubs, smile, blush & floating crescent moon. */
 private fun DrawScope.drawSpiritFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -1114,7 +1115,6 @@ private fun DrawScope.drawSpiritFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
     val bodyTop = soft.top
     val bodyMid = soft.mid
     val bodyLow = soft.edge
@@ -1213,16 +1213,7 @@ private fun DrawScope.drawSpiritFace(
             }
         }
 
-        val smileCenter = middle + Offset(gazeX * 0.7f, 0.11f * radius + gazeY * 0.7f)
-        val smilePath = Path().apply {
-            moveTo(smileCenter.x - radius * 0.11f, smileCenter.y)
-            quadraticTo(smileCenter.x, smileCenter.y + radius * 0.10f, smileCenter.x + radius * 0.11f, smileCenter.y)
-        }
-        drawPath(
-            path = smilePath,
-            color = eyeColor.copy(alpha = 0.85f),
-            style = Stroke(width = max(1.4.dp.toPx(), radius * 0.055f), cap = StrokeCap.Round),
-        )
+
 
         if (crown) drawMoonStarCrest(pose, radius, middle)
     }
@@ -1230,7 +1221,7 @@ private fun DrawScope.drawSpiritFace(
 
 /** Style 3: Matte ceramic rounded-squircle mini-bot with recessed glossy obsidian visor, glowing eyes & gold halo. */
 private fun DrawScope.drawMiniBotFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     pose: FacePose,
     crown: Boolean,
     diameter: Float,
@@ -1239,7 +1230,6 @@ private fun DrawScope.drawMiniBotFace(
     val radius = diameter / 2f
     val scaleX = pose.scale * (1f - pose.squash)
     val scaleY = pose.scale * (1f + pose.squash)
-    val soft = softBotPalette(palette.key)
     val shellTop = soft.top
     val shellBot = soft.edge
     val glowEye = soft.visorGlow
@@ -1324,7 +1314,7 @@ private fun DrawScope.drawMiniBotFace(
 
 /** Style 4: Original classic flat Grok-style portrait. */
 private fun DrawScope.drawClassicFace(
-    palette: PresetAvatar,
+    soft: SoftBotPalette,
     rim: Color,
     pose: FacePose,
     crown: Boolean,
@@ -1341,11 +1331,7 @@ private fun DrawScope.drawClassicFace(
     withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(
-                    lerp(palette.body, Color.White, 0.13f),
-                    palette.body,
-                    lerp(palette.body, Color.Black, 0.15f),
-                ),
+                colors = listOf(soft.top, soft.mid, soft.edge),
                 center = middle + Offset(-radius * 0.38f, -radius * 0.42f),
                 radius = radius * 1.55f,
             ),
@@ -1386,7 +1372,7 @@ private fun DrawScope.drawClassicFace(
                     )
                 }) {
                     drawRoundRect(
-                        color = palette.eye,
+                        color = soft.eye,
                         topLeft = Offset(middle.x + eyeX - width / 2f, middle.y + eyeY - height / 2f),
                         size = Size(width, height),
                         cornerRadius = CornerRadius(width / 2f, width / 2f),

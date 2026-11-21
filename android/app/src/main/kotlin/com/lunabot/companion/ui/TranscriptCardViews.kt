@@ -502,11 +502,10 @@ fun ThoughtChamber(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            MausAvatar(
+            PresetBotAvatar(
                 color = "chrome",
                 size = 20.dp,
-                state = if (streaming) MausState.THINKING else MausState.IDLE,
-                animated = false,
+                mood = if (streaming) FaceMood.THINKING else FaceMood.IDLE,
             )
             Text(
                 text = if (streaming) "思考中…" else "思考过程",

@@ -2,10 +2,10 @@ import { useState } from "react";
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
 
-export const EXPANDABLE_TEXT_LIMIT = 280;
+export const EXPANDABLE_TEXT_LIMIT = 220;
 
 export function expandableTextIsLong(text: string): boolean {
-  return text.length > EXPANDABLE_TEXT_LIMIT || text.split("\n").length > 6;
+  return text.length > EXPANDABLE_TEXT_LIMIT || text.split("\n").length > 4;
 }
 
 export function expandableTextClass(expanded: boolean): string {

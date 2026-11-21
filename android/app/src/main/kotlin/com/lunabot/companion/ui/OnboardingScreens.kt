@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -32,12 +31,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.lunabot.companion.R
 
 /**
  * The three first-run surfaces — the behavioural port of
@@ -138,7 +139,7 @@ fun UnpairedHomeScreen(onConnect: () -> Unit, onOpenSettings: () -> Unit) {
             )
             Spacer(Modifier.height(2.dp))
             Benefit(
-                icon = Icons.AutoMirrored.Filled.Send,
+                iconRes = R.drawable.ic_send_up,
                 title = "对话尽在掌握",
                 detail = "在手机上无缝接续电脑上的同一场对话。",
             )
@@ -241,7 +242,7 @@ fun NotificationOnboardingScreen(
             detail = null,
         )
         Benefit(
-            icon = Icons.AutoMirrored.Filled.Send,
+            iconRes = R.drawable.ic_send_up,
             title = OnboardingCopy.NOTIFICATIONS_FINISHED,
             detail = null,
         )
@@ -339,17 +340,36 @@ private fun OnboardingHero(icon: ImageVector) {
 
 @Composable
 private fun Benefit(icon: ImageVector, title: String, detail: String?) {
+    BenefitRow(title = title, detail = detail) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = minisInk,
+            modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+@Composable
+private fun Benefit(iconRes: Int, title: String, detail: String?) {
+    BenefitRow(title = title, detail = detail) {
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            tint = minisInk,
+            modifier = Modifier.size(22.dp),
+        )
+    }
+}
+
+@Composable
+private fun BenefitRow(title: String, detail: String?, glyph: @Composable () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(14.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(24.dp),
-        )
+        glyph()
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp),

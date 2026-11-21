@@ -197,7 +197,7 @@ class CompanionClient(
         e2e?.onTunnelLost = {
             for (client in listOf(
                 actionClient, uploadClient, streamingClient, phoneJobClient,
-                avatarGenerationClient, claudeUpdateClient,
+                avatarGenerationClient, videoAvatarGenerationClient, claudeUpdateClient,
             )) {
                 client.connectionPool.evictAll()
             }
@@ -241,7 +241,7 @@ class CompanionClient(
 
     /**
      * The job poll is held open by the server for 20 s on purpose; an ordinary
-     * action's 20 s deadline would abandon it at the same moment it answers.
+     * action's 30 s deadline would abandon it at the same moment it answers.
      */
     private val phoneJobClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
@@ -279,8 +279,22 @@ class CompanionClient(
         .build()
 
     /**
+     * Seedance video avatar generation can queue and render for up to 25 minutes on the server.
+     * Give the mobile request a 26-minute deadline so the server's own result or timeout lands cleanly.
+     */
+    private val videoAvatarGenerationClient = transportClient.newBuilder()
+        .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
+        .followSslRedirects(transportClient.followSslRedirects && !connection.pairedWithServer)
+        .dns(endpoint?.dns ?: transportClient.dns)
+        .callTimeout(VIDEO_AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .connectTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .readTimeout(VIDEO_AVATAR_GENERATION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .writeTimeout(ACTION_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        .build()
+
+    /**
      * Claude Code's own updater can take minutes on the computer, so this
-     * route gets its own deadline instead of the twenty-second action one.
+     * route gets its own deadline instead of the thirty-second action one.
      */
     private val claudeUpdateClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
@@ -575,6 +589,52 @@ class CompanionClient(
             ),
             avatarGenerationClient,
         ).bot
+
+    suspend fun generateAvatarState(
+        botId: String,
+        state: String,
+        style: String? = null,
+        prompt: String? = null,
+        resolution: String = "720p",
+        loop: Boolean = state != "working",
+    ): Bot {
+        val body = buildJsonObject {
+            put("state", state)
+            style?.takeIf { it.isNotBlank() }?.let { put("style", it) }
+            prompt?.takeIf { it.isNotBlank() }?.let { put("prompt", it.take(600)) }
+            put("resolution", resolution)
+            put("loop", loop)
+        }
+        return send<GeneratedAvatarStateResponse>(
+            makeRequest(
+                "POST",
+                "/api/bots/${segment(botId)}/avatar/states/generate",
+                body = body,
+            ),
+            videoAvatarGenerationClient,
+        ).bot
+    }
+
+    suspend fun uploadAvatarState(
+        botId: String,
+        state: String,
+        data: ByteArray,
+        mime: String,
+    ): Bot {
+        val normalized = mime.lowercase()
+        if (normalized !in AVATAR_STATE_MIME_TYPES || data.size > AVATAR_STATE_MAX_BYTES) {
+            throw APIError.Transport("请选择不超过 25 MB 的 MP4、WebM 或图片文件。")
+        }
+        return send<GeneratedAvatarStateResponse>(
+            makeRequest(
+                "POST",
+                "/api/bots/${segment(botId)}/avatar/states/upload",
+                query = listOf("state" to state),
+                rawBody = data.toRequestBody(normalized.toMediaType()),
+            ),
+            uploadClient,
+        ).bot
+    }
 
     /**
      * Run Claude Code's updater for one engine on the computer and return the
@@ -1104,7 +1164,7 @@ class CompanionClient(
     }
 
     /**
-     * WebSockets outlive any request deadline: actionClient's 20 s
+     * WebSockets outlive any request deadline: actionClient's 30 s
      * call/read/write limits would amputate a call mid-flight, so sockets get
      * their own client with no lifetime bounds and protocol pings to keep the
      * path honest.
@@ -1437,10 +1497,12 @@ class CompanionClient(
         private const val PHONE_JOB_TIMEOUT_SECONDS = 35L
         private const val PHONE_RESULT_TIMEOUT_SECONDS = 10L
         private const val AVATAR_GENERATION_TIMEOUT_SECONDS = 150L
+        private const val VIDEO_AVATAR_GENERATION_TIMEOUT_SECONDS = 1_560L
         /** The harness allows the updater three minutes; leave room to hear back. */
         private const val CLAUDE_UPDATE_TIMEOUT_SECONDS = 200L
         private const val STREAM_IDLE_TIMEOUT_SECONDS = 90L
         private const val AVATAR_MAX_BYTES = 10 * 1_024 * 1_024
+        private const val AVATAR_STATE_MAX_BYTES = 25 * 1_024 * 1_024
         const val SHARE_FILE_MAX_BYTES = 25 * 1_024 * 1_024
         const val MAXIMUM_FILE_DOWNLOAD_BYTES = AttachmentPolicy.MAXIMUM_FILE_BYTES
 
@@ -1469,6 +1531,10 @@ class CompanionClient(
             return sanitisePortableFilename(candidate, "file")
         }
         private val AVATAR_MIME_TYPES = setOf("image/png", "image/jpeg", "image/gif", "image/webp")
+        private val AVATAR_STATE_MIME_TYPES = setOf(
+            "image/png", "image/jpeg", "image/gif", "image/webp",
+            "video/mp4", "video/webm",
+        )
         private val JSON_MEDIA_TYPE = "application/json".toMediaType()
         private val WAV_MEDIA_TYPE = "audio/wav".toMediaType()
         private val EMPTY_BODY: RequestBody = ByteArray(0).toRequestBody(null)
@@ -1512,13 +1578,15 @@ class CompanionClient(
         private fun validAvatarPath(path: String): Boolean {
             val prefix = "/api/attachments/"
             if (!path.startsWith(prefix)) return false
-            val name = path.removePrefix(prefix)
+            val name = path.removePrefix(prefix).substringBefore('?')
             val dot = name.lastIndexOf('.')
             if (dot <= 0) return false
             val stem = name.substring(0, dot)
             val extension = name.substring(dot + 1)
+            // The server's own rule for a stored avatar (shared/bot-avatar.ts, readAttachment):
+            // [A-Za-z0-9-] stem, lowercase extension. Anything else is a 404, so refuse it here.
             return stem.all { it in '0'..'9' || it in 'A'..'Z' || it in 'a'..'z' || it == '-' } &&
-                extension in setOf("png", "jpg", "gif", "webp")
+                extension in setOf("png", "jpg", "gif", "webp", "mp4", "webm")
         }
 
         private fun validUploadMime(value: String): Boolean =

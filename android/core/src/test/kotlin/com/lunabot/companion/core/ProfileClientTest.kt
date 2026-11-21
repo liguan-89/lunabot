@@ -153,6 +153,10 @@ class ProfileClientTest {
             "/api/attachments/ABC-123.jpg",
             "/api/attachments/a.gif",
             "/api/attachments/a.webp",
+            // Dynamic avatar states ride the same route as images: the server stores them as
+            // /api/attachments/<uuid>.mp4|.webm and readAttachment serves both.
+            "/api/attachments/a.mp4",
+            "/api/attachments/a.webm",
         )
         valid.forEach { server.enqueue(MockResponse().setResponseCode(200).setBody("pixels")) }
 
@@ -165,6 +169,8 @@ class ProfileClientTest {
         }
 
         listOf(
+            // readAttachment refuses .jpeg outright, and the stored names are always lowercase
+            // with a [A-Za-z0-9-] stem (shared/bot-avatar.ts, server/attachments.ts).
             "/api/attachments/a.jpeg",
             "/api/attachments/a.JPG",
             "/api/attachments/a_b.png",

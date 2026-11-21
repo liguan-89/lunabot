@@ -2,8 +2,14 @@ package com.lunabot.companion.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -28,10 +34,12 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -52,6 +60,8 @@ import com.lunabot.companion.R
 import com.lunabot.companion.core.Bot
 import kotlinx.coroutines.launch
 
+private val CallHangUpRed = Color(0xFFD94A3D)
+
 @Composable
 internal fun CallSurface(
     bot: Bot,
@@ -70,11 +80,27 @@ internal fun CallSurface(
     controlsEnabled: Boolean,
     bottomClearance: Dp,
     avatarState: MausState,
+    speaking: Boolean = false,
+    audioLevel: Float = 0f,
     onPrimary: () -> Unit,
     onSecondary: () -> Unit = {},
     onMute: () -> Unit,
     onHangUp: () -> Unit,
 ) {
+    val dynamicState = when {
+        speaking -> DynamicAvatarStates.TALKING
+        avatarState == MausState.THINKING -> DynamicAvatarStates.THINKING
+        avatarState == MausState.WORKING -> DynamicAvatarStates.WORKING
+        avatarState == MausState.LISTENING -> DynamicAvatarStates.LISTENING
+        else -> DynamicAvatarStates.IDLE
+    }
+    val avatarMood = when {
+        speaking -> FaceMood.SPEAKING
+        avatarState == MausState.THINKING -> FaceMood.THINKING
+        avatarState == MausState.WORKING -> FaceMood.WORKING
+        avatarState == MausState.LISTENING -> FaceMood.LISTENING
+        else -> FaceMood.IDLE
+    }
     val statusText = if (muted) "$phase · 已静音" else phase
     BackHandler {
         if (expanded) onExpandedChange(false) else onHangUp()
@@ -96,6 +122,9 @@ internal fun CallSurface(
                 controlsEnabled = controlsEnabled,
                 bottomClearance = bottomClearance,
                 avatarState = avatarState,
+                avatarMood = avatarMood,
+                dynamicState = dynamicState,
+                audioLevel = audioLevel,
                 onPrimary = onPrimary,
                 onSecondary = onSecondary,
                 onMute = onMute,
@@ -106,27 +135,41 @@ internal fun CallSurface(
         return
     }
 
+    val dark = minisIsDark()
+    val pulse = rememberInfiniteTransition(label = "call-aura")
+    val haloScale by pulse.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(tween(2200), RepeatMode.Reverse),
+        label = "call-aura-scale",
+    )
+    val softCardFill = if (dark) minisGrouped else Color(0xFFF5F5F3)
+    val auraColor = if (dark) Color(0x28DDD2C7) else Color(0x66DDD2C7)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
             .systemBarsPadding(),
     ) {
-        CallActionButton(
-            icon = null,
-            label = "收起通话",
-            enabled = true,
-            size = 44.dp,
-            onClick = { onExpandedChange(false) },
-            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(14.dp)
+                .size(44.dp)
+                .museFloatingPill(CircleShape, elevation = 4.dp)
+                .clickable(role = Role.Button) { onExpandedChange(false) }
+                .semantics { contentDescription = "收起通话" },
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
                 tint = minisInk,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -134,38 +177,87 @@ internal fun CallSurface(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(1f))
-            BotAvatar(
-                bot = bot,
-                size = 136.dp,
-                state = avatarState,
-                animated = true,
-                contentDescription = "${bot.name} 头像",
-                fallback = AvatarFallback.PRESET,
-            )
-            Spacer(Modifier.height(22.dp))
+
+            // Muse serene centerpiece: large rounded portrait card when dynamic avatar is configured,
+            // otherwise breathing warm-linen ambient aura + floating avatar.
+            val hasDynamicAvatar = !bot.avatarStates.isNullOrEmpty()
+            Box(
+                modifier = Modifier.size(if (hasDynamicAvatar) 248.dp else 228.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            val speakingBoost = if (speaking) 1.04f + audioLevel * 0.06f else 1f
+                            scaleX = haloScale * speakingBoost
+                            scaleY = haloScale * speakingBoost
+                        },
+                ) {
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            0.0f to auraColor,
+                            0.56f to auraColor.copy(alpha = auraColor.alpha * 0.45f),
+                            1.0f to Color.Transparent,
+                        ),
+                    )
+                }
+                BotAvatar(
+                    bot = bot,
+                    size = if (hasDynamicAvatar) 216.dp else 140.dp,
+                    state = avatarState,
+                    animated = true,
+                    contentDescription = "${bot.name} 头像",
+                    fallback = AvatarFallback.PRESET,
+                    mood = avatarMood,
+                    breakout = hasDynamicAvatar,
+                    audioLevel = audioLevel,
+                    avatarStateOverride = dynamicState,
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = bot.name,
-                fontSize = 25.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.4).sp,
                 color = minisInk,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                text = statusText,
-                modifier = Modifier.padding(top = 6.dp),
-                fontSize = 15.sp,
-                color = minisSecondary,
-                textAlign = TextAlign.Center,
-            )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(softCardFill)
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(if (muted) minisTertiary else MinisTokens.Success),
+                )
+                Text(
+                    text = statusText,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = minisSecondary,
+                    textAlign = TextAlign.Center,
+                )
+            }
+
             if (spoken.isNotBlank() || heard.isNotBlank()) {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 28.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(minisGrouped)
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .padding(top = 24.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(softCardFill)
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (heard.isNotBlank()) CallTranscriptLine(label = "你", text = heard)
@@ -175,16 +267,21 @@ internal fun CallSurface(
             note?.takeIf(String::isNotBlank)?.let {
                 Text(
                     text = it,
-                    modifier = Modifier.padding(top = 16.dp),
-                    fontSize = 14.sp,
-                    color = minisWarning,
+                    modifier = Modifier.padding(top = 14.dp),
+                    fontSize = 13.5.sp,
+                    color = Color(0xFF9E4B3B),
                     textAlign = TextAlign.Center,
                 )
             }
             Spacer(Modifier.weight(1f))
+
+            // Muse floating bottom control dock.
             Row(
-                modifier = Modifier.padding(bottom = 28.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier
+                    .padding(bottom = 26.dp)
+                    .museFloatingPill(CircleShape, elevation = 8.dp)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (primaryIcon != null && primaryLabel != null) {
@@ -192,7 +289,7 @@ internal fun CallSurface(
                         icon = primaryIcon,
                         label = primaryLabel,
                         enabled = primaryEnabled && controlsEnabled,
-                        size = 60.dp,
+                        size = 54.dp,
                         onClick = onPrimary,
                     )
                 }
@@ -201,7 +298,7 @@ internal fun CallSurface(
                         icon = secondaryIcon,
                         label = secondaryLabel,
                         enabled = controlsEnabled,
-                        size = 60.dp,
+                        size = 54.dp,
                         onClick = onSecondary,
                     )
                 }
@@ -209,7 +306,7 @@ internal fun CallSurface(
                     icon = R.drawable.ic_mic,
                     label = if (muted) "取消静音" else "静音",
                     enabled = controlsEnabled || !muted,
-                    size = 60.dp,
+                    size = 54.dp,
                     active = muted,
                     onClick = onMute,
                 )
@@ -217,7 +314,7 @@ internal fun CallSurface(
                     icon = R.drawable.ic_call_end,
                     label = "挂断通话",
                     enabled = true,
-                    size = 60.dp,
+                    size = 54.dp,
                     destructive = true,
                     onClick = onHangUp,
                 )
@@ -242,6 +339,9 @@ private fun BoxScope.FloatingCallCard(
     controlsEnabled: Boolean,
     bottomClearance: Dp,
     avatarState: MausState,
+    avatarMood: FaceMood,
+    dynamicState: String,
+    audioLevel: Float,
     onPrimary: () -> Unit,
     onSecondary: () -> Unit,
     onMute: () -> Unit,
@@ -261,14 +361,14 @@ private fun BoxScope.FloatingCallCard(
             .widthIn(max = 460.dp)
             .fillMaxWidth()
             .graphicsLayer { translationY = dragOffset.value }
-            .chromeSheet(cornerRadius = 18.dp, elevation = 12.dp)
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .museFloatingPill(RoundedCornerShape(28.dp), elevation = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(32.dp)
+                .height(24.dp)
                 .pointerInput(onExpand) {
                     detectVerticalDragGestures(
                         onVerticalDrag = { change, amount ->
@@ -301,51 +401,66 @@ private fun BoxScope.FloatingCallCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(width = 32.dp, height = 4.dp)
-                    .background(minisTertiary.copy(alpha = 0.55f), RoundedCornerShape(2.dp)),
+                    .size(width = 34.dp, height = 4.dp)
+                    .background(minisTertiary.copy(alpha = 0.45f), CircleShape),
             )
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 6.dp),
+                .padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             BotAvatar(
                 bot = bot,
-                size = 40.dp,
+                size = 42.dp,
                 state = avatarState,
                 animated = true,
                 contentDescription = null,
                 fallback = AvatarFallback.PRESET,
+                mood = avatarMood,
+                audioLevel = audioLevel,
+                avatarStateOverride = dynamicState,
             )
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(start = 10.dp)
+                    .padding(start = 11.dp)
                     .clickable(role = Role.Button, onClick = onExpand),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     text = bot.name,
-                    fontSize = 15.sp,
+                    fontSize = 15.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = minisInk,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
-                    text = statusText,
-                    fontSize = 12.sp,
-                    color = minisSecondary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (muted) minisTertiary else MinisTokens.Success),
+                    )
+                    Text(
+                        text = statusText,
+                        fontSize = 12.5.sp,
+                        color = minisSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
             CallActionButton(
                 icon = R.drawable.ic_call_end,
                 label = "挂断通话",
                 enabled = true,
-                size = 44.dp,
+                size = 42.dp,
                 destructive = true,
                 onClick = onHangUp,
             )
@@ -354,20 +469,23 @@ private fun BoxScope.FloatingCallCard(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 50.dp, end = 4.dp, bottom = 8.dp),
+                    .padding(bottom = 10.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3))
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 if (heard.isNotBlank()) CallCompactTranscript(label = "你", text = heard)
                 if (spoken.isNotBlank()) CallCompactTranscript(label = bot.name, text = spoken)
                 note?.takeIf(String::isNotBlank)?.let {
-                    Text(it, fontSize = 12.sp, color = minisWarning, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it, fontSize = 12.sp, color = Color(0xFF9E4B3B), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 42.dp, end = 20.dp, bottom = 4.dp),
+                .padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -407,8 +525,8 @@ private fun BoxScope.FloatingCallCard(
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowUp,
                     contentDescription = null,
-                    tint = minisSecondary,
-                    modifier = Modifier.size(24.dp),
+                    tint = minisInk,
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }
@@ -421,7 +539,8 @@ private fun CallTranscriptLine(label: String, text: String) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = minisSecondary)
         Text(
             text = text,
-            fontSize = 16.sp,
+            fontSize = 15.5.sp,
+            fontWeight = FontWeight.Medium,
             color = minisInk,
             textAlign = TextAlign.Center,
             maxLines = 4,
@@ -437,7 +556,8 @@ private fun CallCompactTranscript(label: String, text: String) {
         Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = minisSecondary, maxLines = 1)
         Text(
             text = text,
-            fontSize = 12.sp,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.Medium,
             color = minisInk,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -458,6 +578,7 @@ private fun CallActionButton(
     onClick: () -> Unit,
     content: (@Composable () -> Unit)? = null,
 ) {
+    val neutralFill = if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0)
     TouchTarget(
         onClick = onClick,
         modifier = modifier,
@@ -470,9 +591,9 @@ private fun CallActionButton(
                 .size(size)
                 .background(
                     when {
-                        destructive -> minisDanger
-                        active -> minisDanger.copy(alpha = 0.12f)
-                        else -> minisGrouped
+                        destructive -> CallHangUpRed
+                        active -> minisInk
+                        else -> neutralFill
                     },
                     CircleShape,
                 ),
@@ -485,10 +606,11 @@ private fun CallActionButton(
                     contentDescription = null,
                     tint = when {
                         destructive -> Color.White
-                        active -> minisDanger
+                        active -> minisCanvas
+                        !enabled -> minisTertiary
                         else -> minisInk
                     },
-                    modifier = Modifier.size(if (size >= 60.dp) 28.dp else 21.dp),
+                    modifier = Modifier.size(if (size >= 52.dp) 24.dp else 20.dp),
                 )
             }
         }

@@ -2,10 +2,12 @@ package com.lunabot.companion.ui
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -17,9 +19,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
@@ -57,7 +63,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -202,10 +211,11 @@ internal fun RoutineEditorSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
-        // Mid-save the sheet stays put: dismissing here would cancel the
-        // request and leave the person unsure whether it landed.
         onDismissRequest = { if (!saving) onDismiss() },
         sheetState = sheetState,
+        containerColor = minisCanvas,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        scrimColor = Color.Black.copy(alpha = 0.20f),
     ) {
         Column(
             modifier = Modifier
@@ -290,13 +300,12 @@ internal fun RoutineEditorSheet(
                 )
             }
 
-            FormSection(header = "工作内容") {
-                OutlinedTextField(
+            MuseSheetSection(header = "工作内容") {
+                MuseBorderlessField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("例程名称") },
+                    placeholder = "例程名称",
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
                 )
 
                 AgentPicker(
@@ -305,18 +314,17 @@ internal fun RoutineEditorSheet(
                     onSelect = { agent = agent.choose(it) },
                 )
 
-                OutlinedTextField(
+                MuseBorderlessField(
                     value = prompt,
                     onValueChange = { prompt = it },
-                    label = { Text("让智能体做什么？") },
+                    placeholder = "让智能体做什么？",
+                    singleLine = false,
                     minLines = 4,
                     maxLines = 10,
-                    modifier = Modifier.fillMaxWidth(),
                 )
-
             }
 
-            FormSection(
+            MuseSheetSection(
                 header = "在哪里运行？",
                 footer = RoutineRules.locationFooter(runOn, availability),
             ) {
@@ -353,7 +361,7 @@ internal fun RoutineEditorSheet(
                 }
             }
 
-            FormSection(
+            MuseSheetSection(
                 header = "计划时间",
                 footer = if (kind == RoutineSchedule.Kind.INTERVAL) {
                     RoutineRules.INTERVAL_SCHEDULE_FOOTER
@@ -758,7 +766,71 @@ private fun TimeoutPicker(value: Int?, onSelect: (Int?) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MuseSheetSection(
+    header: String?,
+    footer: String? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Column(
+        modifier = Modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        header?.let {
+            Text(
+                text = it,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisSecondary,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+        content()
+        footer?.let {
+            Text(
+                text = it,
+                fontSize = 12.5.sp,
+                lineHeight = 17.sp,
+                color = minisSecondary,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun MuseBorderlessField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    singleLine: Boolean = true,
+    minLines: Int = 1,
+    maxLines: Int = 1,
+) {
+    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(fill)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+    ) {
+        if (value.isEmpty()) {
+            Text(text = placeholder, fontSize = 15.5.sp, color = minisTertiary)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            textStyle = TextStyle(fontSize = 15.5.sp, color = minisInk),
+            cursorBrush = SolidColor(minisInk),
+            singleLine = singleLine,
+            minLines = minLines,
+            maxLines = maxLines,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
 @Composable
 private fun AgentPicker(
     bots: List<com.lunabot.companion.core.Bot>,
@@ -767,22 +839,39 @@ private fun AgentPicker(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val label = bots.firstOrNull { it.id == selected }?.name ?: "选择智能体"
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        OutlinedTextField(
-            value = label,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("智能体") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Row(
             modifier = Modifier
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(fill)
+                .clickable(role = Role.Button) { expanded = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("智能体", fontSize = 13.5.sp, color = minisSecondary)
+            Text(
+                text = label,
+                fontSize = 15.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisInk,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                imageVector = Icons.Filled.KeyboardArrowDown,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            shape = RoundedCornerShape(16.dp),
+            containerColor = minisCard,
+        ) {
             DropdownMenuItem(
                 text = { Text("选择智能体") },
                 onClick = {
@@ -803,7 +892,7 @@ private fun AgentPicker(
     }
 }
 
-/** A `Picker(.inline)` row: one choice of several, hit at 48 dp. */
+/** Muse-style borderless card radio row (replaces dated Material RadioButton). */
 @Composable
 private fun RadioRow(
     label: String,
@@ -812,37 +901,61 @@ private fun RadioRow(
     painter: Int? = null,
     onSelect: () -> Unit,
 ) {
+    val fill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val shape = RoundedCornerShape(16.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = MIN_TOUCH_TARGET)
+            .heightIn(min = 50.dp)
+            .clip(shape)
+            .background(fill)
+            .then(
+                if (selected) Modifier.border(1.25.dp, minisInk, shape) else Modifier,
+            )
             .selectable(
                 selected = selected,
                 enabled = enabled,
                 role = Role.RadioButton,
                 onClick = onSelect,
-            ),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        RadioButton(selected = selected, onClick = null, enabled = enabled)
         painter?.let {
             Icon(
                 painter = painterResource(it),
                 contentDescription = null,
-                tint = if (enabled) secondaryTint else secondaryTint.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp),
+                tint = if (enabled) (if (selected) minisInk else minisSecondary) else minisTertiary,
+                modifier = Modifier.size(19.dp),
             )
         }
         Text(
             text = label,
             fontSize = 15.sp,
-            color = if (enabled) {
-                MaterialTheme.colorScheme.onSurface
-            } else {
-                secondaryTint.copy(alpha = 0.5f)
-            },
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (enabled) minisInk else minisTertiary,
+            modifier = Modifier.weight(1f),
         )
+        Box(
+            modifier = Modifier
+                .size(20.dp)
+                .clip(CircleShape)
+                .background(if (selected) minisInk else Color.Transparent)
+                .then(
+                    if (selected) Modifier else Modifier.border(1.5.dp, minisTertiary.copy(alpha = 0.55f), CircleShape),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = minisCanvas,
+                    modifier = Modifier.size(13.dp),
+                )
+            }
+        }
     }
 }
 
@@ -868,17 +981,12 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
  */
 @Composable
 private fun DayToggle(letter: String, name: String, on: Boolean, onToggle: (Boolean) -> Unit) {
+    val offFill = if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0)
     Box(
         modifier = Modifier
             .size(MIN_TOUCH_TARGET)
             .clip(CircleShape)
-            .background(
-                if (on) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
-            )
+            .background(if (on) minisInk else offFill)
             .toggleable(value = on, role = Role.Checkbox, onValueChange = onToggle)
             .semantics { contentDescription = name },
         contentAlignment = Alignment.Center,
@@ -887,11 +995,7 @@ private fun DayToggle(letter: String, name: String, on: Boolean, onToggle: (Bool
             text = letter,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (on) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (on) minisCanvas else minisSecondary,
         )
     }
 }

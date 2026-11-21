@@ -3,69 +3,23 @@ import {
   memo,
   useEffect,
   useImperativeHandle,
-  useRef,
   useState,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import { cn } from "@/lib/cn";
-import { CHROME_EYES, CHROME_GRADIENT, MAUS_COLORS, type MausColor, type MausMotion, type MausState } from "@/lib/mascot";
-import { CursorAvatar, type CursorAvatarHandle } from "./CursorAvatar";
-import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, mascotFaceInk, type BotAvatarCrop, type MascotFaceColor } from "../../shared/bot-avatar";
-import { MASCOT_BODIES, botMascotBody } from "../../shared/mascot-bodies";
+import type { MausColor, MausMotion, MausState } from "@/lib/mascot";
+import type { CursorAvatarHandle } from "./CursorAvatar";
+import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, type BotAvatarCrop, type BotAvatarStates, type MascotFaceColor } from "../../shared/bot-avatar";
+import { DynamicAvatarMedia, hasAnyDynamicAvatarState } from "./DynamicAvatarMedia";
 import { isCarvedBody, type BotBodyId } from "../../shared/bot-body";
 import { useFestivalDress, wornBody } from "@/lib/festival-dress";
 import { t } from "@/lib/i18n";
 import { CarvedAvatar } from "./CarvedAvatar";
 import { PresetFace } from "./PresetFace";
 import { moodForState, seedOf, type FaceLife } from "@/lib/preset-face-rig";
-import { steelBodyImage } from "@/lib/steel-body";
 
 export const EYE_SCALE = 1.12;
 export const MOUTH_WEIGHT = 11;
-
-const POINTER_GAZE = { forward: 1, authored: 0.25 };
-
-interface MotionFaces
-  extends Partial<
-    Record<Exclude<MausMotion, "none">, { state?: MausState; blink?: boolean; spin?: number }>
-  > {}
-
-const MOTION_FACE: MotionFaces = {
-  arrive: { state: "spawning", spin: 900 },
-  switch: { state: "waking", spin: 620 },
-  customize: { state: "proud", blink: true },
-  alert: { state: "alerting" },
-  thinking: { state: "thinking" },
-  working: { state: "working" },
-  launch: { state: "loading" },
-  success: { state: "happy", blink: true },
-  celebrate: { state: "celebrate", spin: 700 },
-  blink: { blink: true },
-  surprise: { state: "surprised", blink: true },
-  failure: { state: "sad" },
-};
-
-const MOTION_FACE_MS = 1400;
-
-function mix(hex: string, toward: string, t: number): string {
-  const a = Number.parseInt(hex.slice(1), 16);
-  const b = Number.parseInt(toward.slice(1), 16);
-  const channel = (shift: number) => {
-    const va = (a >> shift) & 0xff;
-    const vb = (b >> shift) & 0xff;
-    return Math.round(va + (vb - va) * t);
-  };
-  return `#${[channel(16), channel(8), channel(0)]
-    .map((part) => part.toString(16).padStart(2, "0"))
-    .join("")}`;
-}
-
-const gradientFor = (color: MausColor): [string, string, string] => {
-  if (color === "chrome") return CHROME_GRADIENT;
-  const fill = MAUS_COLORS[color] ?? MAUS_COLORS.green;
-  return [mix(fill, "#ffffff", 0.55), fill, mix(fill, "#000000", 0.42)];
-};
 
 export function roomAvatarGradient(color: MausColor): [string, string, string] {
   const fill = `var(--identity-${color})`;
@@ -102,14 +56,19 @@ export type MausAvatarProps = {
 };
 
 function MausAvatarComponent(props: MausAvatarProps, ref: React.Ref<MausAvatarHandle>) {
-  const { bodyId, color, size, state, motion, motionKey, gaze, trackPointer, animated, label } = props;
+  const { bodyId, color, size = 44, state = "idle", motion, motionKey, gaze, trackPointer, animated = true, label, faceColor } = props;
+  useImperativeHandle(ref, () => ({
+    blink: () => {},
+    spin: () => {},
+    setExpression: () => {},
+  }));
   if (isCarvedBody(bodyId)) {
     return (
       <CarvedAvatar
         ref={ref}
         body={bodyId}
         color={color}
-        faceColor={props.faceColor}
+        faceColor={faceColor}
         size={size}
         state={state}
         motion={motion}
@@ -121,99 +80,20 @@ function MausAvatarComponent(props: MausAvatarProps, ref: React.Ref<MausAvatarHa
       />
     );
   }
-  return <GradientAvatar ref={ref} {...props} />;
-}
-
-function GradientAvatarComponent(
-  {
-    color,
-    state = "idle",
-    expression,
-    size = 44,
-    label,
-    motion = "none",
-    motionKey = 0,
-    turn,
-    gaze,
-    spring,
-    eyeScale,
-    showMouth,
-    mouthStroke,
-    forward = true,
-    lookAround,
-    trackPointer = true,
-    animated = true,
-    bodyId,
-    gradient,
-    faceColor,
-  }: MausAvatarProps,
-  ref: React.Ref<MausAvatarHandle>,
-) {
-  const silhouette = MASCOT_BODIES[botMascotBody(bodyId)];
-  const chrome = color === "chrome";
-  const faceInk = mascotFaceInk(faceColor);
-  const inner = useRef<CursorAvatarHandle>(null);
-  useImperativeHandle(ref, () => ({
-    blink: () => inner.current?.blink(),
-    spin: (durationMs?: number) => inner.current?.spin(durationMs),
-    setExpression: (index: number) => inner.current?.setExpression(index),
-  }));
-
-  const [motionState, setMotionState] = useState<MausState | null>(null);
-  useEffect(() => {
-    if (motion === "none" || !animated) return;
-    const beat = MOTION_FACE[motion];
-    if (!beat) return;
-    if (beat.blink) inner.current?.blink();
-    if (beat.spin) inner.current?.spin(beat.spin);
-    if (!beat.state) return;
-    setMotionState(beat.state);
-    const timer = setTimeout(() => setMotionState(null), MOTION_FACE_MS);
-    return () => clearTimeout(timer);
-  }, [motion, motionKey, animated]);
-
-  const [pointer, setPointer] = useState({ x: 0, y: 0 });
-  const range = forward ? POINTER_GAZE.forward : POINTER_GAZE.authored;
-  const onPointerMove = (event: ReactPointerEvent<HTMLSpanElement>) => {
-    if (!trackPointer || !animated) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    setPointer({
-      x: Math.max(-1, Math.min(1, ((event.clientX - rect.left) / rect.width) * 2 - 1)) * range,
-      y: Math.max(-1, Math.min(1, ((event.clientY - rect.top) / rect.height) * 2 - 1)) * range,
-    });
-  };
-  const onPointerLeave = () => setPointer({ x: 0, y: 0 });
-
   return (
-    <span
-      className="inline-flex shrink-0"
-      onPointerMove={trackPointer && animated ? onPointerMove : undefined}
-      onPointerLeave={trackPointer && animated ? onPointerLeave : undefined}
-    >
-      <CursorAvatar
-        ref={inner}
-        state={motionState ?? state}
-        expression={expression}
-        size={size}
-        silhouette={silhouette}
-        gradient={gradient ?? gradientFor(color)}
-        picture={chrome && !faceInk ? steelBodyImage(silhouette.id, size, globalThis.devicePixelRatio ?? 1) : null}
-        eyeColor={faceInk ?? (chrome ? CHROME_EYES : undefined)}
-        title={label ?? null}
-        lookAround={lookAround ?? (forward ? 0 : 1)}
-        gaze={{ x: (gaze?.x ?? 0) + pointer.x, y: (gaze?.y ?? 0) + pointer.y }}
-        turn={turn}
-        spring={spring}
-        eyeScale={eyeScale}
-        showMouth={showMouth}
-        mouthStroke={mouthStroke}
-        paused={!animated}
-      />
-    </span>
+    <PresetFace
+      color={color}
+      bodyId={bodyId}
+      faceColor={faceColor}
+      expression={state}
+      size={size}
+      label={label}
+      life={animated ? "glance" : "still"}
+      mood={moodForState(state)}
+    />
   );
 }
 
-const GradientAvatar = forwardRef(GradientAvatarComponent);
 
 export const MausAvatar = memo(forwardRef(MausAvatarComponent));
 
@@ -226,6 +106,10 @@ export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
   life?: FaceLife;
   /** The commander's crown, drawn in the portrait and leaning with its gaze. */
   crown?: boolean;
+  /** Enables Muse-style breakout-frame elevation when displaying a working/thinking state clip. */
+  breakout?: boolean;
+  /** Optional real-time audio amplitude (0..1) while speaking in a Live Call. */
+  audioLevel?: number;
   bot: {
     id?: string;
     name?: string;
@@ -235,6 +119,7 @@ export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
     avatarZoom?: number;
     avatarFocusX?: number;
     avatarFocusY?: number;
+    avatarStates?: BotAvatarStates;
     mascotBody?: BotBodyId | null;
     mascotFaceColor?: MascotFaceColor | null;
   };
@@ -255,12 +140,35 @@ export function resolveBotAvatarOutcome(params: {
   return "flatImage";
 }
 
-export function BotAvatar({ bot, size = 44, label, readable = false, fallback = "mascot", life = "glance", crown = false, ...mascotProps }: BotAvatarProps) {
+export function BotAvatar({ bot, size = 44, label, life = "glance", crown = false, breakout = false, audioLevel = 0, ...mascotProps }: BotAvatarProps) {
   const profile = botAvatarProfile(bot);
   const festival = useFestivalDress();
   const [imageFailed, setImageFailed] = useState(false);
+  const hasDynamic = hasAnyDynamicAvatarState(profile.avatarStates);
 
   useEffect(() => setImageFailed(false), [profile.avatarUrl]);
+
+  if (hasDynamic) {
+    const radius = avatarCropRadius(profile.avatarCrop === "mascot" ? "circle" : profile.avatarCrop);
+    const zoom = clampAvatarZoom(bot.avatarZoom ?? 1);
+    const focusX = clampAvatarFocus(bot.avatarFocusX ?? 0.5);
+    const focusY = clampAvatarFocus(bot.avatarFocusY ?? 0.5);
+    return (
+      <DynamicAvatarMedia
+        avatarStates={profile.avatarStates}
+        fallbackUrl={profile.avatarUrl}
+        state={mascotProps.state}
+        alt={label ?? (bot.name ? t("avatar.alt", { name: bot.name }) : t("avatar.altFallback"))}
+        size={size}
+        borderRadius={radius}
+        objectPosition={`${focusX * 100}% ${focusY * 100}%`}
+        zoom={zoom}
+        breakout={breakout}
+        audioLevel={audioLevel}
+        onFallbackError={() => setImageFailed(true)}
+      />
+    );
+  }
 
   const outcome = resolveBotAvatarOutcome({
     avatarCrop: profile.avatarCrop,
@@ -269,31 +177,36 @@ export function BotAvatar({ bot, size = 44, label, readable = false, fallback = 
   });
 
   if (outcome !== "flatImage") {
-    // The flat portrait is the app's bot image in every list, header and transcript. A bot that deliberately chose a
-    // mascot body (anything but the old default, `cursor`) keeps it everywhere; the old default now means the preset.
-    const explicitMascot = Boolean(bot.mascotBody && bot.mascotBody !== "cursor");
-    if (fallback === "preset" && !explicitMascot) {
+    const body = wornBody(bot.mascotBody, bot.color, festival);
+    if (isCarvedBody(body)) {
       return (
-        <PresetFace
+        <CarvedAvatar
+          body={body}
           color={bot.color}
+          faceColor={bot.mascotFaceColor}
           size={size}
+          state={mascotProps.state}
+          motion={mascotProps.motion}
+          motionKey={mascotProps.motionKey}
+          gaze={mascotProps.gaze}
+          trackPointer={mascotProps.trackPointer}
+          animated={mascotProps.animated}
           label={label ?? bot.name}
-          life={life}
-          mood={moodForState(mascotProps.state)}
-          seed={seedOf(bot.id ?? bot.name)}
-          crown={crown}
         />
       );
     }
     return (
-      <MausAvatar
-        bodyId={wornBody(bot.mascotBody, bot.color, festival)}
-        {...mascotProps}
+      <PresetFace
         color={bot.color}
+        bodyId={bot.mascotBody}
         faceColor={bot.mascotFaceColor}
-        gradient={readable ? roomAvatarGradient(bot.color) : undefined}
+        expression={mascotProps.state}
         size={size}
         label={label ?? bot.name}
+        life={life}
+        mood={moodForState(mascotProps.state)}
+        seed={seedOf(bot.id ?? bot.name)}
+        crown={crown}
       />
     );
   }

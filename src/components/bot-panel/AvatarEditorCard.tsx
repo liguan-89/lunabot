@@ -3,25 +3,25 @@ import { ChevronDown, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { bodyName, colorName, festivalName } from "@/lib/mascot-names";
+import { bodyName, colorName } from "@/lib/mascot-names";
 import type { LocaleKey } from "@/locales";
 import { colorSwatch, MAUS_COLOR_LABEL, MAUS_COLOR_NAMES, PICKABLE_STATES, type MausState } from "@/lib/mascot";
 import type { Bot } from "@/state/store";
-import { MASCOT_BODY_IDS } from "../../../shared/mascot-bodies";
-import { FESTIVAL_IDS, FESTIVALS, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
-import { useFestivalDress, wornBody } from "@/lib/festival-dress";
-import { MausAvatar } from "../Avatar";
+import { PRESET_STYLE_BODY_IDS, type BotBodyId } from "../../../shared/bot-body";
+import { PresetFace } from "../PresetFace";
 import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
 import { Segmented } from "./rows";
 import { MascotFaceColorPicker } from "../MascotFaceColorPicker";
+import { AvatarStatesEditor } from "./AvatarStatesEditor";
 
-export type AvatarEditorTab = "bot" | "generate" | "upload";
+export type AvatarEditorTab = "bot" | "generate" | "upload" | "motion";
 
-const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey]> = [
+const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey | null, string?]> = [
   ["bot", "botPanel.avatar.tabBot"],
   ["generate", "botPanel.avatar.tabGenerate"],
   ["upload", "botPanel.avatar.tabUpload"],
+  ["motion", null, "动态"],
 ];
 
 const IMAGE_CROPS = ["circle", "rounded", "square"] as const;
@@ -65,11 +65,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
     tabsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
   }, []);
   const pickMascot = (patch: AvatarPatch) => onPatch(crop === "mascot" ? patch : { ...patch, avatarCrop: "mascot" });
-  const body = bot.mascotBody ?? "cursor";
-  const festival = useFestivalDress();
-  const costume = wornBody(bot.mascotBody, bot.color, festival);
-  const [moreLooks, setMoreLooks] = useState(() => Boolean(festival) || isCarvedBody(body) || Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
-  const dressedAs = festival && costume !== body && isCarvedBody(costume) ? bodyName(costume) : null;
+  const body = bot.mascotBody ?? "orb";
+  const [moreLooks, setMoreLooks] = useState(() => Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
   const bodyButton = (id: BotBodyId, name: string) => (
     <button
       key={id}
@@ -84,7 +81,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         !showsImage && body === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]",
       )}
     >
-      <MausAvatar color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={40} animated={false} trackPointer={false} />
+      <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={38} life="still" />
     </button>
   );
 
@@ -104,7 +101,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       className="popover-surface absolute inset-x-[-5px] top-[80px] z-30 overflow-hidden rounded-2xl border border-ink/[0.08] bg-menu text-left shadow-2xl shadow-black/50"
     >
       <div ref={tabsRef} className="flex items-center gap-0.5 border-b border-ink/[0.06] p-2">
-        {TABS.map(([id, label]) => (
+        {TABS.map(([id, label, fallbackText]) => (
           <button
             key={id}
             type="button"
@@ -113,11 +110,11 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             data-avatar-tab={id}
             onClick={() => setTab(id)}
             className={cn(
-              "rounded-lg px-[11px] py-[5px] text-[13px]",
+              "rounded-lg px-[10px] py-[5px] text-[13px]",
               tab === id ? "bg-ink/[0.08] font-medium text-ink" : "text-ink-secondary hover:text-ink",
             )}
           >
-            {t(label)}
+            {label ? t(label) : fallbackText}
           </button>
         ))}
         <button
@@ -134,8 +131,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       <div className="p-3">
         {tab === "bot" && (
           <>
-            <div className="grid grid-cols-5 gap-1.5">
-              {MASCOT_BODY_IDS.filter((id) => id !== "cursor").map((id) => bodyButton(id, bodyName(id)))}
+            <div className="grid grid-cols-4 gap-1.5">
+              {PRESET_STYLE_BODY_IDS.map((id) => bodyButton(id, bodyName(id)))}
             </div>
             <div className="flex flex-wrap justify-center gap-2 px-1 pb-1 pt-3.5">
               {MAUS_COLOR_NAMES.map((color) => (
@@ -168,19 +165,6 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             </button>
             {moreLooks && (
               <div data-avatar-more-looks>
-                {FESTIVAL_IDS.map((id) => (
-                  <div key={id}>
-                    <div className="flex flex-wrap items-baseline gap-x-2 px-1 pb-1.5 pt-2 text-[12px] text-ink-tertiary">
-                      <span>{festivalName(id)}</span>
-                      {id === festival && dressedAs && (
-                        <span data-avatar-costume>{t("botPanel.avatar.costume", { name: dressedAs, skin: festivalName(id) })}</span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5" data-festival-bodies={id}>
-                      {FESTIVALS[id].bodies.map((bodyId) => bodyButton(bodyId, bodyName(bodyId)))}
-                    </div>
-                  </div>
-                ))}
                 <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2.5" role="group" aria-label={t("botPanel.avatar.face")}>
                   <span className="mr-0.5 text-[12px] text-ink-tertiary">{t("botPanel.avatar.face")}</span>
                   {PICKABLE_STATES.map((expression) => (
@@ -268,6 +252,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             {!showsImage && <p className="mt-2 text-[12px] text-ink-tertiary">{t("botPanel.avatar.uploadHint")}</p>}
           </>
         )}
+
+        {tab === "motion" && <AvatarStatesEditor bot={bot} />}
 
         {error && <div role="alert" className="mt-3 text-[12px] text-danger">{error}</div>}
       </div>

@@ -221,12 +221,7 @@ fun TaskSheet(
                 Row(
                     modifier = Modifier
                         .heightIn(min = 38.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (canCreate) minisCard else minisCard.copy(alpha = 0.5f),
-                            CircleShape,
-                        )
-                        .border(0.5.dp, minisSeparator, CircleShape)
+                        .museFloatingPill(CircleShape, elevation = 3.dp)
                         .clickable(enabled = !saving && canCreate, role = Role.Button) {
                             saving = true
                             error = null
@@ -269,12 +264,13 @@ fun TaskSheet(
                 )
             }
 
+            val groupCardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 460.dp)
                     .padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 groups.forEach { group ->
                     group.project?.let { project ->
@@ -282,52 +278,61 @@ fun TaskSheet(
                             Text(
                                 text = "${project.emoji ?: "📁"} ${project.name}",
                                 fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Medium,
                                 color = minisSecondary,
-                                modifier = Modifier.padding(start = 4.dp, top = 4.dp),
+                                modifier = Modifier.padding(start = 6.dp, top = 4.dp),
                             )
                         }
                     }
-                    itemsIndexed(group.tasks, key = { _, it -> it.threadId }) { index, task ->
-                        val shape = when {
-                            group.tasks.size == 1 -> MinisCardShape
-                            index == 0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-                            index == group.tasks.lastIndex -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
-                            else -> RoundedCornerShape(4.dp)
-                        }
-                        TaskRow(
-                            task = task,
-                            chat = current,
-                            enabled = !saving,
-                            now = now,
-                            queued = task.threadId in state.queuedThreadIds,
-                            shape = shape,
-                            onSwitch = {
-                                saving = true
-                                error = null
-                                scope.launch {
-                                    val selected = switchTask(session, task, current)
-                                    saving = false
-                                    if (selected == null) failed() else {
-                                        onSelectTask(selected.target)
-                                        onDismiss()
-                                    }
+                    item(key = "group:${group.id}") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(groupCardFill),
+                        ) {
+                            group.tasks.forEachIndexed { index, task ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = minisSeparator.copy(alpha = 0.22f),
+                                    )
                                 }
-                            },
-                            onRename = {
-                                title = task.title
-                                error = null
-                                renaming = task
-                            },
-                            onSnooze = if (current is Chat.BotChat) {
-                                { error = null; pendingSnooze = task.threadId }
-                            } else {
-                                null
-                            },
-                            onDelete = { error = null; pendingDelete = task },
-                            onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
-                            onPin = pinHandler,
-                        )
+                                TaskRow(
+                                    task = task,
+                                    chat = current,
+                                    enabled = !saving,
+                                    now = now,
+                                    queued = task.threadId in state.queuedThreadIds,
+                                    onSwitch = {
+                                        saving = true
+                                        error = null
+                                        scope.launch {
+                                            val selected = switchTask(session, task, current)
+                                            saving = false
+                                            if (selected == null) failed() else {
+                                                onSelectTask(selected.target)
+                                                onDismiss()
+                                            }
+                                        }
+                                    },
+                                    onRename = {
+                                        title = task.title
+                                        error = null
+                                        renaming = task
+                                    },
+                                    onSnooze = if (current is Chat.BotChat) {
+                                        { error = null; pendingSnooze = task.threadId }
+                                    } else {
+                                        null
+                                    },
+                                    onDelete = { error = null; pendingDelete = task },
+                                    onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
+                                    onPin = pinHandler,
+                                )
+                            }
+                        }
                     }
                 }
                 if (archived.isNotEmpty()) {
@@ -335,47 +340,56 @@ fun TaskSheet(
                         Text(
                             text = "已归档",
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Medium,
                             color = minisSecondary,
-                            modifier = Modifier.padding(start = 4.dp, top = 6.dp),
+                            modifier = Modifier.padding(start = 6.dp, top = 4.dp),
                         )
                     }
-                    itemsIndexed(archived, key = { _, it -> "archived:${it.threadId}" }) { index, task ->
-                        val shape = when {
-                            archived.size == 1 -> MinisCardShape
-                            index == 0 -> RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-                            index == archived.lastIndex -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 16.dp, bottomEnd = 16.dp)
-                            else -> RoundedCornerShape(4.dp)
-                        }
-                        TaskRow(
-                            task = task,
-                            chat = current,
-                            enabled = !saving,
-                            now = now,
-                            queued = task.threadId in state.queuedThreadIds,
-                            shape = shape,
-                            onSwitch = {
-                                saving = true
-                                error = null
-                                scope.launch {
-                                    val selected = switchTask(session, task, current)
-                                    saving = false
-                                    if (selected == null) failed() else {
-                                        onSelectTask(selected.target)
-                                        onDismiss()
-                                    }
+                    item(key = "archived-card") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(groupCardFill),
+                        ) {
+                            archived.forEachIndexed { index, task ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(horizontal = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = minisSeparator.copy(alpha = 0.22f),
+                                    )
                                 }
-                            },
-                            onRename = {
-                                title = task.title
-                                error = null
-                                renaming = task
-                            },
-                            onSnooze = null,
-                            onDelete = { error = null; pendingDelete = task },
-                            onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
-                            onPin = pinHandler,
-                        )
+                                TaskRow(
+                                    task = task,
+                                    chat = current,
+                                    enabled = !saving,
+                                    now = now,
+                                    queued = task.threadId in state.queuedThreadIds,
+                                    onSwitch = {
+                                        saving = true
+                                        error = null
+                                        scope.launch {
+                                            val selected = switchTask(session, task, current)
+                                            saving = false
+                                            if (selected == null) failed() else {
+                                                onSelectTask(selected.target)
+                                                onDismiss()
+                                            }
+                                        }
+                                    },
+                                    onRename = {
+                                        title = task.title
+                                        error = null
+                                        renaming = task
+                                    },
+                                    onSnooze = null,
+                                    onDelete = { error = null; pendingDelete = task },
+                                    onArchive = (current as? Chat.BotChat)?.let { archiveHandler },
+                                    onPin = pinHandler,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -535,8 +549,6 @@ private fun TaskRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
-            .background(minisCard, shape)
             .clickable(enabled = canSwitch, onClick = onSwitch)
             .padding(start = 16.dp, end = 6.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically,

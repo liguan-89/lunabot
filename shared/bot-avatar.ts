@@ -58,6 +58,34 @@ export const botAvatarUrlSchema = z
     "must be a stored PNG, JPEG, GIF, or WebP attachment",
   );
 
+export const BOT_AVATAR_STATE_KEYS = ["idle", "working", "listening", "talking", "thinking"] as const;
+export type BotAvatarStateKey = (typeof BOT_AVATAR_STATE_KEYS)[number];
+
+/** State avatar slots may hold either a static image or a short looping MP4/WebM clip. */
+export const botAvatarMediaUrlSchema = z
+  .string()
+  .regex(
+    /^\/api\/attachments\/[A-Za-z0-9-]+\.(?:png|jpg|gif|webp|mp4|webm)$/,
+    "must be a stored PNG, JPEG, GIF, WebP, MP4, or WebM attachment",
+  );
+
+export const botAvatarStatesPatchSchema = z
+  .object({
+    idle: z.union([botAvatarMediaUrlSchema, z.literal(""), z.null()]).optional(),
+    working: z.union([botAvatarMediaUrlSchema, z.literal(""), z.null()]).optional(),
+    listening: z.union([botAvatarMediaUrlSchema, z.literal(""), z.null()]).optional(),
+    talking: z.union([botAvatarMediaUrlSchema, z.literal(""), z.null()]).optional(),
+    thinking: z.union([botAvatarMediaUrlSchema, z.literal(""), z.null()]).optional(),
+  })
+  .strict();
+
+export type BotAvatarStates = Partial<Record<BotAvatarStateKey, string>>;
+export type BotAvatarStatesPatch = z.infer<typeof botAvatarStatesPatchSchema>;
+
+export function isVideoAvatarUrl(url: string | null | undefined): boolean {
+  return Boolean(url && /\.(?:mp4|webm)$/i.test(url));
+}
+
 export function botAvatarUrlFromStoredPath(path: string): string | null {
   const name = path.replaceAll("\\", "/").split("/").pop();
   if (!name) return null;
@@ -65,15 +93,35 @@ export function botAvatarUrlFromStoredPath(path: string): string | null {
   return botAvatarUrlSchema.safeParse(url).success ? url : null;
 }
 
+export function botAvatarMediaUrlFromStoredPath(path: string): string | null {
+  const name = path.replaceAll("\\", "/").split("/").pop();
+  if (!name) return null;
+  const url = `/api/attachments/${name}`;
+  return botAvatarMediaUrlSchema.safeParse(url).success ? url : null;
+}
+
+export function normalizeBotAvatarStates(raw: unknown): BotAvatarStates | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: BotAvatarStates = {};
+  for (const key of BOT_AVATAR_STATE_KEYS) {
+    const candidate = (raw as Record<string, unknown>)[key];
+    const parsed = botAvatarMediaUrlSchema.safeParse(candidate);
+    if (parsed.success) out[key] = parsed.data;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** Runtime-safe defaults for untrusted persisted/SSE profile data. */
 export interface BotAvatarProfileInput {
   avatarUrl?: unknown;
   avatarCrop?: unknown;
+  avatarStates?: unknown;
 }
 
 export interface BotAvatarProfile {
   avatarUrl?: string;
   avatarCrop: BotAvatarCrop;
+  avatarStates?: BotAvatarStates;
 }
 
 export function botAvatarProfile(value: BotAvatarProfileInput): BotAvatarProfile {
@@ -82,5 +130,7 @@ export function botAvatarProfile(value: BotAvatarProfileInput): BotAvatarProfile
   };
   const url = botAvatarUrlSchema.safeParse(value.avatarUrl);
   if (url.success) profile.avatarUrl = url.data;
+  const states = normalizeBotAvatarStates(value.avatarStates);
+  if (states) profile.avatarStates = states;
   return profile;
 }

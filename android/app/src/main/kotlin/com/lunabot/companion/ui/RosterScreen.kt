@@ -1134,12 +1134,15 @@ private fun RosterHero(
                 ChatAvatar(
                     chat = summary.chat,
                     size = 76.dp,
+                    state = if (summary.chat.busy) MausState.WORKING else MausState.IDLE,
                     animated = false,
                     contentDescription = null,
                     fallback = AvatarFallback.PRESET,
                     motion = AvatarMotion.BREATH,
+                    mood = if (summary.chat.busy) FaceMood.WORKING else FaceMood.IDLE,
                     drowsy = true,
                     crown = chief,
+                    breakout = summary.chat.busy,
                 )
                 Row(
                     modifier = Modifier
@@ -1166,9 +1169,9 @@ private fun RosterHero(
                     }
                     Text(
                         text = summary.chat.name,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = (-0.2).sp,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = 0.4.sp,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -1666,12 +1669,15 @@ private fun ChatRow(
                 ChatAvatar(
                     chat = chat,
                     size = 46.dp,
+                    state = if (chat.busy) MausState.WORKING else face,
                     animated = false,
                     contentDescription = "${chat.name} 头像",
                     // Rows get only the sweep: a list of discs all breathing in
                     // place would pull the eye away from the names.
                     fallback = AvatarFallback.PRESET,
                     motion = AvatarMotion.SHEEN,
+                    mood = if (chat.busy) FaceMood.WORKING else FaceMood.IDLE,
+                    breakout = chat.busy,
                 )
                 when {
                     chat.busy -> Box(
@@ -1714,7 +1720,7 @@ private fun ChatRow(
                         Text(
                             text = chat.name,
                             fontSize = 17.sp,
-                            fontWeight = if (hasUnread) FontWeight.SemiBold else FontWeight.Medium,
+                            fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -1760,11 +1766,11 @@ private fun ChatRow(
                     // One line for every bot, so the rows keep one rhythm.
                     Text(
                         text = formattedPreview.ifEmpty { " " },
-                        fontSize = 15.sp,
+                        fontSize = 14.sp,
                         color = when {
                             isErrorPreview -> minisDanger.copy(alpha = 0.86f)
-                            hasUnread -> minisInk.copy(alpha = 0.84f)
-                            else -> minisSecondary
+                            hasUnread -> minisInk.copy(alpha = 0.76f)
+                            else -> minisTertiary
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2164,22 +2170,37 @@ private fun MuseLibraryTab(
             .fillMaxSize()
             .background(minisCanvas),
     ) {
-        // Persistent Muse centerpiece: floating avatar + softly shadowed white name pill.
+        // Persistent Muse centerpiece: 74dp avatar with soft warm-linen halo
+        // so light/white bots stand out crisply on the pure-white canvas.
+        val studioHalo = remember(dark) {
+            Brush.radialGradient(
+                0.00f to if (dark) Color(0x22FFFFFF) else Color(0x66D9CEC2),
+                0.56f to if (dark) Color(0x0EFFFFFF) else Color(0x30E4DDD4),
+                1.00f to Color.Transparent,
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 14.dp),
+                .padding(top = 6.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             if (heroChat != null) {
-                ChatAvatar(
-                    chat = heroChat,
-                    size = 68.dp,
-                    animated = false,
-                    fallback = AvatarFallback.PRESET,
-                    motion = AvatarMotion.SHEEN,
-                )
+                Box(
+                    modifier = Modifier
+                        .size(84.dp)
+                        .background(studioHalo, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ChatAvatar(
+                        chat = heroChat,
+                        size = 74.dp,
+                        animated = false,
+                        fallback = AvatarFallback.PRESET,
+                        motion = AvatarMotion.SHEEN,
+                    )
+                }
             }
             Row(
                 modifier = Modifier
@@ -2190,8 +2211,9 @@ private fun MuseLibraryTab(
             ) {
                 Text(
                     text = heroName,
-                    fontSize = 14.5.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.5.sp,
+                    fontWeight = FontWeight.Light,
+                    letterSpacing = 0.4.sp,
                     color = minisInk,
                 )
                 Spacer(Modifier.width(4.dp))
@@ -2481,7 +2503,7 @@ private fun MuseDrawerContent(
                     Text(
                         text = summary.chat.name,
                         fontSize = 15.5.sp,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.Normal,
                         color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

@@ -4,9 +4,12 @@ import {
   AVATAR_ZOOM_MAX,
   AVATAR_ZOOM_MIN,
   BOT_AVATAR_CROPS,
+  BOT_AVATAR_STATE_KEYS,
   botAvatarCropSchema,
+  botAvatarStatesPatchSchema,
   botAvatarUrlSchema,
   mascotFaceColorSchema,
+  type BotAvatarStates,
 } from "../shared/bot-avatar.ts";
 import { BOT_PROFILE_LIMITS, fitsOnOneLine } from "../shared/bot-profile.ts";
 import { REPLY_STYLES } from "../shared/reply-style.ts";
@@ -27,6 +30,7 @@ export const BOT_PROFILE_PATCH_FIELDS = [
   "avatarZoom",
   "avatarFocusX",
   "avatarFocusY",
+  "avatarStates",
   "mascotBody",
   "mascotFaceColor",
   "voice",
@@ -66,6 +70,7 @@ export const profilePatchSchema = z.object({
   avatarZoom: z.number({ error: "avatarZoom must be a number from 1 to 3" }).finite().min(AVATAR_ZOOM_MIN).max(AVATAR_ZOOM_MAX).optional(),
   avatarFocusX: z.number({ error: "avatarFocusX must be a number from 0 to 1" }).finite().min(0).max(1).optional(),
   avatarFocusY: z.number({ error: "avatarFocusY must be a number from 0 to 1" }).finite().min(0).max(1).optional(),
+  avatarStates: botAvatarStatesPatchSchema.nullable().optional(),
   mascotBody: botBodySchema.optional(),
   mascotFaceColor: mascotFaceColorSchema.nullable().optional(),
   voice: z
@@ -91,6 +96,7 @@ export type BotProfilePatch = Partial<
     | "avatarZoom"
     | "avatarFocusX"
     | "avatarFocusY"
+    | "avatarStates"
     | "mascotBody"
     | "mascotFaceColor"
     | "voice"
@@ -127,8 +133,20 @@ export function parseBotProfilePatch(input: BotProfilePatchInput, strict = false
     return { ok: false, error: issue?.message ?? "invalid profile patch" };
   }
 
-  const { avatarUrl, ...fields } = parsed.data;
+  const { avatarUrl, avatarStates, ...fields } = parsed.data;
   const patch: BotProfilePatch = fields;
   if (avatarUrl !== undefined) patch.avatarUrl = avatarUrl || undefined;
+  if (avatarStates !== undefined) {
+    if (avatarStates === null) {
+      patch.avatarStates = undefined;
+    } else {
+      const cleaned: BotAvatarStates = {};
+      for (const key of BOT_AVATAR_STATE_KEYS) {
+        const value = avatarStates[key];
+        if (typeof value === "string" && value) cleaned[key] = value;
+      }
+      patch.avatarStates = Object.keys(cleaned).length ? cleaned : undefined;
+    }
+  }
   return { ok: true, patch };
 }

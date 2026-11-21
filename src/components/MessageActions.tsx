@@ -158,19 +158,24 @@ export function MessageActions({
   useLayoutEffect(() => {
     if (!menuOpen) return;
     const menuBox = menuRef.current?.getBoundingClientRect();
+    const container = rootRef.current?.closest<HTMLElement>(".glass-scroller, main")?.getBoundingClientRect();
+    const leftBound = (container?.left ?? 0) + 8;
+    const rightBound = (container?.right ?? window.innerWidth) - 8;
+    const topBound = (container?.top ?? 0) + 8;
+    const bottomBound = (container?.bottom ?? window.innerHeight) - 8;
     if (pointAt && menuBox) {
-      setMenuAbove(pointAt.clientY + menuBox.height > window.innerHeight - 8 && pointAt.clientY - menuBox.height > 8);
-      setMenuFlipped(pointAt.clientX + menuBox.width > window.innerWidth - 8 && pointAt.clientX - menuBox.width >= 8);
+      setMenuAbove(pointAt.clientY + menuBox.height > bottomBound && pointAt.clientY - menuBox.height > topBound);
+      setMenuFlipped(pointAt.clientX + menuBox.width > rightBound && pointAt.clientX - menuBox.width >= leftBound);
       menuRef.current?.querySelector<HTMLButtonElement>("[role=menuitem]:not(:disabled)")?.focus();
       return;
     }
     const more = moreRef.current?.getBoundingClientRect();
-    if (menuBox && more) setMenuAbove(more.bottom + 4 + menuBox.height > window.innerHeight - 8 && more.top - 4 - menuBox.height > 8);
+    if (menuBox && more) setMenuAbove(more.bottom + 4 + menuBox.height > bottomBound && more.top - 4 - menuBox.height > topBound);
     const rowBox = rootRef.current?.getBoundingClientRect();
     if (menuBox && rowBox) {
       const rtl = getComputedStyle(rootRef.current!).direction === "rtl";
-      const fitsRight = rowBox.left + menuBox.width <= window.innerWidth - 8;
-      const fitsLeft = rowBox.right - menuBox.width >= 8;
+      const fitsRight = rowBox.left + menuBox.width <= rightBound;
+      const fitsLeft = rowBox.right - menuBox.width >= leftBound;
       const fitsStart = rtl ? fitsLeft : fitsRight;
       const fitsEnd = rtl ? fitsRight : fitsLeft;
       setMenuFlipped(mirrored ? !fitsEnd && fitsStart : !fitsStart && fitsEnd);

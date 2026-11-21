@@ -37,7 +37,7 @@ import { ImportSettings } from "./ImportSettings";
 import { NotificationRows } from "./NotificationSettingsRows";
 import { useServerUpdateItem } from "./SidebarProfileMenu";
 import { AdvancedModeRow, BrowserProfilesRow, ColorUserBubblesRow, ExperimentalFeaturesRow, FollowUpRow, LanguageRow, PinnedCirclesRow, ReplayTourRow, RunCardRow, SendKeyRow, ShowThreadsRow, ToolCallsRow, UniversalPinsRow, UpdatesRow } from "./AppSettingsRows";
-import { ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
+import { AvatarStyleRow, ChatWidthRow, FontRow, SidebarToolsLayoutRow } from "./AppearanceSelectRows";
 import { WorkspaceBackupSettings } from "./WorkspaceBackupSettings";
 import { CompanyBackupSettings } from "./CompanyBackupSettings";
 import { SkillsSection } from "./SkillsSection";
@@ -53,7 +53,7 @@ import { ThemeRow } from "./ThemeRow";
 import { AdminOnly } from "./AdminOnly";
 import { DefaultBotSettings } from "./NewBotDialog";
 
-export type SimpleDisclosureId = "ai-more" | "ai-keys" | "ai-images" | "ai-decision" | "looks-more" | "computer-elsewhere" | "billing-limits";
+export type SimpleDisclosureId = "ai-more" | "ai-keys" | "ai-images" | "ai-videos" | "ai-decision" | "looks-more" | "computer-elsewhere" | "billing-limits";
 
 export type Disclose = (id: SimpleDisclosureId) => { id: SimpleDisclosureId; open: boolean; onToggle: () => void };
 
@@ -81,6 +81,7 @@ export function SimpleGeneralPage({ has, disclose, toolCalls = true }: { has: Ha
           </SettingsRows>
           <SettingsDisclosureRow title={t("settings.simple.looks.title")} block="looks" {...disclose("looks-more")}>
             <SkinPicker />
+            <AvatarStyleRow />
             <SettingsRows>
               {toolCalls && <ToolCallsRow />}
               <FontRow />
@@ -166,12 +167,13 @@ export function SimpleAdvancedPage({ has, limits }: { has: Has; limits: boolean 
   );
 }
 
-export function SimpleAiPage({ has, disclose, connections, decisionModel, imageGeneration }: {
+export function SimpleAiPage({ has, disclose, connections, decisionModel, imageGeneration, videoGeneration }: {
   has: Has;
   disclose: Disclose;
   connections: ReactNode;
   decisionModel: ReactNode;
   imageGeneration: ReactNode;
+  videoGeneration?: ReactNode;
 }) {
   return (
     <>
@@ -194,6 +196,13 @@ export function SimpleAiPage({ has, disclose, connections, decisionModel, imageG
         <AdminOnly>
           <SettingsDisclosureRow title={t("settings.section.imageGeneration")} block="imageGeneration" {...disclose("ai-images")}>
             {imageGeneration}
+          </SettingsDisclosureRow>
+        </AdminOnly>
+      )}
+      {has("videoGeneration") && videoGeneration && (
+        <AdminOnly>
+          <SettingsDisclosureRow title={t("settings.section.videoGeneration")} block="videoGeneration" {...disclose("ai-videos")}>
+            {videoGeneration}
           </SettingsDisclosureRow>
         </AdminOnly>
       )}
@@ -228,7 +237,8 @@ export function SimpleComputerPage({ has, remoteAccess, servers, disclose }: { h
           <BrowserProfilesRow />
         </SettingsGroup>
       )}
-      {has("logins") && <div data-settings-block="logins" className="scroll-mt-4"><VaultSettings /><PaymentCardsSettings /><ChannelsSettings /></div>}
+      {has("logins") && <div data-settings-block="logins" className="scroll-mt-4"><VaultSettings /><PaymentCardsSettings /></div>}
+      {has("channels") && <div data-settings-block="channels" className="scroll-mt-4"><ChannelsSettings /></div>}
       {(has("companion") || has("desktopWorkspaces")) && (
         <SettingsDisclosureRow title={t("settings.simple.computer.elsewhere")} block="elsewhere" {...disclose("computer-elsewhere")}>
           {has("desktopWorkspaces") && <div data-settings-block="desktopWorkspaces" className="flex scroll-mt-4 flex-col gap-4">{servers}</div>}

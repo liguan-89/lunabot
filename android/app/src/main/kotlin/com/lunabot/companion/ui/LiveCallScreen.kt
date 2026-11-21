@@ -85,7 +85,7 @@ internal fun LiveCallScreen(
         bot = current,
         expanded = expanded,
         onExpandedChange = { expanded = it },
-        phase = phaseText(call.state, current.name),
+        phase = phaseText(call.state, current.name, call.speaking),
         heard = call.heard,
         spoken = if (live) call.caption else "",
         note = (call.state as? LiveCallController.State.Failed)?.message,
@@ -96,15 +96,17 @@ internal fun LiveCallScreen(
         controlsEnabled = live,
         bottomClearance = bottomClearance,
         avatarState = if (live) MausState.LISTENING else MausState.IDLE,
+        speaking = live && call.speaking,
+        audioLevel = if (live) call.audioLevel else 0f,
         onPrimary = { call.setSpeaker(!call.speakerOn) },
         onMute = { call.mute(!call.muted) },
         onHangUp = ::hangUp,
     )
 }
 
-private fun phaseText(state: LiveCallController.State, name: String): String = when (state) {
+private fun phaseText(state: LiveCallController.State, name: String, speaking: Boolean): String = when (state) {
     LiveCallController.State.Connecting -> "正在接通…"
-    LiveCallController.State.Live -> "通话中"
+    LiveCallController.State.Live -> if (speaking) "$name 正在说话" else "正在聆听…"
     LiveCallController.State.Ending -> "正在挂断…"
     LiveCallController.State.Ended -> "通话已结束"
     is LiveCallController.State.Failed -> state.message

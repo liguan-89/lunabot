@@ -6,7 +6,12 @@ import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS } from "./mascot-bodies.ts";
 import { CARVED_BODY_IDS, DIWALI_BODY_IDS, HALLOWEEN_BODY_IDS, type CarvedBodyId } from "./carved-bodies.ts";
 import type { MausColor } from "./wire.ts";
 
-export const BOT_BODY_IDS = [...MASCOT_BODY_IDS, ...CARVED_BODY_IDS] as const;
+/** The seven unified character styles shared across desktop and mobile. */
+export const PRESET_STYLE_BODY_IDS = ["orb", "neko", "liquid", "synth", "spirit", "minibot", "classic"] as const;
+
+export type PresetStyleBodyId = (typeof PRESET_STYLE_BODY_IDS)[number];
+
+export const BOT_BODY_IDS = [...PRESET_STYLE_BODY_IDS, ...MASCOT_BODY_IDS, ...CARVED_BODY_IDS] as const;
 
 export type BotBodyId = (typeof BOT_BODY_IDS)[number];
 
@@ -15,6 +20,10 @@ export const botBodySchema = z.enum(BOT_BODY_IDS);
 /** Runtime-safe read of an untrusted persisted or streamed body id. */
 export function botBodyId(value: unknown): BotBodyId {
   return botBodySchema.safeParse(value).data ?? DEFAULT_MASCOT_BODY;
+}
+
+export function isPresetStyleBody(value: unknown): value is PresetStyleBodyId {
+  return (PRESET_STYLE_BODY_IDS as readonly unknown[]).includes(value);
 }
 
 export function isCarvedBody(value: unknown): value is CarvedBodyId {

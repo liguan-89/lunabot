@@ -52,6 +52,7 @@ vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines"), Engine
 vi.mock("./ModelManagement", () => ({ ModelManagement: marker("models") }));
 vi.mock("./DecisionModelSettings", () => ({ DecisionModelSettings: marker("decisionModel") }));
 vi.mock("./ImageGenerationSettings", () => ({ ImageGenerationSettings: marker("imageGeneration") }));
+vi.mock("./VideoGenerationSettings", () => ({ VideoGenerationSettings: marker("videoGeneration") }));
 vi.mock("./SkillsSection", () => ({ SkillsSection: marker("skills") }));
 vi.mock("./keys/KeysPage", () => ({ KeysPage: marker("apiKey") }));
 vi.mock("./RemoteComputerSection", () => ({ RemoteComputerSection: marker("companion") }));
@@ -266,32 +267,34 @@ describe("Settings in Simple mode", () => {
     expect(placement(open("engines"), "MARKER:apiKey;")).toBe("folded");
     expect(placement(open("imageGeneration"), "MARKER:imageGeneration;")).toBe("shown");
     expect(placement(open("engines"), "MARKER:imageGeneration;")).toBe("folded");
+    expect(placement(open("videoGeneration"), "MARKER:videoGeneration;")).toBe("shown");
+    expect(placement(open("engines"), "MARKER:videoGeneration;")).toBe("folded");
     expect(placement(open("decisionModel"), "MARKER:decisionModel;")).toBe("shown");
     expect(placement(open("engines"), "MARKER:decisionModel;")).toBe("folded");
     expect(placement(open("desktopWorkspaces"), "MARKER:desktopWorkspaces;")).toBe("shown");
     expect(placement(open("remote"), "MARKER:companion;")).toBe("shown");
     expect(placement(open("companion"), "MARKER:companion;")).toBe("folded");
     expect(SIMPLE_FOLDED).toEqual({
-      connections: "ai-keys", decisionModel: "ai-decision", imageGeneration: "ai-images",
+      connections: "ai-keys", decisionModel: "ai-decision", imageGeneration: "ai-images", videoGeneration: "ai-videos",
       remote: "computer-elsewhere", desktopWorkspaces: "computer-elsewhere",
     });
   });
 
-  it("shows the AI page as Your AI, then API keys, image generation and decision", () => {
+  it("shows the AI page as Your AI, then API keys, image generation, video generation and decision", () => {
     fixture.section = "engines";
     const html = render();
     expect(currentPage(html)).toBe("ai");
-    expect(blocks(html)).toEqual(["engines", "connections", "imageGeneration", "decisionModel"]);
+    expect(blocks(html)).toEqual(["engines", "connections", "imageGeneration", "videoGeneration", "decisionModel"]);
     expect(markers(html).filter((name) => name === "models" || name === "decisionModel")).toEqual(["models", "decisionModel"]);
     expect(html).toMatch(/aria-expanded="false"[^>]*>[\s\S]*?>API keys</);
     expect(html).not.toContain("API keys and connections");
   });
 
-  it("orders Computer as your bots' computers, Phone & devices, the browser, logins, then Connect from elsewhere", () => {
+  it("orders Computer as your bots' computers, Phone & devices, the browser, logins, channels, then Connect from elsewhere", () => {
     fixture.section = "companion";
     const html = render();
     expect(currentPage(html)).toBe("computer");
-    expect(blocks(html)).toEqual(["computer", "companion", "browser", "logins", "elsewhere", "desktopWorkspaces", "remote"]);
+    expect(blocks(html)).toEqual(["computer", "companion", "browser", "logins", "channels", "elsewhere", "desktopWorkspaces", "remote"]);
     expect(groupLabels(html)).toEqual(["Your bots’ computers", "Phone &amp; devices", "Built-in browser"].map((label) => label.replace("’", "&#x27;")));
     expect(html).toContain('aria-label="Enable the built-in browser"');
   });
@@ -398,25 +401,25 @@ describe("Settings in Simple mode", () => {
 describe("Settings in Advanced mode", () => {
   beforeEach(() => { fixture.advancedMode = true; });
 
-  it("keeps the grouped rail and General, Advanced mode switch first, on the same Settings look as Simple", () => {
+  it("uses the flat Muse-style rail and keeps General with Advanced mode switch first", () => {
     const html = render();
     expect(html).toContain("glass-surface");
     expect(html).toContain('data-settings-look="advanced"');
-    expect(html).not.toContain("data-settings-page=");
-    expect([...html.matchAll(/data-settings-group="([^"]+)"/g)].map((match) => match[1])).toEqual(["you", "ai", "computers", "account"]);
+    expect(html).not.toContain("data-settings-group=");
+    expect(pages(html)).toEqual(["general", "appearance", "ai", "connectors", "computer", "vault", "channels", "devices", "data", "billing", "team", "experimental"]);
     expect(html.indexOf('aria-label="Advanced mode"')).toBeLessThan(html.indexOf("Language"));
     expect(html).toContain("Show every technical control on this device");
     expect(html).not.toContain("More settings");
-    // The effort for new bots is one row now: Defaults for new bots carries the same select.
-    for (const kept of ["Group turns", ">Defaults for new bots<", 'aria-label="Send usage analytics"', "Diagnostics"]) {
+    for (const kept of [">Defaults for new bots<", 'aria-label="Send usage analytics"', "Diagnostics"]) {
       expect(placement(html, kept), kept).toBe("shown");
     }
+    expect(placement(open("backups"), "Group turns")).toBe("shown");
   });
 
   it("treats a link to Updates as General", () => {
     fixture.section = "updates";
     const html = render();
-    expect(html).toContain('data-settings-section="general" aria-current="page"');
+    expect(html).toMatch(/data-settings-page="general"[^>]*aria-current="page"/);
   });
 });
 

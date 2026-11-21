@@ -75,6 +75,12 @@ internal class LiveCallController(
     /** Voice calls default to the loudspeaker; earpiece is opt-in. */
     var speakerOn by mutableStateOf(true)
         private set
+    /** True while downlink PCM audio is actively speaking (with 380 ms silence hysteresis). */
+    var speaking by mutableStateOf(false)
+        private set
+    /** Normalized downlink voice energy (0..1) for subtle avatar pulse. */
+    var audioLevel by mutableStateOf(0f)
+        private set
 
     private var socket: WebSocket? = null
     private var recordThread: Thread? = null
@@ -90,6 +96,11 @@ internal class LiveCallController(
     @Volatile private var closed = false
     private var started = false
     private val heardClear = Runnable { heard = "" }
+    private val speakingClear = Runnable {
+        speaking = false
+        audioLevel = 0f
+    }
+    @Volatile private var lastLevelPublishAt = 0L
 
     private val playbackQueue = LinkedBlockingQueue<ByteArray>(PLAYBACK_QUEUE_CHUNKS)
 
@@ -147,6 +158,7 @@ internal class LiveCallController(
         Log.d(TAG, "stop from $state")
         closed = true
         mainHandler.removeCallbacks(heardClear)
+        mainHandler.removeCallbacks(speakingClear)
         releaseAudio()
         runCatching { socket?.close(1000, null) }
         socket = null
@@ -244,6 +256,7 @@ internal class LiveCallController(
             try {
                 while (playing) {
                     val data = playbackQueue.poll(200, TimeUnit.MILLISECONDS) ?: continue
+                    publishDownlinkEnergy(data)
                     track.write(data, 0, data.size)
                 }
             } finally {
@@ -296,8 +309,46 @@ internal class LiveCallController(
         return null
     }
 
+    private fun publishDownlinkEnergy(pcm16Le: ByteArray) {
+        if (pcm16Le.size < 2) return
+        var sumSquares = 0.0
+        val samples = pcm16Le.size / 2
+        var i = 0
+        while (i + 1 < pcm16Le.size) {
+            val lo = pcm16Le[i].toInt() and 0xFF
+            val hi = pcm16Le[i + 1].toInt()
+            val sample = ((hi shl 8) or lo).toShort().toDouble() / 32768.0
+            sumSquares += sample * sample
+            i += 2
+        }
+        val rms = kotlin.math.sqrt(sumSquares / samples).toFloat()
+        val now = android.os.SystemClock.uptimeMillis()
+        if (rms >= SPEAKING_RMS_THRESHOLD) {
+            val normalized = ((rms - SPEAKING_RMS_THRESHOLD) / 0.18f).coerceIn(0.15f, 1f)
+            if (!speaking || now - lastLevelPublishAt >= 50L) {
+                lastLevelPublishAt = now
+                mainHandler.removeCallbacks(speakingClear)
+                mainHandler.post {
+                    if (!closed) {
+                        speaking = true
+                        audioLevel = normalized
+                    }
+                }
+                mainHandler.postDelayed(speakingClear, SPEAKING_HOLD_MILLIS)
+            } else {
+                mainHandler.removeCallbacks(speakingClear)
+                mainHandler.postDelayed(speakingClear, SPEAKING_HOLD_MILLIS)
+            }
+        }
+    }
+
     private fun flushPlayback() {
         playbackQueue.clear()
+        mainHandler.removeCallbacks(speakingClear)
+        mainHandler.post {
+            speaking = false
+            audioLevel = 0f
+        }
         player?.let { track ->
             runCatching {
                 track.pause()
@@ -313,6 +364,11 @@ internal class LiveCallController(
         recorder = null
         player = null
         playbackQueue.clear()
+        mainHandler.removeCallbacks(speakingClear)
+        mainHandler.post {
+            speaking = false
+            audioLevel = 0f
+        }
         if (audioActive) {
             audioActive = false
             audioManager.mode = previousMode
@@ -385,6 +441,9 @@ internal class LiveCallController(
         const val CAPTION_CHARS = 240
         const val HEARD_CHARS = 160
         const val HEARD_CLEAR_MILLIS = 2_500L
+        /** Matches desktop RMS speaking detector with 380 ms silence hysteresis. */
+        const val SPEAKING_RMS_THRESHOLD = 0.018f
+        const val SPEAKING_HOLD_MILLIS = 380L
 
         fun captureBufferBytes(): Int {
             val minimum = AudioRecord.getMinBufferSize(

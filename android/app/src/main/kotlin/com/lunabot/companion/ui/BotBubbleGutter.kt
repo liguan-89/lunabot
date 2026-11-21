@@ -18,14 +18,14 @@ import androidx.compose.ui.unit.dp
  * would call it long on one and short on the other.
  */
 object BotBubbleGutter {
-    /** Short answers: the bubble stops well short of the edge. */
+    /** Short answers (<= 2 lines): the bubble keeps a wider right gutter. */
     val SHORT = 32.dp
 
-    /** Long answers: the bubble uses the room, keeping only a hair of margin. */
+    /** Long answers (> 2 lines): the bubble expands wider, keeping a narrow gutter. */
     val LONG = 16.dp
 
-    /** Past this many lines the answer is long enough that the room matters more. */
-    const val LONG_ANSWER_LINES = 5
+    /** Past this many lines (> 2) the bubble switches to the wider width. */
+    const val LONG_ANSWER_LINES = 2
 
     fun of(lineCount: Int): Dp = if (lineCount > LONG_ANSWER_LINES) LONG else SHORT
 }

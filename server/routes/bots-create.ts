@@ -1,3 +1,4 @@
+import { normalizeBotAvatarStates } from "../../shared/bot-avatar.ts";
 import type { WireBot } from "../../shared/wire.ts";
 import { freshLook } from "../bot-look.ts";
 import { validateBotCwd } from "../bot-cwd.ts";
@@ -205,6 +206,7 @@ export function createBotCreateRoutes(deps: BotCreateRouteDeps): RouteHandler {
           ...ordinary, name: bot.name, section, modelSelection: bot.modelSelection,
           mascotExpression: ordinary.mascotExpression ?? undefined,
           avatarUrl: ordinary.avatarUrl || undefined,
+          avatarStates: normalizeBotAvatarStates(ordinary.avatarStates),
           computer: ordinary.computer ?? undefined, cwd: checkedCwd.cwd ?? undefined,
           mcpServers: ordinary.mcpServers ?? undefined,
           browserProfile: ordinary.browserProfile || undefined,
