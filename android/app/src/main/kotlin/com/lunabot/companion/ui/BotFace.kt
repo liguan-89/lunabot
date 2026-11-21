@@ -910,13 +910,7 @@ private fun DrawScope.drawNekoFace(
                     drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
                 }
             }
-            // Tiny ceramic cat nose harmonized with the eye tone
-            val noseCenter = middle + Offset(gazeX * 0.7f, 0.08f * radius + gazeY * 0.7f)
-            drawOval(
-                color = soft.eye.copy(alpha = 0.72f),
-                topLeft = Offset(noseCenter.x - radius * 0.085f, noseCenter.y - radius * 0.048f),
-                size = Size(radius * 0.17f, radius * 0.096f),
-            )
+
         }
         drawPath(headPath, color = if (isLightBody) Color(0x14000000) else Color(0x10000000), style = Stroke(0.6.dp.toPx()))
         if (crown) drawSculptedCrown(pose, radius, middle)
@@ -1088,14 +1082,7 @@ private fun DrawScope.drawSynthFace(
             val h = max(lcdH * 0.36f * open, w * 0.34f)
             drawRoundRect(ledColor, Offset(c.x - w / 2f, c.y - h / 2f), Size(w, h), CornerRadius(w * 0.32f, w * 0.32f))
         }
-        // Tiny LCD smile dash
-        val mouthCenter = Offset(lcdTopLeft.x + lcdW / 2f + gazeX * 0.6f, lcdTopLeft.y + lcdH * 0.70f + gazeY * 0.6f)
-        drawRoundRect(
-            color = ledColor.copy(alpha = 0.85f),
-            topLeft = Offset(mouthCenter.x - lcdW * 0.08f, mouthCenter.y - lcdH * 0.045f),
-            size = Size(lcdW * 0.16f, lcdH * 0.09f),
-            cornerRadius = CornerRadius(lcdH * 0.045f, lcdH * 0.045f),
-        )
+
         // Tactile speaker grille dots along bottom
         val dotR = max(0.9.dp.toPx(), boxW * 0.020f)
         val grilleY1 = topLeft.y + boxH * 0.75f
@@ -1218,16 +1205,7 @@ private fun DrawScope.drawSpiritFace(
             }
         }
 
-        val smileCenter = middle + Offset(gazeX * 0.7f, 0.11f * radius + gazeY * 0.7f)
-        val smilePath = Path().apply {
-            moveTo(smileCenter.x - radius * 0.11f, smileCenter.y)
-            quadraticTo(smileCenter.x, smileCenter.y + radius * 0.10f, smileCenter.x + radius * 0.11f, smileCenter.y)
-        }
-        drawPath(
-            path = smilePath,
-            color = eyeColor.copy(alpha = 0.85f),
-            style = Stroke(width = max(1.4.dp.toPx(), radius * 0.055f), cap = StrokeCap.Round),
-        )
+
 
         if (crown) drawMoonStarCrest(pose, radius, middle)
     }
