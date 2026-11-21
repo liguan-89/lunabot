@@ -53,6 +53,15 @@ async function until<T>(read: () => T | Promise<T>, accept: (value: T) => boolea
 }
 // The latest pi turn, in the shape the retired Claude dump had: its launch (what it mounted, its argv, its pid) and the
 // instructions in effect. A prompt row lands when the turn starts, so this resolves while the turn runs.
+// Clears the prompt rows a recipe already read while keeping the launch rows: a warm pi child writes its launch
+// once at spawn, so a wiped log would leave its next turn's prompt with no launch to pair to.
+const clearDump = () => {
+  if (!existsSync(dumpFile)) return;
+  const kept = readFileSync(dumpFile, "utf8").split("\n").filter((line) => {
+    try { return Boolean((JSON.parse(line) as { argv?: unknown }).argv); } catch { return false; }
+  });
+  writeFileSync(dumpFile, kept.length ? kept.join("\n") + "\n" : "");
+};
 const dump = () => until(() => {
   const turns = piTurns(dumpFile);
   const turn = turns.at(-1);
@@ -579,7 +588,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
       expect(boatPrompts).toHaveLength(0);
       expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(state === "wake" ? 0 : 1);
       expect(boatCalls.some(call => call.path.endsWith("/resume"))).toBe(state === "wake");
-      rmSync(dumpFile, { force: true });
+      clearDump();
       await api("POST", `/api/bots/${bot.id}/messages`, { text: "Inspect the current page on the same cloud VM" });
       expect(harnessComputer(await dump())).toBe(true);
       await idle(bot.id);
@@ -898,7 +907,7 @@ describe("Group Local VM ownership on the real isolated server", () => {
       expect(boatCalls.some(call => call.path.endsWith("/resume"))).toBe(true);
       expect(boatCalls.filter(call => call.method === "POST" && call.path === "/sandboxes")).toHaveLength(0);
       expect(JSON.stringify(await api("GET", "/api/bots?messages=30"))).not.toContain("not available in channels yet");
-      rmSync(dumpFile, { force: true });
+      clearDump();
       await send(group.id);
       expect(onBoat(await dump())).toBe(true);
       await idle(bots[0].id);
