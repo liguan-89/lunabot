@@ -3,6 +3,7 @@
 // PHONE_REPLY_WECHAT jobs the phone sends itself — never a tap, and only ever to the peer that wrote in.
 // Groups, contacts, moments and payments do not exist in this protocol: nothing here can enumerate them,
 // nothing can send as the person, and the phone only ever reaches the owner bound to its own account.
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { escapeAttribute } from "../src/lib/composer-attachments.ts";
@@ -33,7 +34,7 @@ export interface WechatRelayDeps {
   acceptDirectSend(input: DirectSendInput): Promise<DirectSendReceipt>;
   routineRunForThread(threadId: string): unknown;
   ignoreEvent(event: RuntimeEvent): boolean;
-  replyWechat(phoneKey: string, to: string, text: string): Promise<unknown>;
+  replyWechat(phoneKey: string, to: string, text: string, image?: { mime: string; data: string }): Promise<unknown>;
 }
 
 /** A picture's name is untrusted prompt content: it is a display name only, never a path. */
@@ -83,11 +84,19 @@ export function createWechatRelay(deps: WechatRelayDeps): { push(phoneKey: strin
       if (!fromWechat) return;
       const phoneKey = chatId.slice(0, sep);
       const to = chatId.slice(sep + 1);
-      for (const text of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text" && m.text?.trim()).map((m) => m.text!.trim())) {
-        void deps.replyWechat(phoneKey, to, text)
-          // jobs.request resolves {ok:false} rather than rejecting, so a dropped reply must be told apart by the outcome.
-          .then((outcome) => { if ((outcome as { ok?: boolean } | null)?.ok === false) console.warn(`wechat: reply not sent: ${(outcome as { error?: string }).error ?? "unknown"}`); })
-          .catch((error) => console.warn(`wechat: reply failed: ${(error as Error).message}`));
+      const send = (text: string, image?: { mime: string; data: string }) => void deps.replyWechat(phoneKey, to, text, image)
+        // jobs.request resolves {ok:false} rather than rejecting, so a dropped reply must be told apart by the outcome.
+        .then((outcome) => { if ((outcome as { ok?: boolean } | null)?.ok === false) console.warn(`wechat: reply not sent: ${(outcome as { error?: string }).error ?? "unknown"}`); })
+        .catch((error) => console.warn(`wechat: reply failed: ${(error as Error).message}`));
+      for (const message of messages.filter((m) => m.turnId === event.turnId && m.role === "bot" && m.kind === "text")) {
+        if (message.text?.trim()) send(message.text.trim());
+        // An image the bot attached is an outbound message of its own; a fromTool image is input the bot saw, not sent.
+        for (const attachment of message.attachments ?? []) {
+          if (attachment.kind !== "image" || attachment.fromTool) continue;
+          readFile(attachment.path)
+            .then((bytes) => send("", { mime: attachment.mime, data: bytes.toString("base64") }))
+            .catch((error) => console.warn(`wechat: image reply failed: ${(error as Error).message}`));
+        }
       }
     } catch (error) {
       console.warn(`wechat: reply failed: ${(error as Error).message}`);

@@ -492,8 +492,8 @@ export function createPhones(deps: PhonesDeps) {
       return outcome;
     },
     /** A channel reply the phone sends itself as WeChat; only ever to the peer that wrote in, never a DM to anyone else. */
-    replyWechat: async (key: string, to: string, text: string) => {
-      const outcome = await jobs.request(key, PHONE_REPLY_WECHAT, { to, text }, {
+    replyWechat: async (key: string, to: string, text: string, image?: { mime: string; data: string }) => {
+      const outcome = await jobs.request(key, PHONE_REPLY_WECHAT, { to, text, ...(image ? { image } : {}) }, {
         active: () => true, timeoutMs: PHONE_SEND_TIMEOUT_MS,
         offlineText: "This phone is offline. Open the Luna Bot app on it.", online: () => registry.online(key),
       });

@@ -517,6 +517,85 @@ class WechatRuntimeTest {
     }
 
     @Test
+    fun `a job with an image member uploads and sends the picture, not the text`() = runTest {
+        boundStore()
+        val transport = object : ScriptedTransport() {
+            val order = mutableListOf<String>()
+            override suspend fun sendText(
+                account: WechatAccount,
+                peerId: String,
+                clientId: String,
+                text: String,
+                contextToken: String?,
+            ) {
+                order += "text:$peerId"
+            }
+            override suspend fun uploadImage(
+                account: WechatAccount,
+                peerId: String,
+                bytes: ByteArray,
+            ): WechatUploadedImage {
+                order += "upload:$peerId:${bytes.size}"
+                return WechatUploadedImage(WechatImage(midSize = bytes.size.toLong()))
+            }
+            override suspend fun sendImage(
+                account: WechatAccount,
+                peerId: String,
+                clientId: String,
+                uploaded: WechatUploadedImage,
+                contextToken: String?,
+            ) {
+                order += "send:$peerId:$clientId"
+            }
+        }
+        val runtime = runtime(transport)
+        val answer = answerWechatReply(
+            runtime = runtime,
+            jobId = "job-9",
+            arguments = JsonObject(
+                mapOf(
+                    "to" to JsonPrimitive(owner),
+                    "text" to JsonPrimitive(""),
+                    "image" to JsonObject(
+                        mapOf(
+                            "mime" to JsonPrimitive("image/png"),
+                            "data" to JsonPrimitive(Base64.getEncoder().encodeToString(byteArrayOf(1, 2, 3))),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        assertEquals(setOf("ok"), answer.keys)
+        assertEquals(true, answer.getValue("ok").jsonPrimitive.boolean)
+        assertEquals(listOf("upload:$owner:3", "send:$owner:job-9"), transport.order)
+    }
+
+    @Test
+    fun `a job whose image data does not decode is invalid`() = runTest {
+        boundStore()
+        val transport = ScriptedTransport()
+        val runtime = runtime(transport)
+        val answer = answerWechatReply(
+            runtime = runtime,
+            jobId = "job-1",
+            arguments = JsonObject(
+                mapOf(
+                    "to" to JsonPrimitive(owner),
+                    "text" to JsonPrimitive("hi"),
+                    "image" to JsonObject(
+                        mapOf(
+                            "mime" to JsonPrimitive("image/png"),
+                            "data" to JsonPrimitive("!!!not-base64!!!"),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        assertEquals("invalid", answer.getValue("error").jsonPrimitive.content)
+        assertTrue(transport.sent.isEmpty())
+    }
+
+    @Test
     fun `a journal entry whose image file vanished is dropped, not posted bare`() = runTest {
         boundStore()
         val sink = RecordingSink()

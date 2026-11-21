@@ -361,10 +361,8 @@ internal class WechatRuntime(
     }
 
     /**
-     * Send one image. The frozen reply job shape is `{ to, text }`, so nothing
-     * in the server contract reaches this today; it is ported because Mika's
-     * image pipeline includes the outbound half, and a later job shape can use
-     * it without re-deriving the upload handshake.
+     * Send one image — the `image` member of the reply job shape. iLink wants
+     * an upload handshake before the send, one image per outbound message.
      */
     suspend fun replyImage(clientId: String, to: String, bytes: ByteArray): WechatReplyResult {
         val account = store.account()

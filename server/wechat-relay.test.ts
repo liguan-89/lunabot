@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { AppConfig } from "./config.ts";
 import type { DirectSendInput } from "./direct-send.ts";
@@ -29,7 +29,7 @@ function harness(overrides: { cfg?: AppConfig; messages?: Message[] } = {}) {
   const tasks = new Map<string, { id: string; threadId: string }>();
   const listeners: Array<(event: RuntimeEvent) => void> = [];
   const sends: DirectSendInput[] = [];
-  const replies: Array<{ phoneKey: string; to: string; text: string }> = [];
+  const replies: Array<{ phoneKey: string; to: string; text: string; image?: { mime: string; data: string } }> = [];
   let nextThread = 0;
   const store = {
     bot: (id: string) => (id === BOT.id ? BOT : undefined),
@@ -47,7 +47,7 @@ function harness(overrides: { cfg?: AppConfig; messages?: Message[] } = {}) {
     acceptDirectSend: async (input) => { sends.push(input); return { ok: true } as never; },
     routineRunForThread: () => undefined,
     ignoreEvent: () => false,
-    replyWechat: async (phoneKey, to, text) => { replies.push({ phoneKey, to, text }); },
+    replyWechat: async (phoneKey, to, text, image) => { replies.push({ phoneKey, to, text, image }); },
   });
   const emit = (event: RuntimeEvent) => listeners.forEach((fn) => fn(event));
   return { relay, emits: emit, sends, replies, tasks, dataDir };
@@ -176,6 +176,27 @@ describe("createWechatRelay replies", () => {
     relay.push("companion:dev-1", wechatEvent());
     emits(completed("thread-1"));
     expect(replies.map((reply) => reply.phoneKey)).toEqual(["companion:dev-1", "companion:dev-1"]);
+  });
+
+  it("sends a bot's image attachment as its own reply, one job per image, and skips tool-input images", async () => {
+    const imagePath = join(mkdtempSync(join(tmpdir(), "wechat-out-")), "shot.jpg");
+    writeFileSync(imagePath, JPEG);
+    const messages = [
+      { id: "u1", role: "user", kind: "text", text: "hi", sender: { id: "wechat:session:abc|owner-1", name: "x" } },
+      { id: "b1", role: "bot", kind: "text", text: "看图", turnId: "turn-1" },
+      { id: "b2", role: "bot", kind: "text", text: "", turnId: "turn-1", attachments: [
+        { kind: "image", path: imagePath, mime: "image/jpeg", name: "shot.jpg" },
+        { kind: "image", path: imagePath, mime: "image/jpeg", name: "tool-input.jpg", fromTool: true },
+        { kind: "file", path: imagePath, mime: "application/pdf", name: "doc.pdf" },
+      ] },
+    ] as Message[];
+    const { relay, emits, replies } = harness({ messages });
+    relay.push("session:abc", wechatEvent());
+    emits(completed("thread-1"));
+    await vi.waitFor(() => expect(replies).toHaveLength(2));
+    expect(replies[0]).toEqual({ phoneKey: "session:abc", to: "owner-1", text: "看图" });
+    expect(replies[1]).toMatchObject({ phoneKey: "session:abc", to: "owner-1", text: "", image: { mime: "image/jpeg" } });
+    expect(Buffer.from(replies[1]!.image!.data, "base64")).toEqual(JPEG);
   });
 
   it("sends nothing for a failed turn, another thread, or a turn the channel did not start", () => {
