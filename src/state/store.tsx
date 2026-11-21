@@ -27,7 +27,7 @@ import { optimisticMessageId, optimisticUserMessage, sendArrived, sendReconciled
 import { patchedGroups, roomAnswers, snapshotPatch } from "./room-frames";
 import { savedStateAction, type SavedOwner, type SavedSnapshot } from "./saved-state";
 import { keepBotNavigation, keepGroupNavigation, navigatedSince, visibleMessages } from "./snapshot-navigation";
-import { capHeldInBackground, followSnapshotTails, noteSnapshotTails, olderThanHeld, shortHeld, SNAPSHOT_TAIL } from "./snapshot-tail";
+import { capHeldInBackground, followSnapshotTails, MESSAGE_PAGE_SIZE, noteSnapshotTails, olderThanHeld, shortHeld, SNAPSHOT_TAIL } from "./snapshot-tail";
 export { visibleMessages } from "./snapshot-navigation";
 export { awayFromMainThread, botOpensTo, markedThread, openBot, openBotRow, openBotThread, openRoomThread, openThread, visibleNotificationThread, type ThreadTarget } from "./thread-navigation";
 import type { TurnDigest } from "../../shared/digest";
@@ -1943,8 +1943,7 @@ export const initialState: AppState = {
 
 export { api, ApiError, liveCallFromFrame, nextLiveCallLookup };
 
-/** Messages per snapshot thread and per scrollback page: the server's own page maximum. */
-export const MESSAGE_PAGE_SIZE = 200;
+export { MESSAGE_PAGE_SIZE } from "./snapshot-tail";
 export const SWITCH_MESSAGE_COUNT = 80;
 
 type TrustedApprovalBridge = {
