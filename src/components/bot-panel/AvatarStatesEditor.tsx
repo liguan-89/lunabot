@@ -198,7 +198,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
                 "rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-40",
                 active
                   ? "border-accent bg-accent/15 text-accent"
-                  : "border-ink/10 bg-surface text-ink-secondary hover:bg-ink/[0.05] hover:text-ink",
+                  : "border-ink/10 bg-card text-ink-secondary hover:bg-ink/[0.05] hover:text-ink",
               )}
             >
               {option.label}
@@ -230,7 +230,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
         value={customPrompt}
         onChange={(e) => setCustomPrompt(e.target.value)}
         placeholder="可选：补充细节（留空即按所选风格生成；聊天里说「做套动态头像」会先问你风格）"
-        className="w-full rounded-lg border border-ink/10 bg-surface px-2.5 py-1.5 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent/50 focus:outline-none"
+        className="w-full rounded-lg border border-ink/10 bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent/50 focus:outline-none"
       />
 
       <div className="space-y-1.5">
@@ -243,7 +243,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
             <div
               key={stateKey}
               data-avatar-state-row={stateKey}
-              className="flex items-center gap-2 rounded-xl border border-ink/[0.06] bg-surface/60 px-2 py-1.5"
+              className="flex items-center gap-2 rounded-xl border border-ink/[0.06] bg-card/60 px-2 py-1.5"
             >
               <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-raised">
                 {mediaUrl ? (

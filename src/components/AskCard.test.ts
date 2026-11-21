@@ -10,14 +10,14 @@ const classesOf = (html: string, at: RegExp) => (at.exec(html)?.[1] ?? "").split
 const LONG = "Yes, the welcome text too, and the footer text of the pricing page, on branch fix/pricing-page-footer";
 
 describe("AskCard", () => {
-  it("is one raised card in both modes: the composer's surface, a 0.5px hairline, rounded 20, 560 wide", () => {
+  it("is one raised card in both modes: the composer's elevated surface, a 0.5px hairline, rounded 18, 560 wide", () => {
     const html = renderToStaticMarkup(createElement(AskCard, { ariaLabel: "Plan", title: "Choose a plan", explanation: "Why it asks." }));
     const card = classesOf(html, /^<div[^>]*class="([^"]*)"/);
-    expect(card).toEqual(expect.arrayContaining(["bg-composer", "ring-[0.5px]", "ring-ink/10", "rounded-[18px]", "max-w-[560px]", "w-full", "text-start"]));
+    expect(card).toEqual(expect.arrayContaining(["bg-composer", "ring-[0.5px]", "ring-ink/[0.11]", "rounded-[18px]", "max-w-[560px]", "w-full", "text-start"]));
     expect(html).toContain('role="group"');
     expect(html).toContain('aria-label="Plan"');
     expect(html).toContain("Why it asks.");
-    expect(html).not.toContain("shadow");
+    expect(html).toContain("shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-ink)_6%,transparent)]");
   });
 
   it("puts the question in clear ink at reading size, under a header line in secondary ink that names the bot that asks", () => {

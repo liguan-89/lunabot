@@ -42,11 +42,12 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("the sidebar tiles", () => {
-  it.each([true, false])("draws the main tile larger (68px avatar in 78x104) and pinned tiles at 56px in 78x92 without a plate behind the portrait (main %s)", (primary) => {
+  it.each([true, false])("draws the main tile larger (68px avatar in 82x104) and pinned tiles at 56px in 78x92 without a plate behind the portrait (main %s)", (primary) => {
     const html = renderToStaticMarkup(createElement(SidebarBotTile, { ...props(bot({ chiefOfStaff: primary })), primary }));
     const height = primary ? "104px" : "92px";
+    const tileWidth = primary ? "82px" : "78px";
     const avatar = primary ? "68px" : "56px";
-    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\[--tile:var\\(--color-panel\\)\\] h-\\[${height}\\] w-\\[78px\\]`));
+    expect(html).toMatch(new RegExp(`data-sidebar-tile="${primary ? "primary" : "pinned"}"[^>]*class="[^"]*\\[--tile:var\\(--color-panel\\)\\] min-h-\\[${height}\\] w-\\[${tileWidth}\\]`));
     expect(html).not.toContain("bg-[var(--tile)]");
     expect(html).not.toContain("rounded-[8px]");
     expect(html).toContain(`width="${avatar}" height="${avatar}"`);
@@ -122,9 +123,9 @@ describe("the tile grid", () => {
     const drag = count > 1 ? ":drag" : "";
     expect(tiles(html)).toEqual(["primary:mausbot", ...pins(count).map((pin) => `pinned:${pin.id}${drag}`)]);
     expect(html).toMatch(/^<div data-sidebar-tiles="" class="flex max-h-\[40vh\] flex-wrap items-end justify-center gap-1 overflow-y-auto /);
-    expect(html.match(/\bh-\[104px\] w-\[78px\]/g)).toHaveLength(1);
+    expect(html.match(/\bmin-h-\[104px\] w-\[82px\]/g)).toHaveLength(1);
     expect(html.match(/width="68px" height="68px"/g)).toHaveLength(1);
-    expect(html.match(/\bh-\[92px\] w-\[78px\]/g) ?? []).toHaveLength(count);
+    expect(html.match(/\bmin-h-\[92px\] w-\[78px\]/g) ?? []).toHaveLength(count);
     expect(html.match(/width="56px" height="56px"/g) ?? []).toHaveLength(count);
     expect(html).not.toContain('data-testid="chief-badge"');
   });
@@ -143,10 +144,11 @@ describe("the tile grid", () => {
   it.each([[280, 3], [360, 4]])("fits %ipx of sidebar to %i tiles across, with or without a scrollbar", (width, columns) => {
     const html = grid(main, pins(5));
     const tile = Number(/data-sidebar-tile="primary"[^>]*class="[^"]*\bw-\[(\d+)px\]/.exec(html)![1]);
+    const pinTile = Number(/data-sidebar-tile="pinned"[^>]*class="[^"]*\bw-\[(\d+)px\]/.exec(html)![1]);
     const gridClass = /data-sidebar-tiles="" class="([^"]*)"/.exec(html)![1]!;
     const gap = 4 * Number(/\bgap-(\d+)\b/.exec(gridClass)![1]);
     const gutters = 2 * 4 * Number(/\bpx-(\d+)\b/.exec(gridClass)![1]);
-    const across = (room: number) => Math.floor((room + gap) / (tile + gap));
+    const across = (room: number) => 1 + Math.floor((room - tile) / (pinTile + gap));
     expect(across(width - gutters)).toBe(columns);
     expect(across(width - gutters - 8)).toBe(columns);
   });

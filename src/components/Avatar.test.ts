@@ -9,7 +9,6 @@ import {
   type BotAvatarProps,
   type MausAvatarProps,
 } from "./Avatar";
-import { MASCOT_BODIES } from "../../shared/mascot-bodies";
 
 const render = (props: Partial<MausAvatarProps>) =>
   renderToStaticMarkup(createElement(MausAvatar, { color: "green", animated: false, ...props }));
@@ -20,21 +19,23 @@ const renderBot = (bot: Partial<BotAvatarProps["bot"]>, fallback?: BotAvatarProp
   );
 
 describe("MausAvatar body", () => {
-  it("wears the cursor when no body is given", () => {
-    expect(render({})).toContain(MASCOT_BODIES.cursor.fit);
+  it("renders the stored avatar style when no body is given", () => {
+    const markup = render({});
+    expect(markup).toContain('data-preset-face="green"');
+    expect(markup).toContain('data-avatar-style="orb"');
   });
 
-  it("wears the body it is given", () => {
-    const markup = render({ bodyId: "star" });
-    expect(markup).toContain(MASCOT_BODIES.star.fit);
+  it("renders a preset-style body as its own style", () => {
+    const markup = render({ bodyId: "neko" });
+    expect(markup).toContain('data-avatar-style="neko"');
   });
 
-  it("falls back to the cursor for an unknown body", () => {
-    // SAFETY: "hexagram" is deliberately not a MascotBodyId, to exercise the runtime fallback for persisted or streamed
-    // data.
-    expect(render({ bodyId: "hexagram" as MausAvatarProps["bodyId"] })).toContain(
-      MASCOT_BODIES.cursor.fit,
-    );
+  it("falls back to the stored style for a mascot or unknown body", () => {
+    // SAFETY: "hexagram" is deliberately not a BotBodyId, to exercise the runtime fallback for persisted or streamed
+    // data. Mascot-era ids like "star" reach the same fallback now that bodies route through PresetFace.
+    for (const bodyId of ["hexagram", "star"] as MausAvatarProps["bodyId"][]) {
+      expect(render({ bodyId })).toContain('data-avatar-style="orb"');
+    }
   });
 
   it("paints the body with the per-bot gradient, never a flat black fill", () => {
@@ -46,22 +47,19 @@ describe("MausAvatar body", () => {
 });
 
 describe("mascot facial feature colors", () => {
-  it.each(["white", "black"] as const)("uses %s for both eyes and mouth on every body type", (mascotFaceColor) => {
+  it.each(["white", "black"] as const)("paints the features with %s ink when the bot asks for it", (mascotFaceColor) => {
     const ink = mascotFaceColor === "white" ? "#ffffff" : "#000000";
-    for (const mascotBody of ["cursor", "star", "pumpkin", "vampire"] as const) {
+    for (const mascotBody of ["orb", "neko", "liquid"] as const) {
       for (const color of ["green", "chrome"] as const) {
         const markup = renderBot({ color, mascotBody, mascotFaceColor });
         expect(markup).toContain(`fill="${ink}"`);
-        expect(markup).toContain(`stroke="${ink}"`);
-        expect(markup).not.toContain('visibility="hidden"');
       }
     }
   });
 
-  it("keeps default inks when an override is reset or comes from an older profile", () => {
-    expect(renderBot({ color: "chrome", mascotFaceColor: null })).toContain('stroke="#1E2833"');
-    expect(renderBot({ mascotBody: "pumpkin" })).toContain('stroke="#0d0a10"');
-    expect(renderBot({})).toContain('stroke="#ffffff"');
+  it("keeps each preset's own eye ink when no override is set", () => {
+    expect(renderBot({ color: "chrome", mascotFaceColor: null })).toContain('fill="#1C1C1E"');
+    expect(renderBot({ color: "green" })).toContain('fill="#16291E"');
   });
 
   it("does not paint features over an uploaded image", () => {
@@ -74,12 +72,12 @@ describe("mascot facial feature colors", () => {
 describe("the flat preset portrait", () => {
   it.each([
     ["chrome", "white"],
-    ["silver", "white"],
-    ["green", "mint"],
+    ["silver", "silver"],
+    ["green", "green"],
     ["coral", "coral"],
-    ["red", "coral"],
+    ["red", "red"],
     ["orange", "orange"],
-    ["yellow", "orange"],
+    ["yellow", "yellow"],
     ["purple", "purple"],
     ["blue", "blue"],
   ] as const)("maps %s to the phone's %s face", (color, preset) => {
@@ -89,10 +87,10 @@ describe("the flat preset portrait", () => {
     expect(markup).not.toContain("<img");
   });
 
-  it("is the fallback only where a caller asks for it", () => {
-    expect(renderBot({ color: "chrome" })).toContain("linearGradient");
+  it("is the portrait the mascot outcome draws, whatever legacy fallback the caller passes", () => {
+    expect(renderBot({ color: "chrome" })).toContain('data-preset-face="white"');
     expect(renderBot({ color: "chrome" }, "preset")).toContain('data-preset-face="white"');
-    expect(renderBot({ color: "chrome" }, "preset")).not.toContain("linearGradient");
+    expect(renderBot({ color: "chrome" }, "preset")).toContain("linearGradient");
   });
 
   it("still shows an uploaded image ahead of the preset", () => {
@@ -101,10 +99,10 @@ describe("the flat preset portrait", () => {
     expect(markup).not.toContain("data-preset-face");
   });
 
-  it("treats the old cursor default as the preset, while a chosen body keeps its mascot", () => {
-    expect(renderBot({ mascotBody: "cursor" }, "preset")).toContain("data-preset-face");
-    expect(renderBot({ mascotBody: "star" }, "preset")).not.toContain("data-preset-face");
-    expect(renderBot({ mascotBody: "star" }, "preset")).toContain("linearGradient");
+  it("renders mascot-era body ids through the stored style; preset ids keep their own style", () => {
+    expect(renderBot({ mascotBody: "cursor" }, "preset")).toContain('data-avatar-style="orb"');
+    expect(renderBot({ mascotBody: "star" }, "preset")).toContain('data-avatar-style="orb"');
+    expect(renderBot({ mascotBody: "neko" }, "preset")).toContain('data-avatar-style="neko"');
   });
 });
 

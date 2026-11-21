@@ -17,11 +17,13 @@ vi.mock("@/lib/analytics", () => ({
 }));
 
 describe("Settings → Decision and extraction", () => {
-  it("is a sidebar item of its own, not a row under Connections", async () => {
+  it("lives inside the Models & AI page, reachable from the rail and the compact picker", async () => {
     const { SettingsModal } = await import("./SettingsModal");
+    const { ADVANCED_PAGES } = await import("./settings/registry");
+    expect(ADVANCED_PAGES.find((page) => page.sections.includes("decisionModel"))?.id).toBe("ai");
     const html = renderToStaticMarkup(createElement(StoreProvider, null, createElement(SettingsModal)));
-    expect(html).toContain('<option value="decisionModel">Decision and extraction</option>');
-    expect(html).toMatch(/<button[^>]*>(?:<svg[\s\S]*?<\/svg>)?Decision and extraction<\/button>/);
+    expect(html).toContain('<option value="ai">Models &amp; AI</option>');
+    expect(html).toMatch(/data-settings-page="ai"[^>]*>[\s\S]*?Models &amp; AI/);
   });
 
   it("matches searches for decision, extraction, jev, typesafe, cloudflare, routing and auto", async () => {

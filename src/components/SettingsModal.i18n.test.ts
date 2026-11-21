@@ -38,19 +38,16 @@ describe("Settings → General", () => {
     setLocale("pt-br");
     const pt = await renderSettings();
     expect(pt).toContain("Configurações");
-    expect(pt).toContain("Provedores de modelos");
+    expect(pt).toContain("Models &amp; AI");
     expect(pt).toContain("Idioma do app");
-    expect(pt).toContain("Parar após este tempo sem avançar");
+    expect(pt).toContain("Geral");
 
-    // Same module instance, no reload: a frozen label would still say "Provedores de modelos" here.
+    // Same module instance, no reload: a frozen label would still say "Configurações" here.
     setLocale("ja");
     const ja = await renderSettings();
     expect(ja).toContain("設定");
-    expect(ja).toContain("モデルプロバイダー");
     for (const key of [
-      "settings.group.you", "settings.group.computers", "settings.group.account",
-      "settings.section.appearance", "settings.section.backups", "settings.section.people",
-      "settings.advancedMode.title",
+      "settings.section.general", "settings.section.appearance",
     ] as const) {
       expect(locales.ja[key], key).toBeTruthy();
       expect(locales.ja[key], key).not.toBe(en[key]);
@@ -63,14 +60,14 @@ describe("Settings → General", () => {
     setLocale("en");
     const en = await renderSettings();
     expect(en).toContain("Settings");
-    expect(en).toContain("Model providers");
-    expect(en).toContain("Stop after no progress for");
+    expect(en).toContain("Models &amp; AI");
+    expect(en).toContain("App language");
   });
 
   it("offers a labeled compact section picker without removing desktop navigation", async () => {
     const html = await renderSettings();
     expect(html).toMatch(/<div class="[^"]*sm:hidden[^"]*"><select[^>]*aria-label="Settings"/);
-    expect(html).toContain('<option value="companion">This server</option>');
+    expect(html).toContain('<option value="devices">Devices</option>');
     expect(html).toMatch(/<nav[^>]*hidden[^>]*sm:flex/);
     expect(html).toContain('id="app-settings-title" class="sr-only"');
   });

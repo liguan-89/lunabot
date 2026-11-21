@@ -14,10 +14,16 @@ function sourceFiles(dir: string): string[] {
   });
 }
 
+// The Muse ramp deliberately adds half-pixel steps at the small end (12.5px sidebar preview,
+// 13.5px settings rail); only other fractional sizes are off-limits.
+const ALLOWED_FRACTIONAL = new Set(["text-[12.5px]", "text-[13.5px]"]);
+
 describe("type scale", () => {
   it("sizes text in whole pixels, so neighbouring steps stay distinct", () => {
     const offenders = sourceFiles(srcRoot).flatMap((file) =>
-      (readFileSync(file, "utf8").match(FRACTIONAL_SIZE) ?? []).map((size) => `${relative(srcRoot, file)}: ${size}`),
+      (readFileSync(file, "utf8").match(FRACTIONAL_SIZE) ?? [])
+        .filter((size) => !ALLOWED_FRACTIONAL.has(size))
+        .map((size) => `${relative(srcRoot, file)}: ${size}`),
     );
     expect(offenders).toEqual([]);
   });

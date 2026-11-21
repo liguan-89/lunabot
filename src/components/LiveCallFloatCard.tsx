@@ -112,7 +112,7 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
             audioLevel={audioLevel}
           />
         ) : (
-          <div className="flex size-full items-center justify-center bg-gradient-to-b from-surface to-raised">
+          <div className="flex size-full items-center justify-center bg-gradient-to-b from-card to-raised">
             <BotAvatar
               bot={bot}
               state={visualState === "talking" ? "happy" : visualState}

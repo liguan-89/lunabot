@@ -509,17 +509,15 @@ describe("the hero", () => {
 describe("the avatar editor", () => {
   const editor = (bot: Bot) => capture(() => AvatarEditorCard({ bot, activeState: "idle", onPatch: patch, onClose }));
 
-  it("shows the nine bodies and twelve colors, with the festival bodies and the faces behind More looks", () => {
+  it("shows the seven preset bodies and twelve colors, with the faces behind More looks", () => {
     const bot = makeBot();
     const rendered = editor(bot);
-    expect(rendered.html.match(/aria-label="Use the \w+ body"/g)).toHaveLength(9);
+    expect(rendered.html.match(/aria-label="Use the [\w-]+ body"/g)).toHaveLength(7);
     expect(rendered.html.match(/aria-label="Use \w+ mascot color"/g)).toHaveLength(12);
-    expect(rendered.html).not.toContain(">Halloween<");
-    expect(rendered.html).not.toContain(">Diwali<");
     expect(has(rendered, "data-avatar-face", "idle")).toBe(false);
-    expect(rendered.html, "the old cursor default is the preset face, not a body").not.toContain('aria-label="Use the Cursor body"');
-    click(find(rendered, "aria-label", "Use the Blob body"));
-    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "blob" });
+    expect(rendered.html, "mascot-era bodies are not pickable anymore").not.toContain('aria-label="Use the Cursor body"');
+    click(find(rendered, "aria-label", "Use the Neko body"));
+    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "neko" });
     click(find(rendered, "aria-label", "Use blue mascot color"));
     expect(patch).toHaveBeenLastCalledWith({ color: "blue" });
     expect(find(rendered, "aria-label", "Use silver mascot color").props.title).toBe("Silver");
@@ -535,24 +533,15 @@ describe("the avatar editor", () => {
     click(more);
     const open = editor(bot);
     expect(find(open, "data-avatar-more").props["aria-expanded"]).toBe(true);
-    expect(open.html.match(/aria-label="Use the [\w ]+ body"/g)).toHaveLength(29);
-    expect(open.html).toContain(">Halloween<");
-    expect(open.html).toContain(">Diwali<");
-    click(find(open, "aria-label", "Use the Pumpkin body"));
-    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "pumpkin" });
-    click(find(open, "aria-label", "Use the Kaju katli body"));
-    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "katli" });
+    expect(open.html).not.toContain(">Halloween<");
+    expect(open.html).not.toContain(">Diwali<");
     expect(find(open, "data-avatar-face", "idle").props["aria-pressed"]).toBe(true);
     click(find(open, "data-avatar-face", "proud"));
     expect(patch).toHaveBeenLastCalledWith({ mascotExpression: "proud" });
     expect(open.html).toContain(">Proud<");
   });
 
-  it("opens More looks at once for a festival body or a chosen face", () => {
-    expect(find(editor(makeBot({ mascotBody: "pumpkin" })), "data-avatar-more").props["aria-expanded"]).toBe(true);
-    fresh();
-    expect(find(editor(makeBot({ mascotBody: "laddu" })), "data-avatar-more").props["aria-expanded"]).toBe(true);
-    fresh();
+  it("opens More looks at once for a chosen face", () => {
     expect(find(editor(makeBot({ mascotExpression: "proud" })), "data-avatar-more").props["aria-expanded"]).toBe(true);
     fresh();
     expect(find(editor(makeBot()), "data-avatar-more").props["aria-expanded"]).toBe(false);
@@ -561,8 +550,8 @@ describe("the avatar editor", () => {
   it("switches back to the mascot when a body is picked over a picture", () => {
     const bot = makeBot({ avatarUrl: "/api/attachments/cat.webp", avatarCrop: "circle" });
     click(find(editor(bot), "data-avatar-tab", "bot"));
-    click(find(editor(bot), "aria-label", "Use the Star body"));
-    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "star", avatarCrop: "mascot" });
+    click(find(editor(bot), "aria-label", "Use the Neko body"));
+    expect(patch).toHaveBeenLastCalledWith({ mascotBody: "neko", avatarCrop: "mascot" });
   });
 
   it("resets the mascot as the Advanced card does", () => {
