@@ -1929,7 +1929,8 @@ body {
   background: transparent;
   border-right: 0.5px solid var(--settings-edge);
 }
-:root:is([data-skin="midnight"], [data-skin="daylight"]) [data-settings-look] .glass-surface .bg-card {
+:root:is([data-skin="midnight"], [data-skin="daylight"]) [data-settings-look] .glass-surface .bg-card,
+[data-settings-look="simple"] .glass-surface .bg-card {
   background-color: var(--color-menu);
 }
 :root:is([data-skin="midnight"], [data-skin="daylight"]) [data-settings-look] .bg-inset {

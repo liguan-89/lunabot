@@ -31,22 +31,22 @@ type PresetKey =
   | "coral"
   | "grey";
 
-const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string }> = {
-  black: { light: "#2E2E2E", body: "#000000", edge: "#000000", eye: "#FDFEFD" },
-  white: { light: "#FFFFFF", body: "#F7F3ED", edge: "#D9D5CD", eye: "#1C1C1E" },
-  silver: { light: "#E2E7EE", body: "#B9C2CE", edge: "#8E98A8", eye: "#1C1C1E" },
-  blue: { light: "#4F8BFF", body: "#1B66FA", edge: "#0F48BD", eye: "#FEFEFE" },
-  cyan: { light: "#5CE1F5", body: "#12B8D4", edge: "#0B839B", eye: "#FEFEFE" },
-  orange: { light: "#FFB266", body: "#FF9432", edge: "#D96F0C", eye: "#FEFEFE" },
-  yellow: { light: "#FFE07D", body: "#F2BE2C", edge: "#C99210", eye: "#1C1C1E" },
-  purple: { light: "#B87DFF", body: "#9443F4", edge: "#6D21C3", eye: "#FEFEFE" },
-  pink: { light: "#FF8EC3", body: "#E85399", edge: "#BA2F72", eye: "#FEFEFE" },
-  green: { light: "#6BE092", body: "#1FB85E", edge: "#128542", eye: "#FEFEFE" },
-  teal: { light: "#5BE0CE", body: "#14B09D", edge: "#0C7D6F", eye: "#FEFEFE" },
-  mint: { light: "#8DF1B0", body: "#57E58C", edge: "#2FAF62", eye: "#FEFEFE" },
-  red: { light: "#FF7D78", body: "#E54542", edge: "#B42422", eye: "#FEFEFE" },
-  coral: { light: "#FF9588", body: "#FD5C59", edge: "#D63B3B", eye: "#FEFEFE" },
-  grey: { light: "#A2A3A2", body: "#777877", edge: "#555655", eye: "#FEFEFE" },
+const FACES: Record<PresetKey, { light: string; body: string; edge: string; eye: string; warm?: boolean }> = {
+  black: { light: "#33353A", body: "#141518", edge: "#070709", eye: "#FDFEFD" },
+  white: { light: "#FFFFFF", body: "#F6F3EE", edge: "#DDD7CE", eye: "#1C1C1E", warm: true },
+  silver: { light: "#E6EBF2", body: "#C1C9D4", edge: "#9AA4B2", eye: "#1C1C1E" },
+  blue: { light: "#6FA0F5", body: "#3B76E1", edge: "#2656B3", eye: "#FEFEFE" },
+  cyan: { light: "#6DD4E6", body: "#28A7BE", edge: "#197C90", eye: "#FEFEFE" },
+  orange: { light: "#F6B47B", body: "#E48A42", edge: "#BD6824", eye: "#FEFEFE", warm: true },
+  yellow: { light: "#F7DE8C", body: "#E5BE4D", edge: "#BE9627", eye: "#1C1C1E", warm: true },
+  purple: { light: "#B594EE", body: "#845ED1", edge: "#613EA8", eye: "#FEFEFE" },
+  pink: { light: "#F39BC4", body: "#DA659D", edge: "#B04277", eye: "#FEFEFE", warm: true },
+  green: { light: "#6FD298", body: "#33A867", edge: "#207E4A", eye: "#FEFEFE" },
+  teal: { light: "#67CFC3", body: "#2AA093", edge: "#1B776D", eye: "#FEFEFE" },
+  mint: { light: "#9BE8B8", body: "#63CE8E", edge: "#3DA368", eye: "#1C1C1E" },
+  red: { light: "#EE8A86", body: "#D45450", edge: "#A63431", eye: "#FEFEFE", warm: true },
+  coral: { light: "#F4A296", body: "#E16E5E", edge: "#B84B3D", eye: "#FEFEFE", warm: true },
+  grey: { light: "#A7ABB2", body: "#7C818A", edge: "#5A5F68", eye: "#FEFEFE" },
 };
 
 /** Maps every bot palette colour cleanly to its unified PresetFace swatch. */
@@ -224,7 +224,7 @@ function FaceBody({
   clip,
 }: {
   style: AvatarStyleId;
-  face: { light: string; body: string; edge: string; eye: string };
+  face: { light: string; body: string; edge: string; eye: string; warm?: boolean };
   gradient: string;
   opalGradient: string;
   specularGradient: string;
@@ -234,6 +234,7 @@ function FaceBody({
 }) {
   const light = isLightBody(face.body);
   const rimStroke = light ? "rgba(28,28,30,0.12)" : "rgba(255,255,255,0.22)";
+  const innerEarFill = face.warm ? "#F2B4C2" : mixHex(face.light, "#FFFFFF", 0.55);
 
   switch (style) {
     case "orb":
@@ -241,7 +242,7 @@ function FaceBody({
         <>
           <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} />
           <g clipPath={`url(#${clip})`}>
-            {/* Soft radial warm subsurface bounce + diffused porcelain specular + feathered blush */}
+            {/* Soft neutral studio bounce + diffused porcelain specular + tone-matched cheek glow */}
             <circle cx="50" cy="50" r="45" fill={`url(#${bounceGradient})`} />
             <ellipse cx="36" cy="28" rx="23" ry="16" transform="rotate(-22 36 28)" fill={`url(#${specularGradient})`} />
             <circle cx="26" cy="57" r="12.5" fill={`url(#${blushGradient})`} />
@@ -257,13 +258,13 @@ function FaceBody({
           {/* Sculpted cat ears */}
           <path d="M19 37 L15 13 C14.5 9 19 7.5 22 10 L40 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
           <path d="M81 37 L85 13 C85.5 9 81 7.5 78 10 L60 24 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
-          {/* Soft blush inner ears */}
-          <path d="M22 31 L19.5 17 L33 25 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
-          <path d="M78 31 L80.5 17 L67 25 Z" fill="#F4A3B4" opacity={light ? 0.55 : 0.45} />
+          {/* Harmonious inner ears */}
+          <path d="M22 31 L19.5 17 L33 25 Z" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
+          <path d="M78 31 L80.5 17 L67 25 Z" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
           {/* Rounded porcelain cat head */}
           <ellipse cx="50" cy="55" rx="43" ry="39" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
           <ellipse cx="36" cy="34" rx="19" ry="11" transform="rotate(-14 36 34)" fill={`url(#${specularGradient})`} />
-          {/* Tiny nose + feathered blush */}
+          {/* Tiny nose + tone-matched cheek glow */}
           <path d="M47 61 Q50 64 53 61 Q50 59.5 47 61 Z" fill={face.eye} opacity="0.72" />
           <circle cx="27" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
           <circle cx="73" cy="60" r="11.5" fill={`url(#${blushGradient})`} />
@@ -276,7 +277,7 @@ function FaceBody({
           <circle cx="50" cy="50" r="45" fill={`url(#${opalGradient})`} stroke="rgba(255,255,255,0.42)" strokeWidth="1.6" />
           <circle cx="50" cy="50" r="41" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="1" />
           <path d="M22 35 C30 19, 54 15, 70 24" fill="none" stroke="rgba(255,255,255,0.65)" strokeWidth="4.2" strokeLinecap="round" />
-          <path d="M30 76 C44 83, 64 79, 76 66" fill="none" stroke={mixHex(face.light, "#A5F3FC", 0.5)} strokeWidth="3.2" strokeLinecap="round" opacity="0.55" />
+          <path d="M30 76 C44 83, 64 79, 76 66" fill="none" stroke={mixHex(face.light, "#FFFFFF", 0.6)} strokeWidth="3.2" strokeLinecap="round" opacity="0.48" />
         </>
       );
 
@@ -533,24 +534,24 @@ export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expr
           <stop offset="1" stopColor={face.edge} />
         </radialGradient>
         <linearGradient id={opalGradient} x1="12%" y1="8%" x2="88%" y2="92%">
-          <stop offset="0" stopColor={mixHex(face.light, "#FFFFFF", 0.35)} />
-          <stop offset="0.38" stopColor={face.body} />
-          <stop offset="0.72" stopColor={mixHex(face.body, "#A78BFA", 0.28)} />
-          <stop offset="1" stopColor={mixHex(face.edge, "#38BDF8", 0.25)} />
+          <stop offset="0" stopColor={mixHex(face.light, "#FFFFFF", 0.42)} />
+          <stop offset="0.42" stopColor={face.body} />
+          <stop offset="0.75" stopColor={mixHex(face.body, face.light, 0.35)} />
+          <stop offset="1" stopColor={face.edge} />
         </linearGradient>
         <radialGradient id={specularGradient} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#FFFFFF" stopOpacity={light ? "0.75" : "0.44"} />
-          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity={light ? "0.24" : "0.12"} />
+          <stop offset="0" stopColor="#FFFFFF" stopOpacity={light ? "0.72" : "0.42"} />
+          <stop offset="0.55" stopColor="#FFFFFF" stopOpacity={light ? "0.22" : "0.11"} />
           <stop offset="1" stopColor="#FFFFFF" stopOpacity="0" />
         </radialGradient>
         <radialGradient id={bounceGradient} cx="50%" cy="88%" r="52%">
-          <stop offset="0" stopColor={mixHex(face.light, "#FFE0A3", 0.55)} stopOpacity={light ? "0.34" : "0.18"} />
-          <stop offset="1" stopColor={mixHex(face.light, "#FFE0A3", 0.55)} stopOpacity="0" />
+          <stop offset="0" stopColor={mixHex(face.light, "#FFFFFF", 0.55)} stopOpacity={light ? "0.26" : "0.16"} />
+          <stop offset="1" stopColor={mixHex(face.light, "#FFFFFF", 0.55)} stopOpacity="0" />
         </radialGradient>
         <radialGradient id={blushGradient} cx="50%" cy="50%" r="50%">
-          <stop offset="0" stopColor="#FF9A7A" stopOpacity={light ? "0.32" : "0.22"} />
-          <stop offset="0.55" stopColor="#FF9A7A" stopOpacity={light ? "0.12" : "0.07"} />
-          <stop offset="1" stopColor="#FF9A7A" stopOpacity="0" />
+          <stop offset="0" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity={face.warm ? (light ? "0.24" : "0.18") : "0.16"} />
+          <stop offset="0.55" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity={face.warm ? (light ? "0.09" : "0.06") : "0.05"} />
+          <stop offset="1" stopColor={face.warm ? "#F5A3B0" : mixHex(face.light, "#FFFFFF", 0.45)} stopOpacity="0" />
         </radialGradient>
         <clipPath id={clip}><circle cx="50" cy="50" r="45" /></clipPath>
         {showsHands && (

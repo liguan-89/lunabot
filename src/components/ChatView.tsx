@@ -106,9 +106,9 @@ import { LiveCallFloatCard } from "./LiveCallFloatCard";
 import { LiveCallChip } from "./LiveCallPill";
 import { effectivePlace, toolPlace, type EffectivePlace } from "@/lib/place";
 import { cn } from "@/lib/cn";
-import { activeLocale, intlLocale, t } from "@/lib/i18n";
+import { activeLocale, t } from "@/lib/i18n";
 import { COMPACT_BUBBLE } from "@/lib/compact-chip";
-import { groupTranscript, isStatusActivity, turnDurations, workedLabel } from "@/lib/activity-runs";
+import { groupTranscript, isStatusActivity } from "@/lib/activity-runs";
 import { StatusActivityRow } from "@/components/StatusActivityRow";
 import { CancelledTurnRow } from "./CancelledTurnRow";
 import { ActivityRun } from "./ActivityRun";
@@ -309,7 +309,6 @@ const Bubble = memo(function Bubble({
   eagerAttachments = false,
   joinAbove = false,
   joinBelow = false,
-  workedFor,
   editing,
   pinned,
   versions,
@@ -326,8 +325,6 @@ const Bubble = memo(function Bubble({
   /** Simple mode: this bubble meets the one above (or below) in its sender's group. */
   joinAbove?: boolean;
   joinBelow?: boolean;
-  /** Simple mode: how long the turn this answer ends took, for its tooltip. */
-  workedFor?: number;
   editing: boolean;
   pinned: boolean;
   versions?: readonly Message[];
@@ -471,7 +468,6 @@ const Bubble = memo(function Bubble({
             simple && join && !split && !attachmentsOnly && !tabled && !structuredSimple && joinedCorners(user ? "end" : "start", join),
           )}
           style={user && !webhookView && !attachmentsOnly ? ownBubbleStyle : undefined}
-          title={workedFor === undefined ? new Date(message.at).toLocaleString(intlLocale()) : `${workedLabel(workedFor)} · ${new Date(message.at).toLocaleString(intlLocale())}`}
         >
           {replyTarget && (
             <div className="mb-2">
@@ -671,7 +667,6 @@ const MessagesList = memo(function MessagesList({
   let dividerPlaced = false;
   const layout = useMemo(() => simple ? simpleRowLayout(items, { botId, showToolCalls, unreadIds }) : null, [simple, items, unreadIds, showToolCalls, botId]);
   const joins = layout?.joins;
-  const durations = useMemo(() => simple ? turnDurations(messages) : null, [messages, simple]);
   const dividerAbove = (rows: readonly Message[]) => {
     if (!unreadIds || dividerPlaced || !rows.some((row) => unreadIds.has(row.id))) return null;
     dividerPlaced = true;
@@ -762,7 +757,6 @@ const MessagesList = memo(function MessagesList({
                   eagerAttachments={m.id === newestMessageId || m.id === newestUserMessageId}
                   joinAbove={joins?.[i]?.above}
                   joinBelow={joins?.[i]?.below}
-                  workedFor={durations?.get(m.id)}
                   editing={editingId === m.id}
                   pinned={m.id === pinnedMessageId}
                   versions={lookups.editVersions(m)}
