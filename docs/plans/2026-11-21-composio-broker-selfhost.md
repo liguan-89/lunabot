@@ -80,15 +80,17 @@ connected-apps 流量、installation token 验证、Composio webhook 事件队�
 | `d1 create` | ✅ `lunabot-composio` → `64e9efa4-5e97-4cd1-94dd-8ab4a8296e48`（WNAM）已回填 |
 | migrations | ✅ 0001-0005 全上 |
 | 首部署 | ✅ `https://lunabot-composio.lunabot-app.workers.dev`，version `4b29cd0f`，cron 已挂 |
-| webhook 订阅 | ✅ `ws_ZxixdTSWKBVV`，`COMPOSIO_WEBHOOK_SECRET` 已 put |
+| webhook 订阅 | ✅ `ws_ZxixdTSWKBVV`，`COMPOSIO_WEBHOOK_SECRET` 已 put（仍指 workers.dev，Composio 侧可达） |
 | 可选 secrets | ⏸️ `CLOUD_GRANT_SECRET`/`STATS_TOKEN`/`CLOUD_ADMIN_URL` 未设（对应路由 503/404，不影响桌面端） |
-| CI `CLOUDFLARE_API_TOKEN` | ⏸️ 需在 dashboard 建 API token（Workers:Edit）后 `gh secret set`——repo secret 不能放 OAuth token |
+| CI `CLOUDFLARE_API_TOKEN` | ✅ 已入 repo secrets（main push 自动部署） |
+| dexai.vip 迁入 CF | ✅ zone `f752ef53` active；Dynadot API `set_ns` 改 `evelyn`/`major`；apex+`*`→186.241.77.89 已复刻为 DNS-only |
+| 自定义域 | ✅ `composio.dexai.vip` workers domain 绑定，edge 直连验证 `GET /` → worker 404 `not found` |
+| 默认 URL | ✅ `DEFAULT_MANAGED_COMPOSIO_BROKER_URL` → `https://composio.dexai.vip` |
 
-### ⚠️ workers.dev 在本网不可达（已知限制）
+### 自定义域已落地（原 workers.dev 不可达问题已解）
 
-本地 dig 返回 GFW 投毒段 `198.18.x.x`——`*.workers.dev` 在大陆被墙。
-部署本身健康（Cloudflare API 确认 100% 流量），Composio webhook 回调走
-Composio 后端发起到 workers.dev 不受影响；但**国内分发用户的桌面端连不到
-默认 URL**。若要面向国内分发，需要给 worker 挂自定义域（一个放在本
-Cloudflare 账号 zone 里的域名，如 `broker.<新域>`）再改
-`DEFAULT_MANAGED_COMPOSIO_BROKER_URL`。用户本机不受影响（本地 key 直连）。
+`*.workers.dev` 在大陆被墙（投毒段 `198.18.x.x`）——现在默认 URL 是
+`composio.dexai.vip`，走 Cloudflare edge，国内可直连。本机 fake-IP 代理对
+该名解析仍指旧泛解析 IP 属缓存余晖，真实解析（Google DoH →
+104.21.x/172.67.x anycast）与 edge 直连 TLS 均已验证通过。Composio webhook
+订阅保留 workers.dev 地址——Composio 后端在墙外，无需换。
