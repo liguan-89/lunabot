@@ -145,8 +145,17 @@ class AndroidThreadNavigationTest {
 
     @Test
     fun `reopening a bot from the roster keeps the thread chosen on this phone`() {
+        // The Muse shell puts the chief's chat inline on tab 0, so a second bot is
+        // what makes the roster row path observable; the picker itself moved behind
+        // the header's name pill.
+        val chief = bot(id = "chief", name = "Luna").copy(
+            chiefOfStaff = true,
+            threadId = "chief-thread",
+            messages = emptyList(),
+            tasks = listOf(BotTask(threadId = "chief-thread", title = "Chief thread", createdAt = 0.0)),
+        )
         val navigator = CompanionNavigator()
-        mount {
+        mount(companions = listOf(chief)) {
             when (val destination = navigator.current) {
                 is Destination.Conversation -> ChatScreen(
                     destination, onResolved = { navigator.selectTask(destination, it) },
@@ -155,14 +164,16 @@ class AndroidThreadNavigationTest {
                 else -> RosterScreen(navigator)
             }
         }
+        compose.onNodeWithContentDescription("协作助手").performClick()
         compose.onNodeWithText(fixture.name).performClick()
-        compose.onNodeWithText(fixture.name).performClick()
+        compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "first" }
+        compose.onNodeWithContentDescription("${fixture.name}，打开话题列表").performClick()
         compose.onNodeWithText("Second thread").performClick()
         compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
         compose.onNodeWithContentDescription("返回").performClick()
+        compose.onNodeWithContentDescription("协作助手").performClick()
         compose.onNodeWithText(fixture.name).performClick()
-        compose.onNodeWithText(fixture.name).performClick()
-        compose.onNodeWithText("Second thread").assertIsDisplayed()
+        compose.waitUntil(5_000) { (navigator.current as? Destination.Chat)?.target?.threadId == "second" }
         assertEquals("first", scene.session.state.value.bot(fixture.id)?.threadId)
         assertTrue(requests.none { it.method == "POST" })
     }
@@ -371,6 +382,8 @@ class AndroidThreadNavigationTest {
 
     private fun mount(
         bot: Bot = fixture,
+        /** Other bots in the same fleet; the Muse shell lifts a chief into tab 0. */
+        companions: List<Bot> = emptyList(),
         events: (Int) -> Flow<StreamFrame> = {
             flow {
                 emit(StreamFrame(Frame.Hello(cursor = "fixture:1", resumed = false), seq = 1))
@@ -381,7 +394,7 @@ class AndroidThreadNavigationTest {
     ) {
         scene = WiringScene(
             connection = Connection(id = "thread-fixture", name = "Offline fixture", host = "127.0.0.1", port = server.port),
-            fleet = Fleet(listOf(bot), emptyList()),
+            fleet = Fleet(listOf(bot) + companions, emptyList()),
             events = events,
         )
         compose.setContent {

@@ -241,7 +241,7 @@ class CompanionClient(
 
     /**
      * The job poll is held open by the server for 20 s on purpose; an ordinary
-     * action's 20 s deadline would abandon it at the same moment it answers.
+     * action's 30 s deadline would abandon it at the same moment it answers.
      */
     private val phoneJobClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
@@ -294,7 +294,7 @@ class CompanionClient(
 
     /**
      * Claude Code's own updater can take minutes on the computer, so this
-     * route gets its own deadline instead of the twenty-second action one.
+     * route gets its own deadline instead of the thirty-second action one.
      */
     private val claudeUpdateClient = transportClient.newBuilder()
         .followRedirects(transportClient.followRedirects && !connection.pairedWithServer)
@@ -1164,7 +1164,7 @@ class CompanionClient(
     }
 
     /**
-     * WebSockets outlive any request deadline: actionClient's 20 s
+     * WebSockets outlive any request deadline: actionClient's 30 s
      * call/read/write limits would amputate a call mid-flight, so sockets get
      * their own client with no lifetime bounds and protocol pings to keep the
      * path honest.
