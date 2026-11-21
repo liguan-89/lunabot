@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -57,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
@@ -202,10 +204,11 @@ internal fun RoutineEditorSheet(
 
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
-        // Mid-save the sheet stays put: dismissing here would cancel the
-        // request and leave the person unsure whether it landed.
         onDismissRequest = { if (!saving) onDismiss() },
         sheetState = sheetState,
+        containerColor = minisCanvas,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        scrimColor = Color.Black.copy(alpha = 0.20f),
     ) {
         Column(
             modifier = Modifier
@@ -868,17 +871,12 @@ private fun ValueRow(label: String, value: String, onClick: () -> Unit) {
  */
 @Composable
 private fun DayToggle(letter: String, name: String, on: Boolean, onToggle: (Boolean) -> Unit) {
+    val offFill = if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0)
     Box(
         modifier = Modifier
             .size(MIN_TOUCH_TARGET)
             .clip(CircleShape)
-            .background(
-                if (on) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.surfaceContainerHighest
-                },
-            )
+            .background(if (on) minisInk else offFill)
             .toggleable(value = on, role = Role.Checkbox, onValueChange = onToggle)
             .semantics { contentDescription = name },
         contentAlignment = Alignment.Center,
@@ -887,11 +885,7 @@ private fun DayToggle(letter: String, name: String, on: Boolean, onToggle: (Bool
             text = letter,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
-            color = if (on) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onSurfaceVariant
-            },
+            color = if (on) minisCanvas else minisSecondary,
         )
     }
 }

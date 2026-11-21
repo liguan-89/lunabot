@@ -112,19 +112,21 @@ internal fun CallSurface(
             .background(minisCanvas)
             .systemBarsPadding(),
     ) {
-        CallActionButton(
-            icon = null,
-            label = "收起通话",
-            enabled = true,
-            size = 44.dp,
-            onClick = { onExpandedChange(false) },
-            modifier = Modifier.align(Alignment.TopStart).padding(8.dp),
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp)
+                .size(44.dp)
+                .museFloatingPill(CircleShape, elevation = 4.dp)
+                .clickable(role = Role.Button) { onExpandedChange(false) }
+                .semantics { contentDescription = "收起通话" },
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
                 tint = minisInk,
-                modifier = Modifier.size(24.dp),
+                modifier = Modifier.size(22.dp),
             )
         }
         Column(
@@ -163,9 +165,9 @@ internal fun CallSurface(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 28.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(minisGrouped)
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3))
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (heard.isNotBlank()) CallTranscriptLine(label = "你", text = heard)
@@ -261,8 +263,8 @@ private fun BoxScope.FloatingCallCard(
             .widthIn(max = 460.dp)
             .fillMaxWidth()
             .graphicsLayer { translationY = dragOffset.value }
-            .chromeSheet(cornerRadius = 18.dp, elevation = 12.dp)
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .museFloatingPill(RoundedCornerShape(26.dp), elevation = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(

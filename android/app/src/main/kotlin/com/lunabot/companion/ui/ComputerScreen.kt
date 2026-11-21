@@ -15,10 +15,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -35,6 +37,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -206,16 +209,17 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 14.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
+                .padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             TouchTarget(onClick = onBack, contentDescription = "返回") {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .background(Color.White.copy(alpha = 0.18f), CircleShape)
-                        .border(0.5.dp, Color.White.copy(alpha = 0.28f), CircleShape),
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .border(0.75.dp, Color.White.copy(alpha = 0.22f), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
@@ -226,28 +230,52 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
                     )
                 }
             }
-            Text(
-                text = bot.name,
-                color = Color.White,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
+            Row(
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .border(0.75.dp, Color.White.copy(alpha = 0.18f), CircleShape)
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (bot.busy == true && !stale) minisSuccess else Color.White.copy(alpha = 0.55f),
+                        ),
+                )
+                Text(
+                    text = bot.name,
+                    color = Color.White,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = ComputerPolicy.statusLabel(bot, stale = stale, snapshot = snapshot),
+                    fontSize = 12.5.sp,
+                    color = Color.White.copy(alpha = 0.72f),
+                )
+            }
+            Box(Modifier.weight(1f))
             if (bot.computer == "vm") {
-                TextButton(onClick = { confirmingTakeover = true }) {
-                    Text(ComputerPolicy.LOCAL_TAKEOVER, color = Color.White, fontSize = 14.sp)
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { confirmingTakeover = true }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        ComputerPolicy.LOCAL_TAKEOVER,
+                        color = Color(0xFF111111),
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
                 }
             }
-            Text(
-                text = ComputerPolicy.statusLabel(bot, stale = stale, snapshot = snapshot),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-                color = if (bot.busy == true && !stale) {
-                    minisSuccess
-                } else {
-                    Color.White.copy(alpha = 0.6f)
-                },
-            )
         }
 
         // The still needs a caption, or it reads as a frozen live feed.
@@ -284,15 +312,21 @@ fun ComputerScreen(botId: String, onBack: () -> Unit) {
                 Button(
                     onClick = { confirming = true },
                     enabled = !opening,
+                    shape = CircleShape,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color.White,
+                        contentColor = Color(0xFF111111),
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     if (opening) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(18.dp),
                             strokeWidth = 2.dp,
+                            color = Color(0xFF111111),
                         )
                     } else {
-                        Text(ComputerPolicy.OPEN_DESKTOP)
+                        Text(ComputerPolicy.OPEN_DESKTOP, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Text(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
@@ -73,26 +74,26 @@ internal fun NewGroupSheet(onCreated: (Room) -> Unit, onDismiss: () -> Unit) {
     val bots = remember(state) { NewGroupRules.selectable(state) }
 
     ModalBottomSheet(
-        // Mid-create the sheet stays: dismissing would cancel the call and
-        // leave the group's fate unclear.
         onDismissRequest = { if (!creating) onDismiss() },
-        // A lighter scrim lets the system blur read as glass rather than grey.
-        scrimColor = Color.Black.copy(alpha = 0.18f),
+        containerColor = minisCanvas,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        scrimColor = Color.Black.copy(alpha = 0.20f),
     ) {
         GlassBackdrop()
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
                 TextButton(
                     onClick = onDismiss,
                     enabled = !creating,
                     modifier = Modifier.align(Alignment.CenterStart),
                 ) {
-                    Text("取消")
+                    Text("取消", color = minisSecondary)
                 }
                 Text(
                     text = "新建群组",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
                     modifier = Modifier.align(Alignment.Center),
                 )
                 TextButton(

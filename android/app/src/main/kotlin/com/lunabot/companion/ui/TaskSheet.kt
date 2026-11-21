@@ -221,12 +221,7 @@ fun TaskSheet(
                 Row(
                     modifier = Modifier
                         .heightIn(min = 38.dp)
-                        .clip(CircleShape)
-                        .background(
-                            if (canCreate) minisCard else minisCard.copy(alpha = 0.5f),
-                            CircleShape,
-                        )
-                        .border(0.5.dp, minisSeparator, CircleShape)
+                        .museFloatingPill(CircleShape, elevation = 3.dp)
                         .clickable(enabled = !saving && canCreate, role = Role.Button) {
                             saving = true
                             error = null
@@ -532,11 +527,12 @@ private fun TaskRow(
     val canArchive = enabled && TaskRules.canArchive(task, chat)
     val canSnooze = onSnooze != null && enabled && !TaskRules.isWorking(task)
 
+    val rowFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(shape)
-            .background(minisCard, shape)
+            .background(rowFill, shape)
             .clickable(enabled = canSwitch, onClick = onSwitch)
             .padding(start = 16.dp, end = 6.dp, top = 11.dp, bottom = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
