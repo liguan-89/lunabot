@@ -2164,22 +2164,37 @@ private fun MuseLibraryTab(
             .fillMaxSize()
             .background(minisCanvas),
     ) {
-        // Persistent Muse centerpiece: floating avatar + softly shadowed white name pill.
+        // Persistent Muse centerpiece: 74dp avatar with soft warm-linen halo
+        // so light/white bots stand out crisply on the pure-white canvas.
+        val studioHalo = remember(dark) {
+            Brush.radialGradient(
+                0.00f to if (dark) Color(0x22FFFFFF) else Color(0x66D9CEC2),
+                0.56f to if (dark) Color(0x0EFFFFFF) else Color(0x30E4DDD4),
+                1.00f to Color.Transparent,
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 10.dp, bottom = 14.dp),
+                .padding(top = 6.dp, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(3.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
             if (heroChat != null) {
-                ChatAvatar(
-                    chat = heroChat,
-                    size = 68.dp,
-                    animated = false,
-                    fallback = AvatarFallback.PRESET,
-                    motion = AvatarMotion.SHEEN,
-                )
+                Box(
+                    modifier = Modifier
+                        .size(84.dp)
+                        .background(studioHalo, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ChatAvatar(
+                        chat = heroChat,
+                        size = 74.dp,
+                        animated = false,
+                        fallback = AvatarFallback.PRESET,
+                        motion = AvatarMotion.SHEEN,
+                    )
+                }
             }
             Row(
                 modifier = Modifier

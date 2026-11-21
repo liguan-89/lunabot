@@ -2035,15 +2035,26 @@ private fun ChatHeader(
                 }
             }
 
-            // Muse-style generous floating centerpiece: large 68dp avatar with
-            // softly shadowed pure-white name pill cleanly anchored below.
+            // Muse-style generous floating centerpiece: 74dp avatar with a soft
+            // warm-linen studio halo in Light Mode so light/white bots keep crisp
+            // sculptural presence on the pure-white gallery canvas.
+            val dark = minisIsDark()
+            val studioHalo = remember(dark) {
+                Brush.radialGradient(
+                    0.00f to if (dark) Color(0x22FFFFFF) else Color(0x66D9CEC2),
+                    0.56f to if (dark) Color(0x0EFFFFFF) else Color(0x30E4DDD4),
+                    1.00f to Color.Transparent,
+                )
+            }
             Column(
                 modifier = Modifier.align(Alignment.TopCenter),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(3.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Box(
                     modifier = Modifier
+                        .size(84.dp)
+                        .background(studioHalo, CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -2055,7 +2066,7 @@ private fun ChatHeader(
                 ) {
                     ChatAvatar(
                         chat = chat,
-                        size = 68.dp,
+                        size = 74.dp,
                         animated = true,
                         contentDescription = null,
                         fallback = AvatarFallback.PRESET,
