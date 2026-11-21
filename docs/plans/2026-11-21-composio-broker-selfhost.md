@@ -70,3 +70,25 @@ connected-apps 流量、installation token 验证、Composio webhook 事件队�
 - `REGISTRATION_MODE` 保持 `open`；若要关闸改 `closed` 即可，不影响存量。
 - 迁移顺序硬约束（README）：0004 先于使用 shared_users 的代码、0005 先于
   使用 sweep progress 的代码——全新部署一次 apply 全部即可满足。
+
+## 执行记录（2026-11-21 完成）
+
+| 步 | 结果 |
+| --- | --- |
+| wrangler login | ✅ OAuth（dexaivip@gmail.com，acct e23197d1） |
+| workers.dev 子域 | ✅ `lunabot-app.workers.dev`（`lunabot` 已被占） |
+| `d1 create` | ✅ `lunabot-composio` → `64e9efa4-5e97-4cd1-94dd-8ab4a8296e48`（WNAM）已回填 |
+| migrations | ✅ 0001-0005 全上 |
+| 首部署 | ✅ `https://lunabot-composio.lunabot-app.workers.dev`，version `4b29cd0f`，cron 已挂 |
+| webhook 订阅 | ✅ `ws_ZxixdTSWKBVV`，`COMPOSIO_WEBHOOK_SECRET` 已 put |
+| 可选 secrets | ⏸️ `CLOUD_GRANT_SECRET`/`STATS_TOKEN`/`CLOUD_ADMIN_URL` 未设（对应路由 503/404，不影响桌面端） |
+| CI `CLOUDFLARE_API_TOKEN` | ⏸️ 需在 dashboard 建 API token（Workers:Edit）后 `gh secret set`——repo secret 不能放 OAuth token |
+
+### ⚠️ workers.dev 在本网不可达（已知限制）
+
+本地 dig 返回 GFW 投毒段 `198.18.x.x`——`*.workers.dev` 在大陆被墙。
+部署本身健康（Cloudflare API 确认 100% 流量），Composio webhook 回调走
+Composio 后端发起到 workers.dev 不受影响；但**国内分发用户的桌面端连不到
+默认 URL**。若要面向国内分发，需要给 worker 挂自定义域（一个放在本
+Cloudflare 账号 zone 里的域名，如 `broker.<新域>`）再改
+`DEFAULT_MANAGED_COMPOSIO_BROKER_URL`。用户本机不受影响（本地 key 直连）。
