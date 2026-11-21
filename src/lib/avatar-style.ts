@@ -12,7 +12,7 @@ export const AVATAR_STYLE_IDS = [
 
 export type AvatarStyleId = (typeof AVATAR_STYLE_IDS)[number];
 
-export const DEFAULT_AVATAR_STYLE: AvatarStyleId = "classic";
+export const DEFAULT_AVATAR_STYLE: AvatarStyleId = "orb";
 
 const KEY = "omb-avatar-style";
 

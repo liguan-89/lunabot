@@ -3,13 +3,11 @@ import { ChevronDown, ImagePlus, Loader2, Trash2 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { bodyName, colorName, festivalName } from "@/lib/mascot-names";
+import { bodyName, colorName } from "@/lib/mascot-names";
 import type { LocaleKey } from "@/locales";
 import { colorSwatch, MAUS_COLOR_LABEL, MAUS_COLOR_NAMES, PICKABLE_STATES, type MausState } from "@/lib/mascot";
 import type { Bot } from "@/state/store";
-import { FESTIVAL_IDS, FESTIVALS, PRESET_STYLE_BODY_IDS, isCarvedBody, type BotBodyId } from "../../../shared/bot-body";
-import { useFestivalDress, wornBody } from "@/lib/festival-dress";
-import { CarvedAvatar } from "../CarvedAvatar";
+import { PRESET_STYLE_BODY_IDS, type BotBodyId } from "../../../shared/bot-body";
 import { PresetFace } from "../PresetFace";
 import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
@@ -67,11 +65,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
     tabsRef.current?.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
   }, []);
   const pickMascot = (patch: AvatarPatch) => onPatch(crop === "mascot" ? patch : { ...patch, avatarCrop: "mascot" });
-  const body = bot.mascotBody ?? "cursor";
-  const festival = useFestivalDress();
-  const costume = wornBody(bot.mascotBody, bot.color, festival);
-  const [moreLooks, setMoreLooks] = useState(() => Boolean(festival) || isCarvedBody(body) || Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
-  const dressedAs = festival && costume !== body && isCarvedBody(costume) ? bodyName(costume) : null;
+  const body = bot.mascotBody ?? "orb";
+  const [moreLooks, setMoreLooks] = useState(() => Boolean(bot.mascotExpression && bot.mascotExpression !== "idle"));
   const bodyButton = (id: BotBodyId, name: string) => (
     <button
       key={id}
@@ -86,11 +81,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         !showsImage && body === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]",
       )}
     >
-      {isCarvedBody(id) ? (
-        <CarvedAvatar body={id} color={bot.color} faceColor={bot.mascotFaceColor} size={40} animated={false} trackPointer={false} />
-      ) : (
-        <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={38} life="still" />
-      )}
+      <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={38} life="still" />
     </button>
   );
 
@@ -174,19 +165,6 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             </button>
             {moreLooks && (
               <div data-avatar-more-looks>
-                {FESTIVAL_IDS.map((id) => (
-                  <div key={id}>
-                    <div className="flex flex-wrap items-baseline gap-x-2 px-1 pb-1.5 pt-2 text-[12px] text-ink-tertiary">
-                      <span>{festivalName(id)}</span>
-                      {id === festival && dressedAs && (
-                        <span data-avatar-costume>{t("botPanel.avatar.costume", { name: dressedAs, skin: festivalName(id) })}</span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-5 gap-1.5" data-festival-bodies={id}>
-                      {FESTIVALS[id].bodies.map((bodyId) => bodyButton(bodyId, bodyName(bodyId)))}
-                    </div>
-                  </div>
-                ))}
                 <div className="flex flex-wrap items-center justify-center gap-1.5 pt-2.5" role="group" aria-label={t("botPanel.avatar.face")}>
                   <span className="mr-0.5 text-[12px] text-ink-tertiary">{t("botPanel.avatar.face")}</span>
                   {PICKABLE_STATES.map((expression) => (

@@ -910,7 +910,13 @@ private fun DrawScope.drawNekoFace(
                     drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
                 }
             }
-
+            // Tiny ceramic cat nose harmonized with the eye tone
+            val noseCenter = middle + Offset(gazeX * 0.7f, 0.08f * radius + gazeY * 0.7f)
+            drawOval(
+                color = soft.eye.copy(alpha = 0.72f),
+                topLeft = Offset(noseCenter.x - radius * 0.085f, noseCenter.y - radius * 0.048f),
+                size = Size(radius * 0.17f, radius * 0.096f),
+            )
         }
         drawPath(headPath, color = if (isLightBody) Color(0x14000000) else Color(0x10000000), style = Stroke(0.6.dp.toPx()))
         if (crown) drawSculptedCrown(pose, radius, middle)

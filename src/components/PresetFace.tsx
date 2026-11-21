@@ -339,30 +339,6 @@ function FaceBody({
   }
 }
 
-function ExpressionAccent({ expression, color, visor }: { expression?: MausState; color: string; visor: boolean }) {
-  if (!expression || expression === "idle" || expression === "working" || expression === "thinking" || expression === "listening" || expression === "drowsy") return null;
-  const y = visor ? 56 : 64;
-  switch (expression) {
-    case "happy":
-    case "celebrate":
-      return <path d={`M42 ${y - 2} Q50 ${y + 6.5} 58 ${y - 2}`} fill="none" stroke={color} strokeWidth="3.4" strokeLinecap="round" opacity="0.88" />;
-    case "proud":
-      return <path d={`M43 ${y - 1} Q51 ${y + 4.5} 58 ${y - 3.5}`} fill="none" stroke={color} strokeWidth="3.2" strokeLinecap="round" opacity="0.86" />;
-    case "curious":
-      return <circle cx="51" cy={y + 1} r="3.2" fill="none" stroke={color} strokeWidth="2.6" opacity="0.82" />;
-    case "surprised":
-      return <ellipse cx="50" cy={y + 1.5} rx="4" ry="5" fill={color} opacity="0.86" />;
-    case "sad":
-      return <path d={`M43 ${y + 4} Q50 ${y - 3} 57 ${y + 4}`} fill="none" stroke={color} strokeWidth="3.1" strokeLinecap="round" opacity="0.82" />;
-    case "suspicious":
-      return <line x1="43" y1={y + 1} x2="57" y2={y - 1} stroke={color} strokeWidth="3.1" strokeLinecap="round" opacity="0.82" />;
-    case "sleeping":
-      return <path d={`M45 ${y + 1} Q50 ${y + 3.5} 55 ${y + 1}`} fill="none" stroke={color} strokeWidth="2.6" strokeLinecap="round" opacity="0.65" />;
-    default:
-      return null;
-  }
-}
-
 export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expression, size = 44, label, className, life = "glance", mood = "idle", seed = 0 }: {
   color?: string | null;
   preset?: PresetKey;
@@ -585,7 +561,6 @@ export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expr
               {eye(1, "right")}
             </>
           )}
-          <ExpressionAccent expression={expression} color={eyeFill} visor={spec.visor} />
         </g>
         {showsHands && <PresetHands gradient={handGradient} edge={handEdge} />}
       </g>
