@@ -300,7 +300,8 @@ export function encodePayload2(conn: string): Buffer {
 
 function jsonObject(bytes: Uint8Array): Record<string, unknown> | null {
   try {
-    const value: unknown = JSON.parse(Buffer.from(bytes).toString("utf8"));
+    // ignoreBOM keeps a leading BOM, which JSON.parse refuses, as the computer side does.
+    const value: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes));
     return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
   } catch {
     return null;
