@@ -164,3 +164,11 @@
 - 摘：`8d8f304e0f`（NEEDS INPUT "none" 不问）+`27333c3866`（多语 NOTHING_TO_ASK 集）+`2d8ef3312e`（hand-back 读全行）；拒绝归因四连 `449009bc04`→`2cb4157504`→`6290560a7a`→`1d55de7af9`（settled 记 runId、take 只报本 run、statusOf 留重排队 run）。index.ts 两处手术：坐标调用点注 `callRun`、createRefusedHandoffs 注 `statusOf`，行数守 16067 钉。
 - 跳：`2726ab85f3`（merge 壳，内容即 `8d8f304e0f`）；`bc27ecd913`（merge 仅动 claude 驱动，fork 已删）；`bb314547f4`+`eb38dd69c6`（`context.summarizing` 事件+`deps.summarizing` 管线在 fork 整条不存在，turn-status 无该 case——重构中删去的功能链）；`f7442d3a63`（修的是 P2 `594adf83d7` 的 retry 函数，fork 无该功能——P2 评审时随基座一起定）。
 - 验证：refused-handoffs/acting-person/runtime-coordinator 151 测试、typecheck 绿、oxlint 净。
+
+## 执行状态五（2026-11-21 续批，B7）
+
+**B7 完结：摘 6，跳 3**——
+- 摘：`f5e0e338db`（roomLimits 挪到 watchdog.start() 行，fork 同款切片测试）；`dd5c2ad5e7`（房间成员到上限用自身 backup——新模块 `host/room-limit-takeover.ts` 适配落：upstream-only `peer-limit-resend`/`takeRoomPick` 无对应，`nothingRan` 内联、`oneTimeInputTaken` 只看 heldReplay；`limit-takeover.ts` 加 `chosen`/`takeoverAtStart`/`heldAtStart`，fork 自动兜底选替代语义保留；`quota-switch.ts` 抽 `turnLimitScope`）；`3167b9fa90`（idle 计时器复查 `engine.idle()`+armed stale 守卫，fork 无 `held`/`spare`/`sweepIdleEngines` 机制按最小守卫适配）；`57eed6cd52`（`botLevel` 落 `store.ts` `buildTask`，`task-record.ts` 是 fork 已删文件；`own-threads.ts` 加 `approvalFor`+`savedLevel`）；`0df4905165`（`effectiveOutboundPolicy` 落 `shared/outbound.ts`——上游定义在 `packages/phone-protocol`，fork 无该包；DU 删 `phone-protocol/src/outbound.ts`）；`b98dc92e6a`（team-setup 新 bot 用保存的 New bot 层级——`this.own`/`sharedAsMaker` 是 peer-roster/new-bot-sharing 上游独有，保 `this.bot`+visibility 行）。
+- 跳：`6117d842c6`（merge 壳，内容是 model-hold 的 acp/steer，fork 无该模块）；`51d24a81fa`（修的是上游独有 live-reply 行内流式架构——`useLiveTranscript`/`useLiveRow`/`roomAddressees`/`drawn-bots` 全在 fork 已删链上，fork 房间用尾部单 `LiveReplyBubble`，无该渲染路径）；`4c4bf3cce6`（`b98dc92e6a` 的 PR merge 壳，双 hash 去重）。
+- 欠债：`room-limit-takeover.e2e.test.ts` 未移植——fixture 第二引擎基建（codex/claude fake driver）在 fork 已删，单测 35 覆盖模块逻辑，e2e 集成路径记欠。
+- 验证：11 文件 430 测试（room-limit/limit-takeover/refused-handoffs/session-idle/turn-watchdog/store/task-record/new-bot-defaults/team-setup-requests/outbound/quota-switch）+ PluginsPanel.grants/PermissionsSection/outbound-hold 61 + typecheck 绿 + oxlint 净；index.ts 棘轮 16067→16082。
