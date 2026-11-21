@@ -197,6 +197,16 @@ capabilities or account access.
 See [Alibaba Cloud's OpenAI-compatible API guide](https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope)
 for current addresses, model availability and region requirements.
 
+### Example: Venice AI
+
+Venice serves an OpenAI-compatible API, so it needs no custom instance. Open
+**Keys**, find the **Custom model provider** row (searching "venice" finds
+it), set the base URL to `https://api.venice.ai/api/v1` and paste your Venice
+API key. The key is checked against the base URL saved with it, and changing
+the URL checks the saved key again. To give Venice its own bot next to another
+OpenAI-compatible server, use the `openai-compat` instance above with that base
+URL instead.
+
 ## Notes
 
 - `config.json` is written with mode 0600; values in `environment` are stored
