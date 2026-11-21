@@ -42,6 +42,9 @@ it.each(["SIGKILL", "SIGTERM"] as const)("a turn and a routine run cut by %s kee
 
   await cli("send", "--bot", bot.id, "--task", bot.activeTaskId, "--text", "Plan the offsite");
   await expect.poll(() => Object.keys(task(bot.id, bot.activeTaskId)?.resumeCursors ?? {}).length, { timeout: hostTimeout(30_000) }).toBe(1);
+  // The cursor lands when the turn is scheduled; the outgoing native frame lags behind it under load, and the kill below is
+  // what the assertion reads — wait for the frame itself instead of trusting the cursor to imply it.
+  await expect.poll(() => read(join(dataDir, "native", `${bot.activeTaskId}.ndjson`)), { timeout: hostTimeout(30_000) }).toContain("Plan the offsite");
 
   await waitForExit(fixture.child, { signal });
 
