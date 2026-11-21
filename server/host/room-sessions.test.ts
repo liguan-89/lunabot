@@ -23,8 +23,8 @@ const DAY = 24 * 60 * 60_000;
  * window, plus two idle lives, so that it outlives its record and any process the driver can still hold. */
 const READING_LIFE = Math.max(DAY, MAX_WINDOW_MINUTES * MIN) + 2 * IDLE_MS;
 
-const engine = (instanceId: string, driverKind = "claudeAgent", strictResume = true): RoomSessionEngine =>
-  ({ instanceId, driverKind, adapter: { capabilities: { strictResume } } });
+const engine = (instanceId: string, driverKind = "claudeAgent", strictResume = true, compactionNotice?: "native"): RoomSessionEngine =>
+  ({ instanceId, driverKind, adapter: { capabilities: { strictResume, ...(compactionNotice === "native" ? { compactionNotice } : {}) } } });
 const colors: Record<string, string> = { editor: "green", writer: "blue", scout: "red" };
 const from = (botId: string) => ({ botId, name: botId[0]!.toUpperCase() + botId.slice(1), color: colors[botId] ?? "green" });
 const tailFor = (botId: string, extra = "") => `\n\n(Reply to the conversation above as ${from(botId).name}.)${extra}`;
@@ -174,11 +174,12 @@ describe("renderRoomDelta", () => {
 });
 
 describe("which engines keep a room session", () => {
-  it("is Claude Code alone, for as long as its driver keeps a quiet process", () => {
-    expect(Object.keys(ROOM_SESSION_ENGINES)).toEqual(["claudeAgent"]);
+  it("is the engines whose drivers keep a quiet process and report their own compaction", () => {
+    expect(ROOM_SESSION_ENGINES).toEqual({ claudeAgent: "CLAUDE", piAgent: "PI" });
     expect(roomSessionIdleMs("claudeAgent", {})).toBe(10 * 60_000);
     expect(roomSessionIdleMs("claudeAgent", { OMB_CLAUDE_SESSION_IDLE_MS: "60000" })).toBe(60_000);
-    for (const other of ["codex", "museCode", "piAgent", "constructor", "toString"]) expect(roomSessionIdleMs(other, {})).toBeUndefined();
+    expect(roomSessionIdleMs("piAgent", { OMB_PI_SESSION_IDLE_MS: "60000" })).toBe(60_000);
+    for (const other of ["codex", "museCode", "constructor", "toString"]) expect(roomSessionIdleMs(other, {})).toBeUndefined();
   });
 });
 
@@ -218,6 +219,7 @@ describe("room sessions: turns that are not managed", () => {
       { name: "a guest-confined turn", mode: "legacy", input: { guestConfined: true } },
       { name: "a turn without the engine-hook channel", mode: "legacy", input: { hooks: false } },
       { name: "a member's first managed turn", mode: "start" },
+      { name: "a notice-capable engine's first turn without the hook channel", mode: "start", input: { instance: engine("pi", "piAgent", true, "native"), hooks: false } },
     ];
     for (const scenario of cases) {
       for (const reset of [false, true]) {
@@ -258,6 +260,33 @@ describe("room sessions: turns that are not managed", () => {
       const second = r.dispatch("editor", { instance });
       expect(second.result).toEqual({ mode: "legacy", text: r.full(second), send: {} });
     }
+  });
+
+  it("runs a member's delta turns on an engine with its own compaction notice and no hook channel", () => {
+    const pi = engine("pi", "piAgent", true, "native");
+    const r = room();
+    r.say("Cut the intro. ALPHA");
+    r.run("editor", "S1", { reply: "Intro cut. BRAVO" }, { instance: pi, hooks: false });
+    r.say("Trim the middle. CHARLIE");
+    const second = r.dispatch("editor", { instance: pi, hooks: false });
+    expect(second.result).toStrictEqual({
+      mode: "resume",
+      text: `${CLOCK}\n\n${NOTE}\nOmkar: Trim the middle. CHARLIE\n\n(Reply to the conversation above as Editor.)`,
+      send: { resumeCursor: "S1", recoveryText: r.full(second) },
+    });
+    // The engine compacting mid-turn arrives as context.compacted: it voids the ledger before the turn completes.
+    r.finish(second, "S1", { reply: "Middle trimmed. DELTA", during: () => r.emit(second, { type: "context.compacted" }) });
+    r.say("Tighten the outro. ECHO");
+    expect(r.dispatch("editor", { instance: pi, hooks: false }).result.mode).toBe("start");
+  });
+
+  it("keeps whole-window turns for a strict-resume engine with neither hook channel nor compaction notice", () => {
+    const pi = engine("pi", "piAgent");
+    const r = room();
+    r.say("Cut the intro.");
+    r.run("editor", "S1", {}, { instance: pi, hooks: false });
+    r.say("Trim the middle.");
+    expect(r.dispatch("editor", { instance: pi, hooks: false }).result).toEqual({ mode: "legacy", text: expect.any(String), send: {} });
   });
 
   it("drops a member's record when one of its turns is not managed, and never records a guest-confined turn", () => {

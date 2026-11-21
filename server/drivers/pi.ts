@@ -1135,6 +1135,8 @@ export const PiDriver: ProviderDriver<PiConfig> = {
           // A refused switch_session rebuilds on a fresh session from
           // recoveryText or fails the turn — never a silent blank one.
           strictResume: true,
+          // pi reports its own compaction as a stream event; sendTurn forwards it as context.compacted.
+          compactionNotice: "native",
           // A guest turn runs with every native tool denied and without the owner's
           // custom MCP connectors (see sendTurn and buildMcpServers).
           guestTurns: "confined",

@@ -303,6 +303,9 @@ export interface ProviderAdapter {
     strictResume?: boolean;
     /** sendTurn can register the harness's hook helper with the engine (integrations.hooks). */
     hooks?: boolean;
+    /** "native": the driver emits `context.compacted` when the engine compacts its session by itself, so the room's
+     * delta ledger can be trusted the way `hooks` lets it be for engines with a hook channel. */
+    compactionNotice?: "native";
     /** "confined": sendTurn honours `guestConfined`; absent, a guest turn is refused. */
     guestTurns?: "confined";
     /** "meter": `contextTokens` / `contextWindow` are the engine's own report, shown on the context meter but never used to time compaction. */
