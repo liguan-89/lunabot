@@ -329,4 +329,37 @@ describe("pushed notices", () => {
     expect(seen).toEqual([]);
     expect(phones.noticeInbox("owner")?.kept).toBe(1);
   });
+
+  it("a conversation-source app reaches High and surfaces under Balanced; a plain app stays Mid", async () => {
+    const { phones, send } = world({
+      noticeLearnLevel: () => "balanced",
+      noticeJudge: () => async (prompt: string) => {
+        // A slow judge lets the posts queue into full batches: one in-flight send gathers the rest.
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        const label = prompt.includes("com.chat.app") ? "聊天话题" : "广告话题";
+        return `{"signals":[{"ids":["n1"],"new":{"kind":"interest","label":"${label}"}}]}`;
+      },
+    });
+    await enroll(phones, ["com.chat.app", "com.other.app"]);
+    const day = 86_400_000;
+    const flush = async () => { for (let i = 0; i < 10; i++) await new Promise((resolve) => setTimeout(resolve, 5)); };
+    const post = (key: string, packageName: string, postedAtMs: number, extra: Record<string, unknown> = {}) =>
+      call(phones, "POST", "/api/phones/self/events", notice({ key, packageName, postedAtMs, ...extra }));
+    // Balanced wants two days: each learn batch lands one day's evidence. Post one day's due batch at a
+    // time and let it settle — a flood would split sends and burn the per-day call budget before the
+    // second app gets its second day in.
+    const batch = async (tag: string, postedAtMs: number) => {
+      for (let i = 0; i < 12; i++) await post(`chat-${tag}-${i}`, "com.chat.app", postedAtMs, { text: `${tag} ${i}`, conversation: true });
+      await flush();
+      for (let i = 0; i < 12; i++) await post(`other-${tag}-${i}`, "com.other.app", postedAtMs, { text: `${tag} ${i}` });
+      await flush();
+    };
+    await batch("old", Date.now() - 3 * day);
+    await batch("new", Date.now());
+    send(phones.sendIdFor(loopback));
+    const part = (await phones.promptParts(chief, { mounted: true, offered: true, turn: TURN, place: "computer" }))
+      .find((p) => p.id === "device-notices");
+    expect(part?.text).toContain("聊天话题");
+    expect(part?.text).not.toContain("广告话题");
+  });
 });
