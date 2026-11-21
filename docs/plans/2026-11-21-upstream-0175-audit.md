@@ -132,4 +132,16 @@
 - `e3bbc68914`/`3b9c7b9a4e`/`207fdc5be6`：fork pi 重构后 spawn 辅助统一带 `box:{rw:[mcpTempDir]}`，等价实现已在
 - `66de394c0e`：fork `98a5d8cb19` 已实现相同 shell 超时边界（常量+tool_call 钩子一致）
 
-**待续**：B1 剩余 4（`b35b91f93c`/`26edd8dc12`/`97b3301938`/`31ddcdc23f`，pi 会话组）、B2-B13、P2 评审。`66de394c0e` 的 docs/verify 脚本可留作参考不摘。
+**待续**：B2-B13、P2 评审。`66de394c0e` 的 docs/verify 脚本可留作参考不摘。
+
+## 执行状态二（2026-11-21 续批，已推 `05e3616195`）
+
+**B1 完结：8/8 全判跳**——pi 会话组四连均不适用：fork 会话文件在 engine home（box 本就 rw）不迁共享 `--session-dir`（`b35b91f93c`）；`26edd8dc12` 的共享目录隔离需求不存在；`97b3301938`/`31ddcdc23f` 的「整会话连挂」在 fork fail-soft rebuilt 兜底下不存在。
+
+**B13 部分摘 5**：`33a3c12ce4`（merge，`digest` 孤立 surrogate）、`2d9c61fd43`（merge，饼图类目序）、`05d169d58f`（@devs+CJK）、`d05000319c`（team 已存在提示——**补移植 peer-roster `outsideDepartmentReason`+`managedDepartmentsHelp`**，上游依赖早期重构）、`05e3616195`（hand-off 卡片附件保存——取上游放宽门槛，**保留 fork `visible.thread` 行**，非 text 卡片仍只能服务显式附件，227 行兜底）；`2223dfd990`→`0202d3a106`（grapheme 截断）。
+
+**复核改判跳 4**：`368f7d2651`（hermes/openclaw 导入功能 fork 没有）、`9c0e7438b5`（上游「不静默换模型」=策略变更，fork limit-takeover 自动选替代模型是刻意设计）、B4 整组（`c693d4c33e` 等依赖上游 macOS `psProcesses` 基座，fork procs.ts 无 darwin 层——需先摘基座再评）、`b806f7f731`/`fe171fbea2`/`e0eab4bd37`（撞 `server/index.ts`/`composio-files.ts` 缺文件，留专门批）。
+
+**merge 规则已落实**：`git rev-list --parents -n1` 判 merge 后 `-m 1`；rebase 时用 `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash` 非交互折叠 fixup。
+
+验证：threads/digest/notify/devs-mention/team-setup/pie-sort 测试过（team-setup 70/70）。
