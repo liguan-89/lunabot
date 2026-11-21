@@ -1,6 +1,18 @@
 import { t } from "@/lib/i18n";
-import { useEffect, useRef, useState } from "react";
-import { MessageSquare, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Bot as BotIcon,
+  Keyboard,
+  MessageSquare,
+  Monitor,
+  Palette,
+  Pin,
+  Search,
+  Settings,
+  SlidersHorizontal,
+  SquarePen,
+  Users,
+} from "lucide-react";
 import { BotAvatar } from "./Avatar";
 import { api, openBot, useStore, type Bot, type Group } from "@/state/store";
 import { rankByName } from "@/lib/palette-rank";
@@ -9,8 +21,22 @@ import { cn } from "@/lib/cn";
 import type { SearchHit } from "@/lib/search-hit";
 import { landOnSearchHit } from "@/lib/focus-message";
 import { imeComposing } from "@/lib/send-key";
+import { setAdvancedMode, useAdvancedMode } from "@/lib/interface-mode";
+import { applySkinChoice, SKINS, type SkinChoice } from "@/lib/skins";
+import { matchesWords } from "@/lib/search-words";
+
+interface PaletteAction {
+  id: string;
+  label: string;
+  detail?: string;
+  keywords: string[];
+  shortcut?: string;
+  icon: ReactNode;
+  run: () => void;
+}
 
 type PaletteEntry =
+  | { kind: "action"; action: PaletteAction }
   | { kind: "bot"; bot: Bot }
   | { kind: "room"; group: Group }
   | { kind: "message"; hit: SearchHit };
@@ -24,6 +50,7 @@ export function openCommandPalette() {
 export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean) => void }) {
   const { state, dispatch } = useStore();
   const showThreads = useShowThreads();
+  const advanced = useAdvancedMode();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [messageHits, setMessageHits] = useState<SearchHit[]>([]);
@@ -83,19 +110,120 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
     selectedRef.current?.scrollIntoView({ block: "nearest" });
   }, [cursor, messageHits]);
 
+  const currentBot = useMemo(
+    () => state.bots.find((b) => b.id === state.selectedId && !b.hidden),
+    [state.bots, state.selectedId],
+  );
+
+  const actions = useMemo<PaletteAction[]>(() => {
+    const mac = window.ogb?.platform === "darwin" || /Mac/i.test(navigator.platform);
+    const mod = mac ? "⌘" : "Ctrl+";
+    const remoteClient = window.ogb?.remoteClient?.active === true;
+    const list: PaletteAction[] = [];
+
+    if (currentBot && currentBot.yourAccess !== "view") {
+      list.push({
+        id: "new-chat",
+        label: t("sidebar.newConversationWith", { name: currentBot.name }),
+        keywords: ["new chat", "new conversation", "新建对话", "新对话", currentBot.name],
+        shortcut: `${mod}⇧N`,
+        icon: <SquarePen size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => dispatch({ type: "newTask", botId: currentBot.id }),
+      });
+    }
+
+    list.push({
+      id: "new-bot",
+      label: t(advanced ? "sidebar.newBot" : "sidebar.newBotSimple"),
+      keywords: ["new bot", "create bot", "新建机器人", "创建助手"],
+      shortcut: `${mod}N`,
+      icon: <BotIcon size={15} className="shrink-0 text-ink-secondary" />,
+      run: () => dispatch({ type: "newBot" }),
+    });
+
+    if (currentBot && window.ogb?.desktopMount && !remoteClient) {
+      list.push({
+        id: "mount-desktop",
+        label: `${t("desktopMount.pin")} · ${currentBot.name}`,
+        keywords: ["mount", "desktop", "pin", "float", "挂载", "桌面", "悬浮球", currentBot.name],
+        icon: <Pin size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => { void window.ogb?.desktopMount?.mount(currentBot.id); },
+      });
+    }
+
+    list.push(
+      {
+        id: "settings-general",
+        label: t("settings.title"),
+        keywords: ["settings", "preferences", "设置", "偏好"],
+        icon: <Settings size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => dispatch({ type: "toggleAppSettings", open: true, section: "general" }),
+      },
+      {
+        id: "settings-models",
+        label: `${t("settings.title")} · ${t("modelManagement.title")}`,
+        keywords: ["models", "ai", "engine", "provider", "api key", "模型", "引擎", "密钥"],
+        icon: <SlidersHorizontal size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => dispatch({ type: "toggleAppSettings", open: true, section: "engines" }),
+      },
+      {
+        id: "toggle-mode",
+        label: advanced ? `${t("settings.advancedMode.title")}: Off` : `${t("settings.advancedMode.title")}: On`,
+        keywords: ["advanced", "simple", "mode", "高级模式", "简洁模式", "切换模式"],
+        icon: <Monitor size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => setAdvancedMode(!advanced),
+      },
+      {
+        id: "shortcuts",
+        label: t("shortcuts.title"),
+        keywords: ["shortcuts", "keyboard", "hotkeys", "快捷键", "键盘"],
+        shortcut: "?",
+        icon: <Keyboard size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => dispatch({ type: "toggleShortcuts", open: true }),
+      },
+    );
+
+    const quickSkins: Array<{ choice: SkinChoice; label: string; keywords: string[] }> = [
+      { choice: "system", label: "Theme · System", keywords: ["theme", "skin", "system", "auto", "主题", "皮肤", "跟随系统"] },
+      ...SKINS.filter((skin) => ["midnight", "daylight", "meadow", "atelier", "foundry", "aurora"].includes(skin.id)).map((skin) => ({
+        choice: skin.id as SkinChoice,
+        label: `Theme · ${skin.name}`,
+        keywords: ["theme", "skin", skin.id, skin.name.toLowerCase(), "主题", "皮肤", skin.id === "daylight" || skin.id === "atelier" || skin.id === "meadow" ? "浅色 light" : "深色 dark"],
+      })),
+    ];
+
+    for (const skin of quickSkins) {
+      list.push({
+        id: `skin:${skin.choice}`,
+        label: skin.label,
+        keywords: skin.keywords,
+        icon: <Palette size={15} className="shrink-0 text-ink-secondary" />,
+        run: () => applySkinChoice(skin.choice),
+      });
+    }
+
+    return list;
+  }, [advanced, currentBot, dispatch]);
+
   if (!open) return null;
 
+  const matchedActions = q
+    ? actions.filter((action) => matchesWords([action.label, ...action.keywords], q))
+    : actions.slice(0, 5);
   const bots = rankByName(state.bots.filter((b) => !b.hidden), q);
   const rooms = rankByName(state.groups, q);
   const entries: PaletteEntry[] = [
     ...bots.map((bot): PaletteEntry => ({ kind: "bot", bot })),
     ...rooms.map((group): PaletteEntry => ({ kind: "room", group })),
+    ...matchedActions.map((action): PaletteEntry => ({ kind: "action", action })),
     ...(q ? messageHits.map((hit): PaletteEntry => ({ kind: "message", hit })) : []),
   ];
   const selected = entries.length ? Math.min(cursor, entries.length - 1) : 0;
 
   const activate = async (entry: PaletteEntry) => {
-    if (entry.kind === "message") {
+    if (entry.kind === "action") {
+      entry.action.run();
+    } else if (entry.kind === "message") {
       const hit = entry.hit;
       try {
         await landOnSearchHit(hit, state, dispatch, showThreads);
@@ -130,7 +258,8 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
   };
 
   const roomOffset = bots.length;
-  const messageOffset = bots.length + rooms.length;
+  const actionOffset = bots.length + rooms.length;
+  const messageOffset = bots.length + rooms.length + matchedActions.length;
 
   const row = (key: string, index: number, onPick: () => void, children: React.ReactNode, twoLine = false) => (
     <button
@@ -159,7 +288,7 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
         role="dialog"
         aria-modal="true"
         aria-label={t("palette.label")}
-        className="popover-surface flex max-h-[min(480px,70vh)] w-full max-w-[560px] flex-col overflow-hidden rounded-[var(--radius-menu)] border border-hairline/50 bg-menu shadow-2xl shadow-black/60"
+        className="popover-surface flex max-h-[min(520px,74vh)] w-full max-w-[580px] flex-col overflow-hidden rounded-[var(--radius-menu)] border border-hairline/50 bg-menu shadow-2xl shadow-black/60"
       >
         <div className="flex items-center gap-3 border-b border-hairline/40 px-4 py-3">
           <Search size={16} className="shrink-0 text-ink-secondary" />
@@ -213,6 +342,27 @@ export function CommandPalette({ onOpenChange }: { onOpenChange?: (open: boolean
               <>
                 <Users size={16} strokeWidth={1.75} className="mx-[3px] shrink-0 text-ink-secondary" />
                 <span className="truncate text-[14px] text-ink">{group.name}</span>
+              </>,
+            ),
+          )}
+          {matchedActions.length > 0 && (
+            <div className="px-3 pb-1 pt-2 text-[12px] font-medium text-ink-tertiary">
+              {t("palette.label")}
+            </div>
+          )}
+          {matchedActions.map((action, i) =>
+            row(
+              `action:${action.id}`,
+              actionOffset + i,
+              () => void activate({ kind: "action", action }),
+              <>
+                <span className="flex size-[22px] shrink-0 items-center justify-center">{action.icon}</span>
+                <span className="min-w-0 flex-1 truncate text-[14px] text-ink">{action.label}</span>
+                {action.shortcut && (
+                  <kbd className="shrink-0 rounded-md border border-hairline/40 px-1.5 py-0.5 text-[11px] font-mono text-ink-secondary">
+                    {action.shortcut}
+                  </kbd>
+                )}
               </>,
             ),
           )}

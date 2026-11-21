@@ -66,6 +66,29 @@ export function pointInInteractiveRects(cursorPoint, windowBounds, rects) {
   );
 }
 
+export function clampMountPosition(x, y, workArea) {
+  const minX = workArea.x;
+  const maxX = Math.max(minX, workArea.x + workArea.width - DESKTOP_MOUNT.width);
+  const minY = workArea.y;
+  const maxY = Math.max(minY, workArea.y + workArea.height - DESKTOP_MOUNT.height);
+  return {
+    x: Math.round(Math.max(minX, Math.min(maxX, x))),
+    y: Math.round(Math.max(minY, Math.min(maxY, y))),
+  };
+}
+
+export function snapMountPosition(bounds, workArea) {
+  const centerX = bounds.x + bounds.width / 2;
+  const workCenterX = workArea.x + workArea.width / 2;
+  const side = centerX < workCenterX ? "left" : "right";
+  const targetX =
+    side === "left"
+      ? workArea.x + DESKTOP_MOUNT.margin
+      : workArea.x + workArea.width - DESKTOP_MOUNT.width - DESKTOP_MOUNT.margin;
+  const clamped = clampMountPosition(targetX, bounds.y, workArea);
+  return { ...clamped, side };
+}
+
 export function createDesktopMountManager({
   BrowserWindow,
   screen,
@@ -241,6 +264,29 @@ export function createDesktopMountManager({
       onStartCall(typeof targetBotId === "string" && targetBotId.trim() ? targetBotId.trim() : botId);
       return true;
     },
+    move(dx, dy) {
+      if (!live(win)) return null;
+      const deltaX = Number(dx);
+      const deltaY = Number(dy);
+      if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return null;
+      const bounds = win.getBounds();
+      const nextX = bounds.x + deltaX;
+      const nextY = bounds.y + deltaY;
+      const center = { x: Math.round(nextX + bounds.width / 2), y: Math.round(nextY + bounds.height / 2) };
+      const workArea = screen.getDisplayNearestPoint(center).workArea;
+      const clamped = clampMountPosition(nextX, nextY, workArea);
+      win.setPosition(clamped.x, clamped.y);
+      return clamped;
+    },
+    snap() {
+      if (!live(win)) return null;
+      const bounds = win.getBounds();
+      const center = { x: Math.round(bounds.x + bounds.width / 2), y: Math.round(bounds.y + bounds.height / 2) };
+      const workArea = screen.getDisplayNearestPoint(center).workArea;
+      const snapped = snapMountPosition(bounds, workArea);
+      win.setPosition(snapped.x, snapped.y);
+      return snapped;
+    },
     async capture() {
       const target = win;
       const wasVisible = Boolean(live(target) && target.isVisible());
@@ -261,6 +307,14 @@ export function createDesktopMountManager({
   ipcMain.handle("desktop-mount:state", localOnly("desktop-mount:state", () => manager.state()));
   ipcMain.handle("desktop-mount:open-main", localOnly("desktop-mount:open-main", (_event, botId) => manager.openMain(botId)));
   ipcMain.handle("desktop-mount:start-call", localOnly("desktop-mount:start-call", (_event, botId) => manager.startCall(botId)));
+  ipcMain.handle("desktop-mount:move", localOnly("desktop-mount:move", (event, dx, dy) => {
+    if (!manager.owns(event)) return null;
+    return manager.move(dx, dy);
+  }));
+  ipcMain.handle("desktop-mount:snap", localOnly("desktop-mount:snap", (event) => {
+    if (!manager.owns(event)) return null;
+    return manager.snap();
+  }));
   ipcMain.handle("desktop-mount:capture-screen", localOnly("desktop-mount:capture-screen", (event) => {
     if (!manager.owns(event)) return { ok: false, error: "Unauthorized" };
     return manager.capture();

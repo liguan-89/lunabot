@@ -442,6 +442,8 @@ const __APP_VERSION__: string;
         state(): Promise<{ mounted: boolean; botId: string | null }>;
         openMain(botId?: string): Promise<boolean>;
         startCall?(botId?: string): Promise<boolean>;
+        move?(dx: number, dy: number): Promise<{ x: number; y: number } | null>;
+        snap?(): Promise<{ x: number; y: number; side: "left" | "right" } | null>;
         captureScreen(): Promise<{ ok: boolean; dataUrl?: string; name?: string; error?: string }>;
         setInteractiveRects(rects: Array<{ x: number; y: number; width: number; height: number }>): void;
         onState(cb: (state: { mounted: boolean; botId: string | null }) => void): () => void;

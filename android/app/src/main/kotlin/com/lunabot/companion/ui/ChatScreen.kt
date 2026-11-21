@@ -194,6 +194,10 @@ fun ChatScreen(
     retainsDraft: (chatId: String) -> Boolean = { false },
     /** An "Opened thread" chip pointing at another bot pushes that chat. */
     onOpenChat: (Chat) -> Unit = {},
+    /** True when hosted inside the root Muse 4-tab shell as Tab 0. */
+    embedded: Boolean = false,
+    /** When non-null, replaces the top-left Back button with Muse's `=` drawer button. */
+    onOpenDrawer: (() -> Unit)? = null,
 ) {
     val session = LocalCompanion.current.session
     val state by session.state.collectAsState()
@@ -206,30 +210,49 @@ fun ChatScreen(
         ThreadResolution.resolve(state, destination)
     }
     when (resolution) {
-        ThreadResolution.Result.Waiting -> OpeningThread(onBack)
-        ThreadResolution.Result.Gone -> LaunchedEffect(destination) { onBack() }
+        ThreadResolution.Result.Waiting -> OpeningThread(onBack = onBack, embedded = embedded, onOpenDrawer = onOpenDrawer)
+        ThreadResolution.Result.Gone -> LaunchedEffect(destination) { if (!embedded) onBack() }
         // The live chat record, so busy/unread stay current as frames land.
         is ThreadResolution.Result.Open -> {
             // Resolve the owner without changing the task named by the destination.
             val resolved = (destination as? Destination.Thread)?.let { resolution.chat.target }
             LaunchedEffect(resolved) { if (resolved != null) onResolved(resolved) }
-            LoadedChat(resolution.chat, state, onBack, onOpenComputer, onOpenOverview, retainsDraft, onResolved, onOpenChat)
+            LoadedChat(
+                chat = resolution.chat,
+                state = state,
+                onBack = onBack,
+                onOpenComputer = onOpenComputer,
+                onOpenOverview = onOpenOverview,
+                retainsDraft = retainsDraft,
+                onSelectTask = onResolved,
+                onOpenChat = onOpenChat,
+                embedded = embedded,
+                onOpenDrawer = onOpenDrawer,
+            )
         }
     }
 }
 
 /** The transcript is on its way. Leaving is still possible while it is. */
 @Composable
-private fun OpeningThread(onBack: () -> Unit) {
-    Column(modifier = Modifier.fillMaxSize()) {
+private fun OpeningThread(
+    onBack: () -> Unit,
+    embedded: Boolean = false,
+    onOpenDrawer: (() -> Unit)? = null,
+) {
+    Column(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .statusBarsPadding()
+                .then(if (embedded) Modifier else Modifier.statusBarsPadding())
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            BackPill(unreadElsewhere = 0, onBack = onBack)
+            if (onOpenDrawer != null) {
+                MuseDrawerButton(onClick = onOpenDrawer)
+            } else {
+                BackPill(unreadElsewhere = 0, onBack = onBack)
+            }
         }
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
@@ -247,6 +270,8 @@ private fun LoadedChat(
     retainsDraft: (chatId: String) -> Boolean,
     onSelectTask: (ChatTarget) -> Unit,
     onOpenChat: (Chat) -> Unit,
+    embedded: Boolean = false,
+    onOpenDrawer: (() -> Unit)? = null,
 ) {
     // This screen's selected task, independent of the desktop's selection.
     val threadId = chat.threadId
@@ -575,14 +600,14 @@ private fun LoadedChat(
     // LocalDensity.current cannot be read.
     val density = LocalDensity.current
     val hazeState = rememberHazeState()
-    val topInset = WindowInsets.safeDrawing
+    val topInset = if (embedded) 0.dp else WindowInsets.safeDrawing
         .only(WindowInsetsSides.Top)
         .asPaddingValues()
         .calculateTopPadding()
     var headerHeightPx by remember { mutableIntStateOf(0) }
     var composerHeightPx by remember { mutableIntStateOf(0) }
     val headerClearance = with(density) {
-        if (headerHeightPx > 0) headerHeightPx.toDp() + 12.dp else HEADER_CLEARANCE
+        if (headerHeightPx > 0) headerHeightPx.toDp() + 14.dp else HEADER_CLEARANCE
     } + topInset
     val bottomClearance = with(density) {
         if (composerHeightPx > 0) composerHeightPx.toDp() + BOTTOM_CONTENT_GAP else BOTTOM_CHROME_HEIGHT + 8.dp
@@ -1095,7 +1120,7 @@ private fun LoadedChat(
     // Search is a level of its own: Back closed the whole chat and wiped the
     // draft, so searching for an old message cost you what you were writing.
     BackHandler(enabled = searching) { searching = false }
-    BackHandler(enabled = !showingPlus && !hudOpen && !searching) { leaveToRoster() }
+    BackHandler(enabled = !embedded && !showingPlus && !hudOpen && !searching) { leaveToRoster() }
 
     CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
@@ -1331,23 +1356,38 @@ private fun LoadedChat(
 
                 val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
                 val topBandAlpha by animateFloatAsState(
-                    targetValue = if (topScrolled) 1f else 0.90f,
+                    targetValue = if (topScrolled) 1f else 0.94f,
                     animationSpec = tween(180),
                     label = "chat-top-haze",
                 )
+                // Muse-style crystal-clear pure-white top fade (zero murky blur smear)
+                // so bubbles stay razor-sharp and dissolve cleanly only near the status bar.
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(headerClearance + 8.dp)
-                        .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+                        .height(headerClearance - 4.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0.00f to minisCanvas,
+                                0.36f to minisCanvas.copy(alpha = 0.92f * topBandAlpha),
+                                0.70f to minisCanvas.copy(alpha = 0.32f * topBandAlpha),
+                                1.00f to Color.Transparent,
+                            ),
+                        ),
                 )
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(bottomClearance + 24.dp)
-                        .progressiveHazeBand(hazeState, fromTop = false),
+                        .height(bottomClearance + 14.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0.00f to Color.Transparent,
+                                0.42f to minisCanvas.copy(alpha = 0.82f),
+                                1.00f to minisCanvas,
+                            ),
+                        ),
                 )
 
                 androidx.compose.animation.AnimatedVisibility(
@@ -1377,6 +1417,7 @@ private fun LoadedChat(
                         (state.unreadCount - if (chat.unread) 1 else 0).coerceAtLeast(0)
                     },
                     onBack = { leaveToRoster() },
+                    onOpenDrawer = onOpenDrawer,
                     onSearch = { searching = true },
                     onOpenThreads = {
                         dictation.stop()
@@ -1403,7 +1444,7 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                        .statusBarsPadding()
+                        .then(if (embedded) Modifier else Modifier.statusBarsPadding())
                         .onSizeChanged { headerHeightPx = it.height },
                 )
 
@@ -1411,7 +1452,7 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                        .navigationBarsPadding()
+                        .then(if (embedded) Modifier else Modifier.navigationBarsPadding())
                         .onSizeChanged { composerHeightPx = it.height },
                 name = chat.name,
                 draft = draft,
@@ -1927,10 +1968,49 @@ private fun highlighted(text: String, query: String, highlight: Color): Annotate
  * the gaps and only the solid pills — back, identity, actions — occlude it.
  */
 @Composable
+internal fun MuseDrawerButton(
+    onClick: () -> Unit,
+    unreadElsewhere: Int = 0,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TouchTarget(onClick = onClick, contentDescription = "打开侧边栏", size = 48.dp) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.5.dp)) {
+                    Box(Modifier.width(14.dp).height(1.9.dp).background(minisInk, CircleShape))
+                    Box(Modifier.width(14.dp).height(1.9.dp).background(minisInk, CircleShape))
+                }
+            }
+        }
+        if (unreadElsewhere > 0) {
+            Text(
+                text = "$unreadElsewhere",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = minisAccent,
+                modifier = Modifier
+                    .museFloatingPill(CircleShape, elevation = 3.dp)
+                    .defaultMinSize(minWidth = 22.dp)
+                    .padding(horizontal = 8.dp, vertical = 3.dp),
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
 private fun ChatHeader(
     chat: Chat,
     unreadElsewhere: Int,
     onBack: () -> Unit,
+    onOpenDrawer: (() -> Unit)?,
     onSearch: () -> Unit,
     onWatchComputer: () -> Unit,
     onCall: () -> Unit,
@@ -1942,90 +2022,113 @@ private fun ChatHeader(
         modifier = modifier
             .fillMaxWidth(),
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 4.dp, end = 6.dp, top = 4.dp, bottom = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 4.dp),
         ) {
-            BackPill(unreadElsewhere = unreadElsewhere, onBack = onBack)
+            Box(modifier = Modifier.align(Alignment.TopStart).padding(top = 6.dp)) {
+                if (onOpenDrawer != null) {
+                    MuseDrawerButton(onClick = onOpenDrawer, unreadElsewhere = unreadElsewhere)
+                } else {
+                    BackPill(unreadElsewhere = unreadElsewhere, onBack = onBack)
+                }
+            }
 
-            Spacer(Modifier.weight(1f))
-
-            Row(
-                modifier = Modifier
-                    .heightIn(min = 44.dp)
-                    .chromeCapsule(surface = true)
-                    .clip(CircleShape)
-                    .clickable(
-                        role = Role.Button,
-                        onClick = if (chat.supportsTasks) onOpenThreads else onOpenProfile,
-                    )
-                    // Merge, but do not clear: the visible name is the label,
-                    // and clearing it would remove the only text TalkBack and
-                    // the UI tests can find. The description says what the tap
-                    // opens, while the name stays in the merged tree.
-                    .semantics(mergeDescendants = true) {
-                        contentDescription =
-                            if (chat.supportsTasks) "${chat.name}，打开话题列表"
-                            else "${chat.name}，编辑智能体资料"
-                    }
-                    .padding(start = 14.dp, end = 14.dp, top = 3.dp, bottom = 3.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically,
+            // Muse-style generous floating centerpiece: large 68dp avatar with
+            // softly shadowed pure-white name pill cleanly anchored below.
+            Column(
+                modifier = Modifier.align(Alignment.TopCenter),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
-                // Grok Bot's header is the assistant's small face and its
-                // name — not a status board. The turn's state already reads in
-                // the transcript, so the subtitle is gone and the face is 24 dp.
-                ChatAvatar(
-                    chat = chat,
-                    size = 24.dp,
-                    animated = false,
-                    contentDescription = null,
-                    fallback = AvatarFallback.PRESET,
-                    motion = AvatarMotion.SHEEN,
-                    // The header's face is small, but its eyes still turn up
-                    // while the bot is working — the same tell the transcript
-                    // shows at full size.
-                    mood = if (chat.busy) FaceMood.THINKING else FaceMood.IDLE,
-                    modifier = Modifier.padding(end = 8.dp),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            role = Role.Button,
+                            onClick = onOpenProfile,
+                        )
+                        .semantics { contentDescription = "${chat.name}，打开控制中心" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    ChatAvatar(
+                        chat = chat,
+                        size = 68.dp,
+                        animated = true,
+                        contentDescription = null,
+                        fallback = AvatarFallback.PRESET,
+                        motion = AvatarMotion.SHEEN,
+                        mood = if (chat.busy) FaceMood.THINKING else FaceMood.IDLE,
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .museFloatingPill(CircleShape, elevation = 5.dp)
+                        .clickable(
+                            role = Role.Button,
+                            onClick = if (chat.supportsTasks) onOpenThreads else onOpenProfile,
+                        )
+                        .semantics(mergeDescendants = true) {
+                            contentDescription =
+                                if (chat.supportsTasks) "${chat.name}，打开话题列表"
+                                else "${chat.name}，编辑智能体资料"
+                        }
+                        .padding(horizontal = 15.dp, vertical = 4.5.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Text(
                         text = chat.name,
-                        fontSize = 17.sp,
+                        fontSize = 14.5.sp,
                         fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.15).sp,
+                        color = minisInk,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 200.dp),
+                        modifier = Modifier.widthIn(max = 156.dp),
                     )
                     if (chat is Chat.BotChat && chat.bot.chiefOfStaff == true) {
                         Spacer(Modifier.width(4.dp))
-                        CrownBadge(size = 12.dp)
+                        CrownBadge(size = 11.5.dp)
                     }
-                    // The header says the bot is alive even when the working
-                    // row has scrolled out of view.
                     if (chat.busy) {
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(5.dp))
                         WorkingDotsView(minisAccent)
                     }
                 }
             }
 
-            Spacer(Modifier.weight(1f))
-
-            // One action, the way Grok Bot has one: everything that used to be
-            // three separate circles now sits behind the ellipsis.
-            Box {
+            // Muse-style floating right dual-action capsule: 46dp crisp white pill.
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(top = 6.dp)) {
                 var actionsOpen by remember { mutableStateOf(false) }
-                ChromeButton(
-                    painter = painterResource(R.drawable.ic_more),
-                    contentDescription = "更多操作",
-                    onClick = { actionsOpen = true },
-                    size = 40.dp,
-                    glyph = 18.dp,
-                    surface = true,
-                )
+                Row(
+                    modifier = Modifier
+                        .height(46.dp)
+                        .museFloatingPill(CircleShape, elevation = 4.dp)
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (chat is Chat.BotChat) {
+                        TouchTarget(onClick = onCall, size = 42.dp, contentDescription = "语音通话") {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_call_line),
+                                contentDescription = null,
+                                tint = minisInk,
+                                modifier = Modifier.size(20.dp),
+                            )
+                        }
+                    }
+                    TouchTarget(onClick = { actionsOpen = true }, size = 42.dp, contentDescription = "更多操作") {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_more),
+                            contentDescription = null,
+                            tint = minisInk,
+                            modifier = Modifier.size(19.dp),
+                        )
+                    }
+                }
                 ChatOverflowMenu(
                     expanded = actionsOpen,
                     bot = chat as? Chat.BotChat,
@@ -2560,12 +2663,10 @@ private fun Composer(
                 Row(
                 modifier = Modifier
                     .weight(1f)
-                    .chromeSheet(
-                        cornerRadius = MIN_TOUCH_TARGET / 2,
-                        elevation = if (minisIsDark()) 0.dp else 3.dp,
-                    )
-                    .heightIn(min = MIN_TOUCH_TARGET)
-                    .padding(start = 2.dp, end = 4.dp),
+                    .clip(CircleShape)
+                    .background(if (minisIsDark()) minisCard else Color(0xFFEBEBE9))
+                    .heightIn(min = 50.dp)
+                    .padding(start = 6.dp, end = 6.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
@@ -2691,49 +2792,18 @@ private fun Composer(
                             .then(voiceButton),
                         contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(
-                                    if (dictationListening) {
-                                        MinisTokens.Danger.copy(alpha = 0.18f)
-                                    } else {
-                                        minisGrouped
-                                    },
-                                    CircleShape,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (dictationListening) {
-                                ListeningBars(
-                                    color = MinisTokens.Danger,
-                                    modifier = Modifier.size(width = 16.dp, height = 14.dp),
-                                )
-                            } else {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_mic),
-                                    contentDescription = null,
-                                    tint = minisInk,
-                                    modifier = Modifier.size(19.dp),
-                                )
-                            }
-                        }
-                    }
-                    if (showCall) {
-                        TouchTarget(onClick = onCall, size = 42.dp, contentDescription = "语音通话") {
-                            Box(
-                                modifier = Modifier
-                                    .size(34.dp)
-                                    .background(minisInk, CircleShape),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.ic_waveform),
-                                    contentDescription = null,
-                                    tint = minisPage,
-                                    modifier = Modifier.size(18.dp),
-                                )
-                            }
+                        if (dictationListening) {
+                            ListeningBars(
+                                color = MinisTokens.Danger,
+                                modifier = Modifier.size(width = 16.dp, height = 14.dp),
+                            )
+                        } else {
+                            Icon(
+                                painter = painterResource(R.drawable.ic_mic),
+                                contentDescription = null,
+                                tint = minisInk,
+                                modifier = Modifier.size(21.dp),
+                            )
                         }
                     }
                 }

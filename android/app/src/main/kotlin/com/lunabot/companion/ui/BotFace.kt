@@ -390,6 +390,9 @@ internal object BotFaceRig {
 /** Current visual character style pack for all drawn bot portraits. */
 internal val LocalBotAvatarStyle = compositionLocalOf { BotAvatarStyle.ORB }
 
+/** Optional local file path for a user-selected custom Luna portrait photo. */
+internal val LocalCustomLunaAvatarPath = compositionLocalOf<String?> { null }
+
 @Composable
 internal fun BotFace(
     color: String?,
@@ -570,6 +573,9 @@ private fun DrawScope.drawFace(
 ) {
     when (style) {
         BotAvatarStyle.ORB -> drawOrbFace(palette, pose, crown, diameter, middle, hands, handBrush, handEdge)
+        BotAvatarStyle.NEKO -> drawNekoFace(palette, pose, crown, diameter, middle)
+        BotAvatarStyle.LIQUID -> drawLiquidFace(palette, pose, crown, diameter, middle)
+        BotAvatarStyle.SYNTH -> drawSynthFace(palette, pose, crown, diameter, middle)
         BotAvatarStyle.SPIRIT -> drawSpiritFace(palette, pose, crown, diameter, middle)
         BotAvatarStyle.MINIBOT -> drawMiniBotFace(palette, pose, crown, diameter, middle)
         BotAvatarStyle.CLASSIC -> drawClassicFace(palette, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)
@@ -795,6 +801,304 @@ private fun DrawScope.drawOrbFace(
             style = Stroke(1.dp.toPx()),
         )
         drawBotHands(hands, handEdge, handBrush, radius, middle)
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Matte porcelain rounded cat avatar with blush inner ears, glossy eyes & tiny nose. */
+private fun DrawScope.drawNekoFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+    val isLightBody = palette.key != "black" && palette.key != "grey"
+
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x1C000000), Color.Transparent),
+            center = middle + Offset(0f, radius * 0.94f),
+            radius = radius * 0.84f,
+        ),
+        topLeft = Offset(middle.x - radius * 0.72f, middle.y + radius * 0.76f),
+        size = Size(radius * 1.44f, radius * 0.34f),
+    )
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val earBrush = Brush.linearGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            start = middle + Offset(0f, -radius * 1.05f),
+            end = middle + Offset(0f, -radius * 0.25f),
+        )
+        val innerEarColor = Color(0xFFF3B79F).copy(alpha = if (isLightBody) 0.72f else 0.45f)
+        for (side in floatArrayOf(-1f, 1f)) {
+            val earTwitch = side * pose.roll * 0.6f
+            withTransform({ rotate(earTwitch, middle + Offset(side * radius * 0.56f, -radius * 0.45f)) }) {
+                val outer = Path().apply {
+                    moveTo(middle.x + side * radius * 0.86f, middle.y - radius * 0.16f)
+                    quadraticTo(
+                        middle.x + side * radius * 0.84f, middle.y - radius * 0.96f,
+                        middle.x + side * radius * 0.56f, middle.y - radius * 0.98f,
+                    )
+                    quadraticTo(
+                        middle.x + side * radius * 0.28f, middle.y - radius * 0.96f,
+                        middle.x + side * radius * 0.22f, middle.y - radius * 0.68f,
+                    )
+                    close()
+                }
+                drawPath(outer, earBrush)
+                val inner = Path().apply {
+                    moveTo(middle.x + side * radius * 0.73f, middle.y - radius * 0.34f)
+                    quadraticTo(
+                        middle.x + side * radius * 0.71f, middle.y - radius * 0.80f,
+                        middle.x + side * radius * 0.55f, middle.y - radius * 0.82f,
+                    )
+                    quadraticTo(
+                        middle.x + side * radius * 0.39f, middle.y - radius * 0.80f,
+                        middle.x + side * radius * 0.35f, middle.y - radius * 0.58f,
+                    )
+                    close()
+                }
+                drawPath(inner, innerEarColor)
+            }
+        }
+
+        val headRect = Rect(middle.x - radius * 0.96f, middle.y - radius * 0.82f, middle.x + radius * 0.96f, middle.y + radius * 0.94f)
+        val headPath = Path().apply {
+            addRoundRect(androidx.compose.ui.geometry.RoundRect(headRect, CornerRadius(radius * 0.88f, radius * 0.84f)))
+        }
+        drawPath(
+            path = headPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.32f),
+                radius = radius * 1.45f,
+            ),
+        )
+        clipPath(headPath) {
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.50f * radius + gazeX * 0.45f, 0.16f * radius + gazeY * 0.45f)
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.28f),
+                    radius = radius * 0.28f,
+                    center = bc,
+                )
+            }
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.33f * radius + gazeX, -0.02f * radius + gazeY)
+                val w = 0.135f * diameter
+                val h = max(0.185f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+            // Tiny ceramic cat nose
+            val noseCenter = middle + Offset(gazeX * 0.7f, 0.08f * radius + gazeY * 0.7f)
+            drawOval(
+                color = Color(0xFFD69A87),
+                topLeft = Offset(noseCenter.x - radius * 0.085f, noseCenter.y - radius * 0.048f),
+                size = Size(radius * 0.17f, radius * 0.096f),
+            )
+        }
+        drawPath(headPath, color = if (isLightBody) Color(0x14000000) else Color(0x10000000), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Translucent iridescent opal liquid-glass droplet with spatial refraction & floating glossy eyes. */
+private fun DrawScope.drawLiquidFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(soft.edge.copy(alpha = 0.30f), Color.Transparent),
+            center = middle + Offset(0f, radius * 0.95f),
+            radius = radius * 0.80f,
+        ),
+        topLeft = Offset(middle.x - radius * 0.68f, middle.y + radius * 0.78f),
+        size = Size(radius * 1.36f, radius * 0.32f),
+    )
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val dropPath = Path().apply {
+            moveTo(middle.x, middle.y - radius * 0.98f)
+            cubicTo(
+                middle.x + radius * 0.50f, middle.y - radius * 0.94f,
+                middle.x + radius * 0.98f, middle.y - radius * 0.18f,
+                middle.x + radius * 0.94f, middle.y + radius * 0.30f,
+            )
+            cubicTo(
+                middle.x + radius * 0.90f, middle.y + radius * 0.82f,
+                middle.x + radius * 0.48f, middle.y + radius * 0.96f,
+                middle.x, middle.y + radius * 0.96f,
+            )
+            cubicTo(
+                middle.x - radius * 0.48f, middle.y + radius * 0.96f,
+                middle.x - radius * 0.90f, middle.y + radius * 0.82f,
+                middle.x - radius * 0.94f, middle.y + radius * 0.30f,
+            )
+            cubicTo(
+                middle.x - radius * 0.98f, middle.y - radius * 0.18f,
+                middle.x - radius * 0.50f, middle.y - radius * 0.94f,
+                middle.x, middle.y - radius * 0.98f,
+            )
+            close()
+        }
+        drawPath(
+            path = dropPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.20f, -radius * 0.25f),
+                radius = radius * 1.45f,
+            ),
+        )
+        clipPath(dropPath) {
+            // Iridescent opal refraction bands
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x52B8E6FF), Color(0x2EE3C7FF), Color.Transparent),
+                    center = middle + Offset(-radius * 0.34f, -radius * 0.14f),
+                    radius = radius * 0.85f,
+                ),
+                radius = radius * 0.85f,
+                center = middle + Offset(-radius * 0.34f, -radius * 0.14f),
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x48FFD3B6), Color(0x22FFF2C2), Color.Transparent),
+                    center = middle + Offset(radius * 0.34f, radius * 0.32f),
+                    radius = radius * 0.82f,
+                ),
+                radius = radius * 0.82f,
+                center = middle + Offset(radius * 0.34f, radius * 0.32f),
+            )
+            // Glass specular arc
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = 0.88f), Color.Transparent),
+                    center = middle + Offset(-radius * 0.32f, -radius * 0.42f),
+                    radius = radius * 0.50f,
+                ),
+                topLeft = Offset(middle.x - radius * 0.68f, middle.y - radius * 0.76f),
+                size = Size(radius * 0.68f, radius * 0.56f),
+            )
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.29f * radius + gazeX, 0.02f * radius + gazeY)
+                val w = 0.135f * diameter
+                val h = max(0.205f * diameter * open, w * 0.32f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.92f), w * 0.23f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.22f))
+                }
+            }
+        }
+        drawPath(dropPath, color = Color.White.copy(alpha = 0.85f), style = Stroke(1.1.dp.toPx()))
+        drawPath(dropPath, color = Color(0x16000000), style = Stroke(0.5.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Dieter Rams / Teenage Engineering pocket synth cube with dot-matrix LCD & coral dial. */
+private fun DrawScope.drawSynthFace(
+    palette: PresetAvatar,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val soft = softBotPalette(palette.key)
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val boxW = diameter * 0.90f
+        val boxH = diameter * 0.88f
+        val topLeft = Offset(middle.x - boxW / 2f, middle.y - boxH / 2f)
+        val corner = CornerRadius(boxW * 0.26f, boxH * 0.26f)
+
+        // Side coral-orange tactile dial
+        drawRoundRect(
+            color = Color(0xFFE67855),
+            topLeft = Offset(topLeft.x + boxW - boxW * 0.05f, middle.y - boxH * 0.18f),
+            size = Size(boxW * 0.11f, boxH * 0.24f),
+            cornerRadius = CornerRadius(boxW * 0.05f, boxW * 0.05f),
+        )
+        // Matte hardware shell
+        drawRoundRect(
+            brush = Brush.linearGradient(listOf(soft.top, soft.mid, soft.edge), topLeft, topLeft + Offset(boxW, boxH)),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+        )
+        drawRoundRect(
+            color = Color(0x18000000),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+            style = Stroke(0.7.dp.toPx()),
+        )
+        // Recessed warm-dark LCD screen
+        val lcdW = boxW * 0.72f
+        val lcdH = boxH * 0.48f
+        val lcdTopLeft = Offset(middle.x - lcdW / 2f, topLeft.y + boxH * 0.16f)
+        drawRoundRect(
+            color = Color(0xFF2B2723),
+            topLeft = lcdTopLeft,
+            size = Size(lcdW, lcdH),
+            cornerRadius = CornerRadius(lcdW * 0.18f, lcdW * 0.18f),
+        )
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.7f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.6f
+        val ledColor = Color(0xFFFFF3DC)
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val c = Offset(lcdTopLeft.x + lcdW / 2f + side * lcdW * 0.24f + gazeX, lcdTopLeft.y + lcdH * 0.48f + gazeY)
+            val w = lcdW * 0.16f
+            val h = max(lcdH * 0.36f * open, w * 0.34f)
+            drawRoundRect(ledColor, Offset(c.x - w / 2f, c.y - h / 2f), Size(w, h), CornerRadius(w * 0.32f, w * 0.32f))
+        }
+        // Tiny LCD smile dash
+        val mouthCenter = Offset(lcdTopLeft.x + lcdW / 2f + gazeX * 0.6f, lcdTopLeft.y + lcdH * 0.70f + gazeY * 0.6f)
+        drawRoundRect(
+            color = ledColor.copy(alpha = 0.85f),
+            topLeft = Offset(mouthCenter.x - lcdW * 0.08f, mouthCenter.y - lcdH * 0.045f),
+            size = Size(lcdW * 0.16f, lcdH * 0.09f),
+            cornerRadius = CornerRadius(lcdH * 0.045f, lcdH * 0.045f),
+        )
+        // Tactile speaker grille dots along bottom
+        val dotR = max(0.9.dp.toPx(), boxW * 0.020f)
+        val grilleY1 = topLeft.y + boxH * 0.75f
+        val grilleY2 = topLeft.y + boxH * 0.83f
+        for (col in -3..3) {
+            val gx = middle.x + col * boxW * 0.095f
+            drawCircle(Color(0x523B3530), dotR, Offset(gx, grilleY1))
+            drawCircle(Color(0x523B3530), dotR, Offset(gx, grilleY2))
+        }
         if (crown) drawSculptedCrown(pose, radius, middle)
     }
 }

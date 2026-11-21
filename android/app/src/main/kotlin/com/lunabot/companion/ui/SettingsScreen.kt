@@ -74,6 +74,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
@@ -1437,11 +1438,104 @@ fun SettingsScreen(
     }
 
     if (choosingAvatarStyle) {
+        val customLunaPath by environment.chatPreferences.customLunaAvatarPath.collectAsState()
+        val avatarContext = LocalContext.current
+        val pickLunaPhoto = rememberLauncherForActivityResult(
+            ActivityResultContracts.PickVisualMedia(),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                val savedPath = withContext(Dispatchers.IO) {
+                    runCatching {
+                        val dir = java.io.File(avatarContext.filesDir, "custom_avatars").apply { mkdirs() }
+                        dir.listFiles()?.forEach { it.delete() }
+                        val outFile = java.io.File(dir, "luna_${System.currentTimeMillis()}.jpg")
+                        avatarContext.contentResolver.openInputStream(uri)?.use { input ->
+                            outFile.outputStream().use { output -> input.copyTo(output) }
+                        }
+                        outFile.takeIf { it.exists() && it.length() > 0L }?.absolutePath
+                    }.getOrNull()
+                }
+                if (savedPath != null) {
+                    haptics.play(HapticCue.SELECT)
+                    environment.chatPreferences.setCustomLunaAvatarPath(savedPath)
+                }
+            }
+        }
+        var customPreview by remember(customLunaPath) { mutableStateOf<Bitmap?>(null) }
+        LaunchedEffect(customLunaPath) {
+            customPreview = if (customLunaPath != null) {
+                withContext(Dispatchers.IO) {
+                    runCatching { android.graphics.BitmapFactory.decodeFile(customLunaPath) }.getOrNull()
+                }
+            } else {
+                null
+            }
+        }
         SettingsSheet(title = "Bot 形象风格", onDismiss = { choosingAvatarStyle = false }) {
             Column(
                 modifier = Modifier.padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                // Muse-style custom portrait picker for Luna
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(minisCard)
+                        .border(
+                            width = if (customLunaPath != null) 1.5.dp else 0.5.dp,
+                            color = if (customLunaPath != null) minisAccent else minisSeparator.copy(alpha = 0.5f),
+                            shape = RoundedCornerShape(20.dp),
+                        )
+                        .clickable(role = Role.Button) {
+                            pickLunaPhoto.launch(
+                                androidx.activity.result.PickVisualMediaRequest(
+                                    ActivityResultContracts.PickVisualMedia.ImageOnly,
+                                ),
+                            )
+                        }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    val bmp = customPreview
+                    if (bmp != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = remember(bmp) { bmp.asImageBitmap() },
+                            contentDescription = null,
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier.size(50.dp).clip(CircleShape),
+                        )
+                    } else {
+                        BotFace(color = "white", size = 50.dp, life = FaceLife.STILL, style = avatarStyle)
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "自定义 Luna 肖像",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = minisInk,
+                        )
+                        Text(
+                            text = if (customLunaPath != null) "已启用相册照片 · 点击更换" else "像 Muse 一样从相册选一张真人/插画照片",
+                            fontSize = 12.sp,
+                            color = secondaryTint,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    if (customLunaPath != null) {
+                        TextButton(
+                            onClick = {
+                                haptics.play(HapticCue.SELECT)
+                                environment.chatPreferences.setCustomLunaAvatarPath(null)
+                            },
+                        ) {
+                            Text("恢复", fontSize = 13.sp, color = minisAccent)
+                        }
+                    }
+                }
                 BotAvatarStyle.entries.chunked(2).forEach { pair ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -2459,6 +2553,9 @@ private fun themeLabel(mode: ThemeMode): String = when (mode) {
 
 private fun avatarStyleLabel(style: BotAvatarStyle): String = when (style) {
     BotAvatarStyle.ORB -> "琉璃月灵"
+    BotAvatarStyle.NEKO -> "折耳瓷猫"
+    BotAvatarStyle.LIQUID -> "极光液滴"
+    BotAvatarStyle.SYNTH -> "复古掌机"
     BotAvatarStyle.SPIRIT -> "星月软团"
     BotAvatarStyle.MINIBOT -> "陶瓷微机"
     BotAvatarStyle.CLASSIC -> "经典极简"
@@ -2466,6 +2563,9 @@ private fun avatarStyleLabel(style: BotAvatarStyle): String = when (style) {
 
 private fun avatarStyleCaption(style: BotAvatarStyle): String = when (style) {
     BotAvatarStyle.ORB -> "温润琉璃球 · 流金皇冠"
+    BotAvatarStyle.NEKO -> "哑光白瓷猫耳 · 微动耳尖"
+    BotAvatarStyle.LIQUID -> "半透蛋白石 · 虹彩折射"
+    BotAvatarStyle.SYNTH -> "工业小方块 · 点阵表情"
     BotAvatarStyle.SPIRIT -> "软萌小精灵 · 悬浮星月"
     BotAvatarStyle.MINIBOT -> "磨砂微机 · 发光面罩"
     BotAvatarStyle.CLASSIC -> "原始极简圆球"

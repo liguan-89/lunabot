@@ -27,6 +27,9 @@ enum class ThemeMode(val wireValue: String) {
 /** Visual character style pack for bot portraits across the app. */
 enum class BotAvatarStyle(val wireValue: String) {
     ORB("orb"),
+    NEKO("neko"),
+    LIQUID("liquid"),
+    SYNTH("synth"),
     SPIRIT("spirit"),
     MINIBOT("minibot"),
     CLASSIC("classic"),
@@ -108,6 +111,11 @@ class ChatPreferences(
         BotAvatarStyle.fromWire(prefs.getString(AVATAR_STYLE, null)),
     )
     val avatarStyle: StateFlow<BotAvatarStyle> = _avatarStyle.asStateFlow()
+
+    private val _customLunaAvatarPath = MutableStateFlow(
+        prefs.getString(CUSTOM_LUNA_AVATAR_PATH, null)?.takeIf { it.isNotBlank() },
+    )
+    val customLunaAvatarPath: StateFlow<String?> = _customLunaAvatarPath.asStateFlow()
 
     private val _voiceAsrMode = MutableStateFlow(
         VoiceAsrMode.fromWire(prefs.getString(VOICE_ASR_MODE, null)),
@@ -357,6 +365,15 @@ class ChatPreferences(
         _avatarStyle.value = style
     }
 
+    fun setCustomLunaAvatarPath(path: String?) {
+        val normalized = path?.takeIf { it.isNotBlank() }
+        prefs.edit {
+            if (normalized == null) remove(CUSTOM_LUNA_AVATAR_PATH)
+            else putString(CUSTOM_LUNA_AVATAR_PATH, normalized)
+        }
+        _customLunaAvatarPath.value = normalized
+    }
+
     fun setActivityDetail(detail: ActivityDetail) {
         if (_activityDetail.value == detail && prefs.contains(ACTIVITY_DETAIL)) return
         // The value is small and changed only from Settings. Commit makes a
@@ -408,6 +425,7 @@ class ChatPreferences(
         private const val QUICK_REPLIES = "companion.prefs.quickReplies"
         private const val THEME_MODE = "companion.prefs.themeMode"
         private const val AVATAR_STYLE = "companion.prefs.avatarStyle"
+        private const val CUSTOM_LUNA_AVATAR_PATH = "companion.prefs.customLunaAvatarPath"
         private const val VOICE_ASR_MODE = "companion.prefs.voiceAsr"
         private const val PHONE_CALENDAR = "companion.prefs.phone.calendar"
         private const val PHONE_CONTACTS = "companion.prefs.phone.contacts"

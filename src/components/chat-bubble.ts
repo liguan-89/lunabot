@@ -42,14 +42,14 @@ export function plainBotBubble(simple: boolean): string {
  * reply is a card, a formatted one is a page.
  */
 export function botReplySurface(simple: boolean, text: string): string {
-  if (!simple) return "rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink";
-  return isStructuredLongReply(text) ? "bg-transparent px-1 py-0.5 text-ink" : SIMPLE_BOT_BUBBLE;
+  if (isStructuredLongReply(text)) return "bg-transparent px-1 py-0.5 text-ink";
+  return simple ? SIMPLE_BOT_BUBBLE : "rounded-2xl bg-card px-4 py-2.5 text-[15px] leading-relaxed text-ink";
 }
 
 /** The width that goes with [botReplySurface]: a document reads at prose width, a chat line stops at the bubble cap. */
 export function botReplyWidth(simple: boolean, text: string): string {
-  if (!simple) return "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))]";
-  return isStructuredLongReply(text) ? formattedReplyWidth(text) : SIMPLE_BUBBLE_MAX;
+  if (isStructuredLongReply(text)) return formattedReplyWidth(text);
+  return simple ? SIMPLE_BUBBLE_MAX : "max-w-[min(var(--chat-bubble-max),var(--chat-bubble-pct))]";
 }
 
 /** Simple mode's transcript spaces rows 16px apart (ChatView's data-simple-rows); a row in the same group pulls up 12px, to 4px. */

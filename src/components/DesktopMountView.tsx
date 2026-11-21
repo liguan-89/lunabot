@@ -1,7 +1,18 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
-import { ArrowUp, AudioLines, Camera, ChevronDown, ChevronUp, ExternalLink, Mic, Paperclip, X } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type DragEvent,
+  type KeyboardEvent,
+  type PointerEvent,
+} from "react";
+import { ArrowUp, AudioLines, Camera, Check, ChevronDown, ChevronUp, ExternalLink, Mic, Paperclip, X } from "lucide-react";
 import { currentTaskBot, useStore, visibleMessages, type Bot, type Message } from "@/state/store";
 import { BotAvatar } from "./Avatar";
+import { ChatMarkdown } from "./ChatMarkdown";
 import { pathForFile } from "./ComposerAttachments";
 import { slotColors } from "./composer-simple";
 import { intakeFilesWithNotice } from "@/lib/attach-notice";
@@ -41,19 +52,20 @@ export function latestReplySnippet(messages: Message[], limit = 2000): string {
   return "";
 }
 
+const DRAG_THRESHOLD_PX = 4;
+
 const GLASS_BUBBLE = cn(
-  "relative isolate overflow-hidden rounded-[20px] border border-white/25 dark:border-white/12",
-  "bg-card/88 backdrop-blur-2xl text-ink",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.45),inset_0_-1px_0_rgba(255,255,255,0.12),0_14px_34px_-8px_rgba(0,0,0,0.34),0_3px_10px_-2px_rgba(0,0,0,0.16)]",
-  "before:pointer-events-none before:absolute before:inset-0 before:-z-10 before:rounded-[inherit]",
-  "before:bg-[radial-gradient(120%_75%_at_16%_0%,rgba(255,255,255,0.28),transparent_62%)] dark:before:bg-[radial-gradient(120%_75%_at_16%_0%,rgba(255,255,255,0.11),transparent_62%)]",
+  "relative isolate overflow-hidden rounded-[20px] border border-ink/[0.12]",
+  "bg-[color-mix(in_srgb,var(--color-menu)_88%,transparent)] backdrop-blur-2xl text-ink",
+  "shadow-[inset_0_1px_0_color-mix(in_srgb,var(--color-ink)_10%,transparent),0_14px_34px_-8px_rgba(0,0,0,0.32),0_3px_10px_-2px_rgba(0,0,0,0.14)]",
 );
 
 export function DesktopMountView({ botId }: { botId?: string | null }) {
   const { state, dispatch } = useStore();
+  const visibleBots = useMemo(() => state.bots.filter((candidate) => !candidate.hidden), [state.bots]);
   const profile = useMemo<Bot | undefined>(
-    () => (botId ? state.bots.find((candidate) => candidate.id === botId) : undefined) ?? state.bots[0],
-    [botId, state.bots],
+    () => (botId ? visibleBots.find((candidate) => candidate.id === botId) : undefined) ?? visibleBots[0] ?? state.bots[0],
+    [botId, visibleBots, state.bots],
   );
   const bot = useMemo(() => (profile ? currentTaskBot(profile) : undefined), [profile]);
   const messages = useMemo(() => (bot ? visibleMessages(bot) : []), [bot]);
@@ -61,8 +73,11 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
   const threadFeed = useMemo(() => recentMountMessages(messages, 6), [messages]);
 
   const [expanded, setExpanded] = useState(false);
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const [side, setSide] = useState<"left" | "right">("right");
   const [mascotHovered, setMascotHovered] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [moving, setMoving] = useState(false);
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
@@ -70,9 +85,11 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
   const [motionBurst, setMotionBurst] = useState<{ kind: MausMotion; key: number }>({ kind: "arrive", key: 1 });
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const prevReplyRef = useRef(lastReply);
+  const dragRef = useRef<{ pointerId: number; lastX: number; lastY: number; moved: boolean } | null>(null);
+  const suppressClickRef = useRef(false);
 
   const draftId = bot ? `mount:${bot.id}:${bot.threadId}` : "mount:default";
   const { recording, ready: micReady, speechError, toggle: toggleMic, stop: stopDictation } = useComposerDictation({
@@ -114,7 +131,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
 
   useLayoutEffect(() => {
     syncInteractiveRects();
-  }, [syncInteractiveRects, expanded, dragging, attachments.length, lastReply, threadFeed.length, notice, speechError, recording, bot?.id, bot?.busy, bot?.unread]);
+  }, [syncInteractiveRects, expanded, switcherOpen, side, dragging, attachments.length, lastReply, threadFeed.length, notice, speechError, recording, bot?.id, bot?.busy, bot?.unread]);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -125,6 +142,13 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
   }, [syncInteractiveRects]);
 
   useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 76)}px`;
+  }, [text, expanded]);
+
+  useEffect(() => {
     if (expanded) {
       requestAnimationFrame(() => {
         inputRef.current?.focus();
@@ -132,6 +156,8 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
           scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
         }
       });
+    } else {
+      setSwitcherOpen(false);
     }
   }, [expanded, threadFeed.length]);
 
@@ -209,8 +235,8 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
     triggerMotion("launch");
   };
 
-  const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       send();
     } else if (event.key === "Escape") {
@@ -222,18 +248,49 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
     }
   };
 
+  const onMascotPointerDown = (event: PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0 || !window.ogb?.desktopMount?.move) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragRef.current = { pointerId: event.pointerId, lastX: event.screenX, lastY: event.screenY, moved: false };
+  };
+
+  const onMascotPointerMove = (event: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.screenX - drag.lastX;
+    const dy = event.screenY - drag.lastY;
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD_PX) return;
+    drag.moved = true;
+    drag.lastX = event.screenX;
+    drag.lastY = event.screenY;
+    if (!moving) setMoving(true);
+    void window.ogb?.desktopMount?.move?.(dx, dy);
+  };
+
+  const onMascotPointerUp = (event: PointerEvent<HTMLButtonElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (drag.moved) {
+      suppressClickRef.current = true;
+      setMoving(false);
+      void window.ogb?.desktopMount?.snap?.().then((snapped) => {
+        if (snapped?.side) setSide(snapped.side);
+      });
+    }
+  };
+
   if (!bot) return null;
 
   const showPreview = Boolean(lastReply) || bot.busy || bot.unread || expanded;
   const showComposer = expanded || dragging || attachments.length > 0;
   const hasPayload = Boolean(text.trim()) || attachments.length > 0;
   const slot = slotColors(bot.color, false);
+  const canSwitchBot = visibleBots.length > 1 && Boolean(window.ogb?.desktopMount?.mount);
 
-  // Map live context to expressive states so both PresetFace hands and 3D Mascot react vividly:
-  // - busy -> "working" (rapid typing hands / working orbit)
-  // - recording or typing in composer -> "listening" (attentive ear hand)
-  // - hovered or unread -> "writing" ("speaking" mood in PresetFace -> waving hand!)
-  // - expanded -> "thinking" (chin-tap pondering hand)
   const avatarState: MausState = bot.busy
     ? "working"
     : recording || text.trim().length > 0
@@ -247,6 +304,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
   return (
     <div
       ref={rootRef}
+      data-mount-side={side}
       onDragOver={(e) => {
         e.preventDefault();
         if (!dragging) setDragging(true);
@@ -255,7 +313,10 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
       }}
       onDrop={handleDrop}
-      className="flex h-screen w-screen flex-col items-end justify-end gap-2.5 bg-transparent p-3 select-none"
+      className={cn(
+        "flex h-screen w-screen flex-col justify-end gap-2.5 bg-transparent p-3 select-none",
+        side === "left" ? "items-start" : "items-end",
+      )}
     >
       <style>{`
         @keyframes mount-float {
@@ -279,7 +340,19 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
         >
           <div className="flex shrink-0 items-center justify-between gap-2 px-3.5 pt-2.5 pb-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-[12px] font-semibold tracking-tight text-ink/90">{bot.name}</span>
+              {canSwitchBot ? (
+                <button
+                  type="button"
+                  data-mount-bot-switcher
+                  onClick={() => setSwitcherOpen((prev) => !prev)}
+                  className="inline-flex min-w-0 items-center gap-1 rounded-md px-1 -ml-1 py-0.5 text-[12px] font-semibold tracking-tight text-ink/90 transition-colors hover:bg-ink/[0.06]"
+                >
+                  <span className="truncate">{bot.name}</span>
+                  <ChevronDown size={11} className={cn("shrink-0 text-ink-secondary transition-transform", switcherOpen && "rotate-180")} />
+                </button>
+              ) : (
+                <span className="truncate text-[12px] font-semibold tracking-tight text-ink/90">{bot.name}</span>
+              )}
               {bot.busy && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium text-accent">
                   <span className="size-1.5 rounded-full bg-accent animate-pulse" />
@@ -335,6 +408,32 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
             </div>
           </div>
 
+          {switcherOpen && canSwitchBot && (
+            <div data-mount-bot-list className="mx-2.5 mb-2 flex max-h-[132px] flex-col gap-0.5 overflow-y-auto rounded-xl border border-ink/[0.08] bg-inset/70 p-1">
+              {visibleBots.map((candidate) => {
+                const active = candidate.id === profile?.id;
+                return (
+                  <button
+                    key={candidate.id}
+                    type="button"
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      if (!active) void window.ogb?.desktopMount?.mount(candidate.id);
+                    }}
+                    className={cn(
+                      "flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[12px] transition-colors",
+                      active ? "bg-menu-active font-medium text-ink" : "text-ink-secondary hover:bg-menu-hover hover:text-ink",
+                    )}
+                  >
+                    <BotAvatar bot={candidate} state="happy" size={18} fallback="preset" animated={false} />
+                    <span className="min-w-0 flex-1 truncate">{candidate.name}</span>
+                    {active && <Check size={12} className="shrink-0 text-accent" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {expanded ? (
             <div
               ref={scrollRef}
@@ -347,13 +446,19 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
                   <div
                     key={msg.id}
                     className={cn(
-                      "max-w-[92%] whitespace-pre-wrap break-words rounded-2xl px-3 py-1.5 text-[12px] leading-[1.45]",
+                      "max-w-[92%] break-words rounded-2xl px-3 py-1.5 text-[12px] leading-[1.48]",
                       msg.role === "user"
-                        ? "self-end bg-accent text-white shadow-xs"
+                        ? "self-end whitespace-pre-wrap bg-bubble-user text-bubble-user-ink shadow-xs"
                         : "self-start bg-ink/[0.06] text-ink",
                     )}
                   >
-                    {(msg.text ?? "").trim()}
+                    {msg.role === "user" ? (
+                      (msg.text ?? "").trim()
+                    ) : (
+                      <div className="[&_.chat-md]:text-[12.5px] [&_.chat-md]:leading-[1.5]">
+                        <ChatMarkdown text={(msg.text ?? "").trim()} />
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -361,16 +466,16 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
           ) : (
             lastReply && (
               <div className="min-h-0 max-h-[280px] overflow-y-auto overscroll-contain px-3.5 pb-3 pt-0.5 select-text">
-                <p className="whitespace-pre-wrap break-words text-[13px] leading-[1.48] text-ink/90">
-                  {lastReply}
-                </p>
+                <div className="[&_.chat-md]:text-[12.5px] [&_.chat-md]:leading-[1.5] text-ink/90">
+                  <ChatMarkdown text={lastReply} />
+                </div>
               </div>
             )
           )}
         </div>
       )}
 
-      <div className="flex w-full items-center justify-end gap-2.5">
+      <div className={cn("flex w-full items-end gap-2.5", side === "left" ? "flex-row-reverse justify-end" : "justify-end")}>
         {showComposer && (
           <div
             data-mount-interactive
@@ -404,10 +509,10 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
               </div>
             )}
             {(notice || speechError) && <p className="text-[11px] text-warning">{notice ?? speechError}</p>}
-            <div className="flex items-center gap-1.5">
-              <input
+            <div className="flex items-end gap-1.5">
+              <textarea
                 ref={inputRef}
-                type="text"
+                rows={1}
                 value={text}
                 onChange={(e) => {
                   if (recording) stopDictation();
@@ -416,7 +521,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
                 onKeyDown={onKeyDown}
                 placeholder={recording ? t("composer.placeholder.listening") : t("desktopMount.placeholder", { name: bot.name })}
                 aria-label={t("desktopMount.placeholder", { name: bot.name })}
-                className="min-w-0 flex-1 bg-transparent text-[13px] text-ink placeholder:text-ink-tertiary focus:outline-none"
+                className="max-h-[76px] min-w-0 flex-1 resize-none overflow-y-auto bg-transparent py-0.5 text-[13px] leading-[1.4] text-ink placeholder:text-ink-tertiary focus:outline-none"
               />
               {engineSupportsImages && window.ogb?.desktopMount?.captureScreen && (
                 <button
@@ -484,23 +589,31 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
         <button
           type="button"
           data-mount-interactive
+          onPointerDown={onMascotPointerDown}
+          onPointerMove={onMascotPointerMove}
+          onPointerUp={onMascotPointerUp}
+          onPointerCancel={onMascotPointerUp}
           onMouseEnter={() => {
             setMascotHovered(true);
             triggerMotion("blink");
           }}
           onMouseLeave={() => setMascotHovered(false)}
           onClick={() => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
             setExpanded((prev) => !prev);
             triggerMotion("switch");
           }}
           onDoubleClick={() => void window.ogb?.desktopMount?.openMain(bot.id)}
           aria-label={bot.name}
           title={bot.name}
-          style={{ animation: "mount-float 3.6s ease-in-out infinite" }}
+          style={{ animation: moving ? "none" : "mount-float 3.6s ease-in-out infinite" }}
           className={cn(
             "group relative flex size-[58px] shrink-0 items-center justify-center rounded-full bg-transparent p-0 transition-transform duration-200",
-            "hover:scale-110 active:scale-95",
-            "drop-shadow-[0_8px_18px_rgba(0,0,0,0.34)]",
+            moving ? "cursor-grabbing scale-105" : "cursor-grab hover:scale-110 active:scale-95",
+            "drop-shadow-[0_8px_18px_rgba(0,0,0,0.32)]",
           )}
         >
           {bot.busy && (
@@ -508,13 +621,9 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
           )}
           <span
             className={cn(
-              "flex items-center justify-center rounded-full transition-transform duration-200",
+              "flex items-center justify-center rounded-full ring-1 ring-ink/[0.14] bg-menu/80 p-0.5 backdrop-blur-md transition-transform duration-200",
               dragging && "scale-110",
             )}
-            style={{
-              filter:
-                "drop-shadow(1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(-1.5px 0 0 rgba(255,255,255,0.85)) drop-shadow(0 1.5px 0 rgba(255,255,255,0.85)) drop-shadow(0 -1.5px 0 rgba(255,255,255,0.85))",
-            }}
           >
             <BotAvatar
               bot={bot}
@@ -532,7 +641,7 @@ export function DesktopMountView({ botId }: { botId?: string | null }) {
           {(bot.busy || bot.unread) && (
             <span
               className={cn(
-                "absolute right-0.5 top-0.5 size-3.5 rounded-full border-2 border-white shadow-xs",
+                "absolute right-0.5 top-0.5 size-3.5 rounded-full border-2 border-menu shadow-xs",
                 bot.busy ? "bg-accent animate-pulse" : "bg-accent",
               )}
             />

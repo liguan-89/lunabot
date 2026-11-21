@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
@@ -61,12 +64,16 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,6 +105,7 @@ internal fun TasksRoutinesScreen(
      * a filter, not a second request.
      */
     botId: String? = null,
+    embedded: Boolean = false,
 ) {
     val session = LocalCompanion.current.session
     val state by session.state.collectAsState()
@@ -148,145 +156,268 @@ internal fun TasksRoutinesScreen(
     }
 
     val receipts = remember(runs) { RoutineRules.receipts(runs) }
-    val hazeState = rememberHazeState()
     val listState = rememberLazyListState()
-    val topScrolled by remember { derivedStateOf { listState.canScrollBackward } }
-    val topBandAlpha by animateFloatAsState(
-        targetValue = if (topScrolled) 1f else 0f,
-        animationSpec = tween(180),
-        label = "routines-top-haze",
-    )
+    val dark = minisIsDark()
+    val softCardFill = if (dark) minisGrouped else Color(0xFFF5F5F3)
+    val canvasColor = minisCanvas
+    val topVeilBrush = remember(canvasColor) {
+        Brush.verticalGradient(
+            0.0f to canvasColor,
+            0.72f to canvasColor.copy(alpha = 0.94f),
+            1.0f to canvasColor.copy(alpha = 0f),
+        )
+    }
 
-    CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(minisCanvas)
-                .hazeSource(hazeState),
+        PullToRefreshBox(
+            isRefreshing = refreshing,
+            onRefresh = {
+                scope.launch {
+                    refreshing = true
+                    reload()
+                    refreshing = false
+                }
+            },
+            modifier = Modifier.fillMaxSize(),
         ) {
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = {
-                    scope.launch {
-                        refreshing = true
-                        reload()
-                        refreshing = false
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize().then(if (embedded) Modifier else Modifier.navigationBarsPadding()),
+                contentPadding = PaddingValues(top = 68.dp, bottom = if (embedded) 28.dp else 36.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
-                    contentPadding = PaddingValues(top = 68.dp, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
-                ) {
-                // The explainer describes tasks *and* routines; a bot-scoped
-                // page only shows the second half, so the generic copy would
-                // promise a section that is not on the screen.
-                if (botId == null) {
-                    item(key = "explainer") {
-                        FormSection(header = null, footer = RoutineRules.HEADER_FOOTER) {
-                            IconNote(
-                                text = RoutineRules.HEADER_TASK,
-                                painter = R.drawable.ic_chat_bubbles,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                            IconNote(
-                                text = RoutineRules.HEADER_ROUTINE,
-                                painter = R.drawable.ic_schedule,
-                                tint = MaterialTheme.colorScheme.onSurface,
-                            )
-                        }
+                if (embedded) {
+                    item(key = "routines-page-title") {
+                        Text(
+                            text = if (botId == null) "定时巡检" else "定时任务",
+                            fontSize = 25.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.4).sp,
+                            color = minisInk,
+                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp),
+                        )
                     }
                 }
 
                 item(key = "routines-header") {
-                    SectionHeading("例程")
+                    Text(
+                        text = "例程",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                        modifier = Modifier.padding(horizontal = 22.dp),
+                    )
                 }
 
                 if (routines.isEmpty() && !loading) {
                     item(key = "routines-empty") {
-                        SectionNote(
-                            title = RoutineRules.NO_ROUTINES_TITLE,
-                            description = RoutineRules.NO_ROUTINES_DESCRIPTION,
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(softCardFill)
+                                .padding(horizontal = 24.dp, vertical = 28.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(CircleShape)
+                                    .background(minisCard),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_muse_schedule_outline),
+                                    contentDescription = null,
+                                    tint = minisInk,
+                                    modifier = Modifier.size(22.dp),
+                                )
+                            }
+                            Text(
+                                text = "暂无定时巡检",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = minisInk,
+                            )
+                            Text(
+                                text = "按计划自动在后台执行任务，并将结果汇总到同一会话。",
+                                fontSize = 13.5.sp,
+                                color = minisSecondary,
+                                textAlign = TextAlign.Center,
+                                lineHeight = 19.sp,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Row(
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(minisInk)
+                                    .clickable(role = Role.Button) { editor = RoutineEditorTarget.new() }
+                                    .padding(horizontal = 18.dp, vertical = 9.dp),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_plus_line),
+                                    contentDescription = null,
+                                    tint = minisCanvas,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Text(
+                                    text = "新建巡检",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = minisCanvas,
+                                )
+                            }
+                        }
+                    }
+                } else if (routines.isNotEmpty()) {
+                    item(key = "routines-card") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(softCardFill),
+                        ) {
+                            routines.forEachIndexed { index, routine ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 68.dp, end = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = minisSeparator.copy(alpha = 0.25f),
+                                    )
+                                }
+                                RoutineRow(
+                                    routine = routine,
+                                    bot = state.bot(routine.botId),
+                                    onEdit = { editor = RoutineEditorTarget.edit(routine) },
+                                    onRunNow = {
+                                        request("run:${routine.id}") {
+                                            session.runRoutine(routine)
+                                            reload()
+                                        }
+                                    },
+                                    onToggle = {
+                                        request("toggle:${routine.id}") {
+                                            if (!routine.canToggle()) return@request
+                                            session.setRoutineEnabled(routine, !routine.enabled)
+                                            reload()
+                                        }
+                                    },
+                                    onDelete = { deleting = routine },
+                                )
+                            }
+                        }
                     }
                 }
 
-                items(routines, key = { it.id }) { routine ->
-                    RoutineRow(
-                        routine = routine,
-                        bot = state.bot(routine.botId),
-                        onEdit = { editor = RoutineEditorTarget.edit(routine) },
-                        onRunNow = {
-                            request("run:${routine.id}") {
-                                session.runRoutine(routine)
-                                reload()
-                            }
-                        },
-                        onToggle = {
-                            request("toggle:${routine.id}") {
-                                if (!routine.canToggle()) return@request
-                                session.setRoutineEnabled(routine, !routine.enabled)
-                                reload()
-                            }
-                        },
-                        onDelete = { deleting = routine },
-                    )
-                }
-
                 item(key = "receipts-header") {
-                    SectionHeading("运行回执")
+                    Text(
+                        text = "运行回执",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                        modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 4.dp),
+                    )
                 }
 
                 if (receipts.isEmpty() && !loading) {
                     item(key = "receipts-empty") {
-                        Text(
-                            text = RoutineRules.NO_RECEIPTS,
-                            fontSize = 14.sp,
-                            color = secondaryTint,
-                            modifier = Modifier.padding(horizontal = 20.dp),
-                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(softCardFill)
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = RoutineRules.NO_RECEIPTS,
+                                fontSize = 14.sp,
+                                color = minisSecondary,
+                            )
+                        }
                     }
-                }
-
-                items(receipts, key = { it.id }) { run ->
-                    RoutineRunRow(
-                        run = run,
-                        bot = state.bot(run.botId),
-                        onOpenTask = { target ->
-                            scope.launch {
-                                // The same resolver a notification tap uses: it
-                                // hydrates when needed and switches the bot to
-                                // the task the run created.
-                                session.openNotification(target)?.let(onOpenChat)
+                } else if (receipts.isNotEmpty()) {
+                    item(key = "receipts-card") {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(softCardFill),
+                        ) {
+                            receipts.forEachIndexed { index, run ->
+                                if (index > 0) {
+                                    HorizontalDivider(
+                                        modifier = Modifier.padding(start = 52.dp, end = 16.dp),
+                                        thickness = 0.5.dp,
+                                        color = minisSeparator.copy(alpha = 0.25f),
+                                    )
+                                }
+                                RoutineRunRow(
+                                    run = run,
+                                    bot = state.bot(run.botId),
+                                    onOpenTask = { target ->
+                                        scope.launch {
+                                            session.openNotification(target)?.let(onOpenChat)
+                                        }
+                                    },
+                                    onMarkSeen = {
+                                        scope.launch {
+                                            session.markRoutineRunSeen(run)
+                                            reload()
+                                        }
+                                    },
+                                    onCancel = {
+                                        request("cancel:${run.id}") {
+                                            session.cancelRoutineRun(run)
+                                            reload()
+                                        }
+                                    },
+                                )
                             }
-                        },
-                        onMarkSeen = {
-                            scope.launch {
-                                session.markRoutineRunSeen(run)
-                                reload()
-                            }
-                        },
-                        onCancel = {
-                            request("cancel:${run.id}") {
-                                session.cancelRoutineRun(run)
-                                reload()
-                            }
-                        },
-                    )
+                        }
+                    }
                 }
 
                 if (botId == null) {
                     item(key = "webhooks") {
-                        FormSection(header = "Webhook", footer = RoutineRules.WEBHOOKS_FOOTER) {
-                            IconNote(text = RoutineRules.WEBHOOKS_LABEL, icon = Icons.Filled.Lock)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(softCardFill)
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = minisSecondary,
+                                modifier = Modifier.size(16.dp),
+                            )
+                            Text(
+                                text = "Webhook 触发器",
+                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = minisInk,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "仅限电脑端管理",
+                                fontSize = 12.5.sp,
+                                color = minisTertiary,
+                            )
                         }
                     }
                 }
-            }
             }
         }
 
@@ -294,41 +425,52 @@ internal fun TasksRoutinesScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(78.dp)
-                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+                .height(64.dp)
+                .background(topVeilBrush),
         )
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 2.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ChromeButton(
-                icon = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "返回",
-                onClick = onBack,
-                size = 40.dp,
-                glyph = 20.dp,
-                surface = true,
-            )
-            Text(
-                text = if (botId == null) "会话与例程" else "定时任务",
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            ChromeButton(
-                icon = Icons.Filled.Add,
-                contentDescription = "新建例程",
-                onClick = { editor = RoutineEditorTarget.new() },
-                size = 40.dp,
-                glyph = 18.dp,
-                surface = true,
-            )
+            if (!embedded) {
+                ChromeButton(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "返回",
+                    onClick = onBack,
+                    size = 44.dp,
+                    glyph = 20.dp,
+                    surface = true,
+                )
+                Text(
+                    text = if (botId == null) "定时巡检" else "定时任务",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                    modifier = Modifier.weight(1f),
+                )
+            } else {
+                Spacer(Modifier.weight(1f))
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp)
+                    .clickable(role = Role.Button) { editor = RoutineEditorTarget.new() }
+                    .semantics { contentDescription = "新建例程" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_plus_line),
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         }
-    }
     }
 
     editor?.let { target ->
@@ -456,6 +598,8 @@ private fun RoutineRow(
                 size = 42.dp,
                 state = if (routine.enabled) MausState.IDLE else MausState.SLEEPING,
                 animated = false,
+                fallback = AvatarFallback.PRESET,
+                drowsy = !routine.enabled,
             )
         } else {
             Icon(

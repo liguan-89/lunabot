@@ -227,7 +227,8 @@ fun PredictiveChipsRow(
             ) {
                 Row(
                     modifier = Modifier
-                        .chromeCapsule(surface = true)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (minisIsDark()) minisCard else Color(0xFFF3F3F1))
                         .padding(horizontal = 13.dp, vertical = 7.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -237,9 +238,9 @@ fun PredictiveChipsRow(
                     }
                     Text(
                         text = chip.title,
-                        fontSize = 13.sp,
+                        fontSize = 12.5.sp,
                         fontWeight = FontWeight.Medium,
-                        color = minisInk,
+                        color = minisInk.copy(alpha = 0.85f),
                         maxLines = 1,
                     )
                 }
@@ -258,15 +259,16 @@ fun PredictiveChipsRow(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(30.dp)
-                        .chromeCapsule(surface = true),
+                        .size(28.dp)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(if (minisIsDark()) minisCard else Color(0xFFF3F3F1)),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = null,
                         tint = secondaryTint,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(13.dp),
                     )
                 }
             }

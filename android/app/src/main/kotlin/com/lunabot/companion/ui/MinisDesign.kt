@@ -54,46 +54,31 @@ object MinisTokens {
     val AccentDark = Color(0xFF6A94CE)
     val PageLight = Color(0xFFFFFFFF)
     val PageDark = Color(0xFF000000)
-    // The Grok Bot canvas: the page is a light grey, and every card, bubble and
-    // control on it is white. Keeping it separate from [PageLight] means the
-    // screens that still want a white sheet (settings, sheets) do not have to
-    // move in the same change.
-    val CanvasLight = Color(0xFFF4F4F5)
+    // Pure Muse editorial white canvas so oatmeal user bubbles, soft-grey bot
+    // bubbles, and hairline dividers breathe with zero visual weight.
+    val CanvasLight = Color(0xFFFFFFFF)
     val CanvasDark = Color(0xFF0B0B0C)
     val CardLight = Color(0xFFFFFFFF)
     val CardDark = Color(0xFF1C1C1E)
-    val GroupedLight = Color(0xFFF2F2F7)
+    val GroupedLight = Color(0xFFF3F3F1)
     val GroupedDark = Color(0xFF1C1C1E)
     val RaisedDark = Color(0xFF2C2C2E)
-    val InkLight = Color(0xFF000000)
+    val InkLight = Color(0xFF111111)
     val InkDark = Color(0xFFFFFFFF)
     val SecondaryLight = Color(0x993C3C43)
     val SecondaryDark = Color(0x99EBEBF5)
     val TertiaryLight = Color(0x4D3C3C43)
     val TertiaryDark = Color(0x4DEBEBF5)
-    val SeparatorLight = Color(0x1F000000)
+    val SeparatorLight = Color(0x14000000)
     val SeparatorDark = Color(0xFF38383A)
-    // Two bubbles, two fills. Your own words are the brighter surface; the
-    // bot's answer is the dimmer one, so the transcript reads as a conversation
-    // rather than as your notes on a page. In light that is white against a
-    // quiet grey (the pair iMessage has used for years); in dark the same
-    // relationship, brighter against darker.
-    val UserBubbleLight = Color(0xFFFFFFFF)
-    val UserBubbleDark = Color(0xFF2C2C2E)
-    // A bubble is told apart by its fill and one hairline rim, and by nothing
-    // else. It had a soft drop too, taken from the design's `.bubble`, until a
-    // run of bubbles 4dp apart showed what a 3dp shadow does at that spacing:
-    // each bubble's shadow landed on the next one and the run read as a single
-    // smudged block. The rim alone is enough to make the edge, so the shadow is
-    // gone rather than tuned — a shadow that has to be shrunk below the gap it
-    // sits in is not doing the job a shadow does.
-    val BubbleRimLight = Color(0x17000000)
-    val BubbleRimDark = Color(0x24FFFFFF)
-    // The bot's bubble: 22/255 below white and 11/255 below the canvas, which
-    // is the narrow band where it reads as a surface without competing with
-    // your own words for attention.
-    val BotBubbleLight = Color(0xFFE9E9EB)
-    val BotBubbleDark = Color(0xFF1C1C1E)
+    // Muse-inspired warm oatmeal-taupe user bubble paired with a quiet soft-grey
+    // bot bubble — warm, calm, and legible without borders or harsh shadows.
+    val UserBubbleLight = Color(0xFFDDD2C7)
+    val UserBubbleDark = Color(0xFF3A342E)
+    val BubbleRimLight = Color(0x00000000)
+    val BubbleRimDark = Color(0x14FFFFFF)
+    val BotBubbleLight = Color(0xFFEFEFED)
+    val BotBubbleDark = Color(0xFF1F1F22)
     val FabLight = Color(0xFFB7AF96)
     val FabDark = Color(0xFF504C42)
     val Danger = Color(0xFFFF3B30)
@@ -124,7 +109,7 @@ object MinisTokens {
     val GlassHeaderDark = Color(0xF51C1C1E)
     val SheenLight = Color(0x66FFFFFF)
     val SheenDark = Color(0x24FFFFFF)
-    val RimLight = Color(0x22000000)
+    val RimLight = Color(0x0E000000)
     val RimHighlightLight = Color(0xCCFFFFFF)
     val RimDark = Color(0x38FFFFFF)
 }
@@ -248,8 +233,31 @@ val MinisCardShape = RoundedCornerShape(16.dp)
  * 21dp rather than 18: at a 45dp bubble the smaller radius read as a rounded
  * rectangle, and the reference this transcript is measured against uses 21.
  */
-val MinisBubbleCorner = 21.dp
-val MinisComposerShape = RoundedCornerShape(24.dp)
+val MinisBubbleCorner = 22.dp
+val MinisComposerShape = RoundedCornerShape(26.dp)
+
+/** Muse-style crisp floating white control surface: whisper-soft pillow shadow + 0.75dp hairline. */
+@Composable
+fun Modifier.museFloatingPill(
+    shape: Shape = androidx.compose.foundation.shape.CircleShape,
+    elevation: Dp = 4.dp,
+): Modifier {
+    val dark = minisIsDark()
+    return if (dark) {
+        this.clip(shape).background(minisCard).border(0.6.dp, Color(0x20FFFFFF), shape)
+    } else {
+        this
+            .shadow(
+                elevation = elevation,
+                shape = shape,
+                ambientColor = Color(0x0D000000),
+                spotColor = Color(0x14000000),
+            )
+            .clip(shape)
+            .background(Color.White)
+            .border(0.75.dp, Color(0xFFE9E9E7), shape)
+    }
+}
 
 /** The corner a bubble tucks in where it touches the next line of its run. */
 val MinisBubbleJoinedCorner = 6.dp

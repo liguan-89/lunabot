@@ -1,7 +1,14 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
-// @ts-expect-error -- untyped ESM module in electron/
-import { DESKTOP_MOUNT, desktopMountBounds, normalizeInteractiveRects, pointInInteractiveRects } from "../../electron/desktop-mount.mjs";
+import {
+  DESKTOP_MOUNT,
+  clampMountPosition,
+  desktopMountBounds,
+  normalizeInteractiveRects,
+  pointInInteractiveRects,
+  snapMountPosition,
+  // @ts-expect-error -- untyped ESM module in electron/
+} from "../../electron/desktop-mount.mjs";
 import { latestReplySnippet, recentMountMessages } from "./DesktopMountView";
 import type { Message } from "@/state/store";
 
@@ -13,6 +20,25 @@ describe("desktop-mount helpers", () => {
       y: 40 + 900 - DESKTOP_MOUNT.height - DESKTOP_MOUNT.margin,
       width: 360,
       height: 420,
+    });
+  });
+
+  it("clamps dragged positions inside workArea and snaps to nearest edge", () => {
+    const workArea = { x: 0, y: 24, width: 1440, height: 876 };
+    expect(clampMountPosition(-100, 0, workArea)).toEqual({ x: 0, y: 24 });
+    expect(clampMountPosition(2000, 2000, workArea)).toEqual({
+      x: 1440 - DESKTOP_MOUNT.width,
+      y: 24 + 876 - DESKTOP_MOUNT.height,
+    });
+    expect(snapMountPosition({ x: 120, y: 200, width: 360, height: 420 }, workArea)).toEqual({
+      x: DESKTOP_MOUNT.margin,
+      y: 200,
+      side: "left",
+    });
+    expect(snapMountPosition({ x: 900, y: 200, width: 360, height: 420 }, workArea)).toEqual({
+      x: 1440 - DESKTOP_MOUNT.width - DESKTOP_MOUNT.margin,
+      y: 200,
+      side: "right",
     });
   });
 

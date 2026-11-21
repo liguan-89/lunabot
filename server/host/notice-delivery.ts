@@ -11,6 +11,20 @@ import type { SideJobInstance, SideJobs } from "../side-jobs.ts";
 
 const JUDGE_TIMEOUT_MS = 30_000;
 
+const LANGUAGE_NAMES = new Intl.DisplayNames(["en"], { type: "language" });
+
+/** The person's UI language as an English name, for the judge prompt; an unreadable tag falls back to English. */
+export function languageName(language: string | undefined): string {
+  if (!language) return "English";
+  try {
+    const name = LANGUAGE_NAMES.of(language);
+    // An unknown tag echoes back; only a real name counts.
+    return name && name !== language ? name : "English";
+  } catch {
+    return "English";
+  }
+}
+
 export function createNoticeDelivery(deps: {
   dataDir: string;
   /** The owner's chief bot, looked up at call time. */
@@ -37,7 +51,7 @@ export function createNoticeDelivery(deps: {
       const write = chief ? deps.sideJobs().text("notice", chief.id, { instance: instance ?? undefined })?.generateText : null;
       return write ? (prompt: string) => write(prompt, { timeoutMs: JUDGE_TIMEOUT_MS }) : null;
     },
-    noticeLanguage: () => (deps.language()?.startsWith("zh") ? "Chinese" : "English"),
+    noticeLanguage: () => languageName(deps.language()),
     noticeSurfaced: (ownerKey: string, packageName: string, items: NoticeSurfacedItem[]) => {
       const chief = deps.chiefBot();
       if (!chief) return;

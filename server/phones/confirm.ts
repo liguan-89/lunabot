@@ -279,7 +279,7 @@ function changedRefusal(input: ControlInput, hit: IrreversibleHit): string {
 /** One approval covers one irreversible step; the next of the same kind needs the person's own answer, not a card. */
 function spentRefusal(input: ControlInput, hit: IrreversibleHit): string {
   return `Not run: ${controlWhat(input, hit)} is the irreversible action "${hit.action}", and one approval of this kind was already used in this task. ` +
-    "Ask the person again with the confirmation tool, then try the step again.";
+    "Ask the person again; a new turn gets a fresh card for the step.";
 }
 
 function declinedRefusal(input: ControlInput, hit: IrreversibleHit): string {
@@ -326,7 +326,7 @@ function refusal(input: ControlInput, hit: IrreversibleHit, permit: Permit): str
   if (hit.action === "pay") return payRefusal(input, hit);
   const why = permit.result === "mismatch" ? ` (${permit.reason})` : "";
   return `Not run: ${controlWhat(input, hit)} is the irreversible action "${hit.action}", and the person has not approved this exact step${why}. ` +
-    "Ask the person first with the confirmation tool, then try the step again.";
+    "Ask the person to say this exact step may run; a new turn gets a fresh card for the retry.";
 }
 
 /** What one pending screen control needs: run it, or stop and ask. `allowed` means the gate used up the approval. */

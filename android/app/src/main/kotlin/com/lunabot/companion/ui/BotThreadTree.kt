@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -79,12 +80,12 @@ internal fun ThreadToggle(
     ) {
         Row(
             modifier = Modifier
-                .background(minisInk.copy(alpha = 0.045f), RoundedCornerShape(50))
-                .padding(horizontal = 7.dp, vertical = 2.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                .background(if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0), RoundedCornerShape(50))
+                .padding(start = 7.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("${count} 个话题", fontSize = 11.5.sp, color = minisSecondary)
+            Text("${count} 个话题", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = minisSecondary)
             DisclosureIcon(expanded)
         }
     }

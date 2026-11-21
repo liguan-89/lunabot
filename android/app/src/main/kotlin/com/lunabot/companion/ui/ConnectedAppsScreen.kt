@@ -79,7 +79,7 @@ import kotlinx.coroutines.launch
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ConnectedAppsScreen(onBack: () -> Unit) {
+fun ConnectedAppsScreen(onBack: () -> Unit, embedded: Boolean = false) {
     val environment = LocalCompanion.current
     val session = environment.session
     val context = LocalContext.current
@@ -159,67 +159,74 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
     val connectedCount = cards.count { card ->
         inventory.statuses?.get(card.slug)?.connected == true
     }
-    val pageCanvas = if (minisIsDark()) minisCanvas else Color(0xFFF8F7F4)
+    val pageCanvas = minisCanvas
 
     Box(modifier = Modifier.fillMaxSize().background(pageCanvas)) {
         Column(modifier = Modifier.fillMaxSize()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                // A pushed screen, so it leaves the way every other pushed
-                // screen does: the bordered back circle, not a bare X that
-                // read as "discard".
-                TouchTarget(onClick = onBack, modifier = Modifier, size = 44.dp, contentDescription = "返回") {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .chromeCapsule(surface = true),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            tint = minisInk,
-                            modifier = Modifier.size(22.dp),
-                        )
-                    }
-                }
-                Text(
-                    "连接应用",
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = minisInk,
-                )
-                Spacer(Modifier.weight(1f))
-                // A count, not a button: refresh lives in the pull gesture below,
-                // where the roster answers the same question.
-                Text(
-                    "已连接 $connectedCount 个",
+            if (!embedded) {
+                Row(
                     modifier = Modifier
-                        .clip(CircleShape)
-                        .background(minisCard)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    fontSize = 14.sp,
-                    color = minisInk,
-                )
+                        .fillMaxWidth()
+                        .padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TouchTarget(onClick = onBack, modifier = Modifier, size = 44.dp, contentDescription = "返回") {
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .chromeCapsule(surface = true),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = null,
+                                tint = minisInk,
+                                modifier = Modifier.size(22.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        "连接应用",
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = minisInk,
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Text(
+                        "已连接 $connectedCount 个",
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(minisGrouped)
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                        fontSize = 13.sp,
+                        color = minisSecondary,
+                    )
+                }
             }
 
-            // The catalog carries no categories — slug, label, blurb, logo,
-            // domain are all it has — so the only honest splits are everything
-            // and what is connected.
+            // Minimalist text filter tabs (avoids double-capsule nesting under top switcher).
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .padding(start = 20.dp, end = 20.dp, top = if (embedded) 4.dp else 0.dp, bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                FilterChip(FILTER_ALL, filter == FILTER_ALL) { filter = FILTER_ALL }
-                FilterChip(FILTER_CONNECTED, filter == FILTER_CONNECTED) { filter = FILTER_CONNECTED }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilterChip(FILTER_ALL, filter == FILTER_ALL) { filter = FILTER_ALL }
+                    FilterChip(FILTER_CONNECTED, filter == FILTER_CONNECTED) { filter = FILTER_CONNECTED }
+                }
+                if (embedded) {
+                    Text(
+                        "已连接 $connectedCount 个",
+                        fontSize = 12.5.sp,
+                        color = minisTertiary,
+                    )
+                }
             }
 
             // The same gesture the roster uses for the same question (RosterScreen.kt:167),
@@ -303,20 +310,31 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
                     }
                     if (!loading && loadFailed) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(9.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3))
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("读不到连接应用列表", color = MinisTokens.Danger, fontSize = 15.sp)
+                            Text("暂时无法获取应用列表", color = minisSecondary, fontSize = 14.sp)
                             TouchTarget(onClick = { scope.launch { loadCatalog() } }) {
-                                Text("重试", color = minisAccent, fontSize = 15.sp)
+                                Text("重试", color = minisInk, fontWeight = FontWeight.Medium, fontSize = 14.sp)
                             }
                         }
                     }
 
                     if (loading) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 36.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(22.dp),
+                                strokeWidth = 2.dp,
+                                color = minisTertiary,
+                            )
                         }
                     }
                 }
@@ -327,14 +345,15 @@ fun ConnectedAppsScreen(onBack: () -> Unit) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+                    .then(if (embedded) Modifier.padding(bottom = 8.dp) else Modifier.navigationBarsPadding().padding(bottom = 10.dp))
+                    .padding(horizontal = 16.dp),
             ) {
                 Row(
                     modifier = Modifier
                         .weight(1f)
-                        .height(52.dp)
-                        .chromeCapsule(surface = true)
+                        .height(48.dp)
+                        .clip(CircleShape)
+                        .background(minisGrouped)
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -425,46 +444,44 @@ private const val FILTER_CONNECTED = "已连接"
 
 @Composable
 private fun FilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    // Token colours, not black-on-white: the selected chip sits on the canvas,
-    // and a hardcoded black pill disappears into the dark one.
-    Row(
+    Column(
         modifier = Modifier
-            .height(38.dp)
-            .clip(CircleShape)
-            .background(if (selected) minisInk else minisCard)
-            .then(
-                if (selected) {
-                    Modifier
-                } else {
-                    Modifier.border(0.5.dp, minisSeparator.copy(alpha = 0.65f), CircleShape)
-                },
-            )
+            .clip(RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .semantics { contentDescription = label }
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
             label,
             fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-            color = if (selected) minisPage else minisInk,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+            color = if (selected) minisInk else minisSecondary,
             maxLines = 1,
             softWrap = false,
+        )
+        Box(
+            modifier = Modifier
+                .size(width = 16.dp, height = 2.dp)
+                .clip(CircleShape)
+                .background(if (selected) minisInk else Color.Transparent),
         )
     }
 }
 
-/** A white rounded surface on the grey canvas. */
+/** Soft warm-neutral rounded surface on the pure-white Muse canvas. */
 @Composable
 private fun WhiteCard(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(minisCard, MinisCardShape)
+            .clip(RoundedCornerShape(20.dp))
+            .background(cardFill)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp),
         content = content,
@@ -507,10 +524,12 @@ private fun ConnectorCardView(
     val connected = status?.connected == true
     val pending = status?.pending == true
 
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisCard, MinisCardShape),
+            .clip(RoundedCornerShape(20.dp))
+            .background(cardFill),
     ) {
         Row(
             modifier = Modifier

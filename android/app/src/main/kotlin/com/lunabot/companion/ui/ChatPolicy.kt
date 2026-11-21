@@ -331,6 +331,12 @@ object RosterPreviewFormat {
         genericJsonErrorRegex.matchEntire(trimmed)?.let { match ->
             return "错误：${humanizeErrorMessage(match.groupValues[1])}"
         }
+        if (trimmed.startsWith("这次执行没有完成") && trimmed.contains("Stopped after", ignoreCase = true)) {
+            return "上次执行已暂停"
+        }
+        if (trimmed.startsWith("Stopped after ", ignoreCase = true)) {
+            return "上次执行已暂停"
+        }
 
         val cleaned = trimmed
             .replace(fenceRegex, " ")

@@ -1,8 +1,11 @@
 import { useEffect } from "react";
+import { Search } from "lucide-react";
 
 import { sayFrameDrawn } from "@/lib/chrome-rail";
 import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
 import { ChromeRailToggle } from "./ChromeRailToggle";
+import { openCommandPalette } from "./CommandPalette";
 import { captionChrome, useDesktopCapabilities, windowFrameable, windowFramed } from "./DesktopCapabilities";
 import { NotificationBell } from "./NotificationsPanel";
 import { UpdateIndicator } from "./UpdateIndicator";
@@ -13,8 +16,8 @@ export const FRAME_BAR_BUTTON = "flex size-[22px] shrink-0 items-center justify-
 
 /** The window frame's top bar (windowFramed), as thin as the traffic lights allow: they sit in it on macOS (main puts
  * them there: electron/window-chrome.mjs), the caption buttons on Windows (WindowCaptionButtons, drawn over its right
- * end). The rail's button follows the traffic lights; the place on screen is named in its middle; an update while one
- * waits, the Notifications bell (when `notifications`: the tray is on here) and the app's settings, close the right end.
+ * end). The rail's button follows the traffic lights; the place on screen is named in its middle; quick command search,
+ * an update while one waits, and the Notifications bell (when `notifications`: the tray is on here) close the right end.
  * The whole bar drags the window. It reaches under the window's rail (the page starts --rail-beside in), so its middle
  * is the window's middle. */
 export function WindowFrameBar({ notifications = false }: { notifications?: boolean }) {
@@ -24,6 +27,7 @@ export function WindowFrameBar({ notifications = false }: { notifications?: bool
   if (!framed) return null;
   const mac = capabilities.windowChrome === "mac-inset";
   const { dragProps } = captionChrome(capabilities.windowChrome);
+  const shortcut = mac ? "⌘K" : "Ctrl+K";
   return (
     <div
       data-window-frame-bar
@@ -36,6 +40,16 @@ export function WindowFrameBar({ notifications = false }: { notifications?: bool
       </div>
       <WindowPlaceTitle />
       <div data-frame-bar-end className={cn("flex items-center justify-end gap-0.5", mac ? "pr-2" : "pr-[140px]")}>
+        <button
+          type="button"
+          data-command-palette-trigger
+          onClick={openCommandPalette}
+          aria-label={t("palette.label")}
+          title={`${t("palette.label")} (${shortcut})`}
+          className={FRAME_BAR_BUTTON}
+        >
+          <Search size={13} strokeWidth={1.75} aria-hidden="true" />
+        </button>
         <UpdateIndicator bar={FRAME_BAR_BUTTON} />
         {notifications && <NotificationBell bar={FRAME_BAR_BUTTON} />}
       </div>

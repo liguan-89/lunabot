@@ -28,6 +28,7 @@ import type { LoopbackTrust, RequestAuth } from "../request-auth.ts";
 import type { Routine } from "../routines.ts";
 import { createPhoneRoutes, PHONE_ACCESS_CHANGED, phoneKey } from "../routes/phones.ts";
 import { PHONE_REPLY_SMS, type PhoneEvent } from "../sms-relay.ts";
+import { hostTimeZone } from "../turn-clock.ts";
 import { PHONE_REPLY_WECHAT, type WechatEvent } from "../wechat-relay.ts";
 import type { SessionRegistry } from "../sessions.ts";
 import type { BotRecord, Store } from "../store.ts";
@@ -135,10 +136,18 @@ export function createPhones(deps: PhonesDeps) {
   const noticeInboxes = new Map<string, { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn }>();
   /** An owner's topic pool file, per the same directory rule the route store follows. */
   const noticeTopicsFile = (ownerKey: string) => join(deps.dataDir, "notice-topics", ownerDirectoryName(ownerKey), "topics.json");
+  /**
+   * The zone a notice's day is counted in: the owner's most recently heard phone's, since its clock is the one the
+   * notices arrived on; a phone that never reported a zone counts against the server's own.
+   */
+  const phoneZoneFor = (ownerKey: string): string =>
+    registry.list(ownerKey, () => false)
+      .map((phone) => phone.registration.timeZone)
+      .find((zone): zone is string => Boolean(zone)) ?? hostTimeZone();
   const noticeSinkFor = (ownerKey: string): { inbox: NoticeInbox; dedup: NoticeDedupStore; triage: NoticeTriage; learn: NoticeLearn } => {
     let sink = noticeInboxes.get(ownerKey);
     if (!sink) {
-      const inbox = new NoticeInbox();
+      const inbox = new NoticeInbox({ zone: () => phoneZoneFor(ownerKey) });
       let poolData: TopicPoolData | undefined;
       try {
         const parsed = JSON.parse(readFileSync(noticeTopicsFile(ownerKey), "utf8")) as TopicPoolData;
@@ -165,6 +174,7 @@ export function createPhones(deps: PhonesDeps) {
             .some((phone) => (phone.registration.noticeApps ?? []).includes(packageName)),
           level: () => deps.noticeLearnLevel?.(ownerKey) ?? "off",
           language: () => deps.noticeLanguage?.() ?? "English",
+          zone: () => phoneZoneFor(ownerKey),
           persist: (data) => {
             const file = noticeTopicsFile(ownerKey);
             mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
@@ -450,11 +460,7 @@ export function createPhones(deps: PhonesDeps) {
       if (!complete) return;
       void verifyPhoneTurn({ dataDir: deps.dataDir, threadId: turn.threadId, mode, goal, reply: input.reply, evidence: ended.evidence, complete: async (messages) => complete(verifyPrompt(messages)) }).catch(() => {});
     },
-    /**
-     * The routes that fit a request, best first. Exposed for a later prompt part; nothing injects them yet, because a
-     * bot told about a route would start trusting one before any replay exists to run it.
-     */
-    matchRoutes: (owner: string | null, request: string, limit?: number, packages?: readonly string[]) => phoneRoutes.match(owner, request, limit, packages),
+
     routes: createPhoneRoutes({ registry, jobs, owner: ownerOf, isAdmin: deps.ownerOrAdmin, live: (auth) => auth.kind !== "session" || deps.sessions.isLive(auth.session.id), onEvent: (key, event) => {
       if (event.kind === "notice") noticeFor(key, event);
       else if (event.kind === "sms") smsHandler?.(key, event);

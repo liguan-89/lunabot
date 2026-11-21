@@ -18,12 +18,14 @@ describe("botReplySurface", () => {
     expect(surface).not.toContain("bg-card");
   });
 
-  it("gives Advanced mode its card whether the reply is structured or not", () => {
-    for (const text of ["Done.", list]) {
-      const surface = botReplySurface(false, text);
-      expect(surface).toContain("bg-card");
-      expect(surface).not.toContain("bg-transparent");
-    }
+  it("gives Advanced mode its card for short replies and transparent document flow for structured long replies", () => {
+    const shortSurface = botReplySurface(false, "Done.");
+    expect(shortSurface).toContain("bg-card");
+    expect(shortSurface).not.toContain("bg-transparent");
+
+    const longSurface = botReplySurface(false, list);
+    expect(longSurface).toContain("bg-transparent");
+    expect(longSurface).not.toContain("bg-card");
   });
 
   it("agrees with itself for a reply that only becomes structured at the end", () => {

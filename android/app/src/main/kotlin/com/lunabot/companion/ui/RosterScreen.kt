@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,6 +44,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Create
@@ -84,6 +86,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -115,10 +118,12 @@ import com.lunabot.companion.core.ChatSummary
 import com.lunabot.companion.core.Connection
 import com.lunabot.companion.core.Room
 import com.lunabot.companion.core.SearchHit
+import com.lunabot.companion.core.ChatTarget
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.core.chat
 import com.lunabot.companion.core.chatSummaries
 import com.lunabot.companion.core.forTask
+import com.lunabot.companion.core.target
 import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -156,6 +161,8 @@ fun RosterScreen(navigator: CompanionNavigator) {
     var hits by remember { mutableStateOf<List<SearchHit>>(emptyList()) }
     var searching by remember { mutableStateOf(false) }
     var refreshing by remember { mutableStateOf(false) }
+    var activeTab by rememberSaveable { mutableIntStateOf(0) }
+    var drawerOpen by remember { mutableStateOf(false) }
     var showingUpdates by remember { mutableStateOf(false) }
     var showingNewGroup by remember { mutableStateOf(false) }
     var showingNewSection by remember { mutableStateOf(false) }
@@ -173,12 +180,13 @@ fun RosterScreen(navigator: CompanionNavigator) {
 
     val query = bar.query
 
-    // The roster is the stack root, so the app-level Back would leave the app.
-    // With the search bar open, the platform gesture closes the search first —
-    // the same rule every pushed screen follows.
-    BackHandler(enabled = bar.searchOpen) {
+    BackHandler(enabled = drawerOpen) { drawerOpen = false }
+    BackHandler(enabled = !drawerOpen && bar.searchOpen) {
         bar = RosterBar()
         hits = emptyList()
+    }
+    BackHandler(enabled = !drawerOpen && !bar.searchOpen && activeTab != 0) {
+        activeTab = 0
     }
 
     // A different computer is a different fleet: the previous search answer,
@@ -346,386 +354,448 @@ fun RosterScreen(navigator: CompanionNavigator) {
         label = "roster-top-haze",
     )
 
-    val isDark = minisIsDark()
-    val homeCanvas = if (isDark) minisCanvas else Color(0xFFF8F7F4)
+    val homeCanvas = minisCanvas
+    val heroBot = (hero?.chat as? Chat.BotChat)?.bot
+    val companionSummaries = remember(summaries, hero) {
+        summaries.filter { it.id != hero?.id && it.chat is Chat.BotChat }
+    }
+    var embeddedHeroTarget by remember(hero?.id, connection?.id) {
+        mutableStateOf<ChatTarget?>(null)
+    }
+    val showLiveHeroChat = activeTab == 0 && !bar.searchOpen && hero != null
+    val drawerProgress by animateFloatAsState(
+        targetValue = if (drawerOpen) 1f else 0f,
+        animationSpec = androidx.compose.animation.core.spring(dampingRatio = 0.88f, stiffness = 420f),
+        label = "muse-drawer-push",
+    )
+    val drawerWidthPx = with(density) { 296.dp.toPx() }
+    val pushedCorner = (28f * drawerProgress).dp
+
     CompositionLocalProvider(LocalHazeState provides hazeState) {
     Box(modifier = Modifier.fillMaxSize().background(homeCanvas)) {
+        // Muse-style underlying pure-white drawer layer (revealed as main stage pushes right).
+        if (drawerProgress > 0.005f) {
+            MuseDrawerContent(
+                activeTab = activeTab,
+                companions = companionSummaries,
+                computerName = connection?.name,
+                status = status,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .graphicsLayer {
+                        translationX = -36.dp.toPx() * (1f - drawerProgress)
+                        alpha = (drawerProgress * 1.4f).coerceIn(0f, 1f)
+                    },
+                onSelectTab = { next ->
+                    haptics.play(HapticCue.SELECT)
+                    activeTab = next
+                    drawerOpen = false
+                },
+                onOpenCompanion = { summary ->
+                    drawerOpen = false
+                    navigator.open(
+                        environment.chatPreferences.restoringThread(summary.chat, connection?.id),
+                    )
+                },
+                onOpenSettings = {
+                    drawerOpen = false
+                    navigator.push(Destination.Settings)
+                },
+                onOpenSearch = {
+                    drawerOpen = false
+                    activeTab = 1
+                    bar = bar.openSearch()
+                },
+                onCreateBot = {
+                    drawerOpen = false
+                    createBot()
+                },
+                onCreateGroup = {
+                    drawerOpen = false
+                    showingNewGroup = true
+                },
+                onSwitchComputer = {
+                    drawerOpen = false
+                    choosingComputer = true
+                },
+            )
+        }
+
+        // Main app stage: physically pushes right with 28dp rounded corners when drawer opens.
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(homeCanvas)
-                .hazeSource(hazeState),
-        ) {
-            AmbientAuroraBackdrop(
-                dark = isDark,
-                modifier = Modifier.fillMaxSize(),
-            )
-            PullToRefreshBox(
-                isRefreshing = refreshing,
-                onRefresh = {
-                    scope.launch {
-                        refreshing = true
-                        session.refresh()
-                        refreshing = false
-                    }
-                },
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                val nothingToList =
-                    if (query.isEmpty()) !RosterLayout.listsAnyBot(summaries) else rows.isEmpty()
-                if (nothingToList && hits.isEmpty()) {
-                    EmptyState(
-                        title = if (query.isEmpty()) "暂无智能体" else "未找到匹配项",
-                        description = if (query.isEmpty()) {
-                            if (status is Session.Status.Offline) {
-                                "还没连上电脑。连上后，智能体会显示在这里。"
-                            } else {
-                                "在电脑上创建的智能体会显示在这里。"
-                            }
-                        } else {
-                            "没有匹配“$query”的会话。"
-                        },
-                    )
+                .graphicsLayer {
+                    translationX = drawerWidthPx * drawerProgress
                 }
-
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = topClearance, bottom = bottomClearance),
-                ) {
-                    hero?.let { main ->
-                        item(key = "hero") {
-                            val chipLabel = connection?.name
-                            RosterHero(
-                                summary = main,
-                                status = status,
-                                computerName = chipLabel,
-                                computerCount = connections.size,
-                                canvasColor = homeCanvas,
-                                onChooseComputer = { choosingComputer = true },
-                            ) {
-                                navigator.open(
-                                    environment.chatPreferences.restoringThread(
-                                        main.chat,
-                                        connection?.id,
-                                    ),
-                                )
-                            }
+                .then(
+                    if (drawerProgress > 0.01f) {
+                        Modifier
+                            .shadow(elevation = (18f * drawerProgress).dp, shape = RoundedCornerShape(pushedCorner))
+                            .clip(RoundedCornerShape(pushedCorner))
+                    } else {
+                        Modifier
+                    },
+                )
+                .background(homeCanvas),
+        ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                when {
+                    showLiveHeroChat && hero != null -> {
+                        val restoredChat = remember(hero.id, connection?.id) {
+                            environment.chatPreferences.restoringThread(hero.chat, connection?.id)
                         }
+                        val activeTarget = embeddedHeroTarget ?: restoredChat.target
+                        ChatScreen(
+                            destination = Destination.Chat(activeTarget),
+                            onResolved = { embeddedHeroTarget = it },
+                            onBack = { activeTab = 1 },
+                            onOpenComputer = { navigator.push(Destination.Computer(it)) },
+                            onOpenOverview = { navigator.push(Destination.Overview(it)) },
+                            retainsDraft = { true },
+                            onOpenChat = navigator::open,
+                            embedded = true,
+                            onOpenDrawer = {
+                                haptics.play(HapticCue.SELECT)
+                                drawerOpen = true
+                            },
+                        )
                     }
-                    if (RosterLayout.showsGroups(query)) {
-                        val heroBot = (hero?.chat as? Chat.BotChat)?.bot
-                        val unsectioned = state.unsectionedBots.mapNotNull { listSummariesById[it.id] }
-                        if (hero != null || unsectioned.isNotEmpty()) {
-                            item(key = "living-spaces") {
-                                LivingSpacesStrip(
-                                    heroName = heroBot?.name ?: "Luna",
-                                    computerName = connection?.name,
-                                    onOpenComputer = heroBot?.let { bot ->
-                                        {
-                                            haptics.play(HapticCue.SELECT)
-                                            navigator.push(Destination.Computer(bot.id))
-                                        }
-                                    },
-                                    onOpenRoutines = {
-                                        haptics.play(HapticCue.SELECT)
-                                        navigator.push(Destination.Routines)
-                                    },
-                                    onConnectedApps = {
-                                        haptics.play(HapticCue.SELECT)
-                                        navigator.push(Destination.ConnectedApps)
-                                    },
-                                    onOverview = heroBot?.let { bot ->
-                                        {
-                                            haptics.play(HapticCue.SELECT)
-                                            navigator.push(Destination.Overview(bot.id))
-                                        }
-                                    },
-                                )
-                            }
-                        }
-                        state.unsectionedChief?.let { chief ->
-                            listSummariesById[chief.id]?.let { summary ->
-                                item(key = "chief-${chief.id}") {
-                                    entry(summary, true)
+                    activeTab == 2 -> TasksRoutinesScreen(
+                        onBack = { activeTab = 0 },
+                        onOpenChat = navigator::open,
+                        embedded = true,
+                    )
+                    activeTab == 3 -> MuseLibraryTab(
+                        heroChat = hero?.chat,
+                        heroName = heroBot?.name ?: "Luna",
+                        computerName = connection?.name,
+                        status = status,
+                        onOpenComputer = heroBot?.let { bot -> { navigator.push(Destination.Computer(bot.id)) } },
+                        onOpenOverview = heroBot?.let { bot -> { navigator.push(Destination.Overview(bot.id)) } },
+                        onSwitchComputer = { choosingComputer = true },
+                    )
+                    else -> Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(homeCanvas)
+                            .hazeSource(hazeState),
+                    ) {
+                        PullToRefreshBox(
+                            isRefreshing = refreshing,
+                            onRefresh = {
+                                scope.launch {
+                                    refreshing = true
+                                    session.refresh()
+                                    refreshing = false
                                 }
-                            }
-                        }
-                        val pinned = state.pinnedBots.mapNotNull { listSummariesById[it.id] }
-                        if (pinned.isNotEmpty()) {
-                            item(key = "pinned-label") {
-                                SectionLabel("已置顶", Modifier.padding(top = 2.dp, bottom = 4.dp))
-                            }
-                            itemsIndexed(pinned, key = { _, summary -> "pinned-${summary.id}" }) { index, summary ->
-                                // Pinned rows are the ones most likely to swap
-                                // places when an unread arrives; let them glide.
-                                Box(Modifier.animateItem()) {
-                                    entry(summary, index == pinned.lastIndex)
-                                }
-                            }
-                        }
-                        if (state.unsectionedChannels.isNotEmpty()) {
-                            item(key = "channels") {
-                                GroupsStrip(
-                                    title = "群组",
-                                    rooms = state.unsectionedChannels,
-                                    members = tiles,
-                                    onOpen = { navigator.open(Chat.RoomChat(it)) },
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                        ) {
+                            val nothingToList =
+                                if (query.isEmpty()) !RosterLayout.listsAnyBot(summaries) else rows.isEmpty()
+                            if (nothingToList && hits.isEmpty()) {
+                                EmptyState(
+                                    title = if (query.isEmpty()) "暂无智能体" else "未找到匹配项",
+                                    description = if (query.isEmpty()) {
+                                        if (status is Session.Status.Offline) {
+                                            "还没连上电脑。连上后，智能体会显示在这里。"
+                                        } else {
+                                            "在电脑上创建的智能体会显示在这里。"
+                                        }
+                                    } else {
+                                        "没有匹配“$query”的会话。"
+                                    },
                                 )
                             }
-                        }
-                        if (state.botChats.isNotEmpty()) {
-                            item(key = "bot-chats") {
-                                GroupsStrip(
-                                    title = "智能体会话",
-                                    rooms = state.botChats,
-                                    members = tiles,
-                                    onOpen = { navigator.open(Chat.RoomChat(it)) },
-                                )
-                            }
-                        }
-                        if (unsectioned.isNotEmpty()) {
-                            item(key = "bots-label") {
-                                Text(
-                                    text = if (hero != null) "协作助手" else "智能体",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = minisSecondary,
-                                    modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 20.dp, bottom = 8.dp),
-                                )
-                            }
-                            item(key = "bots-card") {
-                                val cardShape = RoundedCornerShape(24.dp)
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .museGlassSurface(
-                                            shape = cardShape,
-                                            dark = isDark,
-                                            alpha = if (isDark) 0.86f else 0.84f,
-                                            elevation = 4.dp,
-                                        ),
-                                ) {
-                                    unsectioned.forEachIndexed { index, summary ->
-                                        entry(summary, index == unsectioned.lastIndex)
+
+                            LazyColumn(
+                                state = listState,
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(
+                                    top = topClearance + 4.dp,
+                                    bottom = if (bar.searchOpen) 76.dp else 20.dp,
+                                ),
+                            ) {
+                                if (RosterLayout.showsGroups(query)) {
+                                    val unsectioned = state.unsectionedBots.mapNotNull { listSummariesById[it.id] }
+                                    item(key = "companions-title") {
+                                        Text(
+                                            text = "协作助手",
+                                            fontSize = 25.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = (-0.4).sp,
+                                            color = minisInk,
+                                            modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 8.dp),
+                                        )
                                     }
-                                }
-                            }
-                        }
-                        if (attention.isNotEmpty()) {
-                            item(key = "attention-label") {
-                                Text(
-                                    text = "需要关注",
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = minisSecondary,
-                                    modifier = Modifier.padding(start = 22.dp, end = 22.dp, top = 18.dp, bottom = 8.dp),
-                                )
-                            }
-                            item(key = "attention-card") {
-                                val cardShape = RoundedCornerShape(22.dp)
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp)
-                                        .museGlassSurface(
-                                            shape = cardShape,
-                                            dark = isDark,
-                                            alpha = if (isDark) 0.86f else 0.82f,
-                                            elevation = 3.dp,
-                                        ),
-                                ) {
-                                    attention.forEachIndexed { index, itemEntry ->
-                                        AttentionRow(entry = itemEntry, onOpen = {
-                                            state.bots.firstOrNull { it.id == itemEntry.botId }
-                                                ?.let { bot -> Chat.BotChat(bot.forTask(itemEntry.task.threadId) ?: bot) }
-                                                ?.let(navigator::open)
-                                        })
-                                        if (index < attention.lastIndex) {
-                                            HorizontalDivider(
-                                                modifier = Modifier.padding(start = 33.dp, end = 16.dp),
-                                                thickness = 0.5.dp,
-                                                color = minisSeparator.copy(alpha = 0.22f),
+                                    state.unsectionedChief?.let { chief ->
+                                        listSummariesById[chief.id]?.let { summary ->
+                                            item(key = "chief-${chief.id}") {
+                                                entry(summary, true)
+                                            }
+                                        }
+                                    }
+                                    val pinned = state.pinnedBots.mapNotNull { listSummariesById[it.id] }
+                                    if (pinned.isNotEmpty()) {
+                                        item(key = "pinned-label") {
+                                            Text(
+                                                text = "已置顶",
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold,
+                                                color = minisSecondary,
+                                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp),
+                                            )
+                                        }
+                                        itemsIndexed(pinned, key = { _, summary -> "pinned-${summary.id}" }) { index, summary ->
+                                            Box(Modifier.animateItem()) {
+                                                entry(summary, index == pinned.lastIndex)
+                                            }
+                                        }
+                                    }
+                                    if (unsectioned.isNotEmpty()) {
+                                        itemsIndexed(unsectioned, key = { _, summary -> "bot-${summary.id}" }) { index, summary ->
+                                            Box(Modifier.animateItem()) {
+                                                entry(summary, index == unsectioned.lastIndex)
+                                            }
+                                        }
+                                    }
+                                    if (state.unsectionedChannels.isNotEmpty()) {
+                                        item(key = "channels") {
+                                            GroupsStrip(
+                                                title = "群组",
+                                                rooms = state.unsectionedChannels,
+                                                members = tiles,
+                                                onOpen = { navigator.open(Chat.RoomChat(it)) },
                                             )
                                         }
                                     }
-                                }
-                            }
-                        }
-                        // Chiefs, then the section's channels, then its bots —
-                        // the order of `rosterSections` in `ChatListView.swift`.
-                        state.sidebarSections.forEach { section ->
-                            item(key = "section-${section.id}") {
-                                SectionLabel(section.name, Modifier.padding(top = 18.dp, bottom = 4.dp))
-                            }
-                            val sectionChiefs = section.chiefs.mapNotNull { listSummariesById[it.id] }
-                            val sectionBots = section.bots.mapNotNull { listSummariesById[it.id] }
-                            itemsIndexed(
-                                sectionChiefs,
-                                key = { _, summary -> "section-${section.id}-chief-${summary.id}" },
-                            ) { index, summary ->
-                                Box(Modifier.animateItem()) {
-                                    entry(
-                                        summary,
-                                        // A divider separates two rows. The strip is
-                                        // not a row, and neither is the end of the
-                                        // section.
-                                        index == sectionChiefs.lastIndex &&
-                                            (section.channels.isNotEmpty() || sectionBots.isEmpty()),
-                                    )
-                                }
-                            }
-                            if (section.channels.isNotEmpty()) {
-                                item(key = "section-${section.id}-channels") {
-                                    GroupsStrip(
-                                        title = "群组",
-                                        rooms = section.channels,
-                                        members = tiles,
-                                        onOpen = { navigator.open(Chat.RoomChat(it)) },
-                                    )
-                                }
-                            }
-                            itemsIndexed(
-                                sectionBots,
-                                key = { _, summary -> "section-${section.id}-bot-${summary.id}" },
-                            ) { index, summary ->
-                                Box(Modifier.animateItem()) {
-                                    entry(summary, index == sectionBots.lastIndex)
-                                }
-                            }
-                        }
-                    }
-
-                    if (query.isNotEmpty() && hits.isNotEmpty()) {
-                        item(key = "search-header") {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 10.dp, bottom = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                SectionLabel("消息")
-                                Spacer(Modifier.weight(1f))
-                                if (searching) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier
-                                            .padding(end = 20.dp)
-                                            .size(14.dp),
-                                        strokeWidth = 2.dp,
-                                    )
-                                }
-                            }
-                        }
-                        items(hits, key = { it.id }) { hit ->
-                            SearchHitRow(
-                                hit = hit,
-                                onClick = {
-                                    scope.launch {
-                                        // Session.open switches task, sets the
-                                        // active branch, loads the `around` page
-                                        // and focuses the message — the chat
-                                        // screen honours the focus when it opens.
-                                        session.open(hit)?.let {
-                                            haptics.play(TactileAction.OPEN_SEARCH_RESULT)
-                                            navigator.open(it)
+                                    if (state.botChats.isNotEmpty()) {
+                                        item(key = "bot-chats") {
+                                            GroupsStrip(
+                                                title = "智能体会话",
+                                                rooms = state.botChats,
+                                                members = tiles,
+                                                onOpen = { navigator.open(Chat.RoomChat(it)) },
+                                            )
                                         }
                                     }
-                                },
-                            )
+                                    if (attention.isNotEmpty()) {
+                                        item(key = "attention-label") {
+                                            Text(
+                                                text = "需要关注",
+                                                fontSize = 18.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = minisInk,
+                                                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 22.dp, bottom = 6.dp),
+                                            )
+                                        }
+                                        itemsIndexed(attention, key = { _, itemEntry -> "attn-${itemEntry.botId}-${itemEntry.task.threadId}" }) { index, itemEntry ->
+                                            Column(modifier = Modifier.padding(horizontal = 4.dp)) {
+                                                AttentionRow(entry = itemEntry, onOpen = {
+                                                    state.bots.firstOrNull { it.id == itemEntry.botId }
+                                                        ?.let { bot -> Chat.BotChat(bot.forTask(itemEntry.task.threadId) ?: bot) }
+                                                        ?.let(navigator::open)
+                                                })
+                                                if (index < attention.lastIndex) {
+                                                    HorizontalDivider(
+                                                        modifier = Modifier.padding(start = 36.dp, end = 16.dp),
+                                                        thickness = 0.5.dp,
+                                                        color = minisSeparator,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    state.sidebarSections.forEach { section ->
+                                        item(key = "section-${section.id}") {
+                                            SectionLabel(section.name, Modifier.padding(top = 18.dp, bottom = 4.dp))
+                                        }
+                                        val sectionChiefs = section.chiefs.mapNotNull { listSummariesById[it.id] }
+                                        val sectionBots = section.bots.mapNotNull { listSummariesById[it.id] }
+                                        itemsIndexed(
+                                            sectionChiefs,
+                                            key = { _, summary -> "section-${section.id}-chief-${summary.id}" },
+                                        ) { index, summary ->
+                                            Box(Modifier.animateItem()) {
+                                                entry(
+                                                    summary,
+                                                    index == sectionChiefs.lastIndex &&
+                                                        (section.channels.isNotEmpty() || sectionBots.isEmpty()),
+                                                )
+                                            }
+                                        }
+                                        if (section.channels.isNotEmpty()) {
+                                            item(key = "section-${section.id}-channels") {
+                                                GroupsStrip(
+                                                    title = "群组",
+                                                    rooms = section.channels,
+                                                    members = tiles,
+                                                    onOpen = { navigator.open(Chat.RoomChat(it)) },
+                                                )
+                                            }
+                                        }
+                                        itemsIndexed(
+                                            sectionBots,
+                                            key = { _, summary -> "section-${section.id}-bot-${summary.id}" },
+                                        ) { index, summary ->
+                                            Box(Modifier.animateItem()) {
+                                                entry(summary, index == sectionBots.lastIndex)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (query.isNotEmpty() && hits.isNotEmpty()) {
+                                    item(key = "search-header") {
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(top = 10.dp, bottom = 4.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            SectionLabel("消息")
+                                            Spacer(Modifier.weight(1f))
+                                            if (searching) {
+                                                CircularProgressIndicator(
+                                                    modifier = Modifier
+                                                        .padding(end = 20.dp)
+                                                        .size(14.dp),
+                                                    strokeWidth = 2.dp,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    items(hits, key = { it.id }) { hit ->
+                                        SearchHitRow(
+                                            hit = hit,
+                                            onClick = {
+                                                scope.launch {
+                                                    session.open(hit)?.let {
+                                                        haptics.play(TactileAction.OPEN_SEARCH_RESULT)
+                                                        navigator.open(it)
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                    item(key = "chats-label") {
+                                        SectionLabel("会话", Modifier.padding(top = 14.dp, bottom = 4.dp))
+                                    }
+                                }
+
+                                if (query.isNotEmpty()) {
+                                    itemsIndexed(rows, key = { _, summary -> summary.chat.threadId }) { index, summary ->
+                                        entry(summary, index == rows.lastIndex)
+                                    }
+                                }
+                            }
                         }
-                        item(key = "chats-label") {
-                            SectionLabel("会话", Modifier.padding(top = 14.dp, bottom = 4.dp))
+
+                        if (bar.searchOpen) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .fillMaxWidth()
+                                    .background(homeCanvas),
+                            ) {
+                                RosterBottomBar(
+                                    updates = updates,
+                                    bar = bar,
+                                    onBar = { bar = it },
+                                    heroName = hero?.chat?.name,
+                                    onQuickChat = null,
+                                    onOpenUpdates = {
+                                        haptics.play(TactileAction.OPEN_UPDATES)
+                                        showingUpdates = true
+                                    },
+                                    onOpenSearch = {
+                                        haptics.play(TactileAction.OPEN_SEARCH)
+                                        bar = bar.openSearch()
+                                    },
+                                    onCreateBot = createBot,
+                                    canCreateBot = true,
+                                    onCreateSection = {
+                                        haptics.play(TactileAction.START_NEW_SECTION)
+                                        showingNewSection = true
+                                    },
+                                    canCreateSection = remember(state) { SectionRules.selectable(state).isNotEmpty() },
+                                )
+                            }
                         }
                     }
+                }
 
-                    if (query.isNotEmpty()) {
-                        itemsIndexed(rows, key = { _, summary -> summary.chat.threadId }) { index, summary ->
-                            entry(summary, index == rows.lastIndex)
-                        }
+                if (!showLiveHeroChat) {
+                    if (activeTab == 1 || bar.searchOpen) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .height(topClearance + 16.dp)
+                                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .onSizeChanged { headerHeightPx = it.height },
+                    ) {
+                        RosterHeader(
+                            showRightActions = activeTab == 1 || bar.searchOpen || hero == null,
+                            canCreateBot = true,
+                            onOpenDrawer = {
+                                haptics.play(HapticCue.SELECT)
+                                drawerOpen = true
+                            },
+                            onOpenSearch = {
+                                haptics.play(TactileAction.OPEN_SEARCH)
+                                activeTab = 1
+                                bar = bar.openSearch()
+                            },
+                            onCreateBot = createBot,
+                            onCreateGroup = {
+                                haptics.play(TactileAction.START_NEW_GROUP)
+                                showingNewGroup = true
+                            },
+                            onCreateSection = {
+                                haptics.play(TactileAction.START_NEW_SECTION)
+                                showingNewSection = true
+                            },
+                        )
+                        StatusBanner()
                     }
                 }
             }
-        }
 
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(topClearance + 20.dp)
-                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
-        )
-
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(bottomClearance + if (bar.searchOpen) 42.dp else 28.dp)
-                .progressiveHazeBand(hazeState, fromTop = false),
-        )
-
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .onSizeChanged { headerHeightPx = it.height },
-        ) {
-            RosterHeader(
-                canCreateBot = true,
-                onSettings = { navigator.push(Destination.Settings) },
-                onOpenSearch = {
-                    haptics.play(TactileAction.OPEN_SEARCH)
-                    bar = bar.openSearch()
-                },
-                onCreateBot = createBot,
-                onCreateGroup = {
-                    haptics.play(TactileAction.START_NEW_GROUP)
-                    showingNewGroup = true
-                },
-                onCreateSection = {
-                    haptics.play(TactileAction.START_NEW_SECTION)
-                    showingNewSection = true
+            MuseBottomNavBar(
+                activeTab = activeTab,
+                onSelect = { next ->
+                    haptics.play(HapticCue.SELECT)
+                    activeTab = next
+                    if (bar.searchOpen) {
+                        bar = RosterBar()
+                        hits = emptyList()
+                    }
                 },
             )
-            StatusBanner()
         }
-
-        RosterBottomBar(
-            updates = updates,
-            bar = bar,
-            onBar = { bar = it },
-            heroName = hero?.chat?.name,
-            onQuickChat = hero?.let { main ->
-                {
-                    haptics.play(HapticCue.SELECT)
-                    navigator.open(
-                        environment.chatPreferences.restoringThread(
-                            main.chat,
-                            connection?.id,
-                        ),
-                    )
-                }
-            },
-            onOpenUpdates = {
-                haptics.play(TactileAction.OPEN_UPDATES)
-                showingUpdates = true
-            },
-            onOpenSearch = {
-                haptics.play(TactileAction.OPEN_SEARCH)
-                bar = bar.openSearch()
-            },
-            onCreateBot = createBot,
-            canCreateBot = true,
-            onCreateSection = {
-                haptics.play(TactileAction.START_NEW_SECTION)
-                showingNewSection = true
-            },
-            canCreateSection = remember(state) { SectionRules.selectable(state).isNotEmpty() },
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .onSizeChanged { bottomBarHeightPx = it.height },
-        )
+        if (drawerProgress > 0.01f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.14f * drawerProgress))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        role = Role.Button,
+                        onClick = { drawerOpen = false },
+                    ),
+            )
+        }
+        }
     }
     }
 
@@ -884,98 +954,84 @@ private fun Modifier.museGlassSurface(
 
 @Composable
 private fun RosterHeader(
+    showRightActions: Boolean,
     canCreateBot: Boolean,
-    onSettings: () -> Unit,
+    onOpenDrawer: () -> Unit,
     onOpenSearch: () -> Unit,
     onCreateBot: () -> Unit,
     onCreateGroup: () -> Unit,
     onCreateSection: () -> Unit,
 ) {
-    val dark = minisIsDark()
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 2.dp),
+            .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        TouchTarget(onClick = onSettings, contentDescription = "设置", size = 44.dp) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_gear_line),
-                    contentDescription = null,
-                    tint = minisInk,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-        }
+        MuseDrawerButton(onClick = onOpenDrawer)
 
         Spacer(Modifier.weight(1f))
 
-        TouchTarget(onClick = onOpenSearch, contentDescription = "搜索会话", size = 44.dp) {
-            Box(
+        if (showRightActions) {
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp),
-                contentAlignment = Alignment.Center,
+                    .height(46.dp)
+                    .museFloatingPill(CircleShape, elevation = 4.dp)
+                    .padding(horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Filled.Search,
-                    contentDescription = null,
-                    tint = minisInk,
-                    modifier = Modifier.size(19.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.width(8.dp))
-
-        val interaction = remember { MutableInteractionSource() }
-        var menuOpen by remember { mutableStateOf(false) }
-        Box {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .pressScale(interaction, pressed = 0.92f)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.68f, elevation = 2.dp)
-                    .combinedClickable(
-                        interactionSource = interaction,
-                        indication = LocalIndication.current,
-                        enabled = canCreateBot,
-                        role = Role.Button,
-                        onClickLabel = "新建",
-                        onLongClickLabel = if (canCreateBot) "新建分组" else null,
-                        onLongClick = if (canCreateBot) onCreateSection else null,
-                        onClick = { menuOpen = true },
+                TouchTarget(onClick = onOpenSearch, contentDescription = "搜索会话", size = 40.dp) {
+                    Icon(
+                        imageVector = Icons.Filled.Search,
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(19.dp),
                     )
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "新建"
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_plus_line),
-                    contentDescription = null,
-                    tint = minisInk,
-                    modifier = Modifier.size(21.dp),
-                )
+                }
+                val interaction = remember { MutableInteractionSource() }
+                var menuOpen by remember { mutableStateOf(false) }
+                Box {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .pressScale(interaction, pressed = 0.92f)
+                            .clip(CircleShape)
+                            .combinedClickable(
+                                interactionSource = interaction,
+                                indication = LocalIndication.current,
+                                enabled = canCreateBot,
+                                role = Role.Button,
+                                onClickLabel = "新建",
+                                onLongClickLabel = if (canCreateBot) "新建分组" else null,
+                                onLongClick = if (canCreateBot) onCreateSection else null,
+                                onClick = { menuOpen = true },
+                            )
+                            .semantics(mergeDescendants = true) {
+                                contentDescription = "新建"
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_plus_line),
+                            contentDescription = null,
+                            tint = minisInk,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                    NewMenu(
+                        expanded = menuOpen,
+                        onDismiss = { menuOpen = false },
+                        onCreateBot = {
+                            menuOpen = false
+                            onCreateBot()
+                        },
+                        onCreateGroup = {
+                            menuOpen = false
+                            onCreateGroup()
+                        },
+                    )
+                }
             }
-            NewMenu(
-                expanded = menuOpen,
-                onDismiss = { menuOpen = false },
-                onCreateBot = {
-                    menuOpen = false
-                    onCreateBot()
-                },
-                onCreateGroup = {
-                    menuOpen = false
-                    onCreateGroup()
-                },
-            )
         }
     }
 }
@@ -1069,10 +1125,15 @@ private fun RosterHero(
                 .padding(top = 2.dp, bottom = 7.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box {
+            // Muse-style serene centerpiece: avatar cleanly above a borderless soft
+            // white name pill so round mascots never get their chin masked.
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
                 ChatAvatar(
                     chat = summary.chat,
-                    size = 72.dp,
+                    size = 76.dp,
                     animated = false,
                     contentDescription = null,
                     fallback = AvatarFallback.PRESET,
@@ -1080,35 +1141,44 @@ private fun RosterHero(
                     drowsy = true,
                     crown = chief,
                 )
-                if (!showHostPill) {
-                    ConnectionLight(
-                        status = status,
-                        size = 16.dp,
-                        ringColor = canvasColor,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(1.dp),
+                Row(
+                    modifier = Modifier
+                        .shadow(
+                            elevation = if (dark) 0.dp else 3.dp,
+                            shape = CircleShape,
+                            ambientColor = Color(0x0D000000),
+                            spotColor = Color(0x12000000),
+                        )
+                        .clip(CircleShape)
+                        .background(minisCard)
+                        .padding(horizontal = 14.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (!showHostPill) {
+                        val dotColor = when (status) {
+                            Session.Status.Live -> MinisTokens.Success
+                            Session.Status.Connecting -> MinisTokens.Warning
+                            is Session.Status.Offline, Session.Status.Unauthorized -> MinisTokens.Danger
+                            else -> minisTertiary
+                        }
+                        Box(Modifier.size(7.dp).background(dotColor, CircleShape))
+                    }
+                    Text(
+                        text = summary.chat.name,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-0.2).sp,
+                        color = minisInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
+                    if (summary.chat.unread) {
+                        Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
+                    }
                 }
             }
             Spacer(Modifier.height(6.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = summary.chat.name,
-                    fontSize = 21.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = (-0.3).sp,
-                    color = minisInk,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                if (summary.chat.unread) {
-                    Spacer(Modifier.width(6.dp))
-                    Box(Modifier.size(7.dp).background(minisAccent, CircleShape))
-                }
-            }
-            Spacer(Modifier.height(3.dp))
             Text(
                 text = heroPreview.ifEmpty { "轻点头像，直接和 ${summary.chat.name} 聊两句" },
                 fontSize = 13.sp,
@@ -1581,12 +1651,13 @@ private fun ChatRow(
     val hasUnread = chat.unread && !chat.busy
     val formattedPreview = remember(summary.preview) { RosterPreviewFormat.display(summary.preview) }
     val isErrorPreview = formattedPreview.startsWith("错误 ") || formattedPreview.startsWith("请求出错")
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
                 .clickable(role = Role.Button, onClick = onClick)
-                .padding(horizontal = 16.dp),
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
@@ -1719,13 +1790,6 @@ private fun ChatRow(
                 }
             }
         }
-        if (!last) {
-            HorizontalDivider(
-                modifier = Modifier.padding(start = 75.dp, end = 16.dp),
-                thickness = 0.5.dp,
-                color = minisSeparator.copy(alpha = 0.22f),
-            )
-        }
     }
 }
 
@@ -1758,10 +1822,11 @@ private fun RosterBottomBar(
         if (bar.searchOpen) focus.requestFocus() else focusManager.clearFocus()
     }
 
+    val pillFill = if (dark) minisCard else Color(0xFFEFEFED)
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 10.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -1769,8 +1834,9 @@ private fun RosterBottomBar(
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.84f, elevation = 4.dp)
-                    .height(BAR_HEIGHT)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .height(48.dp)
                     .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1783,14 +1849,14 @@ private fun RosterBottomBar(
                 )
                 Box(modifier = Modifier.weight(1f)) {
                     if (bar.query.isEmpty()) {
-                        Text("搜索会话", fontSize = 17.sp, color = secondaryTint)
+                        Text("搜索会话", fontSize = 16.sp, color = secondaryTint)
                     }
                     BasicTextField(
                         value = bar.query,
                         onValueChange = { onBar(bar.typed(it)) },
                         singleLine = true,
                         textStyle = LocalTextStyle.current.copy(
-                            fontSize = 17.sp,
+                            fontSize = 16.sp,
                             color = MaterialTheme.colorScheme.onSurface,
                         ),
                         cursorBrush = SolidColor(MaterialTheme.colorScheme.onSurface),
@@ -1798,8 +1864,6 @@ private fun RosterBottomBar(
                         modifier = Modifier
                             .fillMaxWidth()
                             .focusRequester(focus)
-                            // The placeholder is a sibling that disappears once
-                            // typing starts; name the field itself.
                             .semantics { contentDescription = "搜索会话" },
                     )
                 }
@@ -1809,96 +1873,75 @@ private fun RosterBottomBar(
                             imageVector = Icons.Filled.Close,
                             contentDescription = "清除搜索",
                             tint = secondaryTint,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
             }
-
             Box(
                 modifier = Modifier
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.84f, elevation = 4.dp)
-                    .height(BAR_HEIGHT)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .height(48.dp)
                     .clickable(role = Role.Button, onClick = { onBar(bar.cancelSearch()) })
                     .padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("取消", fontSize = 17.sp)
+                Text("取消", fontSize = 15.sp, color = minisInk)
             }
         } else {
-            Box(
-                modifier = Modifier
-                    .size(BAR_HEIGHT)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.82f, elevation = 4.dp)
-                    .clickable(role = Role.Button, onClick = onOpenUpdates)
-                    .semantics(mergeDescendants = true) {
-                        contentDescription = "动态"
-                        stateDescription = if (updates.isNotEmpty()) "有未读更新" else "无未读更新"
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_sparkles),
-                    contentDescription = null,
-                    tint = minisInk,
-                    modifier = Modifier.size(20.dp),
-                )
-                if (updates.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(8.dp)
-                            .size(8.dp)
-                            .background(minisAccent, CircleShape),
-                    )
-                }
-            }
             val quickAction = onQuickChat ?: onOpenSearch
             val quickLabel = if (onQuickChat != null && !heroName.isNullOrBlank()) "向 $heroName 提问" else "搜索"
             Row(
                 modifier = Modifier
                     .weight(1f)
-                    .height(BAR_HEIGHT)
-                    .museGlassSurface(CircleShape, dark = dark, alpha = 0.82f, elevation = 4.dp)
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
                     .clickable(role = Role.Button, onClick = quickAction)
                     .semantics(mergeDescendants = true) {
                         contentDescription = if (onQuickChat != null) quickLabel else "搜索会话"
                     }
-                    .padding(start = 18.dp, end = 9.dp),
+                    .padding(start = 16.dp, end = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (onQuickChat != null) {
-                    Text(
-                        text = quickLabel,
-                        fontSize = 15.5.sp,
-                        color = minisSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClick = onOpenUpdates),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_sparkles),
+                        contentDescription = "动态",
+                        tint = minisInk,
+                        modifier = Modifier.size(18.dp),
                     )
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(minisInk.copy(alpha = 0.07f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_chat_bubbles),
-                            contentDescription = null,
-                            tint = minisInk.copy(alpha = 0.84f),
-                            modifier = Modifier.size(17.dp),
+                    if (updates.isNotEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .size(6.dp)
+                                .background(minisAccent, CircleShape),
                         )
                     }
-                } else {
-                    Icon(
-                        imageVector = Icons.Filled.Search,
-                        contentDescription = null,
-                        tint = minisSecondary,
-                        modifier = Modifier.size(20.dp),
-                    )
-                    Text("搜索", fontSize = 17.sp, color = minisSecondary)
                 }
+                Text(
+                    text = quickLabel,
+                    fontSize = 15.5.sp,
+                    color = minisSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Icon(
+                    painter = painterResource(R.drawable.ic_mic),
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(20.dp),
+                )
             }
         }
     }
@@ -2040,5 +2083,503 @@ private fun shortHostLabel(rawHost: String): String {
         hostOnly.endsWith(".e2e.invalid") -> hostOnly.removeSuffix(".e2e.invalid").take(8)
         hostOnly.length > 18 -> hostOnly.take(16) + "…"
         else -> stripped.take(20)
+    }
+}
+
+private data class MuseNavSpec(
+    val index: Int,
+    val outlineRes: Int,
+    val filledRes: Int,
+    val label: String,
+)
+
+private val MUSE_NAV_TABS = listOf(
+    MuseNavSpec(0, R.drawable.ic_muse_chat_outline, R.drawable.ic_muse_chat_filled, "主要聊天"),
+    MuseNavSpec(1, R.drawable.ic_muse_bots_outline, R.drawable.ic_muse_bots_filled, "协作助手"),
+    MuseNavSpec(2, R.drawable.ic_muse_schedule_outline, R.drawable.ic_muse_schedule_filled, "定时巡检"),
+    MuseNavSpec(3, R.drawable.ic_muse_hub_outline, R.drawable.ic_muse_hub_filled, "工作空间"),
+)
+
+/** Muse-style minimalist monochrome 4-icon bottom navigation bar (zero text clutter). */
+@Composable
+private fun MuseBottomNavBar(
+    activeTab: Int,
+    onSelect: (Int) -> Unit,
+) {
+    val dark = minisIsDark()
+    val inactiveTint = if (dark) minisSecondary.copy(alpha = 0.62f) else Color(0xFF8E8E93)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(minisCanvas)
+            .navigationBarsPadding(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .padding(horizontal = 24.dp),
+            horizontalArrangement = Arrangement.SpaceAround,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MUSE_NAV_TABS.forEach { tab ->
+                val selected = activeTab == tab.index
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClick = { onSelect(tab.index) })
+                        .semantics { contentDescription = tab.label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
+                        contentDescription = null,
+                        tint = if (selected) minisInk else inactiveTint,
+                        modifier = Modifier.size(23.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Muse-style Library Hub with persistent Luna centerpiece + full-width white-bordered 2-segment switcher. */
+@Composable
+private fun MuseLibraryTab(
+    heroChat: Chat?,
+    heroName: String,
+    computerName: String?,
+    status: Session.Status,
+    onOpenComputer: (() -> Unit)?,
+    onOpenOverview: (() -> Unit)?,
+    onSwitchComputer: () -> Unit,
+) {
+    var segment by rememberSaveable { mutableIntStateOf(0) }
+    val dark = minisIsDark()
+    val activePillFill = if (dark) minisGrouped else Color(0xFFF1F1EF)
+    val outerBorder = if (dark) Color(0x20FFFFFF) else Color(0xFFE8E8E6)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(minisCanvas),
+    ) {
+        // Persistent Muse centerpiece: floating avatar + softly shadowed white name pill.
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 10.dp, bottom = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            if (heroChat != null) {
+                ChatAvatar(
+                    chat = heroChat,
+                    size = 68.dp,
+                    animated = false,
+                    fallback = AvatarFallback.PRESET,
+                    motion = AvatarMotion.SHEEN,
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .museFloatingPill(CircleShape, elevation = 5.dp)
+                    .padding(horizontal = 15.dp, vertical = 4.5.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = heroName,
+                    fontSize = 14.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                )
+                Spacer(Modifier.width(4.dp))
+                CrownBadge(size = 11.5.dp)
+            }
+        }
+        // Muse-style full-width white-bordered capsule with soft-gray active inner pill.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .height(50.dp)
+                .clip(CircleShape)
+                .background(minisCard)
+                .border(0.85.dp, outerBorder, CircleShape)
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            listOf("连接应用", "实时桌面").forEachIndexed { idx, label ->
+                val selected = segment == idx
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(if (selected) activePillFill else Color.Transparent)
+                        .clickable(role = Role.Button) { segment = idx },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = label,
+                        fontSize = 15.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        color = if (selected) minisInk else minisSecondary,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            if (segment == 0) {
+                ConnectedAppsScreen(onBack = {}, embedded = true)
+            } else {
+                MuseDesktopTab(
+                    heroName = heroName,
+                    computerName = computerName,
+                    status = status,
+                    onOpenComputer = onOpenComputer,
+                    onOpenOverview = onOpenOverview,
+                    onSwitchComputer = onSwitchComputer,
+                )
+            }
+        }
+    }
+}
+
+/** Clean Muse editorial tab for live desktop access and agent overview. */
+@Composable
+private fun MuseDesktopTab(
+    heroName: String,
+    computerName: String?,
+    status: Session.Status,
+    onOpenComputer: (() -> Unit)?,
+    onOpenOverview: (() -> Unit)?,
+    onSwitchComputer: () -> Unit,
+) {
+    val statusText = when (status) {
+        Session.Status.Live -> "在线"
+        Session.Status.Connecting -> "连接中"
+        else -> "离线"
+    }
+    val dotColor = when (status) {
+        Session.Status.Live -> MinisTokens.Success
+        Session.Status.Connecting -> MinisTokens.Warning
+        else -> MinisTokens.Danger
+    }
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(minisCanvas)
+            .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(cardFill)
+                .clickable(enabled = onOpenComputer != null, role = Role.Button) { onOpenComputer?.invoke() }
+                .padding(horizontal = 16.dp, vertical = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(minisCard),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_display_line),
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(21.dp),
+                )
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = computerName ?: "已配对电脑",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = minisInk,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(7.dp).background(dotColor, CircleShape))
+                    Text(text = "$statusText · 点击查看实时画面", fontSize = 13.sp, color = minisSecondary)
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = minisTertiary,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(22.dp))
+                .background(cardFill),
+        ) {
+            if (onOpenOverview != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Button, onClick = onOpenOverview)
+                        .padding(horizontal = 16.dp, vertical = 15.dp),
+                    horizontalArrangement = Arrangement.spacedBy(13.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(minisCard),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(painterResource(R.drawable.ic_muse_bots_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                    }
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("$heroName 记忆与总览", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+                        Text("查看助手能力、记忆与运行状态", fontSize = 12.5.sp, color = minisSecondary)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
+                }
+                HorizontalDivider(
+                    modifier = Modifier.padding(start = 65.dp, end = 16.dp),
+                    thickness = 0.5.dp,
+                    color = minisSeparator.copy(alpha = 0.25f),
+                )
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button, onClick = onSwitchComputer)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                horizontalArrangement = Arrangement.spacedBy(13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(minisCard),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(painterResource(R.drawable.ic_gear_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("切换连接的电脑", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+                    Text(computerName ?: "管理已配对设备", fontSize = 12.5.sp, color = minisSecondary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
+            }
+        }
+    }
+}
+
+/** Muse-style underlying pure-white drawer layer revealed as main stage pushes right. */
+@Composable
+private fun MuseDrawerContent(
+    activeTab: Int,
+    companions: List<ChatSummary>,
+    computerName: String?,
+    status: Session.Status,
+    modifier: Modifier = Modifier,
+    onSelectTab: (Int) -> Unit,
+    onOpenCompanion: (ChatSummary) -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onCreateBot: () -> Unit,
+    onCreateGroup: () -> Unit,
+    onSwitchComputer: () -> Unit,
+) {
+    val pillFill = if (minisIsDark()) minisGrouped else Color(0xFFF0F0EE)
+    Column(
+        modifier = modifier
+            .width(296.dp)
+            .fillMaxHeight()
+            .background(minisCanvas)
+            .navigationBarsPadding()
+            .padding(horizontal = 18.dp, vertical = 16.dp),
+    ) {
+        Text(
+            text = "Luna Bot",
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.4).sp,
+            color = minisInk,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = "选项卡",
+            fontSize = 12.5.sp,
+            color = minisSecondary,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+        MUSE_NAV_TABS.forEach { tab ->
+            val selected = activeTab == tab.index
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (selected) pillFill else Color.Transparent)
+                    .clickable(role = Role.Button) { onSelectTab(tab.index) }
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
+                    contentDescription = null,
+                    tint = minisInk,
+                    modifier = Modifier.size(21.dp),
+                )
+                Text(
+                    text = tab.label,
+                    fontSize = 16.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                    color = minisInk,
+                )
+            }
+        }
+        if (companions.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "协作助手",
+                fontSize = 12.5.sp,
+                color = minisSecondary,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+            companions.take(5).forEach { summary ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(role = Role.Button) { onOpenCompanion(summary) }
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    ChatAvatar(
+                        chat = summary.chat,
+                        size = 30.dp,
+                        animated = false,
+                        fallback = AvatarFallback.PRESET,
+                        motion = AvatarMotion.SHEEN,
+                    )
+                    Text(
+                        text = summary.chat.name,
+                        fontSize = 15.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisInk,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    if (summary.chat.unread) {
+                        Box(Modifier.size(7.dp).background(minisInk, CircleShape))
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.25f))
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(role = Role.Button, onClick = onCreateBot)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+            Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(14.dp))
+                .clickable(role = Role.Button, onClick = onCreateGroup)
+                .padding(horizontal = 12.dp, vertical = 11.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
+            Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+        }
+        if (computerName != null) {
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+            Spacer(Modifier.height(10.dp))
+            val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(role = Role.Button, onClick = onSwitchComputer)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(8.dp).background(statusDot, CircleShape))
+                Text(computerName, fontSize = 14.5.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        // Muse drawer footer: Settings circle + Search pill + New button
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onOpenSettings),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(painterResource(R.drawable.ic_gear_line), "设置", tint = minisInk, modifier = Modifier.size(21.dp))
+            }
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onOpenSearch)
+                    .padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Search, null, tint = minisSecondary, modifier = Modifier.size(19.dp))
+                Text("搜索", fontSize = 15.5.sp, color = minisSecondary)
+            }
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(pillFill)
+                    .clickable(role = Role.Button, onClick = onCreateBot),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Create, "新建", tint = minisInk, modifier = Modifier.size(19.dp))
+            }
+        }
     }
 }

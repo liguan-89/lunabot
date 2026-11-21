@@ -139,28 +139,28 @@
   --animate-sent-border: sent-border 1.2s ease-out forwards;
 
   /* Defaults = Midnight. Kept here so the app is never unstyled. */
-  --color-app: #121212;
-  --color-panel: #0e0e0e;
-  --color-raised: #202020;
-  --color-raised-hover: #2c2c2c;
+  --color-app: #111216;
+  --color-panel: #0b0c0f;
+  --color-raised: #1e2027;
+  --color-raised-hover: #282b34;
   /* the composer pill. Every skin but Daylight paints it in `raised`; there
      it is the page colour with a hairline ring, so it needs a tone (and a
      ring, transparent everywhere else) of its own. */
-  --color-composer: #1f1f1f;
-  --color-composer-ring: #2a2a2a;
+  --color-composer: #181a21;
+  --color-composer-ring: #2a2e39;
   /* popover and right-click menus. Same story as the composer: every skin
      but Daylight paints them in `card`, which there is the bot's bubble and
      a shade too grey for a menu. */
-  --color-menu: #1f1f1f;
+  --color-menu: #191b22;
   --color-menu-hover: #f5f5f50f;
   --color-menu-active: #f5f5f514;
-  --color-card: #1f1f1f;
-  --color-inset: #1b1b1b;
+  --color-card: #191b22;
+  --color-inset: #13151a;
   /* a control ON a card. The dark skins take their `raised` value, so this
      is a no-op for them; the light skins need a tone of their own, because
      there `raised` is pure white and a card is too. */
-  --color-control: #282828;
-  --color-hairline: #383838;
+  --color-control: #23262f;
+  --color-hairline: #323642;
   /* the 0.5px line where two panes meet: the sidebar and the chat */
   --color-edge: color-mix(in srgb, var(--color-ink) 8%, transparent);
   /* the window's frame: its top bar and the rail of places, around the
@@ -187,8 +187,8 @@
   --color-danger: #ff5667;
   --color-warning: #ff9800;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   /* Some engines map `ui-monospace` to a proportional face, so concrete names come first. */
   --font-mono: "Geist Mono Variable", "SF Mono", SFMono-Regular, ui-monospace, Menlo,
     Consolas, "Liberation Mono", monospace;
@@ -248,7 +248,7 @@
   --color-scrollbar: #3d3d3d;
   /* second speed line of the mascot — contrasts against the app ground */
   --color-maus-line: #f5f5f5;
-  --shadow-float: 0 0 #0000;
+  --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.06), 0 8px 24px -8px rgb(0 0 0 / 0.45), 0 1px 3px rgb(0 0 0 / 0.25);
 }
 
 /* ── Midnight ──────────────────────────────────────────────────────────────
@@ -262,19 +262,19 @@
    ───────────────────────────────────────────────────────────────────────── */
 [data-skin="midnight"] {
   --code-color-scheme: dark;
-  --color-app: #121212;
-  --color-panel: #0e0e0e;
-  --color-raised: #202020;
-  --color-raised-hover: #2c2c2c;
-  --color-composer: #1f1f1f;
-  --color-composer-ring: #2a2a2a;
-  --color-card: #1f1f1f;
-  --color-menu: #1f1f1f;    /* = card: unchanged */
+  --color-app: #111216;
+  --color-panel: #0b0c0f;
+  --color-raised: #1e2027;
+  --color-raised-hover: #282b34;
+  --color-composer: #181a21;
+  --color-composer-ring: #2a2e39;
+  --color-card: #191b22;
+  --color-menu: #191b22;    /* = card: unchanged */
   --color-menu-hover: #f5f5f50f;
   --color-menu-active: #f5f5f514;
-  --color-inset: #1b1b1b;
-  --color-control: #282828;
-  --color-hairline: #383838;
+  --color-inset: #13151a;
+  --color-control: #23262f;
+  --color-hairline: #323642;
   --color-ink: #f5f5f5;
   --color-ink-secondary: #f5f5f5a8;
   --color-ink-tertiary: #f5f5f591;
@@ -294,8 +294,8 @@
 
   --color-edge: #f5f5f50f;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   /* One radius scale, shared with Daylight. What takes which step: buttons
      and pills full; keycaps, chips and menu rows 6; fields, controls and
      sidebar rows 8; cards and menus 12; dialogs 16; bubbles and the cards in
@@ -447,8 +447,8 @@
   --color-scrollbar: #3d3529;
   --color-maus-line: #b0a696;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --radius-lg: 4px;
   --radius-xl: 8px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -592,8 +592,8 @@
   --color-scrollbar: #464b54;
   --color-maus-line: #b3b8c2;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --radius-lg: 6px;
   --radius-xl: 10px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -716,8 +716,8 @@
   --color-scrollbar: #4a414f;
   --color-maus-line: #b9afbd;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --radius-lg: 8px;
   --radius-xl: 12px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -794,8 +794,8 @@
   --color-scrollbar: #c4c4c4;
   --color-maus-line: #5f5f5f;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
@@ -816,7 +816,7 @@
   --identity-coral: #d83920;
   --identity-silver: #6e7580;
   --identity-chrome: #697688;
-  --shadow-float: 0 4px 12px -1px rgb(28 28 28 / 0.08), 0 2px 4px -2px rgb(28 28 28 / 0.06);
+  --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 24px -8px rgb(15 23 42 / 0.1), 0 2px 6px -2px rgb(15 23 42 / 0.06);
 }
 
 /* ── Meadow ───────────────────────────────────────────────────────────────
@@ -862,8 +862,8 @@
   --color-scrollbar: #c3cdc6;
   --color-maus-line: #5a675f;
 
-  --font-sans: "Geist Variable", -apple-system, BlinkMacSystemFont,
-    "Segoe UI", system-ui, sans-serif;
+  --font-sans: "Geist Variable", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei",
+    "Noto Sans CJK SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --radius-lg: 10px;
   --radius-xl: 16px;
   --radius-xs: 2px; --radius-sm: 4px; --radius-md: 6px;
@@ -1386,7 +1386,47 @@ body {
      Windows ignores both properties. */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow: hidden;
+}
+:lang(zh) {
+  font-feature-settings: "kern" 1;
+  font-optical-sizing: auto;
+}
+
+/* Linear / macOS native surface craft: subtle specular top highlight,
+   layered ambient shadow, focus halo on composer, and tactile active sidebar rows. */
+[data-tour="composer"] {
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-ink) 7%, transparent),
+    0 8px 24px -10px rgb(0 0 0 / 0.22),
+    0 1px 3px rgb(0 0 0 / 0.08);
+}
+[data-tour="composer"]:focus-within {
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-ink) 10%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--color-accent) 45%, transparent),
+    0 0 0 4px color-mix(in srgb, var(--color-accent) 12%, transparent),
+    0 12px 28px -10px rgb(0 0 0 / 0.28);
+}
+[data-sidebar-bot-row][aria-current="page"]:not([data-sidebar-tile]) {
+  position: relative;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--color-ink) 10%, transparent),
+    0 1px 2px rgb(0 0 0 / 0.06);
+}
+[data-sidebar-bot-row][aria-current="page"]:not([data-sidebar-tile])::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 2.5px;
+  border-radius: 9999px;
+  background: var(--color-accent);
 }
 
 /* Shared action rhythm. Existing skin tokens supply the colors and radius;
