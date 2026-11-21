@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -388,10 +387,10 @@ internal fun VoiceCard(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    painter = painterResource(R.drawable.ic_send_up),
                                     contentDescription = null,
                                     tint = if (capture.recording) minisPage else minisTertiary,
-                                    modifier = Modifier.size(20.dp),
+                                    modifier = Modifier.size(21.dp),
                                 )
                             }
                         }

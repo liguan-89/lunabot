@@ -64,7 +64,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Close
@@ -2831,10 +2830,10 @@ private fun Composer(
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                painter = painterResource(R.drawable.ic_send_up),
                                 contentDescription = null,
                                 tint = minisPage,
-                                modifier = Modifier.size(18.dp),
+                                modifier = Modifier.size(19.dp),
                             )
                         }
                     }
