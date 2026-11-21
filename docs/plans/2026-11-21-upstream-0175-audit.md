@@ -103,8 +103,9 @@
 
 - **rpm 打包**（`09b875dcc2`，= `84c328bd15`+`29c76c7c82`）：electron-builder rpm target+`fpm` 块（`/opt/LunaBot`、`_build_id_links none`）、after-remove 的 `%postun` 计数语义、verify 脚本 `verifySystemPackage` 对 DEB/RPM 同套检查、ci/package-linux/release 工作流产物清单、docs Fedora 节。fork 无 `sync-published-release.yml`，跳过。rpm 包名沿用 `dexbot`（与 deb Package 一致）。
 - **boot-head-start**（`e71cc31666`，= `684eff585b` electron 半）：splash 就绪前并行预读 `secureCredentials`。上游的 proxy 项依赖其 system-proxy 缓存（fork 无），launch-record/`server/perf` 诊断链、launch-timings、`b5588a013c` 整提交（含约 10 个不相关 perf bullet）依赖上游 perf 基建——均未移。
-- **快照尾部服务端**（`951e1f5dde`，= `fd8781a731` 服务端半）：`server/host/snapshot-tail.ts`+`threads.ts` 的 `tail`/`open` 参数，向后兼容。**欠账**：客户端有界裁剪（上游 `held-tails.ts`/`chat-snapshot.ts`/`message-history.ts` 改造、`use-transcript-viewport` reopen 逻辑）——fork `src/state/` 存在但消息历史结构不同，需专项移植。
+- **快照尾部**（服务端 `951e1f5dde` + 客户端 `c514ec0847`，= `fd8781a731` 等价移植）：服务端 `tail`/`open` 参数向后兼容；客户端 `src/state/snapshot-tail.ts` 新模块——快照请求带 `tail=20&open=`、将被选中会话 hydrate 前补整页、`noteSnapshotTails`/`followSnapshotTails`（dispatch 后微任务检查，打开或分支拨动即 `loadOlderMessages`，每开至多两问）、`capHeldInBackground`/`olderThanHeld`/`trimmedHeld` 背景有界裁剪（HELD_AFTER_LEAVING=200/HELD_FOR_PLACE=600/HELD_IN_BACKGROUND=800）。差异：无 transcript 滚动位置跟踪（`keepFromId` 恒 undefined）、无 `use-transcript-viewport` reopen 逻辑（fork 用 bottom-follow 系）；`trimHeldMessages` 离开即裁动作未移（capHeld 已兜内存上界）。reducer 包装为 `reducer = olderThanHeld ? state : capHeldInBackground(reduceApp)`，与上游同构。
 - **空白聊天（`21ed317d41`+`afbff51b7c`）判为专项欠账**：试摘确认接线依赖 fork 缺失的 `fork-panel`（`removeForkOptimistic`）、`useBotListDrawer` 与发送管线改造，~450 行/13 文件；新模块 `src/state/new-chat.ts` 本身自足可复用，但需一次专门移植会话完成接线，不宜半途。
+- **T2 全量**（`pnpm test` 已跑）：vitest 22 败 → 14 处本线回归已修（`c214b3e999` locale + `a1b2a788a8` 测试对拍 + `0cfc2c9c30` 文档引用）；残余 8 败全为基线红（SettingsModal noticeLearn 行、touch-actions/ChatEmptyState、type-scale/color-utilities/DesktopMountView、AskCard、bot-identity、skin-overlay——文件本线零提交）。broker 133、electron 2067、packaged-server 冒烟全绿。
 
 ### P2 执行状态（评审完毕）
 
