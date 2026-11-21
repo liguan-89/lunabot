@@ -145,3 +145,13 @@
 **merge 规则已落实**：`git rev-list --parents -n1` 判 merge 后 `-m 1`；rebase 时用 `GIT_SEQUENCE_EDITOR=true git rebase -i --autosquash` 非交互折叠 fixup。
 
 验证：threads/digest/notify/devs-mention/team-setup/pie-sort 测试过（team-setup 70/70）。
+
+## 执行状态三（2026-11-21 续批，B2+B3，已推 `8361c0e9e2`）
+
+**B2 完结：12 提交全摘**——OpenAICompat transient 重试默认开+HTTP 状态分类六连（`4cb246acda`…`1bbad2584f`，手术适配：retryScale 落调用点 `openai-compat.ts`、测试 env `FAKE_OPENAI_COMPAT_RETRY_SCALE`、恢复 fork 丢掉的 `StreamTruncatedError`+oMLX `TOOL_CALL_FAILURES`、保留 `stream_truncated`）；llama.cpp 上下文溢出五连（丢最旧工具输出→缩小重发→封顶）；`2d65d62050`（merge，Venice base-url 变更重查已存 key，`docs/custom-engines.md` 改 fork「Custom model provider」称谓）。`openai-chat.ts` 守 1000 行棘轮（SSE 行解析抽进 `openai-chat-refusals.ts`）。上游 `openai-chat.test.ts`/`KeysPage.dom.test.ts` fork 不存在，测试按 fork 结构落 `chat-size-limit`/`engine-errors`。验证：drivers 50 文件 1453 测试、typecheck 绿。
+
+**B3 完结：摘 6 跳 2**——
+- 摘：`657ded6ea4`（不可达旧别名可替换）→`3139706af7`（不可达可改可清+left-behind notice）→`ae0708b5bd`（能应答但不能验证仍 503）→`6b811ef341`（`VpsHostUnreachableError`，仅 SSH 自身失败才跳过）→`1394b9f515`（`sshNeverReachedHost` 精化判定）五连链 + `41c442d3f1`（WherePage 恢复 `CloudPreference`，PNG evidence 不带）。
+- 适配点：`ensureVpsSshMaster` 上游返回 wake 耗时 ms（`deadline +=`），fork 版 `Promise<void>` 无 wake-script——保 fork 签名，deadline 不加，仅取错误包装增量。`server/index.test.ts` DU，其用例无 fork fixture（`fakeSsh*` 不存在），记覆盖欠债。
+- 跳：`12ee871b5a`/`ccec24bff9`——`OllamaServer.tsx` 检查流程在 fork Muse UI 重构中已删，`OllamaStatus` 无消费者，无 check-result→refreshModels 落点。
+- 验证：vps-computer/runner/inventory/ssh-init/cloud-backend 90 测试、BotSettingsDialog.simple 108 测试、typecheck 绿、oxlint 净。
