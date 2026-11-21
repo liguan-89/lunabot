@@ -4,7 +4,7 @@ import { cn } from "@/lib/cn";
 import { useCopyFeedback } from "@/lib/copy-text";
 import { t } from "@/lib/i18n";
 
-export const SIMPLE_CARD = "rounded-[12px] border-[0.5px] border-(--settings-edge) bg-menu py-2";
+export const SIMPLE_CARD = "settings-card rounded-[16px] border-[0.5px] border-(--settings-edge) bg-menu py-2";
 export const SIMPLE_BUTTONS = cn(
   "[&_.ui-button]:h-8 [&_.ui-button]:rounded-full [&_.ui-button]:border-0 [&_.ui-button]:px-3 [&_.ui-button]:text-[14px] [&_.ui-button]:font-normal",
   "[&_.ui-button:not(.ui-button-primary)]:bg-ink/5 [&_.ui-button:not(.ui-button-primary)]:text-ink [&_.ui-button:not(.ui-button-primary):enabled:hover]:bg-ink/10",
@@ -53,7 +53,7 @@ export function Card({
   children?: React.ReactNode;
 }) {
   return (
-    <div data-settings-row={title} className="rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[12px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu">
+    <div data-settings-row={title} className="settings-card rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu">
       {title && <div className="text-[16px] font-semibold text-ink in-data-[settings-look=simple]:text-[14px] in-data-[settings-look=simple]:leading-5 in-data-[settings-look=simple]:font-medium">{title}</div>}
       {subtitle && <div className={cn(title && "mt-0.5", "text-[13px] leading-relaxed text-ink-secondary in-data-[settings-look=simple]:leading-[18px]")}>{subtitle}</div>}
       {children && <div className={title || subtitle ? "mt-4" : undefined}>{children}</div>}

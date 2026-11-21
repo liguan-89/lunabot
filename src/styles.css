@@ -1970,6 +1970,81 @@ body {
 :root[data-skin="daylight"] [data-settings-look] .glass-surface {
   box-shadow: 0 24px 64px -16px rgb(28 28 28 / 0.28), 0 2px 8px rgb(28 28 28 / 0.06);
 }
+
+/* Unified Settings palette: clean pure-white sheet with borderless soft-gray grouped cards on all light skins,
+   and opaque dark sheet with elevated cards on all dark skins. */
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] {
+  --settings-edge: rgb(0 0 0 / 0.07);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] > .glass-scrim {
+  background: rgb(0 0 0 / 0.18);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface {
+  background: #ffffff;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  box-shadow: 0 24px 64px -16px rgb(0 0 0 / 0.16), 0 4px 16px -4px rgb(0 0 0 / 0.06);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-rail {
+  background: #ffffff;
+  border-right: 0.5px solid var(--settings-edge);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface :is(.settings-card, .bg-card) {
+  background-color: #f3f3f4;
+  border-color: transparent;
+  border-radius: 16px;
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface :is(.settings-card, .bg-card) .ui-button:not(.ui-button-primary) {
+  background-color: #ffffff;
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.04), inset 0 0 0 0.5px rgb(0 0 0 / 0.08);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface :is(.settings-card, .bg-card) .ui-button:not(.ui-button-primary):enabled:hover {
+  background-color: #f9f9fa;
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface :is(.settings-card, .bg-card) [role="radiogroup"] [role="radio"][aria-checked="true"] {
+  background-color: #ffffff;
+  color: var(--color-ink);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.08);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .glass-surface .bg-inset {
+  background-color: #ffffff;
+  border-color: rgb(0 0 0 / 0.1);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .settings-close-btn {
+  background-color: #ffffff;
+  color: #1c1c1e;
+  box-shadow: 0 2px 10px rgb(0 0 0 / 0.1), 0 0 0 0.5px rgb(0 0 0 / 0.06);
+}
+:root:is([data-skin="daylight"], [data-skin="meadow"], [data-skin="muse"], [data-skin="atelier"], [data-skin="lagoon"], [data-skin="linen"], [data-skin="pop"]) [data-settings-look] .settings-close-btn:hover {
+  background-color: #f5f5f7;
+}
+
+:root:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) [data-settings-look] .glass-surface {
+  background: var(--color-app);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border: 1px solid color-mix(in srgb, var(--color-ink) 10%, transparent);
+}
+:root:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) [data-settings-look] .glass-rail {
+  background: transparent;
+  border-right: 0.5px solid var(--settings-edge);
+}
+:root:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) [data-settings-look] .glass-surface :is(.settings-card, .bg-card) {
+  background-color: var(--color-card);
+  border-radius: 16px;
+}
+:root:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) [data-settings-look] .settings-close-btn {
+  background-color: var(--color-raised);
+  color: var(--color-ink-secondary);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.28), 0 0 0 0.5px color-mix(in srgb, var(--color-ink) 10%, transparent);
+}
+:root:is([data-skin="midnight"], [data-skin="foundry"], [data-skin="graphite"], [data-skin="dusk"], [data-skin="halloween"], [data-skin="diwali"], [data-skin="muse-dark"], [data-skin="aurora"]) [data-settings-look] .settings-close-btn:hover {
+  background-color: var(--color-raised-hover);
+  color: var(--color-ink);
+}
+
 @media (min-width: 768px) {
   .glass-popup-frame[data-settings-sheet][data-settings-look="simple"] {
     padding: 48px 16px;
