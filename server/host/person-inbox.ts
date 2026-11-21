@@ -64,7 +64,7 @@ const fileSchema = z.object({ version: z.literal(1), homes: z.record(person, z.o
 export type Item = z.infer<typeof itemSchema>;
 type Origin = NonNullable<Item["origin"]>;
 type Teammate = { key: string; email: string; name: string };
-export type Passed = { status: number; text: string };
+export type Passed = { status: number; text: string; repeated?: true };
 type Relay = NonNullable<Message["relay"]>;
 
 /** One thing for one person's inbox. */
@@ -336,6 +336,11 @@ export function createPersonInbox(deps: PersonInboxDeps) {
 
   /** The person answered this line, or their assistant did: the answer goes back where it came from. */
   function answerItem(item: Item, text: string, by: "person" | "assistant"): Passed {
+    // A retried send carries the same words; an answer in new words is a correction that goes back too.
+    const lastAnswer = line(item)?.inbox?.answers?.at(-1);
+    if (item.answered && lastAnswer?.by === by && lastAnswer.text === oneLine(text, 600)) {
+      return { status: 200, text: "Already answered.", repeated: true };
+    }
     const replier = deps.person(item.person);
     if (!replier) return { status: 410, text: "This inbox's person has left the team." };
     const label = (threadId: string) => serverLine(conversationLanguage(threadId), by === "assistant" ? "server.teammates.personAssistantAnswered" : "server.teammates.personReplied", { name: replier.name });
