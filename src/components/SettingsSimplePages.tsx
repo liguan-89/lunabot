@@ -47,6 +47,7 @@ import { ThreadConcurrencySettings } from "./ThreadConcurrencySettings";
 import { AutomaticRecoverySettings } from "./AutomaticRecoverySettings";
 import { ThreadCleanupSettings } from "./ThreadCleanupSettings";
 import { SavedStepsRow } from "./SavedStepsRow";
+import { NoticeLearnRow } from "./NoticeLearnRow";
 import { PhoneVerifyRow } from "./PhoneVerifyRow";
 import { ThemeRow } from "./ThemeRow";
 import { AdminOnly } from "./AdminOnly";
@@ -156,7 +157,7 @@ export function SimpleAdvancedPage({ has, limits }: { has: Has; limits: boolean 
           <ThreadConcurrencySettings />
           <AutomaticRecoverySettings />
           <ThreadCleanupSettings />
-          <SettingsRows><SavedStepsRow /><PhoneVerifyRow /></SettingsRows>
+          <SettingsRows><SavedStepsRow /><PhoneVerifyRow /><NoticeLearnRow simple /></SettingsRows>
         </SettingsGroup>
       )}
       {has("backups") && <SettingsGroup block="backups" stack><AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly></SettingsGroup>}

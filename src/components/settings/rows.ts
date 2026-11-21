@@ -39,6 +39,7 @@ export const SETTINGS_ROWS: readonly SettingsRowEntry[] = [
   { titleKeys: ["settings.threadCleanup.title"], section: "general", keywords: ["retention", "log size"], simpleMore: true },
   { titleKeys: ["settings.savedSteps.title"], section: "general", keywords: ["repeat", "replay", "computer tasks"], simpleMore: true, lazy: true },
   { titleKeys: ["settings.phoneVerify.title"], section: "general", keywords: ["phone", "verify", "check", "screen", "claims"], simpleMore: true, lazy: true },
+  { titleKeys: ["settings.noticeLearn.title"], section: "general", keywords: ["phone", "notification", "learn", "topics", "notices"], simpleMore: true, lazy: true },
   { titleKeys: ["settings.advancedMode.title"], section: "general", keywords: ["advanced", "more settings"] },
   { titleKeys: ["settings.theme.title", "settings.theme.lightOrDark"], section: "appearance", keywords: ["dark", "light", "skin", "colour", "color"] },
   { titleKeys: ["placeLook.sidebarColor"], section: "appearance", keywords: ["sidebar", "colour", "color", "swatch"], lazy: true },

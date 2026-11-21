@@ -66,7 +66,8 @@ learning, which stays excluded by design.
 `features.noticeLearn` is already a four-value enum. Add one row in the
 phone settings section (same surface the verify flag uses): a select of
 off / conservative / balanced / aggressive with one line of honest copy per
-level. i18n strings for all locales; `pnpm i18n:check` gates it.
+level. English and 简体中文 strings land now; the other catalogs fall back to
+English per the locale rules, and `pnpm i18n:check` gates it.
 
 ## Deferred on purpose
 
