@@ -165,6 +165,8 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   }
   const agent = agentEnv(integration);
   const botId = agent.OMB_BOT_ID;
+  // A pi-sidejob text call rides the same fake pi: it is no room turn and owns no bot, so it stays out of the plan's evidence.
+  const sidejob = String(agent.OMB_THREAD_ID ?? "").startsWith("pi-sidejob-");
   const launchNote = splitLaunchNote(prompt);
   prompt = launchNote.prompt;
   const launchSystem = view.system ?? launch?.system ?? readAtLaunch(arg("--append-system-prompt-file"));
@@ -187,7 +189,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
   const matches = (entry: ScriptEntry) => entry.match.every(text => own.includes(text));
   const entry = script && (script.find(e => !e.repeat && !used.has(e.key) && matches(e)) ?? script.find(e => e.repeat && matches(e)));
   if (script && !entry) {
-    appendFileSync(`${planPath}.evidence.jsonl`, JSON.stringify({ botId, turnIndex, threadId: agent.OMB_THREAD_ID, unplanned: true, resumed, system, prompt }) + "\n");
+    if (!sidejob) appendFileSync(`${planPath}.evidence.jsonl`, JSON.stringify({ botId, turnIndex, threadId: agent.OMB_THREAD_ID, unplanned: true, resumed, system, prompt }) + "\n");
     throw new Error(`Unplanned fixture turn for ${botId}: ${own.slice(0, 300)}`);
   }
   const plan: any = entry ?? (basePlan.turns ? basePlan.turns[turnIndex] : basePlan);
@@ -306,7 +308,7 @@ export async function runRoomHandoffAgent(argv: string[], planPath: string, prom
     closing = true;
     clearTimeout(timer); clearTimeout(delayTimer); clearInterval(gateTimer); lines.close(); child.stdin.destroy();
     await waitForExit(child, { signal: "SIGTERM", graceMs: 500 });
-    appendFileSync(`${planPath}.evidence.jsonl`, JSON.stringify({ botId, turnIndex, threadId: agent.OMB_THREAD_ID, pid: process.pid,
+    if (!sidejob) appendFileSync(`${planPath}.evidence.jsonl`, JSON.stringify({ botId, turnIndex, threadId: agent.OMB_THREAD_ID, pid: process.pid,
       model: argv.includes("--model") ? arg("--model") : undefined,
       permissionMode: permissionModeOf(view.approvalMode, argv.includes("--permission-mode") ? arg("--permission-mode") : undefined),
       restricted: argv.includes("--restricted"), permissionPromptTool: argv.includes("--permission-prompt-tool"),
