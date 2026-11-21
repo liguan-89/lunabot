@@ -44,8 +44,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
@@ -69,7 +71,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -480,14 +484,15 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             }
                         }
                         Text(
-                            text = if (libraryOpen) "收起头像选项" else "点击更换头像",
+                            text = if (libraryOpen) "收起头像选项" else "更换头像",
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
-                            color = minisAccent,
+                            color = minisSecondary,
                             modifier = Modifier
                                 .clip(CircleShape)
+                                .background(if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0))
                                 .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen }
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                                .padding(horizontal = 14.dp, vertical = 5.dp),
                         )
                     }
 
@@ -1004,19 +1009,27 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 }
             }
 
+            val canvasColor = minisCanvas
+            val topVeil = remember(canvasColor) {
+                Brush.verticalGradient(
+                    0.0f to canvasColor,
+                    0.72f to canvasColor.copy(alpha = 0.94f),
+                    1.0f to canvasColor.copy(alpha = 0f),
+                )
+            }
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(94.dp)
-                    .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
+                    .height(68.dp)
+                    .background(topVeil),
             )
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .heightIn(min = 56.dp)
-                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
                 TouchTarget(
                     onClick = onDismiss,
@@ -1025,8 +1038,8 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(42.dp)
-                            .chromeCapsule(surface = true),
+                            .size(44.dp)
+                            .museFloatingPill(CircleShape, elevation = 4.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
@@ -1063,7 +1076,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                     .clip(CircleShape)
                                     .background(minisInk, CircleShape)
                             } else {
-                                Modifier.chromeCapsule(surface = true)
+                                Modifier.museFloatingPill(CircleShape, elevation = 4.dp)
                             },
                         )
                         .clickable(role = Role.Button) {
@@ -1226,22 +1239,28 @@ private fun ProfileFooter(text: String) {
     )
 }
 
-/** A white card: `minisCard` fill, rounded 16, no border, no glass. */
+/** Soft warm-neutral rounded card on the pure-white Muse gallery canvas. */
 @Composable
 private fun ProfileCard(content: @Composable () -> Unit) {
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(minisCard, MinisCardShape),
+            .clip(RoundedCornerShape(22.dp))
+            .background(cardFill),
     ) {
         content()
     }
 }
 
-/** The thin divider between rows inside a card, inset to the row text. */
+/** Whisper-soft divider inside ProfileCard. */
 @Composable
 private fun ProfileCardDivider() {
-    MinisDivider(insetStart = 16.dp)
+    HorizontalDivider(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        thickness = 0.5.dp,
+        color = minisSeparator.copy(alpha = 0.22f),
+    )
 }
 
 /** A `Button` row of a card: 56 dp tall, 17 sp ink, left aligned. */
@@ -1313,7 +1332,21 @@ private fun ProfileSwitchRow(
             color = if (enabled) minisInk else minisTertiary,
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        val dark = minisIsDark()
+        Switch(
+            checked = checked,
+            onCheckedChange = null,
+            enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = minisCanvas,
+                checkedTrackColor = minisInk,
+                checkedBorderColor = Color.Transparent,
+                uncheckedThumbColor = if (dark) Color(0xFFB5B5B8) else Color.White,
+                uncheckedTrackColor = if (dark) Color(0xFF3A3A3D) else Color(0xFFDCDCD9),
+                uncheckedBorderColor = Color.Transparent,
+            ),
+            modifier = Modifier.scale(0.80f),
+        )
     }
 }
 
@@ -1363,9 +1396,9 @@ private fun ProfilePickerRow(
         ModalBottomSheet(
             onDismissRequest = { expanded = false },
             sheetState = sheetState,
-            shape = MinisSheetShape,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             containerColor = minisCanvas,
-            scrimColor = Color.Black.copy(alpha = 0.22f),
+            scrimColor = Color.Black.copy(alpha = 0.20f),
         ) {
             GlassBackdrop()
             Column(

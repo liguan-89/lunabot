@@ -54,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -73,6 +74,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.ClipEntry
@@ -1238,25 +1240,26 @@ fun SettingsScreen(
         }
         }
 
+        val canvasTop = minisCanvas
+        val topVeil = remember(canvasTop) {
+            Brush.verticalGradient(
+                0.0f to canvasTop,
+                0.72f to canvasTop.copy(alpha = 0.94f),
+                1.0f to canvasTop.copy(alpha = 0f),
+            )
+        }
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .height(78.dp)
-                .progressiveHazeBand(hazeState, fromTop = true, alpha = topBandAlpha),
-        )
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .height(32.dp)
-                .progressiveHazeBand(hazeState, fromTop = false, alpha = 0.75f),
+                .height(66.dp)
+                .background(topVeil),
         )
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
         ) {
             TouchTarget(
                 onClick = onBack,
@@ -1265,15 +1268,15 @@ fun SettingsScreen(
             ) {
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .chromeCapsule(surface = true),
+                        .size(44.dp)
+                        .museFloatingPill(CircleShape, elevation = 4.dp),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Close,
                         contentDescription = null,
                         tint = minisInk,
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(19.dp),
                     )
                 }
             }
@@ -2105,33 +2108,32 @@ private fun SettingsSection(
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
         label?.let { SettingsSectionLabel(it) }
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(MinisCardShape)
-                .background(minisCard),
+                .clip(RoundedCornerShape(22.dp))
+                .background(cardFill),
         ) {
             content()
         }
-        // Footers are for errors and answers a row cannot show. Explanatory
-        // prose belongs in the app that owns the setting, not here.
         footer?.let {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Column(modifier = Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 it()
             }
         }
     }
 }
 
-/** A hairline that stops short of both card edges. */
+/** A whisper-soft hairline inside rounded warm-gray cards. */
 @Composable
 private fun SettingsDivider() {
     HorizontalDivider(
         modifier = Modifier.padding(horizontal = 16.dp),
         thickness = 0.5.dp,
-        color = minisSeparator,
+        color = minisSeparator.copy(alpha = 0.22f),
     )
 }
 
@@ -2153,9 +2155,9 @@ private fun SettingsSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = MinisSheetShape,
+        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
         containerColor = minisCanvas,
-        scrimColor = Color.Black.copy(alpha = 0.22f),
+        scrimColor = Color.Black.copy(alpha = 0.20f),
         dragHandle = {
             Box(
                 modifier = Modifier
@@ -2206,11 +2208,10 @@ private fun SettingsSheet(
 private fun SettingsSectionLabel(text: String) {
     Text(
         text = text,
-        fontSize = 12.sp,
+        fontSize = 13.sp,
         fontWeight = FontWeight.Medium,
-        letterSpacing = 0.2.sp,
-        color = minisInk.copy(alpha = 0.45f),
-        modifier = Modifier.semantics { heading() },
+        color = minisSecondary,
+        modifier = Modifier.padding(horizontal = 6.dp).semantics { heading() },
     )
 }
 
@@ -2332,14 +2333,27 @@ private fun IdentityRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LunaBotMark(40.dp)
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(minisCard),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_display_line),
+                contentDescription = null,
+                tint = minisInk,
+                modifier = Modifier.size(21.dp),
+            )
+        }
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             Text(
                 text = title,
-                fontSize = 15.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = minisInk,
                 maxLines = 2,
@@ -2412,17 +2426,23 @@ private fun AddressRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            // 44 dp target: the link text is small, so the target is not the
-            // text alone.
-            Text(
-                text = if (copied) "已复制" else "复制",
-                fontSize = 12.sp,
-                color = minisAccent,
+            Box(
                 modifier = Modifier
-                    .heightIn(min = 44.dp)
+                    .heightIn(min = 36.dp)
                     .wrapContentHeight(Alignment.CenterVertically)
-                    .clickable(role = Role.Button, onClick = onCopy),
-            )
+                    .clip(CircleShape)
+                    .background(minisCard)
+                    .clickable(role = Role.Button, onClick = onCopy)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = if (copied) "已复制" else "复制",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = minisInk,
+                )
+            }
             Icon(
                 imageVector = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
                 contentDescription = null,
@@ -2503,12 +2523,21 @@ private fun SettingsSwitchRow(
                 )
             }
         }
+        val dark = minisIsDark()
         Switch(
             checked = checked,
             onCheckedChange = null,
             enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = minisCanvas,
+                checkedTrackColor = minisInk,
+                checkedBorderColor = Color.Transparent,
+                uncheckedThumbColor = if (dark) Color(0xFFB5B5B8) else Color.White,
+                uncheckedTrackColor = if (dark) Color(0xFF3A3A3D) else Color(0xFFDCDCD9),
+                uncheckedBorderColor = Color.Transparent,
+            ),
             modifier = Modifier
-                .scale(0.82f)
+                .scale(0.80f)
                 .clearAndSetSemantics {},
         )
     }
