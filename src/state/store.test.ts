@@ -29,6 +29,7 @@ import {
   type AppState,
   type Bot,
   type BotAnnouncement,
+  type ConfigStatus,
   type ConfigStatusFrame,
   type Group,
   type Message,
@@ -1036,6 +1037,37 @@ describe("config status frames", () => {
     expect(status.openai).toEqual({ configured: true });
     expect(status.openrouter).toEqual({ configured: false });
     expect(status.anthropic).toEqual({ configured: true, everyClaudeBot: false });
+  });
+
+  it("takes the place fields from a frame that carries them, one left out meaning unset", () => {
+    const status = configStatusFromFrame(
+      { computerName: "Studio", newBots: { effort: "high" }, cloudStarter: true, planTurns: { running: 1, waiting: 0 }, botLimit: 3 } as ConfigStatusFrame,
+      { computerName: "Old", waitingForRoom: true, botLimit: 9 } as ConfigStatus,
+    );
+    expect(status.computerName).toBe("Studio");
+    expect(status.newBots).toEqual({ effort: "high" });
+    expect(status.cloudStarter).toBe(true);
+    expect(status.planTurns).toEqual({ running: 1, waiting: 0 });
+    expect(status.botLimit).toBe(3);
+    expect(status.waitingForRoom).toBeUndefined();
+  });
+
+  it("keeps the held place fields through a frame that carries none of them", () => {
+    const held = {
+      computerName: "Studio",
+      newBots: { effort: "low" as const },
+      cloudStarter: true,
+      waitingForRoom: true,
+      planTurns: { running: 2, waiting: 1 },
+      botLimit: 3,
+    } as ConfigStatus;
+    const status = configStatusFromFrame({ openai: { configured: true } } as ConfigStatusFrame, held);
+    expect(status.computerName).toBe("Studio");
+    expect(status.newBots).toEqual({ effort: "low" });
+    expect(status.cloudStarter).toBe(true);
+    expect(status.waitingForRoom).toBe(true);
+    expect(status.planTurns).toEqual({ running: 2, waiting: 1 });
+    expect(status.botLimit).toBe(3);
   });
 
   it("keeps every saved key's hint through a live config update, so a masked key never empties", () => {

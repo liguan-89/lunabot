@@ -411,10 +411,22 @@ export type { BrowserEngineSummary, BrowserProfile, ConfigStatus, ManagedPolicyS
 export type ConfigStatusFrame = Pick<
   ConfigStatus,
   "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "xResearch" | "treg" | "postiz" | "anthropic" | "openai" | "openrouter" | "openaiCompat" | "defaultModelSelection" | "hiddenModels" | "fleet" | "composio" | "box" | "vps" | "rooms" | "mcp" | "threads" | "automaticRecovery" | "cacheKeepWarm" | "localVm" | "opencodeGo" | "tts" | "decider" | "helpers" | "imageGen" | "live" | "savedKeys" | "profile" | "everyBotRules" | "language" | "features" | "onboarding" | "browserEngine" | "browserProfiles" | "edition" | "budgets" | "billing" | "managedPolicy" | "cloudHome" | "team" | "workspaceBanner" | "feishu" | "dingtalk" | "wecom" | "botMail" | "sms"
+  | "computerName" | "newBots" | "cloudStarter" | "waitingForRoom" | "planTurns" | "botLimit"
 >;
 
-export function configStatusFromFrame(frame: ConfigStatusFrame): ConfigStatus {
+/** What the server says about the place itself; a config frame carries all or none of them, and one that carries
+ * none (an older server's) must not wipe what the store already holds. */
+const CONFIG_PLACE_FIELDS = ["computerName", "newBots", "cloudStarter", "waitingForRoom", "planTurns", "botLimit"] as const;
+
+function configPlaceFields(frame: object, held: ConfigStatus | null | undefined): Partial<ConfigStatus> {
+  const carried = CONFIG_PLACE_FIELDS.some((field) => field in frame);
+  const source = (carried ? frame : held ?? {}) as Record<string, unknown>;
+  return Object.fromEntries(CONFIG_PLACE_FIELDS.flatMap((field) => source[field] === undefined ? [] : [[field, source[field]]]));
+}
+
+export function configStatusFromFrame(frame: ConfigStatusFrame, held?: ConfigStatus | null): ConfigStatus {
   return {
+    ...configPlaceFields(frame, held),
     xai: frame.xai,
     mistral: frame.mistral,
     cerebras: frame.cerebras,
@@ -3244,7 +3256,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         case "config":
           rawDispatch({
             type: "configStatus",
-            config: configStatusFromFrame(frame as unknown as ConfigStatusFrame),
+            config: configStatusFromFrame(frame as unknown as ConfigStatusFrame, stateRef.current.config),
           });
           {
             const instances = partByKey.get("instances");
