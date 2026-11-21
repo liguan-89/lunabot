@@ -99,6 +99,17 @@
 - `71ada2b579`（broker 目录页缓存+Session 复用——fork 自建 broker 直接受益）
 - `9d06188c1c`（limit backup 跳过原因进日志）、`2359c38a09`（面板会话列表主线程星）、`adf4fd0ebc`（长会话摘要进度行）、`a5760dbedc`（Apps 错误态+pt-BR）、`1ba84ae67c`（antigravity 用量菜单——fork 无该引擎，倾向跳）、`237f3cbc10` ≡ `298bbc1c83`（automation 文案，小）
 
+### P2 执行状态（第一批，已落地）
+
+- **摘** `298bbc1c83`（`6983f32f30`）：automation 报告——复制的 question 卡随原卡回答/驳回/过期同步结束态，启动时对账。fork 等价实现干净落。
+- **摘** `a5760dbedc`（`d730d0b184`）：Apps 列表加载错误只在无存量列表时替换卡片（`loadError && servers === null`）；pt-BR 文案一并落。
+- **摘** `5bb3158cda`+`683f7590f5`（`33134b6d3d`+`f34e1c4b76`）：无 Chrome 引导——`runsShellForWantOfChrome()`、`engineSummary` 带 `noChrome?: true`、BrowserSettingsRows 状态行+修复指引、en/pt-BR 键。**上游同提交的 proxy 字段与 proxy 设置 UI 不摘**（fork 无该功能面）。`BrowserSettingsRows.test.ts` 8 过。
+- **摘** `9d06188c1c`（`ab55ee4b1c`）：limit backup 跳过原因进日志——`limit-takeover` 增 `BackupSkip`/`SkippedBackup`/`weighBackups()`/`passedOver()`（含 `redactSecretsInText`），`quota-switch` 改走 `weighBackups` 逐个尝试并上报 skipped。**保 fork 自动选默认模型策略与 `serverLine` 本地化；上游 `botsOn` stuck 名单不摘**。quota-switch+limit-takeover+bot-api-host 114 过。
+- **摘** `594adf83d7`（`542d76f381`）：bot-api Retry 在调用方行重跑该调用。剥掉同提交带入的 acts-as-owner 特性测试（fork 无该功能）；`store.ts` `branchMessage` Pick 去掉 `apiAsOwner`。
+- **摘** `71ada2b579`（`67c9aff36f`）：broker 目录页缓存+Session 复用——fork 自建 broker 直接受益，133 过。
+- **摘** `45c8efcd69`（`d97ebc3238`）：team map 开局直出 settled 布局去闪烁——并入 fork `TeamOrgChart` 分支。
+- **摘** Grok Bot 聊天迁移五连（`2f18599d84`→`e8bff37e52`→`2dc34e8e0e`→`e1f8795f89`→`f8c36b5f82`→`7b2d466d37`，落 `b444f1fa8e`…`2d01ed39a6`）：`POST /api/setup-import/grok/history`（local-only JSON、`historySchema`、404/400/415）、`GrokMoveDialog` 聊天记录导入 UI、settings 副标题提"聊天记录"、docs 页品牌改 Luna Bot。**connector-link 端点不摘**（依赖上游 `grokMove` 隧道功能，消费链不在 fork）。GrokMoveDialog 17 过；ja/pt-br/zh-tw/zh 译文已补，`source-hashes` 按当前 English 结算。
+
 ## 跳（按理由汇总，不再逐条）
 
 - 已删引擎/文件：claude、codex、gemini、cline、antigravity、vibe/mistral、acp core/steer/omp（`6ac013e314` `59ba29c46b` `c571542394` `fc11f691a7` `37d2eb3462` `25b050e328` `baf0898df7` `72b7c93c38` `198b84350b` `17a3f5af39` `25f39b5b9a` `95b425c938` `be1bbce19c` `3ae034e0a9` `4740c6f1e0` `ca1610ec4d` `5cc8586a9f` cline 系列等）
