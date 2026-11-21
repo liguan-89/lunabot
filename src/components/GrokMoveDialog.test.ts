@@ -13,7 +13,6 @@ import { ComposerAttachments } from "./ComposerAttachments";
 import { GROK_BOT_MARK_PATH } from "./GrokBotMark";
 import { GrokMoveDialog } from "./GrokMoveDialog";
 import { GrokImportSection } from "./ImportSettings";
-import { SettingsLook } from "./SettingsPrimitives";
 
 const MEMORY = "The door sticks in the rain";
 const WHEN = "Weekdays around 9:00 AM Asia/Calcutta (may run up to 15 min early or 15 min late)";
@@ -236,7 +235,7 @@ describe("Move from Grok Bot", () => {
     await act(async () => { vi.advanceTimersByTime(3_000); });
     await tick();
     expect(shown()).toContain("Arrived from Grok Bot: Job Search");
-    expect(shown()).toContain("The link works for an hour, while MausBot stays open.");
+    expect(shown()).toContain("The link works for an hour, while Luna Bot stays open.");
     await act(async () => { vi.advanceTimersByTime(3_000); });
     await tick();
     expect(calls.at(-1)).toBe("GET /api/setup-import/grok/connector?after=1");
@@ -343,13 +342,12 @@ describe("Move from Grok Bot", () => {
     expect(host.querySelector("[data-grok-move]")!.getAttribute("data-grok-move")).toBe("preview");
   });
 
-  it("the row in the Settings window is titled Move from Grok Bot, wears the Grok Bot mark and opens the same move in place", async () => {
-    await act(async () => root.render(createElement(SettingsLook.Provider, { value: true }, createElement(GrokImportSection))));
-    const row = host.querySelector<HTMLElement>('[data-settings-block="grok-move"] [data-setting-row]')!;
-    expect(row.textContent).toContain("Move from Grok Bot");
-    expect(row.querySelector("[data-settings-slot] svg path")!.getAttribute("d")).toBe(GROK_BOT_MARK_PATH);
-    const start = row.querySelector<HTMLButtonElement>("[data-grok-move-open]")!;
-    expect(start.textContent).toBe("Start");
+  it("the section in the Settings window is titled Move from Grok Bot, wears the Grok Bot mark and opens the same move in place", async () => {
+    await act(async () => root.render(createElement(GrokImportSection)));
+    const section = host.querySelector<HTMLElement>('[data-import-section="grok"]')!;
+    expect(section.textContent).toContain("Move from Grok Bot");
+    expect(section.querySelector("svg path")!.getAttribute("d")).toBe(GROK_BOT_MARK_PATH);
+    const start = section.querySelector<HTMLButtonElement>("[data-grok-move-open]")!;
     expect(host.querySelector("[data-grok-move]")).toBeNull();
     await act(async () => { start.click(); });
     await vi.waitFor(() => expect(host.querySelector("[data-grok-move]")).not.toBeNull());
