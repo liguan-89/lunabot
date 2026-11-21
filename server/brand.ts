@@ -83,3 +83,8 @@ export function describeBrand(status: BrandStatus): string {
   if (status.source === "file") return `brand: ${status.brand.name} (from ${status.file})`;
   return `brand: default${status.notice ? ` (${status.notice})` : ""}`;
 }
+
+/** The name a person reads: an applied brand file's own name, else Luna Bot. `DEFAULT_BRAND.name` stays the project's name. */
+export function productName(status: BrandStatus = loadBrand()): string {
+  return status.source === "file" ? status.brand.name : DEFAULT_BRAND.name;
+}

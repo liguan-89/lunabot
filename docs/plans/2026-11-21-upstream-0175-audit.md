@@ -141,7 +141,7 @@
 - **摘** `594adf83d7`（`542d76f381`）：bot-api Retry 在调用方行重跑该调用。剥掉同提交带入的 acts-as-owner 特性测试（fork 无该功能）；`store.ts` `branchMessage` Pick 去掉 `apiAsOwner`。
 - **摘** `71ada2b579`（`67c9aff36f`）：broker 目录页缓存+Session 复用——fork 自建 broker 直接受益，133 过。
 - **摘** `45c8efcd69`（`d97ebc3238`）：team map 开局直出 settled 布局去闪烁——并入 fork `TeamOrgChart` 分支。
-- **摘** Grok Bot 聊天迁移五连（`2f18599d84`→`e8bff37e52`→`2dc34e8e0e`→`e1f8795f89`→`f8c36b5f82`→`7b2d466d37`，落 `b444f1fa8e`…`2d01ed39a6`）：`POST /api/setup-import/grok/history`（local-only JSON、`historySchema`、404/400/415）、`GrokMoveDialog` 聊天记录导入 UI、settings 副标题提"聊天记录"、docs 页品牌改 Luna Bot。**connector-link 端点不摘**（依赖上游 `grokMove` 隧道功能，消费链不在 fork）。GrokMoveDialog 17 过；ja/pt-br/zh-tw/zh 译文已补，`source-hashes` 按当前 English 结算。
+- **摘** Grok Bot 聊天迁移五连（`2f18599d84`→`e8bff37e52`→`2dc34e8e0e`→`e1f8795f89`→`f8c36b5f82`→`7b2d466d37`，落 `b444f1fa8e`…`2d01ed39a6`）：`POST /api/setup-import/grok/history`（local-only JSON、`historySchema`、404/400/415）、`GrokMoveDialog` 聊天记录导入 UI、settings 副标题提"聊天记录"、docs 页品牌改 Luna Bot。**connector-link 端点当时判跳**（依赖上游 `grokMove` 隧道功能）；后用户确认存在 Grok Bot 用户迁移需求，改判**摘**——以 tip 形态移植 `grok-move-tunnel`/`grok-move-mcp`/`GROK_CONNECTOR_PATH`/Connect UI（见 `feat/grok-connector-link` 与设计页 `2026-11-22-grok-connector-link.md`）。GrokMoveDialog 17 过；ja/pt-br/zh-tw/zh 译文已补，`source-hashes` 按当前 English 结算。
 
 ## 跳（按理由汇总，不再逐条）
 
