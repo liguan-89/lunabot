@@ -627,18 +627,25 @@ private fun RoutineRow(
         badge?.let {
             val paused = it == RoutineRules.PausedBadge.PAUSED
             if (paused) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_pause_circle),
-                    contentDescription = it.label,
-                    tint = attentionTint,
-                    modifier = Modifier.size(20.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(if (minisIsDark()) minisCard else Color(0xFFE9E9E7))
+                        .padding(horizontal = 9.dp, vertical = 3.dp),
+                ) {
+                    Text(
+                        text = it.label,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                    )
+                }
             } else {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = it.label,
-                    tint = secondaryTint,
-                    modifier = Modifier.size(20.dp),
+                    tint = minisSecondary,
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
