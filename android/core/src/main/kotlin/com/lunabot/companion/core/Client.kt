@@ -1573,9 +1573,11 @@ class CompanionClient(
             val dot = name.lastIndexOf('.')
             if (dot <= 0) return false
             val stem = name.substring(0, dot)
-            val extension = name.substring(dot + 1).lowercase()
-            return stem.all { it in '0'..'9' || it in 'A'..'Z' || it in 'a'..'z' || it == '-' || it == '_' } &&
-                extension in setOf("png", "jpg", "jpeg", "gif", "webp", "mp4", "webm")
+            val extension = name.substring(dot + 1)
+            // The server's own rule for a stored avatar (shared/bot-avatar.ts, readAttachment):
+            // [A-Za-z0-9-] stem, lowercase extension. Anything else is a 404, so refuse it here.
+            return stem.all { it in '0'..'9' || it in 'A'..'Z' || it in 'a'..'z' || it == '-' } &&
+                extension in setOf("png", "jpg", "gif", "webp", "mp4", "webm")
         }
 
         private fun validUploadMime(value: String): Boolean =
