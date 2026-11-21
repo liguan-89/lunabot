@@ -2,7 +2,7 @@ import { Calendar, CalendarPlus, ChevronRight, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { t } from "@/lib/i18n";
-import { currentTaskBot, useStore, type Bot } from "@/state/store";
+import { currentTaskBot, useStore, type Bot } from "@/state/store"; import { newChatBot } from "@/state/new-chat";
 import { useChatMoreItems } from "../ChatMoreMenu";
 import { ModelPicker } from "../ModelPicker";
 import type { SidebarMenuItem } from "../SidebarPopoverMenu";
@@ -47,8 +47,8 @@ export function DetailsTab({ bot, derived, onOpen }: {
   onOpen: (page: SimplePageId) => void;
 }) {
   const { items } = useChatMoreItems(bot);
-  const { dispatch } = useStore();
-  const thread = currentTaskBot(bot);
+  const { state, dispatch } = useStore();
+  const thread = currentTaskBot(newChatBot(bot, state.newChat));
   const routinesOn = derived.botRoutines.filter((routine) => routine.enabled).length;
   const conversationItems = CONVERSATION_ITEMS.flatMap((key) => items.filter((item) => item.key === key));
 
@@ -58,10 +58,10 @@ export function DetailsTab({ bot, derived, onOpen }: {
       <section data-panel-card="model" className="pt-2">
         <div data-panel-row="model" className={cn(rowCls, "rounded-[8px]")}>
           <ModelPicker
-            key={bot.threadId}
+            key={thread.threadId}
             bot={thread}
             contained
-            threadId={bot.threadId}
+            threadId={thread.threadId}
             label={<span className="flex shrink-0 items-center gap-2.5"><RowIcon icon={Sparkles} /><RowText title={t("model.simple.model")} /></span>}
           />
         </div>
