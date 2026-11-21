@@ -172,3 +172,10 @@
 - 跳：`6117d842c6`（merge 壳，内容是 model-hold 的 acp/steer，fork 无该模块）；`51d24a81fa`（修的是上游独有 live-reply 行内流式架构——`useLiveTranscript`/`useLiveRow`/`roomAddressees`/`drawn-bots` 全在 fork 已删链上，fork 房间用尾部单 `LiveReplyBubble`，无该渲染路径）；`4c4bf3cce6`（`b98dc92e6a` 的 PR merge 壳，双 hash 去重）。
 - 欠债：`room-limit-takeover.e2e.test.ts` 未移植——fixture 第二引擎基建（codex/claude fake driver）在 fork 已删，单测 35 覆盖模块逻辑，e2e 集成路径记欠。
 - 验证：11 文件 430 测试（room-limit/limit-takeover/refused-handoffs/session-idle/turn-watchdog/store/task-record/new-bot-defaults/team-setup-requests/outbound/quota-switch）+ PluginsPanel.grants/PermissionsSection/outbound-hold 61 + typecheck 绿 + oxlint 净；index.ts 棘轮 16067→16082。
+
+## 执行状态六（2026-11-21 续批，B8）
+
+**B8 完结：摘 5（组），跳 5（组）**——
+- 摘：`b8a6ba3f61` ≡ `91fa19d7ad`（图片引用保留 `<attached-file>` 路径——fork admitted 后剥路径同病，已落 `turn-images.ts`；DU 测试去掉已删 `codex-images` 依赖改直接 `execFileSync` 验文件）；`842a1f8b16`（源路径 `%?#`/`file:` 字面名——`sourceFileLink` 落 `bot-attachment.ts`，保 fork 签名不引 upstream-only inbox 回退；`message-file.ts` `pathToFileURL`）；steer 通知四连 `8089f84e36` `9b318b21db` `3a3137508d` `da25c877a1`（`blockedBy` 进回执+队列项持久化；steer-images notice 带 threadId；noticeTimer 先清旧计时器；threadOf 含 `switchingTo`；arrival filter 拒非开着的 thread 级 notice——fork 无 zustand `store.getState()`，适配为 `stateRef`+`reducer()` 同步算 post-state；`composer.queued.roomSteerHeld` locale 键补 en+zh）。
+- 跳：`d7957edb24` ≡ `5f2616d87d`、`bf5d53af00`（媒体预算/native clip 全在 fork 已删的原生视频 clip 管线——`sendTurn` 不传 `videos`，`nativeClips`/`sent`/`clips` 条件永假，帧管线无同病）；`4b7a37bb5c`/`3508dee100`/`c558785d0a`（steer-e2e 断言更新+merge 壳——fork 无该 e2e harness；`c558785d0a` 内含的实修即 `842a1f8b16` 已摘）。
+- 验证：steer-queue/bot-attachment/box-attachments/turn-images/store 5 文件 374 测试全过 + typecheck 绿 + oxlint 净 + i18n:check 绿；index.ts 棘轮 16082 持平。
