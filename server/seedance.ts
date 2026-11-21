@@ -335,10 +335,26 @@ export async function generateSeedanceStateVideo(
     }
   }
 
-  const mediaRes = await fetchImpl(videoUrl!, {
-    ...(useAuthorizedContentFallback ? { headers: { authorization: `Bearer ${target.apiKey}` } } : {}),
-    signal: AbortSignal.timeout(60_000),
-  });
+  const sameOrigin = (() => {
+    try {
+      return new URL(videoUrl!).origin === new URL(target.createUrl).origin;
+    } catch {
+      return false;
+    }
+  })();
+  const sendAuthFirst = useAuthorizedContentFallback || target.provider === "tk1688" || sameOrigin;
+  const fetchMedia = (withAuth: boolean) =>
+    fetchImpl(videoUrl!, {
+      ...(withAuth ? { headers: { authorization: `Bearer ${target.apiKey}` } } : {}),
+      signal: AbortSignal.timeout(60_000),
+    });
+
+  let mediaRes = await fetchMedia(sendAuthFirst);
+  if (!mediaRes.ok && !sendAuthFirst && (mediaRes.status === 401 || mediaRes.status === 403)) {
+    mediaRes = await fetchMedia(true);
+  } else if (!mediaRes.ok && sendAuthFirst && !sameOrigin && (mediaRes.status === 400 || mediaRes.status === 403)) {
+    mediaRes = await fetchMedia(false);
+  }
   if (!mediaRes.ok) {
     throw Object.assign(new Error(`下载 Seedance 生成视频失败 (HTTP ${mediaRes.status})`), { status: 502 });
   }

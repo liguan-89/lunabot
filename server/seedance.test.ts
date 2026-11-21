@@ -72,4 +72,29 @@ describe("seedance target resolution & generation", () => {
     expect(createBody.content.some((c: { role?: string }) => c.role === "first_frame")).toBe(true);
     expect(createBody.content.some((c: { role?: string }) => c.role === "last_frame")).toBe(true);
   });
+
+  it("sends the same Bearer key when downloading a TK1688 video_url", async () => {
+    const fakeMp4 = Buffer.from([0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32]);
+    const fetchMock = vi.fn<typeof fetch>()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ id: "task_abc" }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "task_abc",
+        status: "completed",
+        url: "https://relay.example.test/v1/videos/task_abc/content",
+      }), { status: 200 }))
+      .mockImplementationOnce(async (_url, init) => {
+        const auth = new Headers(init?.headers).get("authorization");
+        if (auth !== "Bearer demo-key-123") return new Response("unauthorized", { status: 401 });
+        return new Response(fakeMp4, { status: 200, headers: { "content-type": "video/mp4" } });
+      });
+
+    const result = await generateSeedanceStateVideo(
+      { provider: "tk1688", tk1688Endpoint: "https://relay.example.test/v1", tk1688Key: "demo-key-123" },
+      { state: "idle", fetchImpl: fetchMock, pollIntervalMs: 1, maxWaitMs: 5_000 },
+    );
+
+    expect(result.taskId).toBe("task_abc");
+    expect(result.bytes.byteLength).toBe(fakeMp4.byteLength);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });
