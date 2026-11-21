@@ -23,26 +23,25 @@ tip `aef4f0bf2e`）：
 已验证：`pnpm typecheck` 绿、棘轮测试绿。BotSettingsDialog avatar 3 败
 是本地 main 侧基线红（Muse 会话 avatar 在制品，**勿顺手修**）。
 
-## 执行步骤（在 `lunabot/` 做）
+## 执行步骤（PR 路线，全量在 CI 跑）
 
-1. **开工三查**：`git status`（脏文件是否还在）、`git log --oneline -3`、
-   台账 §5。若 Muse 会话已把脏文件提交进本地 main——不影响本流程，
-   merge 会再带一层，见第 3 步备注。
-2. `git fetch origin`，确认 `git merge-base --is-ancestor main
-   chore/main-merge-sync`（本地 tip 是合并第二父 → FF 成立）。
-3. `git merge chore/main-merge-sync`：
-   - 正常 = fast-forward 到 `aef4f0bf2e`，零冲突零新提交。
-   - 若本地 main 又前进了：变普通 merge，预计无冲突（新提交在旧 tip
-     之上），照常提交 merge commit。
-   - 若工作区有未提交修改挡住 checkout：等 Muse 会话先提交，勿动它的
-     文件（红线）。
-4. **T2 门禁**：`pnpm test` 全量。判据——
-   - 失败清单与已知基线红对比（avatar 3 败 + 此前记录的基线），
-     **本合并不应引入新红**。有新红先查两侧谁引入，不该是合并语义。
-5. `git push origin main`（远端 tip `f3b51bafbb` 是合并祖先 → FF）。
-6. **收尾**：`git worktree remove ../lunabot-main-sync` →
-   `git branch -d chore/main-merge-sync` + `git push origin --delete
-   chore/main-merge-sync` → 台账 §5 本行标关闭、main 行更新。
+已拍板（2026-11-22）：不走本地 T2，PR 的 CI 分片即全量门禁。
+
+1. `gh pr create --base main --head chore/main-merge-sync`——diff 即
+   本地 23 提交 + 2 处冲突解 + 棘轮钉，写清楚即可。
+2. 等 CI：vitest 分片与全量同套件。判据——失败清单与已知基线红
+   对比（avatar 3 败是本地 main 侧在制品、及此前记录的环境/基线），
+   **不应出现合并引入的新红**；有新红先查两侧归属。
+3. GitHub merge → 远端 main 进合并 commit。
+4. `lunabot/` 里 `git pull`：本地 tip 是合并祖先 → **FF 落位**。
+   - 若 Muse 会话又前进了：变普通 merge，预计无冲突，照常提交。
+   - 若工作区未提交修改挡住 checkout：等它先提交，勿动（红线）。
+5. **收尾**：`git worktree remove ../lunabot-main-sync` →
+   `git branch -d chore/main-merge-sync`（远程随 PR 合并删/手动删）
+   → 台账 §5 本行标关闭、main 行更新。
+
+附注：`feat/grok-connector-link`（worktree `lunabot-grok-move/`）
+同策略——开 PR 让 CI 当 T2，不占本机。
 
 ## 边界
 
