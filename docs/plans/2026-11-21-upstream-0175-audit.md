@@ -1,0 +1,121 @@
+# upstream 0.1.171 → 0.1.175 摘取审计（第二轮）
+
+- 窗口：`upstream/release/v0.1.171..upstream/main`（至 v0.1.175，含其上 1 个提交），共 **453** 个提交
+- 方法：3 段标题初审（各 151 条）→ 主会话对 41 个 `?` 项逐一 `git show --stat` 复核 + fork 文件存在性核查 + 同名补丁去重
+- 结果：**P0 11 / P1 约 110（含重复 hash 去重后）/ P2 评审 ~30 / 跳 其余**
+
+## 关键 fork 事实（分类依据）
+
+- `server/drivers/builtIn.ts` 只有 `PiDriver` + `OpenAICompatDriver`——claude/codex/gemini/cline/antigravity/vibe/mistral/omp 驱动文件已删，相关提交一概跳
+- `server/drivers/acp/` 仅剩 `quiet-status.ts` + `version-probe.ts`（被 live-steps/engine-errors 复用）——acp core/steer/omp 相关跳，quiet-status 修复照摘
+- `packages/phone-protocol/` 不存在（上游重构产物）——落在该包的 widget 修复跳，但注意同类 bug 可能存在于我方 `shared/widget.ts`/`server/chat-widgets.ts`（见遗留核查项）
+- `shared/composio-storage.ts`、`server/composio-files.ts`、`server/connector-files.ts`、`server/plan-usage.ts`（stub）不存在——落点在这些文件的提交跳
+- `relay/` 存在但 Origin 处理已默认拒绝（`server.ts` 有 `relay_refused_total{origin}`），浏览器直连功能组不适用
+- fork pi 已扩展：strictResume/cacheKeepWarm/compactionNotice/steerImages/piInstanceEnvs——上游 pi 修复与这些改造有交叠，摘时逐处比对
+- fork 模型管理/UI 已 Muse 化——上游纯视觉打磨默认跳，行为修复照摘但需核落点
+- **上游 train 流程把同一补丁以两个 hash 进主线**（分支原始提交 + merge 内重放），下表已标注去重关系
+
+## 执行规则
+
+1. 内容提交与 merge 壳并存时摘内容提交、跳 merge；仅 merge 承载内容（外部 PR）时 `cherry-pick -m 1`
+2. 上游行数棘轮、版本 bump、上游品牌/基建提交不摘；我方棘轮钉值独立
+3. 多内容打包提交（`0792adcc71`、`caa36ce5f9`）手术式拆取适用 hunk
+4. 每组摘完跑同目录测试；pi/steer/store 等 fork 深改文件预期冲突
+
+---
+
+## P0（安全/数据损坏/崩溃，第一批摘）
+
+| 提交 | 内容 | 落点 |
+| --- | --- | --- |
+| `4881327aa1` | 消息文件路由补 `visible.thread()` 检查（1 行） | `server/routes/threads.ts` ✅ 已确认 fork 缺失 |
+| `213ccc236c` | 读完文件请求体后重查线程可见性 | `server/message-file.ts` |
+| `dd9d8223bc`（merge）≡ `902b09591a` | connector 密钥脱敏恢复（load+output 边界） | `connector/src/*`，摘内容提交 |
+| `be41a9ae65` | safety-floor：Clear-Disk 破折号变体逃逸 | `server/safety-floor.ts` |
+| `bfc4c09a4d` | safety-floor：`%HOMEDRIVE%%HOMEPATH%` 漏检 | 同上 |
+| `667b1d82f1` | safety-floor：拦 `Format-Volume`/`Clear-Disk -RemoveData` | 同上（三条同文件一次摘） |
+| `ce304be157` | pi 丢游标时新会话拿不到已重建对话 | `server/drivers/pi.ts` |
+| `6cec8c6ef9` | bot 保存只序列化具名 bot，safety 变更必随保存落盘 | server bot 保存路径 |
+| `bbbb73f447` | routine 空 item 擦掉已交付报告 | `server/routines.ts`（随带 `30b5707134` import 清理） |
+| `e0293d60a1` | routine run 撞上限丢 code+已交付 report | 同上 |
+| `779ac78e95` | 翻译页面 MCP 列表加载完即崩 | src MCP 面板 |
+
+## P1 摘取组（按主题分批，组内已去重）
+
+### B1 pi 会话/驱动
+`31ddcdc23f`（未落盘会话文件续 resume）、`97b3301938`（外来/失效游标开新会话）、`26edd8dc12`（按 audience+会话隔离持久化 pi session）、`66de394c0e` ≡ `b0592e56bf`（pi shell 超时上限，摘一）、`b35b91f93c`（bot box 内 pi session 文件可见）、`e3bbc68914` ≡ `87122ade0d` ≡ `3b9c7b9a4e` + `207fdc5be6`（turn MCP 目录进 box 读写清单，摘一组）
+
+### B2 OpenAICompat 重试/上下文
+`690b3f3560` `1bbad2584f` `d7ab658ec2` `16fca92555` `4c4bfb982e` `4cb246acda`（状态分类+transient 重试六连，≡ merge `1d1fd35cd9`）；llama.cpp 五连 `64376f6854` `1db963e01e` `4187ecf340` `fdf2444608` `2c83803820`（上下文溢出丢最旧工具输出+缩小重发+重试封顶）；`2d65d62050`（merge，Venice base-url 检查 ≡ `6e63cd4b6c`/`78af509067` 同源，取一）
+
+### B3 引擎探测/ollama/vps
+`12ee871b5a` `ccec24bff9`（ollama 重载 ≡ merge `89a2442aa4`）；`657ded6ea4` `1394b9f515` `6b811ef341` `ae0708b5bd` `3139706af7`（VPS 别名/不可达判定 ≡ merge `469c3f48e4`/`dc9b880da7`）；`41c442d3f1` ≡ `bb3d1481de`（设置页 VPS 选择，摘一）
+
+### B4 procs 进程清理（macOS）
+`c693d4c33e`（每轮一次 ps+不记 lstart）、`c28277c06a`（C locale 解析+zombie 计停止）、`5e5ae9e305`（逃逸进程组后代+execCli 超时）、`d4f404fc90`（merge，kill-tree，分支名误导）
+
+### B5 companion e2e 会话
+`fcf0e48f06` `a14ef45411` `d24316e728`（pinned key/PSK 长度、caller 输入拷贝、payload1/消息2/记录读取规范）；`481ccf8617` + `1f4c15810c`（socket CLOSING 期应答 drain 等待+测试）
+
+### B6 协调器/回合语义
+拒绝归因四连 `1d55de7af9` `6290560a7a` `2cb4157504` `449009bc04`（≡ merge `a41cc082b5`）；NEEDS INPUT 组 `2d8ef3312e` `27333c3866` `2726ab85f3` `8d8f304e0f`；`bb314547f4`（compact 摘要不复活已结束回合）、`f7442d3a63`（拒绝回合还原回绕标记）、`eb38dd69c6`（summarizing 行各出口清除）、`bc27ecd913`（merge，打断进行中工具调用）
+
+### B7 房间/权限
+`f5e0e338f5`（接管在 stall 判定之后建）、`dd5c2ad5e7`（到上限成员用自身 backup）、`6117d842c6`（已确认 model hold 不再重堵）、`3167b9fa90`（idle 计时器不杀繁忙/held 引擎）、`51d24a81fa`（成员流式时行不动）；`57eed6cd52`（新线程用自身层级非待批 Ask）、`0df4905165`（Ask 卡送达已开聊天）、`b98dc92e6a` + `4c4bf3cce6`（merge，新 bot 按保存的审批级别）
+
+### B8 媒体/附件/steer
+`d7957edb24` ≡ `5f2616d87d`（媒体预算计全 dataURL/fallback 帧/重放图）、`bf5d53af00`（native clip 进预算+不可读跳过）；图片引用 `b8a6ba3f61` ≡ `91fa19d7ad` + `4b7a37bb5c` + `3508dee100` + `c558785d0a`；steer 通知 `9b318b21db` `8089f84e36` + `3a3137508d` `da25c877a1`
+
+### B9 CLI/导出
+`3cdceb5df5` `568f19d51e` `427decacd1` `1e37a12276` `ec35541ec8` ≡ `87e8c9f6b4` `9579848775` `103e953b81`（同一 CLI 修复链两个 hash 系列，摘一组）
+
+### B10 记忆/邮件/账号
+`d734dfb857` `827ba816aa` `d6da38d176` ≡ `1972eea226` `936f3b3b15`（CRLF/遗忘细节）；`78dc0d23d5`（upkeep 超时下传）、`65c904c8ba`（dream 超时）；`72b6fa4d43` ≡ `f2ded07eb7`（地址组收件人）；`ea46e8497f`（SMTP 重发竞态）、`82e8e56f60`（重发码不被旧失败覆盖）；`a468ff2b30`（TOTP 校验不覆盖已存密钥）；`65f33fccb3`（Base32 组完整性——chunk1 核查称 fork 已有 base32 校验，摘前确认是否同病，疑似可跳）；`3c7cb48980`（失效云签名不锁死+配对不循环）
+
+### B11 桌面/electron
+`630712556a` ≡ `177248f6b3`（Wayland KDE 色彩）；macOS 13 组 `9dc2ee4f0c`（merge）≡ `f126f8a4d5` + `1d4a88693d`；`1d68f09bf8`（merge，Windows 安装目录）；`0af84856e0`（CUA Driver 用 System32 tar）；`360a38f675`（Linux 按 PATH 找 Chrome）；`c693badfec`（profile owner 随 pid 更换关闭）；`e1e7a171f0`（browser reset）
+
+### B12 src UI（Muse 冲突面逐一核对）
+`e6ca737553` ≡ `a79d2b07d2`（rail 着当前主题）；`8e43405003` ≡ `f466174d9c`（主线程留折叠列表）；`2fd0238de6` ≡ `9431348e22`（connected apps 命名）；`c517e27cd4` ≡ `0b2ae6d153`（IME 下划线）；词数/RTL `3471bd8819` `56840a5f68` `3187f132d9`；transcript `f7b4ff1450` `e5b9ae8f9b`；`d3f2397dcd`（config frames 保 place 字段+止无关重绘）；设置账号行 `1a6a624187` `4cc80937fe` `fd7ee6c27a`；`3b8b294f94`（跟随会话即时跟默认模型变更）；`17720726c6`（面板显示当前会话模型）；sidebar `7bc6c7f82d` `3b3089b0dc` + `d1abf55bc1`；`1a14202378`（已存语音语言在选择器可见）；`00c436dae2`（IME 确认键误存电脑名）；`9dab28531a`（配对卡四处 UX）；`81e3365c79`（MCP 面板错误声明顺序）；`6b998db17b`（新 bot 欢迎语按 app 语言+简中）；`5950b5ca2a` ≡ `03c5260380`（MCP 列表失败只报一次）
+
+### B13 杂项修复
+`e0eab4bd37`（connected-apps 服务版本检查）、`0379ca0603` ≡ `ec6dc3e950`（handoff 卡片附件保存）、`b806f7f731`（自动恢复备份计数）、`fe171fbea2`（liveBotFor 传 bot 声线）、`05d169d58f` ≡ `9b42032869`（@devs+CJK 判 bug 报告）、`5e24d3d7a4` ≡ `d20ea5d8cc`（team 已存在提示）、`33a3c12ce4`（digest 孤立 surrogate）、`368f7d2651`（Windows 上 ~/.hermes 标签）、`9c0e7438b5` ≡ `fbad4c490c`（无备用不静默换模型）、`2d9c61fd43`（饼图类目序）、`12935993ac` ≡ `c5422b7788`（weekdays 去重排序）、`2223dfd990` ≡ `568790dc63`（grapheme 截断）；quiet-status 四连+merge `02f35ac556` `eddc9381d2` `88bc088a59` `9591a02a12` `8710007447`；`0792adcc71`（**手术**：摘 data-dir 守护+stall 判定，idle cap/sleep 部分与我方已有实现核对）；`caa36ce5f9`（**手术**：只取 `deploy/update.sh` Podman 竞态段）；测试 fixture `ebb9089c6e` `06e0436d5f` `c3585618c4` `3ef3c9b3e2` `a4c067b1a3` `a47806be76` `59f79c92a6`
+
+## P2（功能/改进，评审后决定）
+
+- Grok Bot 聊天迁移六连 `e1f8795f89` `f8c36b5f82` `7b2d466d37` `2dc34e8e0e` `e8bff37e52` `2f18599d84`（fork 已有 grok 导入，此为聊天记录扩展）
+- ElevenLabs Live：`79ac30c3bc`（bot 各自声线通话，新 provider）+ `7315b2f124`（其上的 prompt/凭据修复）+ `64302dad1e`（Scribe 听写+语言选择）——整组评审
+- 空白聊天二连 `21ed317d41` + `afbff51b7c`（首条发送才建会话、面板行设空白选项）——与 fork 会话/模型流程交互风险
+- 快照尾部 `fd8781a731`（首帧发屏外会话尾部+后台有界）
+- 启动性能 `2dedbf5ffd`（启动包拆分）`b5588a013c`（launch 记录+早 45ms）`684eff585b`（splash 期读 keys/代理）
+- Apps 性能 `464175e297` `ecabd15caa`；设置/服务器性能 `c4521f86f4` `9f7f7b1f3c` `7b7c5afc5a` `9b5fe33446`
+- 侧边栏 `a90bf36551` `2e836a99be`（pinned 页归属+视觉）；`45c8efcd69`（team map 去闪烁）
+- composer `4fbed9499a` `c8ced85bba`；吉祥物动画 `336b1d8d2c`（与 Muse 头像线重叠需协调）
+- `b385217306`（model_catalog_json 发服务端字段，新 wire）
+- `594adf83d7`（bot-api Retry 重跑调用方行）
+- `94837949be`（宽屏附件傍会话）；`5bb3158cda` + `683f7590f5`（无 Chrome 引导+pt-BR）
+- `b453044f36`（Hermes/OpenClaw 导入源扩展）；`0dab702856`（同名另一提交，核对是否同一）
+- `84c328bd15` + `29c76c7c82`（rpm 发布，需 fork 发布链路对齐）
+- `71ada2b579`（broker 目录页缓存+Session 复用——fork 自建 broker 直接受益）
+- `9d06188c1c`（limit backup 跳过原因进日志）、`2359c38a09`（面板会话列表主线程星）、`adf4fd0ebc`（长会话摘要进度行）、`a5760dbedc`（Apps 错误态+pt-BR）、`1ba84ae67c`（antigravity 用量菜单——fork 无该引擎，倾向跳）、`237f3cbc10` ≡ `298bbc1c83`（automation 文案，小）
+
+## 跳（按理由汇总，不再逐条）
+
+- 已删引擎/文件：claude、codex、gemini、cline、antigravity、vibe/mistral、acp core/steer/omp（`6ac013e314` `59ba29c46b` `c571542394` `fc11f691a7` `37d2eb3462` `25b050e328` `baf0898df7` `72b7c93c38` `198b84350b` `17a3f5af39` `25f39b5b9a` `95b425c938` `be1bbce19c` `3ae034e0a9` `4740c6f1e0` `ca1610ec4d` `5cc8586a9f` cline 系列等）
+- 落点文件不存在：`packages/phone-protocol/` widget 四修（`980b690d25` `65b8c9c398` `43f2a7ebfe` `03773c0076` `7b5378480b`）、`1d8f3267b5`（composio-files/connector-files）、`b9b00181ca`（ask-socket fixture）、`567bb2088c` ≡ `63bd6356cf`（composio R2，核心落点 `shared/composio-storage.ts` 缺；broker 侧文件在我方 worker 内，**遗留核查项**见下）
+- 上游 relay 浏览器功能组：`e3d8f1a683` `426a344728` `8916c5ec0d` `22cd4cc15b` `185a5e8c77` `746a8c9246` `6a9867ec16`（fork relay 默认拒 Origin，浏览器端不存在）
+- 已有等价实现：`b9ce0cfbd9` `38ce8b09ba`（pi strictResume/session 持久化我方已做）、`4aba61196a`（piInstanceEnvs）、`96c93df80f`（mcp-oauth clientSecret）、`2324448ea6`（totp base32）、`13a3e8e4a1`（liveVoice 任意声线）
+- 版本 bump（0.1.172/173/174/175）、merge 壳/train 同步、上游 CI/测试基建/棘轮/品牌文档、pnpm shots 基建（`cc26a5f903` `148c5b1c38` `ae9125b614` `ecb258a8bf`）、已被 revert 的自我抵消组（#6714 antigravity 代理、#6717 登录卡）、上游回滚/合并内务
+- `d14795e325`（codex credits——plan-usage 是 stub 功能不存在）、`4207c13854`（ACP 文案）、`54f9f249c9`（引擎 pin 测试集合不同）
+- 纯视觉打磨（Muse UI 已分叉）：`51fc066e95` `613aff9d67` `45c8efcd69` 若判视觉部分等
+
+## 遗留核查项（摘取时顺手确认）
+
+1. `shared/widget.ts`/`server/chat-widgets.ts` 是否有上游 packages 版已修的 children-in-object 解析 bug
+2. fork `cloudflare/composio-broker/src/files.ts` 是否有 R2 上传域名白名单需求（上游在 shared/composio-storage.ts 实现）
+3. `65f33fccb3` TOTP Base32 组校验——fork `server/totp.ts` 若已覆盖则跳过
+4. `a468ff2b30` TOTP 保留已存密钥——确认 fork 校验逻辑是否会覆盖旧密钥
+5. `b385217306` model_catalog_json wire 字段与 `pi-model-catalog.ts` 的关系
+6. `e5b9ae8f9b`/`f7b4ff1450` transcript 与 Muse UI 改造的落点核对
+7. `fe171fbea2` bot 声线——与 elevenlabs feat（P2）决策解耦，可单独摘
+8. 主 worktree 本地 main 未推送的 12 个 Android/桌面打磨提交与 B12 组潜在重叠
