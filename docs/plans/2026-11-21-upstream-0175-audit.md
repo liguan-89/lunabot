@@ -155,3 +155,12 @@
 - 适配点：`ensureVpsSshMaster` 上游返回 wake 耗时 ms（`deadline +=`），fork 版 `Promise<void>` 无 wake-script——保 fork 签名，deadline 不加，仅取错误包装增量。`server/index.test.ts` DU，其用例无 fork fixture（`fakeSsh*` 不存在），记覆盖欠债。
 - 跳：`12ee871b5a`/`ccec24bff9`——`OllamaServer.tsx` 检查流程在 fork Muse UI 重构中已删，`OllamaStatus` 无消费者，无 check-result→refreshModels 落点。
 - 验证：vps-computer/runner/inventory/ssh-init/cloud-backend 90 测试、BotSettingsDialog.simple 108 测试、typecheck 绿、oxlint 净。
+
+## 执行状态四（2026-11-21 续批，B5+B6）
+
+**B5 完结：摘 2+1 手术，跳 2**——`481ccf8617`+`1f4c15810c`（companion drain 应答 CLOSING socket，测试落 `companion/test/e2e/phone.test.ts`）；`a14ef45411` 手术取 BOM（`jsonObject` 改 `TextDecoder(ignoreBOM)`，copy-before-await/record 队列属上游 async 实现，fork 同步实现无此面）；`fcf0e48f06`/`d24316e728` 跳——fork 版 `phoneHello` 顶部即验 `isPublicKey`+psk 长度（更严）、`parsePayload1` 已做全 spec 校验。验证：companion e2e 136 测试。
+
+**B6 完结：摘 7，跳 5**——
+- 摘：`8d8f304e0f`（NEEDS INPUT "none" 不问）+`27333c3866`（多语 NOTHING_TO_ASK 集）+`2d8ef3312e`（hand-back 读全行）；拒绝归因四连 `449009bc04`→`2cb4157504`→`6290560a7a`→`1d55de7af9`（settled 记 runId、take 只报本 run、statusOf 留重排队 run）。index.ts 两处手术：坐标调用点注 `callRun`、createRefusedHandoffs 注 `statusOf`，行数守 16067 钉。
+- 跳：`2726ab85f3`（merge 壳，内容即 `8d8f304e0f`）；`bc27ecd913`（merge 仅动 claude 驱动，fork 已删）；`bb314547f4`+`eb38dd69c6`（`context.summarizing` 事件+`deps.summarizing` 管线在 fork 整条不存在，turn-status 无该 case——重构中删去的功能链）；`f7442d3a63`（修的是 P2 `594adf83d7` 的 retry 函数，fork 无该功能——P2 评审时随基座一起定）。
+- 验证：refused-handoffs/acting-person/runtime-coordinator 151 测试、typecheck 绿、oxlint 净。
