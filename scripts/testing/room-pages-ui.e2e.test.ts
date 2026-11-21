@@ -13,6 +13,7 @@ import { afterAll, expect, it } from "vitest";
 import { ROOM_VIEW_ONLY } from "../../shared/app.ts";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
+import { piDumpPath, piTurns } from "../../server/testing/pi-dump.ts";
 import { runControlOmb } from "../control-omb.ts";
 import { agentBrowser, sessionEnv, UI_TOOLS_DIR, type UiHandle } from "./control-omb-ui.ts";
 import { fixtureApi } from "./preview-fixture.ts";
@@ -92,7 +93,7 @@ async function until<T>(probe: () => Promise<T> | T, what: string, timeoutMs = 3
     /** The accessibility tree reaches into the frames: what a page or an app shows is readable here. */
     const shows = async (text: string) => JSON.stringify(await ui("snapshot")).includes(JSON.stringify(text).slice(1, -1));
     await agentBrowser(browser.binary, sessionEnv(browser), ["set", "viewport", "1280", "1000"]);
-    const dump = () => { try { return JSON.parse(readFileSync(join(info.dataDir, "fake-claude-dump.json"), "utf8")); } catch { return null; } };
+    const dump = () => piTurns(piDumpPath(info.dataDir));
     const card = async (token: string, body: unknown) => {
       const response = await fetch(`${info.url}/api/internal/options-card`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${token}` }, body: JSON.stringify(body) });
       return { status: response.status, body: await response.json() as Record<string, any> };
@@ -107,8 +108,12 @@ async function until<T>(probe: () => Promise<T> | T, what: string, timeoutMs = 3
     })).group;
     const transcript = async (): Promise<any[]> => (await api("GET", `/api/threads/${room.threadId}/messages`)).messages;
     const roomTurn = (botId: string) => until(() => {
-      const env = dump()?.mcpConfig?.mcpServers?.agents?.env;
-      return env?.OMB_BOT_ID === botId && env?.OMB_THREAD_ID === room.threadId ? { token: env.OMB_COMMS_TOKEN as string, mounts: dump().mcpConfig.mcpServers } : null;
+      const turn = [...dump()].reverse().find((one) => {
+        const env = one.launch?.mcpConfig?.mcpServers?.agents?.env;
+        return env?.OMB_BOT_ID === botId && env?.OMB_THREAD_ID === room.threadId;
+      });
+      const mounts = turn?.launch?.mcpConfig?.mcpServers;
+      return mounts ? { token: mounts.agents!.env!.OMB_COMMS_TOKEN as string, mounts } : null;
     }, `${botId}'s room turn`, 60_000);
     const settled = async () => {
       writeFileSync(gate, "finish");
@@ -188,9 +193,14 @@ async function until<T>(probe: () => Promise<T> | T, what: string, timeoutMs = 3
     await inView(pageId);
     await ui("screenshot", "--out", join(evidenceDir, "room-pages-clicked-send.png"));
 
-    const board = await inView(boardRow.id);
-    // The board's "Paint it red" button: under its heading and its result line, in the browser's default styles.
-    await click(board, 48, 124);
+    await inView(boardRow.id);
+    // The board's "Paint it red" button sits in a sandboxed frame: the accessibility tree reaches in where DOM
+    // access cannot, and a ref click lands a real press wherever the default styles put it.
+    const boardSnap = await ui("snapshot", "--interactive");
+    const paintRef = Object.entries(boardSnap.refs as Record<string, { role: string; name: string }>)
+      .find(([, entry]) => entry.role === "button" && entry.name === "Paint it red")?.[0];
+    expect(paintRef, "the board's Paint it red button").toBeDefined();
+    await ui("click", "--ref", `@${paintRef}`);
     await until(() => shows(`Error -32000: ${ROOM_VIEW_ONLY}`), "the board to show the host's refusal");
     await inView(boardRow.id);
     await ui("screenshot", "--out", join(evidenceDir, "room-pages-clicked-app.png"));
