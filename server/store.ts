@@ -329,6 +329,11 @@ export class Store {
         delete b.avatarCrop;
         botsMigrated = true;
       }
+      if (b.avatarStates !== undefined && !isDeepStrictEqual(b.avatarStates, avatar.avatarStates)) {
+        if (avatar.avatarStates) b.avatarStates = avatar.avatarStates;
+        else delete b.avatarStates;
+        botsMigrated = true;
+      }
       if (b.avatarZoom !== undefined) {
         const zoom = clampAvatarZoom(b.avatarZoom);
         if (zoom === AVATAR_ZOOM_MIN) {

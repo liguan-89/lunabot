@@ -52,6 +52,7 @@ vi.mock("./EnginesSettings", () => ({ EnginesSettings: marker("engines"), Engine
 vi.mock("./ModelManagement", () => ({ ModelManagement: marker("models") }));
 vi.mock("./DecisionModelSettings", () => ({ DecisionModelSettings: marker("decisionModel") }));
 vi.mock("./ImageGenerationSettings", () => ({ ImageGenerationSettings: marker("imageGeneration") }));
+vi.mock("./VideoGenerationSettings", () => ({ VideoGenerationSettings: marker("videoGeneration") }));
 vi.mock("./SkillsSection", () => ({ SkillsSection: marker("skills") }));
 vi.mock("./keys/KeysPage", () => ({ KeysPage: marker("apiKey") }));
 vi.mock("./RemoteComputerSection", () => ({ RemoteComputerSection: marker("companion") }));
@@ -266,22 +267,24 @@ describe("Settings in Simple mode", () => {
     expect(placement(open("engines"), "MARKER:apiKey;")).toBe("folded");
     expect(placement(open("imageGeneration"), "MARKER:imageGeneration;")).toBe("shown");
     expect(placement(open("engines"), "MARKER:imageGeneration;")).toBe("folded");
+    expect(placement(open("videoGeneration"), "MARKER:videoGeneration;")).toBe("shown");
+    expect(placement(open("engines"), "MARKER:videoGeneration;")).toBe("folded");
     expect(placement(open("decisionModel"), "MARKER:decisionModel;")).toBe("shown");
     expect(placement(open("engines"), "MARKER:decisionModel;")).toBe("folded");
     expect(placement(open("desktopWorkspaces"), "MARKER:desktopWorkspaces;")).toBe("shown");
     expect(placement(open("remote"), "MARKER:companion;")).toBe("shown");
     expect(placement(open("companion"), "MARKER:companion;")).toBe("folded");
     expect(SIMPLE_FOLDED).toEqual({
-      connections: "ai-keys", decisionModel: "ai-decision", imageGeneration: "ai-images",
+      connections: "ai-keys", decisionModel: "ai-decision", imageGeneration: "ai-images", videoGeneration: "ai-videos",
       remote: "computer-elsewhere", desktopWorkspaces: "computer-elsewhere",
     });
   });
 
-  it("shows the AI page as Your AI, then API keys, image generation and decision", () => {
+  it("shows the AI page as Your AI, then API keys, image generation, video generation and decision", () => {
     fixture.section = "engines";
     const html = render();
     expect(currentPage(html)).toBe("ai");
-    expect(blocks(html)).toEqual(["engines", "connections", "imageGeneration", "decisionModel"]);
+    expect(blocks(html)).toEqual(["engines", "connections", "imageGeneration", "videoGeneration", "decisionModel"]);
     expect(markers(html).filter((name) => name === "models" || name === "decisionModel")).toEqual(["models", "decisionModel"]);
     expect(html).toMatch(/aria-expanded="false"[^>]*>[\s\S]*?>API keys</);
     expect(html).not.toContain("API keys and connections");

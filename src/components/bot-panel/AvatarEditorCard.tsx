@@ -15,13 +15,15 @@ import { AvatarImageGenerator } from "../AvatarImageGenerator";
 import { AvatarFraming, OrganizationAvatarIcons, RESET_MASCOT_PATCH, useAvatarImage, type AvatarPatch } from "../avatar-editing";
 import { Segmented } from "./rows";
 import { MascotFaceColorPicker } from "../MascotFaceColorPicker";
+import { AvatarStatesEditor } from "./AvatarStatesEditor";
 
-export type AvatarEditorTab = "bot" | "generate" | "upload";
+export type AvatarEditorTab = "bot" | "generate" | "upload" | "motion";
 
-const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey]> = [
+const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey | null, string?]> = [
   ["bot", "botPanel.avatar.tabBot"],
   ["generate", "botPanel.avatar.tabGenerate"],
   ["upload", "botPanel.avatar.tabUpload"],
+  ["motion", null, "动态"],
 ];
 
 const IMAGE_CROPS = ["circle", "rounded", "square"] as const;
@@ -108,7 +110,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       className="popover-surface absolute inset-x-[-5px] top-[80px] z-30 overflow-hidden rounded-2xl border border-ink/[0.08] bg-menu text-left shadow-2xl shadow-black/50"
     >
       <div ref={tabsRef} className="flex items-center gap-0.5 border-b border-ink/[0.06] p-2">
-        {TABS.map(([id, label]) => (
+        {TABS.map(([id, label, fallbackText]) => (
           <button
             key={id}
             type="button"
@@ -117,11 +119,11 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             data-avatar-tab={id}
             onClick={() => setTab(id)}
             className={cn(
-              "rounded-lg px-[11px] py-[5px] text-[13px]",
+              "rounded-lg px-[10px] py-[5px] text-[13px]",
               tab === id ? "bg-ink/[0.08] font-medium text-ink" : "text-ink-secondary hover:text-ink",
             )}
           >
-            {t(label)}
+            {label ? t(label) : fallbackText}
           </button>
         ))}
         <button
@@ -272,6 +274,8 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
             {!showsImage && <p className="mt-2 text-[12px] text-ink-tertiary">{t("botPanel.avatar.uploadHint")}</p>}
           </>
         )}
+
+        {tab === "motion" && <AvatarStatesEditor bot={bot} />}
 
         {error && <div role="alert" className="mt-3 text-[12px] text-danger">{error}</div>}
       </div>

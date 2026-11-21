@@ -102,7 +102,7 @@ describe("Settings rail groups", () => {
     expect(SETTINGS_GROUPS.map((group) => group.id)).toEqual(["you", "ai", "computers", "account"]);
     const ids = SECTIONS.map((entry) => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
-    expect(ids).toHaveLength(22); // 16 + the shared Skills library (AI group) + Image generation (AI) + Logins (Devices) + Import, a team's Bot access, and the TK1688 API subscription (Account)
+    expect(ids).toHaveLength(23); // 16 + the shared Skills library (AI group) + Image & Video generation (AI) + Logins (Devices) + Import, a team's Bot access, and the TK1688 API subscription (Account)
     for (const entry of SECTIONS) expect(SETTINGS_GROUPS.map((group) => group.id)).toContain(entry.group);
   });
 
@@ -113,7 +113,7 @@ describe("Settings rail groups", () => {
     expect(html).toContain("glass-surface");
     expect(rail(html)).toEqual({
       you: ["general", "appearance", "companion"],
-      ai: ["engines", "connections", "decisionModel", "imageGeneration"],
+      ai: ["engines", "connections", "decisionModel", "imageGeneration", "videoGeneration"],
       computers: ["desktopWorkspaces", "computer", "logins"],
       account: ["cloudAccount", "organization", "usage", "backups", "import", "experimental"],
     });

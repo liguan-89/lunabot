@@ -9,7 +9,8 @@ import {
 import { cn } from "@/lib/cn";
 import type { MausColor, MausMotion, MausState } from "@/lib/mascot";
 import type { CursorAvatarHandle } from "./CursorAvatar";
-import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, type BotAvatarCrop, type MascotFaceColor } from "../../shared/bot-avatar";
+import { avatarCropRadius, botAvatarProfile, clampAvatarFocus, clampAvatarZoom, type BotAvatarCrop, type BotAvatarStates, type MascotFaceColor } from "../../shared/bot-avatar";
+import { DynamicAvatarMedia, hasAnyDynamicAvatarState } from "./DynamicAvatarMedia";
 import { isCarvedBody, type BotBodyId } from "../../shared/bot-body";
 import { useFestivalDress, wornBody } from "@/lib/festival-dress";
 import { t } from "@/lib/i18n";
@@ -105,6 +106,10 @@ export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
   life?: FaceLife;
   /** The commander's crown, drawn in the portrait and leaning with its gaze. */
   crown?: boolean;
+  /** Enables Muse-style breakout-frame elevation when displaying a working/thinking state clip. */
+  breakout?: boolean;
+  /** Optional real-time audio amplitude (0..1) while speaking in a Live Call. */
+  audioLevel?: number;
   bot: {
     id?: string;
     name?: string;
@@ -114,6 +119,7 @@ export type BotAvatarProps = Omit<MausAvatarProps, "color" | "gradient"> & {
     avatarZoom?: number;
     avatarFocusX?: number;
     avatarFocusY?: number;
+    avatarStates?: BotAvatarStates;
     mascotBody?: BotBodyId | null;
     mascotFaceColor?: MascotFaceColor | null;
   };
@@ -134,12 +140,35 @@ export function resolveBotAvatarOutcome(params: {
   return "flatImage";
 }
 
-export function BotAvatar({ bot, size = 44, label, life = "glance", crown = false, ...mascotProps }: BotAvatarProps) {
+export function BotAvatar({ bot, size = 44, label, life = "glance", crown = false, breakout = false, audioLevel = 0, ...mascotProps }: BotAvatarProps) {
   const profile = botAvatarProfile(bot);
   const festival = useFestivalDress();
   const [imageFailed, setImageFailed] = useState(false);
+  const hasDynamic = hasAnyDynamicAvatarState(profile.avatarStates);
 
   useEffect(() => setImageFailed(false), [profile.avatarUrl]);
+
+  if (hasDynamic) {
+    const radius = avatarCropRadius(profile.avatarCrop === "mascot" ? "circle" : profile.avatarCrop);
+    const zoom = clampAvatarZoom(bot.avatarZoom ?? 1);
+    const focusX = clampAvatarFocus(bot.avatarFocusX ?? 0.5);
+    const focusY = clampAvatarFocus(bot.avatarFocusY ?? 0.5);
+    return (
+      <DynamicAvatarMedia
+        avatarStates={profile.avatarStates}
+        fallbackUrl={profile.avatarUrl}
+        state={mascotProps.state}
+        alt={label ?? (bot.name ? t("avatar.alt", { name: bot.name }) : t("avatar.altFallback"))}
+        size={size}
+        borderRadius={radius}
+        objectPosition={`${focusX * 100}% ${focusY * 100}%`}
+        zoom={zoom}
+        breakout={breakout}
+        audioLevel={audioLevel}
+        onFallbackError={() => setImageFailed(true)}
+      />
+    );
+  }
 
   const outcome = resolveBotAvatarOutcome({
     avatarCrop: profile.avatarCrop,

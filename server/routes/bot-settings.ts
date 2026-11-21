@@ -1,9 +1,12 @@
+import { z } from "zod";
 import { approvalModeFor, type ApprovalMode } from "../../shared/approval-mode.ts";
-import { botAvatarUrlFromStoredPath } from "../../shared/bot-avatar.ts";
+import { BOT_AVATAR_STATE_KEYS, botAvatarMediaUrlFromStoredPath, botAvatarUrlFromStoredPath, type BotAvatarStateKey } from "../../shared/bot-avatar.ts";
 import type { CommandAllowlistResponse } from "../../shared/command-allowlist.ts";
 import type { WireBot } from "../../shared/wire.ts";
-import { deleteAttachment, saveImage } from "../attachments.ts";
+import { avatarMediaExists, deleteAttachment, extensionForMime, IMAGE_MAX_BYTES, readAttachment, saveAvatarVideo, saveImage, saveImageUpload } from "../attachments.ts";
 import { avatarGenerationRequestSchema, avatarGenerationStateMatches, generateAvatarImage, snapshotAvatarGenerationState } from "../avatar-image.ts";
+import { SEEDANCE_PROVIDERS } from "../seedance-config.ts";
+import { generateSeedanceStateVideo, SEEDANCE_AVATAR_STYLES } from "../seedance.ts";
 import { parseBotProfilePatch } from "../bot-profile.ts";
 import { commandAllowlistCandidate, type CommandAllowlistStore } from "../command-allowlist.ts";
 import type { AppConfig } from "../config.ts";
@@ -40,6 +43,7 @@ export interface BotSettingsRouteDeps {
   /** On a Team Cloud a member who can edit the bot changes its profile as its owner would. */
   levelOf?(auth: RequestAuth, botId: string): string;
   storedAvatarExists(avatarUrl: string): boolean;
+  storedAvatarMediaExists?(mediaUrl: string): boolean;
   requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord;
   threadBusy(botId: string, threadId: string): boolean;
   activeGroupTurnForBot(botId: string): { group: GroupRecord; threadId: string } | null;
@@ -61,6 +65,7 @@ export function createBotSettingsRoutes(deps: BotSettingsRouteDeps): RouteHandle
     store, cfg, registry, commandAllowlist,
     commandAllowlistDrivers: COMMAND_ALLOWLIST_DRIVERS, cloudHome: CLOUD_HOME, cloudOwnerProfileFields: CLOUD_OWNER_PROFILE_FIELDS,
     hostedModels, supportsApprovalMode, directTurnBots, broadcast, notificationListed, wireBot, cloudOwnerSession, storedAvatarExists,
+    storedAvatarMediaExists = (mediaUrl: string) => avatarMediaExists(mediaUrl.slice("/api/attachments/".length)),
     requestedTaskBot, threadBusy, activeGroupTurnForBot, checkedModelSelection, engineSwitchNeedsAsk, readCursor,
     canManageCommandAllowlist, commandAllowlistResponse, cardAnswerRefusal,
   } = deps;
@@ -99,12 +104,149 @@ export function createBotSettingsRoutes(deps: BotSettingsRouteDeps): RouteHandle
       broadcast({ kind: "bot", bot: visible });
       return json(res, 201, { avatarUrl, bot: visible });
     }
+    m = path.match(/^\/api\/bots\/([\w-]+)\/avatar\/states\/upload$/);
+    if (m && method === "POST") {
+      const existing = store.bot(m[1]);
+      if (!existing) return json(res, 404, { error: "no such bot" });
+      const rawState = url.searchParams.get("state") ?? "";
+      if (!(BOT_AVATAR_STATE_KEYS as readonly string[]).includes(rawState)) {
+        req.resume();
+        return json(res, 400, { error: `state must be one of ${BOT_AVATAR_STATE_KEYS.join(", ")}` });
+      }
+      const state = rawState as BotAvatarStateKey;
+      const rawType = Array.isArray(req.headers["content-type"]) ? req.headers["content-type"][0] : req.headers["content-type"];
+      const mime = rawType?.split(";")[0]?.trim().toLowerCase() ?? "";
+      const isVideo = mime === "video/mp4" || mime === "video/webm";
+      const isImage = Boolean(extensionForMime(mime));
+      if (!isVideo && !isImage) {
+        req.resume();
+        return json(res, 400, { error: "content-type must be video/mp4, video/webm, or a supported image type" });
+      }
+      const maxBytes = isVideo ? 25 * 1024 * 1024 : IMAGE_MAX_BYTES;
+      const rawLength = Array.isArray(req.headers["content-length"]) ? req.headers["content-length"][0] : req.headers["content-length"];
+      const declaredLength = rawLength === undefined ? undefined : Number(rawLength);
+      if (declaredLength !== undefined && (!Number.isSafeInteger(declaredLength) || declaredLength < 0)) {
+        req.resume();
+        return json(res, 400, { error: "content-length must be a non-negative integer" });
+      }
+      if (declaredLength !== undefined && declaredLength > maxBytes) {
+        req.resume();
+        return json(res, 413, { error: `avatar state media exceeds ${maxBytes} bytes` });
+      }
+      const bytes = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        let received = 0;
+        let settled = false;
+        const fail = (status: number, msg: string) => {
+          if (settled) return;
+          settled = true;
+          reject(Object.assign(new Error(msg), { status }));
+        };
+        req.on("data", (chunk: Buffer) => {
+          if (settled) return;
+          received += chunk.byteLength;
+          if (received > maxBytes) return fail(413, `avatar state media exceeds ${maxBytes} bytes`);
+          chunks.push(chunk);
+        });
+        req.on("end", () => {
+          if (settled) return;
+          settled = true;
+          resolve(Buffer.concat(chunks));
+        });
+        req.on("error", (e) => fail(400, e instanceof Error ? e.message : String(e)));
+      });
+      const saved = isVideo ? saveAvatarVideo(bytes, mime) : await saveImageUpload(bytes, mime);
+      const mediaUrl = botAvatarMediaUrlFromStoredPath(saved.path);
+      if (!mediaUrl) {
+        deleteAttachment(saved.path);
+        return json(res, 500, { error: "Could not store the avatar state media" });
+      }
+      const current = store.bot(existing.id);
+      if (!current) {
+        deleteAttachment(saved.path);
+        return json(res, 404, { error: "no such bot" });
+      }
+      const nextStates = { ...current.avatarStates, [state]: mediaUrl };
+      const bot = store.patchBot(current.id, { avatarStates: nextStates });
+      if (!bot) {
+        deleteAttachment(saved.path);
+        return json(res, 404, { error: "no such bot" });
+      }
+      const visible = wireBot(bot);
+      broadcast({ kind: "bot", bot: visible });
+      return json(res, 201, { state, url: mediaUrl, bot: visible });
+    }
+    m = path.match(/^\/api\/bots\/([\w-]+)\/avatar\/states\/generate$/);
+    if (m && method === "POST") {
+      req.setTimeout(0);
+      res.setTimeout(0);
+      const existing = store.bot(m[1]);
+      if (!existing) return json(res, 404, { error: "no such bot" });
+      const bodySchema = z.object({
+        state: z.enum(BOT_AVATAR_STATE_KEYS),
+        provider: z.enum(SEEDANCE_PROVIDERS).optional(),
+        style: z.enum(SEEDANCE_AVATAR_STYLES).optional(),
+        prompt: z.string().max(800).optional(),
+        duration: z.number().int().min(4).max(30).optional(),
+        resolution: z.enum(["480p", "720p"]).optional(),
+        loop: z.boolean().optional(),
+        ratio: z.string().max(24).optional(),
+      });
+      const parsed = bodySchema.safeParse(await readBody(req));
+      if (!parsed.success) {
+        return json(res, 400, { error: parsed.error.issues[0]?.message ?? "invalid seedance request" });
+      }
+      let referenceImageDataUrl: string | undefined;
+      if (existing.avatarUrl && existing.avatarUrl.startsWith("/api/attachments/")) {
+        const att = readAttachment(existing.avatarUrl.slice("/api/attachments/".length));
+        if (att && att.mime.startsWith("image/")) {
+          referenceImageDataUrl = `data:${att.mime};base64,${att.bytes.toString("base64")}`;
+        }
+      }
+      const generated = await generateSeedanceStateVideo(cfg.seedance, {
+        state: parsed.data.state,
+        provider: parsed.data.provider,
+        style: parsed.data.style,
+        prompt: parsed.data.prompt,
+        duration: parsed.data.duration,
+        resolution: parsed.data.resolution,
+        seamlessLoop: parsed.data.loop ?? true,
+        referenceImageDataUrl,
+      });
+      const current = store.bot(existing.id);
+      if (!current) return json(res, 404, { error: "no such bot" });
+      const saved = saveAvatarVideo(generated.bytes, generated.mime);
+      const mediaUrl = botAvatarMediaUrlFromStoredPath(saved.path);
+      if (!mediaUrl) {
+        deleteAttachment(saved.path);
+        return json(res, 500, { error: "Could not store the generated avatar video" });
+      }
+      const nextStates = { ...current.avatarStates, [parsed.data.state]: mediaUrl };
+      const bot = store.patchBot(current.id, { avatarStates: nextStates });
+      if (!bot) {
+        deleteAttachment(saved.path);
+        return json(res, 404, { error: "no such bot" });
+      }
+      const visible = wireBot(bot);
+      broadcast({ kind: "bot", bot: visible });
+      return json(res, 201, {
+        state: parsed.data.state,
+        url: mediaUrl,
+        provider: generated.provider,
+        taskId: generated.taskId,
+        bot: visible,
+      });
+    }
     m = path.match(/^\/api\/bots\/([\w-]+)\/profile$/);
     if (m && method === "PATCH") {
       const parsed = parseBotProfilePatch(await readBody(req), true);
       if (!parsed.ok) return json(res, 400, { error: parsed.error });
       if (parsed.patch.avatarUrl && !storedAvatarExists(parsed.patch.avatarUrl)) {
         return json(res, 400, { error: "avatarUrl must reference an existing stored image" });
+      }
+      if (parsed.patch.avatarStates) {
+        const missing = Object.values(parsed.patch.avatarStates).find((u) => u && !storedAvatarMediaExists(u));
+        if (missing) return json(res, 400, { error: "avatarStates must reference existing stored media" });
       }
       const existingBot = store.bot(m[1]);
       // On a Cloud home these fields ride every owner turn: only the owner's own devices change them.

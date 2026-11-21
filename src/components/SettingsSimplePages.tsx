@@ -52,7 +52,7 @@ import { ThemeRow } from "./ThemeRow";
 import { AdminOnly } from "./AdminOnly";
 import { DefaultBotSettings } from "./NewBotDialog";
 
-export type SimpleDisclosureId = "ai-more" | "ai-keys" | "ai-images" | "ai-decision" | "looks-more" | "computer-elsewhere" | "billing-limits";
+export type SimpleDisclosureId = "ai-more" | "ai-keys" | "ai-images" | "ai-videos" | "ai-decision" | "looks-more" | "computer-elsewhere" | "billing-limits";
 
 export type Disclose = (id: SimpleDisclosureId) => { id: SimpleDisclosureId; open: boolean; onToggle: () => void };
 
@@ -166,12 +166,13 @@ export function SimpleAdvancedPage({ has, limits }: { has: Has; limits: boolean 
   );
 }
 
-export function SimpleAiPage({ has, disclose, connections, decisionModel, imageGeneration }: {
+export function SimpleAiPage({ has, disclose, connections, decisionModel, imageGeneration, videoGeneration }: {
   has: Has;
   disclose: Disclose;
   connections: ReactNode;
   decisionModel: ReactNode;
   imageGeneration: ReactNode;
+  videoGeneration?: ReactNode;
 }) {
   return (
     <>
@@ -194,6 +195,13 @@ export function SimpleAiPage({ has, disclose, connections, decisionModel, imageG
         <AdminOnly>
           <SettingsDisclosureRow title={t("settings.section.imageGeneration")} block="imageGeneration" {...disclose("ai-images")}>
             {imageGeneration}
+          </SettingsDisclosureRow>
+        </AdminOnly>
+      )}
+      {has("videoGeneration") && videoGeneration && (
+        <AdminOnly>
+          <SettingsDisclosureRow title={t("settings.section.videoGeneration")} block="videoGeneration" {...disclose("ai-videos")}>
+            {videoGeneration}
           </SettingsDisclosureRow>
         </AdminOnly>
       )}

@@ -10058,6 +10058,7 @@
   "voice.openai.error.voice": "朗读回复前请先选择一个 OpenAI 声音。",
   "keys.purpose.openaiModelsVoice": "OpenAI 模型、朗读回复和实时通话",
   "settings.section.imageGeneration": "图片生成",
+  "settings.section.videoGeneration": "视频生成",
   "imageGen.intro": "当你在聊天中要求图片时机器人会使用这里的服务，机器人头像也会用到。只有在主提供方无法启动时才会尝试备用：没有密钥、没有额度、被限流或无法访问。",
   "imageGen.status.ready": "就绪 · 图片由 {provider} 生成",
   "imageGen.status.backupOnly": "仅备用就绪 · 图片由 {provider} 生成",

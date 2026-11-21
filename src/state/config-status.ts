@@ -7,7 +7,7 @@ import type { ModelSelection } from "./store";
 /** A saved credential: whether it is set and, for admins, its last four characters. The key itself never comes back. */
 export interface SavedKey { configured: boolean; last4?: string }
 
-export type NestedKeyName = "ttsKey" | "fishAudioKey" | "geminiTtsKey" | "jevApiKey" | "openrouterDeciderKey" | "workersAiToken" | "openaiImageApiKey" | "customImageApiKey" | "openaiLiveKey" | "geminiImageApiKey";
+export type NestedKeyName = "ttsKey" | "fishAudioKey" | "geminiTtsKey" | "jevApiKey" | "openrouterDeciderKey" | "workersAiToken" | "openaiImageApiKey" | "customImageApiKey" | "openaiLiveKey" | "geminiImageApiKey" | "seedanceArkKey" | "seedanceTk1688Key";
 
 export interface ImageSlotStatus { provider: ImageProvider; model: string; configured: boolean }
 
@@ -124,6 +124,20 @@ export interface ConfigStatus {
   };
   /** Live calls (OpenAI GPT-Live): configured-or-not, never the key. */
   live?: LiveSettings;
+  /** Seedance video avatar generation (Volcengine Ark official or TK1688 relay). */
+  seedance?: {
+    provider: "ark" | "tk1688";
+    configured: boolean;
+    ready?: boolean;
+    arkConfigured: boolean;
+    tk1688Configured: boolean;
+    arkEndpoint: string;
+    arkModel: string;
+    tk1688Endpoint: string;
+    tk1688Model: string;
+    resolution?: "480p" | "720p";
+    duration?: number;
+  };
   /** WebAuthn presence confirmation: `required` asks for an enrolled authenticator's signature on every card "allow";
    * `enrolled` is how many are on file. Absent from older servers — treat as not required. */
   webauthn?: { required: boolean; enrolled: number };

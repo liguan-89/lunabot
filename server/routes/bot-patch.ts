@@ -6,6 +6,7 @@ import { normalizeOutboundPolicy } from "../../shared/outbound.ts";
 import { normalizePhoneApps } from "../../shared/phone-apps.ts";
 import { parseToolScope, toolScopeWidens } from "../../shared/tool-scope.ts";
 import { isMausColor, MAUS_COLOR_NAMES, type WireBot, type WireGroup } from "../../shared/wire.ts";
+import { avatarMediaExists } from "../attachments.ts";
 import { validateBotCwd } from "../bot-cwd.ts";
 import { parseBotProfilePatch } from "../bot-profile.ts";
 import { accessFromVisibility } from "../../shared/bot-access.ts";
@@ -59,6 +60,7 @@ export interface BotPatchRouteDeps {
   publicGroupState(group: GroupRecord): WireGroup;
   audienceChanged(): void;
   storedAvatarExists(avatarUrl: string): boolean;
+  storedAvatarMediaExists?(mediaUrl: string): boolean;
   requestedTaskBot(botId: string, rawThreadId: unknown): BotRecord;
   threadBusy(botId: string, threadId: string): boolean;
   activeGroupTurnForBot(botId: string): { group: GroupRecord; threadId: string } | null;
@@ -90,7 +92,9 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
   const {
     store, cfg, registry, sessions, browserRuntime, browserLive, memoryUpkeep, cacheKeepWarm, hostedModels, supportsApprovalMode, activeVpsThreads,
     hostedWorkspace: HOSTED_WORKSPACE, hostedFullAccessRefusal: HOSTED_FULL_ACCESS_REFUSAL, desktopManaged: DESKTOP_MANAGED,
-    broadcast, wireBot, publicGroupState, audienceChanged, storedAvatarExists, requestedTaskBot, threadBusy, activeGroupTurnForBot,
+    broadcast, wireBot, publicGroupState, audienceChanged, storedAvatarExists,
+    storedAvatarMediaExists = (mediaUrl: string) => avatarMediaExists(mediaUrl.slice("/api/attachments/".length)),
+    requestedTaskBot, threadBusy, activeGroupTurnForBot,
     checkedModelSelection, engineSwitchNeedsAsk, currentBrowserSession, interruptAllDirectThreads, cancelGroupTurnOperations,
     revokeInternalCapabilitiesForThread, runningTurnInstance, closeOpenApprovals, assertTeamComputerChangeIdle, forgetTemporaryBrowser,
   } = deps;
@@ -184,6 +188,10 @@ export function createBotPatchRoutes(deps: BotPatchRouteDeps): RouteHandler {
       if (!profile.ok) return json(res, 400, { error: profile.error });
       if (profile.patch.avatarUrl && !storedAvatarExists(profile.patch.avatarUrl)) {
         return json(res, 400, { error: "avatarUrl must reference an existing stored image" });
+      }
+      if (profile.patch.avatarStates) {
+        const missing = Object.values(profile.patch.avatarStates).find((u) => u && !storedAvatarMediaExists(u));
+        if (missing) return json(res, 400, { error: "avatarStates must reference existing stored media" });
       }
       const patch: Record<string, unknown> = {};
       Object.assign(patch, profile.patch);

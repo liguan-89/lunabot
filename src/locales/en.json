@@ -10107,6 +10107,7 @@
   "voice.openai.error.voice": "Choose an OpenAI voice before reading replies aloud.",
   "keys.purpose.openaiModelsVoice": "OpenAI models, reply readout and live calls",
   "settings.section.imageGeneration": "Image generation",
+  "settings.section.videoGeneration": "Video generation",
   "imageGen.intro": "Bots use this when you ask for an image in a chat, and bot avatars use it too. The backup is tried only when the base could not start: no key, no credit, rate limited or unreachable.",
   "imageGen.status.ready": "Ready · images are made with {provider}",
   "imageGen.status.backupOnly": "Ready with the backup only · images are made with {provider}",

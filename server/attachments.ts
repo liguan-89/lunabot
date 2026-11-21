@@ -706,6 +706,51 @@ export async function saveImageUpload(
   });
 }
 
+const VIDEO_MIMES: Readonly<Record<string, { mime: string; ext: string }>> = {
+  "video/mp4": { mime: "video/mp4", ext: ".mp4" },
+  "video/webm": { mime: "video/webm", ext: ".webm" },
+};
+
+export const AVATAR_VIDEO_MAX_BYTES = 25 * 1024 * 1024;
+
+export function saveAvatarVideo(bytes: Buffer, mime: string): SavedAttachment {
+  const format = VIDEO_MIMES[mime.split(";")[0]!.trim().toLowerCase()];
+  if (!format) {
+    throw Object.assign(new Error("unsupported video type (use MP4 or WebM)"), { status: 400 });
+  }
+  if (bytes.byteLength === 0) throw Object.assign(new Error("empty video"), { status: 400 });
+  if (bytes.byteLength > AVATAR_VIDEO_MAX_BYTES) {
+    throw Object.assign(new Error(`video exceeds ${AVATAR_VIDEO_MAX_BYTES} bytes`), { status: 413 });
+  }
+  ensureAttachmentsDir();
+  const reservation = new AttachmentReservation();
+  reservation.reserve(bytes.byteLength);
+  const id = randomUUID();
+  const name = `${id}${format.ext}`;
+  const path = join(ATTACHMENTS_DIR, name);
+  const partialPath = join(ATTACHMENTS_DIR, `.openmaus-upload-${id}-${randomUUID()}.partial`);
+  activePartials.add(partialPath);
+  let partialCleanupFailed = false;
+  try {
+    writeFileSync(partialPath, bytes, { mode: 0o600, flag: "wx" });
+    linkSync(partialPath, path);
+    addCommittedBytes(bytes.byteLength);
+    unlinkSync(partialPath);
+    return { path, mime: format.mime, bytes: bytes.byteLength };
+  } catch (error) {
+    try {
+      unlinkSync(partialPath);
+    } catch {
+      partialCleanupFailed = true;
+    }
+    throw error;
+  } finally {
+    activePartials.delete(partialPath);
+    if (partialCleanupFailed) invalidateAttachmentAccounting();
+    reservation.release();
+  }
+}
+
 export function attachmentExists(name: string): boolean {
   if (!/^[A-Za-z0-9-]+\.(png|jpg|gif|webp)$/.test(name)) return false;
   try {
@@ -715,9 +760,18 @@ export function attachmentExists(name: string): boolean {
   }
 }
 
+export function avatarMediaExists(name: string): boolean {
+  if (!/^[A-Za-z0-9-]+\.(png|jpg|gif|webp|mp4|webm)$/.test(name)) return false;
+  try {
+    return statSync(join(ATTACHMENTS_DIR, name)).isFile();
+  } catch {
+    return false;
+  }
+}
+
 /** Only a bare filename inside ATTACHMENTS_DIR resolves: the route must never become a file server for the data dir. */
 export function readAttachment(name: string): { bytes: Buffer; mime: string } | null {
-  if (!/^[A-Za-z0-9-]+\.(png|jpg|jpeg|gif|webp|mp3|wav)$/.test(name)) return null;
+  if (!/^[A-Za-z0-9-]+\.(png|jpg|jpeg|gif|webp|mp3|wav|mp4|webm)$/.test(name)) return null;
   const path = join(ATTACHMENTS_DIR, name);
   if (extname(path) === ".jpeg") return null;
   try {
@@ -741,6 +795,10 @@ function mimeForExt(ext: string): string {
       return "audio/mpeg";
     case ".wav":
       return "audio/wav";
+    case ".mp4":
+      return "video/mp4";
+    case ".webm":
+      return "video/webm";
     default:
       return "application/octet-stream";
   }

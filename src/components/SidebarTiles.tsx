@@ -1,4 +1,4 @@
-import { Loader2, Phone } from "lucide-react";
+import { Loader2, Phone, Wrench } from "lucide-react";
 import { memo, useLayoutEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 
 import { cn } from "@/lib/cn";
@@ -77,7 +77,7 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
       className={cn(
         // No plate behind the portrait: the face and its name sit on the sidebar the way the phone draws them.
         "group flex shrink-0 cursor-pointer flex-col items-center px-1 pt-2 [--tile:var(--color-panel)]",
-        primary ? "h-[104px] w-[78px]" : "h-[92px] w-[78px]",
+        primary ? "min-h-[104px] w-[82px]" : "min-h-[92px] w-[78px]",
         SIMPLE_ROW_FOCUS,
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
@@ -89,6 +89,7 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
           size={primary ? 68 : 56}
           fallback="preset"
           life={primary ? "alive" : "glance"}
+          breakout={working && Boolean(bot.avatarStates?.working || bot.avatarStates?.thinking)}
           motion={mascotMotion?.kind ?? "none"}
           motionKey={mascotMotion?.nonce ?? 0}
           animated={working || noticing || (mascotMotion?.kind ?? "none") !== "none"}
@@ -127,6 +128,15 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
           )}
         />
       </span>
+      {working && Boolean(bot.avatarStates?.working || bot.avatarStates?.thinking) && (
+        <span
+          data-testid="working-scene-pill"
+          className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-medium text-ink-secondary shadow-sm ring-1 ring-ink/[0.06]"
+        >
+          <Wrench size={9} strokeWidth={2.2} aria-hidden="true" />
+          <span>努力工作中</span>
+        </span>
+      )}
     </div>
   );
 });

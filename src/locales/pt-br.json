@@ -9875,6 +9875,7 @@
   "voice.openai.error.voice": "Escolha uma voz da OpenAI antes de ler as respostas em voz alta.",
   "keys.purpose.openaiModelsVoice": "Modelos da OpenAI, leitura das respostas e chamadas ao vivo",
   "settings.section.imageGeneration": "Geração de imagens",
+  "settings.section.videoGeneration": "Geração de vídeos",
   "imageGen.intro": "Os bots usam isto quando você pede uma imagem no chat, e os avatares dos bots também. O reserva só é usado quando o provedor base não consegue começar: sem chave, sem crédito, com limite de solicitações ou fora do ar.",
   "imageGen.status.ready": "Pronto · as imagens são feitas com {provider}",
   "imageGen.status.backupOnly": "Pronto só com o reserva · as imagens são feitas com {provider}",

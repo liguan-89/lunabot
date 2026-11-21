@@ -9641,6 +9641,7 @@
   "voice.openai.error.voice": "朗讀回覆前請先選擇 OpenAI 語音。",
   "keys.purpose.openaiModelsVoice": "OpenAI 模型、回覆朗讀和即時通話",
   "settings.section.imageGeneration": "圖片生成",
+  "settings.section.videoGeneration": "影片生成",
   "imageGen.intro": "當你在聊天中要求圖片時，機器人會使用這項設定，機器人頭像也會使用。只有在主要供應商無法啟動時（沒有金鑰、沒有額度、達到速率限制或無法連線），才會嘗試備用供應商。",
   "imageGen.status.ready": "已就緒 · 圖片由 {provider} 產生",
   "imageGen.status.backupOnly": "僅備用供應商就緒 · 圖片由 {provider} 產生",

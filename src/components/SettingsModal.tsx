@@ -16,6 +16,7 @@ import { AttachmentStorageSettings } from "./AttachmentStorageSettings";
 import { DiagnosticsRow } from "./DiagnosticsRow";
 import { DecisionModelSettings } from "./DecisionModelSettings";
 import { ImageGenerationSettings } from "./ImageGenerationSettings";
+import { VideoGenerationSettings } from "./VideoGenerationSettings";
 import { EngineMaintenance } from "./EnginesSettings";
 import { ModelManagement } from "./ModelManagement";
 import { LocalComputerSection } from "./LocalComputerSection";
@@ -413,6 +414,7 @@ function SettingsDialog() {
         return <AdminOnly><KeysPage /></AdminOnly>;
       case "decisionModel": return <AdminOnly><DecisionModelSettings /></AdminOnly>;
       case "imageGeneration": return <AdminOnly><ImageGenerationSettings /></AdminOnly>;
+      case "videoGeneration": return <AdminOnly><VideoGenerationSettings /></AdminOnly>;
       case "engines": return <AdminOnly><div className="flex flex-col gap-6"><ModelManagement /><EngineMaintenance /></div></AdminOnly>;
       case "backups": return <AdminOnly><WorkspaceBackupSettings /><CompanyBackupSettings /></AdminOnly>;
       case "import": return <AdminOnly><ImportSettings /></AdminOnly>;
@@ -449,7 +451,7 @@ function SettingsDialog() {
       case "general": return <SimpleGeneralPage has={has} disclose={disclose} toolCalls={!remoteActive} />;
       case "team": return <SimpleTeamPage has={has} peopleOpen={section === "people"} />;
       case "ai": return <SimpleAiPage has={has} disclose={disclose} connections={renderSection("connections")}
-        imageGeneration={renderSection("imageGeneration")} decisionModel={renderSection("decisionModel")} />;
+        imageGeneration={renderSection("imageGeneration")} videoGeneration={renderSection("videoGeneration")} decisionModel={renderSection("decisionModel")} />;
       case "computer": return <SimpleComputerPage has={has} remoteAccess={remoteAccess} servers={<ConnectedWorkspacesSettings />} disclose={disclose} />;
       case "billing": return <SimpleBillingPage has={has} disclose={disclose} cloudAccount={renderSection("cloudAccount")} />;
       case "advanced": return <SimpleAdvancedPage has={has} limits={simpleAvailable.has("general")} />;

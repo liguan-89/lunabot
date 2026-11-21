@@ -456,7 +456,7 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         "cache-control": "private, no-store",
         "x-content-type-options": "nosniff",
       };
-      if (attachment.mime.startsWith("audio/")) {
+      if (attachment.mime.startsWith("audio/") || attachment.mime.startsWith("video/")) {
         const rawRange = Array.isArray(req.headers.range) ? req.headers.range[0] : req.headers.range;
         const range = parseAudioRange(rawRange, size);
         if (range.kind === "unsatisfiable") {
@@ -466,11 +466,14 @@ export function createThreadRoutes(deps: ThreadRouteDeps): RouteHandler {
         if (range.kind === "range") {
           res.writeHead(206, {
             ...headers,
+            "accept-ranges": "bytes",
             "content-length": String(range.end - range.start + 1),
             "content-range": `bytes ${range.start}-${range.end}/${size}`,
           });
           return res.end(attachment.bytes.subarray(range.start, range.end + 1));
         }
+        res.writeHead(200, { ...headers, "accept-ranges": "bytes", "content-length": String(size) });
+        return res.end(attachment.bytes);
       }
       res.writeHead(200, { ...headers, "content-length": String(size) });
       return res.end(attachment.bytes);

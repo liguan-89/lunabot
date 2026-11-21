@@ -1,5 +1,5 @@
 import {
-  Archive, BookOpen, Building2, Cloud, CloudDownload, Coins, CreditCard, Download, FlaskConical, Gauge, ImagePlus,
+  Archive, BookOpen, Building2, Cloud, CloudDownload, Coins, CreditCard, Download, Film, FlaskConical, Gauge, ImagePlus,
   KeyRound, LockKeyhole, Monitor, Palette, ScrollText, Settings, Sparkles, TabletSmartphone, Terminal, User, Users, Zap,
   type LucideIcon,
 } from "lucide-react";
@@ -40,6 +40,7 @@ export const SECTIONS: Array<{
   { id: "connections", group: "ai", labelKey: "settings.section.connections", icon: KeyRound, keywords: ["keys", "api", "api key", "api keys", "connections", "composio", "box", "xai", "mistral", "cerebras", "meta", "muse", "vps", "router", "openrouter", "base url", "openai", "anthropic", "groq", "greenference", "modelgo", "opencode", "deepseek", "provider", "lm studio", "lmstudio", "llm studio", "llmstudio", "bionic"] },
   { id: "decisionModel", group: "ai", labelKey: "settings.section.decisionModel", icon: Zap, keywords: ["decision", "extraction", "jev", "typesafe", "cloudflare", "workers ai", "clef", "clairic", "email", "routing", "auto", "rooms", "who answers"] },
   { id: "imageGeneration", group: "ai", labelKey: "settings.section.imageGeneration", icon: ImagePlus, keywords: ["image", "images", "picture", "generate", "avatar", "gpt image", "grok imagine", "gemini", "nano banana", "openrouter", "flux", "backup"] },
+  { id: "videoGeneration", group: "ai", labelKey: "settings.section.videoGeneration", icon: Film, keywords: ["video", "videos", "seedance", "ark", "volcengine", "tk1688", "motion", "avatar", "dynamic", "720p"] },
   { id: "skills", group: "ai", labelKey: "settings.section.skills", icon: BookOpen, keywords: ["skills", "library", "assign", "agent skills", "skill md"] },
   { id: "desktopWorkspaces", group: "computers", labelKey: "settings.section.desktopWorkspaces", icon: Building2, keywords: ["workspace", "cloud", "hosted", "vps", "server", "servers", "connect", "pair", "switch", "local"] },
   { id: "computer", group: "computers", labelKey: "settings.section.computer", icon: Monitor, keywords: ["vm", "virtual", "desktop", "browser", "built-in browser", "profiles", "browser profiles"] },
@@ -72,8 +73,8 @@ export const SIMPLE_PAGES: SimpleSettingsPage[] = [
     keywords: ["account", "theme", "looks", "open at login", "startup", "analytics", "advanced mode", "limits", "timeout"] },
   { id: "team", labelKey: "settings.group.team", icon: Users, sections: ["people", "botAccess", "organization", "activity", "workspaces"],
     keywords: ["people", "invite", "members", "admins", "access", "sharing", "audit", "log", "who changed", "company", "installations", "fleet"] },
-  { id: "ai", labelKey: "settings.group.ai", icon: Sparkles, sections: ["engines", "decisionModel", "imageGeneration", "skills", "connections"],
-    keywords: ["new bots", "defaults", "effort", "images", "extraction", "skills"] },
+  { id: "ai", labelKey: "settings.group.ai", icon: Sparkles, sections: ["engines", "decisionModel", "imageGeneration", "videoGeneration", "skills", "connections"],
+    keywords: ["new bots", "defaults", "effort", "images", "videos", "seedance", "extraction", "skills"] },
   { id: "computer", labelKey: "settings.simple.page.computer", icon: Monitor, sections: ["companion", "desktopWorkspaces", "computer", "logins"] },
   { id: "billing", labelKey: "settings.simple.page.billing", icon: Gauge, sections: ["usage", "cloudAccount", "marketSubscription"], keywords: ["billing", "included", "allowance", "cloud hours", "voice", "tk1688", "api subscription"] },
   { id: "advanced", labelKey: "settings.simple.page.limitsBackups", icon: FlaskConical, sections: ["backups", "experimental"],
@@ -87,6 +88,7 @@ export const SIMPLE_FOLDED: Partial<Record<AppSettingsSection, SimpleDisclosureI
   connections: "ai-keys",
   decisionModel: "ai-decision",
   imageGeneration: "ai-images",
+  videoGeneration: "ai-videos",
   remote: "computer-elsewhere",
   desktopWorkspaces: "computer-elsewhere",
 };

@@ -23,6 +23,10 @@ export interface LiveMediaState {
   threadId: string | null;
   startedAt: number | null;
   muted: boolean;
+  /** True while assistant voice audio is actively playing (with ~380ms silence hysteresis). */
+  speaking?: boolean;
+  /** Smoothed assistant audio amplitude envelope in [0, 1] for avatar & Live card motion. */
+  audioLevel?: number;
   caption: string;
   heard: string;
   notice: string | null;
@@ -49,11 +53,25 @@ export interface LiveMediaDeps {
 
 const IDLE: LiveMediaState = {
   phase: "idle", callId: null, botId: null, threadId: null, startedAt: null, muted: false,
+  speaking: false, audioLevel: 0,
   caption: "", heard: "", notice: null, needsKey: false, busyWith: null, action: null, hangingUp: false,
 };
 const CAPTION_CHARS = 240;
 const HEARD_CHARS = 160;
 const HEARD_CLEAR_MS = 2_500;
+const SPEAKING_RMS_THRESHOLD = 0.015;
+const SPEAKING_HOLD_MS = 380;
+const LEVEL_EMIT_INTERVAL_MS = 75;
+
+export function computePcmRms(pcm: Float32Array): number {
+  if (!pcm.length) return 0;
+  let sum = 0;
+  for (let i = 0; i < pcm.length; i += 1) {
+    const s = pcm[i]!;
+    sum += s * s;
+  }
+  return Math.sqrt(sum / pcm.length);
+}
 const ENDED_NOTICE_MS = 4_000;
 /** A failed call's notice carries the only "Try again" button, so it outlives the ended one — but not forever: the
  * strip used to sit over the composer until it was dismissed by hand, which meant a call that failed once was still
@@ -105,6 +123,9 @@ let peer: RTCPeerConnection | null = null;
 let pcmCall: PcmCall | null = null;
 let channel: RTCDataChannel | null = null;
 let heardTimer: ReturnType<typeof setTimeout> | null = null;
+let speakingTimer: ReturnType<typeof setTimeout> | null = null;
+let lastLevelEmitAt = 0;
+let smoothedLevel = 0;
 let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
 let connectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -279,11 +300,39 @@ async function startSocketCall(target: { botId: string; threadId: string }, mine
       url,
       events: {
         onReady: () => {},
-        onAudio: () => {},
+        onAudio: (pcm) => {
+          if (mine !== generation) return;
+          const rms = computePcmRms(pcm);
+          const normalized = Math.min(1, rms * 6.5);
+          smoothedLevel = smoothedLevel * 0.65 + normalized * 0.35;
+          const now = Date.now();
+          if (rms >= SPEAKING_RMS_THRESHOLD) {
+            if (speakingTimer) clearTimeout(speakingTimer);
+            speakingTimer = setTimeout(() => {
+              speakingTimer = null;
+              smoothedLevel = 0;
+              if (mine === generation && (state.speaking || (state.audioLevel ?? 0) > 0)) {
+                set({ speaking: false, audioLevel: 0 });
+              }
+            }, SPEAKING_HOLD_MS);
+            if (!state.speaking || now - lastLevelEmitAt >= LEVEL_EMIT_INTERVAL_MS) {
+              lastLevelEmitAt = now;
+              set({ speaking: true, audioLevel: Number(smoothedLevel.toFixed(3)) });
+            }
+          } else if (state.speaking && now - lastLevelEmitAt >= LEVEL_EMIT_INTERVAL_MS) {
+            lastLevelEmitAt = now;
+            set({ audioLevel: Number(smoothedLevel.toFixed(3)) });
+          }
+        },
         onTranscript: (role, delta) => {
           if (mine !== generation) return;
-          if (role === "user") set({ heard: (state.heard + delta).slice(-HEARD_CHARS) });
-          else set({ caption: (state.caption + delta).slice(-CAPTION_CHARS), heard: "" });
+          if (role === "user") {
+            if (speakingTimer) { clearTimeout(speakingTimer); speakingTimer = null; }
+            smoothedLevel = 0;
+            set({ heard: (state.heard + delta).slice(-HEARD_CHARS), speaking: false, audioLevel: 0 });
+          } else {
+            set({ caption: (state.caption + delta).slice(-CAPTION_CHARS), heard: "" });
+          }
           if (heardTimer) clearTimeout(heardTimer);
           heardTimer = setTimeout(() => set({ heard: "" }), HEARD_CLEAR_MS);
         },
@@ -517,8 +566,10 @@ function stopCapturing() {
 }
 
 function release() {
-  for (const timer of [heardTimer, closeTimer, noticeTimer, connectTimer]) if (timer) clearTimeout(timer);
-  heardTimer = closeTimer = noticeTimer = connectTimer = null;
+  for (const timer of [heardTimer, speakingTimer, closeTimer, noticeTimer, connectTimer]) if (timer) clearTimeout(timer);
+  heardTimer = speakingTimer = closeTimer = noticeTimer = connectTimer = null;
+  smoothedLevel = 0;
+  lastLevelEmitAt = 0;
   stopGestureWait?.();
   stopGestureWait = null;
   stopCapturing();
