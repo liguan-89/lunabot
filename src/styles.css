@@ -189,6 +189,7 @@
   --color-focus: #459ffe;
   --color-accent-text: #7fc0ff;
   --color-bubble-user: #5a5a5a;
+  --color-bubble-user-ink: #f5f5f5;
   --color-success: #38d591;
   --color-danger: #ff5667;
   --color-warning: #ff9800;
@@ -318,7 +319,7 @@
   --identity-blue: #377FE6;
   --identity-red: #D94B52;
   --identity-orange: #E78531;
-  --identity-purple: #8d69ce;
+  --identity-purple: #8e69ce;
   --identity-cyan: #0EA5C6;
   --identity-pink: #D84F8B;
   --identity-yellow: #D8A729;
@@ -1121,18 +1122,18 @@
   --radius-2xl: 16px;
   --radius-3xl: 18px;
   --radius-4xl: 20px;
-  --identity-green: #007f48;
-  --identity-blue: #1b6adc;
-  --identity-red: #d12c34;
-  --identity-orange: #a95914;
+  --identity-green: #00844b;
+  --identity-blue: #1d6ee3;
+  --identity-red: #d5363e;
+  --identity-orange: #b05d15;
   --identity-purple: #8057C8;
-  --identity-cyan: #0a7891;
-  --identity-pink: #ca2d72;
-  --identity-yellow: #896a19;
-  --identity-teal: #017c6f;
-  --identity-coral: #cd361e;
-  --identity-silver: #686f79;
-  --identity-chrome: #646f80;
+  --identity-cyan: #0b7d97;
+  --identity-pink: #d13178;
+  --identity-yellow: #8f6e1a;
+  --identity-teal: #018173;
+  --identity-coral: #d5391f;
+  --identity-silver: #6c737e;
+  --identity-chrome: #687486;
   --shadow-float: inset 0 1px 0 rgb(255 255 255 / 0.9), 0 8px 24px -8px rgb(27 25 23 / 0.08), 0 2px 6px -2px rgb(27 25 23 / 0.04);
 }
 
@@ -1192,7 +1193,7 @@
   --identity-blue: #377FE6;
   --identity-red: #D94B52;
   --identity-orange: #E78531;
-  --identity-purple: #8d69ce;
+  --identity-purple: #8c67cd;
   --identity-cyan: #0EA5C6;
   --identity-pink: #D84F8B;
   --identity-yellow: #D8A729;
