@@ -52,10 +52,10 @@ describe("the sidebar tiles", () => {
     expect(html).not.toContain("data-provider-mark");
   });
 
-  it("gives the crown to the main tile only, and only when it is the Chief", () => {
+  it("keeps the Chief title without drawing a crown overlay on the avatar", () => {
     const tileHtml = (extra: Partial<Bot>, primary: boolean) => renderToStaticMarkup(createElement(SidebarBotTile, { ...props(bot(extra)), primary }));
     const main = tileHtml({ chiefOfStaff: true }, true);
-    expect(main).toContain('data-testid="chief-badge"');
+    expect(main).not.toContain('data-testid="chief-badge"');
     expect(main).toContain('title="Luna Bot · Chief of Staff"');
     expect(tileHtml({ chiefOfStaff: true }, false)).not.toContain('data-testid="chief-badge"');
     expect(tileHtml({}, true)).not.toContain('data-testid="chief-badge"');
@@ -118,7 +118,7 @@ describe("the tile grid", () => {
     expect(html).toMatch(/^<div data-sidebar-tiles="" class="flex max-h-\[40vh\] flex-wrap justify-center gap-1 overflow-y-auto /);
     expect(html.match(/\bh-\[92px\] w-\[78px\]/g)).toHaveLength(count + 1);
     expect(html.match(/width="56px" height="56px"/g)).toHaveLength(count + 1);
-    expect(html.match(/data-testid="chief-badge"/g)).toHaveLength(1);
+    expect(html).not.toContain('data-testid="chief-badge"');
   });
 
   it("follows the saved pinned order after the main bot, which never moves", () => {

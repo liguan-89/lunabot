@@ -17,45 +17,16 @@ function starterPromptsFor(bot: Bot): string[] {
   return HELPER_ASK_KEYS.slice(0, 3).map((key) => t(key));
 }
 
-function botAmbientColor(color: Bot["color"] | undefined): string {
-  switch (color) {
-    case "green": return "var(--identity-green, var(--color-accent))";
-    case "blue": return "var(--identity-blue, var(--color-accent))";
-    case "red": return "var(--identity-red, var(--color-accent))";
-    case "orange": return "var(--identity-orange, var(--color-accent))";
-    case "purple": return "var(--identity-purple, var(--color-accent))";
-    case "cyan": return "var(--identity-cyan, var(--color-accent))";
-    case "pink": return "var(--identity-pink, var(--color-accent))";
-    case "yellow": return "var(--identity-yellow, var(--color-accent))";
-    case "teal": return "var(--identity-teal, var(--color-accent))";
-    case "coral": return "var(--identity-coral, var(--color-accent))";
-    default: return "var(--color-accent)";
-  }
-}
-
-/** A chat with no messages yet: ambient stage glow, bot identity, and refined Bento starter cards. */
+/** A chat with no messages yet: bot identity and refined Bento starter cards. */
 export function EmptyChat({ bot }: { bot: Bot }) {
   const { dispatch } = useStore();
   const advanced = useAdvancedMode();
   const starters = starterPromptsFor(bot);
-  const ambient = botAmbientColor(bot.color);
 
   return (
     <div className="relative flex flex-1 flex-col items-center justify-center px-4 py-16 text-center">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-1/2 -z-0 h-[280px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl"
-        style={{
-          background: `radial-gradient(ellipse at center, color-mix(in srgb, ${ambient} 14%, transparent), transparent 70%)`,
-        }}
-      />
-
       <div className="relative z-10 flex flex-col items-center gap-3.5">
-        <div
-          className="avatar-studio-halo relative flex items-center justify-center rounded-full p-2 ring-1 ring-ink/[0.08] bg-composer/75 shadow-(--shadow-float) backdrop-blur-md"
-        >
-          <BotAvatar bot={bot} state="idle" size={64} fallback="preset" life="alive" motion="none" motionKey={0} />
-        </div>
+        <BotAvatar bot={bot} state="idle" size={64} fallback="preset" life="alive" motion="none" motionKey={0} />
 
         <div className="flex flex-col items-center gap-1.5">
           {!advanced ? (

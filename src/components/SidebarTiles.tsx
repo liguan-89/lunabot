@@ -80,17 +80,13 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
         pinnedCircleDragClass({ drag, dragging, drop }),
       )}
     >
-      <span className={cn(
-        "avatar-studio-halo relative flex rounded-full transition-all duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]",
-        selected && "ring-2 ring-accent/75 ring-offset-2 ring-offset-[var(--tile)] shadow-[0_0_18px_-3px_color-mix(in_srgb,var(--color-accent)_40%,transparent)]",
-      )}>
+      <span className="relative flex rounded-full transition-transform duration-200 group-hover:scale-[1.04] group-active:scale-[0.97]">
         <BotAvatar
           bot={bot}
           state={stateForBot({ ...bot, messages: visible })}
           size={56}
           fallback="preset"
           life={primary ? "alive" : "glance"}
-          crown={primary && Boolean(bot.chiefOfStaff)}
           motion={mascotMotion?.kind ?? "none"}
           motionKey={mascotMotion?.nonce ?? 0}
           animated={working || noticing || (mascotMotion?.kind ?? "none") !== "none"}

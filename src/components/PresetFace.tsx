@@ -120,60 +120,7 @@ function eyeSpecFor(style: AvatarStyleId): EyeSpec {
   };
 }
 
-// The crown, as BotFace.kt draws it: a band on the skull's own circle, three ink peaks stroked in gold with light tips,
-// and three ink stones. Sizes are in the same 100-unit face space (radius 50).
-const CROWN_SPAN = 28;
-const CROWN_INNER = 50;
-const CROWN_OUTER = 57;
-const CROWN_PEAK_HALF = 8;
-const CROWN_PEAKS = [-18, 0, 18];
-const CROWN_APEX = [69, 74.5, 69];
-const CROWN_STONES = [-12, 0, 12];
-const CROWN_STONE_RADIUS = 52.5;
-const CROWN_INK = "#17171B";
-const CROWN_GOLD = "#C9A227";
-const CROWN_GOLD_LIGHT = "#ECC564";
 
-const crownAt = (degrees: number, radius: number) => {
-  const angle = (degrees * Math.PI) / 180;
-  return { x: 50 + radius * Math.sin(angle), y: 50 - radius * Math.cos(angle) };
-};
-const crownPath = (points: Array<{ x: number; y: number }>) => `M${points.map((p) => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(" L")}Z`;
-
-const CROWN_BAND = (() => {
-  const outer = Array.from({ length: 15 }, (_, index) => crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * index) / 14, CROWN_OUTER));
-  const inner = Array.from({ length: 15 }, (_, index) => crownAt(CROWN_SPAN - (2 * CROWN_SPAN * index) / 14, CROWN_INNER));
-  return crownPath([...outer, ...inner]);
-})();
-const CROWN_EDGE = Array.from({ length: 14 }, (_, index) => [
-  crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * index) / 14, CROWN_OUTER),
-  crownAt(-CROWN_SPAN + (2 * CROWN_SPAN * (index + 1)) / 14, CROWN_OUTER),
-] as const);
-const CROWN_PEAK_PATHS = CROWN_PEAKS.map((angle, index) =>
-  crownPath([crownAt(angle - CROWN_PEAK_HALF, CROWN_OUTER), crownAt(angle, CROWN_APEX[index]!), crownAt(angle + CROWN_PEAK_HALF, CROWN_OUTER)]),
-);
-const CROWN_TIPS = CROWN_PEAKS.map((angle, index) => crownAt(angle, CROWN_APEX[index]!));
-const CROWN_STONE_POINTS = CROWN_STONES.map((angle) => crownAt(angle, CROWN_STONE_RADIUS));
-
-function Crown({ testId, tilt = FACE_TILT_DEG }: { testId?: string; tilt?: number }) {
-  return (
-    <g data-crown="" data-testid={testId} transform={`rotate(${tilt} 50 50)`}>
-      {CROWN_PEAK_PATHS.map((peak, index) => (
-        <g key={CROWN_PEAKS[index]}>
-          <path d={peak} fill={CROWN_INK} stroke={CROWN_GOLD} strokeWidth={2.6} strokeLinejoin="round" />
-          <circle cx={CROWN_TIPS[index]!.x} cy={CROWN_TIPS[index]!.y} r={2.8} fill={CROWN_GOLD_LIGHT} />
-        </g>
-      ))}
-      <path d={CROWN_BAND} fill={CROWN_GOLD} />
-      {CROWN_EDGE.map(([from, to], index) => (
-        <line key={index} x1={from.x} y1={from.y} x2={to.x} y2={to.y} stroke={CROWN_GOLD_LIGHT} strokeWidth={2} strokeLinecap="round" />
-      ))}
-      {CROWN_STONE_POINTS.map((stone, index) => (
-        <circle key={CROWN_STONES[index]} cx={stone.x} cy={stone.y} r={2.2} fill={CROWN_INK} />
-      ))}
-    </g>
-  );
-}
 
 const EDGE_UNIT = 0.16;
 
@@ -355,7 +302,7 @@ function FaceBody({
   }
 }
 
-export function PresetFace({ color, preset, avatarStyle, size = 44, label, className, life = "glance", mood = "idle", seed = 0, crown = false }: {
+export function PresetFace({ color, preset, avatarStyle, size = 44, label, className, life = "glance", mood = "idle", seed = 0 }: {
   color?: string | null;
   preset?: PresetKey;
   avatarStyle?: AvatarStyleId;
@@ -393,7 +340,7 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
     const breath = svg.querySelector<SVGGElement>("[data-face-breath]");
     const eyes = [svg.querySelector<SVGGElement>('[data-eye="left"]'), svg.querySelector<SVGGElement>('[data-eye="right"]')] as const;
     const rects = [svg.querySelector<SVGRectElement>('[data-eye-rect="left"]'), svg.querySelector<SVGRectElement>('[data-eye-rect="right"]')] as const;
-    const crownNode = svg.querySelector<SVGGElement>("[data-crown]");
+
     if (!breath || !eyes[0] || !eyes[1] || !rects[0] || !rects[1]) return;
 
     let frame = 0;
@@ -444,7 +391,6 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
       breath.setAttribute("transform", `translate(50 50) scale(${pose.scale * (1 - pose.squash)} ${pose.scale * (1 + pose.squash)}) translate(-50 -50)`);
       moveEye(-1, pose.openLeft, 0, pose.roll, pose.gazeX, pose.gazeY, pose.lookX, pose.lookY);
       moveEye(1, pose.openRight, 1, pose.roll, pose.gazeX, pose.gazeY, pose.lookX, pose.lookY);
-      crownNode?.setAttribute("transform", `rotate(${spec.faceTilt + pose.roll + pose.gazeX * 90} 50 50)`);
 
       if (hands) {
         handsPose(now, seed, effectiveMood, life, pose.roll, hands);
@@ -489,7 +435,7 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
         window.removeEventListener("keydown", wake);
       }
     };
-  }, [life, mood, seed, crown, size, activeStyle, spec]);
+  }, [life, mood, seed, size, activeStyle, spec]);
 
   const eye = (side: 1 | -1, index: "left" | "right") => {
     const centre = side === -1 ? spec.left : spec.right;
@@ -551,7 +497,6 @@ export function PresetFace({ color, preset, avatarStyle, size = 44, label, class
           {eye(1, "right")}
         </g>
         {showsHands && <PresetHands gradient={handGradient} edge={handEdge} />}
-        {crown && <Crown testId="chief-badge" tilt={spec.faceTilt} />}
       </g>
     </svg>
   );

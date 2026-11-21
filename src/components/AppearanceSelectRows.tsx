@@ -34,7 +34,7 @@ export function AvatarStyleRow() {
                   : "border-hairline/40 bg-panel/60 text-ink-secondary hover:border-hairline hover:bg-raised hover:text-ink",
               )}
             >
-              <PresetFace preset="blue" avatarStyle={id} size={32} life="still" />
+              <PresetFace preset="white" avatarStyle={id} size={32} life="still" className="drop-shadow-[0_1px_2px_rgba(0,0,0,0.08)]" />
               <span className="w-full truncate text-[11px] font-medium leading-tight">
                 {t(`settings.avatarStyle.${id}`)}
               </span>

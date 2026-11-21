@@ -1563,28 +1563,11 @@ body {
   background: var(--color-accent);
 }
 
-/* Muse-aligned desktop polish: subtle bubble specular rim, light-mode avatar studio halo, and breathing call aura. */
+/* Muse-aligned desktop polish: subtle bubble specular rim and breathing call aura. */
 [data-chat-bubble="simple"]:not(.user-bubble-colored),
 [data-reply-bubble] {
   box-shadow: inset 0 0.5px 0 color-mix(in srgb, var(--color-ink) 7%, transparent);
   letter-spacing: 0.005em;
-}
-.avatar-studio-halo {
-  background-image: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--color-ink) 7%, transparent) 0%,
-    transparent 70%
-  );
-}
-@container style(--code-color-scheme: light) {
-  .avatar-studio-halo {
-    background-image: radial-gradient(
-      circle,
-      rgb(217 206 194 / 0.55) 0%,
-      rgb(228 221 212 / 0.25) 56%,
-      transparent 100%
-    );
-  }
 }
 @keyframes call-aura {
   from {
