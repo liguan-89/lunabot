@@ -328,7 +328,7 @@ export function usePhoneSetupController(profileEmail = ""): PhoneSetupController
           dispatchFlow({ type: "reset" });
           return;
         }
-        const effectiveMode = automaticPairingRouteMode(routeMode, started);
+        const effectiveMode = automaticPairingRouteMode(routeMode, started, accountOverride ?? account);
         const explicitRoute = effectiveMode !== "automatic";
         const gate = phonePairingGate(accountOverride ?? account, started, explicitRoute);
         const remote = companionAccountBridge();
