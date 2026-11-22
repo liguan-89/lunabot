@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
+import { hostTimeout } from "./testing/host-timeout.ts";
 
 const ENTRY = join(import.meta.dirname, "lunabot.ts");
 
@@ -221,7 +222,7 @@ rooms:
       [lead.id]: { turns: [{}, {}, { steps: [{ arguments: { bot_ids: [priya.id], message: "Hold the line until told." } }], reply: "Asked Priya to hold." }] },
       [priya.id]: { turns: [{}, { readyFile: join(dir, "priya-holding"), gateFile: never, reply: "Released." }] },
     }));
-    const run = await cli(["run", "Room Lead", "Hold the line.", "--timeout", "4s", "--on-timeout", "stop", "--json"]);
+    const run = await cli(["run", "Room Lead", "Hold the line.", "--timeout", `${hostTimeout(4_000) / 1_000}s`, "--on-timeout", "stop", "--json"]);
     expect(run.code, `${run.stderr}\n${run.stdout}`).toBe(4);
     const result = json(run);
     expect(existsSync(join(dir, "priya-holding"))).toBe(true);

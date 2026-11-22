@@ -124,7 +124,7 @@
       "file": "server/headless-cli.e2e.test.ts",
       "test": "openmausbot headless: team apply → run --wait job → export > stops a job whose teammate hangs when its time runs out, the teammate included",
       "owner": "liguan-89",
-      "reason": "Failed once on a loaded ubuntu shard (Nov 22): teammate readyFile never landed inside the hardcoded 4s job timeout — engine spawn latency under shard contention; green locally.",
+      "reason": "Failed twice on loaded ubuntu shards (Nov 22, all three attempts): teammate readyFile never landed inside the job timeout — engine spawn latency under shard contention. The 4 s timeout is now host-scaled (8 s on CI); green locally.",
       "since": "2026-11-22"
     },
     {
