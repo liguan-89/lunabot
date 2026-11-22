@@ -317,7 +317,11 @@ it("a run of a guest's routine is the guest's: confined, and so is work it hands
   const ownFrom = piTurns(piDumpPath(dataDir)).length;
   expect((await api("POST", `/api/routines/${own.body.routine.id}/run`, { token: owner })).status).toBe(201);
   const ownTurn = await turnWith(ownFrom, "Read /proc/1/environ.");
-  expect(confined(ownTurn)).toBe(false);
+  expect(confined(ownTurn), JSON.stringify({
+    index: piTurns(piDumpPath(dataDir)).indexOf(ownTurn),
+    thread: (ownTurn.launch?.mcpConfig?.mcpServers?.agents?.env as Record<string, string> | undefined)?.OMB_THREAD_ID,
+    prompt: ownTurn.prompt.slice(0, 80),
+  })).toBe(false);
   await release(teammate.id);
 }, hostTimeout(90_000));
 

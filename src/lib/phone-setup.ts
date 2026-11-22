@@ -107,6 +107,7 @@ export function derivePhoneSetupPhase(
 
 export type CompanionPairingMode =
   | "local-only"
+  | "local-ready"
   | "hosted-startable"
   | "hosted-connecting"
   | "hosted-ready";
@@ -163,17 +164,24 @@ export const companionPairingMode = (
     return "local-only";
   }
   if (account.status === "ready" && !companion?.enabled) return "hosted-startable";
+  // The control plane answered `409 relay_capable` with `tunnel: "retired"`: no hosted address will ever be issued for
+  // this computer, so waiting for one waits forever and ends in "secure access is taking longer than expected". Pair
+  // through the local form instead, which carries the same pinned key and the relay descriptor in the QR.
+  if (account.tunnelRetired === true) return "local-ready";
   return "hosted-connecting";
 };
 
-/** The route whose address form fills the QR: relay-ready automatic pairing reuses the local form. */
+/** The route whose address form fills the QR: relay-ready or tunnel-retired automatic pairing reuses the local form,
+ * which carries the same pinned key and the relay descriptor. */
 export function automaticPairingRouteMode(
   routeMode: CompanionPairingRouteMode,
   companion: PhoneSetupCompanionSnapshot | null,
+  account: CompanionAccountState | null = null,
 ): CompanionPairingRouteMode {
   if (routeMode !== "automatic") return routeMode;
   if (companion?.endpoints?.some((endpoint) => endpoint.kind === "hosted")) return "automatic";
-  return relayPairingReady(companion) ? "local" : "automatic";
+  if (relayPairingReady(companion)) return "local";
+  return companionPairingMode(account, companion) === "local-ready" ? "local" : "automatic";
 }
 
 export type PhonePairingGate = "open" | "start" | "wait" | "account-required";
@@ -186,6 +194,8 @@ export function phonePairingGate(
   if (explicitRoute) return "open";
   switch (companionPairingMode(account, companion)) {
     case "hosted-ready":
+      return "open";
+    case "local-ready":
       return "open";
     case "hosted-startable":
       return "start";

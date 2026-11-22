@@ -276,6 +276,14 @@ renews its token hourly; sessions already open survive a token renewal. A phone
 that cannot reach the relay shows "Can't reach Luna Bot Relay right now. Trying
 again…".
 
+**"The next node" only exists if the control plane names more than one.** The
+grant lists whatever `DEXCLOUD_RELAY_NODES` holds, in rendezvous order. A
+deployment that sets one name has no failover, and two names that resolve to the
+same machine are one node with two spellings — the state of this fork's own
+control plane today, where `cloud.dexai.vip` answers both the control-plane and
+the relay routes on one host. Moving the relay to a second machine is
+[`plans/2026-11-22-relay-split-runbook.md`](plans/2026-11-22-relay-split-runbook.md).
+
 ## Not yet
 
 - The web UI: a relay QR in the server's own Settings → Remote access, and the

@@ -261,7 +261,7 @@ import {
   queuedSteeredMessage,
   queuedThreadPosition,
   queueSteeredMessage,
-  restoreSteeredMessages,
+  restoreSteeredMessages, watchSteerQueues,
 } from "./steer-queue.ts"; import { createDoneNotice } from "./done-notice.ts";
 import {
   drainChannelMessages,
@@ -4828,7 +4828,7 @@ function memberFrame(client: SseClient, seq: number, payload: Record<string, unk
   if (!narrowed) return null;
   return narrowed === payload ? clientFrame : `id: ${STREAM_ID}:${seq}\ndata: ${JSON.stringify({ ...narrowed, seq })}\n\n`;
 }
-onSteeredQueueChange(() => broadcast({ kind: "bot.queued", queues: publicBotQueuedMessages() }));
+onSteeredQueueChange(() => broadcast({ kind: "bot.queued", queues: publicBotQueuedMessages() })); watchSteerQueues({ ready: () => followupsReady, drain: drainQueuedSends });
 
 // Keyed by threadId: provider item and request ids are unique only within a thread.
 const toolMessageByItem = new Map<string, string>();
@@ -13065,7 +13065,7 @@ ROUTES.push(createDataRoutes({
 }));
 const liveRelays = new LiveRelays({ record: recordLiveCallRow });
 ROUTES.push(createLiveRoutes({
-  calls: liveCalls,
+  calls: liveCalls, phoneRevoked: (deviceId) => phones.forgotDevice(deviceId),
   resolveTarget: liveCallTarget,
   settings: () => liveSettingsFor(cfg),
   saveSettings: async (patch) => {

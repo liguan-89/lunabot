@@ -374,3 +374,51 @@ describe("pushed notices", () => {
     expect(part?.text).not.toContain("广告话题");
   });
 });
+
+describe("a device the computer dropped", () => {
+  /** A phone registered the way the companion sidecar registers one: keyed by the device id it authenticated. */
+  const register = async (phones: Phones, deviceId: string, name: string) => {
+    let status = 0;
+    await phones.routes({
+      req: { headers: { "content-type": "application/json" } } as never,
+      res: { setHeader: () => {} } as never,
+      url: new URL("http://x/api/phones/self"), path: "/api/phones/self", method: "PUT",
+      auth: { kind: "loopback", scopes: ["admin", "client"], companionDevice: deviceId },
+      json: (_res: never, code: number) => { status = code; return undefined as never; },
+      readBody: async () => ({
+        installId: `install-${deviceId}`, name, platform: "android", appVersion: "2.1.4", timeZone: "Asia/Shanghai",
+        capabilities: { phoneData: "full" }, noticeApps: ["com.chat.app"],
+      }) as never,
+    } as never);
+    expect(status).toBe(200);
+  };
+  const list = (phones: Phones): string[] => {
+    const seen: string[] = [];
+    void phones.routes({
+      req: { headers: {} } as never,
+      res: { setHeader: () => {} } as never,
+      url: new URL("http://x/api/phones"), path: "/api/phones", method: "GET",
+      auth: loopback,
+      json: (_res: never, _code: number, data: unknown) => {
+        for (const phone of (data as { phones: Array<{ registration: { name: string } }> }).phones) seen.push(phone.registration.name);
+        return undefined as never;
+      },
+      readBody: async () => ({}) as never,
+    } as never);
+    return seen;
+  };
+
+  it("forgets exactly the record of the device that was dropped", async () => {
+    const { phones } = world();
+    await register(phones, "device-1", "One");
+    await register(phones, "device-2", "Two");
+    // `world()` seeds the owner's session-paired iPhone; the two companions sit beside it.
+    expect([...list(phones)].sort()).toEqual(["Omkar's iPhone", "One", "Two"]);
+
+    expect(phones.forgotDevice("device-1")).toBe(true);
+    expect([...list(phones)].sort()).toEqual(["Omkar's iPhone", "Two"]);
+    // Removing it twice is a no-op, not an error: the notice is best effort.
+    expect(phones.forgotDevice("device-1")).toBe(false);
+    expect([...list(phones)].sort()).toEqual(["Omkar's iPhone", "Two"]);
+  });
+});

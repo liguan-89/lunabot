@@ -84,7 +84,7 @@ const openCard = async (threadId: string, requestType: "permission" | "question"
 async function until(done: () => Promise<boolean> | boolean, timeoutMs = hostTimeout(150_000)): Promise<void> {
   const end = Date.now() + timeoutMs;
   while (!(await done())) {
-    if (Date.now() > end) throw new Error("timed out waiting");
+    if (Date.now() > end) throw new Error(`timed out waiting: ${done.toString().slice(0, 160)}`);
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 }

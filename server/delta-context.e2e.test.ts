@@ -554,7 +554,7 @@ it.each(["SIGTERM", "SIGKILL"] as const)("resumes a Chief whose own turn a resta
   await f.restart(() => {}, signal);
   f.open(f.gate("chief"));
   await expect.poll(async () => (await f.messages()).some((m: any) => m.text === "CUT_REVIEWED"), { timeout: 30_000 }).toBe(true);
-  expect(f.turns()).toHaveLength(chiefTurns + 1);
+  expect(f.turns().map((turn: any) => [turn.resumed === true, String(f.prompt(turn)).slice(0, 40)])).toHaveLength(chiefTurns + 1);
   expect(f.turns().at(-1).resumed).toBe(true);
   expect(f.prompt(f.turns().at(-1))).toContain("Luna Bot restarted before your previous turn here finished, after it sent work to teammates.");
   expect(f.prompt(f.turns().at(-1))).toContain("LEAD_DONE_BEFORE_RESTART");

@@ -22,7 +22,7 @@ Implemented and covered by `test/flow.test.js`:
 - `omc_` Cloud sessions with a `pro` licence entitlement;
 - installation registration, credential rotation and revocation;
 - `409 relay_capable` for managed tunnels, so phones use the relay;
-- Ed25519 relay grants (`relay1.dexai.vip` or `cloud.dexai.vip`);
+- Ed25519 relay grants (`cloud.dexai.vip` by default; `relayN.dexai.vip` only with its own site block);
 - consent records, update manifest and APK download;
 - self-hosted plan activation pages (`/cloud`, `/pro/buy`);
 - hosted Cloud desktops: one `lunabot-cloud-home` container and volume per
@@ -105,7 +105,7 @@ The two `/v1` paths belong to the phone relay. Everything else is Luna Bot Cloud
 | `DEXCLOUD_DB` | SQLite file (`/data/dex-cloud.db`) |
 | `DEXCLOUD_RELAY_TOKEN_SEED` | base64url 32-byte Ed25519 seed; also peppers OTP hashes |
 | `DEXCLOUD_RELAY_TOKEN_KID` | key id the relay expects (`k1`) |
-| `DEXCLOUD_RELAY_NODES` | comma list, `cloud.dexai.vip` and/or `relay1.dexai.vip` |
+| `DEXCLOUD_RELAY_NODES` | comma list; default `cloud.dexai.vip`, which serves the relay routes itself. A `relayN.dexai.vip` name needs its own Caddy site block first, or the TLS handshake fails |
 | `DEXCLOUD_EMAIL_FROM` | From header |
 | `DEXCLOUD_SMTP_URL` | `smtp://user:pass@host:port` or `smtps://...` |
 | `DEXCLOUD_RESEND_API_KEY` | Resend HTTP API instead of SMTP |
