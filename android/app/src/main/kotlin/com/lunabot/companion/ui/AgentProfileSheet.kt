@@ -9,17 +9,22 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.Image
@@ -110,6 +115,7 @@ import com.lunabot.companion.core.ModelSelection
 import com.lunabot.companion.core.Session
 import com.lunabot.companion.core.Voice
 import com.lunabot.companion.core.VoiceProvider
+import com.lunabot.companion.storage.BotAvatarStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -177,6 +183,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
     val currentTask = live?.let { it.forTask(opened?.threadId ?: it.threadId) }
 
     var prompt by rememberSaveable { mutableStateOf("") }
+    var videoPrompt by rememberSaveable { mutableStateOf("") }
     var selectedDynamicState by rememberSaveable { mutableStateOf(DynamicAvatarStates.IDLE) }
     var selectedVideoStyle by rememberSaveable { mutableStateOf(AvatarVideoStyle.AUTO.wire) }
     var videoGenProgress by remember { mutableStateOf<String?>(null) }
@@ -194,6 +201,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
     // and uploaded at the moment the bot is made. Without this, picking a face
     // while creating did nothing at all (the picker returned early).
     var pendingPreset by remember { mutableStateOf<PresetAvatar?>(null) }
+    var selectedPresetKey by remember(record?.id) { mutableStateOf<String?>(null) }
     var pendingUpload by remember { mutableStateOf<Pair<ByteArray, String>?>(null) }
     // Set when "Done" is pressed on a creation page with nothing to save.
     var nameHint by remember { mutableStateOf(false) }
@@ -286,10 +294,20 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                 }
                 form = ProfileForm.of(updated)
                 baseline = ProfileForm.of(updated)
-                // A model chosen in the creation form is applied now, when
-                // there is finally an id to send it to.
-                pendingModel?.let { selection ->
-                    val applied = session.updateModel(selection, updated)
+                // Apply pending or modified model selection in the same Save pass
+                // so users never lose model edits when tapping top-right Save.
+                val modelToApply = pendingModel ?: modelDraft.takeIf {
+                    ModelRules.canApply(
+                        loaded = modelsLoaded,
+                        botBusy = updated.forTask(opened?.threadId ?: updated.threadId)?.busy,
+                        instance = selectedInstance,
+                        draft = modelDraft,
+                        saved = savedModel,
+                    )
+                }
+                modelToApply?.let { selection ->
+                    val modelTarget = updated.forTask(opened?.threadId ?: updated.threadId) ?: updated
+                    val applied = session.updateModel(selection, modelTarget)
                     if (applied != null) {
                         savedModel = applied.modelSelection
                         showModel(applied.modelSelection)
@@ -303,8 +321,15 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
         }
     }
 
-    // The pill reads unsaved changes off the same comparison the save uses.
+    // The pill reads unsaved changes off both profile fields and model edits.
     val profileDirty = form != baseline
+    val modelDirty = !creating && currentTask != null && ModelRules.canApply(
+        loaded = modelsLoaded,
+        botBusy = currentTask.busy,
+        instance = selectedInstance,
+        draft = modelDraft,
+        saved = savedModel,
+    )
     val connectionStatus by session.status.collectAsState()
 
     LaunchedEffect(Unit) {
@@ -391,7 +416,6 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
-        val hazeState = rememberHazeState()
         val scrollState = rememberScrollState()
         val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
         val topBandAlpha by animateFloatAsState(
@@ -399,10 +423,18 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
             animationSpec = tween(180),
             label = "profile-top-haze",
         )
-        CompositionLocalProvider(LocalHazeState provides hazeState) {
-        Box(modifier = Modifier.fillMaxSize().background(minisCanvas).statusBarsPadding()) {
+        val topInset = WindowInsets.safeDrawing
+            .only(WindowInsetsSides.Top)
+            .asPaddingValues()
+            .calculateTopPadding()
+        val bottomInset = WindowInsets.safeDrawing
+            .only(WindowInsetsSides.Bottom)
+            .asPaddingValues()
+            .calculateBottomPadding()
+        Box(modifier = Modifier.fillMaxSize().background(minisCanvas)) {
             val view = LocalView.current
             val dark = minisIsDark()
+            val chipRecess = if (dark) Color(0xFF2C2C2E) else Color(0xFFE8E8E5)
             SideEffect {
                 val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
                 WindowCompat.getInsetsController(window, view).apply {
@@ -410,103 +442,82 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     isAppearanceLightNavigationBars = !dark
                 }
             }
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(minisCanvas)
-                    .hazeSource(hazeState),
+                    .verticalScroll(scrollState)
+                    .navigationBarsPadding()
+                    .padding(horizontal = MinisPagePadding)
+                    .padding(top = topInset + 64.dp, bottom = 48.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
+                saveError?.let { message ->
+                    InlineNotice(
+                        message = message,
+                        tone = NoticeTone.ERROR,
+                        modifier = Modifier.fillMaxWidth(),
+                        onDismiss = { saveError = null },
+                    )
+                }
+
+                // 1. 顶部头像预览与统一的头像配置区（预设 / 裁剪 / 相册 / AI 生成）
                 Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(scrollState)
-                        .navigationBarsPadding()
-                        .padding(horizontal = MinisPagePadding)
-                        .padding(top = 72.dp, bottom = 36.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    saveError?.let { message ->
-                        InlineNotice(
-                            message = message,
-                            tone = NoticeTone.ERROR,
-                            modifier = Modifier.fillMaxWidth(),
-                            onDismiss = { saveError = null },
-                        )
-                    }
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    Box(
+                        modifier = Modifier
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                enabled = !busy,
+                                role = Role.Button,
+                            ) { libraryOpen = !libraryOpen },
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen },
-                        ) {
-                            val waiting = pendingPreset
-                            if (waiting != null) {
-                                PresetBotAvatar(
-                                    color = waiting.key,
-                                    size = 108.dp,
-                                    contentDescription = "${current.name} 头像",
-                                )
-                            } else {
-                                BotAvatar(
-                                    bot = current,
-                                    size = 108.dp,
-                                    state = MausState.HAPPY,
-                                    fallback = AvatarFallback.PRESET,
-                                    contentDescription = "${current.name} 头像",
-                                )
-                            }
-                            TouchTarget(
-                                onClick = { if (!busy) libraryOpen = !libraryOpen },
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .offset(x = 4.dp, y = 4.dp),
-                                contentDescription = "更换头像",
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .background(minisCanvas, CircleShape)
-                                        .padding(2.dp)
-                                        .shadow(4.dp, CircleShape, clip = false)
-                                        .background(minisCard, CircleShape)
-                                        .border(0.5.dp, minisSeparator, CircleShape),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Filled.Edit,
-                                        contentDescription = null,
-                                        tint = minisInk,
-                                        modifier = Modifier.size(15.dp),
-                                    )
-                                }
-                            }
+                        val waiting = pendingPreset
+                        if (waiting != null) {
+                            PresetBotAvatar(
+                                color = waiting.key,
+                                bodyId = form.mascotBody,
+                                size = 104.dp,
+                                contentDescription = "${current.name} 头像",
+                            )
+                        } else {
+                            BotAvatar(
+                                bot = current.copy(avatarCrop = form.crop, mascotBody = form.mascotBody),
+                                size = 104.dp,
+                                state = MausState.HAPPY,
+                                fallback = AvatarFallback.PRESET,
+                                contentDescription = "${current.name} 头像",
+                            )
                         }
-                        Text(
-                            text = if (libraryOpen) "收起头像选项" else "更换头像",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = minisSecondary,
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(if (minisIsDark()) minisGrouped else Color(0xFFF2F2F0))
-                                .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen }
-                                .padding(horizontal = 14.dp, vertical = 5.dp),
-                        )
                     }
+                    Text(
+                        text = if (libraryOpen) "收起头像选项" else "更换头像",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = minisSecondary,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .background(chipRecess)
+                            .clickable(enabled = !busy, role = Role.Button) { libraryOpen = !libraryOpen }
+                            .padding(horizontal = 14.dp, vertical = 6.dp),
+                    )
+                }
 
-                    AnimatedVisibility(visible = libraryOpen) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ProfileCard {
+                AnimatedVisibility(visible = libraryOpen) {
+                    val hasCustomImage = current.avatarUrl != null || pendingUpload != null
+                    ProfileGroup(
+                        footer = if (creating) "头像会在保存时上传到电脑。" else "支持 PNG、JPG、GIF、WebP，最大 10 MB",
+                    ) {
+                        ProfileCard {
+                            if (hasCustomImage || form.crop != AvatarCrop.MASCOT) {
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                                        .background(minisGrouped, RoundedCornerShape(12.dp))
+                                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                                        .background(chipRecess, RoundedCornerShape(12.dp))
                                         .padding(3.dp),
                                     horizontalArrangement = Arrangement.spacedBy(3.dp),
                                 ) {
@@ -515,7 +526,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                         Box(
                                             modifier = Modifier
                                                 .weight(1f)
-                                                .heightIn(min = 38.dp)
+                                                .heightIn(min = 34.dp)
                                                 .clip(RoundedCornerShape(9.dp))
                                                 .then(
                                                     if (active) {
@@ -538,104 +549,227 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                         }
                                     }
                                 }
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                                        .horizontalScroll(rememberScrollState()),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    PresetAvatars.all.forEach { preset ->
-                                        TouchTarget(
-                                            onClick = {
-                                                if (!busy) {
-                                                    scope.launch {
-                                                        busy = true
-                                                        try {
-                                                            val bytes = presetPngBytes(context, preset)
-                                                            val target = created ?: opened
-                                                            if (target == null) {
-                                                                pendingUpload = bytes to "image/png"
-                                                                pendingPreset = preset
-                                                                form = form.copy(crop = AvatarCrop.CIRCLE)
-                                                                baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
-                                                                return@launch
-                                                            }
-                                                            val updated = session.uploadAvatar(
-                                                                data = bytes,
-                                                                mime = "image/png",
-                                                                forBot = target,
-                                                                crop = AvatarCrop.CIRCLE,
-                                                            )
-                                                            if (updated != null) {
-                                                                pendingPreset = null
-                                                                form = form.copy(crop = AvatarCrop.CIRCLE)
-                                                                baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
-                                                            }
-                                                        } finally {
-                                                            busy = false
-                                                        }
-                                                    }
-                                                }
-                                            },
-                                            contentDescription = "使用${preset.label}头像",
-                                            size = 48.dp,
-                                            enabled = !busy,
-                                        ) {
-                                            PresetBotAvatar(
-                                                color = preset.key,
-                                                size = 44.dp,
-                                                contentDescription = null,
+                                ProfileCardDivider()
+                            }
+                            val activePresetKey = pendingPreset?.key
+                                ?: selectedPresetKey
+                                ?: if (current.avatarUrl == null) PresetAvatars.forColor(current.color).key else null
+                            val previewColor = activePresetKey ?: PresetAvatars.forColor(current.color).key
+                            val fallbackStyle = LocalBotAvatarStyle.current
+                            val activeStyle = BotAvatarStyle.entries.firstOrNull {
+                                it.wireValue.equals(form.mascotBody, ignoreCase = true)
+                            } ?: fallbackStyle
+                            Text(
+                                text = "形象风格",
+                                fontSize = 12.sp,
+                                color = minisSecondary,
+                                modifier = Modifier.padding(start = 16.dp, top = 12.dp),
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                BotAvatarStyle.entries.forEach { style ->
+                                    val isSelected = activeStyle == style
+                                    Column(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .then(
+                                                if (isSelected) {
+                                                    Modifier
+                                                        .background(minisCard, RoundedCornerShape(14.dp))
+                                                        .border(1.5.dp, minisAccent, RoundedCornerShape(14.dp))
+                                                } else {
+                                                    Modifier
+                                                },
                                             )
-                                        }
+                                            .clickable(enabled = !busy, role = Role.RadioButton) {
+                                                form = form.copy(mascotBody = style.wireValue)
+                                            }
+                                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                                            .semantics { contentDescription = "切换为${profileBotStyleLabel(style)}形象" },
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        PresetBotAvatar(
+                                            color = previewColor,
+                                            bodyId = style.wireValue,
+                                            size = 40.dp,
+                                            contentDescription = null,
+                                        )
+                                        Text(
+                                            text = profileBotStyleLabel(style),
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (isSelected) minisInk else minisSecondary,
+                                            maxLines = 1,
+                                        )
                                     }
                                 }
-                                ProfileCardDivider()
-                                ProfileActionRow(
-                                    text = "从相册上传图片",
-                                    icon = Icons.Filled.AddCircle,
-                                    enabled = !busy,
-                                    onClick = { pickImage.launch(AvatarImagePicker.request()) },
-                                )
-                                if (current.avatarUrl != null) {
-                                    ProfileCardDivider()
-                                    ProfileActionRow(
-                                        text = "恢复默认头像",
-                                        icon = Icons.Filled.Delete,
-                                        enabled = !busy,
-                                        destructive = true,
-                                        onClick = {
-                                            scope.launch {
-                                                busy = true
-                                                try {
-                                                    val target = (created ?: opened) ?: return@launch
-                                                    val updated = session.updateProfile(
-                                                        BotProfilePatch(
-                                                            avatarUrl = BotProfilePatch.AvatarURL.Clear,
-                                                            avatarCrop = AvatarCrop.MASCOT,
-                                                        ),
-                                                        target,
-                                                    )
-                                                    if (updated != null) {
-                                                        val crop = updated.avatarCrop ?: AvatarCrop.MASCOT
-                                                        form = form.copy(crop = crop)
-                                                        baseline = baseline.copy(crop = crop)
+                            }
+                            ProfileCardDivider()
+                            Text(
+                                text = "配色",
+                                fontSize = 12.sp,
+                                color = minisSecondary,
+                                modifier = Modifier.padding(start = 16.dp, top = 10.dp),
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .horizontalScroll(rememberScrollState())
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                PresetAvatars.all.forEach { preset ->
+                                    val isSelected = activePresetKey == preset.key
+                                    Box(
+                                        modifier = Modifier
+                                            .size(50.dp)
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .then(
+                                                if (isSelected) {
+                                                    Modifier.border(2.dp, minisAccent, RoundedCornerShape(14.dp))
+                                                } else {
+                                                    Modifier
+                                                },
+                                            )
+                                            .clickable(enabled = !busy, role = Role.RadioButton) {
+                                                scope.launch {
+                                                    busy = true
+                                                    try {
+                                                        val bytes = presetPngBytes(context, preset)
+                                                        val target = created ?: opened
+                                                        if (target == null) {
+                                                            pendingUpload = bytes to "image/png"
+                                                            pendingPreset = preset
+                                                            selectedPresetKey = preset.key
+                                                            form = form.copy(crop = AvatarCrop.CIRCLE)
+                                                            baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
+                                                            return@launch
+                                                        }
+                                                        val updated = session.uploadAvatar(
+                                                            data = bytes,
+                                                            mime = "image/png",
+                                                            forBot = target,
+                                                            crop = AvatarCrop.CIRCLE,
+                                                        )
+                                                        if (updated != null) {
+                                                            pendingPreset = null
+                                                            selectedPresetKey = preset.key
+                                                            form = form.copy(crop = AvatarCrop.CIRCLE)
+                                                            baseline = baseline.copy(crop = AvatarCrop.CIRCLE)
+                                                        }
+                                                    } finally {
+                                                        busy = false
                                                     }
-                                                } finally {
-                                                    busy = false
                                                 }
                                             }
-                                        },
-                                    )
+                                            .semantics { contentDescription = "使用${preset.label}头像" },
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        PresetBotAvatar(
+                                            color = preset.key,
+                                            bodyId = form.mascotBody,
+                                            size = 42.dp,
+                                            contentDescription = null,
+                                        )
+                                    }
                                 }
                             }
-                            ProfileFooter(
-                                if (creating) "头像会在保存时上传到电脑。" else ProfileRules.AVATAR_FOOTER,
+                            ProfileCardDivider()
+                            ProfileActionRow(
+                                text = "从相册上传图片",
+                                icon = Icons.Filled.AddCircle,
+                                enabled = !busy,
+                                onClick = { pickImage.launch(AvatarImagePicker.request()) },
                             )
+                            if (!creating) {
+                                ProfileCardDivider()
+                                ProfilePlainField(
+                                    value = prompt,
+                                    onValueChange = { prompt = it },
+                                    placeholder = "用一句话描述想要的头像风格…",
+                                    label = "画面风格描述",
+                                    singleLine = false,
+                                    minLines = 1,
+                                    maxLines = 4,
+                                )
+                                ProfileCardDivider()
+                                ProfileActionRow(
+                                    text = "在电脑上生成头像",
+                                    painter = R.drawable.ic_sparkles,
+                                    enabled = ProfileRules.canGenerate(busy, config, prompt),
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val intended = AvatarImageRules.intendedUploadCrop(form.crop)
+                                                val target = (created ?: opened) ?: return@launch
+                                                val generated = session.generateAvatar(
+                                                    ProfileRules.generatePrompt(prompt),
+                                                    target,
+                                                ) ?: return@launch
+                                                val updated = session.updateProfile(
+                                                    BotProfilePatch(avatarCrop = intended),
+                                                    generated,
+                                                )
+                                                val crop = if (updated != null) {
+                                                    updated.avatarCrop ?: intended
+                                                } else {
+                                                    generated.avatarCrop ?: AvatarCrop.MASCOT
+                                                }
+                                                form = form.copy(crop = crop)
+                                                baseline = baseline.copy(crop = crop)
+                                            } finally {
+                                                busy = false
+                                            }
+                                        }
+                                    },
+                                )
+                            }
+                            if (current.avatarUrl != null) {
+                                ProfileCardDivider()
+                                ProfileActionRow(
+                                    text = "恢复默认头像",
+                                    icon = Icons.Filled.Delete,
+                                    enabled = !busy,
+                                    destructive = true,
+                                    onClick = {
+                                        scope.launch {
+                                            busy = true
+                                            try {
+                                                val target = (created ?: opened) ?: return@launch
+                                                val updated = session.updateProfile(
+                                                    BotProfilePatch(
+                                                        avatarUrl = BotProfilePatch.AvatarURL.Clear,
+                                                        avatarCrop = AvatarCrop.MASCOT,
+                                                    ),
+                                                    target,
+                                                )
+                                                if (updated != null) {
+                                                    val crop = updated.avatarCrop ?: AvatarCrop.MASCOT
+                                                    form = form.copy(crop = crop)
+                                                    baseline = baseline.copy(crop = crop)
+                                                }
+                                            } finally {
+                                                busy = false
+                                            }
+                                        }
+                                    },
+                                )
+                            }
                         }
                     }
+                }
 
-                    ProfileSectionLabel("名称")
+                // 2. 基本信息（合并名称、头衔与职责描述）
+                ProfileGroup(label = "基本信息") {
                     ProfileCard {
                         ProfilePlainField(
                             value = form.name,
@@ -649,108 +783,36 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                 capitalization = KeyboardCapitalization.Words,
                             ),
                         )
+                        ProfileCardDivider()
+                        ProfilePlainField(
+                            value = form.title,
+                            onValueChange = { form = form.copy(title = it) },
+                            placeholder = "头衔（可选）",
+                            label = "头衔",
+                        )
+                        ProfileCardDivider()
+                        ProfilePlainField(
+                            value = form.description,
+                            onValueChange = { form = form.copy(description = it) },
+                            placeholder = "此智能体的职责描述",
+                            label = "职责描述",
+                            singleLine = false,
+                            minLines = 2,
+                            maxLines = 6,
+                        )
                     }
                     if (nameHint) {
                         Text(
                             text = "先给智能体起个名字，再点创建。",
                             fontSize = 13.sp,
                             color = MinisTokens.Danger,
-                            modifier = Modifier.padding(start = 4.dp, top = 2.dp),
+                            modifier = Modifier.padding(start = 16.dp),
                         )
                     }
+                }
 
-                    VoiceSection(
-                        config = config,
-                        switching = switchingEngine,
-                        onSwitchEngine = { next ->
-                            // The desktop's Voice engine group: one field of the
-                            // ordinary config write, then a fresh voice list,
-                            // because every engine names its own voices.
-                            if (switchingEngine || config?.voiceProvider == next) return@VoiceSection
-                            scope.launch {
-                                switchingEngine = true
-                                try {
-                                    val updated = session.switchVoiceProvider(next)
-                                    if (updated != null) {
-                                        val (resetForm, resetBaseline) = ProfileRules.afterVoiceProviderSwitch(
-                                            form = form,
-                                            baseline = baseline,
-                                            config = updated,
-                                        )
-                                        form = resetForm
-                                        baseline = resetBaseline
-                                        config = updated
-                                        // Never render or preview the previous
-                                        // provider's identifiers while reloading.
-                                        voices = emptyList()
-                                        voices = session.voiceOptions()
-                                    }
-                                } finally {
-                                    switchingEngine = false
-                                }
-                            }
-                        },
-                    ) {
-                        ProfilePickerRow(
-                            label = "语音音色",
-                            choices = ProfileRules.voiceChoices(config, voices, form.voice),
-                            selected = form.voice,
-                            onSelect = { form = form.copy(voice = it) },
-                        )
-                        ProfileCardDivider()
-                        ProfileSwitchRow(
-                            label = "语音朗读回复",
-                            checked = form.speakReplies,
-                            enabled = ProfileRules.selectedVoiceCanSpeak(config, form.voice),
-                            onCheckedChange = { form = form.copy(speakReplies = it) },
-                        )
-                        ProfileCardDivider()
-                        ProfileActionRow(
-                            text = "试听语音",
-                            painter = R.drawable.ic_volume_up,
-                            enabled = ProfileRules.canPreview(busy, config, form.voice),
-                            onClick = {
-                                scope.launch {
-                                    if (!ProfileRules.selectedVoiceCanSpeak(config, form.voice)) {
-                                        session.actionError = ProfileRules.PREVIEW_REFUSED
-                                        return@launch
-                                    }
-                                    busy = true
-                                    try {
-                                        // Preview only needs the bot's name for
-                                        // the sample line, so a draft can hear
-                                        // its own voice without being created.
-                                        val data = session.previewVoice(
-                                            form.voice,
-                                            liveBot() ?: current,
-                                        ) ?: return@launch
-                                        // `rememberCoroutineScope` dispatches on
-                                        // main, and starting a preview reaches
-                                        // MediaPlayer.prepare(), which blocks
-                                        // until the source is decodable. The
-                                        // controller serialises every transition
-                                        // on its own lock and its callbacks are
-                                        // delivered on the main Looper, so it is
-                                        // safe to start from a worker; the result
-                                        // lands back on main to be reported.
-                                        val failure = withContext(Dispatchers.IO) {
-                                            player.play(data)
-                                        }
-                                        failure?.let { session.actionError = it }
-                                    } finally {
-                                        busy = false
-                                    }
-                                }
-                            },
-                        )
-                        ProfileRules.pickAVoiceHint(config, form.voice)?.let { hint ->
-                            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-                                IconNote(text = hint, icon = Icons.Filled.Info)
-                            }
-                        }
-                    }
-
-                    ProfileSectionLabel("模型")
+                // 3. 模型配置（已纳入右上角统一保存）
+                ProfileGroup(label = "模型", footer = ModelRules.FOOTER) {
                     ProfileCard {
                         val instanceChoices = ModelRules.instanceChoices(instances, savedModel)
                         if (!modelsLoaded) {
@@ -862,10 +924,12 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                 )
                             }
                             ModelRules.note(currentTask?.busy, selectedInstance)?.let { note ->
+                                ProfileCardDivider()
                                 Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
                                     IconNote(text = note, icon = Icons.Filled.Info)
                                 }
                             }
+                            ProfileCardDivider()
                             ProfileActionRow(
                                 text = if (creating) "记住模型" else "应用模型",
                                 icon = Icons.Filled.Check,
@@ -877,9 +941,6 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                     saved = savedModel,
                                 ),
                                 onClick = {
-                                    // While creating there is nothing to patch;
-                                    // saveProfile sends this right after the bot
-                                    // exists.
                                     if (creating) {
                                         pendingModel = modelDraft
                                         savedModel = modelDraft
@@ -904,77 +965,92 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             )
                         }
                     }
-                    ProfileFooter(ModelRules.FOOTER)
+                }
 
-                    ProfileSectionLabel("上下文")
-                    ProfileCard {
-                        ProfileActionRow(
-                            text = if (compacting) "正在压缩…" else ProfileRules.COMPACT_LABEL,
-                            enabled = !busy && !compacting && currentTask != null,
-                            onClick = { confirmingCompact = true },
-                        )
-                    }
-                    ProfileFooter(ProfileRules.COMPACT_FOOTER)
-
-                    ProfileSectionLabel("生成头像")
-                    ProfileCard {
-                        ProfilePlainField(
-                            value = prompt,
-                            onValueChange = { prompt = it },
-                            placeholder = "画面风格描述",
-                            label = "画面风格描述",
-                            singleLine = false,
-                            minLines = 2,
-                            maxLines = 5,
-                        )
-                        ProfileActionRow(
-                            text = "在电脑上生成",
-                            painter = R.drawable.ic_sparkles,
-                            // Generating attaches the result to a bot, so it
-                            // waits until this draft has an id.
-                            enabled = !creating && ProfileRules.canGenerate(busy, config, prompt),
-                            onClick = {
-                                scope.launch {
-                                    busy = true
-                                    try {
-                                        val intended = AvatarImageRules.intendedUploadCrop(form.crop)
-                                        val target = (created ?: opened) ?: return@launch
-                                        val generated = session.generateAvatar(
-                                            ProfileRules.generatePrompt(prompt),
-                                            target,
-                                        ) ?: return@launch
-                                        // Generation picks a safe crop server-side;
-                                        // the selector is the user's explicit choice,
-                                        // so persist it against the returned
-                                        // attachment rather than leaving the two out
-                                        // of sync.
-                                        val updated = session.updateProfile(
-                                            BotProfilePatch(avatarCrop = intended),
-                                            generated,
-                                        )
-                                        val crop = if (updated != null) {
-                                            updated.avatarCrop ?: intended
-                                        } else {
-                                            // Generation itself succeeded: reflect its
-                                            // authoritative fallback rather than
-                                            // claiming the requested crop was saved.
-                                            generated.avatarCrop ?: AvatarCrop.MASCOT
-                                        }
-                                        form = form.copy(crop = crop)
-                                        baseline = baseline.copy(crop = crop)
-                                    } finally {
-                                        busy = false
-                                    }
+                // 4. 语音通话
+                VoiceSection(
+                    config = config,
+                    switching = switchingEngine,
+                    onSwitchEngine = { next ->
+                        if (switchingEngine || config?.voiceProvider == next) return@VoiceSection
+                        scope.launch {
+                            switchingEngine = true
+                            try {
+                                val updated = session.switchVoiceProvider(next)
+                                if (updated != null) {
+                                    val (resetForm, resetBaseline) = ProfileRules.afterVoiceProviderSwitch(
+                                        form = form,
+                                        baseline = baseline,
+                                        config = updated,
+                                    )
+                                    form = resetForm
+                                    baseline = resetBaseline
+                                    config = updated
+                                    voices = emptyList()
+                                    voices = session.voiceOptions()
                                 }
-                            },
-                        )
+                            } finally {
+                                switchingEngine = false
+                            }
+                        }
+                    },
+                ) {
+                    ProfilePickerRow(
+                        label = "语音音色",
+                        choices = ProfileRules.voiceChoices(config, voices, form.voice),
+                        selected = form.voice,
+                        onSelect = { form = form.copy(voice = it) },
+                    )
+                    ProfileCardDivider()
+                    ProfileSwitchRow(
+                        label = "语音朗读回复",
+                        checked = form.speakReplies,
+                        enabled = ProfileRules.selectedVoiceCanSpeak(config, form.voice),
+                        onCheckedChange = { form = form.copy(speakReplies = it) },
+                    )
+                    ProfileCardDivider()
+                    ProfileActionRow(
+                        text = "试听语音",
+                        painter = R.drawable.ic_volume_up,
+                        enabled = ProfileRules.canPreview(busy, config, form.voice),
+                        onClick = {
+                            scope.launch {
+                                if (!ProfileRules.selectedVoiceCanSpeak(config, form.voice)) {
+                                    session.actionError = ProfileRules.PREVIEW_REFUSED
+                                    return@launch
+                                }
+                                busy = true
+                                try {
+                                    val data = session.previewVoice(
+                                        form.voice,
+                                        liveBot() ?: current,
+                                    ) ?: return@launch
+                                    val failure = withContext(Dispatchers.IO) {
+                                        player.play(data)
+                                    }
+                                    failure?.let { session.actionError = it }
+                                } finally {
+                                    busy = false
+                                }
+                            }
+                        },
+                    )
+                    ProfileRules.pickAVoiceHint(config, form.voice)?.let { hint ->
+                        ProfileCardDivider()
+                        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                            IconNote(text = hint, icon = Icons.Filled.Info)
+                        }
                     }
-                    ProfileFooter(ProfileRules.generateFooter(config))
+                }
 
-                    if (!creating) {
-                        val dynamicStates = current.avatarStates.orEmpty()
-                        val seedanceReady = config?.seedance?.isReady == true
-                        ProfileSectionLabel("动态形象视频")
+                // 5. 动态形象视频
+                if (!creating) {
+                    val dynamicStates = current.avatarStates.orEmpty()
+                    val seedanceReady = config?.seedance?.isReady == true
+                    ProfileGroup(
+                        label = "动态形象视频",
+                        footer = "视频由电脑端生成并自动缓存到手机，对话与通话时按状态自动切换。",
+                    ) {
                         ProfileCard {
                             Row(
                                 modifier = Modifier
@@ -985,10 +1061,10 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             ) {
                                 BotAvatar(
                                     bot = current,
-                                    size = 76.dp,
+                                    size = 72.dp,
                                     fallback = AvatarFallback.PRESET,
                                     avatarStateOverride = selectedDynamicState,
-                                    breakout = selectedDynamicState == DynamicAvatarStates.WORKING && !dynamicStates.isEmpty(),
+                                    breakout = selectedDynamicState == DynamicAvatarStates.WORKING && dynamicStates.isNotEmpty(),
                                 )
                                 Column(
                                     modifier = Modifier.weight(1f),
@@ -1025,7 +1101,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                     Box(
                                         modifier = Modifier
                                             .clip(CircleShape)
-                                            .background(if (active) minisInk else minisGrouped)
+                                            .background(if (active) minisInk else chipRecess)
                                             .clickable(role = Role.RadioButton) { selectedDynamicState = stateKey }
                                             .padding(horizontal = 12.dp, vertical = 6.dp),
                                     ) {
@@ -1050,7 +1126,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                     Box(
                                         modifier = Modifier
                                             .clip(RoundedCornerShape(10.dp))
-                                            .background(if (active) minisAccent.copy(alpha = 0.16f) else minisGrouped)
+                                            .background(if (active) minisAccent.copy(alpha = 0.16f) else chipRecess)
                                             .border(
                                                 width = if (active) 1.dp else 0.dp,
                                                 color = if (active) minisAccent else Color.Transparent,
@@ -1067,6 +1143,16 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                     }
                                 }
                             }
+                            ProfileCardDivider()
+                            ProfilePlainField(
+                                value = videoPrompt,
+                                onValueChange = { videoPrompt = it },
+                                placeholder = "动作或氛围补充描述（可选）",
+                                label = "视频动作描述",
+                                singleLine = false,
+                                minLines = 1,
+                                maxLines = 3,
+                            )
                             ProfileCardDivider()
                             ProfileActionRow(
                                 text = "一键生成核心三态（待机 / 工作中 / 说话）",
@@ -1085,7 +1171,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                                     forBot = latest,
                                                     state = st,
                                                     style = selectedVideoStyle,
-                                                    prompt = prompt.trim().ifEmpty { null },
+                                                    prompt = videoPrompt.trim().ifEmpty { null },
                                                 )
                                                 if (updated == null) {
                                                     saveError = NoticeMessageFormat.humanize(
@@ -1119,7 +1205,7 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                                 forBot = target,
                                                 state = selectedDynamicState,
                                                 style = selectedVideoStyle,
-                                                prompt = prompt.trim().ifEmpty { null },
+                                                prompt = videoPrompt.trim().ifEmpty { null },
                                             )
                                             if (updated == null) {
                                                 saveError = NoticeMessageFormat.humanize(
@@ -1161,30 +1247,21 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                                 )
                             }
                         }
-                        ProfileFooter("视频生成由电脑端完成并自动缓存到手机，通话与对话时自动按状态无缝切换。")
                     }
+                }
 
-                    ProfileSectionLabel("身份信息")
+                // 6. 上下文与通知
+                ProfileGroup(label = "上下文", footer = ProfileRules.COMPACT_FOOTER) {
                     ProfileCard {
-                        ProfilePlainField(
-                            value = form.title,
-                            onValueChange = { form = form.copy(title = it) },
-                            placeholder = "头衔",
-                            label = "头衔",
-                        )
-                        ProfileCardDivider()
-                        ProfilePlainField(
-                            value = form.description,
-                            onValueChange = { form = form.copy(description = it) },
-                            placeholder = "此智能体的职责描述",
-                            label = "职责描述",
-                            singleLine = false,
-                            minLines = 3,
-                            maxLines = 8,
+                        ProfileActionRow(
+                            text = if (compacting) "正在压缩…" else ProfileRules.COMPACT_LABEL,
+                            enabled = !busy && !compacting && currentTask != null,
+                            onClick = { confirmingCompact = true },
                         )
                     }
+                }
 
-                    ProfileSectionLabel("通知")
+                ProfileGroup(label = "通知") {
                     ProfileCard {
                         ProfileSwitchRow(
                             label = "智能体通知",
@@ -1192,38 +1269,52 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                             onCheckedChange = { form = form.copy(notifications = it) },
                         )
                     }
+                }
 
-                    if (opened != null) {
-                        ProfileCard {
-                            ProfileActionRow(
-                                text = "此智能体的职责与配置",
-                                icon = Icons.Filled.Info,
-                                onClick = { onOpenOverview(opened.id) },
-                            )
-                        }
+                if (opened != null) {
+                    ProfileCard {
+                        ProfileActionRow(
+                            text = "此智能体的职责与配置",
+                            icon = Icons.Filled.Info,
+                            onClick = { onOpenOverview(opened.id) },
+                        )
                     }
                 }
             }
 
             val canvasColor = minisCanvas
-            val topVeil = remember(canvasColor) {
-                Brush.verticalGradient(
-                    0.0f to canvasColor,
-                    0.72f to canvasColor.copy(alpha = 0.94f),
-                    1.0f to canvasColor.copy(alpha = 0f),
-                )
-            }
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
-                    .height(68.dp)
-                    .background(topVeil),
+                    .height(topInset + 56.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            0.00f to canvasColor.copy(alpha = 0.96f * topBandAlpha),
+                            0.42f to canvasColor.copy(alpha = 0.78f * topBandAlpha),
+                            0.74f to canvasColor.copy(alpha = 0.30f * topBandAlpha),
+                            1.00f to Color.Transparent,
+                        ),
+                    ),
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(bottomInset + 22.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            0.00f to Color.Transparent,
+                            0.55f to canvasColor.copy(alpha = 0.82f),
+                            1.00f to canvasColor,
+                        ),
+                    ),
             )
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
+                    .statusBarsPadding()
                     .heightIn(min = 56.dp)
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             ) {
@@ -1253,14 +1344,15 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
                     color = minisInk,
                     modifier = Modifier.align(Alignment.Center),
                 )
+                val hasChanges = profileDirty || modelDirty
                 val canCommit = if (creating) {
                     ProfileRules.canSave(form, busy)
                 } else {
-                    profileDirty && ProfileRules.canSave(form, busy)
+                    hasChanges && ProfileRules.canSave(form, busy)
                 }
                 val commitLabel = when {
                     creating -> "创建"
-                    profileDirty -> "保存"
+                    hasChanges -> "保存"
                     else -> "完成"
                 }
                 Box(
@@ -1297,13 +1389,19 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
 
             if (busy) {
                 Box(
-                    modifier = Modifier.matchParentSize(),
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(minisCanvas.copy(alpha = 0.55f))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {},
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(modifier = Modifier.size(44.dp))
+                    CircularProgressIndicator(modifier = Modifier.size(40.dp), strokeWidth = 3.dp)
                 }
             }
-        }
         }
     }
 
@@ -1413,6 +1511,20 @@ internal fun VoiceSection(
  * sheets still draw the old Form look.
  */
 
+/** Consistent 8 dp rhythm uniting a section header, card(s), and optional footer. */
+@Composable
+private fun ProfileGroup(
+    label: String? = null,
+    footer: String? = null,
+    content: @Composable () -> Unit,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        label?.let { ProfileSectionLabel(it) }
+        content()
+        footer?.let { ProfileFooter(it) }
+    }
+}
+
 /** The 13 sp grey label above a card. */
 @Composable
 private fun ProfileSectionLabel(text: String) {
@@ -1424,13 +1536,14 @@ private fun ProfileSectionLabel(text: String) {
     )
 }
 
-/** The 13 sp grey explanatory line under a card. */
+/** The 12.5 sp grey explanatory line under a card. */
 @Composable
 private fun ProfileFooter(text: String) {
     Text(
         text = text,
         modifier = Modifier.padding(horizontal = 16.dp),
-        fontSize = 13.sp,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
         color = minisSecondary,
     )
 }
@@ -1601,6 +1714,7 @@ private fun ProfilePickerRow(
                 modifier = Modifier
                     .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
+                    .navigationBarsPadding()
                     .padding(start = 16.dp, end = 16.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
@@ -1832,6 +1946,27 @@ internal fun IconNote(
 }
 
 /** Rotation must not throw away a half-typed profile. */
+private fun profileBotStyleLabel(style: BotAvatarStyle): String = when (style) {
+    BotAvatarStyle.ORB -> "琉璃月灵"
+    BotAvatarStyle.NEKO -> "折耳瓷猫"
+    BotAvatarStyle.LIQUID -> "极光液滴"
+    BotAvatarStyle.SYNTH -> "复古掌机"
+    BotAvatarStyle.SPIRIT -> "星月软团"
+    BotAvatarStyle.MINIBOT -> "陶瓷微机"
+    BotAvatarStyle.BUNNY -> "垂耳瓷兔"
+    BotAvatarStyle.ASTRO -> "宇航头盔"
+    BotAvatarStyle.PRISM -> "切面晶石"
+    BotAvatarStyle.BEAR -> "绒雾小熊"
+    BotAvatarStyle.RETRO -> "像素终端"
+    BotAvatarStyle.FOX -> "灵耳瓷狐"
+    BotAvatarStyle.FROG -> "抹茶瓷蛙"
+    BotAvatarStyle.OWL -> "夜羽瓷枭"
+    BotAvatarStyle.GHOST -> "浮云幽灵"
+    BotAvatarStyle.CAMERA -> "徕卡微机"
+    BotAvatarStyle.CLOUD -> "软绵云朵"
+    BotAvatarStyle.CLASSIC -> "经典极简"
+}
+
 private val ProfileFormSaver = listSaver<ProfileForm, Any>(
     save = {
         listOf(
@@ -1842,6 +1977,7 @@ private val ProfileFormSaver = listSaver<ProfileForm, Any>(
             it.crop.name,
             it.voice,
             it.speakReplies,
+            it.mascotBody.orEmpty(),
         )
     },
     restore = {
@@ -1853,6 +1989,7 @@ private val ProfileFormSaver = listSaver<ProfileForm, Any>(
             crop = AvatarCrop.valueOf(it[4] as String),
             voice = it[5] as String,
             speakReplies = it[6] as Boolean,
+            mascotBody = (it.getOrNull(7) as? String)?.ifEmpty { null },
         )
     },
 )
