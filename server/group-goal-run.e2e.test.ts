@@ -226,7 +226,7 @@ describe("goal-driven channel runs", () => {
         await expect.poll(async () => {
           const state = (await api("GET", "/api/bots?messages=0")).body;
           return state.bots.find((bot: { id: string }) => bot.id === worker.id)?.busy;
-        }).toBe(true);
+        }, { timeout: hostTimeout(10_000) }).toBe(true);
 
         expect((await api("POST", `/api/groups/${room.id}/messages`, {
           text: "Research and resolve the team question",
@@ -244,7 +244,7 @@ describe("goal-driven channel runs", () => {
             roomBusyBotId: current?.busyBotId,
             workerDirectBusy: state.bots.find((bot: { id: string }) => bot.id === worker.id)?.busy,
           };
-        }).toMatchObject({
+        }, { timeout: hostTimeout(10_000) }).toMatchObject({
           status: "working",
           detail: expect.stringMatching(/Busy specialist is finishing another conversation/i),
           turnCount: 1,
