@@ -41,7 +41,9 @@ const ABORTED = -3;
  * desktop keeps the person's choice to hide it; `changed()`: the rail came or went beside the page.
  */
 export function createChromeRail({ createView, preload, args, url, wanted, prefs = () => null, changed = () => {}, log = () => {} }) {
-  let view = null, win = null, shown = false, expanded = false, held = false;
+  let view = null, win = null, shown = false, stripShown = false, expanded = false, held = false;
+  /** Anchor coordinates when the places popover is open over the window (null when closed). */
+  let popover = null;
   // The rail's page didn't load (this app's server was restarting): it loads again at the next refresh, or it stays a blank strip.
   let unloaded = false;
   // Whether the page beside draws the frame; the window opens as if it does (windowChromeOptions).
@@ -49,24 +51,34 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
   // The document beside the rail offered its button; a new one may still (`grace`); the page stopped responding.
   let offered = false, grace = null, hung = false, told = "";
   const alive = () => Boolean(win && !win.isDestroyed());
+  const sanitizeAnchor = (anchor) => {
+    if (!anchor || typeof anchor !== "object") return { x: 88, y: 52 };
+    const x = Number.isFinite(Number(anchor.x)) ? Math.max(0, Math.min(4000, Math.round(Number(anchor.x)))) : 88;
+    const y = Number.isFinite(Number(anchor.y)) ? Math.max(0, Math.min(4000, Math.round(Number(anchor.y)))) : 52;
+    return { x, y };
+  };
   const layout = () => {
     if (!view || !shown || !alive()) return;
     const [width, height] = win.getContentSize();
-    view.setBounds({ x: 0, y: 0, width: expanded ? width : Math.min(CHROME_RAIL_WIDTH, width), height });
+    const full = expanded || popover !== null || (held && !stripShown);
+    view.setBounds({ x: 0, y: 0, width: full ? width : Math.min(CHROME_RAIL_WIDTH, width), height });
   };
   const page = () => (alive() && !win.webContents.isDestroyed() ? win.webContents : null);
-  /** The page beside the rail moves over by its width (0: it has the whole window again). */
-  const tellPage = () => page()?.send("rail:beside", shown ? CHROME_RAIL_WIDTH : 0);
+  /** The page beside the rail moves over by the docked strip's width (0 when hidden or only showing the popover overlay). */
+  const tellPage = () => page()?.send("rail:beside", stripShown ? CHROME_RAIL_WIDTH : 0);
   const choseHidden = () => prefs()?.railHidden() === true;
   /** Hidden by the person's choice, beside a document that can bring it back. */
   const hidden = () => choseHidden() && !hung && (offered || grace !== null);
-  const pageState = () => ({ available: alive() && wanted(), hidden: choseHidden() });
+  const pageState = () => ({ available: alive() && wanted(), hidden: choseHidden(), popoverOpen: popover !== null });
   /** The document that offered the button hears when it would change. */
   const tellState = () => {
     const state = pageState(), key = JSON.stringify(state);
     if (!offered || key === told) return;
     told = key;
     page()?.send("rail:state", state);
+  };
+  const sendPopover = () => {
+    rail.send("rail:popover", popover ? { open: true, x: popover.x, y: popover.y } : { open: false, x: 0, y: 0 });
   };
   const stopGrace = () => { clearTimeout(grace); grace = null; };
   const startGrace = () => {
@@ -89,7 +101,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
   /** The page beside the rail has another document, or lost the one it had. */
   const nextDocument = () => {
     const keep = hidden();
-    offered = false; hung = false; told = "";
+    offered = false; hung = false; told = ""; popover = null;
     if (keep) startGrace(); else stopGrace();
     awaitFrame();
     rail.refresh();
@@ -107,7 +119,10 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
     contents.on("will-navigate", stay);
     contents.on("will-redirect", stay);
     contents.on("render-process-gone", () => { log("chrome rail: its page went away; loading it again"); void contents.loadURL(url()).catch(() => {}); });
-    contents.on("did-finish-load", () => contents.send("rail:framed", framed));
+    contents.on("did-finish-load", () => {
+      contents.send("rail:framed", framed);
+      if (popover) contents.send("rail:popover", { open: true, x: popover.x, y: popover.y });
+    });
     // Only a load's failing says so: the error page that replaces it finishes loading too.
     contents.on("did-fail-load", (_event, code, _description, _url, mainFrame) => { if (mainFrame && code !== ABORTED) unloaded = true; });
     load(contents);
@@ -117,7 +132,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
     /** The window the rail stands beside: its size moves the rail, and each of its documents gets the room again. */
     attach(next) {
       win = next;
-      shown = false; expanded = false; held = false; offered = false; hung = false; told = "";
+      shown = false; stripShown = false; expanded = false; held = false; popover = null; offered = false; hung = false; told = "";
       framed = prefs()?.windowFrame?.() === true;
       // The window's first document has the same time as any other to offer the button and to draw the frame.
       if (choseHidden()) startGrace(); else stopGrace();
@@ -125,7 +140,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
       win.on("resize", layout);
       const contents = win.webContents;
       // Each new document is told again, once it is ready.
-      contents.on("dom-ready", () => { if (shown) tellPage(); });
+      contents.on("dom-ready", () => { if (stripShown) tellPage(); });
       contents.on("did-navigate", nextDocument);
       contents.on("render-process-gone", nextDocument);
       // Electron 43 reports an error page that replaced the document here, not as did-navigate.
@@ -135,17 +150,24 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
       win.once("closed", () => {
         if (view && !view.webContents.isDestroyed()) view.webContents.close?.({ waitForBeforeUnload: false });
         stopGrace(); clearTimeout(frameGrace); frameGrace = null;
-        view = null; win = null; shown = false; expanded = false; offered = false;
+        view = null; win = null; shown = false; stripShown = false; expanded = false; popover = null; offered = false;
       });
       rail.refresh();
     },
-    /** Shown while there are two places or more (railPlaces) and the person hasn't hidden it; the page beside it has the
-     * whole window otherwise. */
+    /** Shown while there are two places or more (railPlaces) and the person hasn't hidden it, or while the popover/sheet is open;
+     * the page beside it moves over only for the docked strip. */
     refresh() {
-      const on = alive() && ((wanted() && !hidden()) || held);
+      const hasPlaces = alive() && wanted();
+      if (!hasPlaces) popover = null;
+      const nextStrip = hasPlaces && !hidden();
+      const on = nextStrip || (hasPlaces && popover !== null) || (alive() && held);
+      const stripChanged = nextStrip !== stripShown;
+      stripShown = nextStrip;
       if (view && unloaded && on) { unloaded = false; load(view.webContents); }
-      if (on === shown) layout();
-      else {
+      if (on === shown) {
+        layout();
+        if (stripChanged) { tellPage(); changed(); }
+      } else {
         shown = on;
         if (on) {
           win.contentView.addChildView(ensureView());
@@ -154,7 +176,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
           expanded = false;
           if (view) win.contentView.removeChildView(view);
         }
-        tellPage();
+        if (stripChanged) tellPage();
         changed();
       }
       tellState();
@@ -174,11 +196,32 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
       if (expanded) view?.webContents.focus();
       else if (was) page()?.focus?.();
     },
+    /** Opens or toggles the isolated places popover anchored to the top capsule switcher. */
+    openPopover(anchor) {
+      if (!alive() || !wanted()) return;
+      if (popover !== null) {
+        rail.closePopover();
+        return;
+      }
+      popover = sanitizeAnchor(anchor);
+      rail.refresh();
+      sendPopover();
+      view?.webContents.focus();
+    },
+    closePopover() {
+      if (popover === null) return;
+      popover = null;
+      sendPopover();
+      rail.refresh();
+      page()?.focus?.();
+    },
     /** The rail's own page asks (never a place's page). */
     owns: (event) => Boolean(view && event?.sender === view.webContents && event.senderFrame === view.webContents.mainFrame),
     shown: () => shown,
+    stripShown: () => stripShown,
     framed: () => framed,
     expanded: () => expanded,
+    popoverOpen: () => popover !== null,
     /** The rail's page asks for the whole window while a sheet of its own is open, and gives it back after. The page
      * beside it offers the button that hides and shows it; asking is the offer, made again by each document. */
     install(ipcMain) {
@@ -186,7 +229,11 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
         if (!rail.owns(event)) throw new Error("rail:expand is only available to the window's rail");
         rail.expand(on === true);
       });
-      // Security: the page beside the rail learns only whether there is one to hide, never the places on it.
+      ipcMain.handle("rail:close-popover", (event) => {
+        if (!rail.owns(event)) throw new Error("rail:close-popover is only available to the window's rail");
+        rail.closePopover();
+      });
+      // Security: the page beside the rail learns only whether there is one to hide or open, never the places on it.
       const fromPage = (channel, act) => ipcMain.handle(channel, (event, ...values) => {
         if (!pageBeside(event)) throw new Error(`${channel} is only available to the page beside the window's rail`);
         offered = true; stopGrace();
@@ -198,6 +245,7 @@ export function createChromeRail({ createView, preload, args, url, wanted, prefs
       });
       fromPage("rail:offer", () => {});
       fromPage("rail:hide", (hide) => prefs()?.setRailHidden(hide === true));
+      fromPage("rail:open-popover", (anchor) => rail.openPopover(anchor));
       ipcMain.handle("rail:draws-frame", (event, drawn) => {
         if (!pageBeside(event)) throw new Error("rail:draws-frame is only available to the page beside the window's rail");
         frameDrawn(drawn !== false);
