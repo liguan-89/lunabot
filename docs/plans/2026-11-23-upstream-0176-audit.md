@@ -79,3 +79,29 @@ Phone web app 新栈 12+（fork 无 src/lib/e2e）· relay-server/e2e 修 6（�
 1. 内容提交直摘；成对/成组的按组摘（双 hash 同补丁取净效果）
 2. 每组摘完跑同目录测试；quota/dispatch-claims、spawn-level、live-action 等结构差异处按 fork 等价实现，不硬 cherry-pick
 3. 摘取顺序：P0 三连 → C1/C2（小）→ C3/C4 → C7/C11/C13/C14/C15/C16/C17/C18（小 P1 批）→ C8/C12 → C6/C19/C20/C10 → C9 → C5（大件殿后）
+
+## 落取记录（2026-11-23 执行）
+
+**已摘（18 组 / 24 提交，全部有同目录测试佐证）**：
+- P0 三连：`60ba1c0df9` redact 线性化（+81 行 fuzz 测试）、`e767621714` 备份携带 Data 表（team-move 文案子段按 fork 文案重落，en+zh 两键新增；MoveToMyCloud 等 fork 没有的 UI 件不取）、`ac66ed052c` broker-env 共享 grant
+- C1：`32b6b1ddf0` 首标签 60s、`f6f04fede9` still-starting + Chrome 先死即报（input-log 半边 fork 无）
+- C2：`e8638a639d` 无窗切换 splash 卡死、`c4bd86cd5f` 删 home 服务器 kick 回本机（own-home 新测试块落 fork 无机制不取，supervisor 测试接上 kick 断言）
+- C3：`67a2961569`+`0dfb1061d2`+`df93aa5c2c`+`1aab8027b9` 净效果——chineseConsent + 通话视图三级判定 + 中文挂断
+- C4：`4d225552f3` discovery 兜底（+70 行新文件 + 3 条新测试）
+- C6：`e6518ef442` 人持有期间只读放行（仅 import 冲突一处）
+- C11：`c69dd50ca5` 项目技能遮蔽（fork turn-settings 已带 cwd，仅补 index.ts 两调用点传 cwd + turnSettings 层不取）
+- C13：`6f18a37529`、C14：`3a37f663c9`、C15：`5443c19e24`、C17：`8a3f85cabc`、C18：`e1a844a951`——五件全净摘
+- C16：`ac39e88c7a`+`5ca1b7a253` app-events 两连全净摘
+- C12：`fe586cfbb6`+`8e45588473` MCP 授权键重构 + savedToolGrant（acp 件 rm，approval-levels.md 文档按 fork 品牌重落）
+- P2 择摘三条：`96795bf64a`、`36bd43fcbf`、`ec48552c74`
+
+**判留（7 组，均结构性、按 0175 惯例记录）**：
+- C5 `e5490f70de` 人的输入到达页面：8 文件冲突，上游新拆 live-action/live-page 模块，fork browser-live.ts 是旧祖先——需按 fork 等价重做
+- C7 `da592ee725` starter routine 唤醒：~640 行特性，fork starter-awake 缺 useRoutines 全层（8 处结构冲突）
+- C8 `89d33f8bcc` 备份导出断线恢复：exportJobs 路由整体重构（fork http 文件是前形态）
+- C9 `72abd60945` 线程继承审批级别：549 行，coordinator/burst-host/store/task-record 结构差
+- C10 `f4a439ca02`+`fb01192749` quota 转备份：fork quota-switch 有自研 i18n 文案层（serverLine），缺 build.ran/settled 生产机制（dispatch-claims）
+- C19 `bb8f767ea2`+`669d48b8d3` surface 借出电脑：fork surface.ts 缺 thisComputerSwitch/HOST_PATHS 整段机制
+- C20 `f8df8699a9`+`27f2ad3a22` bot-box uploads：依赖 fork 没有的 team-folder/audience 机制（TEAM_FOLDER_KEPT/BoxAudience/scoped）
+
+判留七组都属「fork 该模块落后上游一个演进链」，逐组移植需先补齐各自的前置链——按 7 天决策制另行立项，不在本轮硬摘。
