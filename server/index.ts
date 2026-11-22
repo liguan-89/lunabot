@@ -13065,7 +13065,7 @@ ROUTES.push(createDataRoutes({
 }));
 const liveRelays = new LiveRelays({ record: recordLiveCallRow });
 ROUTES.push(createLiveRoutes({
-  calls: liveCalls,
+  calls: liveCalls, phoneRevoked: (deviceId) => phones.forgotDevice(deviceId),
   resolveTarget: liveCallTarget,
   settings: () => liveSettingsFor(cfg),
   saveSettings: async (patch) => {

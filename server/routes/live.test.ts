@@ -211,6 +211,19 @@ describe("live routes", () => {
       expect((await request(d, "POST", "/api/live/device-revoked", undefined, fromPhone("a/b"))).status).toBe(400);
       expect(d.calls.deviceRevoked).not.toHaveBeenCalled();
     });
+    /** The sidecar's device list is the only place a phone's token lives, so its removal is the authority for the
+     * capability record too: a row left behind keeps the phone in `/api/phones` and holds its notice inbox open. */
+    it("forgets the phone's capability record in the same request", async () => {
+      const phoneRevoked = vi.fn();
+      const d = deps();
+      expect(await request({ ...d, phoneRevoked }, "POST", "/api/live/device-revoked", undefined, fromPhone("phone-9")))
+        .toEqual({ status: 200, body: { call: null } });
+      expect(phoneRevoked).toHaveBeenCalledWith("phone-9");
+      // A request the companion did not make never reaches it.
+      phoneRevoked.mockClear();
+      expect((await request({ ...d, phoneRevoked }, "POST", "/api/live/device-revoked", undefined, { "x-lunabot-companion-device": "phone-9" })).status).toBe(403);
+      expect(phoneRevoked).not.toHaveBeenCalled();
+    });
   });
 });
 
