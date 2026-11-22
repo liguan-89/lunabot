@@ -29,7 +29,8 @@ import { BotAvatar } from "./Avatar";
 import { SidebarPopoverMenu } from "./SidebarPopoverMenu";
 import { appCategoryLabel, CATEGORY_SECTION_SIZE, catalogSections, connectorDescription, inCategory, rankCategories } from "@/lib/app-catalog";
 import { McpServersPanel } from "./McpServersPanel";
-import { HOSTED_MCP_APPS, mcpServerConnected, ownMcpServer, type HostedApp, type HostedConnections } from "@/lib/hosted-mcp-apps";
+import { CnMcpPanel } from "./CnMcpPanel";
+import { HOSTED_MCP_APPS, mcpServerConnected, ownMcpServer, type HostedConnections } from "@/lib/hosted-mcp-apps";
 import { isRemoteMcpListing, type McpServerListing } from "./mcp-draft";
 import { useSuggestedApps } from "@/lib/app-suggestions";
 import { matchesCatalogSearch } from "../../shared/app-suggestions";
@@ -70,27 +71,10 @@ export function botsWithLimitedServiceTools(bots: Bot[], instances: InstanceInfo
   });
 }
 
-/** Whether a hosted app's card shows: it matches the search, and the filter is All, or Connected and it isn't known to be
- * disconnected (unknown while its servers load). */
-export function hostedShown(app: HostedApp, search: string, filter: AppsFilter, connected: HostedConnections | null): boolean {
-  const matches = !search || `${app.label} ${app.keywords} ${t(app.description)}`.toLowerCase().includes(search.toLowerCase().trim());
-  return matches && (filter === "all" || (filter === "connected" && connected?.[app.id] !== false));
-}
-
-export type ConnectorSetup = "ready" | "needs-setup" | "service-unavailable";
-
-export function connectorSetupNotice(state: {
-  configured: boolean;
-  stale: boolean;
-  setup: ConnectorSetup | undefined;
-  remoteClient: boolean;
-}): { key: LocaleKey; tone: "info" | "warning" } | null {
-  if (state.configured || state.stale) return null;
-  if (state.setup === "needs-setup") {
-    return { key: state.remoteClient ? "connectors.setupNeededRemote" : "connectors.setupNeeded", tone: "info" };
-  }
-  return { key: "connectors.notConfigured", tone: "warning" };
-}
+export type { AppsFilter } from "./apps-filter";
+export { connectorSetupNotice, hostedShown, type ConnectorSetup } from "./apps-panel-copy";
+import { connectorSetupNotice, hostedShown, type ConnectorSetup } from "./apps-panel-copy";
+import type { AppsFilter } from "./apps-filter";
 
 export interface CatalogPagination {
   items: number;
@@ -98,8 +82,6 @@ export interface CatalogPagination {
   stalled: boolean;
   reason?: string;
 }
-
-export type AppsFilter = "all" | "connected" | "mcp";
 
 export const APPS_PREVIEW_COUNT = 48;
 
@@ -136,7 +118,7 @@ export function PluginsPanel() {
   );
   const [error, setError] = useState<string | { key: LocaleKey } | null>(null);
   const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"marketplace" | "connected">("marketplace");
+  const [tab, setTab] = useState<"marketplace" | "connected" | "cn">("marketplace");
   const [showAllApps, setShowAllApps] = useState(false);
   const [hostedConnected, setHostedConnected] = useState<HostedConnections | null>(null);
   const [cardsRefresh, setCardsRefresh] = useState(0);
@@ -397,7 +379,7 @@ export function PluginsPanel() {
   const matching = (cards ?? []).filter((c) => (!managedConnectorUnavailableReason(mode, c.slug) || hasActiveConnection(status[c.slug]))
     && matchesCatalogSearch(`${c.label} ${c.slug} ${connectorDescription(c)} ${(c.categories ?? []).join(" ")}`, search));
   const isConnected = (slug: string) => Boolean(status[slug]?.connected || status[slug]?.accounts?.length);
-  const filter: AppsFilter = surface === "mcp" ? "mcp" : tab === "connected" ? "connected" : "all";
+  const filter: AppsFilter = surface === "mcp" ? "mcp" : tab === "marketplace" ? "all" : tab;
   const searching = search.trim().length > 0;
   /** A search covers the whole catalog, whichever view it was typed in. */
   const listing: AppsFilter = searching && filter === "connected" ? "all" : filter;
@@ -422,7 +404,7 @@ export function PluginsPanel() {
       dispatch({ type: "togglePlugins", open: true, surface: "mcp" });
       return;
     }
-    setTab(next === "connected" ? "connected" : "marketplace");
+    setTab(next === "connected" ? "connected" : next === "cn" ? "cn" : "marketplace");
     if (surface !== "apps") dispatch({ type: "togglePlugins", open: true, surface: "apps" });
   };
 
@@ -449,7 +431,9 @@ export function PluginsPanel() {
     ? t("connectors.section.results")
     : filter === "connected"
       ? t("connectors.section.yours")
-      : category ? appCategoryLabel(category) : (sections.length > 1 ? t("apps.section.all") : t("connectors.section.available"));
+      : filter === "cn"
+        ? t("cnMcp.title")
+        : category ? appCategoryLabel(category) : (sections.length > 1 ? t("apps.section.all") : t("connectors.section.available"));
   const pill = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-medium leading-5 transition-colors";
   const pillTone = (selected: boolean) => selected
     ? "bg-ink text-app"
@@ -569,6 +553,15 @@ export function PluginsPanel() {
             )}
             <button
               type="button"
+              data-apps-filter="cn"
+              aria-pressed={filter === "cn"}
+              onClick={() => chooseFilter(filter === "cn" ? "all" : "cn")}
+              className={cn(pill, pillTone(filter === "cn"))}
+            >
+              {t("cnMcp.filter")}
+            </button>
+            <button
+              type="button"
               data-apps-filter="mcp"
               aria-pressed={filter === "mcp"}
               onClick={() => chooseFilter(filter === "mcp" ? "all" : "mcp")}
@@ -592,7 +585,7 @@ export function PluginsPanel() {
           ) : (
             <SavedKeysReset notice />
           )}
-          {setupNotice && filter !== "mcp" && (
+          {setupNotice && filter !== "mcp" && filter !== "cn" && (
             <div
               className={cn(
                 "mb-3 rounded-xl px-4 py-3 text-[13px]",
@@ -631,7 +624,9 @@ export function PluginsPanel() {
           )}
           {error && <div role="alert" className="mb-3 rounded-xl bg-danger/10 px-3 py-2 text-[12px] text-danger">{typeof error === "string" ? error : t(error.key)}</div>}
 
-          {filter !== "mcp" && (
+          {filter === "cn" && <CnMcpPanel refreshKey={cardsRefresh} />}
+
+          {filter !== "mcp" && filter !== "cn" && (
             <div data-apps-grid className="@container flex flex-col gap-7 pt-1">
               {!sections.some((section) => section.kind === "connected") && renderSuggested()}
               {sections.filter((section) => section.kind !== "all").map((section) => section.kind === "connected" ? (
@@ -721,7 +716,7 @@ export function PluginsPanel() {
             </div>
           )}
 
-          {filter !== "connected" && category === null && (
+          {filter !== "connected" && filter !== "cn" && category === null && (
             <div className={cn(filter === "all" && "mt-8 border-t border-hairline/30 pt-6", filter === "mcp" && "pt-1")}>
               <McpServersPanel embedded hideHosted={filter === "all"} />
             </div>
