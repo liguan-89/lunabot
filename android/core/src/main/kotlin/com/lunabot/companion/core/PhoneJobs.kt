@@ -210,6 +210,9 @@ enum class PhoneTool(
     // Several screen steps in one job: each target is found again on the
     // current screen, so one call replaces a chain of single actions.
     UI_RUN("PHONE_UI_RUN", "phoneUi", true),
+    // The same body of steps for every item of a list: the loop engine here,
+    // the model never visits each item.
+    UI_DO_EACH("PHONE_UI_DO_EACH", "phoneUi", true),
     UI_WAIT("PHONE_UI_WAIT", "phoneUi", false),
     UI_SCREENSHOT("PHONE_UI_SCREENSHOT", "phoneUi", false),
     UI_OCR("PHONE_UI_OCR", "phoneUi", false),
@@ -286,6 +289,7 @@ object PhoneToolCatalog {
         "PHONE_UI_KEY" to "phoneUi",
         "PHONE_UI_BACK" to "phoneUi",
         "PHONE_UI_RUN" to "phoneUi",
+        "PHONE_UI_DO_EACH" to "phoneUi",
         "PHONE_UI_WAIT" to "phoneUi",
         "PHONE_UI_SCREENSHOT" to "phoneUi",
         "PHONE_UI_OCR" to "phoneUi",

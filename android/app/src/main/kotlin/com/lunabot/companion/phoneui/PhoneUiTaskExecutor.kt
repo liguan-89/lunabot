@@ -27,6 +27,7 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
@@ -92,7 +93,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
     private val homePackages: Set<String> by lazy { PhoneUiSystemPickers.homePackages(packageManager) }
 
     private enum class Action {
-        OBSERVE, COLLECT, QUERY, FIND, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, WAIT,
+        OBSERVE, COLLECT, QUERY, FIND, LAUNCH, LIST_APPS, TAP, TAP_AT, TYPE, SCROLL, SWIPE, KEY, BACK, RUN, DO_EACH, WAIT,
         SCREENSHOT, OCR, CLIPBOARD_GET, CLIPBOARD_SET, NOTIF_LIST, FILE_LIST, FILE_READ, FILE_SEND, FILE_SHARE,
         SET_ALARM, SET_TIMER, OPEN_LINK, SHARE_TEXT, AFTER_TASK,
     }
@@ -158,6 +159,26 @@ internal class PhoneUiTaskExecutor(context: Context) {
                     snapshot = { service.snapshot(session.displayId) },
                     identify = { ref -> identityOf(service, session, ref) },
                     perform = { tool, args -> runStep(shell, service, session, tool, args) },
+                    topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
+                    elementJson = ::elementJson,
+                ).execute(arguments)
+                // The loop engine reads its own snapshots; its body goes through
+                // the run path, whose per-step snapshots and re-finding carry over.
+                Action.DO_EACH -> PhoneUiDoEach(
+                    snapshot = { service.snapshot(session.displayId) },
+                    runBody = { args ->
+                        PhoneUiRun(
+                            snapshot = { service.snapshot(session.displayId) },
+                            identify = { ref -> identityOf(service, session, ref) },
+                            perform = { tool, inner -> runStep(shell, service, session, tool, inner) },
+                            topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
+                            elementJson = ::elementJson,
+                        ).execute(args)
+                    },
+                    scroll = {
+                        val outcome = runStep(shell, service, session, PhoneTool.UI_SWIPE, buildJsonObject { put("direction", "up") })
+                        outcome is PhoneToolOutcome.Success && (outcome.result["changed"] as? JsonPrimitive)?.booleanOrNull == true
+                    },
                     topPackage = { runCatching { shell.topPackage(session.displayId) }.getOrNull() },
                     elementJson = ::elementJson,
                 ).execute(arguments)
@@ -280,6 +301,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         "PHONE_UI_KEY" -> Action.KEY
         "PHONE_UI_BACK" -> Action.BACK
         "PHONE_UI_RUN" -> Action.RUN
+        "PHONE_UI_DO_EACH" -> Action.DO_EACH
         "PHONE_UI_WAIT" -> Action.WAIT
         "PHONE_UI_SCREENSHOT" -> Action.SCREENSHOT
         "PHONE_UI_OCR" -> Action.OCR
