@@ -147,6 +147,13 @@
       "owner": "liguan-89",
       "reason": "Failed once on a loaded ubuntu shard (Nov 22): member-scoped secret fell back to the team one — card/save path raced; assertions hardened to name the racing step; green locally.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/browser/cdp/s4-pages.e2e.test.ts",
+      "test": "S4 pages, tabs and page state on real Chrome > goes back and forward through documents and fragments, and reloads",
+      "owner": "liguan-89",
+      "reason": "Failed once on ubuntu S4 (Nov 22): the back-forward restore reran the page script (sessionStorage.loads 2 not 1) — a bfcache miss under the memory pressure of four live Chrome instances; page.back() uses Page.navigateToHistoryEntry, so restore is Chrome's call. Green in every earlier S4 run.",
+      "since": "2026-11-22"
     }
   ]
 }

@@ -101,7 +101,9 @@ export function createSignInSettle(deps: SignInSettleDeps) {
       const card = message.signIn;
       if (message.kind !== "signin" || !card || message.at < since || card.stopped || !signInWaits(card)) return;
       const site = card.site.toLowerCase();
-      const used = path.slice(index + 1).some((row) => row.kind === "activity" && row.tool?.ok === true && (row.tool.input ?? "").toLowerCase().includes(site));
+      // The engine's HTTP call and the event fold run side by side, so the request_sign_in call's own activity row can
+      // land after the card it opened; the ask is not a use of the site.
+      const used = path.slice(index + 1).some((row) => row.kind === "activity" && row.tool?.ok === true && !row.tool.name?.endsWith("request_sign_in") && (row.tool.input ?? "").toLowerCase().includes(site));
       if (!used) return;
       handPlaceBack(bot, threadId, message.id, card.place);
       store.patchMessage(threadId, message.id, { signIn: { ...card, done: true, resumed: true, error: undefined } });

@@ -71,4 +71,12 @@ describe("a sign-in settled without the person pressing Done", () => {
     w.settle.verified("dachs", "work", 0);
     expect(w.rows().filter((row) => row.signIn).map((row) => [row.signIn!.site, row.signIn!.done ?? false])).toEqual([["notion.so", true], ["github.com", false]]);
   });
+
+  it("keeps waiting when only the card's own ask row follows it, however it landed after the card", () => {
+    const w = world();
+    w.add(card());
+    w.add({ kind: "activity", tool: { name: "request_sign_in", ok: true, input: JSON.stringify({ site: "https://notion.so" }) } });
+    w.settle.verified("dachs", "work", 0);
+    expect(w.rows()[0]!.signIn!.done).toBeUndefined();
+  });
 });

@@ -68,6 +68,8 @@ it.skipIf(process.platform === "win32")("asks the person to sign in from a real 
     const cards = (await messages()).filter((message) => message.kind === "signin");
     expect(cards).toHaveLength(1);
     expect(cards[0].signIn).toMatchObject({ site: "example.com", url: "https://www.example.com/dashboard", place: "browser", reason: "The dashboard is behind a login." });
+    const again = (await messages()).find((message) => message.id === cards[0].id);
+    expect([again?.signIn?.done, again?.signIn?.cancelled, again?.signIn?.answeredInChat, again?.signIn?.superseded]).toEqual([undefined, undefined, undefined, undefined]);
     // With no page open in the bot's browser, a login saved from the card would fill on the card's site only.
     expect(await api("GET", `/api/bots/${bot.id}/sign-in-cards/${cards[0].id}/save-login?threadId=${bot.threadId}`)).toEqual({ status: 200, body: { site: "example.com" } });
     expect((await api("GET", `/api/bots/${bot.id}/sign-in-cards/${cards[0].id}/save-login?threadId=other`)).status).toBe(404);
