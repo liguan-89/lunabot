@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardList } from "lucide-react";
+import { ChevronRight, ClipboardList } from "lucide-react";
 
 import { t } from "@/lib/i18n";
 import type { LocaleKey } from "@/locales";
@@ -45,7 +45,7 @@ export function DigestChip({ message }: { message: Message }) {
   );
 }
 
-const COMPACTION_CHIP = "max-w-[600px] rounded-xl border border-hairline/40 bg-panel px-3 py-2 text-[12px] text-ink-secondary";
+const COMPACTION_CHIP = "group/compaction max-w-[600px] rounded-xl border border-hairline/40 bg-panel px-3 py-2 text-[12px] text-ink-secondary";
 
 export function CompactionChip({ message, onNewChat }: { message: Message; onNewChat?: () => void }) {
   if (message.compaction?.fresh) {
@@ -60,7 +60,10 @@ export function CompactionChip({ message, onNewChat }: { message: Message; onNew
   const excerpts = message.compaction?.summary.startsWith(EXCERPT_SUMMARY_HEADER);
   const chip = message.compaction ? (
     <details className={COMPACTION_CHIP} data-testid="compaction-chip">
-      <summary className="cursor-pointer font-medium">{t(excerpts ? "chat.compactionExcerptTitle" : "chat.compactionTitle")}</summary>
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 font-medium [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={13} aria-hidden="true" className="shrink-0 text-ink-tertiary transition-transform duration-150 group-open/compaction:rotate-90 motion-reduce:transition-none" />
+        <span>{t(excerpts ? "chat.compactionExcerptTitle" : "chat.compactionTitle")}</span>
+      </summary>
       <p className="mt-2">{t(excerpts ? "chat.compactionExcerptHint" : "chat.compactionHint")}</p>
       <p className="mt-2 whitespace-pre-wrap break-words">{message.compaction.summary}</p>
     </details>

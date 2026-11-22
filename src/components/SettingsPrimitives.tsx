@@ -6,9 +6,10 @@ import { t } from "@/lib/i18n";
 
 export const SIMPLE_CARD = "settings-card rounded-[16px] border-[0.5px] border-(--settings-edge) bg-menu py-2";
 export const SIMPLE_BUTTONS = cn(
-  "[&_.ui-button]:h-8 [&_.ui-button]:rounded-full [&_.ui-button]:border-0 [&_.ui-button]:px-3 [&_.ui-button]:text-[14px] [&_.ui-button]:font-normal",
-  "[&_.ui-button:not(.ui-button-primary)]:bg-ink/5 [&_.ui-button:not(.ui-button-primary)]:text-ink [&_.ui-button:not(.ui-button-primary):enabled:hover]:bg-ink/10",
+  "[&_.ui-button]:h-8 [&_.ui-button]:rounded-full [&_.ui-button]:border-0 [&_.ui-button]:px-3 [&_.ui-button]:text-[13px] [&_.ui-button]:font-normal",
+  "[&_.ui-button:not(.ui-button-primary):not(.ui-button-danger)]:bg-ink/5 [&_.ui-button:not(.ui-button-primary):not(.ui-button-danger)]:text-ink [&_.ui-button:not(.ui-button-primary):not(.ui-button-danger):enabled:hover]:bg-ink/10",
   "[&_.ui-button-primary]:bg-ink [&_.ui-button-primary]:text-app [&_.ui-button-primary:enabled:hover]:bg-ink/85",
+  "[&_.ui-button-danger]:bg-danger/12 [&_.ui-button-danger]:text-danger [&_.ui-button-danger:enabled:hover]:bg-danger/20",
 );
 
 export function Switch({
@@ -46,17 +47,26 @@ export function Switch({
 export function Card({
   title,
   subtitle,
+  actions,
   children,
 }: {
   title?: string;
   subtitle?: string;
+  actions?: ReactNode;
   children?: React.ReactNode;
 }) {
   return (
-    <div data-settings-row={title} className="settings-card rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu">
-      {title && <div className="text-[16px] font-semibold text-ink in-data-[settings-look=simple]:text-[14px] in-data-[settings-look=simple]:leading-5 in-data-[settings-look=simple]:font-medium">{title}</div>}
-      {subtitle && <div className={cn(title && "mt-0.5", "text-[13px] leading-relaxed text-ink-secondary in-data-[settings-look=simple]:leading-[18px]")}>{subtitle}</div>}
-      {children && <div className={title || subtitle ? "mt-4" : undefined}>{children}</div>}
+    <div data-settings-row={title} className="settings-card rounded-xl bg-card p-4 max-md:rounded-2xl in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:px-4 in-data-[settings-look=simple]:py-3.5">
+      {(title || subtitle || actions) && (
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            {title && <div className="text-[16px] font-semibold text-ink in-data-[settings-look=simple]:text-[14px] in-data-[settings-look=simple]:leading-5 in-data-[settings-look=simple]:font-medium">{title}</div>}
+            {subtitle && <div className={cn(title && "mt-0.5", "text-[13px] leading-[18px] text-ink-secondary")}>{subtitle}</div>}
+          </div>
+          {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        </div>
+      )}
+      {children && <div className={title || subtitle || actions ? "mt-3 in-data-[settings-look=simple]:mt-2.5" : undefined}>{children}</div>}
     </div>
   );
 }

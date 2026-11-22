@@ -178,7 +178,7 @@ export function SimpleAiPage({ has, disclose, connections, decisionModel, imageG
   return (
     <>
       {has("engines") && (
-        <div data-settings-block="engines" className="flex scroll-mt-4 flex-col gap-7">
+        <div data-settings-block="engines" className="flex scroll-mt-4 flex-col gap-5">
           <AdminOnly>
             <ModelManagement />
             <SettingsRows><DefaultBotSettings simple /></SettingsRows>
@@ -223,21 +223,21 @@ export type RemoteAccessCards = Record<"client" | "domain" | "pairing" | "compan
 export function SimpleComputerPage({ has, remoteAccess, servers, disclose }: { has: Has; remoteAccess: RemoteAccessCards; servers: ReactNode; disclose: Disclose }) {
   return (
     <>
-      {has("computer") && <SettingsGroup label={t("settings.simple.computer.bots")} block="computer"><AdminOnly><LocalComputerSection /></AdminOnly></SettingsGroup>}
+      {has("computer") && <SettingsGroup label={t("settings.simple.computer.bots")} block="computer" stack><AdminOnly><LocalComputerSection /></AdminOnly></SettingsGroup>}
       {has("companion") && (
-        <SettingsGroup label={t(pageIsThisComputer() ? "settings.section.phoneDevices" : "settings.section.thisServer")} block="companion">
+        <SettingsGroup label={t(pageIsThisComputer() ? "settings.section.phoneDevices" : "settings.section.thisServer")} block="companion" stack>
           {remoteAccess.companion}
           {remoteAccess.pairing}
           {remoteAccess.domain}
         </SettingsGroup>
       )}
       {has("computer") && (
-        <SettingsGroup label={t("settings.experimental.browser")} block="browser">
+        <SettingsGroup label={t("settings.experimental.browser")} block="browser" stack>
           <SettingsRows><BuiltInBrowserRow /><ServerSitesRow /></SettingsRows>
           <BrowserProfilesRow />
         </SettingsGroup>
       )}
-      {has("logins") && <div data-settings-block="logins" className="scroll-mt-4"><VaultSettings /><PaymentCardsSettings /></div>}
+      {has("logins") && <div data-settings-block="logins" className="flex scroll-mt-4 flex-col gap-4"><VaultSettings /><PaymentCardsSettings /></div>}
       {has("channels") && <div data-settings-block="channels" className="scroll-mt-4"><ChannelsSettings /></div>}
       {(has("companion") || has("desktopWorkspaces")) && (
         <SettingsDisclosureRow title={t("settings.simple.computer.elsewhere")} block="elsewhere" {...disclose("computer-elsewhere")}>

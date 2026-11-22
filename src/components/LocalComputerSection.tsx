@@ -351,24 +351,24 @@ export function CloudComputersCard({
     <Card
       title={t("vm.cloud.title")}
       subtitle={t("vm.cloud.subtitle")}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[12px] text-ink-secondary">
-          {configured === true
-            ? t("vm.cloud.includesOrphans")
-            : configured === false
-              ? <>{t("vm.cloud.needsKey")} <KeysLink id="box" /></>
-              : t("vm.cloud.refreshHint")}
-        </div>
+      actions={
         <button
           type="button"
           onClick={onRefresh}
           disabled={loading || pending !== null}
           aria-label={t("vm.cloud.refreshAria")}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
+          className="ui-button ui-button-md shrink-0"
         >
           <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
+      }
+    >
+      <div className="-mt-1 text-[13px] leading-[18px] text-ink-secondary">
+        {configured === true
+          ? t("vm.cloud.includesOrphans")
+          : configured === false
+            ? <>{t("vm.cloud.needsKey")} <KeysLink id="box" /></>
+            : t("vm.cloud.refreshHint")}
       </div>
 
       {error && <div role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
@@ -449,7 +449,7 @@ export function CloudComputersCard({
                   disabled={loading || instance.inUse || pending !== null || !canSleep}
                   aria-busy={isPending && pending?.action === "sleep" ? true : undefined}
                   title={canSleep ? t("vm.cloud.sleepTitle") : t("vm.cloud.sleepBlocked", { state: state.toLowerCase() })}
-                  className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  className="ui-button ui-button-md"
                 >
                   {isPending && pending?.action === "sleep" ? <Loader2 size={12} className="animate-spin" /> : <Moon size={12} />}
                   {t("vm.cloud.sleep")}
@@ -460,7 +460,7 @@ export function CloudComputersCard({
                   disabled={loading || instance.inUse || pending !== null || isRemoving}
                   aria-busy={isPending && pending?.action === "delete" ? true : undefined}
                   title={t("vm.cloud.deleteTitle")}
-                  className="flex items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="ui-button ui-button-md ui-button-danger"
                 >
                   {isPending && pending?.action === "delete" ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                   {t("common.delete")}
@@ -501,20 +501,20 @@ export function LocalVmInventoryCard({
           ? t("vm.perBot.inventoryUnavailable")
           : t("vm.perBot.created", { count: instances.length, max: maxInstances }),
       })}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[12px] text-ink-secondary">
-          {t("vm.perBot.deleteHint")}
-        </div>
+      actions={
         <button
           type="button"
           onClick={onRefresh}
           disabled={loading || deletingBotId !== null}
           aria-label={t("vm.perBot.refreshAria")}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
+          className="ui-button ui-button-md shrink-0"
         >
           <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
+      }
+    >
+      <div className="text-[12px] text-ink-secondary">
+        {t("vm.perBot.deleteHint")}
       </div>
 
       {error && <div role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
@@ -598,7 +598,7 @@ export function LocalVmInventoryCard({
                     ? t("vm.perBot.deleteBlocked")
                     : t("vm.perBot.deleteTitle", { name: instance.name })
                 }
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
+                className="ui-button ui-button-md ui-button-danger shrink-0"
               >
                 {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 {t("common.delete")}
@@ -645,13 +645,11 @@ function ActionButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       aria-busy={pending === action}
       disabled={pending !== null}
-      className={cn(
-        "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium disabled:opacity-50",
-        danger ? "bg-danger/15 text-danger hover:bg-danger/20" : "bg-accent text-white hover:brightness-110",
-      )}
+      className={cn("ui-button ui-button-md", danger ? "ui-button-danger" : "ui-button-primary")}
     >
       {pending === action && <Loader2 size={13} className="animate-spin" />}
       {children}
@@ -1216,16 +1214,42 @@ export function LocalComputerSection() {
         subtitle={perBot
           ? t("vm.main.perBotSubtitle", { host })
           : t("vm.main.sharedSubtitle", { host })}
+        actions={
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                setLoading(true);
+                setRefreshKey((key) => key + 1);
+                setInventoryRefreshKey((key) => key + 1);
+              }}
+              disabled={loading || pending !== null}
+              className="ui-button ui-button-md"
+            >
+              <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.main.recheck")}
+            </button>
+            {ready && !perBot && (
+              <a
+                href={status?.viewer_url ?? c?.view}
+                target="_blank"
+                rel="noreferrer"
+                className="ui-button ui-button-md"
+              >
+                <ExternalLink size={12} /> {t("vm.main.watch")}
+              </a>
+            )}
+          </>
+        }
       >
         <div className="flex flex-wrap items-center gap-2">
           <span
             aria-live="polite"
             className={cn(
-              "flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[13px]",
-              headerReady ? "bg-success/15 text-success" : "bg-control text-ink-secondary",
+              "inline-flex h-7 items-center gap-1.5 rounded-full px-3 text-[12px] font-medium",
+              headerReady ? "bg-success/15 text-success" : "bg-ink/[0.06] text-ink-secondary",
             )}
           >
-            {loading ? <Loader2 size={12} className="animate-spin" /> : headerReady ? <Check size={12} /> : <Circle size={9} />}
+            {loading ? <Loader2 size={12} className="animate-spin" /> : headerReady ? <Check size={12} /> : <Circle size={8} />}
             {loading
               ? t("common.checking")
               : unavailable
@@ -1236,29 +1260,8 @@ export function LocalComputerSection() {
                     ? t("vm.main.perBotUnsupported")
                   : ready
                     ? t("vm.main.ready")
-                    : (status?.problem ?? t("vm.main.notReady"))}
+                    : (localizeComputerProblem(status?.problem) ?? t("vm.main.notReady"))}
           </span>
-          <button
-            onClick={() => {
-              setLoading(true);
-              setRefreshKey((key) => key + 1);
-              setInventoryRefreshKey((key) => key + 1);
-            }}
-            disabled={loading || pending !== null}
-            className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1 text-[13px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
-          >
-            <RefreshCw size={12} /> {t("vm.main.recheck")}
-          </button>
-          {ready && !perBot && (
-            <a
-              href={status?.viewer_url ?? c?.view}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1 text-[13px] text-ink hover:bg-control"
-            >
-              <ExternalLink size={12} /> {t("vm.main.watch")}
-            </a>
-          )}
         </div>
         {error && <div role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
       </Card>
@@ -1267,17 +1270,18 @@ export function LocalComputerSection() {
         title={t("vm.isolation.title")}
         subtitle={t("vm.isolation.subtitle")}
       >
-        <div className="flex overflow-hidden rounded-lg border border-hairline/40">
-          {(["shared", "per-bot"] as const).map((mode, index) => (
+        <div role="radiogroup" aria-label={t("vm.isolation.title")} className="flex rounded-full bg-ink/[0.06] p-0.5">
+          {(["shared", "per-bot"] as const).map((mode) => (
             <button
               key={mode}
               type="button"
+              role="radio"
+              aria-checked={status?.mode === mode}
               disabled={!status || policyPending}
               onClick={() => void savePolicy(mode, status?.max_instances ?? 2)}
               className={cn(
-                "flex-1 px-3 py-2 text-[13px] disabled:opacity-50",
-                index > 0 && "border-l border-hairline/40",
-                status?.mode === mode ? "bg-control text-ink" : "text-ink-secondary hover:text-ink",
+                "flex-1 rounded-full px-3 py-1.5 text-[13px] transition-colors disabled:opacity-50",
+                status?.mode === mode ? "bg-menu font-medium text-ink shadow-xs" : "text-ink-secondary hover:text-ink",
               )}
             >
               {mode === "shared" ? t("vm.isolation.shared") : t("vm.isolation.perBot")}

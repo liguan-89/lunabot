@@ -1682,6 +1682,15 @@ body {
     color: var(--color-accent-ink);
     filter: brightness(1.1);
   }
+  .ui-button-danger {
+    border-color: transparent;
+    background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+    color: var(--color-danger);
+  }
+  .ui-button-danger:enabled:hover {
+    background: color-mix(in srgb, var(--color-danger) 18%, transparent);
+    color: var(--color-danger);
+  }
   /* A pill-shaped action in the transcript: run and conversation chips,
      "load earlier", the failed-turn Retry. Same 28px as `.ui-button-md`. */
   .ui-pill {
@@ -3461,6 +3470,36 @@ button:disabled.bg-danger {
     summary:not([aria-disabled="true"], [aria-busy="true"])
   ) {
     cursor: pointer;
+  }
+  /* Replace Chromium/WebKit's clunky solid black triangle marker on native <details><summary> globally
+     with a crisp, delicate rotating chevron, while leaving custom `list-none` summaries untouched. */
+  :where(details > summary:not(.list-none):not([class*="list-none"])) {
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+  }
+  :where(details > summary:not(.list-none):not([class*="list-none"]))::-webkit-details-marker {
+    display: none;
+  }
+  :where(details > summary:not(.list-none):not([class*="list-none"]))::before {
+    content: "";
+    display: inline-block;
+    width: 0.3125rem;
+    height: 0.3125rem;
+    flex-shrink: 0;
+    margin-left: 0.125rem;
+    margin-right: 0.5rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    opacity: 0.6;
+    transform: translateX(-1px) rotate(-45deg);
+    transition: transform 150ms ease, opacity 150ms ease;
+  }
+  :where(details > summary:not(.list-none):not([class*="list-none"])):hover::before {
+    opacity: 0.95;
+  }
+  :where(details[open] > summary:not(.list-none):not([class*="list-none"]))::before {
+    transform: translateY(-1.5px) rotate(45deg);
   }
   /* lucide writes stroke-width="2" as an attribute, which any CSS outranks; an explicit strokeWidth prop is left alone. */
   :where(svg.lucide[stroke-width="2"]) {

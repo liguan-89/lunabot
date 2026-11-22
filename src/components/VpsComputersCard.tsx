@@ -36,24 +36,24 @@ export function VpsComputersCard({
     <Card
       title={t("vm.vps.title")}
       subtitle={t("vm.vps.subtitle")}
-    >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[12px] text-ink-secondary">
-          {configured === true
-            ? t("vm.vps.sshHost", { alias: aliases.join(", ") || t("vm.vps.configuredFallback") })
-            : configured === false
-              ? <>{t("vm.vps.needsAlias")} <KeysLink id="vps" /></>
-              : t("vm.vps.refreshHint")}
-        </div>
+      actions={
         <button
           type="button"
           onClick={onRefresh}
           disabled={loading || removingName !== null}
           aria-label={t("vm.vps.refreshAria")}
-          className="flex shrink-0 items-center gap-1.5 rounded-lg border border-hairline/40 px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-40"
+          className="ui-button ui-button-md shrink-0"
         >
           <RefreshCw size={12} className={cn(loading && "animate-spin")} /> {t("vm.refresh")}
         </button>
+      }
+    >
+      <div className="-mt-1 text-[13px] leading-[18px] text-ink-secondary">
+        {configured === true
+          ? t("vm.vps.sshHost", { alias: aliases.join(", ") || t("vm.vps.configuredFallback") })
+          : configured === false
+            ? <>{t("vm.vps.needsAlias")} <KeysLink id="vps" /></>
+            : t("vm.vps.refreshHint")}
       </div>
 
       {error && <div role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-[12px] text-danger">{error}</div>}
@@ -142,7 +142,7 @@ export function VpsComputersCard({
                 disabled={loading || instance.inUse || removingName !== null}
                 aria-busy={removing || undefined}
                 title={t("vm.vps.removeTitle")}
-                className="flex shrink-0 items-center gap-1.5 rounded-lg bg-danger/10 px-2.5 py-1.5 text-[12px] font-medium text-danger hover:bg-danger/15 disabled:cursor-not-allowed disabled:opacity-40"
+                className="ui-button ui-button-md ui-button-danger shrink-0"
               >
                 {removing ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 {t("vm.vps.remove")}
