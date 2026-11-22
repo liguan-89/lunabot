@@ -6,7 +6,6 @@ import { createGmailDrafts } from "./host/gmail-drafts.ts";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync, realpathSync, rmSync } from "node:fs";
-import { homedir } from "node:os";
 import { rm as removeDirectory } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { ToolResults, TOOL_RESULT_MAX_CHARS } from "./tool-results.ts";
@@ -99,6 +98,7 @@ import { cloudComputerRpc } from "./cloud-computer-tools.ts";
 import { chartRenderer, compileChart, dataEngine, validateVegaLite } from "./data/deps.ts";
 import { BUILT_IN_DATA_SYSTEM_PROMPT } from "./data/instructions.ts";
 import { DATA_INTERNAL_MCP_PATH, dataRpc } from "./data/rpc.ts";
+import { dataExportFolders } from "./data/roots.ts";
 import { removeRetiredAppFiles } from "./retired-apps.ts"; import { createEmailRoutes } from "./routes/email.ts"; import { createEmailHost, EMAIL_INTERNAL_MCP_PATH, emailAccess } from "./email/host.ts"; import { createEmailService } from "./email/service.ts"; import { createPostizRoutes } from "./routes/postiz.ts"; import { createPostiz } from "./postiz/service.ts";
 import { createPhones } from "./host/phones.ts";
 import { macAppCall } from "./host/mac-apps.ts";
@@ -2378,10 +2378,9 @@ const dataSheets = new DataSheetRegistry({
     await (await dataEngine.forBot(botId)).dropResult(name);
   },
 });
-function dataExportRoots(bot: { id: string; cwd?: string }): string[] {
-  const downloads = join(homedir(), "Downloads");
-  return [...(existsSync(downloads) ? [downloads] : []), ...(bot.cwd ? [bot.cwd] : []), workspaceDir(bot.id)];
-}
+const dataExportRoots = (bot: { id: string; cwd?: string }, threadId?: string): string[] => dataExportFolders(bot, threadId, {
+  dataDir: DATA_DIR, workspace: workspaceDir, taskCwd: (id, thread) => store.taskByThread(id, thread)?.cwd,
+});
 let dataUnavailableLogged = false;
 function dataIntegration(botId: string, turn: { threadId: string; generation: string }) {
   const unavailable = dataEngine.unavailable();
@@ -13713,7 +13712,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
         return json(res, 200, { result: await dataRpc(body, {
           database, sheet: dataSheets.for(internalSender.id),
           compileChart, validateVegaLite, renderer: chartRenderer,
-          exportRoots: () => dataExportRoots(internalSender),
+          exportRoots: () => dataExportRoots(internalSender, internalCapability.threadId),
           signal: abort.signal, assertActive: requireActiveInternalCapability,
           onShow: (card) => {
             store.appendMessage(internalCapability.threadId, {
