@@ -495,6 +495,29 @@ describe("browsers on one computer", () => {
     await viewer.close();
   });
 
+  it("gives a slow machine's first tab as long as Chrome's own start, so a start that takes 20 s is not refused at 15 s", async () => {
+    // On a busy or CPU-capped computer Chrome answers on its pipe but its first tab runs late; refusing then made the bot
+    // start Chrome all over again. Only the timers are fake: nothing here waits on the wall clock.
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      const slow = new FakeBackend(() => {
+        const chrome = new FakeChrome({ documents });
+        chrome.delay = (method) => (method === "Page.enable" ? 20_000 : 0);
+        return chrome;
+      });
+      backends.push(slow);
+      const { call, text } = setup({ backend: () => slow });
+      let result: Awaited<ReturnType<typeof call>> | null = null;
+      void call("agent_browser_open", { url: "https://example.com/form" }).then((answer) => { result = answer; });
+      for (let waited = 0; result === null && waited < 90_000; waited += 1_000) await vi.advanceTimersByTimeAsync(1_000);
+      expect(result).not.toBeNull();
+      expect(text(result!)).not.toContain("No matching tab opened");
+      expect(text(result!)).toContain("Opened https://example.com/form in t1.");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("makes room by closing the least recently used idle browser, and waits, then refuses, when none is idle", async () => {
     const { service, call, backend } = setup({ maxRunning: 1, capacityWaitMs: 100 });
     const other = { session: "bot-b", key: "bot:b" };
