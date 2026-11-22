@@ -230,7 +230,8 @@ describe("on a Team Cloud, a secret typed into a card in a member's private chat
     const one = team();
     const shared = one.vaultStore.saveSecret({ name: "Stripe secret key", value: "sk_test_fake-team", source: "settings", bots: ["ledger"] });
     const card = await ask(one, "ada-chat", { replace: true });
-    one.cards.saveCustomSecret("ledger", "ada-chat", String(card.body.messageId), KEY);
+    expect(card.status, JSON.stringify(card.body)).toBe(201);
+    expect(one.cards.saveCustomSecret("ledger", "ada-chat", String(card.body.messageId), KEY).status).toBe(200);
     expect(one.vaultStore.secret(shared.id)?.value).toBe("sk_test_fake-team");
     expect(one.vaultStore.usableSecret("Stripe secret key", "ledger", "ref", { person: ADA, team: true })?.value).toBe(KEY);
     expect(one.vaultStore.usableSecret("Stripe secret key", "ledger", "ref", { person: BEN, team: true })?.id).toBe(shared.id);

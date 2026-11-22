@@ -133,6 +133,20 @@
       "owner": "liguan-89",
       "reason": "Failed once on a loaded ubuntu shard (Nov 22): no computer MCP reached the agent inside the provisioning window; green locally in 8s.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T8 Stop while parked on a sign-in card cancels the root and stops the card; Cancel afterwards is saved but starts nothing",
+      "owner": "liguan-89",
+      "reason": "Failed once on a loaded ubuntu shard (Nov 22): root raced to completed before the parked card state — green locally.",
+      "since": "2026-11-22"
+    },
+    {
+      "file": "server/host/secret-cards.test.ts",
+      "test": "on a Team Cloud, a secret typed into a card in a member's private chat > leaves the team's secret of the same name as it was, which every other chat still gets",
+      "owner": "liguan-89",
+      "reason": "Failed once on a loaded ubuntu shard (Nov 22): member-scoped secret fell back to the team one — card/save path raced; assertions hardened to name the racing step; green locally.",
+      "since": "2026-11-22"
     }
   ]
 }
