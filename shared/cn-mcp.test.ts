@@ -112,4 +112,8 @@ describe("CN_MCP_SEARCH_TERMS", () => {
   it("keeps the whole search a handful of requests", () => {
     expect(CN_MCP_SEARCH_TERMS.length).toBeLessThanOrEqual(30);
   });
+
+  it("asks nothing shorter than three characters, which the registry refuses", () => {
+    for (const term of CN_MCP_SEARCH_TERMS) expect(term.trim().length).toBeGreaterThanOrEqual(3);
+  });
 });

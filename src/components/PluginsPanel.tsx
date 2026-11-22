@@ -585,7 +585,7 @@ export function PluginsPanel() {
           ) : (
             <SavedKeysReset notice />
           )}
-          {setupNotice && filter !== "mcp" && (
+          {setupNotice && filter !== "mcp" && filter !== "cn" && (
             <div
               className={cn(
                 "mb-3 rounded-xl px-4 py-3 text-[13px]",

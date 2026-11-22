@@ -18,6 +18,7 @@ import { openBotSettings } from "./bot-panel/panel-link";
 import type { LocaleKey } from "@/locales";
 import { isRemoteMcpListing, type McpServerListing } from "./mcp-draft";
 import type { CnMcpRegistryServer } from "../../shared/cn-mcp";
+import { cnMcpServerName as registryServerName } from "../../shared/cn-mcp";
 
 interface CnCatalog {
   servers: CnMcpRegistryServer[];
@@ -29,6 +30,16 @@ const GROUPS = ["life", "social", "work", "dev"] as const;
 const PILL = "inline-flex h-7 shrink-0 items-center justify-center gap-2 rounded-full px-3 text-[13px] font-medium leading-5 transition-colors";
 
 const listed = (result: { servers?: McpServerListing[] } | undefined): McpServerListing[] => result?.servers ?? [];
+
+/** `name`, then `name-2`, `name-3`…: never a name already taken. */
+function freeName(name: string, servers: readonly McpServerListing[]): string {
+  const taken = new Set(servers.map((server) => server.name));
+  if (!taken.has(name)) return name;
+  for (let suffix = 2; ; suffix += 1) {
+    const candidate = `${name.slice(0, 30)}-${suffix}`;
+    if (!taken.has(candidate)) return candidate;
+  }
+}
 
 /** Whether this app's server is on and holds its key (or needs none). */
 function appConnected(app: CnMcpApp, servers: readonly McpServerListing[]): boolean {
@@ -125,7 +136,7 @@ export function CnMcpPanel({ refreshKey = 0 }: { refreshKey?: number }) {
     setBusy(server.url);
     setError(null);
     try {
-      const name = cnMcpServerName({ id: server.name.slice(server.name.lastIndexOf("/") + 1) }, servers);
+      const name = freeName(registryServerName(server.name), servers);
       const saved = await api("/api/mcp/servers", {
         method: "POST",
         body: JSON.stringify({ name, type: server.transport, url: server.url, enabled: false }),
@@ -157,9 +168,18 @@ export function CnMcpPanel({ refreshKey = 0 }: { refreshKey?: number }) {
     }
   };
 
-  /** Registry entries already added, by address, so their row says so instead of offering it twice. */
+  /** Registry entries already added, or already a card above, by address: neither is offered twice. */
   const addedUrls = new Set(servers.filter((server) => isRemoteMcpListing(server)).map((server) => server.url));
-  const registry = (catalog?.servers ?? []).filter((server) => !addedUrls.has(server.url));
+  const cardUrls = new Set(CN_MCP_APPS.map((app) => new URL(app.url)));
+  const sameAddress = (server: CnMcpRegistryServer) => {
+    let address: URL;
+    try { address = new URL(server.url); } catch { return false; }
+    for (const own of cardUrls) {
+      if (address.origin === own.origin && address.pathname.replace(/\/+$/, "") === own.pathname.replace(/\/+$/, "")) return true;
+    }
+    return false;
+  };
+  const registry = (catalog?.servers ?? []).filter((server) => !addedUrls.has(server.url) && !sameAddress(server));
 
   return (
     <div className="flex flex-col gap-7">

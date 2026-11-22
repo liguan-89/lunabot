@@ -4,10 +4,11 @@
 //
 // Nothing here calls the network: these are the words to search with and the shape a result takes.
 
-/** What to ask the Registry for. Each is one search request; the page runs them together. */
+/** What to ask the Registry for. Each is one search request; the page runs them together.
+ * Every term is at least three characters: the Registry refuses anything shorter (422). */
 export const CN_MCP_SEARCH_TERMS: readonly string[] = [
   "12306", "weibo", "zhihu", "bilibili", "douyin", "xiaohongshu", "wechat", "weixin", "feishu", "lark",
-  "dingtalk", "yuque", "gitee", "amap", "gaode", "baidu", "tencent", "alipay", "taobao", "jd", "qq", "china",
+  "dingtalk", "yuque", "gitee", "amap", "gaode", "baidu", "tencent", "alipay", "taobao", "china",
 ];
 
 /** A Registry entry that can be connected to directly: a remote address over streamable HTTP or SSE. */

@@ -177,20 +177,58 @@ describe("CnMcpPanel", () => {
       fetchedAt: 1_700_000_000_000,
       fresh: true,
       servers: [{
+        name: "cn.pianam.mcp/devtools-mcp",
+        title: "Pianam Devtools",
+        description: "Developer tools",
+        url: "https://mcp.pianam.cn/devtools-mcp/mcp",
+        transport: "http",
+        headerKeys: [],
+      }],
+    };
+    await mount();
+    const entry = host.querySelector<HTMLElement>('[data-cn-registry-tile="cn.pianam.mcp/devtools-mcp"]')!;
+    expect(entry.textContent).toContain("Pianam Devtools");
+    await act(async () => { [...entry.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add")!.click(); });
+    await settle();
+    expect(calls("POST")).toContainEqual(["/api/mcp/servers", { name: "devtools-mcp", type: "http", url: "https://mcp.pianam.cn/devtools-mcp/mcp", enabled: false }]);
+  });
+
+  it("gives a registry entry a free name when its own is taken", async () => {
+    servers = [{ name: "devtools-mcp", type: "http", url: "https://other.test/mcp", headerKeys: [], enabled: true }];
+    catalog = {
+      fetchedAt: 1_700_000_000_000,
+      fresh: true,
+      servers: [{
+        name: "cn.pianam.mcp/devtools-mcp",
+        title: "Pianam Devtools",
+        description: "",
+        url: "https://mcp.pianam.cn/devtools-mcp/mcp",
+        transport: "http",
+        headerKeys: [],
+      }],
+    };
+    await mount();
+    const entry = host.querySelector<HTMLElement>('[data-cn-registry-tile="cn.pianam.mcp/devtools-mcp"]')!;
+    await act(async () => { [...entry.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add")!.click(); });
+    await settle();
+    expect(calls("POST")).toContainEqual(["/api/mcp/servers", { name: "devtools-mcp-2", type: "http", url: "https://mcp.pianam.cn/devtools-mcp/mcp", enabled: false }]);
+  });
+
+  it("leaves out a registry entry the cards above already offer", async () => {
+    catalog = {
+      fetchedAt: 1_700_000_000_000,
+      fresh: true,
+      servers: [{
         name: "cn.pianam.mcp/12306-train-mcp",
-        title: "12306 Train Tickets",
-        description: "Schedules and seats",
+        title: "China 12306 Train Tickets MCP",
+        description: "",
         url: "https://mcp.pianam.cn/train-mcp/mcp",
         transport: "http",
         headerKeys: [],
       }],
     };
     await mount();
-    const entry = host.querySelector<HTMLElement>('[data-cn-registry-tile="cn.pianam.mcp/12306-train-mcp"]')!;
-    expect(entry.textContent).toContain("12306 Train Tickets");
-    await act(async () => { [...entry.querySelectorAll("button")].find((button) => button.textContent?.trim() === "Add")!.click(); });
-    await settle();
-    expect(calls("POST")).toContainEqual(["/api/mcp/servers", { name: "12306-train-mcp", type: "http", url: "https://mcp.pianam.cn/train-mcp/mcp", enabled: false }]);
+    expect(host.querySelector('[data-cn-registry-tile="cn.pianam.mcp/12306-train-mcp"]')).toBeNull();
   });
 
   it("leaves a registry entry out once its address is already a server", async () => {
