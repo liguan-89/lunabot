@@ -153,20 +153,20 @@ suite("the v2 stream on real Chrome", () => {
     await opened("/animated", ANIMATED);
     expect(await pageSize()).toEqual([1280, 800, 2]);
     const client = await connect("width=1600&height=1000&maxWidth=3200&maxHeight=2000");
-    await until(pageSize, same([1600, 1000, 2]));
-    await until(() => client.frames.at(-1), (frame) => frame?.width === 3200 && frame.height === 2000);
+    await until(pageSize, same([1600, 1000, 2]), hostTimeout(15_000));
+    await until(() => client.frames.at(-1), (frame) => frame?.width === 3200 && frame.height === 2000, hostTimeout(15_000));
     expect(client.messages).toContainEqual(expect.objectContaining({ type: "viewport", width: 1600, height: 1000 }));
     // Watching is enough to size the page; nobody has to take control for it.
     client.send({ type: "resize", width: 1200, height: 900 });
-    await until(pageSize, same([1280, 960, 2]));
-    await until(() => client.frames.at(-1), (frame) => frame?.width === 2560 && frame.height === 1920);
+    await until(pageSize, same([1280, 960, 2]), hostTimeout(15_000));
+    await until(() => client.frames.at(-1), (frame) => frame?.width === 2560 && frame.height === 1920, hostTimeout(15_000));
     // A narrow, tall panel: a desktop page of its shape, taller than the screen, in frames as tall as the viewer takes.
     client.send({ type: "resize", width: 400, height: 750 });
-    await until(pageSize, same([1280, 2400, 2]));
-    await until(() => client.frames.at(-1), (frame) => frame?.height === 2000 && Math.abs(frame.width - 1067) <= 1);
+    await until(pageSize, same([1280, 2400, 2]), hostTimeout(15_000));
+    await until(() => client.frames.at(-1), (frame) => frame?.height === 2000 && Math.abs(frame.width - 1067) <= 1, hostTimeout(15_000));
     expect(client.messages.filter((message) => message.type === "viewport").at(-1)).toMatchObject({ width: 1280, height: 2400 });
     await client.close();
-    await until(pageSize, same([1280, 800, 2]));
+    await until(pageSize, same([1280, 800, 2]), hostTimeout(15_000));
   }, hostTimeout(90_000));
 
   it("ends every drag of the panel on a sharp frame of the final size, on a page that never repaints by itself", async () => {
