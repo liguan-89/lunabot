@@ -133,7 +133,7 @@ async function scenario(test: (f: any) => Promise<void>, options: { env?: Record
     closeSync(log);
     await expect.poll(async () => {
       try { return (await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1_000) })).ok; } catch { return false; }
-    }, { timeout: 30_000 }).toBe(true);
+    }, { timeout: hostTimeout(30_000) }).toBe(true);
   };
   try {
     // The launcher's environment is hermetic: a loopback backend the server must reach is given on a restart.
