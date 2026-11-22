@@ -20,7 +20,7 @@ class E2eRouteOrderTest {
     private fun descriptor(routes: String? = null) = E2eDescriptor(
         k = E2eBase64.encode(transportKey.publicKey),
         h = E2eBase64.encode(hostId),
-        relays = listOf("relay1.lunabot.com"),
+        relays = listOf("relay1.openmausbot.com"),
         routes = routes,
     )
 
@@ -58,7 +58,7 @@ class E2eRouteOrderTest {
         )
         assertFailsWith<Exception> { transport.ensureSession() }
         assertEquals(
-            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.lunabot.com/v1/phone"),
+            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.openmausbot.com/v1/phone"),
             connector.dialled,
         )
     }
@@ -83,7 +83,7 @@ class E2eRouteOrderTest {
         val admission = E2eCredentials.admission(token, hostId)
         val session = E2eSession(
             connector = connector,
-            target = E2eTarget.Relay("wss://relay1.lunabot.com/v1/phone", hostId, admission),
+            target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = E2eCredentials.psk(token, E2eCredentials.keyId(transportKey.publicKey)),
             app = "mausbot-test",
@@ -111,7 +111,7 @@ class E2eRouteOrderTest {
         val admission = E2eCredentials.admission(token, hostId)
         val session = E2eSession(
             connector = RefusingConnector(4001),
-            target = E2eTarget.Relay("wss://relay1.lunabot.com/v1/phone", hostId, admission),
+            target = E2eTarget.Relay("wss://relay1.openmausbot.com/v1/phone", hostId, admission),
             transportKey = transportKey.publicKey,
             psk = E2eCredentials.psk(token, E2eCredentials.keyId(transportKey.publicKey)),
             app = "mausbot-test",
@@ -135,7 +135,7 @@ class E2eRouteOrderTest {
             )
         }
         assertEquals(
-            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.lunabot.com/v1/phone"),
+            listOf("ws://192.168.1.42:8810/v1/e2e", "wss://relay1.openmausbot.com/v1/phone"),
             connector.dialled,
         )
         assertTrue(failure is NoiseException)

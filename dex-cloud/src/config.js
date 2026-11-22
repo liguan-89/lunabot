@@ -55,7 +55,10 @@ export function loadConfig(env = process.env) {
     emailFrom: trim(env.DEXCLOUD_EMAIL_FROM) || "Luna Bot <noreply@cloud.dexai.vip>",
     smtp: smtp(env.DEXCLOUD_SMTP_URL),
     resendKey: trim(env.DEXCLOUD_RESEND_API_KEY),
-    relayNodes: list(env.DEXCLOUD_RELAY_NODES).length ? list(env.DEXCLOUD_RELAY_NODES) : ["relay1.dexai.vip"],
+    // `cloud.dexai.vip` serves the relay routes itself, so a deployment that sets nothing still issues a node a phone
+    // can reach. A bare `relayN.dexai.vip` name needs its own Caddy site block; without one the TLS handshake fails and
+    // the grant is useless.
+    relayNodes: list(env.DEXCLOUD_RELAY_NODES).length ? list(env.DEXCLOUD_RELAY_NODES) : ["cloud.dexai.vip"],
     relayKid: trim(env.DEXCLOUD_RELAY_TOKEN_KID) || "k1",
     relaySeed: trim(env.DEXCLOUD_RELAY_TOKEN_SEED),
     /** Phone installations silent this long are swept; 0 keeps them forever. */

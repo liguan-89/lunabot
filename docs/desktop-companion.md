@@ -23,10 +23,12 @@ below. The two connection types intentionally do not share credentials.
 2. Open a pairing window so the host displays a six-digit code.
 3. On the client, open **Settings → Servers → Connect to another computer**
    and choose **Desktop companion**.
-4. Enter the host's managed companion address (`https://c-….openmausbot.com` or `https://c-….mausbot.si`) and the six-digit code.
+4. Enter the host's managed companion address (`https://c-<32 hex>.dexai.vip`) and the six-digit code.
 5. Choose **Pair and switch to client mode**. The client restarts and opens the host's bot UI.
 
-The HTTPS address uses the host's managed outbound tunnel. TLS is verified by the operating system, and the client does not need Tailscale. HTTPS is intentionally restricted to the names Luna Bot issues (`c-` and 32 hexadecimal characters under `lunabot.com` or `mausbot.si`) so a typo, or any other host in those domains, cannot receive the pairing code or a paired-device token. Desktop releases up to 0.1.103 accept only `lunabot.com` names; update the client to pair with a host whose address is on `mausbot.si`, or pair over Tailscale.
+The HTTPS address uses the host's managed outbound tunnel. TLS is verified by the operating system, and the client does not need Tailscale. HTTPS is intentionally restricted to the names Luna Bot issues — `c-` and 32 lowercase hexadecimal characters under a zone in `MANAGED_COMPANION_HOST_SUFFIXES` (`electron/desktop-companion-client.mjs`) — so a typo, or any other host in those zones, cannot receive the pairing code or a paired-device token.
+
+**The tunnel is retired on the control plane this fork deploys.** `POST /v1/installations/self/endpoint` answers `409 relay_capable` with `{"tunnel":"retired"}` (`dex-cloud/src/control.js`), so no managed HTTPS address is issued and this pairing path has no address to enter. Desktop companion mode therefore pairs over Tailscale here; the relay is a phone route and does not carry a desktop client. The code still accepts a `c-….dexai.vip` address if a control plane that issues one is pointed at it.
 
 ## Pair over Tailscale
 
