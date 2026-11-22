@@ -56,6 +56,14 @@ Gmail and other polled apps are checked every 15 minutes, the minimum for Compos
 that uses its own Composio project key cannot watch apps yet: `trigger_info` (`action: "events"`) and the editor say so, and a
 schedule that checks the app, or a webhook, does the job instead.
 
+## Your own project key and the managed service
+
+Connected apps run through your own Composio project key or Luna Bot's managed connection service, never both: a saved key wins, and the server sends the service nothing while it is saved. The key arrives three ways, any one of which is enough: the **Composio API key** credential saved under **Settings → API keys → Self-host connected apps**, the `composio.apiKey` field in `config.json`, or the `COMPOSIO_API_KEY` environment variable.
+
+App events run only through the managed service, so they are unavailable while the key is saved; the automation editor and a bot's `trigger_info` (`action: "events"`) say so and point at a schedule that checks the app, or a webhook, instead.
+
+To go back to the managed service, clear the key everywhere it is set: remove the saved credential in Settings, or the `composio.apiKey` line in `config.json`, or the environment variable. Connected apps must then be connected again — connections do not carry between a project and the service — and app-event automations saved meanwhile keep their local copy and watch again once the service is back. What the saved key changes while it stays is listed under **Keeping traffic off the managed service** below.
+
 ## Keeping traffic off the managed service
 
 **With your own project key saved**, the desktop app and a Cloud home do not register or check in with Luna Bot's managed service, and connected apps go to Composio directly. An app-event automation made before the key was saved can still be paused, deleted or restored, but only here: its copy on the service is left alone and removed if you later go back to the service.
