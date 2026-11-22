@@ -77,6 +77,14 @@ internal class PhoneUiTaskExecutor(context: Context) {
     @Volatile
     private var screenChars = 0
 
+    /**
+     * The person's main-screen touch count when the previous action started;
+     * -1 before the first one. A count that moved between actions says the
+     * person was driving, even though no timestamped tap is inside the next
+     * action's window.
+     */
+    private var lastMainTouchCount = -1L
+
     /** How the screen is driven. FAST is the default and the old touch exactly: no waits, no jitter. */
     @Volatile
     private var pace = OperatingPace.FAST
@@ -633,6 +641,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         actionPace.waitBefore(screenChars).takeIf { it > 0 }?.let { delay(it) }
         val before = service.reading(session.displayId)
         val topBefore = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
+        val userActiveBefore = armSpillBaseline(service)
         val startedAt = System.currentTimeMillis()
         val step = Step(before.fingerprint)
         val outcome = body(step)
@@ -643,7 +652,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         if (step.changed == null) {
             step.changed = awaitChange(service, session, step.before)
         }
-        val answer = spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
+        val answer = spillAfter(shell, service, session, startedAt, topBefore, userActiveBefore)?.let { spill ->
             withScreen(spill, shell, service, session, step.changed)
         } ?: withScreen(outcome, shell, service, session, step.changed)
         // A screen that changed starts the dwell the next action waits out. It
@@ -722,12 +731,26 @@ internal class PhoneUiTaskExecutor(context: Context) {
      * action, move the task back to our display (it keeps its own launching
      * app, unlike a relaunch) or stop for a system picker.
      */
+    /**
+     * Whether the person touched their own screen since the last action, and
+     * records this action's count as the next one's baseline. Taps between two
+     * actions leave no timestamp inside the next window, so the count is the
+     * only evidence they happened (Mika's interaction-count baseline, #798).
+     */
+    private fun armSpillBaseline(service: PhoneUiAccessibilityService): Boolean {
+        val count = service.mainScreenTouchCount
+        val active = lastMainTouchCount >= 0L && count != lastMainTouchCount
+        lastMainTouchCount = count
+        return active
+    }
+
     private suspend fun spillAfter(
         shell: PhoneUiShell,
         service: PhoneUiAccessibilityService,
         session: PhoneUiDisplaySession,
         since: Long,
         topBefore: Int,
+        userActiveBefore: Boolean,
     ): PhoneToolOutcome? {
         val arrival = awaitMainArrival(shell, topBefore) ?: return null
         val pkg = arrival.packageName ?: return null
@@ -739,6 +762,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
             excludedPackages = setOf(appContext.packageName),
             pickerPackages = pickerPackages,
             homePackages = homePackages,
+            userActiveBefore = userActiveBefore,
         )
         return when (decision.verdict) {
             PhoneUiSpill.Verdict.None -> null
@@ -820,6 +844,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         // The dwell the last action still owes, exactly as write() pays it.
         actionPace.waitBefore(screenChars).takeIf { it > 0 }?.let { delay(it) }
         val topBefore = runCatching { shell.topTaskId(MAIN_DISPLAY) }.getOrDefault(-1)
+        val userActiveBefore = armSpillBaseline(service)
         val startedAt = System.currentTimeMillis()
         val answer = PhoneUiFind(
             snapshot = { service.snapshot(session.displayId) },
@@ -850,7 +875,7 @@ internal class PhoneUiTaskExecutor(context: Context) {
         // Scrolling stays inside our display; this only catches an app that opened
         // a picker on the person's own screen along the way. A spill answer carries a
         // fresh screen through withScreen, whose refs are the ones then valid.
-        spillAfter(shell, service, session, startedAt, topBefore)?.let { spill ->
+        spillAfter(shell, service, session, startedAt, topBefore, userActiveBefore)?.let { spill ->
             return withScreen(spill, shell, service, session, null)
         }
         return answer
@@ -1443,11 +1468,43 @@ internal class PhoneUiTaskExecutor(context: Context) {
         val name = arguments.string("key") ?: "back"
         val code = PhoneUiKeys.codeOf(name)
             ?: return PhoneToolOutcome.Failure("不支持的按键。可选：back、enter、del、tab、up、down、left、right。", CODE_UNSUPPORTED)
-        if (!runCatching { shell.injectKey(session.displayId, code) }.getOrDefault(false)) {
+        val injected = runCatching { shell.injectKey(session.displayId, code) }.getOrDefault(false)
+        step.changed = awaitChange(service, session, step.before)
+        // A back injection can land as a no-op on some devices and self-drawn
+        // UIs, so it degrades to tapping the back control the screen names
+        // (Mika's ScreenActions.back, upstream #371/#789). A global back action
+        // is never the fallback: it acts on the display the service is focused
+        // on, and would back out the person's own screen when focus sits there.
+        if (code == PhoneUiKeys.BACK && (!injected || step.changed == false)) {
+            tapBackAffordance(shell, service, session, step)?.let { return it }
+        }
+        if (!injected) {
             return PhoneToolOutcome.Failure("按键没有生效。", CODE_DENIED)
         }
-        step.changed = awaitChange(service, session, step.before)
         return PhoneToolOutcome.Success(buildJsonObject { put("key", name) })
+    }
+
+    /**
+     * The degraded back: tap the control this snapshot names as back. Null
+     * leaves the injection's own outcome standing — a failed fallback is not a
+     * failure of its own.
+     */
+    private suspend fun tapBackAffordance(
+        shell: PhoneUiShell,
+        service: PhoneUiAccessibilityService,
+        session: PhoneUiDisplaySession,
+        step: Step,
+    ): PhoneToolOutcome? {
+        val snapshot = service.snapshot(session.displayId) ?: return null
+        val back = PhoneUiBackAffordance.find(snapshot.elements, session.width, session.height) ?: return null
+        val tapped = tap(shell, service, session, buildJsonObject { put("ref", back.ref) }, step)
+        if (tapped !is PhoneToolOutcome.Success) return null
+        return PhoneToolOutcome.Success(
+            buildJsonObject {
+                put("key", "back")
+                put("channel", "control")
+            },
+        )
     }
 
     private suspend fun waitTool(

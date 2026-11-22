@@ -116,21 +116,36 @@ describe("checkAction", () => {
     ]);
   });
 
-  it("warns when the screen keeps coming back to the same two fingerprints", () => {
+  it("does not warn a two-screen walk until its third full round", () => {
     const first = action(actionSignature("PHONE_UI_TAP", { ref: "e1" }), true, "screen-a");
     const second = action(actionSignature("PHONE_UI_TAP", { ref: "e2" }), true, "screen-b");
-    const { state, verdicts } = run(reset(), [first, second, first, second]);
+    // Two rounds (A B A B) stay quiet since Mika's 2026-11-21 fix moved the first rung to 3.
+    const { verdicts } = run(reset(), [first, second, first, second]);
+    expect(verdicts).toHaveLength(0);
 
-    expect(verdicts).toHaveLength(1);
-    const verdict = verdicts[0]!;
+    const third = run(reset(), [first, second, first, second, first, second]);
+    expect(third.verdicts).toHaveLength(1);
+    const verdict = third.verdicts[0]!;
     expect(verdict).toMatchObject({
       code: "state_cycle",
       severity: "warn",
-      evidence: { states: 2, rounds: 2 },
+      evidence: { states: 2, rounds: 3 },
     });
     if (verdict.severity !== "warn") throw new Error("a cycle should warn first");
     expect(verdict.nudge).toContain("2 screens");
-    expect(state.stop).toBeNull();
+    expect(third.state.stop).toBeNull();
+  });
+
+  it("does not speak a cycle the action did not advance", () => {
+    // A read between actions can complete the walk; an unchanged action that
+    // grows the trail not at all must not report the cycle on top of its own
+    // no-progress story (Mika speaks a cycle only when the page changed).
+    let state = noteScreen(reset(), "screen-a");
+    state = noteScreen(state, "screen-b");
+    state = noteScreen(state, "screen-a");
+    state = noteScreen(state, "screen-b");
+    const after = checkAction(state, action(actionSignature("PHONE_UI_TAP", { ref: "e9" }), false, "screen-b"));
+    expect(after.verdict).toBeNull();
   });
 
   it("starts over when an action changes the screen", () => {

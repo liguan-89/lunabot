@@ -28,8 +28,12 @@ export const PHONE_GUARD_LIMITS = {
   repeatLadder: [3, 6, 12],
   /** Actions with no screen change, whatever their signature: warn, warn, warn, stop. */
   unchangedLadder: [3, 6, 9, 12],
-  /** Whole rounds through the same screens: warn, warn, stop (Mika's 60-step default budget, divided by 5). */
-  cycleLadder: [2, 4, 12],
+  /**
+   * Whole rounds through the same screens: warn, warn, stop (Mika's 60-step default budget, divided by 5). The
+   * first rung is 3 since Mika's 2026-11-21 fix moved it off 2, so a stray A B A B does not warn as soon as a
+   * repeat does.
+   */
+  cycleLadder: [3, 4, 12],
   /** A loop may pass through at most this many screens; a longer walk is not called a cycle. */
   maxCycleStates: 3,
   /** Actions kept for the log. Bounded so a long run cannot grow without limit; 64 holds the longest cycle with a
@@ -209,7 +213,8 @@ export function reset(): GuardState {
  *
  * At most one verdict per action. The repeat rule is the more specific one, so while the same action keeps failing
  * only its ladder climbs and the run reports `repeating_action`; a run of different no-change actions climbs the
- * unchanged ladder and reports `no_progress`. A cycle is reported only when neither ladder fired for this action.
+ * unchanged ladder and reports `no_progress`. A cycle is reported only when neither ladder fired for this action
+ * and the action itself moved the screen to a state not already last in the trail (Mika's 2026-11-21 placement).
  */
 export function checkAction(state: GuardState, action: GuardAction): GuardCheck {
   if (state.stop) return { state, verdict: null };
@@ -245,7 +250,10 @@ export function checkAction(state: GuardState, action: GuardAction): GuardCheck 
   const loop = cycleOf(trail);
   if (loop === null) {
     cycleWarnedAt = 0;
-  } else if (verdict === null) {
+  } else if (verdict === null && trail !== state.trail) {
+    // Mika reports a cycle only when the page changed for this action (`out += cycle()` runs inside its `!same`
+    // branch), so an unchanged screen keeps its own ladders and never re-speaks the cycle. `trail !== state.trail`
+    // is exactly "this action arrived on a screen not already last in the trail" — the same trigger.
     const cycleRung = climb(loop.rounds, PHONE_GUARD_LIMITS.cycleLadder, cycleWarnedAt);
     if (cycleRung) {
       cycleWarnedAt = cycleRung.threshold;
