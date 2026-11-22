@@ -197,7 +197,7 @@ posixOnly("usage attribution e2e", () => {
     await f.waitFor(async () => (await f.getBot(bot.id)).busy === true, "the owner's turn to start");
     // Busy flips when dispatch is claimed, before the engine sees the turn: an interrupt or steer that lands in the
     // setup window (browser session prep, MCP mounts) kills a turn that never ran. The dump row proves sendTurn did run.
-    await f.waitFor(() => piTurnHolding(f.dump, "owner's work"), "the owner's turn to reach the engine");
+    await f.waitFor(() => Boolean(piTurnHolding(f.dump, "owner's work")), "the owner's turn to reach the engine");
     const asPaired = await f.asPerson();
     const queued = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "person's follow-up" });
     expect(queued.body.queued).toBe(true);
@@ -218,7 +218,7 @@ posixOnly("usage attribution e2e", () => {
     expect((await f.api("POST", `/api/bots/${bot.id}/messages`, { text: "first" })).status).toBe(202);
     await f.waitFor(async () => (await f.getBot(bot.id)).busy === true, "the slow turn to start");
     // Same setup race as the interrupt test: steer only exists once sendTurn has registered the live turn.
-    await f.waitFor(() => piTurnHolding(f.dump, "first"), "the slow turn to reach the engine");
+    await f.waitFor(() => Boolean(piTurnHolding(f.dump, "first")), "the slow turn to reach the engine");
     const asPaired = await f.asPerson();
     let steered: Reply;
     try {
