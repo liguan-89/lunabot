@@ -6,6 +6,7 @@ import type { Routine } from "@/lib/routines";
 import type { MemoryDoc } from "@/lib/memory";
 import type { Bot, BotSettingsSection, InstanceInfo } from "@/state/store";
 import { AVATAR_FOCUS_CENTER, AVATAR_ZOOM_MIN } from "../../shared/bot-avatar";
+import { PRESET_STYLE_BODY_IDS } from "../../shared/bot-body";
 import type { ManagedSkill } from "./bot-settings/SkillsSection";
 import type { McpServerSummary } from "@/lib/mcp-servers";
 import type { BotApps } from "./bot-settings/useBotApps";
@@ -509,10 +510,10 @@ describe("the hero", () => {
 describe("the avatar editor", () => {
   const editor = (bot: Bot) => capture(() => AvatarEditorCard({ bot, activeState: "idle", onPatch: patch, onClose }));
 
-  it("shows the seven preset bodies and twelve colors, with the faces behind More looks", () => {
+  it("shows one preset body per style and twelve colors, with the faces behind More looks", () => {
     const bot = makeBot();
     const rendered = editor(bot);
-    expect(rendered.html.match(/aria-label="Use the [\w-]+ body"/g)).toHaveLength(7);
+    expect(rendered.html.match(/aria-label="Use the [\w-]+ body"/g)).toHaveLength(PRESET_STYLE_BODY_IDS.length);
     expect(rendered.html.match(/aria-label="Use \w+ mascot color"/g)).toHaveLength(12);
     expect(has(rendered, "data-avatar-face", "idle")).toBe(false);
     expect(rendered.html, "mascot-era bodies are not pickable anymore").not.toContain('aria-label="Use the Cursor body"');

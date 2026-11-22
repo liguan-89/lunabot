@@ -134,7 +134,7 @@ export const SidebarBotTile = memo(function SidebarBotTile({ primary = false, dr
           className="mt-0.5 inline-flex items-center gap-1 rounded-full bg-card/90 px-2 py-0.5 text-[10px] font-medium text-ink-secondary shadow-sm ring-1 ring-ink/[0.06]"
         >
           <Wrench size={9} strokeWidth={2.2} aria-hidden="true" />
-          <span>努力工作中</span>
+          <span>{t("chat.activity.working")}</span>
         </span>
       )}
     </div>

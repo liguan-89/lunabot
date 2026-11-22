@@ -41,7 +41,7 @@ export function PinnedPanelsSettings() {
                 </div>
                 <button
                   type="button"
-                  className="ui-button text-danger"
+                  className="ui-button ui-button-danger"
                   onClick={() => setWebPanels(panels.filter((entry) => entry.id !== panel.id))}
                 >
                   {t("webPanels.settings.remove")}

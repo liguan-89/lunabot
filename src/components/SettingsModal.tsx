@@ -559,7 +559,7 @@ function SettingsDialog() {
           </nav>
 
           <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-            <header className="flex shrink-0 flex-col gap-2 py-3 pl-4 pr-14 sm:flex-row sm:items-center sm:gap-3 sm:pb-1.5 sm:pl-12 sm:pt-8">
+            <header className="flex shrink-0 flex-col gap-2 py-3 pl-4 pr-14 sm:flex-row sm:items-center sm:gap-3 sm:pb-2 sm:pl-8 sm:pt-7">
               {narrowSearch}
               <div className="flex min-w-0 items-center gap-3">
                 <Select className="min-w-0 sm:hidden"

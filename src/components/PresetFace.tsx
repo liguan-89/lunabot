@@ -1,5 +1,5 @@
-// The app's portrait: seven selectable styles (classic disc, moon-glass orb, porcelain neko, iridescent liquid,
-// pocket synth, moon spirit, ceramic mini-bot) — ported from Android's BotFace.kt.
+// The app's portrait: eighteen selectable styles (orb, neko, liquid, synth, spirit, minibot, bunny, astro, prism,
+// bear, retro, fox, frog, owl, ghost, camera, cloud, classic) — synced with Android's BotFace.kt.
 //
 // BotFaceRig (src/lib/preset-face-rig.ts) schedules blinks, gaze, idle gestures and breath; this component ticks it
 // on requestAnimationFrame and writes the pose straight to the SVG nodes, so a row of faces animates without React
@@ -121,17 +121,110 @@ function eyeSpecFor(style: AvatarStyleId): EyeSpec {
       visor: false,
     };
   }
-  if (style === "synth" || style === "minibot") {
+  if (style === "synth" || style === "minibot" || style === "astro" || style === "retro" || style === "camera") {
+    const y = style === "retro" ? -9 : style === "synth" ? -5 : style === "astro" ? -2 : style === "camera" ? 5 : -1.5;
+    const x = style === "camera" ? 9.5 : style === "astro" ? 13 : 12.5;
     return {
-      left: { x: -12.5, y: style === "synth" ? -5 : -1.5 },
-      right: { x: 12.5, y: style === "synth" ? -5 : -1.5 },
-      width: 9.2,
-      height: 16,
+      left: { x: -x, y },
+      right: { x, y },
+      width: style === "camera" ? 8.2 : style === "astro" ? 9.4 : 9.2,
+      height: style === "camera" ? 14.5 : style === "retro" ? 15.5 : style === "astro" ? 16.5 : 16,
       faceTilt: 0,
       eyeTilt: 0,
       cosTilt: 1,
       sinTilt: 0,
       visor: true,
+    };
+  }
+  if (style === "frog") {
+    return {
+      left: { x: -21, y: -18 },
+      right: { x: 21, y: -18 },
+      width: 10.6,
+      height: 13,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "fox" || style === "cloud") {
+    return {
+      left: { x: -13.5, y: 4 },
+      right: { x: 13.5, y: 4 },
+      width: 10.2,
+      height: 17.5,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "owl") {
+    return {
+      left: { x: -14, y: -2 },
+      right: { x: 14, y: -2 },
+      width: 10.4,
+      height: 17.5,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "wisp") {
+    return {
+      left: { x: -12.5, y: -4 },
+      right: { x: 12.5, y: -4 },
+      width: 10.2,
+      height: 17.5,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "bunny") {
+    return {
+      left: { x: -13.5, y: 5 },
+      right: { x: 13.5, y: 5 },
+      width: 10.2,
+      height: 17.5,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "bear") {
+    return {
+      left: { x: -14.5, y: -3 },
+      right: { x: 14.5, y: -3 },
+      width: 10.2,
+      height: 17,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
+    };
+  }
+  if (style === "prism") {
+    return {
+      left: { x: -13.5, y: 0 },
+      right: { x: 13.5, y: 0 },
+      width: 10.4,
+      height: 18,
+      faceTilt: 0,
+      eyeTilt: 0,
+      cosTilt: 1,
+      sinTilt: 0,
+      visor: false,
     };
   }
   return {
@@ -333,6 +426,208 @@ function FaceBody({
         </>
       );
 
+    case "bunny":
+      return (
+        <>
+          {/* Sculpted tall rounded rabbit ears */}
+          <ellipse cx="32" cy="25" rx="10" ry="20" transform="rotate(-11 32 25)" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" />
+          <ellipse cx="68" cy="25" rx="10" ry="20" transform="rotate(11 68 25)" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" />
+          {/* Harmonious inner ears */}
+          <ellipse cx="32" cy="26" rx="5" ry="13" transform="rotate(-11 32 26)" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
+          <ellipse cx="68" cy="26" rx="5" ry="13" transform="rotate(11 68 26)" fill={innerEarFill} opacity={light ? 0.5 : 0.36} />
+          {/* Plump porcelain bunny head */}
+          <ellipse cx="50" cy="59" rx="40" ry="35" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          <ellipse cx="37" cy="40" rx="18" ry="10" transform="rotate(-14 37 40)" fill={`url(#${specularGradient})`} />
+          <ellipse cx="50" cy="64.5" rx="3.4" ry="2.2" fill={face.eye} opacity="0.68" />
+          <circle cx="26" cy="64" r="11" fill={`url(#${blushGradient})`} />
+          <circle cx="74" cy="64" r="11" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "astro":
+      return (
+        <>
+          {/* Side metallic comm-pods */}
+          <rect x="3" y="42" width="7" height="20" rx="3.5" fill={face.edge} stroke={rimStroke} strokeWidth="0.8" />
+          <rect x="90" y="42" width="7" height="20" rx="3.5" fill={face.edge} stroke={rimStroke} strokeWidth="0.8" />
+          {/* Space-age rounded ceramic helmet */}
+          <circle cx="50" cy="50" r="44" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.5" />
+          <ellipse cx="38" cy="20" rx="18" ry="8" transform="rotate(-14 38 20)" fill={`url(#${specularGradient})`} />
+          {/* Wide panoramic obsidian dome visor */}
+          <rect x="16" y="25" width="68" height="44" rx="22" fill="#0E1118" stroke="rgba(255,255,255,0.22)" strokeWidth="1.3" />
+          <path d="M27 33 Q46 27 68 32" fill="none" stroke="rgba(255,255,255,0.24)" strokeWidth="3" strokeLinecap="round" />
+          {/* Lower chin comm-vent pill */}
+          <rect x="42" y="77" width="16" height="3.6" rx="1.8" fill={light ? "rgba(24,24,28,0.22)" : "rgba(255,255,255,0.26)"} />
+        </>
+      );
+
+    case "prism":
+      return (
+        <>
+          {/* Softly rounded octagonal crystal gem silhouette */}
+          <path
+            d="M34 8 L66 8 Q73 8 78 13 L87 22 Q92 27 92 34 L92 66 Q92 73 87 78 L78 87 Q73 92 66 92 L34 92 Q27 92 22 87 L13 78 Q8 73 8 66 L8 34 Q8 27 13 22 L22 13 Q27 8 34 8 Z"
+            fill={`url(#${gradient})`}
+            stroke={rimStroke}
+            strokeWidth="1.5"
+          />
+          {/* Translucent geometric crystal facets */}
+          <path d="M22 13 L66 8 L50 32 L13 54 L8 34 Q8 27 13 22 Z" fill="#FFFFFF" opacity={light ? 0.3 : 0.15} />
+          <path d="M92 48 L92 66 Q92 73 87 78 L78 87 Q73 92 66 92 L46 92 L64 68 Z" fill={face.edge} opacity={light ? 0.28 : 0.34} />
+          <path d="M18 68 L68 18 L79 26 L29 76 Z" fill="#FFFFFF" opacity={light ? 0.16 : 0.09} />
+          <path
+            d="M35.5 12 L64.5 12 Q70 12 74 16 L84 26 Q88 30 88 35.5 L88 64.5 Q88 70 84 74 L74 84 Q70 88 64.5 88 L35.5 88 Q30 88 26 84 L16 74 Q12 70 12 64.5 L12 35.5 Q12 30 16 26 L26 16 Q30 12 35.5 12 Z"
+            fill="none"
+            stroke="rgba(255,255,255,0.42)"
+            strokeWidth="1.1"
+          />
+        </>
+      );
+
+    case "bear":
+      return (
+        <>
+          {/* Symmetrical round plush bear ears */}
+          <circle cx="22" cy="23" r="15.5" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.3" />
+          <circle cx="78" cy="23" r="15.5" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.3" />
+          <circle cx="22" cy="23" r="8.2" fill={innerEarFill} opacity={light ? 0.52 : 0.36} />
+          <circle cx="78" cy="23" r="8.2" fill={innerEarFill} opacity={light ? 0.52 : 0.36} />
+          {/* Plump matte ceramic bear head */}
+          <ellipse cx="50" cy="54" rx="43" ry="39.5" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          <ellipse cx="36" cy="31" rx="19" ry="10.5" transform="rotate(-14 36 31)" fill={`url(#${specularGradient})`} />
+          {/* Soft lightened ceramic muzzle + harmonized nose */}
+          <ellipse cx="50" cy="64" rx="16.5" ry="11.5" fill={mixHex(face.light, "#FFFFFF", 0.55)} opacity={light ? 0.72 : 0.22} />
+          <path d="M45.5 60.5 Q50 58.8 54.5 60.5 Q52.5 65.5 50 65.5 Q47.5 65.5 45.5 60.5 Z" fill={face.eye} opacity="0.82" />
+          <circle cx="25" cy="61" r="11.5" fill={`url(#${blushGradient})`} />
+          <circle cx="75" cy="61" r="11.5" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "retro":
+      return (
+        <>
+          {/* Classic compact CRT desktop computer chassis */}
+          <rect x="9" y="8" width="82" height="84" rx="17" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.6" />
+          <path d="M22 13 H78" stroke="rgba(255,255,255,0.45)" strokeWidth="2" strokeLinecap="round" opacity={light ? 0.7 : 0.28} />
+          {/* Recessed dark phosphor CRT screen */}
+          <rect x="18" y="18" width="64" height="46" rx="10" fill="#121A17" stroke="rgba(255,255,255,0.18)" strokeWidth="1.2" />
+          <path d="M24 23 Q50 19.5 76 23" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="2.2" strokeLinecap="round" />
+          {/* Lower-left floppy/vent slot + lower-right emerald status LED */}
+          <rect x="22" y="74.5" width="28" height="4.2" rx="2.1" fill={light ? "rgba(24,24,28,0.24)" : "rgba(255,255,255,0.28)"} />
+          <circle cx="74" cy="76.6" r="3.4" fill="#34D399" stroke="rgba(0,0,0,0.2)" strokeWidth="0.8" />
+        </>
+      );
+
+    case "fox":
+      return (
+        <>
+          {/* Tall sculpted pointed fox ears */}
+          <path d="M20 44 L13 10 C12.5 7 17 6 20 8.5 L42 26 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M80 44 L87 10 C87.5 7 83 6 80 8.5 L58 26 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M22 36 L17.5 14.5 L35 26 Z" fill={innerEarFill} opacity={light ? 0.52 : 0.36} />
+          <path d="M78 36 L82.5 14.5 L65 26 Z" fill={innerEarFill} opacity={light ? 0.52 : 0.36} />
+          {/* Softly tapered ceramic fox head with cheek tufts */}
+          <path
+            d="M14 54 C14 34, 30 24, 50 24 C70 24, 86 34, 86 54 C86 63, 93 66, 86 73 C77 82, 62 91, 50 91 C38 91, 23 82, 14 73 C7 66, 14 63, 14 54 Z"
+            fill={`url(#${gradient})`}
+            stroke={rimStroke}
+            strokeWidth="1.4"
+          />
+          <ellipse cx="37" cy="38" rx="17" ry="9.5" transform="rotate(-14 37 38)" fill={`url(#${specularGradient})`} />
+          {/* Lightened lower cheek fur contour */}
+          <path d="M16 69 Q30 62 46 72 Q32 84 16 69 Z" fill={mixHex(face.light, "#FFFFFF", 0.55)} opacity={light ? 0.55 : 0.16} />
+          <path d="M84 69 Q70 62 54 72 Q68 84 84 69 Z" fill={mixHex(face.light, "#FFFFFF", 0.55)} opacity={light ? 0.55 : 0.16} />
+          <path d="M46 65 Q50 63.5 54 65 Q52 69 50 69 Q48 69 46 65 Z" fill={face.eye} opacity="0.82" />
+          <circle cx="27" cy="63" r="10.5" fill={`url(#${blushGradient})`} />
+          <circle cx="73" cy="63" r="10.5" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "frog":
+      return (
+        <>
+          {/* Two symmetrical rounded dome eye-bumps */}
+          <circle cx="29" cy="32" r="16.5" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.3" />
+          <circle cx="71" cy="32" r="16.5" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.3" />
+          {/* Plump wide ceramic frog head */}
+          <ellipse cx="50" cy="59" rx="43" ry="33" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          {/* Smooth join fill over eye domes */}
+          <circle cx="29" cy="33" r="15" fill={`url(#${gradient})`} />
+          <circle cx="71" cy="33" r="15" fill={`url(#${gradient})`} />
+          <ellipse cx="48" cy="42" rx="20" ry="9" fill={`url(#${specularGradient})`} />
+          <circle cx="24" cy="61" r="11.5" fill={`url(#${blushGradient})`} />
+          <circle cx="76" cy="61" r="11.5" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "owl":
+      return (
+        <>
+          {/* Sculpted owl ear-tuft horns */}
+          <path d="M21 30 L15 11 C15 8.5 19.5 8 22.5 11 L35 21 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          <path d="M79 30 L85 11 C85 8.5 80.5 8 77.5 11 L65 21 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" strokeLinejoin="round" />
+          {/* Plump ceramic owl head */}
+          <ellipse cx="50" cy="55" rx="41" ry="38" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.4" />
+          {/* Soft lightened heart-shaped facial disc */}
+          <path
+            d="M50 38 C42 29, 21 32, 21 50 C21 67, 36 77, 50 80 C64 77, 79 67, 79 50 C79 32, 58 29, 50 38 Z"
+            fill={mixHex(face.light, "#FFFFFF", 0.55)}
+            opacity={light ? 0.65 : 0.18}
+          />
+          <ellipse cx="36" cy="32" rx="16" ry="9" transform="rotate(-14 36 32)" fill={`url(#${specularGradient})`} />
+          {/* Warm champagne-gold diamond beak */}
+          <path d="M50 53 L54.8 59.5 L50 65.5 L45.2 59.5 Z" fill="#DFB664" stroke="#A88233" strokeWidth="0.8" strokeLinejoin="round" />
+        </>
+      );
+
+    case "wisp":
+      return (
+        <>
+          {/* Minimalist floating ceramic ghost with 3-wave scalloped hem */}
+          <path
+            d="M16 46 C16 20, 31 10, 50 10 C69 10, 84 20, 84 46 L86 78 C86 87, 79 91, 73 86 C68 81, 63 81, 59 87 C55 92, 45 92, 41 87 C37 81, 32 81, 27 86 C21 91, 14 87, 14 78 Z"
+            fill={`url(#${gradient})`}
+            stroke={rimStroke}
+            strokeWidth="1.4"
+          />
+          <ellipse cx="38" cy="27" rx="16" ry="10" transform="rotate(-18 38 27)" fill={`url(#${specularGradient})`} />
+          <circle cx="29" cy="55" r="10.5" fill={`url(#${blushGradient})`} />
+          <circle cx="71" cy="55" r="10.5" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
+    case "camera":
+      return (
+        <>
+          {/* Coral-orange shutter button + top viewfinder hump */}
+          <rect x="17" y="15" width="13" height="6" rx="3" fill="#FF6B4A" stroke="rgba(0,0,0,0.18)" strokeWidth="0.8" />
+          <path d="M33 22 L37 13 Q39 10 43 10 L57 10 Q61 10 63 13 L67 22 Z" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.3" strokeLinejoin="round" />
+          {/* Matte ceramic rangefinder body */}
+          <rect x="8" y="21" width="84" height="68" rx="16" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.6" />
+          {/* Metallic lens barrel ring + recessed obsidian lens */}
+          <circle cx="50" cy="55" r="26.5" fill={face.edge} stroke={rimStroke} strokeWidth="1.1" />
+          <circle cx="50" cy="55" r="23" fill="#0F1117" stroke="rgba(255,255,255,0.22)" strokeWidth="1.2" />
+          <path d="M36 44 Q48 35 62 41" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2.6" strokeLinecap="round" />
+        </>
+      );
+
+    case "cloud":
+      return (
+        <>
+          {/* Sculpted puffy five-lobe ceramic cloud */}
+          <path
+            d="M25 81 C13 81, 6 72, 6 61 C6 51, 13 43, 22 41 C22 30, 31 22, 42 22 C45 14, 53 10, 62 12 C72 14, 79 22, 80 33 C89 35, 95 44, 95 54 C95 66, 86 76, 75 78 C71 84, 62 87, 52 87 C43 87, 35 84, 31 81 Z"
+            fill={`url(#${gradient})`}
+            stroke={rimStroke}
+            strokeWidth="1.4"
+            strokeLinejoin="round"
+          />
+          <ellipse cx="43" cy="30" rx="17" ry="9" transform="rotate(-12 43 30)" fill={`url(#${specularGradient})`} />
+          <circle cx="29" cy="60" r="11" fill={`url(#${blushGradient})`} />
+          <circle cx="71" cy="60" r="11" fill={`url(#${blushGradient})`} />
+        </>
+      );
+
     case "classic":
     default:
       return <circle cx="50" cy="50" r="45" fill={`url(#${gradient})`} stroke={rimStroke} strokeWidth="1.2" />;
@@ -370,7 +665,7 @@ export function PresetFace({ color, preset, avatarStyle, bodyId, faceColor, expr
   const handGradient = `preset-hand-${id}`;
   const handEdge = handEdgeFor(face.body);
   const customInk = mascotFaceInk(faceColor);
-  const eyeFill = spec.visor ? "#F5F9FF" : (customInk ?? face.eye);
+  const eyeFill = spec.visor ? (activeStyle === "retro" ? "#E6FFF5" : "#F5F9FF") : (customInk ?? face.eye);
   const showsHands = life === "alive";
   const svgRef = useRef<SVGSVGElement>(null);
 

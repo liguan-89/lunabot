@@ -20,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
@@ -73,7 +74,7 @@ internal fun ThreadToggle(
                 stateDescription = "${if (expanded) "已展开" else "已折叠"}，$count 个话题"
             }
             .clickable(enabled = !searching, role = Role.Button, onClick = onToggle)
-            .heightIn(min = 32.dp)
+            .heightIn(min = 24.dp)
             .padding(start = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -114,68 +115,88 @@ internal fun BotThreadTree(
     )
 
     if (!isExpanded) return
+    val containerFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 88.dp, end = 18.dp, bottom = 12.dp),
+            .padding(start = 76.dp, end = 16.dp, top = 2.dp, bottom = 10.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(containerFill)
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TouchTarget(
-                onClick = onCreate,
-                enabled = !creating,
-                size = 44.dp,
-                contentDescription = "与 ${bot.name} 新建话题",
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint)
-            }
-            TouchTarget(
-                onClick = onManage,
-                size = 44.dp,
-                contentDescription = "管理 ${bot.name} 的话题",
-            ) {
-                Icon(Icons.Filled.MoreVert, contentDescription = null, tint = secondaryTint)
+            Text(
+                text = "话题",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisSecondary,
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TouchTarget(
+                    onClick = onCreate,
+                    enabled = !creating,
+                    size = 32.dp,
+                    contentDescription = "与 ${bot.name} 新建话题",
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = null, tint = secondaryTint, modifier = Modifier.size(18.dp))
+                }
+                TouchTarget(
+                    onClick = onManage,
+                    size = 32.dp,
+                    contentDescription = "管理 ${bot.name} 的话题",
+                ) {
+                    Icon(Icons.Filled.MoreVert, contentDescription = null, tint = secondaryTint, modifier = Modifier.size(18.dp))
+                }
             }
         }
         groups.forEach { group ->
-                val folder = group.project
-                if (folder == null) {
-                    ThreadLinks(group.tasks, bot, now, queuedThreadIds, onOpen)
-                } else {
-                    val key = "${bot.id}:${folder.id}"
-                    val folderExpanded = searching || key !in collapsedFolders
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .testTag("thread-folder.$key")
-                            .semantics(mergeDescendants = true) {
-                                contentDescription = "${folder.name} 文件夹"
-                                stateDescription = if (folderExpanded) "已展开" else "已收起"
-                            }
-                            .clickable(enabled = !searching, role = Role.Button) { onToggleFolder(key) }
-                            .heightIn(min = 48.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        DisclosureIcon(folderExpanded)
-                        Text(folder.emoji?.takeIf { it.isNotBlank() } ?: "📁", fontSize = 13.sp)
-                        Text(
-                            folder.name,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = secondaryTint,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    if (folderExpanded) {
-                        Column(Modifier.padding(start = 8.dp)) { ThreadLinks(group.tasks, bot, now, queuedThreadIds, onOpen) }
-                    }
+            val folder = group.project
+            if (folder == null) {
+                ThreadLinks(group.tasks, bot, now, queuedThreadIds, onOpen)
+            } else {
+                val key = "${bot.id}:${folder.id}"
+                val folderExpanded = searching || key !in collapsedFolders
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .testTag("thread-folder.$key")
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "${folder.name} 文件夹"
+                            stateDescription = if (folderExpanded) "已展开" else "已收起"
+                        }
+                        .clickable(enabled = !searching, role = Role.Button) { onToggleFolder(key) }
+                        .heightIn(min = 34.dp)
+                        .padding(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    DisclosureIcon(folderExpanded)
+                    Text(folder.emoji?.takeIf { it.isNotBlank() } ?: "📁", fontSize = 13.sp)
+                    Text(
+                        folder.name,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = secondaryTint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (folderExpanded) {
+                    Column(
+                        modifier = Modifier.padding(start = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) { ThreadLinks(group.tasks, bot, now, queuedThreadIds, onOpen) }
                 }
             }
+        }
     }
 }
 
@@ -191,6 +212,7 @@ private fun ThreadLinks(
         val projected = bot.forTask(task.threadId)
         if (projected != null) {
             val active = task.threadId == bot.threadId
+            val activeFill = if (minisIsDark()) minisRaised else minisCard
             BotThreadRow(
                 task,
                 selected = active,
@@ -198,16 +220,10 @@ private fun ThreadLinks(
                 queued = task.threadId in queuedThreadIds,
                 modifier = Modifier
                     .testTag("thread.${task.threadId}")
-                    .then(
-                        if (active) {
-                            Modifier.background(minisCard.copy(alpha = 0.72f), RoundedCornerShape(12.dp))
-                        } else {
-                            Modifier
-                        },
-                    )
+                    .clip(RoundedCornerShape(10.dp))
+                    .then(if (active) Modifier.background(activeFill) else Modifier)
                     .clickable(role = Role.Button) { onOpen(Chat.BotChat(projected)) }
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = if (active) 10.dp else 4.dp, vertical = 7.dp),
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
             )
         }
     }

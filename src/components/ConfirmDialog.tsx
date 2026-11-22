@@ -47,7 +47,7 @@ export function ConfirmDialog(props: ConfirmDialogProps) {
         return;
       }
       if (event.key === "Tab") {
-        const controls = dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled])");
+        const controls = dialogRef.current?.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])");
         if (!controls?.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
         const first = controls[0]!;
         const last = controls[controls.length - 1]!;

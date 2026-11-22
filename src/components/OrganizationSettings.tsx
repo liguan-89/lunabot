@@ -108,7 +108,7 @@ export function OrganizationSettings() {
       {connection?.status === "signed-out" && <div className="flex flex-col gap-3">
         <p className="text-[13px] text-ink-secondary">{t("organization.signInHelp")}</p>
         <button type="button" disabled={busy} onClick={() => void perform(() => bridge.begin({ portalOrigin: DEFAULT_PORTAL_ORIGIN }))}
-          className="w-fit rounded-lg bg-accent px-4 py-2 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50">{busy ? t("organization.working") : t("organization.signIn")}</button>
+          className="ui-button ui-button-primary w-fit">{busy ? t("organization.working") : t("organization.signIn")}</button>
         <details className="text-[12px] text-ink-secondary">
           <summary className="w-fit cursor-pointer hover:text-ink">{t("organization.advanced")}</summary>
           <form className="mt-2 flex flex-col gap-2" onSubmit={(event) => {
@@ -155,7 +155,7 @@ export function OrganizationSettings() {
           <p className="text-[13px] text-ink">{t("organization.disconnectWarning")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" autoFocus disabled={busy} className="ui-button" onClick={() => setConfirmDisconnect(false)}>{t("organization.keepConnection")}</button>
-            <button type="button" disabled={busy} className="ui-button text-danger" onClick={() => void perform(() => bridge.disconnect())}>{t("organization.disconnectConfirm")}</button>
+            <button type="button" disabled={busy} className="ui-button ui-button-danger" onClick={() => void perform(() => bridge.disconnect())}>{t("organization.disconnectConfirm")}</button>
           </div>
         </div> : <div className="flex flex-wrap gap-2">
           {connection.status !== "reauth-required" && <button type="button" disabled={busy} className="ui-button" onClick={() => void perform(() => bridge.refresh())}>{t("organization.refresh")}</button>}

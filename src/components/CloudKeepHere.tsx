@@ -30,7 +30,7 @@ function KeepHereSwitch({ bridge, read, write }: { bridge: CloudSendPageBridge; 
     else if (state.moved) setConfirm(true);
     else set(true);
   };
-  return <div data-cloud-keep={state.coming ? "coming" : state.on ? "on" : "off"} className="rounded-xl bg-card p-4">
+  return <div data-cloud-keep={state.coming ? "coming" : state.on ? "on" : "off"} className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5">
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
         <p className="text-[14px] font-medium text-ink">{t("cloudAccount.keepHere.title")}</p>

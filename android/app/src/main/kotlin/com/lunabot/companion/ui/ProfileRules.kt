@@ -24,6 +24,7 @@ data class ProfileForm(
     /** Empty is the server's "use the workspace default", not "no value". */
     val voice: String,
     val speakReplies: Boolean,
+    val mascotBody: String? = null,
 ) {
     companion object {
         /** `ProfileFormSnapshot(bot:)`, and the initial value of every field. */
@@ -35,6 +36,7 @@ data class ProfileForm(
             crop = bot.avatarCrop ?: AvatarCrop.MASCOT,
             voice = bot.voice ?: "",
             speakReplies = bot.speakReplies == true,
+            mascotBody = bot.mascotBody,
         )
 
         /**
@@ -50,6 +52,7 @@ data class ProfileForm(
             crop = AvatarCrop.MASCOT,
             voice = "",
             speakReplies = false,
+            mascotBody = null,
         )
     }
 }
@@ -212,6 +215,7 @@ object ProfileRules {
                 form.notifications
             },
             avatarCrop = if (form.crop == baseline.crop) null else form.crop,
+            mascotBody = if (form.mascotBody == baseline.mascotBody) null else form.mascotBody,
             voice = if (form.voice == baseline.voice) null else form.voice,
             speakReplies = if (savedSpeakReplies == baseline.speakReplies) {
                 null

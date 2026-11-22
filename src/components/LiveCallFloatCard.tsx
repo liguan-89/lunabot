@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Maximize2, Minimize2, Mic, MicOff, PhoneOff, Volume2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
 import { hangUpLiveCall, isLiveCallRunning, setLiveMuted, useLiveMedia } from "@/lib/live-call-media";
 import type { Bot } from "@/state/store";
 import { BotAvatar } from "./Avatar";
@@ -39,12 +40,12 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
   const hasVisualMedia = hasAnyDynamicAvatarState(bot.avatarStates) || Boolean(bot.avatarUrl);
   const statusText =
     liveMedia.phase === "starting"
-      ? "正在连接…"
+      ? t("liveCall.float.connecting")
       : visualState === "working"
-        ? "努力工作中"
+        ? t("liveCall.float.working")
         : visualState === "talking"
-          ? "说话中"
-          : "聆听中";
+          ? t("liveCall.float.talking")
+          : t("liveCall.float.listening");
 
   if (minimized) {
     return (
@@ -64,8 +65,8 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
         <button
           type="button"
           onClick={() => setMinimized(false)}
-          aria-label="展开通话浮窗"
-          title="展开通话浮窗"
+          aria-label={t("liveCall.float.expand")}
+          title={t("liveCall.float.expand")}
           className="flex size-7 items-center justify-center rounded-full text-white/80 hover:bg-white/15 hover:text-white"
         >
           <Maximize2 size={13} />
@@ -73,9 +74,9 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
         <button
           type="button"
           onClick={() => void hangUpLiveCall()}
-          aria-label="挂断通话"
-          title="挂断通话"
-          className="flex size-7 items-center justify-center rounded-full bg-red-500/90 text-white hover:bg-red-500"
+          aria-label={t("liveCall.float.hangUp")}
+          title={t("liveCall.float.hangUp")}
+          className="flex size-7 items-center justify-center rounded-full bg-danger/90 text-white hover:bg-danger"
         >
           <PhoneOff size={13} />
         </button>
@@ -92,7 +93,7 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
     <aside
       data-live-float-card="expanded"
       data-live-visual-state={visualState}
-      aria-label={`${bot.name} 实时语音通话浮窗`}
+      aria-label={t("liveCall.float.aria", { name: bot.name })}
       className="pointer-events-auto absolute right-5 top-16 z-20 w-[204px] select-none rounded-[28px] bg-[#5c6066]/95 p-[5px] shadow-[0_20px_48px_rgba(0,0,0,0.3)] ring-1 ring-white/15 backdrop-blur-xl transition-shadow duration-200"
       style={
         speakingGlow > 0
@@ -141,8 +142,8 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
           <button
             type="button"
             onClick={() => setMinimized(true)}
-            aria-label="收起通话浮窗"
-            title="收起通话浮窗"
+            aria-label={t("liveCall.float.collapse")}
+            title={t("liveCall.float.collapse")}
             className="flex size-6 items-center justify-center rounded-full bg-black/30 text-white/90 backdrop-blur-md hover:bg-black/45"
           >
             <Minimize2 size={12} />
@@ -154,14 +155,14 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
             <span
               aria-hidden="true"
               className="flex size-9 items-center justify-center rounded-full text-[#1f2328]"
-              title={visualState === "talking" ? "正在播报语音" : "语音已连接"}
+              title={visualState === "talking" ? t("liveCall.float.speakingTip") : t("liveCall.float.connectedTip")}
             >
               <Volume2
                 size={17}
                 strokeWidth={2}
                 className={cn(
                   "transition-transform duration-100",
-                  visualState === "talking" && "scale-110 text-emerald-700",
+                  visualState === "talking" && "scale-110 text-success",
                 )}
               />
             </span>
@@ -169,8 +170,8 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
               type="button"
               onClick={() => setLiveMuted(!liveMedia.muted)}
               aria-pressed={liveMedia.muted}
-              aria-label={liveMedia.muted ? "取消静音" : "静音麦克风"}
-              title={liveMedia.muted ? "取消静音" : "静音麦克风"}
+              aria-label={liveMedia.muted ? t("liveCall.float.unmute") : t("liveCall.float.mute")}
+              title={liveMedia.muted ? t("liveCall.float.unmute") : t("liveCall.float.mute")}
               className={cn(
                 "flex size-9 items-center justify-center rounded-full transition-colors",
                 liveMedia.muted
@@ -184,9 +185,9 @@ export function LiveCallFloatCard({ bot }: { bot: Bot }) {
               type="button"
               onClick={() => void hangUpLiveCall()}
               disabled={liveMedia.hangingUp}
-              aria-label="挂断通话"
-              title="挂断通话"
-              className="flex size-9 items-center justify-center rounded-full text-[#dc2626] transition-colors hover:bg-red-500/15 disabled:opacity-50"
+              aria-label={t("liveCall.float.hangUp")}
+              title={t("liveCall.float.hangUp")}
+              className="flex size-9 items-center justify-center rounded-full text-danger transition-colors hover:bg-danger/15 disabled:opacity-50"
             >
               <PhoneOff size={17} strokeWidth={2.2} />
             </button>

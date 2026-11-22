@@ -69,14 +69,14 @@ internal fun BotThreadRow(
                 this.selected = selected
                 if (dimmed) foldedState?.let { stateDescription = it }
             }
-            .padding(vertical = 3.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 text = task.displayTitle,
-                fontSize = 16.sp,
+                fontSize = 15.sp,
                 fontWeight = if (task.unread == true) FontWeight.SemiBold else FontWeight.Normal,
                 color = if (dimmed) secondaryTint else MaterialTheme.colorScheme.onSurface,
                 maxLines = 2,
@@ -131,7 +131,7 @@ internal fun BotThreadRow(
                 Icons.Filled.CheckCircle,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(18.dp),
             )
         }
     }

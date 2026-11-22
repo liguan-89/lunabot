@@ -129,11 +129,11 @@ export function createDesktopPrefs({ read, write }) {
       const parsed = typeof server === "string" ? parseChat(chat) : null;
       if (parsed) save({ ...current(), quickAsks: { ...current().quickAsks, [server]: parsed } });
     },
-    /** The window's rail of places is shown until the person hides it. */
-    railHidden: () => current().railHidden === true,
+    /** The window's rail of places is hidden by default (opened as a popover from the top capsule switcher) unless the person turns the docked strip on. */
+    railHidden: () => current().railHidden !== false,
     setRailHidden(hidden) {
       const railHidden = hidden === true;
-      if ((current().railHidden === true) !== railHidden) save({ ...current(), railHidden });
+      if ((current().railHidden !== false) !== railHidden || typeof current().railHidden !== "boolean") save({ ...current(), railHidden });
     },
     /** The window's own frame is off by default (Grok Bot style), unless explicitly turned on. */
     windowFrame: () => current().windowFrame === true,

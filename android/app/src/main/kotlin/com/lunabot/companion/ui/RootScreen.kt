@@ -483,7 +483,7 @@ private fun DestinationContent(destination: Destination, navigator: CompanionNav
         modifier = Modifier
             .fillMaxSize()
             .then(
-                if (destination is Destination.Conversation) Modifier
+                if (destination is Destination.Conversation || destination is Destination.Roster) Modifier
                 else Modifier.windowInsetsPadding(
                     WindowInsets.safeDrawing.only(WindowInsetsSides.Top),
                 ),

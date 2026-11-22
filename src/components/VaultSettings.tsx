@@ -116,7 +116,7 @@ export function VaultSettings() {
     <div className="flex shrink-0 gap-1">
       {!member && <button type="button" className={ROW_BUTTON} disabled={busy} onClick={onChange}
         aria-label={kind === "login" ? t("settings.logins.changeFor", { site: name }) : t("settings.vault.secret.changeFor", { name })}>{t("settings.logins.change")}</button>}
-      <button type="button" className={ROW_BUTTON} disabled={busy} onClick={() => void remove(id, kind)}
+      <button type="button" className={deleting === id ? "flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50" : ROW_BUTTON} disabled={busy} onClick={() => void remove(id, kind)}
         aria-label={deleting === id ? t("settings.logins.deleteConfirm") : kind === "login" ? t("settings.logins.deleteFor", { site: name }) : t("settings.vault.secret.deleteFor", { name })}>
         <Trash2 size={13} />{deleting === id ? t("settings.logins.deleteConfirm") : t("settings.logins.delete")}
       </button>
@@ -362,8 +362,10 @@ function OnePasswordConnection({ status, disabled, bots, botNames, onChange }: {
   };
   return (
     <section className="mt-1 flex flex-col gap-2 border-t border-hairline/30 pt-3" aria-label={t("settings.vault.manager")} data-onepassword>
-      <div className="text-[13px] font-medium text-ink">{t("settings.vault.manager")}</div>
-      <div className="text-[12px] font-medium text-ink-secondary">{t("settings.logins.onePassword.title")}</div>
+      <div className="flex items-baseline gap-2">
+        <span className="text-[13px] font-medium text-ink">{t("settings.vault.manager")}</span>
+        <span className="text-[12px] text-ink-secondary">{t("settings.logins.onePassword.title")}</span>
+      </div>
       {status.connected ? (
         <>
           <p className="text-[13px] leading-snug text-ink-secondary">
@@ -379,7 +381,7 @@ function OnePasswordConnection({ status, disabled, bots, botNames, onChange }: {
             <button type="button" className="ui-button ui-button-md" disabled={disabled || busy !== null} onClick={() => void run("refresh", refreshOnePassword)}>
               {busy === "refresh" ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}{t("settings.logins.onePassword.refresh")}
             </button>
-            <button type="button" className="ui-button ui-button-md" disabled={disabled || busy !== null} onClick={() => void run("disconnect", disconnectOnePassword)}>
+            <button type="button" className="ui-button ui-button-md ui-button-danger" disabled={disabled || busy !== null} onClick={() => void run("disconnect", disconnectOnePassword)}>
               {t("settings.logins.onePassword.disconnect")}
             </button>
           </div>

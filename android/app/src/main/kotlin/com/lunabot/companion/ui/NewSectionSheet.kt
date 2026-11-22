@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -95,7 +96,10 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
         scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
         GlassBackdrop()
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            modifier = Modifier.navigationBarsPadding().padding(bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
             Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)) {
                 TextButton(
                     onClick = onDismiss,
@@ -140,7 +144,7 @@ internal fun NewSectionSheet(onDismiss: () -> Unit) {
                     text = message,
                     fontSize = 13.sp,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 4.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp),
                 )
             }
 

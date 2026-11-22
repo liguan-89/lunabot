@@ -335,7 +335,7 @@ export function CloudAccountSettings({ linkRequest = 0, cloudHome = false, teamH
         {confirm && <div role="group" aria-label={t("cloudAccount.signoutTitle")} className="rounded-lg border border-hairline/40 p-3">
           <p className="text-[13px] text-ink-secondary">{t("cloudAccount.signoutHelp")}</p><div className="mt-3 flex flex-wrap gap-2">
             <button type="button" autoFocus disabled={busy} className="ui-button" onClick={() => setConfirm(false)}>{t("cloudAccount.keep")}</button>
-            <button type="button" disabled={busy} className="ui-button text-danger" onClick={() => void perform(() => bridge.signOut())}>{t("cloudAccount.signOut")}</button>
+            <button type="button" disabled={busy} className="ui-button ui-button-danger" onClick={() => void perform(() => bridge.signOut())}>{t("cloudAccount.signOut")}</button>
           </div></div>}
       </div>}
       {error && <p role="alert" className="mt-3 text-[13px] text-danger">{t("cloudAccount.actionFailed")}</p>}

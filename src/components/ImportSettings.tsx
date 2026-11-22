@@ -62,7 +62,7 @@ export function ImportRow({ icon, label, summary, hint, sources, checked, disabl
   );
 }
 
-const buttonClass = "inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink disabled:opacity-40";
+const buttonClass = "ui-button ui-button-md ui-button-primary";
 
 export interface AiAppsImportViewProps {
   local: boolean;
@@ -120,10 +120,10 @@ export function AiAppsImportView({ local, detection, chosen, status, result, onC
     );
   }
   return (
-    <section data-import-section="apps" className="rounded-xl bg-card p-4">
-      <div className="text-[15px] font-medium text-ink">{t("settings.import.appsTitle")}</div>
-      <div className="mt-0.5 text-[13px] leading-relaxed text-ink-secondary">{t("settings.import.appsSubtitle")}</div>
-      <div className="mt-4">{body}</div>
+    <section data-import-section="apps" className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5">
+      <div className="text-[15px] font-medium text-ink in-data-[settings-look=simple]:text-[14px]">{t("settings.import.appsTitle")}</div>
+      <div className="mt-0.5 text-[13px] leading-[18px] text-ink-secondary">{t("settings.import.appsSubtitle")}</div>
+      <div className="mt-3">{body}</div>
     </section>
   );
 }
@@ -164,9 +164,9 @@ export function GrokImportSection() {
   const [started, setStarted] = useState(false);
   const [open, setOpen] = useState(false);
   return (
-    <section data-import-section="grok" className="rounded-xl bg-card p-4">
-      <div className="flex items-center gap-2 text-[15px] font-medium text-ink"><GrokBotMark size={16} />{t("settings.import.grokTitle")}</div>
-      <div className="mt-0.5 text-[13px] leading-relaxed text-ink-secondary">{t("settings.import.grokSubtitle")}</div>
+    <section data-import-section="grok" className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5">
+      <div className="flex items-center gap-2 text-[15px] font-medium text-ink in-data-[settings-look=simple]:text-[14px]"><GrokBotMark size={16} />{t("settings.import.grokTitle")}</div>
+      <div className="mt-0.5 text-[13px] leading-[18px] text-ink-secondary">{t("settings.import.grokSubtitle")}</div>
       <button type="button" data-grok-move-open aria-expanded={open} onClick={() => { setStarted(true); setOpen(!open); }} className={cn(buttonClass, "mt-3")}>
         {t("settings.import.grokTitle")}
         <ChevronDown size={14} aria-hidden="true" className={cn("transition-transform", open && "rotate-180")} />

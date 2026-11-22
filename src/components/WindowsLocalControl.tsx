@@ -25,12 +25,12 @@ export function WindowsLocalControl() {
   };
 
   return (
-    <section data-windows-local-control={local.reasonCode ?? "unavailable"} className="mt-4 rounded-xl border border-warning/25 bg-warning/10 p-4">
+    <section data-windows-local-control={local.reasonCode ?? "unavailable"} className="rounded-xl border border-warning/25 bg-warning/10 p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:py-3.5">
       <div className="flex items-start gap-3">
         <MonitorX size={16} className="mt-0.5 shrink-0 text-warning" aria-hidden="true" />
         <div className="min-w-0 flex-1">
           <div className="text-[14px] font-medium text-ink">{t("computer.windows.title")}</div>
-          <p className="mt-1 text-[13px] leading-relaxed text-ink-secondary">
+          <p className="mt-1 text-[13px] leading-[18px] text-ink-secondary">
             {t("computer.windows.body")}
             {local.reasonCode === "cua-driver-blocked" && <> {t("computer.windows.blocked")}</>}
           </p>
@@ -51,7 +51,7 @@ export function WindowsLocalControl() {
               type="button"
               onClick={() => void start()}
               disabled={pending}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[13px] font-medium text-white hover:brightness-110 disabled:opacity-50"
+              className="ui-button ui-button-md ui-button-primary"
             >
               {pending && <Loader2 size={13} className="animate-spin" aria-hidden="true" />}
               {t(pending ? "computer.windows.starting" : "computer.windows.start")}

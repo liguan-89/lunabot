@@ -579,6 +579,17 @@ private fun DrawScope.drawFace(
         BotAvatarStyle.SYNTH -> drawSynthFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.SPIRIT -> drawSpiritFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.MINIBOT -> drawMiniBotFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.BUNNY -> drawBunnyFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.ASTRO -> drawAstroFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.PRISM -> drawPrismFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.BEAR -> drawBearFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.RETRO -> drawRetroFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.FOX -> drawFoxFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.FROG -> drawFrogFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.OWL -> drawOwlFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.WISP -> drawGhostFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.CAMERA -> drawCameraFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.CLOUD -> drawCloudFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.CLASSIC -> drawClassicFace(soft, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)
     }
 }
@@ -1309,6 +1320,991 @@ private fun DrawScope.drawMiniBotFace(
         }
 
         if (crown) drawGoldHalo(pose, radius, middle)
+    }
+}
+
+/** Style: Sculpted porcelain bunny with tall rounded ears, derived inner ears & blush. */
+private fun DrawScope.drawBunnyFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x1C000000), Color.Transparent),
+            center = middle + Offset(0f, radius * 0.94f),
+            radius = radius * 0.80f,
+        ),
+        topLeft = Offset(middle.x - radius * 0.68f, middle.y + radius * 0.78f),
+        size = Size(radius * 1.36f, radius * 0.30f),
+    )
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val earBrush = Brush.linearGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            start = middle + Offset(0f, -radius * 1.02f),
+            end = middle + Offset(0f, -radius * 0.08f),
+        )
+        for (side in floatArrayOf(-1f, 1f)) {
+            val earCenter = middle + Offset(side * radius * 0.36f, -radius * 0.50f)
+            val earW = radius * 0.40f
+            val earH = radius * 0.80f
+            withTransform({ rotate(side * 11f + pose.roll * 0.55f, earCenter) }) {
+                drawOval(
+                    brush = earBrush,
+                    topLeft = Offset(earCenter.x - earW / 2f, earCenter.y - earH / 2f),
+                    size = Size(earW, earH),
+                )
+                drawOval(
+                    color = if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF),
+                    topLeft = Offset(earCenter.x - earW / 2f, earCenter.y - earH / 2f),
+                    size = Size(earW, earH),
+                    style = Stroke(0.6.dp.toPx()),
+                )
+                val innerW = earW * 0.50f
+                val innerH = earH * 0.65f
+                drawOval(
+                    color = soft.innerEar,
+                    topLeft = Offset(earCenter.x - innerW / 2f, earCenter.y - innerH / 2f + radius * 0.02f),
+                    size = Size(innerW, innerH),
+                )
+            }
+        }
+
+        val headRect = Rect(middle.x - radius * 0.88f, middle.y - radius * 0.58f, middle.x + radius * 0.88f, middle.y + radius * 0.94f)
+        val headPath = Path().apply {
+            addOval(headRect)
+        }
+        drawPath(
+            path = headPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.14f),
+                radius = radius * 1.40f,
+            ),
+        )
+        clipPath(headPath) {
+            drawOval(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color.White.copy(alpha = if (isLightBody) 0.72f else 0.38f), Color.Transparent),
+                    center = middle + Offset(-radius * 0.26f, -radius * 0.20f),
+                    radius = radius * 0.46f,
+                ),
+                topLeft = Offset(middle.x - radius * 0.64f, middle.y - radius * 0.44f),
+                size = Size(radius * 0.76f, radius * 0.46f),
+            )
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.48f * radius + gazeX * 0.45f, 0.28f * radius + gazeY * 0.45f)
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.26f),
+                    radius = radius * 0.26f,
+                    center = bc,
+                )
+            }
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.30f * radius + gazeX, 0.10f * radius + gazeY)
+                val w = 0.125f * diameter
+                val h = max(0.180f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+            val noseCenter = middle + Offset(gazeX * 0.7f, 0.29f * radius + gazeY * 0.7f)
+            drawOval(
+                color = soft.eye.copy(alpha = 0.68f),
+                topLeft = Offset(noseCenter.x - radius * 0.075f, noseCenter.y - radius * 0.045f),
+                size = Size(radius * 0.15f, radius * 0.09f),
+            )
+        }
+        drawPath(headPath, color = if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Space-age ceramic astronaut helmet with panoramic curved obsidian visor & comm pods. */
+private fun DrawScope.drawAstroFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+    val glowEye = soft.visorGlow
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        // Side comm-pods
+        val podW = radius * 0.15f
+        val podH = radius * 0.44f
+        drawRoundRect(
+            color = soft.edge,
+            topLeft = Offset(middle.x - radius * 0.98f, middle.y - podH * 0.46f),
+            size = Size(podW, podH),
+            cornerRadius = CornerRadius(podW / 2f, podW / 2f),
+        )
+        drawRoundRect(
+            color = soft.edge,
+            topLeft = Offset(middle.x + radius * 0.98f - podW, middle.y - podH * 0.46f),
+            size = Size(podW, podH),
+            cornerRadius = CornerRadius(podW / 2f, podW / 2f),
+        )
+        // Ceramic helmet dome
+        val helmetR = radius * 0.92f
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-helmetR * 0.28f, -helmetR * 0.34f),
+                radius = helmetR * 1.48f,
+            ),
+            radius = helmetR,
+            center = middle,
+        )
+        drawCircle(
+            color = if (isLightBody) Color(0x16000000) else Color(0x18FFFFFF),
+            radius = helmetR,
+            center = middle,
+            style = Stroke(0.7.dp.toPx()),
+        )
+        // Panoramic obsidian visor
+        val visorW = helmetR * 1.54f
+        val visorH = helmetR * 0.98f
+        val visorTopLeft = Offset(middle.x - visorW / 2f, middle.y - visorH * 0.56f)
+        val visorCorner = CornerRadius(visorH / 2f, visorH / 2f)
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF1F2430), Color(0xFF0C0E14)),
+                startY = visorTopLeft.y,
+                endY = visorTopLeft.y + visorH,
+            ),
+            topLeft = visorTopLeft,
+            size = Size(visorW, visorH),
+            cornerRadius = visorCorner,
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.22f),
+            topLeft = visorTopLeft,
+            size = Size(visorW, visorH),
+            cornerRadius = visorCorner,
+            style = Stroke(0.8.dp.toPx()),
+        )
+        // Curved visor reflection arc
+        val reflection = Path().apply {
+            moveTo(visorTopLeft.x + visorW * 0.16f, visorTopLeft.y + visorH * 0.19f)
+            quadraticTo(
+                middle.x - visorW * 0.04f, visorTopLeft.y + visorH * 0.06f,
+                visorTopLeft.x + visorW * 0.76f, visorTopLeft.y + visorH * 0.17f,
+            )
+        }
+        drawPath(
+            path = reflection,
+            color = Color.White.copy(alpha = 0.24f),
+            style = Stroke(width = max(1.4.dp.toPx(), radius * 0.065f), cap = StrokeCap.Round),
+        )
+        // Luminous visor eyes
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.80f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.72f
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val eyeCenter = Offset(middle.x + side * visorW * 0.21f + gazeX, visorTopLeft.y + visorH * 0.52f + gazeY)
+            val w = visorW * 0.145f
+            val h = max(visorH * 0.36f * open, w * 0.34f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(glowEye.copy(alpha = 0.36f), Color.Transparent),
+                    center = eyeCenter,
+                    radius = max(w, h) * 1.15f,
+                ),
+                radius = max(w, h) * 1.15f,
+                center = eyeCenter,
+            )
+            drawRoundRect(
+                color = glowEye,
+                topLeft = Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f),
+                size = Size(w, h),
+                cornerRadius = CornerRadius(w / 2f, w / 2f),
+            )
+        }
+        // Chin comm-vent pill
+        val ventW = helmetR * 0.36f
+        val ventH = max(1.6.dp.toPx(), helmetR * 0.08f)
+        drawRoundRect(
+            color = if (isLightBody) Color(0x3818181C) else Color(0x42FFFFFF),
+            topLeft = Offset(middle.x - ventW / 2f, middle.y + helmetR * 0.62f),
+            size = Size(ventW, ventH),
+            cornerRadius = CornerRadius(ventH / 2f, ventH / 2f),
+        )
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Softly rounded faceted crystal gem with translucent geometric refraction planes. */
+private fun DrawScope.drawPrismFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    fun octagonPath(r: Float): Path {
+        val c = r * 0.38f
+        val k = r * 0.88f
+        return Path().apply {
+            moveTo(middle.x - c, middle.y - k)
+            lineTo(middle.x + c, middle.y - k)
+            quadraticTo(middle.x + c * 1.45f, middle.y - k, middle.x + k * 0.78f, middle.y - k * 0.78f)
+            lineTo(middle.x + k, middle.y - c)
+            quadraticTo(middle.x + k, middle.y - c * 0.7f, middle.x + k, middle.y - c * 0.25f)
+            lineTo(middle.x + k, middle.y + c)
+            quadraticTo(middle.x + k, middle.y + c * 1.45f, middle.x + k * 0.78f, middle.y + k * 0.78f)
+            lineTo(middle.x + c, middle.y + k)
+            quadraticTo(middle.x + c * 0.7f, middle.y + k, middle.x + c * 0.25f, middle.y + k)
+            lineTo(middle.x - c, middle.y + k)
+            quadraticTo(middle.x - c * 1.45f, middle.y + k, middle.x - k * 0.78f, middle.y + k * 0.78f)
+            lineTo(middle.x - k, middle.y + c)
+            quadraticTo(middle.x - k, middle.y + c * 0.7f, middle.x - k, middle.y + c * 0.25f)
+            lineTo(middle.x - k, middle.y - c)
+            quadraticTo(middle.x - k, middle.y - c * 1.45f, middle.x - k * 0.78f, middle.y - k * 0.78f)
+            close()
+        }
+    }
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val outerPath = octagonPath(radius)
+        drawPath(
+            path = outerPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.28f, -radius * 0.34f),
+                radius = radius * 1.50f,
+            ),
+        )
+        clipPath(outerPath) {
+            // Upper-left lit facet
+            val topFacet = Path().apply {
+                moveTo(middle.x - radius, middle.y - radius)
+                lineTo(middle.x + radius * 0.45f, middle.y - radius)
+                lineTo(middle.x, middle.y - radius * 0.36f)
+                lineTo(middle.x - radius, middle.y + radius * 0.12f)
+                close()
+            }
+            drawPath(topFacet, Color.White.copy(alpha = if (isLightBody) 0.30f else 0.15f))
+            // Lower-right shaded facet
+            val botFacet = Path().apply {
+                moveTo(middle.x + radius, middle.y - radius * 0.04f)
+                lineTo(middle.x + radius, middle.y + radius)
+                lineTo(middle.x - radius * 0.10f, middle.y + radius)
+                lineTo(middle.x + radius * 0.32f, middle.y + radius * 0.36f)
+                close()
+            }
+            drawPath(botFacet, soft.edge.copy(alpha = if (isLightBody) 0.28f else 0.34f))
+            // Diagonal specular prism band
+            val band = Path().apply {
+                moveTo(middle.x - radius * 0.68f, middle.y + radius * 0.38f)
+                lineTo(middle.x + radius * 0.38f, middle.y - radius * 0.68f)
+                lineTo(middle.x + radius * 0.62f, middle.y - radius * 0.48f)
+                lineTo(middle.x - radius * 0.44f, middle.y + radius * 0.58f)
+                close()
+            }
+            drawPath(band, Color.White.copy(alpha = if (isLightBody) 0.16f else 0.09f))
+
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.28f * radius + gazeX, gazeY)
+                val w = 0.135f * diameter
+                val h = max(0.215f * diameter * open, w * 0.34f)
+                drawRoundRect(
+                    color = soft.eye,
+                    topLeft = Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f),
+                    size = Size(w, h),
+                    cornerRadius = CornerRadius(w / 2f, w / 2f),
+                )
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.21f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.22f))
+                }
+            }
+        }
+        drawPath(octagonPath(radius * 0.90f), color = Color.White.copy(alpha = 0.42f), style = Stroke(0.9.dp.toPx()))
+        drawPath(outerPath, color = if (isLightBody) Color(0x16000000) else Color(0x18FFFFFF), style = Stroke(0.7.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Matte ceramic plush bear with symmetrical round ears, soft lightened muzzle & nose. */
+private fun DrawScope.drawBearFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    drawOval(
+        brush = Brush.radialGradient(
+            colors = listOf(Color(0x1C000000), Color.Transparent),
+            center = middle + Offset(0f, radius * 0.94f),
+            radius = radius * 0.84f,
+        ),
+        topLeft = Offset(middle.x - radius * 0.72f, middle.y + radius * 0.76f),
+        size = Size(radius * 1.44f, radius * 0.34f),
+    )
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val earR = radius * 0.34f
+        val earBrush = Brush.radialGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            center = middle + Offset(0f, -radius * 0.75f),
+            radius = radius * 1.1f,
+        )
+        for (side in floatArrayOf(-1f, 1f)) {
+            val ec = middle + Offset(side * radius * 0.58f, -radius * 0.56f)
+            drawCircle(earBrush, earR, ec)
+            drawCircle(if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), earR, ec, style = Stroke(0.6.dp.toPx()))
+            drawCircle(soft.innerEar, earR * 0.54f, ec)
+        }
+
+        val headRect = Rect(middle.x - radius * 0.90f, middle.y - radius * 0.74f, middle.x + radius * 0.90f, middle.y + radius * 0.92f)
+        val headPath = Path().apply { addOval(headRect) }
+        drawPath(
+            path = headPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.30f),
+                radius = radius * 1.42f,
+            ),
+        )
+        clipPath(headPath) {
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.50f * radius + gazeX * 0.45f, 0.20f * radius + gazeY * 0.45f)
+                drawCircle(
+                    brush = Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.26f),
+                    radius = radius * 0.26f,
+                    center = bc,
+                )
+            }
+            // Soft lightened muzzle oval
+            val muzzleCenter = middle + Offset(gazeX * 0.55f, 0.26f * radius + gazeY * 0.55f)
+            drawOval(
+                color = lerp(soft.top, Color.White, 0.55f).copy(alpha = if (isLightBody) 0.72f else 0.22f),
+                topLeft = Offset(muzzleCenter.x - radius * 0.34f, muzzleCenter.y - radius * 0.23f),
+                size = Size(radius * 0.68f, radius * 0.46f),
+            )
+            // Harmonized ceramic nose
+            drawOval(
+                color = soft.eye.copy(alpha = 0.82f),
+                topLeft = Offset(muzzleCenter.x - radius * 0.105f, muzzleCenter.y - radius * 0.11f),
+                size = Size(radius * 0.21f, radius * 0.13f),
+            )
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.31f * radius + gazeX, -0.06f * radius + gazeY)
+                val w = 0.125f * diameter
+                val h = max(0.175f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+        }
+        drawPath(headPath, color = if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Classic compact CRT desktop terminal with recessed phosphor screen, floppy slot & emerald LED. */
+private fun DrawScope.drawRetroFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val boxW = diameter * 0.86f
+        val boxH = diameter * 0.88f
+        val topLeft = Offset(middle.x - boxW / 2f, middle.y - boxH / 2f)
+        val corner = CornerRadius(boxW * 0.21f, boxW * 0.21f)
+
+        drawRoundRect(
+            brush = Brush.linearGradient(listOf(soft.top, soft.mid, soft.edge), topLeft, topLeft + Offset(boxW, boxH)),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+        )
+        drawRoundRect(
+            color = if (isLightBody) Color(0x18000000) else Color(0x1CFFFFFF),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+            style = Stroke(0.7.dp.toPx()),
+        )
+        // Recessed dark phosphor CRT screen
+        val screenW = boxW * 0.78f
+        val screenH = boxH * 0.55f
+        val screenTopLeft = Offset(middle.x - screenW / 2f, topLeft.y + boxH * 0.115f)
+        val screenCorner = CornerRadius(screenW * 0.15f, screenW * 0.15f)
+        drawRoundRect(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF192420), Color(0xFF0D1412)),
+                startY = screenTopLeft.y,
+                endY = screenTopLeft.y + screenH,
+            ),
+            topLeft = screenTopLeft,
+            size = Size(screenW, screenH),
+            cornerRadius = screenCorner,
+        )
+        drawRoundRect(
+            color = Color.White.copy(alpha = 0.16f),
+            topLeft = screenTopLeft,
+            size = Size(screenW, screenH),
+            cornerRadius = screenCorner,
+            style = Stroke(0.7.dp.toPx()),
+        )
+        // Luminous mint-white phosphor eyes
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.72f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.62f
+        val crtEye = Color(0xFFE6FFF5)
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val c = Offset(middle.x + side * screenW * 0.21f + gazeX, screenTopLeft.y + screenH * 0.50f + gazeY)
+            val w = screenW * 0.145f
+            val h = max(screenH * 0.34f * open, w * 0.34f)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0xFF34D399).copy(alpha = 0.24f), Color.Transparent),
+                    center = c,
+                    radius = max(w, h) * 1.25f,
+                ),
+                radius = max(w, h) * 1.25f,
+                center = c,
+            )
+            drawRoundRect(crtEye, Offset(c.x - w / 2f, c.y - h / 2f), Size(w, h), CornerRadius(w * 0.45f, w * 0.45f))
+        }
+        // Lower-left floppy/vent slot
+        val slotW = boxW * 0.34f
+        val slotH = max(1.8.dp.toPx(), boxH * 0.05f)
+        drawRoundRect(
+            color = if (isLightBody) Color(0x3D18181C) else Color(0x47FFFFFF),
+            topLeft = Offset(screenTopLeft.x + screenW * 0.04f, topLeft.y + boxH * 0.79f),
+            size = Size(slotW, slotH),
+            cornerRadius = CornerRadius(slotH / 2f, slotH / 2f),
+        )
+        // Lower-right emerald power LED
+        val ledCenter = Offset(screenTopLeft.x + screenW * 0.88f, topLeft.y + boxH * 0.815f)
+        val ledR = max(1.5.dp.toPx(), boxW * 0.042f)
+        drawCircle(Color(0x4434D399), ledR * 1.8f, ledCenter)
+        drawCircle(Color(0xFF34D399), ledR, ledCenter)
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Sculpted porcelain fox with tall pointed angled ears & soft cheek tufts. */
+private fun DrawScope.drawFoxFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val earBrush = Brush.linearGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            start = middle + Offset(0f, -radius * 1.02f),
+            end = middle + Offset(0f, -radius * 0.20f),
+        )
+        for (side in floatArrayOf(-1f, 1f)) {
+            withTransform({ rotate(side * pose.roll * 0.55f, middle + Offset(side * radius * 0.52f, -radius * 0.42f)) }) {
+                val outer = Path().apply {
+                    moveTo(middle.x + side * radius * 0.72f, middle.y - radius * 0.10f)
+                    lineTo(middle.x + side * radius * 0.84f, middle.y - radius * 0.90f)
+                    quadraticTo(
+                        middle.x + side * radius * 0.72f, middle.y - radius * 0.96f,
+                        middle.x + side * radius * 0.62f, middle.y - radius * 0.88f,
+                    )
+                    lineTo(middle.x + side * radius * 0.18f, middle.y - radius * 0.50f)
+                    close()
+                }
+                drawPath(outer, earBrush)
+                drawPath(outer, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+                val inner = Path().apply {
+                    moveTo(middle.x + side * radius * 0.62f, middle.y - radius * 0.24f)
+                    lineTo(middle.x + side * radius * 0.72f, middle.y - radius * 0.74f)
+                    lineTo(middle.x + side * radius * 0.34f, middle.y - radius * 0.48f)
+                    close()
+                }
+                drawPath(inner, soft.innerEar)
+            }
+        }
+        val headPath = Path().apply {
+            moveTo(middle.x - radius * 0.82f, middle.y + radius * 0.08f)
+            cubicTo(
+                middle.x - radius * 0.82f, middle.y - radius * 0.44f,
+                middle.x - radius * 0.44f, middle.y - radius * 0.60f,
+                middle.x, middle.y - radius * 0.60f,
+            )
+            cubicTo(
+                middle.x + radius * 0.44f, middle.y - radius * 0.60f,
+                middle.x + radius * 0.82f, middle.y - radius * 0.44f,
+                middle.x + radius * 0.82f, middle.y + radius * 0.08f,
+            )
+            cubicTo(
+                middle.x + radius * 0.98f, middle.y + radius * 0.30f,
+                middle.x + radius * 0.76f, middle.y + radius * 0.56f,
+                middle.x, middle.y + radius * 0.88f,
+            )
+            cubicTo(
+                middle.x - radius * 0.76f, middle.y + radius * 0.56f,
+                middle.x - radius * 0.98f, middle.y + radius * 0.30f,
+                middle.x - radius * 0.82f, middle.y + radius * 0.08f,
+            )
+            close()
+        }
+        drawPath(
+            path = headPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.22f),
+                radius = radius * 1.45f,
+            ),
+        )
+        clipPath(headPath) {
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.48f * radius + gazeX * 0.45f, 0.26f * radius + gazeY * 0.45f)
+                drawCircle(Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.24f), radius * 0.24f, bc)
+            }
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.30f * radius + gazeX, 0.08f * radius + gazeY)
+                val w = 0.125f * diameter
+                val h = max(0.180f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+            val noseCenter = middle + Offset(gazeX * 0.7f, 0.34f * radius + gazeY * 0.7f)
+            drawOval(soft.eye.copy(alpha = 0.82f), Offset(noseCenter.x - radius * 0.09f, noseCenter.y - radius * 0.05f), Size(radius * 0.18f, radius * 0.10f))
+        }
+        drawPath(headPath, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Cute minimalist ceramic frog with two rounded dome eye-bumps on top. */
+private fun DrawScope.drawFrogFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val bodyBrush = Brush.radialGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            center = middle + Offset(-radius * 0.24f, -radius * 0.24f),
+            radius = radius * 1.45f,
+        )
+        val domeR = radius * 0.36f
+        val leftDome = middle + Offset(-radius * 0.44f, -radius * 0.38f)
+        val rightDome = middle + Offset(radius * 0.44f, -radius * 0.38f)
+        drawCircle(bodyBrush, domeR, leftDome)
+        drawCircle(bodyBrush, domeR, rightDome)
+        drawCircle(if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), domeR, leftDome, style = Stroke(0.6.dp.toPx()))
+        drawCircle(if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), domeR, rightDome, style = Stroke(0.6.dp.toPx()))
+
+        val headRect = Rect(middle.x - radius * 0.90f, middle.y - radius * 0.46f, middle.x + radius * 0.90f, middle.y + radius * 0.88f)
+        val headPath = Path().apply { addOval(headRect) }
+        drawPath(headPath, bodyBrush)
+        drawPath(headPath, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        // Smoothly blend upper domes into head
+        drawCircle(bodyBrush, domeR * 0.92f, leftDome)
+        drawCircle(bodyBrush, domeR * 0.92f, rightDome)
+
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.7f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.7f
+        for (side in floatArrayOf(-1f, 1f)) {
+            val bc = middle + Offset(side * 0.52f * radius + gazeX * 0.4f, 0.22f * radius + gazeY * 0.4f)
+            drawCircle(Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.25f), radius * 0.25f, bc)
+        }
+        for (index in 0..1) {
+            val dome = if (index == 0) leftDome else rightDome
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val eyeCenter = dome + Offset(gazeX, gazeY)
+            val w = 0.13f * diameter
+            val h = max(0.155f * diameter * open, w * 0.34f)
+            drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+            if (open > 0.36f) {
+                drawCircle(Color.White.copy(alpha = 0.94f), w * 0.24f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+            }
+        }
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Plump matte porcelain owl with ear-tuft horns, lightened facial disc & gold diamond beak. */
+private fun DrawScope.drawOwlFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val tuftBrush = Brush.linearGradient(listOf(soft.top, soft.mid, soft.edge), middle + Offset(0f, -radius), middle)
+        for (side in floatArrayOf(-1f, 1f)) {
+            val tuft = Path().apply {
+                moveTo(middle.x + side * radius * 0.62f, middle.y - radius * 0.42f)
+                lineTo(middle.x + side * radius * 0.78f, middle.y - radius * 0.88f)
+                quadraticTo(
+                    middle.x + side * radius * 0.66f, middle.y - radius * 0.92f,
+                    middle.x + side * radius * 0.56f, middle.y - radius * 0.84f,
+                )
+                lineTo(middle.x + side * radius * 0.28f, middle.y - radius * 0.62f)
+                close()
+            }
+            drawPath(tuft, tuftBrush)
+            drawPath(tuft, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        }
+        val headRect = Rect(middle.x - radius * 0.88f, middle.y - radius * 0.72f, middle.x + radius * 0.88f, middle.y + radius * 0.92f)
+        val headPath = Path().apply { addOval(headRect) }
+        drawPath(
+            path = headPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.30f),
+                radius = radius * 1.45f,
+            ),
+        )
+        clipPath(headPath) {
+            val disc = Path().apply {
+                moveTo(middle.x, middle.y - radius * 0.26f)
+                cubicTo(
+                    middle.x - radius * 0.18f, middle.y - radius * 0.46f,
+                    middle.x - radius * 0.64f, middle.y - radius * 0.40f,
+                    middle.x - radius * 0.64f, middle.y,
+                )
+                cubicTo(
+                    middle.x - radius * 0.64f, middle.y + radius * 0.38f,
+                    middle.x - radius * 0.30f, middle.y + radius * 0.58f,
+                    middle.x, middle.y + radius * 0.66f,
+                )
+                cubicTo(
+                    middle.x + radius * 0.30f, middle.y + radius * 0.58f,
+                    middle.x + radius * 0.64f, middle.y + radius * 0.38f,
+                    middle.x + radius * 0.64f, middle.y,
+                )
+                cubicTo(
+                    middle.x + radius * 0.64f, middle.y - radius * 0.40f,
+                    middle.x + radius * 0.18f, middle.y - radius * 0.46f,
+                    middle.x, middle.y - radius * 0.26f,
+                )
+                close()
+            }
+            drawPath(disc, lerp(soft.top, Color.White, 0.55f).copy(alpha = if (isLightBody) 0.65f else 0.18f))
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.30f * radius + gazeX, -0.04f * radius + gazeY)
+                val w = 0.13f * diameter
+                val h = max(0.185f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+            val bx = middle.x + gazeX * 0.6f
+            val by = middle.y + radius * 0.18f + gazeY * 0.6f
+            val beak = Path().apply {
+                moveTo(bx, by - radius * 0.14f)
+                lineTo(bx + radius * 0.11f, by)
+                lineTo(bx, by + radius * 0.14f)
+                lineTo(bx - radius * 0.11f, by)
+                close()
+            }
+            drawPath(beak, Color(0xFFDFB664))
+            drawPath(beak, Color(0xFFA88233), style = Stroke(0.6.dp.toPx(), join = StrokeJoin.Round))
+        }
+        drawPath(headPath, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Adorable floating ceramic ghost with smooth dome top & 3-wave scalloped hem. */
+private fun DrawScope.drawGhostFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val ghostPath = Path().apply {
+            moveTo(middle.x - radius * 0.74f, middle.y - radius * 0.08f)
+            cubicTo(
+                middle.x - radius * 0.74f, middle.y - radius * 0.66f,
+                middle.x - radius * 0.42f, middle.y - radius * 0.90f,
+                middle.x, middle.y - radius * 0.90f,
+            )
+            cubicTo(
+                middle.x + radius * 0.42f, middle.y - radius * 0.90f,
+                middle.x + radius * 0.74f, middle.y - radius * 0.66f,
+                middle.x + radius * 0.74f, middle.y - radius * 0.08f,
+            )
+            lineTo(middle.x + radius * 0.80f, middle.y + radius * 0.62f)
+            cubicTo(
+                middle.x + radius * 0.80f, middle.y + radius * 0.82f,
+                middle.x + radius * 0.64f, middle.y + radius * 0.92f,
+                middle.x + radius * 0.50f, middle.y + radius * 0.80f,
+            )
+            cubicTo(
+                middle.x + radius * 0.38f, middle.y + radius * 0.68f,
+                middle.x + radius * 0.28f, middle.y + radius * 0.68f,
+                middle.x + radius * 0.20f, middle.y + radius * 0.82f,
+            )
+            cubicTo(
+                middle.x + radius * 0.10f, middle.y + radius * 0.94f,
+                middle.x - radius * 0.10f, middle.y + radius * 0.94f,
+                middle.x - radius * 0.20f, middle.y + radius * 0.82f,
+            )
+            cubicTo(
+                middle.x - radius * 0.28f, middle.y + radius * 0.68f,
+                middle.x - radius * 0.38f, middle.y + radius * 0.68f,
+                middle.x - radius * 0.50f, middle.y + radius * 0.80f,
+            )
+            cubicTo(
+                middle.x - radius * 0.64f, middle.y + radius * 0.92f,
+                middle.x - radius * 0.80f, middle.y + radius * 0.82f,
+                middle.x - radius * 0.80f, middle.y + radius * 0.62f,
+            )
+            close()
+        }
+        drawPath(
+            path = ghostPath,
+            brush = Brush.radialGradient(
+                colors = listOf(soft.top, soft.mid, soft.edge),
+                center = middle + Offset(-radius * 0.24f, -radius * 0.34f),
+                radius = radius * 1.48f,
+            ),
+        )
+        clipPath(ghostPath) {
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.44f * radius + gazeX * 0.45f, 0.12f * radius + gazeY * 0.45f)
+                drawCircle(Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.24f), radius * 0.24f, bc)
+            }
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.27f * radius + gazeX, -0.08f * radius + gazeY)
+                val w = 0.125f * diameter
+                val h = max(0.185f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+        }
+        drawPath(ghostPath, if (isLightBody) Color(0x14000000) else Color(0x14FFFFFF), style = Stroke(0.6.dp.toPx()))
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Minimalist Leica-inspired rangefinder camera with coral shutter & glowing obsidian lens eyes. */
+private fun DrawScope.drawCameraFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+    val glowEye = soft.visorGlow
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val boxW = diameter * 0.88f
+        val boxH = diameter * 0.70f
+        val topLeft = Offset(middle.x - boxW / 2f, middle.y - boxH * 0.42f)
+        val corner = CornerRadius(boxW * 0.19f, boxW * 0.19f)
+
+        // Coral shutter button
+        drawRoundRect(
+            color = Color(0xFFFF6B4A),
+            topLeft = Offset(topLeft.x + boxW * 0.11f, topLeft.y - boxH * 0.09f),
+            size = Size(boxW * 0.16f, boxH * 0.11f),
+            cornerRadius = CornerRadius(boxH * 0.05f, boxH * 0.05f),
+        )
+        // Top viewfinder hump
+        val hump = Path().apply {
+            moveTo(middle.x - boxW * 0.20f, topLeft.y + boxH * 0.02f)
+            lineTo(middle.x - boxW * 0.15f, topLeft.y - boxH * 0.15f)
+            lineTo(middle.x + boxW * 0.15f, topLeft.y - boxH * 0.15f)
+            lineTo(middle.x + boxW * 0.20f, topLeft.y + boxH * 0.02f)
+            close()
+        }
+        drawPath(hump, Brush.linearGradient(listOf(soft.top, soft.mid), Offset(middle.x, topLeft.y - boxH * 0.16f), Offset(middle.x, topLeft.y + boxH * 0.04f)))
+        drawPath(hump, if (isLightBody) Color(0x16000000) else Color(0x1CFFFFFF), style = Stroke(0.6.dp.toPx(), join = StrokeJoin.Round))
+
+        // Matte ceramic camera body
+        drawRoundRect(
+            brush = Brush.linearGradient(listOf(soft.top, soft.mid, soft.edge), topLeft, topLeft + Offset(boxW, boxH)),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+        )
+        drawRoundRect(
+            color = if (isLightBody) Color(0x18000000) else Color(0x1CFFFFFF),
+            topLeft = topLeft,
+            size = Size(boxW, boxH),
+            cornerRadius = corner,
+            style = Stroke(0.7.dp.toPx()),
+        )
+        // Centered circular obsidian lens bezel
+        val lensCenter = Offset(middle.x, topLeft.y + boxH * 0.50f)
+        val outerLensR = boxH * 0.40f
+        val innerLensR = boxH * 0.34f
+        drawCircle(soft.edge, outerLensR, lensCenter)
+        drawCircle(
+            brush = Brush.verticalGradient(
+                colors = listOf(Color(0xFF1F2430), Color(0xFF0C0E14)),
+                startY = lensCenter.y - innerLensR,
+                endY = lensCenter.y + innerLensR,
+            ),
+            radius = innerLensR,
+            center = lensCenter,
+        )
+        drawCircle(Color.White.copy(alpha = 0.22f), innerLensR, lensCenter, style = Stroke(0.8.dp.toPx()))
+        // Luminous lens eyes
+        val gazeX = (pose.gazeX + pose.lookX) * radius * 0.55f
+        val gazeY = (pose.gazeY + pose.lookY) * radius * 0.55f
+        for (index in 0..1) {
+            val side = if (index == 0) -1f else 1f
+            val open = if (index == 0) pose.openLeft else pose.openRight
+            val eyeCenter = lensCenter + Offset(side * innerLensR * 0.42f + gazeX, gazeY)
+            val w = innerLensR * 0.34f
+            val h = max(innerLensR * 0.62f * open, w * 0.34f)
+            drawCircle(
+                brush = Brush.radialGradient(listOf(glowEye.copy(alpha = 0.34f), Color.Transparent), eyeCenter, max(w, h) * 1.15f),
+                radius = max(w, h) * 1.15f,
+                center = eyeCenter,
+            )
+            drawRoundRect(glowEye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h), CornerRadius(w / 2f, w / 2f))
+        }
+        if (crown) drawSculptedCrown(pose, radius, middle)
+    }
+}
+
+/** Style: Sculpted puffy five-lobe minimalist porcelain cloud with soft cheek blush. */
+private fun DrawScope.drawCloudFace(
+    soft: SoftBotPalette,
+    pose: FacePose,
+    crown: Boolean,
+    diameter: Float,
+    middle: Offset,
+) {
+    val radius = diameter / 2f
+    val scaleX = pose.scale * (1f - pose.squash)
+    val scaleY = pose.scale * (1f + pose.squash)
+    val isLightBody = soft.isLight
+
+    withTransform({ scale(scaleX, scaleY, pivot = middle) }) {
+        val cloudBrush = Brush.radialGradient(
+            colors = listOf(soft.top, soft.mid, soft.edge),
+            center = middle + Offset(-radius * 0.22f, -radius * 0.30f),
+            radius = radius * 1.48f,
+        )
+        val cloudPath = Path().apply {
+            addOval(Rect(middle.x - radius * 0.92f, middle.y - radius * 0.16f, middle.x - radius * 0.14f, middle.y + radius * 0.66f))
+            addOval(Rect(middle.x + radius * 0.14f, middle.y - radius * 0.22f, middle.x + radius * 0.92f, middle.y + radius * 0.62f))
+            addOval(Rect(middle.x - radius * 0.62f, middle.y - radius * 0.60f, middle.x + radius * 0.14f, middle.y + radius * 0.22f))
+            addOval(Rect(middle.x - radius * 0.12f, middle.y - radius * 0.78f, middle.x + radius * 0.68f, middle.y + radius * 0.08f))
+            addOval(Rect(middle.x - radius * 0.56f, middle.y - radius * 0.10f, middle.x + radius * 0.56f, middle.y + radius * 0.78f))
+        }
+        drawPath(cloudPath, cloudBrush)
+        clipPath(cloudPath) {
+            val gazeX = (pose.gazeX + pose.lookX) * radius
+            val gazeY = (pose.gazeY + pose.lookY) * radius
+            for (side in floatArrayOf(-1f, 1f)) {
+                val bc = middle + Offset(side * 0.44f * radius + gazeX * 0.45f, 0.22f * radius + gazeY * 0.45f)
+                drawCircle(Brush.radialGradient(listOf(soft.blush, Color.Transparent), bc, radius * 0.24f), radius * 0.24f, bc)
+            }
+            for (index in 0..1) {
+                val side = if (index == 0) -1f else 1f
+                val open = if (index == 0) pose.openLeft else pose.openRight
+                val eyeCenter = middle + Offset(side * 0.28f * radius + gazeX, 0.08f * radius + gazeY)
+                val w = 0.125f * diameter
+                val h = max(0.180f * diameter * open, w * 0.34f)
+                drawOval(soft.eye, Offset(eyeCenter.x - w / 2f, eyeCenter.y - h / 2f), Size(w, h))
+                if (open > 0.36f) {
+                    drawCircle(Color.White.copy(alpha = 0.94f), w * 0.22f, Offset(eyeCenter.x - w * 0.16f, eyeCenter.y - h * 0.20f))
+                }
+            }
+        }
+        if (crown) drawSculptedCrown(pose, radius, middle)
     }
 }
 

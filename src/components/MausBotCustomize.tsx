@@ -62,7 +62,7 @@ export function MausBotCustomize({ preview, name, nameRef, image, onName, onPatc
       </div>
       <div>
         <span className={LABEL}>{t("mausbotWelcome.look")}</span>
-        <div className="mt-1.5 grid grid-cols-4 gap-1">
+        <div className="mt-1.5 grid grid-cols-6 gap-1">
           {PRESET_STYLE_BODY_IDS.map((id) => (
             <button
               key={id}

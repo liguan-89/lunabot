@@ -1323,6 +1323,7 @@ data class BotProfilePatch(
     val avatarUrl: AvatarURL? = null,
     val avatarCrop: AvatarCrop? = null,
     val avatarStates: AvatarStates? = null,
+    val mascotBody: String? = null,
     val voice: String? = null,
     val speakReplies: Boolean? = null,
 ) {
@@ -1346,6 +1347,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
         "avatarUrl",
         "avatarCrop",
         "avatarStates",
+        "mascotBody",
         "voice",
         "speakReplies",
     )
@@ -1358,6 +1360,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
         element<JsonElement>("avatarUrl", isOptional = true)
         element<String>("avatarCrop", isOptional = true)
         element<JsonElement>("avatarStates", isOptional = true)
+        element<String>("mascotBody", isOptional = true)
         element<String>("voice", isOptional = true)
         element<Boolean>("speakReplies", isOptional = true)
     }
@@ -1386,6 +1389,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
                 BotProfilePatch.AvatarStates.Clear -> put("avatarStates", JsonNull)
                 null -> Unit
             }
+            value.mascotBody?.let { put("mascotBody", it) }
             value.voice?.let { put("voice", it) }
             value.speakReplies?.let { put("speakReplies", it) }
         })
@@ -1445,6 +1449,7 @@ object BotProfilePatchSerializer : KSerializer<BotProfilePatch> {
             avatarUrl = avatarUrl,
             avatarCrop = crop,
             avatarStates = avatarStates,
+            mascotBody = string("mascotBody"),
             voice = string("voice"),
             speakReplies = boolean("speakReplies"),
         )

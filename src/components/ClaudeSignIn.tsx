@@ -136,7 +136,7 @@ export function ClaudeSignIn({ instanceId, autoStart = false, onDone }: {
           <p className="text-[12px] font-medium text-ink">{t("accounts.claude.step1")}</p>
           <a href={link} target="_blank" rel="noopener noreferrer" onClick={(event) => {
             if (window.ogb?.openExternal) { event.preventDefault(); void openExternalLink(link); }
-          }} className="flex w-fit items-center gap-1.5 rounded-lg bg-control px-3 py-1.5 text-[12px] font-medium text-ink hover:bg-raised-hover">
+          }} className="ui-button ui-button-md w-fit">
             {t("accounts.claude.openAgain")} <ExternalLink size={12} />
           </a>
         </div>
@@ -153,7 +153,7 @@ export function ClaudeSignIn({ instanceId, autoStart = false, onDone }: {
               placeholder={t("accounts.claude.codePlaceholder")}
               className="min-w-0 flex-1 rounded-lg border border-hairline/40 bg-inset px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-accent-border"
             />
-            <button type="submit" disabled={busy !== null || code.trim().length < 8} className="flex shrink-0 items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-50">
+            <button type="submit" disabled={busy !== null || code.trim().length < 8} className="ui-button ui-button-md ui-button-primary shrink-0">
               {busy === "finish" && <Loader2 size={13} className="animate-spin" />}
               {busy === "finish" ? t("engineSetup.claude.finishing") : t("accounts.claude.finish")}
             </button>
@@ -162,7 +162,7 @@ export function ClaudeSignIn({ instanceId, autoStart = false, onDone }: {
         {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
         <div className="flex items-center justify-between gap-3">
           <p className="text-[11px] leading-relaxed text-ink-secondary">{t("accounts.claude.security")}</p>
-          <button type="button" disabled={busy !== null} onClick={() => void cancel()} className="shrink-0 rounded-lg px-2.5 py-1.5 text-[12px] text-ink-secondary hover:bg-control hover:text-ink disabled:opacity-50">
+          <button type="button" disabled={busy !== null} onClick={() => void cancel()} className="ui-button ui-button-md shrink-0">
             {t("common.cancel")}
           </button>
         </div>
@@ -180,13 +180,13 @@ export function ClaudeSignIn({ instanceId, autoStart = false, onDone }: {
           type="button"
           disabled={busy !== null}
           onClick={() => void start()}
-          className="flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-white hover:brightness-110 disabled:opacity-50"
+          className="ui-button ui-button-md ui-button-primary"
         >
           {busy === "start" ? <Loader2 size={14} className="animate-spin" /> : <LogIn size={14} />}
           {busy === "start" ? t("engineSetup.claude.starting") : auth || error ? t("engineSetup.device.tryAgain") : t("engineSetup.claude.start")}
         </button>
         {onDone && (auth || error) && busy === null && (
-          <button type="button" onClick={() => onDone(false)} className="rounded-lg px-2.5 py-2 text-[12px] text-ink-secondary hover:bg-control hover:text-ink">{t("common.cancel")}</button>
+          <button type="button" onClick={() => onDone(false)} className="ui-button ui-button-md">{t("common.cancel")}</button>
         )}
       </div>
       {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}

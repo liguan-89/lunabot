@@ -2,7 +2,7 @@ import { engineDisplayName } from "@/lib/engine-rail";
 import { modelLabel, modelProvider } from "@/lib/model-label";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, KeyRound, Loader2, RefreshCw, X } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Cpu, KeyRound, Loader2, RefreshCw, X } from "lucide-react";
 import { useStore, currentTaskBot, type Bot, type InstanceInfo, type ModelSelection } from "@/state/store";
 import type { EffortLevel } from "../../shared/wire";
 import { filterCustomModels, partitionCustomModels, suggestedModels } from "@/lib/custom-models";
@@ -613,9 +613,15 @@ export function ModelPicker({
         !contained && active && !showActiveAccount && cn(COMPACT_SQUARE, USAGE_WARN_WIDENS),
       )}
     >
-      {active && hasProviderMark(active) && (contained
-        ? <InstanceProviderMark instance={active} size={14} subtle />
-        : <span className="flex shrink-0 group-disabled:opacity-50"><InstanceProviderMark instance={active} size={14} subtle /></span>)}
+      {active && (hasProviderMark(active)
+        ? (contained
+          ? <InstanceProviderMark instance={active} size={14} subtle />
+          : <span className="flex shrink-0 group-disabled:opacity-50"><InstanceProviderMark instance={active} size={14} subtle /></span>)
+        : (!contained && !showActiveAccount && (
+          <span className="hidden shrink-0 text-ink-secondary @max-4xl/chathead:flex group-disabled:opacity-50">
+            <Cpu size={14} aria-hidden="true" />
+          </span>
+        )))}
       {!contained && active && showActiveAccount && (
         <span data-model-account-compact className="hidden max-w-20 truncate @max-4xl/chathead:inline">{engineDisplayName(active)}</span>
       )}

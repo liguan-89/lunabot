@@ -128,16 +128,16 @@ test("the page beside the rail offers the button: hiding gives the page the whol
   const w = world();
   w.rail.attach(w.win);
   const [view] = w.made;
-  assert.deepEqual(w.ask("rail:offer"), { available: true, hidden: false }, "whether there is a rail to hide, never its places");
-  assert.deepEqual(w.ask("rail:hide", true), { available: true, hidden: true });
+  assert.deepEqual(w.ask("rail:offer"), { available: true, hidden: false, popoverOpen: false }, "whether there is a rail to hide, never its places");
+  assert.deepEqual(w.ask("rail:hide", true), { available: true, hidden: true, popoverOpen: false });
   assert.equal(w.state.hidden, true, "kept with this desktop's own preferences");
   assert.deepEqual([w.children, w.page.told.at(-1), w.rail.shown(), w.state.changes], [[], 0, false, 2], "the page has the whole window, and pages hear the rail went");
-  assert.deepEqual(w.ask("rail:hide", "yes"), { available: true, hidden: false }, "only true hides it");
+  assert.deepEqual(w.ask("rail:hide", "yes"), { available: true, hidden: false, popoverOpen: false }, "only true hides it");
   assert.deepEqual([w.children, w.page.told.at(-1), w.made.length], [[view], CHROME_RAIL_WIDTH, 1], "the same page comes back beside it");
   w.ask("rail:hide", true);
   w.state.wanted = false;
   w.rail.refresh();
-  assert.deepEqual(w.page.states, [{ available: false, hidden: true }], "told when there is no rail to show any more, and never what it was just answered");
+  assert.deepEqual(w.page.states, [{ available: false, hidden: true, popoverOpen: false }], "told when there is no rail to show any more, and never what it was just answered");
 });
 
 test("only the page beside the rail, in its main frame, offers the button: never the rail's own page, a frame inside the page or another window", () => {
@@ -309,25 +309,27 @@ test("the rail's own page keeps its size at any zoom of this app's page (Chromiu
 });
 
 test("every page beside the rail, from any server, gets the button's bridge, learns only whether there is a rail to hide, and says when it draws the frame; the rail's own channels stay this app's", async () => {
-  const remote = pageWithPreload("https://bots.example.test", "/", (channel) => (channel === "rail:offer" ? { available: "yes", hidden: 1, places: [{ id: "home" }] } : { available: true, hidden: true }));
-  assert.deepEqual(Object.keys(remote.bridge.rail), ["state", "drawsFrame", "setHidden", "onState"]);
+  const remote = pageWithPreload("https://bots.example.test", "/", (channel) => (channel === "rail:offer" ? { available: "yes", hidden: 1, places: [{ id: "home" }] } : { available: true, hidden: true, popoverOpen: channel === "rail:open-popover" }));
+  assert.deepEqual(Object.keys(remote.bridge.rail), ["state", "drawsFrame", "setHidden", "openPopover", "onState"]);
   /** A value made in the page's own context, as this one sees it. */
   const plain = (value) => JSON.parse(JSON.stringify(value));
-  assert.deepEqual(plain(await remote.bridge.rail.state()), { available: false, hidden: false }, "two plain answers, nothing else main might send");
+  assert.deepEqual(plain(await remote.bridge.rail.state()), { available: false, hidden: false, popoverOpen: false }, "plain boolean answers only, nothing else main might send");
   await assert.rejects(remote.bridge.rail.setHidden(true), /Choose to hide or show/, "a server's page hides it only from the person's click");
+  await assert.rejects(remote.bridge.rail.openPopover({ x: 88, y: 52 }), /Choose to open your computers/, "a server's page opens the popover only from the person's click");
   remote.navigator.userActivation.isActive = true;
-  assert.deepEqual(plain(await remote.bridge.rail.setHidden(true)), { available: true, hidden: true });
+  assert.deepEqual(plain(await remote.bridge.rail.setHidden(true)), { available: true, hidden: true, popoverOpen: false });
+  assert.deepEqual(plain(await remote.bridge.rail.openPopover({ x: 88, y: 52 })), { available: true, hidden: true, popoverOpen: true });
   await remote.bridge.rail.drawsFrame();
   await remote.bridge.rail.drawsFrame(false);
-  assert.deepEqual(plain(remote.invoked), [["rail:offer"], ["rail:hide", true], ["rail:draws-frame", true], ["rail:draws-frame", false]]);
+  assert.deepEqual(plain(remote.invoked), [["rail:offer"], ["rail:hide", true], ["rail:open-popover", { x: 88, y: 52 }], ["rail:draws-frame", true], ["rail:draws-frame", false]]);
   const heard = [];
   const stop = remote.bridge.rail.onState((state) => heard.push(state));
   remote.hear("rail:state", { available: true, hidden: false, places: ["home"] });
   stop();
   remote.hear("rail:state", { available: true, hidden: true });
-  assert.deepEqual(plain(heard), [{ available: true, hidden: false }]);
+  assert.deepEqual(plain(heard), [{ available: true, hidden: false, popoverOpen: false }]);
   const local = pageWithPreload("http://127.0.0.1:8799", "/");
-  assert.deepEqual(Object.keys(local.bridge.rail), ["state", "drawsFrame", "setHidden", "onState", "expand", "onSkin", "onFramed"]);
+  assert.deepEqual(Object.keys(local.bridge.rail), ["state", "drawsFrame", "setHidden", "openPopover", "onState", "expand", "closePopover", "onPopover", "onSkin", "onFramed"]);
   const framed = [];
   const unheard = local.bridge.rail.onFramed((value) => framed.push(value));
   local.hear("rail:framed", false);
@@ -337,6 +339,24 @@ test("every page beside the rail, from any server, gets the button's bridge, lea
   assert.deepEqual(framed, [false, false], "only true is framed");
   await local.bridge.rail.setHidden(false);
   assert.deepEqual(plain(local.invoked), [["rail:hide", false]], "this app's own page, as for its other choices");
+});
+
+test("the isolated places popover opens full-window without shifting the page beside it, and only the rail view may close it", () => {
+  const w = world({ hidden: true });
+  w.rail.attach(w.win);
+  w.ask("rail:offer");
+  assert.deepEqual([w.rail.shown(), w.rail.stripShown(), w.page.told], [false, false, []]);
+  const opened = w.ask("rail:open-popover", { x: 96, y: 56 });
+  assert.deepEqual(opened, { available: true, hidden: true, popoverOpen: true });
+  assert.equal(w.made.length, 1);
+  const [view] = w.made;
+  assert.deepEqual(view.bounds, { x: 0, y: 0, width: 1440, height: 900 }, "overlay covers the window for click-outside dismissal");
+  assert.deepEqual(w.page.told, [], "opening the popover never pushes the page over by 36px");
+  assert.equal(w.rail.stripShown(), false);
+  assert.deepEqual(view.webContents.sent.at(-1), ["rail:popover", { open: true, x: 96, y: 56 }]);
+  assert.throws(() => w.handlers.get("rail:close-popover")({ sender: w.page, senderFrame: w.page.mainFrame }), /only available to the window's rail/);
+  w.handlers.get("rail:close-popover")({ sender: view.webContents, senderFrame: view.webContents.mainFrame });
+  assert.deepEqual([w.rail.shown(), w.rail.popoverOpen(), w.children], [false, false, []]);
 });
 
 test("the accounts sheet holds the rail's page up, even for someone who hid the rail or has one place, and letting go puts things back", () => {

@@ -9,7 +9,7 @@
 // main says this computer's bots may move to (one tap: main starts the move). With several accounts signed in here, the tiles
 // are grouped by account with a thin divider, and a click on another account's tile switches to it first (main does that).
 import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from "react";
-import { Cloud, House, Laptop, Loader2, MoreHorizontal, Plus, Search, Server, UserRound } from "lucide-react";
+import { Check, Cloud, House, Laptop, Loader2, MoreHorizontal, Plus, Search, Server, UserRound } from "lucide-react";
 import type { CloudSwatch } from "../../electron/cloud-list.mjs";
 import type { PlaceColorOutcome } from "../../electron/place-look.mjs";
 import { track } from "@/lib/analytics";
@@ -18,7 +18,7 @@ import { cloudColor, cloudColorFill } from "@/lib/cloud-look";
 import { activeLocale, t } from "@/lib/i18n";
 import { localizedRelativeTime } from "@/lib/relative-time";
 import { useAdvancedMode } from "@/lib/interface-mode";
-import { useBesideFramed } from "@/lib/chrome-rail";
+import { closeChromeRailPopover, useBesideFramed, useChromeRailPopover } from "@/lib/chrome-rail";
 import { computerName, editLocal, makeHome, placeInitials, recolorPlace, removeLocal, removePlace, usePlaces, type RailPlace } from "@/lib/places";
 import { AccountsSheet, switchNote } from "./AccountMenu";
 import { useDesktopCapabilities, windowFramed } from "./DesktopCapabilities";
@@ -86,8 +86,8 @@ export const startsGroup = (places: RailPlace[], at: number): boolean => at > 0 
 
 /** The tile's progress, drawn round its edge: a 2px line 1px off the tile, its corners in step with the tile's, on whole
  * pixels at any scale. The line starts at the top edge's middle and runs clockwise. */
-function ProgressRing({ value = 0, waiting = false }: { value?: number; waiting?: boolean }) {
-  const box = TILE + 6, inset = 1, side = box - 2 * inset, corner = tileRadius(TILE) + 2;
+function ProgressRing({ value = 0, waiting = false, size = TILE }: { value?: number; waiting?: boolean; size?: number }) {
+  const box = size + 6, inset = 1, side = box - 2 * inset, corner = tileRadius(size) + 2;
   const around = 4 * (side - 2 * corner) + 2 * Math.PI * corner;
   const shown = waiting ? 0.28 : Math.max(0.06, Math.min(1, value));
   const edge = `M ${box / 2} ${inset} H ${box - inset - corner} A ${corner} ${corner} 0 0 1 ${box - inset} ${inset + corner} V ${box - inset - corner}`
@@ -185,7 +185,7 @@ function RemoveRow({ place, onRemoved }: { place: RailPlace; onRemoved: () => vo
       ? <div role="alertdialog" aria-label={t("rail.remove")} className="flex flex-col gap-2 px-1.5 pb-1">
         <p className="text-[12px] leading-snug text-ink">{t(place.forget ? "rail.removeServerAsk" : "rail.removeAsk", { name: place.name })}</p>
         <div className="flex gap-2">
-          <button type="button" data-rail-remove-confirm className="ui-button ui-button-primary" disabled={busy} onClick={confirm}>{t("rail.removeYes")}</button>
+          <button type="button" data-rail-remove-confirm className="ui-button ui-button-danger" disabled={busy} onClick={confirm}>{t("rail.removeYes")}</button>
           <button type="button" className="ui-button" disabled={busy} onClick={() => setAsking(false)}>{t("rail.removeNo")}</button>
         </div>
       </div>
@@ -221,12 +221,19 @@ function MakeHomeRow({ place, onStarted }: { place: RailPlace; onStarted: () => 
 /** A place's own menu on the window's rail: its name and its colour, in the six swatches, saved by main for every place
  * whatever its server runs (on the Admin for a Cloud), and Remove from list for a Cloud its owner may take off their list.
  * A team member sees who may change its colour. */
-function PlaceMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
-  if (place.profile) return <LocalMenu place={place} top={top} onClose={onClose} />;
-  return <ListedMenu place={place} top={top} onClose={onClose} />;
+type PlaceMenuAlign = "right" | "left" | "inset";
+const PLACE_MENU_POS: Record<PlaceMenuAlign, string> = {
+  right: "left-full ml-2 w-72",
+  left: "right-full mr-2 w-72",
+  inset: "inset-x-0 w-auto",
+};
+
+function PlaceMenu({ place, top, align = "right", onClose }: { place: RailPlace; top: number; align?: PlaceMenuAlign; onClose: () => void }) {
+  if (place.profile) return <LocalMenu place={place} top={top} align={align} onClose={onClose} />;
+  return <ListedMenu place={place} top={top} align={align} onClose={onClose} />;
 }
 
-function ListedMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
+function ListedMenu({ place, top, align, onClose }: { place: RailPlace; top: number; align: PlaceMenuAlign; onClose: () => void }) {
   const paint = place.paint;
   const [pending, setPending] = useState<CloudSwatch | null>(null);
   const [outcome, setOutcome] = useState<PlaceColorOutcome | null>(null);
@@ -241,7 +248,7 @@ function ListedMenu({ place, top, onClose }: { place: RailPlace; top: number; on
   };
   const note = paint?.locked === "member" || outcome === "refused" ? t("placeLook.member") : paint?.locked === "signed-out" ? t("placeLook.signedOut")
     : outcome === "unsupported" ? t("placeLook.unsupported") : null;
-  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute left-full z-50 ml-2 w-72", MENU_SHEET)} style={{ top }}
+  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute z-50", PLACE_MENU_POS[align], MENU_SHEET)} style={{ top }}
     onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <div className="flex items-center gap-2 px-2 pt-1">
       <PlaceMark place={place} size={22} />
@@ -314,7 +321,7 @@ function RemoveLocalRow({ place, onRemoved }: { place: RailPlace; onRemoved: () 
       ? <div role="alertdialog" aria-label={t("rail.localRemove")} className="flex flex-col gap-2 px-1.5 pb-1">
         <p className="text-[12px] leading-snug text-ink">{ask}</p>
         <div className="flex gap-2">
-          <button type="button" data-rail-remove-confirm className="ui-button ui-button-primary inline-flex items-center gap-1.5" disabled={busy} onClick={confirm}>
+          <button type="button" data-rail-remove-confirm className="ui-button ui-button-danger inline-flex items-center gap-1.5" disabled={busy} onClick={confirm}>
             {busy && <Loader2 size={13} aria-hidden="true" className="animate-spin motion-reduce:animate-none" />}{t("rail.removeYes")}
           </button>
           <button type="button" data-rail-remove-cancel className="ui-button" disabled={busy} onClick={() => setAsking(false)}>{t("rail.removeNo")}</button>
@@ -326,7 +333,7 @@ function RemoveLocalRow({ place, onRemoved }: { place: RailPlace; onRemoved: () 
 }
 
 /** A workspace of this computer's own: its name (Rename), its colour in the six swatches, and Remove. */
-function LocalMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
+function LocalMenu({ place, top, align, onClose }: { place: RailPlace; top: number; align: PlaceMenuAlign; onClose: () => void }) {
   const [pending, setPending] = useState<CloudSwatch | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -338,7 +345,7 @@ function LocalMenu({ place, top, onClose }: { place: RailPlace; top: number; onC
     setPending(value); setFailed(false);
     void editLocal(place.id, { color: value }).then((outcome) => { setPending(undefined); if (outcome === "saved") onClose(); else setFailed(true); });
   };
-  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute left-full z-50 ml-2 w-72", MENU_SHEET)} style={{ top }}
+  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute z-50", PLACE_MENU_POS[align], MENU_SHEET)} style={{ top }}
     onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <div className="flex items-center gap-2 px-2 pt-1">
       <PlaceMark place={place} size={22} />
@@ -393,6 +400,9 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
   const calm = !useAdvancedMode();
   const { capabilities } = useDesktopCapabilities();
   const besideFramed = useBesideFramed();
+  const popover = useChromeRailPopover();
+  const popoverMode = chrome && popover.open;
+  const [popoverQuery, setPopoverQuery] = useState("");
   const [more, setMore] = useState(false);
   const [adding, setAdding] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -400,6 +410,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
   const [accounts, setAccounts] = useState<{ adding: string | null; note: string | null } | null>(null);
   const moreRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
   // The place last clicked and the one on screen when it was, from the click until main is done with it: another click
   // replaces it at once, whether it goes elsewhere or back to the place on screen.
   const [clicked, setClicked] = useState<{ id: string; from: string | null } | null>(null);
@@ -411,6 +422,9 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
   useEffect(() => { if (asked.current && state.places.find((place) => place.id === asked.current)?.active) asked.current = null; }, [state.places]);
   const navRef = useRef<HTMLElement>(null);
   useEffect(() => {
+    if (!popoverMode) setPopoverQuery("");
+  }, [popoverMode]);
+  useEffect(() => {
     if (!more && !menu) return;
     const away = (event: MouseEvent) => {
       if (!moreRef.current?.contains(event.target as Node)) setMore(false);
@@ -419,16 +433,27 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
     window.addEventListener("mousedown", away);
     return () => window.removeEventListener("mousedown", away);
   }, [more, menu]);
+  useEffect(() => {
+    if (!popoverMode || adding || connecting !== null || accounts !== null || menu !== null) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { event.preventDefault(); closeChromeRailPopover(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [popoverMode, adding, connecting, accounts, menu]);
   const going = clicked && clicked.id !== clicked.from ? state.places.find((place) => place.id === clicked.id) ?? null : null;
   const veil = chrome && going?.settling === undefined ? going : null;
-  const covering = more || adding || connecting !== null || menu !== null || accounts !== null || veil !== null;
+  const covering = more || adding || connecting !== null || menu !== null || accounts !== null || veil !== null || popoverMode;
   useEffect(() => { if (chrome) void window.ogb?.rail?.expand?.(covering)?.catch(() => {}); }, [chrome, covering]);
   if (!state.places.length) return null;
   const bridge = window.ogb?.workspaces;
   const open = (place: RailPlace) => {
     if (!place.opens) { if (place.pairs) setConnecting(place.name); return; }
     const onScreen = state.places.find((entry) => entry.active)?.id ?? null;
-    if (place.id === lastClick.current?.id || (place.id === onScreen && (asked.current === null || asked.current === place.id))) return;
+    if (place.id === lastClick.current?.id || (place.id === onScreen && (asked.current === null || asked.current === place.id))) {
+      if (popoverMode) closeChromeRailPopover();
+      return;
+    }
     asked.current = place.id;
     const mine = ++clicks.current;
     click({ id: place.id, from: onScreen });
@@ -436,9 +461,12 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
     track("rail_place_opened", { kind: place.kind });
     void Promise.resolve(bridge?.open?.(place.id)).then((said) => {
       done();
-      if (!said) return;
+      if (!said) {
+        if (popoverMode) closeChromeRailPopover();
+        return;
+      }
       if (said.outcome === "sign-in") setAccounts({ adding: said.email ?? place.email ?? "", note: null });
-      else { const note = switchNote(said); if (note) setAccounts({ adding: null, note }); }
+      else { const note = switchNote(said); if (note) setAccounts({ adding: null, note }); else if (popoverMode) closeChromeRailPopover(); }
     }, done);
   };
   const framed = windowFramed(capabilities), draggable = capabilities.windowChrome !== "native";
@@ -456,9 +484,90 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
   const addLabel = t(state.add.local ? "rail.addAny" : "rail.add");
   // The menu opens next to the tile or row it was asked from (measured now, while that row is there), within the rail.
   const openMenu = ({ place, from }: MenuAt) => {
-    const nav = navRef.current;
-    setMenu({ place, top: nav ? Math.max(8, Math.min(topWithin(from, nav) - 6, nav.clientHeight - 200)) : 8 });
+    const container = popoverMode ? popoverRef.current : navRef.current;
+    setMenu({ place, top: container ? Math.max(8, Math.min(topWithin(from, container) - 6, container.clientHeight - 160)) : 8 });
   };
+
+  if (popoverMode) {
+    const found = matchingPlaces(places, popoverQuery);
+    const searchLabel = t(places.some((place) => place.profile) ? "rail.searchAny" : "rail.search");
+    const viewportWidth = typeof window === "undefined" ? 1280 : window.innerWidth;
+    const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
+    const left = Math.max(12, Math.min(popover.x, viewportWidth - 284));
+    const top = Math.max(12, Math.min(popover.y, viewportHeight - 280));
+    const menuAlign: PlaceMenuAlign = left + 272 + 296 <= viewportWidth ? "right" : left >= 296 ? "left" : "inset";
+    const closeOverlay = () => { setMenu(null); closeChromeRailPopover(); };
+    return <div data-rail-popover-backdrop className="fixed inset-0 z-40 [--rail-surface:var(--color-menu)]" style={noDrag}
+      onMouseDown={(event) => { if (event.target === event.currentTarget && !adding && connecting === null && accounts === null && !veil) closeOverlay(); }}>
+      {!adding && connecting === null && accounts === null && !veil && (
+        <div ref={popoverRef} role="dialog" aria-label={t("rail.label")} data-rail-popover
+          style={{ left, top }}
+          className={cn("absolute w-[272px] max-w-[calc(100vw-24px)] rounded-2xl p-1.5", MENU_SHEET)}>
+          {places.length > 5 && (
+            <label className="mb-1.5 flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5">
+              <Search size={14} aria-hidden="true" className="shrink-0 text-ink-secondary" />
+              <input autoFocus value={popoverQuery} onChange={(event) => setPopoverQuery(event.target.value)} placeholder={searchLabel} aria-label={searchLabel}
+                onKeyDown={(event) => { if (event.key === "Enter" && found[0] && placeActs(found[0], canPair)) open(found[0]); }}
+                className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-tertiary" />
+            </label>
+          )}
+          <ul className="max-h-[min(60vh,340px)] overflow-y-auto">
+            {found.map((place, at) => {
+              const acts = placeActs(place, canPair);
+              const hasMenu = Boolean(place.paint || place.removable || place.makeHome);
+              const title = place.kind === "computer" ? computerName(place) : place.name;
+              const sub = placeStatus(place, Date.now());
+              const showSub = sub && sub !== title;
+              return <li key={place.id} className="group/row relative">
+                {startsGroup(found, at) && <div data-rail-group className="mt-1 truncate border-t border-hairline/50 px-2.5 pt-1.5 text-[11px] text-ink-tertiary">{place.kind === "account" ? "" : place.email ?? ""}</div>}
+                <div className="flex items-center gap-0.5">
+                  <button type="button" data-rail-place={place.id} data-rail-kind={place.kind} disabled={!acts} aria-current={place.active ? "page" : undefined}
+                    aria-label={tileLabel(place)} onClick={() => open(place)} onContextMenu={menuOpener(place, openMenu)}
+                    className={cn(MENU_ROW, "h-10 flex-1 gap-2.5 rounded-xl px-2", place.active && "bg-ink/[0.06] font-medium")}>
+                    <span className="relative shrink-0">
+                      <PlaceMark place={place} size={26} />
+                      {(place.progress !== undefined || place.settling !== undefined || place.id === going?.id) && <ProgressRing size={26} value={place.progress} waiting={place.waiting === true || place.settling !== undefined || place.id === going?.id} />}
+                      {place.attention && <span aria-hidden="true" data-rail-dot className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-(--rail-surface) bg-danger" />}
+                      {place.update && !place.attention && <span aria-hidden="true" data-rail-update className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-(--rail-surface) bg-accent" />}
+                      <KindBadge place={place} />
+                    </span>
+                    <span className="flex min-w-0 flex-1 flex-col text-left">
+                      <span className="truncate text-[13px] text-ink">{title}</span>
+                      {showSub && <span className="truncate text-[11px] text-ink-secondary">{sub}</span>}
+                    </span>
+                    {place.active && <Check size={14} strokeWidth={2.25} aria-hidden="true" className="shrink-0 text-accent" />}
+                  </button>
+                  {hasMenu && <button type="button" aria-label={title} onClick={(event) => openMenu({ place, from: event.currentTarget })}
+                    className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-tertiary opacity-0 transition-opacity hover:bg-ink/[0.06] hover:text-ink group-hover/row:opacity-100 focus-visible:opacity-100 touch:opacity-100">
+                    <MoreHorizontal size={14} aria-hidden="true" />
+                  </button>}
+                </div>
+              </li>;
+            })}
+          </ul>
+          {found.length === 0 && <p className="px-2.5 py-2 text-[12px] text-ink-tertiary">{t("rail.noMatch")}</p>}
+          {canAdd && <div className="mt-1 border-t border-hairline/50 pt-1">
+            <button type="button" data-rail-add onClick={() => { track("rail_add", { step: "opened" }); setAdding(true); }}
+              className={cn(MENU_ROW, "h-9 gap-2.5 rounded-xl px-2 text-ink-secondary hover:text-ink")}>
+              <span aria-hidden="true" className="grid size-[26px] shrink-0 place-items-center rounded-[8px] border border-dashed border-ink/25"><Plus size={13} /></span>
+              <span className="truncate text-[13px]">{addLabel}</span>
+            </button>
+          </div>}
+          {menu && <div ref={menuRef}>
+            <PlaceMenu key={menu.place.id} place={state.places.find((entry) => entry.id === menu.place.id) ?? menu.place} top={menu.top} align={menuAlign} onClose={() => setMenu(null)} />
+          </div>}
+        </div>
+      )}
+      {adding && <PlaceAddSheet choices={state.add} places={state.places} onClose={() => { setAdding(false); closeChromeRailPopover(); }} onAccount={() => { setAdding(false); setAccounts({ adding: "", note: null }); }} />}
+      {accounts && <AccountsSheet adding={accounts.adding} note={accounts.note} onClose={() => { setAccounts(null); closeChromeRailPopover(); }} />}
+      {connecting !== null && <PlaceAddSheet choices={state.add} connect={{ name: connecting }} onClose={() => { setConnecting(null); closeChromeRailPopover(); }} />}
+      {veil && <div role="status" data-rail-veil style={drag} className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-panel text-[13px] text-ink-secondary">
+        <PlaceMark place={veil} size={40} />
+        <span>{state.switching?.id === veil.id && state.switching.waking ? t("homeScreen.waking") : t("homeScreen.openingNamed", { name: veil.kind === "computer" ? computerName(veil) : veil.name })}</span>
+      </div>}
+    </div>;
+  }
+
   return <nav ref={navRef} aria-label={t("rail.label")} data-places-rail style={drag}
     className={cn("relative w-9 shrink-0 flex-col items-center", chrome ? "flex h-full" : "hidden md:flex",
       framed ? "bg-frame [--rail-surface:var(--color-frame)]" : cn("border-r bg-panel [--rail-surface:var(--color-panel)]", calm ? "border-r-[0.5px] border-edge" : "border-hairline/50"))}>

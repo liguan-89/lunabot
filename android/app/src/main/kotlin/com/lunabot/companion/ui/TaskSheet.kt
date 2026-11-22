@@ -550,7 +550,7 @@ private fun TaskRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(enabled = canSwitch, onClick = onSwitch)
-            .padding(start = 16.dp, end = 6.dp, top = 11.dp, bottom = 11.dp),
+            .padding(start = 16.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {

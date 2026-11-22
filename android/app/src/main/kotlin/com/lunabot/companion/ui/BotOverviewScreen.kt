@@ -446,20 +446,21 @@ private fun OverviewBody(overview: BotOverview) {
         }
     }
 
-    // No empty-state copy on either phone: the server sends this only when
-    // there is something to say, and an empty list here is just a header
-    // with nothing under it (`ios/App/BotOverviewView.swift:39-43`).
-    OverviewCard(label = OverviewRules.REACHES) {
-        overview.reaches.forEachIndexed { index, line ->
-            if (index > 0) MinisDivider()
-            OverviewNoteRow(text = line, painter = R.drawable.ic_hub)
+    if (overview.reaches.isNotEmpty()) {
+        OverviewCard(label = OverviewRules.REACHES) {
+            overview.reaches.forEachIndexed { index, line ->
+                if (index > 0) MinisDivider()
+                OverviewNoteRow(text = line, painter = R.drawable.ic_hub)
+            }
         }
     }
 
-    OverviewCard(label = OverviewRules.WONT) {
-        overview.wont.forEachIndexed { index, line ->
-            if (index > 0) MinisDivider()
-            OverviewNoteRow(text = line, painter = R.drawable.ic_block)
+    if (overview.wont.isNotEmpty()) {
+        OverviewCard(label = OverviewRules.WONT) {
+            overview.wont.forEachIndexed { index, line ->
+                if (index > 0) MinisDivider()
+                OverviewNoteRow(text = line, painter = R.drawable.ic_block)
+            }
         }
     }
 
@@ -621,6 +622,7 @@ private fun OverviewNoteRow(text: String, painter: Int) {
             tint = secondaryTint,
             modifier = Modifier.size(20.dp),
         )
+        Spacer(Modifier.width(12.dp))
         Text(
             text = text,
             fontSize = 17.sp,

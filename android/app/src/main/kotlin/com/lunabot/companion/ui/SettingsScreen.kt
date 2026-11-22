@@ -1071,7 +1071,10 @@ fun SettingsScreen(
                             chevron = true,
                             onClick = { pickingNoticeApps = true },
                         )
-                        SettingsFootnote("只有勾选应用的通知内容会发送到电脑；验证码等敏感内容会被过滤，其他应用的通知不会离开手机。通知监听需要在系统设置里授权。")
+                        SettingsFootnote(
+                            text = "只有勾选应用的通知内容会发送到电脑；验证码等敏感内容会被过滤，其他应用的通知不会离开手机。通知监听需要在系统设置里授权。",
+                            modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 12.dp),
+                        )
                     }
                     if (phoneUiStatus == PhoneUiStatus.Ready) {
                         SettingsDivider()
@@ -1235,19 +1238,18 @@ fun SettingsScreen(
         }
 
         val canvasTop = minisCanvas
-        val topVeil = remember(canvasTop) {
-            Brush.verticalGradient(
-                0.0f to canvasTop,
-                0.72f to canvasTop.copy(alpha = 0.94f),
-                1.0f to canvasTop.copy(alpha = 0f),
-            )
-        }
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .height(66.dp)
-                .background(topVeil),
+                .background(
+                    Brush.verticalGradient(
+                        0.00f to canvasTop.copy(alpha = 0.96f * topBandAlpha),
+                        0.62f to canvasTop.copy(alpha = 0.78f * topBandAlpha),
+                        1.00f to Color.Transparent,
+                    ),
+                ),
         )
         Box(
             modifier = Modifier
@@ -1515,7 +1517,7 @@ fun SettingsScreen(
                             color = minisInk,
                         )
                         Text(
-                            text = if (customLunaPath != null) "已启用相册照片 · 点击更换" else "像 Muse 一样从相册选一张真人/插画照片",
+                            text = if (customLunaPath != null) "已启用相册照片 · 点击更换" else "从相册选一张真人或插画照片作为 Luna 头像",
                             fontSize = 12.sp,
                             color = secondaryTint,
                             maxLines = 2,
@@ -2167,6 +2169,7 @@ private fun SettingsSheet(
             modifier = Modifier
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
                 .padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -2554,13 +2557,13 @@ private fun SettingsSwitchRow(
 }
 
 @Composable
-private fun SettingsFootnote(text: String) {
+private fun SettingsFootnote(text: String, modifier: Modifier = Modifier) {
     Text(
         text = text,
         fontSize = 12.sp,
         lineHeight = 17.sp,
         color = secondaryTint,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
@@ -2597,16 +2600,38 @@ private fun avatarStyleLabel(style: BotAvatarStyle): String = when (style) {
     BotAvatarStyle.SYNTH -> "复古掌机"
     BotAvatarStyle.SPIRIT -> "星月软团"
     BotAvatarStyle.MINIBOT -> "陶瓷微机"
+    BotAvatarStyle.BUNNY -> "垂耳瓷兔"
+    BotAvatarStyle.ASTRO -> "宇航头盔"
+    BotAvatarStyle.PRISM -> "切面晶石"
+    BotAvatarStyle.BEAR -> "绒雾小熊"
+    BotAvatarStyle.RETRO -> "像素终端"
+    BotAvatarStyle.FOX -> "灵耳瓷狐"
+    BotAvatarStyle.FROG -> "抹茶瓷蛙"
+    BotAvatarStyle.OWL -> "夜羽瓷枭"
+    BotAvatarStyle.WISP -> "浮云幽灵"
+    BotAvatarStyle.CAMERA -> "徕卡微机"
+    BotAvatarStyle.CLOUD -> "软绵云朵"
     BotAvatarStyle.CLASSIC -> "经典极简"
 }
 
 private fun avatarStyleCaption(style: BotAvatarStyle): String = when (style) {
-    BotAvatarStyle.ORB -> "温润琉璃球 · 流金皇冠"
+    BotAvatarStyle.ORB -> "温润琉璃球 · 通透光泽"
     BotAvatarStyle.NEKO -> "哑光白瓷猫耳 · 微动耳尖"
     BotAvatarStyle.LIQUID -> "半透蛋白石 · 虹彩折射"
     BotAvatarStyle.SYNTH -> "工业小方块 · 点阵表情"
-    BotAvatarStyle.SPIRIT -> "软萌小精灵 · 悬浮星月"
+    BotAvatarStyle.SPIRIT -> "软萌小精灵 · 暖色腮红"
     BotAvatarStyle.MINIBOT -> "磨砂微机 · 发光面罩"
+    BotAvatarStyle.BUNNY -> "雕塑长兔耳 · 瓷面腮红"
+    BotAvatarStyle.ASTRO -> "全景穹顶罩 · 太空陶瓷"
+    BotAvatarStyle.PRISM -> "柔角多面体 · 几何折射"
+    BotAvatarStyle.BEAR -> "圆耳绒雾熊 · 柔和吻部"
+    BotAvatarStyle.RETRO -> "复古一体机 · 荧光终端"
+    BotAvatarStyle.FOX -> "尖耳白瓷狐 · 柔光面颊"
+    BotAvatarStyle.FROG -> "圆鼓双眸 · 治愈系陶瓷"
+    BotAvatarStyle.OWL -> "羽簇耳角 · 鎏金小喙"
+    BotAvatarStyle.WISP -> "温润半透 · 波浪裙摆"
+    BotAvatarStyle.CAMERA -> "极简旁轴 · 光学镜头"
+    BotAvatarStyle.CLOUD -> "蓬松浮云 · 柔光腮红"
     BotAvatarStyle.CLASSIC -> "原始极简圆球"
 }
 

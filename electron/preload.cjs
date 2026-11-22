@@ -73,7 +73,7 @@ function leaveRailRoom() {
   railRoom.textContent = `html { box-sizing: border-box !important; padding-left: ${room} !important; --rail-beside: ${room}; }`;
   if (!railRoom.isConnected) (document.head ?? document.documentElement).append(railRoom);
 }
-const railState = (state) => ({ available: state?.available === true, hidden: state?.hidden === true });
+const railState = (state) => ({ available: state?.available === true, hidden: state?.hidden === true, popoverOpen: state?.popoverOpen === true });
 ipcRenderer.on("rail:beside", (_event, width) => { railBeside = Math.max(0, Math.min(200, Number(width) || 0)); leaveRailRoom(); });
 // The rail's own page keeps its size whatever the zoom of this app's page: Chromium gives every page of a host the same
 // zoom, the rail's included, so the rail takes it back out and stays as wide as its strip.
@@ -215,6 +215,9 @@ const bridge = {
     drawsFrame: (drawn) => ipcRenderer.invoke("rail:draws-frame", drawn !== false),
     setHidden: (hidden) => isLocalPage || navigator.userActivation?.isActive === true
       ? ipcRenderer.invoke("rail:hide", hidden === true).then(railState) : Promise.reject(new Error("Choose to hide or show your computers.")),
+    openPopover: (anchor) => isLocalPage || navigator.userActivation?.isActive === true
+      ? ipcRenderer.invoke("rail:open-popover", anchor ? { x: Number(anchor.x) || 0, y: Number(anchor.y) || 0 } : null).then(railState)
+      : Promise.reject(new Error("Choose to open your computers.")),
     onState: (cb) => {
       const handler = (_event, state) => cb(railState(state));
       ipcRenderer.on("rail:state", handler);
@@ -222,6 +225,12 @@ const bridge = {
     },
     ...(isLocalPage ? {
       expand: (on) => ipcRenderer.invoke("rail:expand", on === true),
+      closePopover: () => ipcRenderer.invoke("rail:close-popover"),
+      onPopover: (cb) => {
+        const handler = (_event, info) => cb(info && info.open === true ? { open: true, x: Number(info.x) || 0, y: Number(info.y) || 0 } : { open: false, x: 0, y: 0 });
+        ipcRenderer.on("rail:popover", handler);
+        return () => ipcRenderer.removeListener("rail:popover", handler);
+      },
       onSkin: (cb) => {
         const handler = (_event, skin) => cb(String(skin));
         ipcRenderer.on("rail:skin", handler);

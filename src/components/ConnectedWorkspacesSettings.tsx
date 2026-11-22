@@ -119,8 +119,8 @@ export function ConnectedWorkspacesSettings() {
             const result = envPurge ? await bridge.forget(forgetEntry.id, true) : await bridge.forget(forgetEntry.id);
             if (result && result.ok === false) throw new Error(t("connectedWorkspaces.forgetError"));
             setEnvForget(null);
-          }, setEnvError)} className="rounded-lg px-3 py-1.5 text-[12px] font-medium text-danger hover:bg-control disabled:opacity-50">{t("connectedWorkspaces.forget")}</button>
-          <button type="button" onClick={() => setEnvForget(null)} className="rounded-lg px-3 py-1.5 text-[12px] text-ink hover:bg-control">{t("connectedWorkspaces.cancel")}</button>
+          }, setEnvError)} className="ui-button ui-button-md ui-button-danger">{t("connectedWorkspaces.forget")}</button>
+          <button type="button" onClick={() => setEnvForget(null)} className="ui-button ui-button-md">{t("connectedWorkspaces.cancel")}</button>
         </div>
       </div>}
       <p className="mt-4 text-[13px] font-medium text-ink">{t("connectedWorkspaces.newEnvironment")}</p>
@@ -144,10 +144,10 @@ export function ConnectedWorkspacesSettings() {
             <button type="button" disabled={busy} onClick={() => void perform(async () => {
               const picked = await bridge.pickDir();
               if (picked?.ok && picked.path) setEnvDir(picked.path);
-            }, setEnvError)} className="shrink-0 rounded-lg border border-hairline/40 px-3 text-[12px] text-ink hover:bg-control disabled:opacity-50">{t("connectedWorkspaces.choose")}</button>
+            }, setEnvError)} className="ui-button ui-button-md shrink-0">{t("connectedWorkspaces.choose")}</button>
           </span>
         </label>
-        <button type="submit" disabled={busy || !envName.trim()} className="flex w-fit items-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink disabled:opacity-50">
+        <button type="submit" disabled={busy || !envName.trim()} className="ui-button ui-button-md ui-button-primary w-fit">
           {busy && <Loader2 size={14} className="animate-spin" />}{t("connectedWorkspaces.create")}
         </button>
       </form>

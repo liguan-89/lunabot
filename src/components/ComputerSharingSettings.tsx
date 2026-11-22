@@ -58,7 +58,7 @@ export function ComputerSharingSettings({ workspace, own = false, onClose }: { w
         <button type="button" disabled={busy} onClick={() => void perform(async () => {
           await (state.paused ? bridge.resume?.() : bridge.pause?.());
           const next = await bridge.state(workspace.id); if (mounted.current) setState(next);
-        })} className="shrink-0 rounded-lg border border-hairline/40 px-3 py-1.5 text-[12px] text-ink hover:bg-control disabled:opacity-50">{t(state.paused ? "computerSharing.resume" : "computerSharing.pause")}</button>
+        })} className="ui-button ui-button-sm shrink-0">{t(state.paused ? "computerSharing.resume" : "computerSharing.pause")}</button>
       </div>}
       <fieldset disabled={busy || !state} className="flex flex-col gap-3 disabled:opacity-50">
         <legend className="mb-2 font-medium text-ink">{t("computerSharing.folders")}</legend>
@@ -71,7 +71,7 @@ export function ComputerSharingSettings({ workspace, own = false, onClose }: { w
         <button type="button" disabled={folders.length >= 20} onClick={() => void perform(async () => {
           const folder = await bridge.chooseFolder();
           if (mounted.current && folder) setFolders(current => current.some(entry => entry.path === folder.path) ? current : [...current, folder]);
-        })} className="flex w-fit items-center gap-2 rounded-lg border border-hairline/40 px-3 py-2 text-ink hover:bg-control"><FolderPlus size={14} />{t("computerSharing.chooseFolder")}</button>
+        })} className="ui-button w-fit"><FolderPlus size={14} />{t("computerSharing.chooseFolder")}</button>
         <p className="text-[12px] text-ink-secondary">{t("computerSharing.smallFiles")}</p>
       </fieldset>
       <fieldset disabled={busy || !state} className="flex flex-col gap-3 border-t border-hairline/40 pt-3 disabled:opacity-50">
@@ -84,10 +84,10 @@ export function ComputerSharingSettings({ workspace, own = false, onClose }: { w
         <button type="button" disabled={busy || !state || (!folders.length && !terminal && !computer)} onClick={() => void perform(async () => {
           const next = await bridge.save(workspace.id, { folders, terminal, computer });
           if (mounted.current && next) apply(next);
-        })} className="rounded-lg bg-accent px-3 py-2 font-medium text-accent-ink disabled:opacity-50">{t(state?.enabled ? "computerSharing.save" : "computerSharing.share")}</button>
+        })} className="ui-button ui-button-primary">{t(state?.enabled ? "computerSharing.save" : "computerSharing.share")}</button>
         {state?.enabled && <button type="button" disabled={busy} onClick={() => void perform(async () => {
           const next = await bridge.revoke(workspace.id); if (mounted.current) apply(next);
-        })} className="rounded-lg border border-hairline/40 px-3 py-2 text-danger disabled:opacity-50">{t("computerSharing.stop")}</button>}
+        })} className="ui-button ui-button-danger">{t("computerSharing.stop")}</button>}
       </div>
       {state?.enabled && <p className="text-[12px] text-ink-secondary">{t("computerSharing.stopHint")}</p>}
       <div className="border-t border-hairline/40 pt-3"><LendingActivityList entries={activity} /></div>

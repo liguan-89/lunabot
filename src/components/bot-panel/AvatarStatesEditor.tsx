@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { Film, Loader2, Settings2, Sparkles, Trash2, Upload } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { t } from "@/lib/i18n";
+import type { LocaleKey } from "@/locales";
 import { api, useStore, type Bot } from "@/state/store";
 import { BOT_AVATAR_STATE_KEYS, isVideoAvatarUrl, type BotAvatarStateKey } from "../../../shared/bot-avatar";
 
@@ -9,20 +11,20 @@ const CORE_AVATAR_STATES: readonly BotAvatarStateKey[] = ["idle", "working", "ta
 
 type AvatarStyleOption = "auto" | "photorealistic" | "stylized3d" | "anime" | "cartoon";
 
-const STYLE_OPTIONS: ReadonlyArray<{ id: AvatarStyleOption; label: string }> = [
-  { id: "auto", label: "沿用当前头像" },
-  { id: "photorealistic", label: "真人写真" },
-  { id: "stylized3d", label: "3D 类人" },
-  { id: "anime", label: "二次元" },
-  { id: "cartoon", label: "卡通萌系" },
+const STYLE_OPTIONS: ReadonlyArray<{ id: AvatarStyleOption; label: LocaleKey }> = [
+  { id: "auto", label: "avatarStates.style.auto" },
+  { id: "photorealistic", label: "avatarStates.style.photorealistic" },
+  { id: "stylized3d", label: "avatarStates.style.stylized3d" },
+  { id: "anime", label: "avatarStates.style.anime" },
+  { id: "cartoon", label: "avatarStates.style.cartoon" },
 ];
 
-const STATE_META: Record<BotAvatarStateKey, { label: string; hint: string }> = {
-  idle: { label: "待机", hint: "轻眨眼、微呼吸" },
-  working: { label: "工作中", hint: "戴耳机敲电脑（破框态）" },
-  listening: { label: "聆听", hint: "通话倾听、轻点头" },
-  talking: { label: "说话", hint: "通话开口说话、自然手势" },
-  thinking: { label: "思考", hint: "微抬头、思索神态" },
+const STATE_META: Record<BotAvatarStateKey, { label: LocaleKey; hint: LocaleKey }> = {
+  idle: { label: "avatarStates.state.idle", hint: "avatarStates.state.idleHint" },
+  working: { label: "avatarStates.state.working", hint: "avatarStates.state.workingHint" },
+  listening: { label: "avatarStates.state.listening", hint: "avatarStates.state.listeningHint" },
+  talking: { label: "avatarStates.state.talking", hint: "avatarStates.state.talkingHint" },
+  thinking: { label: "avatarStates.state.thinking", hint: "avatarStates.state.thinkingHint" },
 };
 
 export function AvatarStatesEditor({ bot }: { bot: Bot }) {
@@ -62,7 +64,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
         body: file,
       });
       const data = (await response.json()) as { bot?: Bot; error?: string };
-      if (!response.ok || !data.bot) throw new Error(data.error || `上传失败 (${response.status})`);
+      if (!response.ok || !data.bot) throw new Error(data.error || t("avatarStates.uploadFailed", { status: response.status }));
       dispatch({ type: "botPatched", bot: data.bot });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -127,7 +129,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
         });
         dispatch({ type: "botPatched", bot: data.bot });
       } catch (err) {
-        setError(`${STATE_META[target].label}生成失败：${err instanceof Error ? err.message : String(err)}`);
+        setError(t("avatarStates.generateFailed", { state: t(STATE_META[target].label), error: err instanceof Error ? err.message : String(err) }));
         break;
       }
     }
@@ -169,8 +171,8 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
           <span className={cn("size-1.5 shrink-0 rounded-full", ready ? "bg-success" : "bg-ink-tertiary/50")} />
           <span className="truncate text-ink">
             {ready
-              ? `视频能力已就绪 · ${provider === "tk1688" ? "TK1688" : "火山方舟 Ark"} (${resolution})`
-              : "未配置视频生成密钥"}
+              ? t("avatarStates.ready", { provider: t(provider === "tk1688" ? "videoGen.providerTk1688" : "videoGen.providerArk"), resolution })
+              : t("avatarStates.notConfigured")}
           </span>
         </div>
         <button
@@ -179,11 +181,11 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
           className="inline-flex shrink-0 items-center gap-1 rounded-lg bg-ink/[0.07] px-2 py-1 text-[11px] font-medium text-ink hover:bg-ink/[0.12]"
         >
           <Settings2 size={11} />
-          <span>{ready ? "设置" : "去配置"}</span>
+          <span>{t(ready ? "avatarStates.settings" : "avatarStates.configure")}</span>
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="动态头像风格">
+      <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("avatarStates.styleAria")}>
         {STYLE_OPTIONS.map((option) => {
           const active = style === option.id;
           return (
@@ -201,7 +203,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
                   : "border-ink/10 bg-card text-ink-secondary hover:bg-ink/[0.05] hover:text-ink",
               )}
             >
-              {option.label}
+              {t(option.label)}
             </button>
           );
         })}
@@ -216,12 +218,12 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
         {batchProgress ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
         <span>
           {batchProgress
-            ? `正在生成 (${batchProgress.done + 1}/${batchProgress.total} · ${STATE_META[batchProgress.current].label})…`
+            ? t("avatarStates.generatingPack", { done: batchProgress.done + 1, total: batchProgress.total, state: t(STATE_META[batchProgress.current].label) })
             : !ready
-              ? "配置视频密钥后可一键生成动态头像"
+              ? t("avatarStates.setupFirst")
               : missingCoreStates.length > 0 && missingCoreStates.length < CORE_AVATAR_STATES.length
-                ? `一键补全动态头像（${missingCoreStates.map((k) => STATE_META[k].label).join(" / ")}）`
-                : "一键生成动态头像（待机 / 工作中 / 说话）"}
+                ? t("avatarStates.completeMissing", { states: missingCoreStates.map((k) => t(STATE_META[k].label)).join(" / ") })
+                : t("avatarStates.generatePack")}
         </span>
       </button>
 
@@ -229,7 +231,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
         type="text"
         value={customPrompt}
         onChange={(e) => setCustomPrompt(e.target.value)}
-        placeholder="可选：补充细节（留空即按所选风格生成；聊天里说「做套动态头像」会先问你风格）"
+        placeholder={t("avatarStates.promptPlaceholder")}
         className="w-full rounded-lg border border-ink/10 bg-card px-2.5 py-1.5 text-[12px] text-ink placeholder:text-ink-tertiary focus:border-accent/50 focus:outline-none"
       />
 
@@ -239,6 +241,8 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
           const isBusy = busyState?.state === stateKey;
           const anyBusy = busyState !== null;
           const meta = STATE_META[stateKey];
+          const stateLabel = t(meta.label);
+          const providerName = t(provider === "tk1688" ? "videoGen.providerTk1688" : "videoGen.providerArk");
           return (
             <div
               key={stateKey}
@@ -250,44 +254,44 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
                   isVideoAvatarUrl(mediaUrl) ? (
                     <video src={mediaUrl} autoPlay loop muted playsInline className="size-full object-cover" />
                   ) : (
-                    <img src={mediaUrl} alt={meta.label} className="size-full object-cover" />
+                    <img src={mediaUrl} alt={stateLabel} className="size-full object-cover" />
                   )
                 ) : (
                   <Film size={15} className="text-ink-tertiary" />
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-[12px] font-medium text-ink">{meta.label}</div>
-                <div className="truncate text-[11px] text-ink-tertiary">{meta.hint}</div>
+                <div className="text-[12px] font-medium text-ink">{stateLabel}</div>
+                <div className="truncate text-[11px] text-ink-tertiary">{t(meta.hint)}</div>
               </div>
               <div className="flex shrink-0 items-center gap-1">
                 <button
                   type="button"
                   disabled={anyBusy}
                   onClick={() => triggerUpload(stateKey)}
-                  title="上传本地 MP4/WebM 或图片"
+                  title={t("avatarStates.uploadTitle")}
                   className="inline-flex h-7 items-center gap-1 rounded-lg border border-ink/10 px-2 text-[11px] text-ink-secondary hover:bg-ink/[0.05] hover:text-ink disabled:opacity-40"
                 >
                   {isBusy && busyState.kind === "upload" ? <Loader2 size={11} className="animate-spin" /> : <Upload size={11} />}
-                  <span>上传</span>
+                  <span>{t("avatarStates.upload")}</span>
                 </button>
                 <button
                   type="button"
                   disabled={anyBusy}
                   onClick={() => void handleGenerate(stateKey)}
-                  title={ready ? `使用 ${provider === "tk1688" ? "TK1688" : "火山方舟 Ark"} 生成 ${resolution} 视频` : "前往设置配置视频生成密钥"}
+                  title={ready ? t("avatarStates.generateTitle", { provider: providerName, resolution }) : t("avatarStates.generateSetupTitle")}
                   className="inline-flex h-7 items-center gap-1 rounded-lg bg-accent/15 px-2 text-[11px] font-medium text-accent hover:bg-accent/25 disabled:opacity-40"
                 >
                   {isBusy && busyState.kind === "generate" ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                  <span>{isBusy && busyState.kind === "generate" ? "生成中…" : "生成"}</span>
+                  <span>{t(isBusy && busyState.kind === "generate" ? "avatarStates.generating" : "avatarStates.generate")}</span>
                 </button>
                 {mediaUrl && (
                   <button
                     type="button"
                     disabled={anyBusy}
                     onClick={() => void handleClear(stateKey)}
-                    aria-label={`清除${meta.label}素材`}
-                    title="清除该状态素材"
+                    aria-label={t("avatarStates.clearAria", { state: stateLabel })}
+                    title={t("avatarStates.clearTitle")}
                     className="flex size-7 items-center justify-center rounded-lg text-ink-tertiary hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                   >
                     <Trash2 size={12} />
@@ -300,9 +304,7 @@ export function AvatarStatesEditor({ bot }: { bot: Bot }) {
       </div>
 
       {!bot.avatarUrl && (
-        <p className="text-[11px] text-ink-tertiary">
-          提示：先在「上传」或「生成」页设置基础人物头像，Seedance 会以该头像为参考帧生成角色一致的动态循环。
-        </p>
+        <p className="text-[11px] text-ink-tertiary">{t("avatarStates.baseTip")}</p>
       )}
       {error && <div role="alert" className="text-[12px] text-danger">{error}</div>}
     </div>
