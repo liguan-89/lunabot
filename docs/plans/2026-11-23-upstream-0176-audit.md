@@ -36,8 +36,8 @@
 - `e5490f70de` 人接管后下拉/按键/点击真正到页面 + bot 假成功报错。fork browser-live.ts 同源祖先（INPUT_RELAY/DISCRETE_KEYS/HoldClock）；新 `server/browser/live-action.ts`/`live-page.ts` 需等价重做
 ### C6 人接管期间 bot 只读放行（seg2）
 - `e6518ef442` `HOLD_READ_TOOLS`（status/snapshot/screenshot/read/tabs）在 owner hold 期间放行且不抢前台 tab。fork `browser/dispatch.ts:435` 全拒同款（已抽查）
-### C7 starter routine 唤醒 paused bot（seg2）
-- `da592ee725` 新增 `starter-routine-wake.ts`（112 行），routines 的 paused 检查改经它落 `failRun`。fork `routines.ts:1131` 病灶同款（已抽查）
+### C7 starter routine 唤醒 paused bot（seg2）——**本轮判留（结构性）**
+- `da592ee725` 实为 ~640 行的特性提交（starter-awake 的 useRoutines/wakeForRoutine/换位持久化整套机制 + caps + routes + UI + locales）。fork 的 starter-awake.ts 是 87 行旧版、缺 useRoutines 全层，cherry-pick 在 index/routines/UI/locales 八处结构性冲突，无法手术式落取。判留：需按上游 starter-awake 演进链整体移植（连同其前置提交），另行立项。fork 的病灶（`routines.ts:1131` paused 即 failRun）保持原样。
 ### C8 备份导出断线恢复（seg2）
 - `89d33f8bcc` `exportJobs`/keepUntilExpiry，断连后可续（fork workspace-backup-http.ts 与修复前镜像同构，67 行逐字吻合）；`05088509d9`（P2 跟随）中断备份清理顺带摘
 ### C9 bot 线程继承审批级别（seg2，需 fork 等价重做）
