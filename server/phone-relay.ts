@@ -15,7 +15,7 @@ import { b64u, fromB64u } from "../companion/src/e2e/credentials.ts";
 import type { E2EDescriptor } from "../companion/src/e2e/descriptor.ts";
 import { generateKeyPair, keyPairFromPrivate, CLOSE, TRANSPORT_RELAY, type KeyPair } from "../companion/src/e2e/noise.ts";
 import { handleDirectUpgrade, isE2EUpgrade } from "../companion/src/e2e/direct.ts";
-import { createE2EOrigin, e2eContextOf, type E2EOriginDeadlines } from "../companion/src/e2e/origin.ts";
+import { createE2EOrigin, e2eContextOf, E2E_ORIGIN_DEADLINES, type E2EOriginDeadlines } from "../companion/src/e2e/origin.ts";
 import { E2ERegistry, type E2EContext, type E2EDevices, type Peer } from "../companion/src/e2e/registry.ts";
 import { RelayClient, type RelayStatus } from "../companion/src/e2e/relay-client.ts";
 import { COMPANION_INSTALLATION_CREDENTIAL_FIELD, resolveCompanionControlPlaneURL } from "../electron/companion-account-service.mjs";
@@ -49,7 +49,6 @@ const RELAY_ONLY_ADDRESS = "relay-only.invalid";
 /** Live sessions one phone may hold, and sessions on one pairing window: the relay carries 16 per server. */
 export const MAX_SESSIONS_PER_PHONE = 4;
 const MAX_SESSIONS_PER_WINDOW = 2;
-const STREAM_DEADLINES: E2EOriginDeadlines = { headersMs: 30_000, requestMs: 300_000 };
 const PAIRING_SESSION_ROUTES = new Set(["POST /api/pair", "GET /api/health"]);
 
 /** `tunnel`: this machine holds or needs a tunnel address, so it never asks for a relay token (`reason` says why). */
@@ -314,7 +313,7 @@ export function startPhoneRelay(options: PhoneRelayOptions): PhoneRelay | null {
     log: (line) => log(`phone relay: ${line}`),
   });
 
-  const origin = createE2EOrigin((req, res) => relayed(req, res), (req, socket, head) => upgraded(req, socket, head), options.streamDeadlines ?? STREAM_DEADLINES);
+  const origin = createE2EOrigin((req, res) => relayed(req, res), (req, socket, head) => upgraded(req, socket, head), options.streamDeadlines ?? E2E_ORIGIN_DEADLINES);
 
   /** The endpoint list, read fresh on every ask: a new DHCP lease, a later `--lan` or a changed public origin reaches an
    * already-paired phone instead of leaving it on the routes its QR carried. `deviceId` picks the descriptor the asking

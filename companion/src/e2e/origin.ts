@@ -54,6 +54,12 @@ export interface E2EOriginDeadlines {
   requestMs: number;
 }
 
+/** What every origin listener uses unless it is told otherwise: the desktop sidecar and a self-hosted server. A phone
+ * gets a stream per HTTP connection and 64 streams per session, so a stream nobody ever writes to — a phone killed
+ * mid-request, a hung library — holds its slot forever without this, and 64 of them lock the session out
+ * (`yamux: too_many_streams`). `headersMs` is generous for a phone on a slow uplink; `requestMs` for an upload. */
+export const E2E_ORIGIN_DEADLINES: E2EOriginDeadlines = { headersMs: 30_000, requestMs: 300_000 };
+
 /** Each stream must send complete request headers within `headersMs` of opening or of its last response, and a request's
  * whole body within `requestMs`; otherwise the stream is answered and ended, then reclaimed. */
 function enforceDeadlines(server: ReturnType<typeof createServer>, deadlines: E2EOriginDeadlines) {
@@ -111,7 +117,8 @@ function enforceDeadlines(server: ReturnType<typeof createServer>, deadlines: E2
 export function createE2EOrigin(
   handle: (req: IncomingMessage, res: ServerResponse) => void,
   upgrade: (req: IncomingMessage, socket: Duplex, head: Buffer) => void,
-  deadlines?: E2EOriginDeadlines,
+  /** Defaults to `E2E_ORIGIN_DEADLINES`; `null` turns the reclaim off (only a test rig wants that). */
+  deadlines: E2EOriginDeadlines | null = E2E_ORIGIN_DEADLINES,
 ): E2EOrigin {
   // Gzipped like the tunnel listener: the relay hop is the person's home upload too.
   const server = createServer(gzipTunnelReplies(handle));
