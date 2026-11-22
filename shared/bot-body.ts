@@ -6,8 +6,27 @@ import { DEFAULT_MASCOT_BODY, MASCOT_BODY_IDS } from "./mascot-bodies.ts";
 import { CARVED_BODY_IDS, DIWALI_BODY_IDS, HALLOWEEN_BODY_IDS, type CarvedBodyId } from "./carved-bodies.ts";
 import type { MausColor } from "./wire.ts";
 
-/** The seven unified character styles shared across desktop and mobile. */
-export const PRESET_STYLE_BODY_IDS = ["orb", "neko", "liquid", "synth", "spirit", "minibot", "classic"] as const;
+/** The eighteen unified character styles shared across desktop and mobile. */
+export const PRESET_STYLE_BODY_IDS = [
+  "orb",
+  "neko",
+  "liquid",
+  "synth",
+  "spirit",
+  "minibot",
+  "bunny",
+  "astro",
+  "prism",
+  "bear",
+  "retro",
+  "fox",
+  "frog",
+  "owl",
+  "ghost",
+  "camera",
+  "cloud",
+  "classic",
+] as const;
 
 export type PresetStyleBodyId = (typeof PRESET_STYLE_BODY_IDS)[number];
 

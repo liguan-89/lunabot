@@ -32,6 +32,17 @@ enum class BotAvatarStyle(val wireValue: String) {
     SYNTH("synth"),
     SPIRIT("spirit"),
     MINIBOT("minibot"),
+    BUNNY("bunny"),
+    ASTRO("astro"),
+    PRISM("prism"),
+    BEAR("bear"),
+    RETRO("retro"),
+    FOX("fox"),
+    FROG("frog"),
+    OWL("owl"),
+    GHOST("ghost"),
+    CAMERA("camera"),
+    CLOUD("cloud"),
     CLASSIC("classic"),
     ;
 

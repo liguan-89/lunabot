@@ -8,6 +8,17 @@ export const AVATAR_STYLE_IDS = [
   "synth",
   "spirit",
   "minibot",
+  "bunny",
+  "astro",
+  "prism",
+  "bear",
+  "retro",
+  "fox",
+  "frog",
+  "owl",
+  "ghost",
+  "camera",
+  "cloud",
 ] as const;
 
 export type AvatarStyleId = (typeof AVATAR_STYLE_IDS)[number];

@@ -17,7 +17,7 @@ export function AvatarStyleRow() {
         <div className="text-[13px] font-medium text-ink">{t("settings.avatarStyle.title")}</div>
         <div className="mt-0.5 text-[12px] text-ink-secondary">{t("settings.avatarStyle.subtitle")}</div>
       </div>
-      <div role="radiogroup" aria-label={t("settings.avatarStyle.aria")} className="grid grid-cols-4 gap-2 sm:grid-cols-7">
+      <div role="radiogroup" aria-label={t("settings.avatarStyle.aria")} className="grid grid-cols-4 gap-2 sm:grid-cols-6">
         {AVATAR_STYLE_IDS.map((id) => {
           const selected = current === id;
           return (
