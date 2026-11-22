@@ -40,8 +40,10 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -480,6 +482,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
                         onOpenComputer = heroBot?.let { bot -> { navigator.push(Destination.Computer(bot.id)) } },
                         onOpenOverview = heroBot?.let { bot -> { navigator.push(Destination.Overview(bot.id)) } },
                         onSwitchComputer = { choosingComputer = true },
+                        onOpenSettings = { navigator.push(Destination.Settings) },
                     )
                     else -> Box(
                         modifier = Modifier
@@ -767,10 +770,15 @@ fun RosterScreen(navigator: CompanionNavigator) {
                     ) {
                         RosterHeader(
                             showRightActions = activeTab == 1 || bar.searchOpen || hero == null,
+                            showSettingsButton = activeTab == 3,
                             canCreateBot = true,
                             onOpenDrawer = {
                                 haptics.play(HapticCue.SELECT)
                                 drawerOpen = true
+                            },
+                            onOpenSettings = {
+                                haptics.play(HapticCue.SELECT)
+                                navigator.push(Destination.Settings)
                             },
                             onOpenSearch = {
                                 haptics.play(TactileAction.OPEN_SEARCH)
@@ -977,8 +985,10 @@ private fun Modifier.museGlassSurface(
 @Composable
 private fun RosterHeader(
     showRightActions: Boolean,
+    showSettingsButton: Boolean = false,
     canCreateBot: Boolean,
     onOpenDrawer: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     onOpenSearch: () -> Unit,
     onCreateBot: () -> Unit,
     onCreateGroup: () -> Unit,
@@ -1051,6 +1061,22 @@ private fun RosterHeader(
                             menuOpen = false
                             onCreateGroup()
                         },
+                    )
+                }
+            }
+        } else if (showSettingsButton) {
+            TouchTarget(onClick = onOpenSettings, contentDescription = "设置") {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .museFloatingPill(CircleShape, elevation = 4.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_gear_line),
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -2226,6 +2252,7 @@ private fun MuseLibraryTab(
     onOpenComputer: (() -> Unit)?,
     onOpenOverview: (() -> Unit)?,
     onSwitchComputer: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     var segment by rememberSaveable { mutableIntStateOf(0) }
     val dark = minisIsDark()
@@ -2331,6 +2358,7 @@ private fun MuseLibraryTab(
                     onOpenComputer = onOpenComputer,
                     onOpenOverview = onOpenOverview,
                     onSwitchComputer = onSwitchComputer,
+                    onOpenSettings = onOpenSettings,
                 )
             }
         }
@@ -2346,6 +2374,7 @@ private fun MuseDesktopTab(
     onOpenComputer: (() -> Unit)?,
     onOpenOverview: (() -> Unit)?,
     onSwitchComputer: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val statusText = when (status) {
         Session.Status.Live -> "在线"
@@ -2362,6 +2391,7 @@ private fun MuseDesktopTab(
         modifier = Modifier
             .fillMaxSize()
             .background(minisCanvas)
+            .verticalScroll(rememberScrollState())
             .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
@@ -2462,11 +2492,39 @@ private fun MuseDesktopTab(
                         .background(minisCard),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(painterResource(R.drawable.ic_gear_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                    Icon(painterResource(R.drawable.ic_display_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
                 }
                 Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("切换连接的电脑", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
                     Text(computerName ?: "管理已配对设备", fontSize = 12.5.sp, color = minisSecondary)
+                }
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
+            }
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 65.dp, end = 16.dp),
+                thickness = 0.5.dp,
+                color = minisSeparator.copy(alpha = 0.25f),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button, onClick = onOpenSettings)
+                    .padding(horizontal = 16.dp, vertical = 15.dp),
+                horizontalArrangement = Arrangement.spacedBy(13.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(minisCard),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(painterResource(R.drawable.ic_gear_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                }
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text("应用设置", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+                    Text("连接、通知、外观与手机工具", fontSize = 12.5.sp, color = minisSecondary)
                 }
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, null, tint = minisTertiary, modifier = Modifier.size(20.dp))
             }
@@ -2508,128 +2566,136 @@ private fun MuseDrawerContent(
             color = minisInk,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
         )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "选项卡",
-            fontSize = 12.5.sp,
-            color = minisSecondary,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-        )
-        MUSE_NAV_TABS.forEach { tab ->
-            val selected = activeTab == tab.index
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(if (selected) pillFill else Color.Transparent)
-                    .clickable(role = Role.Button) { onSelectTab(tab.index) }
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(
-                    painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
-                    contentDescription = null,
-                    tint = minisInk,
-                    modifier = Modifier.size(21.dp),
-                )
-                Text(
-                    text = tab.label,
-                    fontSize = 16.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                    color = minisInk,
-                )
-            }
-        }
-        if (companions.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
-            Spacer(Modifier.height(10.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(Modifier.height(6.dp))
             Text(
-                text = "协作助手",
+                text = "选项卡",
                 fontSize = 12.5.sp,
                 color = minisSecondary,
                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
-            companions.take(5).forEach { summary ->
+            MUSE_NAV_TABS.forEach { tab ->
+                val selected = activeTab == tab.index
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable(role = Role.Button) { onOpenCompanion(summary) }
-                        .padding(horizontal = 10.dp, vertical = 9.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (selected) pillFill else Color.Transparent)
+                        .clickable(role = Role.Button) { onSelectTab(tab.index) }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    ChatAvatar(
-                        chat = summary.chat,
-                        size = 30.dp,
-                        animated = false,
-                        fallback = AvatarFallback.PRESET,
-                        motion = AvatarMotion.SHEEN,
+                    Icon(
+                        painter = painterResource(if (selected) tab.filledRes else tab.outlineRes),
+                        contentDescription = null,
+                        tint = minisInk,
+                        modifier = Modifier.size(21.dp),
                     )
                     Text(
-                        text = summary.chat.name,
-                        fontSize = 15.5.sp,
-                        fontWeight = FontWeight.Normal,
+                        text = tab.label,
+                        fontSize = 16.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                         color = minisInk,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
                     )
-                    if (summary.chat.unread) {
-                        Box(Modifier.size(7.dp).background(minisInk, CircleShape))
+                }
+            }
+            if (companions.isNotEmpty()) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    text = "协作助手",
+                    fontSize = 12.5.sp,
+                    color = minisSecondary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                )
+                companions.take(5).forEach { summary ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(role = Role.Button) { onOpenCompanion(summary) }
+                            .padding(horizontal = 10.dp, vertical = 9.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ChatAvatar(
+                            chat = summary.chat,
+                            size = 30.dp,
+                            animated = false,
+                            fallback = AvatarFallback.PRESET,
+                            motion = AvatarMotion.SHEEN,
+                        )
+                        Text(
+                            text = summary.chat.name,
+                            fontSize = 15.5.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = minisInk,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        if (summary.chat.unread) {
+                            Box(Modifier.size(7.dp).background(minisInk, CircleShape))
+                        }
                     }
                 }
             }
-        }
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.25f))
-        Spacer(Modifier.height(10.dp))
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(role = Role.Button, onClick = onCreateBot)
-                .padding(horizontal = 12.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
-            Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(14.dp))
-                .clickable(role = Role.Button, onClick = onCreateGroup)
-                .padding(horizontal = 12.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
-            Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
-        }
-        if (computerName != null) {
             Spacer(Modifier.height(10.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+            HorizontalDivider(thickness = 0.5.dp, color = minisSeparator.copy(alpha = 0.25f))
             Spacer(Modifier.height(10.dp))
-            val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .clickable(role = Role.Button, onClick = onSwitchComputer)
-                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    .clickable(role = Role.Button, onClick = onCreateBot)
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(8.dp).background(statusDot, CircleShape))
-                Text(computerName, fontSize = 14.5.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
+                Icon(painterResource(R.drawable.ic_plus_line), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                Text("新建智能体", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
             }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .clickable(role = Role.Button, onClick = onCreateGroup)
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(R.drawable.ic_muse_chat_outline), null, tint = minisInk, modifier = Modifier.size(19.dp))
+                Text("新建群组", fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
+            }
+            if (computerName != null) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(thickness = 0.5.dp, color = minisSeparator)
+                Spacer(Modifier.height(10.dp))
+                val statusDot = if (status == Session.Status.Live) MinisTokens.Success else MinisTokens.Warning
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable(role = Role.Button, onClick = onSwitchComputer)
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(8.dp).background(statusDot, CircleShape))
+                    Text(computerName, fontSize = 14.5.sp, color = minisSecondary, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Icon(Icons.Filled.KeyboardArrowDown, null, tint = minisTertiary, modifier = Modifier.size(16.dp))
+                }
+            }
+            Spacer(Modifier.height(8.dp))
         }
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(10.dp))
         // Muse drawer footer: Settings circle + Search pill + New button
         Row(
             modifier = Modifier.fillMaxWidth(),
