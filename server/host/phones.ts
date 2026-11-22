@@ -391,6 +391,9 @@ export function createPhones(deps: PhonesDeps) {
      * `/api/phones`, hold its owner's notice inbox open, and read as "a phone that stopped connecting" rather than as
      * a phone that is gone. */
     forgotDevice(deviceId: string): boolean {
+      // Only the companion's own key shape: the same list also holds `session:<id>` rows for browsers and phones paired
+      // as sessions, and an id that happened to match one of those must not delete it.
+      if (!/^[\w-]{1,128}$/.test(deviceId)) return false;
       const key = `companion:${deviceId}`;
       try {
         const removed = registry.remove(key);
