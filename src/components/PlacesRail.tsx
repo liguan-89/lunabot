@@ -530,7 +530,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
                     {place.active && <Check size={14} strokeWidth={2.25} aria-hidden="true" className="shrink-0 text-accent" />}
                   </button>
                   {hasMenu && <button type="button" aria-label={title} onClick={(event) => openMenu({ place, from: event.currentTarget })}
-                    className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-tertiary opacity-0 transition-opacity hover:bg-ink/[0.06] hover:text-ink group-hover/row:opacity-100 focus-visible:opacity-100">
+                    className="grid size-7 shrink-0 place-items-center rounded-lg text-ink-tertiary opacity-0 transition-opacity hover:bg-ink/[0.06] hover:text-ink group-hover/row:opacity-100 focus-visible:opacity-100 touch:opacity-100">
                     <MoreHorizontal size={14} aria-hidden="true" />
                   </button>}
                 </div>
