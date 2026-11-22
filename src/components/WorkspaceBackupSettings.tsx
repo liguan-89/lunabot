@@ -8,7 +8,7 @@ import { Card } from "./SettingsPrimitives";
 
 type BackupStatus = { busy: boolean; pendingRestore?: boolean; restarts?: boolean; lastRestoreId?: string };
 const inputClass = "w-full rounded-lg border border-hairline/50 bg-inset px-3 py-2 text-[14px] text-ink disabled:opacity-50";
-const buttonClass = "cursor-pointer inline-flex items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-[13px] font-medium text-accent-ink disabled:opacity-40";
+const buttonClass = "ui-button ui-button-md ui-button-primary";
 const validPassword = (value: string) => value.length >= 12 && value.length <= 1024;
 
 /** A renderer reload cannot apply a restore; the owning server must restart. A server that restarts itself (My Cloud)
@@ -202,7 +202,7 @@ export function WorkspaceBackupSettings() {
                 <p className="text-[13px] leading-relaxed text-danger">{t("backup.replaceWarning")}</p>
                 <p className="text-[13px] leading-relaxed text-danger">{t("backup.trustWarning")}</p>
                 <label className="text-[13px] text-ink">{t("backup.confirmReplace")}<input value={confirmation} autoComplete="off" spellCheck={false} disabled={disabled} onChange={(event) => setConfirmation(event.target.value)} className={`${inputClass} mt-1`} /></label>
-                <button type="button" disabled={disabled || confirmation !== "REPLACE"} onClick={() => void restoreBackup()} className="cursor-pointer rounded-lg bg-danger px-3 py-2 text-[13px] font-medium text-danger-ink disabled:opacity-40">{busy === "restore" ? t("backup.restoring") : t("backup.replace")}</button>
+                <button type="button" disabled={disabled || confirmation !== "REPLACE"} onClick={() => void restoreBackup()} className="ui-button ui-button-md ui-button-danger">{busy === "restore" ? t("backup.restoring") : t("backup.replace")}</button>
                 </div>}
             </Card>
             </>
@@ -258,7 +258,7 @@ export function WorkspaceBackupRecovery({ children }: { children: ReactNode }) {
     {error && <button type="button" className={buttonClass} onClick={() => { setRestartRequired(false); setAttempt((value) => value + 1); }}>{t("connectors.action.retry")}</button>}
     {error && <>
       <p className="max-w-lg text-[13px] text-ink-secondary">{t("backup.skipDraftsHint")}</p>
-      <button type="button" className="cursor-pointer rounded-lg border border-hairline/50 bg-control px-3 py-2 text-[13px] font-medium text-ink" onClick={continueWithoutDrafts}>{t("backup.skipDrafts")}</button>
+      <button type="button" className="ui-button ui-button-md" onClick={continueWithoutDrafts}>{t("backup.skipDrafts")}</button>
     </>}
   </main>;
 }

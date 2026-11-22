@@ -120,13 +120,13 @@ export function LocalScreenPreview() {
     phase === "cancelled" || phase === "ended" || phase === "unavailable" || phase === "error";
 
   return (
-    <section className="mt-4 rounded-xl bg-card p-4" aria-labelledby="local-preview-title">
+    <section className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5" aria-labelledby="local-preview-title">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div id="local-preview-title" className="text-[15px] font-medium text-ink">
+          <div id="local-preview-title" className="text-[15px] font-medium text-ink in-data-[settings-look=simple]:text-[14px]">
             {t("computer.screen.title")}
           </div>
-          <div className="mt-0.5 text-[12px] leading-relaxed text-ink-secondary">
+          <div className="mt-0.5 text-[13px] leading-[18px] text-ink-secondary">
             {t("computer.screen.subtitle")}
           </div>
         </div>
@@ -179,7 +179,7 @@ export function LocalScreenPreview() {
             ? () => releaseStream("idle", phaseCopy.idle)
             : () => void start()
         }
-        className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:cursor-not-allowed disabled:opacity-50"
+        className="ui-button ui-button-md mt-3 w-full"
       >
         {phase === "requesting" ? (
           <Loader2 size={14} className="animate-spin" />

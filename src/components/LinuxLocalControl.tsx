@@ -53,14 +53,14 @@ export function LinuxLocalControl() {
   };
 
   return (
-    <section className="mt-4 rounded-xl bg-card p-4" aria-labelledby="linux-local-control-title">
+    <section className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5" aria-labelledby="linux-local-control-title">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div id="linux-local-control-title" className="flex items-center gap-2 text-[15px] font-medium text-ink">
+          <div id="linux-local-control-title" className="flex items-center gap-2 text-[15px] font-medium text-ink in-data-[settings-look=simple]:text-[14px]">
             <MonitorCog size={16} className={ready ? "text-success" : "text-ink-secondary"} />
             {t("computer.linux.title")}
           </div>
-          <div className="mt-1 text-[12px] leading-relaxed text-ink-secondary">
+          <div className="mt-0.5 text-[13px] leading-[18px] text-ink-secondary">
             {hyprland
               ? t("computer.linux.metaOmarchy")
               : t("computer.linux.meta", { session: wayland ? "Wayland" : "Xorg" })}
@@ -162,7 +162,7 @@ export function LinuxLocalControl() {
             type="button"
             disabled={busy}
             onClick={() => void run("enable")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
+            className="ui-button ui-button-md flex-1"
           >
             {pending === "enable" ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
             {t("computer.linux.tryAgain")}
@@ -172,7 +172,7 @@ export function LinuxLocalControl() {
             type="button"
             disabled={busy}
             onClick={() => void run("enable")}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-accent py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="ui-button ui-button-md ui-button-primary flex-1"
           >
             {pending === "enable" ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
             {t("computer.linux.enable")}
@@ -184,7 +184,7 @@ export function LinuxLocalControl() {
                 type="button"
                 disabled={busy}
                 onClick={() => void run("retry")}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
+                className="ui-button ui-button-md flex-1"
               >
                 {pending === "retry" ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
                 {t("computer.linux.tryAgain")}
@@ -194,7 +194,7 @@ export function LinuxLocalControl() {
               type="button"
               disabled={pending !== null}
               onClick={() => void run("disable")}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-raised py-2 text-[13px] text-ink hover:bg-raised-hover disabled:opacity-50"
+              className="ui-button ui-button-md flex-1"
             >
               {pending === "disable" ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
               {t("computer.linux.disable")}

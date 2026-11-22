@@ -58,7 +58,7 @@ export function AttachmentStorageSettings() {
       <div className="flex flex-wrap gap-2">
         {confirming ? <>
           <button type="button" onClick={() => setConfirming(false)} disabled={clearing} className="ui-button">{t("settings.attachments.cancel")}</button>
-          <button type="button" onClick={() => void clear()} disabled={clearing} className="ui-button text-danger">
+          <button type="button" onClick={() => void clear()} disabled={clearing} className="ui-button ui-button-danger">
             {clearing ? t("settings.attachments.clearing") : t("settings.attachments.confirm")}
           </button>
         </> : <button type="button" onClick={() => { setResult(null); setConfirming(true); }} className="ui-button">{t("settings.attachments.clear")}</button>}

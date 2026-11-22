@@ -149,7 +149,7 @@ export function CustomDomainSettings() {
                   {busy === "saving" ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
                   {busy === "saving" ? t("settings.domain.verifying") : t("settings.domain.verify")}
                 </button>
-                {status.customDomain && <button type="button" disabled={busy !== null} onClick={() => void save(true)} className="rounded-lg bg-control px-3 py-2 text-[12px] font-medium text-ink hover:bg-raised-hover disabled:opacity-50">{busy === "removing" ? t("settings.domain.removing") : t("settings.domain.remove")}</button>}
+                {status.customDomain && <button type="button" disabled={busy !== null} onClick={() => void save(true)} className="ui-button ui-button-danger">{busy === "removing" ? t("settings.domain.removing") : t("settings.domain.remove")}</button>}
               </div>
             </form>
             {status.publicUrl && <p className="break-all text-[12px] text-ink-secondary">{t("settings.domain.current")}: <span className="text-ink">{status.publicUrl}</span></p>}

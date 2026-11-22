@@ -123,8 +123,8 @@ function BedrockForm({ instance, onDone }: { instance?: InstanceInfo; onDone: ()
       </details>
       {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
       <div className="flex justify-end gap-2">
-        <button type="button" onClick={onDone} disabled={saving} className="rounded-lg px-3 py-1.5 text-[12px] text-ink-secondary hover:bg-control disabled:opacity-50">{t("common.cancel")}</button>
-        <button type="submit" disabled={saving || !ready} className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-[12px] font-semibold text-white hover:brightness-110 disabled:opacity-50">
+        <button type="button" onClick={onDone} disabled={saving} className="ui-button ui-button-md">{t("common.cancel")}</button>
+        <button type="submit" disabled={saving || !ready} className="ui-button ui-button-md ui-button-primary">
           {saving && <Loader2 size={13} className="animate-spin" />}{t("common.save")}
         </button>
       </div>

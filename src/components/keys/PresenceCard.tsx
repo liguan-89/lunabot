@@ -22,7 +22,7 @@ export function PresenceCard({ webauthn, onEnrolled }: { webauthn?: { required: 
     }
   };
   return (
-    <section data-keys-section="presence" className="rounded-xl bg-card p-4">
+    <section data-keys-section="presence" className="rounded-xl bg-card p-4 in-data-[settings-look=simple]:rounded-[16px] in-data-[settings-look=simple]:border-[0.5px] in-data-[settings-look=simple]:border-(--settings-edge) in-data-[settings-look=simple]:bg-menu in-data-[settings-look=simple]:py-3.5">
       <div className="flex items-start gap-3">
         <Fingerprint size={18} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-secondary" />
         <div className="min-w-0 flex-1">
