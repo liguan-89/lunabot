@@ -72,13 +72,16 @@ export function PaymentCardsSettings() {
   };
 
   return (
-    <Card title={t("settings.paymentCards.title")} subtitle={t("settings.paymentCards.subtitle")}>
+    <Card
+      title={t("settings.paymentCards.title")}
+      subtitle={t("settings.paymentCards.subtitle")}
+      actions={
+        <button type="button" className="ui-button ui-button-md shrink-0" disabled={cards === null} onClick={() => setAdding(!adding)}>
+          <Plus size={14} />{t("settings.paymentCards.add")}
+        </button>
+      }
+    >
       <div className="flex flex-col gap-3" aria-busy={cards === null || busy} data-payment-cards>
-        <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="ui-button ui-button-md" disabled={cards === null} onClick={() => setAdding(!adding)}>
-            <Plus size={14} />{t("settings.paymentCards.add")}
-          </button>
-        </div>
         {adding && (
           <form className="flex flex-col gap-2 rounded-lg bg-inset/60 p-3" onSubmit={submit} data-payment-card-form>
             <div className="flex flex-wrap gap-2">
@@ -116,7 +119,7 @@ export function PaymentCardsSettings() {
                     {[botNames(card.bots), card.lastUsedAt ? t("settings.logins.used", { when: relativeTime(card.lastUsedAt) }) : t("settings.logins.neverUsed")].join(" · ")}
                   </div>
                 </div>
-                <button type="button" className={ROW_BUTTON} disabled={busy} onClick={() => void remove(card.id)}
+                <button type="button" className={deleting === card.id ? "flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-medium text-danger hover:bg-danger/10 disabled:opacity-50" : ROW_BUTTON} disabled={busy} onClick={() => void remove(card.id)}
                   aria-label={deleting === card.id ? t("settings.logins.deleteConfirm") : t("settings.paymentCards.deleteFor", { name: card.name })}>
                   <Trash2 size={13} />{deleting === card.id ? t("settings.logins.deleteConfirm") : t("settings.logins.delete")}
                 </button>
