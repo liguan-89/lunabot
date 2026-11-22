@@ -28,8 +28,11 @@ describe("the per-owner screenmap store", () => {
     expect(Object.keys(graph.nodes)).toHaveLength(2);
     const path = join(dir, "phone-screenmaps", "owner-a", `${encodeURIComponent("com.app")}.json`);
     expect(existsSync(path)).toBe(true);
-    expect(statSync(path).mode & 0o777).toBe(0o600);
-    expect(statSync(join(dir, "phone-screenmaps", "owner-a")).mode & 0o777).toBe(0o700);
+    // POSIX mode bits only exist on POSIX hosts; Windows synthesizes them per file.
+    if (process.platform !== "win32") {
+      expect(statSync(path).mode & 0o777).toBe(0o600);
+      expect(statSync(join(dir, "phone-screenmaps", "owner-a")).mode & 0o777).toBe(0o700);
+    }
     // The file is the graph the store hands back.
     expect(JSON.parse(readFileSync(path, "utf8")).nodes).toEqual(graph.nodes);
   });
