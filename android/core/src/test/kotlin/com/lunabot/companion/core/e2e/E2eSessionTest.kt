@@ -7,6 +7,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -100,6 +102,43 @@ class E2eSessionTest {
         session.connect()
         assertTrue(computer.handshakeDone)
         assertTrue(computer.sawRelayHello, "the phone announced hid and adm before the handshake")
+        session.close()
+    }
+
+    @Test
+    fun `a session the mux refuses a new stream on dies for new work`() {
+        val computer = ComputerResponder(transportKey, psk, Noise.TRANSPORT_DIRECT, random)
+        lateinit var listener: E2eSocketListener
+        val socket = object : E2eSocket {
+            override val bufferedBytes: Long = 0
+        override val isOpen: Boolean = true
+            override fun sendBinary(bytes: ByteArray) {
+                for (reply in computer.receive(bytes)) listener.onBinary(reply)
+            }
+            override fun sendText(text: String) = Unit
+            override fun close(code: Int) = Unit
+        }
+        val session = E2eSession(
+            connector = { _, _, opened ->
+                listener = opened
+                Thread { Thread.sleep(5); opened.onOpen() }.apply { isDaemon = true; start() }
+                socket
+            },
+            target = E2eTarget.Direct("ws://127.0.0.1:1/v1/e2e"),
+            transportKey = transportKey.publicKey,
+            psk = psk,
+            app = "mausbot-test",
+        )
+        session.connect()
+
+        repeat(Yamux.MAX_STREAMS) { session.openStream() }
+        val error = assertFailsWith<YamuxException> { session.openStream() }
+        assertEquals("too_many_streams", error.reason)
+        // The refusal must read as the session's death: isUsable is what
+        // E2eTransport.ensureSession() trusts, so a session that keeps it true
+        // gets reused forever while every new request it opens fails.
+        assertEquals("too_many_streams", session.failure)
+        assertFalse(session.isUsable)
         session.close()
     }
 
