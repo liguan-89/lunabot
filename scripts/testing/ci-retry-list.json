@@ -154,13 +154,6 @@
       "owner": "liguan-89",
       "reason": "Failed once on ubuntu S4 (Nov 22): the back-forward restore reran the page script (sessionStorage.loads 2 not 1) — a bfcache miss under the memory pressure of four live Chrome instances; page.back() uses Page.navigateToHistoryEntry, so restore is Chrome's call. Green in every earlier S4 run.",
       "since": "2026-11-22"
-    },
-    {
-      "file": "evals/evals.test.ts",
-      "test": "behavior evals > 'lazy-claim-rejection' pins its behavior",
-      "owner": "liguan-89",
-      "reason": "Failed once on a loaded windows shard (Nov 22): a fetch to the fixture died at socket level ('fetch failed') while a sibling eval ran 51 s; green locally in 2.4 s. The runner now names the failing step so a repeat shows which call dropped.",
-      "since": "2026-11-22"
     }
   ]
 }
