@@ -7,10 +7,10 @@ import { t } from "@/lib/i18n";
 import type { PendingTeamImport } from "@/lib/team-import";
 
 export const TEAM_GLYPHS = [
-  "bg-purple-500/15 text-purple-300",
-  "bg-cyan-500/15 text-cyan-300",
-  "bg-orange-500/15 text-orange-300",
-  "bg-emerald-500/15 text-emerald-300",
+  "bg-purple-500/15 text-[color-mix(in_srgb,#a855f7_75%,var(--color-ink))]",
+  "bg-cyan-500/15 text-[color-mix(in_srgb,#06b6d4_75%,var(--color-ink))]",
+  "bg-orange-500/15 text-[color-mix(in_srgb,#f97316_75%,var(--color-ink))]",
+  "bg-emerald-500/15 text-[color-mix(in_srgb,#10b981_75%,var(--color-ink))]",
 ] as const;
 
 export function TeamImportDetails({ pending, importedNames, org = false }: {

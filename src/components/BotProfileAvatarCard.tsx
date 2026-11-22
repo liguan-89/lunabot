@@ -167,7 +167,7 @@ export function BotProfileAvatarCard({
             <div className="mb-2 mt-4 text-[12px] font-medium uppercase tracking-[0.08em] text-ink-secondary">
               {t("botIdentity.body")}
             </div>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-6 gap-1.5">
               {PRESET_STYLE_BODY_IDS.map((id) => (
                 <BodyButton key={id} id={id} name={bodyName(id)} bot={bot} busy={busy} onPatch={onPatch} />
               ))}
@@ -202,6 +202,7 @@ function BodyButton({ id, name, bot, busy, onPatch }: {
       disabled={busy}
       aria-pressed={selected}
       aria-label={t("mascot.useBody", { name })}
+      title={name}
       onClick={() => onPatch({ mascotBody: id })}
       className={cn(
         "flex items-center justify-center rounded-lg py-1.5 disabled:opacity-50",

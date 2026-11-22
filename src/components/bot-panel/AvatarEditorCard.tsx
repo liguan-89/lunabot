@@ -17,11 +17,11 @@ import { AvatarStatesEditor } from "./AvatarStatesEditor";
 
 export type AvatarEditorTab = "bot" | "generate" | "upload" | "motion";
 
-const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey | null, string?]> = [
+const TABS: ReadonlyArray<readonly [AvatarEditorTab, LocaleKey]> = [
   ["bot", "botPanel.avatar.tabBot"],
   ["generate", "botPanel.avatar.tabGenerate"],
   ["upload", "botPanel.avatar.tabUpload"],
-  ["motion", null, "动态"],
+  ["motion", "botPanel.avatar.tabMotion"],
 ];
 
 const IMAGE_CROPS = ["circle", "rounded", "square"] as const;
@@ -77,11 +77,11 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       title={name}
       onClick={() => pickMascot({ mascotBody: id })}
       className={cn(
-        "flex h-[58px] items-center justify-center rounded-xl disabled:opacity-50",
+        "flex h-[48px] items-center justify-center rounded-xl disabled:opacity-50",
         !showsImage && body === id ? "bg-ink/[0.08] ring-[1.5px] ring-inset ring-ink/25" : "hover:bg-ink/[0.05]",
       )}
     >
-      <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={38} life="still" />
+      <PresetFace color={bot.color} faceColor={bot.mascotFaceColor} bodyId={id} size={32} life="still" />
     </button>
   );
 
@@ -98,10 +98,10 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
       aria-label={t("botPanel.avatar.edit")}
       data-panel-avatar-editor
       onKeyDown={onKeyDown}
-      className="popover-surface absolute inset-x-[-5px] top-[80px] z-30 overflow-hidden rounded-2xl border border-ink/[0.08] bg-menu text-left shadow-2xl shadow-black/50"
+      className="popover-surface absolute inset-x-[-5px] top-[80px] z-30 flex max-h-[min(76vh,540px)] flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-menu text-left shadow-2xl shadow-black/50"
     >
-      <div ref={tabsRef} className="flex items-center gap-0.5 border-b border-ink/[0.06] p-2">
-        {TABS.map(([id, label, fallbackText]) => (
+      <div ref={tabsRef} className="flex shrink-0 items-center gap-0.5 border-b border-ink/[0.06] p-2">
+        {TABS.map(([id, label]) => (
           <button
             key={id}
             type="button"
@@ -114,7 +114,7 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
               tab === id ? "bg-ink/[0.08] font-medium text-ink" : "text-ink-secondary hover:text-ink",
             )}
           >
-            {label ? t(label) : fallbackText}
+            {t(label)}
           </button>
         ))}
         <button
@@ -128,10 +128,10 @@ export function AvatarEditorCard({ bot, activeState, onPatch, onClose }: {
         </button>
       </div>
 
-      <div className="p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {tab === "bot" && (
           <>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-6 gap-1">
               {PRESET_STYLE_BODY_IDS.map((id) => bodyButton(id, bodyName(id)))}
             </div>
             <div className="flex flex-wrap justify-center gap-2 px-1 pb-1 pt-3.5">

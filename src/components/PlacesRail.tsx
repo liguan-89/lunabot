@@ -86,8 +86,8 @@ export const startsGroup = (places: RailPlace[], at: number): boolean => at > 0 
 
 /** The tile's progress, drawn round its edge: a 2px line 1px off the tile, its corners in step with the tile's, on whole
  * pixels at any scale. The line starts at the top edge's middle and runs clockwise. */
-function ProgressRing({ value = 0, waiting = false }: { value?: number; waiting?: boolean }) {
-  const box = TILE + 6, inset = 1, side = box - 2 * inset, corner = tileRadius(TILE) + 2;
+function ProgressRing({ value = 0, waiting = false, size = TILE }: { value?: number; waiting?: boolean; size?: number }) {
+  const box = size + 6, inset = 1, side = box - 2 * inset, corner = tileRadius(size) + 2;
   const around = 4 * (side - 2 * corner) + 2 * Math.PI * corner;
   const shown = waiting ? 0.28 : Math.max(0.06, Math.min(1, value));
   const edge = `M ${box / 2} ${inset} H ${box - inset - corner} A ${corner} ${corner} 0 0 1 ${box - inset} ${inset + corner} V ${box - inset - corner}`
@@ -185,7 +185,7 @@ function RemoveRow({ place, onRemoved }: { place: RailPlace; onRemoved: () => vo
       ? <div role="alertdialog" aria-label={t("rail.remove")} className="flex flex-col gap-2 px-1.5 pb-1">
         <p className="text-[12px] leading-snug text-ink">{t(place.forget ? "rail.removeServerAsk" : "rail.removeAsk", { name: place.name })}</p>
         <div className="flex gap-2">
-          <button type="button" data-rail-remove-confirm className="ui-button ui-button-primary" disabled={busy} onClick={confirm}>{t("rail.removeYes")}</button>
+          <button type="button" data-rail-remove-confirm className="ui-button ui-button-danger" disabled={busy} onClick={confirm}>{t("rail.removeYes")}</button>
           <button type="button" className="ui-button" disabled={busy} onClick={() => setAsking(false)}>{t("rail.removeNo")}</button>
         </div>
       </div>
@@ -221,12 +221,19 @@ function MakeHomeRow({ place, onStarted }: { place: RailPlace; onStarted: () => 
 /** A place's own menu on the window's rail: its name and its colour, in the six swatches, saved by main for every place
  * whatever its server runs (on the Admin for a Cloud), and Remove from list for a Cloud its owner may take off their list.
  * A team member sees who may change its colour. */
-function PlaceMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
-  if (place.profile) return <LocalMenu place={place} top={top} onClose={onClose} />;
-  return <ListedMenu place={place} top={top} onClose={onClose} />;
+type PlaceMenuAlign = "right" | "left" | "inset";
+const PLACE_MENU_POS: Record<PlaceMenuAlign, string> = {
+  right: "left-full ml-2 w-72",
+  left: "right-full mr-2 w-72",
+  inset: "inset-x-0 w-auto",
+};
+
+function PlaceMenu({ place, top, align = "right", onClose }: { place: RailPlace; top: number; align?: PlaceMenuAlign; onClose: () => void }) {
+  if (place.profile) return <LocalMenu place={place} top={top} align={align} onClose={onClose} />;
+  return <ListedMenu place={place} top={top} align={align} onClose={onClose} />;
 }
 
-function ListedMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
+function ListedMenu({ place, top, align, onClose }: { place: RailPlace; top: number; align: PlaceMenuAlign; onClose: () => void }) {
   const paint = place.paint;
   const [pending, setPending] = useState<CloudSwatch | null>(null);
   const [outcome, setOutcome] = useState<PlaceColorOutcome | null>(null);
@@ -241,7 +248,7 @@ function ListedMenu({ place, top, onClose }: { place: RailPlace; top: number; on
   };
   const note = paint?.locked === "member" || outcome === "refused" ? t("placeLook.member") : paint?.locked === "signed-out" ? t("placeLook.signedOut")
     : outcome === "unsupported" ? t("placeLook.unsupported") : null;
-  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute left-full z-50 ml-2 w-72", MENU_SHEET)} style={{ top }}
+  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute z-50", PLACE_MENU_POS[align], MENU_SHEET)} style={{ top }}
     onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <div className="flex items-center gap-2 px-2 pt-1">
       <PlaceMark place={place} size={22} />
@@ -314,7 +321,7 @@ function RemoveLocalRow({ place, onRemoved }: { place: RailPlace; onRemoved: () 
       ? <div role="alertdialog" aria-label={t("rail.localRemove")} className="flex flex-col gap-2 px-1.5 pb-1">
         <p className="text-[12px] leading-snug text-ink">{ask}</p>
         <div className="flex gap-2">
-          <button type="button" data-rail-remove-confirm className="ui-button ui-button-primary inline-flex items-center gap-1.5" disabled={busy} onClick={confirm}>
+          <button type="button" data-rail-remove-confirm className="ui-button ui-button-danger inline-flex items-center gap-1.5" disabled={busy} onClick={confirm}>
             {busy && <Loader2 size={13} aria-hidden="true" className="animate-spin motion-reduce:animate-none" />}{t("rail.removeYes")}
           </button>
           <button type="button" data-rail-remove-cancel className="ui-button" disabled={busy} onClick={() => setAsking(false)}>{t("rail.removeNo")}</button>
@@ -326,7 +333,7 @@ function RemoveLocalRow({ place, onRemoved }: { place: RailPlace; onRemoved: () 
 }
 
 /** A workspace of this computer's own: its name (Rename), its colour in the six swatches, and Remove. */
-function LocalMenu({ place, top, onClose }: { place: RailPlace; top: number; onClose: () => void }) {
+function LocalMenu({ place, top, align, onClose }: { place: RailPlace; top: number; align: PlaceMenuAlign; onClose: () => void }) {
   const [pending, setPending] = useState<CloudSwatch | null | undefined>(undefined);
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -338,7 +345,7 @@ function LocalMenu({ place, top, onClose }: { place: RailPlace; top: number; onC
     setPending(value); setFailed(false);
     void editLocal(place.id, { color: value }).then((outcome) => { setPending(undefined); if (outcome === "saved") onClose(); else setFailed(true); });
   };
-  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute left-full z-50 ml-2 w-72", MENU_SHEET)} style={{ top }}
+  return <div ref={ref} role="dialog" aria-label={name} data-rail-menu={place.id} className={cn("absolute z-50", PLACE_MENU_POS[align], MENU_SHEET)} style={{ top }}
     onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); onClose(); } }}>
     <div className="flex items-center gap-2 px-2 pt-1">
       <PlaceMark place={place} size={22} />
@@ -488,6 +495,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
     const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
     const left = Math.max(12, Math.min(popover.x, viewportWidth - 284));
     const top = Math.max(12, Math.min(popover.y, viewportHeight - 280));
+    const menuAlign: PlaceMenuAlign = left + 272 + 296 <= viewportWidth ? "right" : left >= 296 ? "left" : "inset";
     const closeOverlay = () => { setMenu(null); closeChromeRailPopover(); };
     return <div data-rail-popover-backdrop className="fixed inset-0 z-40 [--rail-surface:var(--color-menu)]" style={noDrag}
       onMouseDown={(event) => { if (event.target === event.currentTarget && !adding && connecting === null && accounts === null && !veil) closeOverlay(); }}>
@@ -518,7 +526,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
                     className={cn(MENU_ROW, "h-10 flex-1 gap-2.5 rounded-xl px-2", place.active && "bg-ink/[0.06] font-medium")}>
                     <span className="relative shrink-0">
                       <PlaceMark place={place} size={26} />
-                      {(place.progress !== undefined || place.settling !== undefined || place.id === going?.id) && <ProgressRing value={place.progress} waiting={place.waiting === true || place.settling !== undefined || place.id === going?.id} />}
+                      {(place.progress !== undefined || place.settling !== undefined || place.id === going?.id) && <ProgressRing size={26} value={place.progress} waiting={place.waiting === true || place.settling !== undefined || place.id === going?.id} />}
                       {place.attention && <span aria-hidden="true" data-rail-dot className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-(--rail-surface) bg-danger" />}
                       {place.update && !place.attention && <span aria-hidden="true" data-rail-update className="absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-(--rail-surface) bg-accent" />}
                       <KindBadge place={place} />
@@ -546,7 +554,7 @@ export function PlacesRail({ chrome = false }: { chrome?: boolean }) {
             </button>
           </div>}
           {menu && <div ref={menuRef}>
-            <PlaceMenu key={menu.place.id} place={state.places.find((entry) => entry.id === menu.place.id) ?? menu.place} top={menu.top} onClose={() => setMenu(null)} />
+            <PlaceMenu key={menu.place.id} place={state.places.find((entry) => entry.id === menu.place.id) ?? menu.place} top={menu.top} align={menuAlign} onClose={() => setMenu(null)} />
           </div>}
         </div>
       )}
