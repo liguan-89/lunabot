@@ -16,8 +16,8 @@ const HARD_CAP = 2000;
 const LISTED_FROM = 1000;
 
 const LINES: Record<string, number> = {
-  "server/index.ts": 16090,
-  "src/state/store.tsx": 3384,
+  "server/index.ts": 16089,
+  "src/state/store.tsx": 3383,
   "electron/main.mjs": 3156,
   "server/store.ts": 2277,
   "server/routines.ts": 1571,
@@ -30,7 +30,7 @@ const LINES: Record<string, number> = {
   // that document through three modules to keep one lock on it.
   "electron/companion-account-service.mjs": 1034,
   "shared/wire.ts": 1016,
-  "src/components/ComputerPanel.tsx": 1782,
+  "src/components/ComputerPanel.tsx": 1781,
   "src/components/RoutineCalendarPage.tsx": 1623,
   "server/config.ts": 1263,
   "src/components/ChatView.tsx": 1291,
