@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import * as journal from "./message-db.ts";
 import { cancelChannelMessage, drainChannelMessages, queuedChannelMessage, queueChannelMessage, restoreChannelMessages } from "./channel-queue.ts";
-import { cancelSteeredMessage, drainSteeredMessages, queuedSteerSnapshot, queueSteeredMessage, restoreSteeredMessages, type SteerStore } from "./steer-queue.ts";
+import { cancelSteeredMessage, drainSteeredMessages, queuedSteerSnapshot, queueSteeredMessage, restoreSteeredMessages, watchSteerQueues, type SteerStore } from "./steer-queue.ts";
 import type { BotRecord, Message } from "./store.ts";
 
 afterEach(() => {
@@ -220,4 +220,18 @@ describe("durable accepted follow-ups", () => {
     drainChannelMessages(() => false, run);
     expect(run).not.toHaveBeenCalled();
   });
+});
+
+it("re-drains a parked queue on the watchdog once its gate releases", async () => {
+  const store = storeFor("bot", "thread");
+  const run = vi.fn();
+  let blocked = true;
+  const unwatch = watchSteerQueues({ ready: () => true, drain: () => drainSteeredMessages(store, run, () => blocked), intervalMs: 5 });
+  try {
+    queueSteeredMessage("bot", "thread", "held");
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(run).not.toHaveBeenCalled();
+    blocked = false;
+    await vi.waitFor(() => expect(run).toHaveBeenCalledTimes(1));
+  } finally { unwatch(); }
 });
