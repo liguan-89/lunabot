@@ -10,6 +10,7 @@ import { HARNESS_CALL_BUDGET_MS, HARNESS_PROXY_TIMEOUT_MS } from "./harness-budg
 import { RelayPorts } from "./browser-relay.ts";
 import { BrowserSteps, type StepCall, type StepContext } from "./browser-steps.ts";
 import { FakeRelay } from "./testing/fake-relay.ts";
+import { hostTimeout } from "./testing/host-timeout.ts";
 
 const runtimes: BrowserRuntime[] = [];
 function runtime(options: ConstructorParameters<typeof BrowserRuntime>[0] = {}) {
@@ -936,7 +937,9 @@ describe("server-owned browser MCP runtime", () => {
   });
 
   it.each(["hang", "crash"])("lets a person take the browser once the engine answers after a lost %s call, without a restart", async (name) => {
-    const value = runtime({ requestTimeoutMs: 250, recoveryCheckMs: 1_000, takeoverTimeoutMs: 2_000 });
+    // requestTimeoutMs must cover spawn+handshake+call delivery: if the lost call never reaches the daemon its
+    // BUSY_FILE is never written, and the recovery probe answers immediately — the first take resolves instead of rejecting.
+    const value = runtime({ requestTimeoutMs: hostTimeout(1_000), recoveryCheckMs: hostTimeout(1_000), takeoverTimeoutMs: hostTimeout(2_000) });
     const daemon = daemonSpec();
     try {
       await expect(value.agentRpc("s", daemon.spec, "tools/call", { name }))

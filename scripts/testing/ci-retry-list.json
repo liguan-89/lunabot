@@ -154,6 +154,13 @@
       "owner": "liguan-89",
       "reason": "Failed once on ubuntu S4 (Nov 22): the back-forward restore reran the page script (sessionStorage.loads 2 not 1) — a bfcache miss under the memory pressure of four live Chrome instances; page.back() uses Page.navigateToHistoryEntry, so restore is Chrome's call. Green in every earlier S4 run.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/person-stop.e2e.test.ts",
+      "test": "ends a stopped turn with one quiet stop, keeps what it said, and a second Stop on it leaves the queued message running",
+      "owner": "liguan-89",
+      "reason": "Failed once on a loaded ubuntu shard (Nov 22 main run): an SSE frame wait hit its 60 s host-scaled window on a shard that took 574 s for the file set; the frame dump now names event types/ids so a repeat shows which stage stalled. Green locally in 6.4 s.",
+      "since": "2026-11-22"
     }
   ]
 }

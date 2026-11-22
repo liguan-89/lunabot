@@ -81,9 +81,15 @@ export async function openSse(url: string, headers: Record<string, string> = {})
         const timer = setTimeout(() => {
           const index = waiters.indexOf(waiter);
           if (index !== -1) waiters.splice(index, 1);
+          const saw = frames.map((f) => {
+            const detail = [f?.kind, f?.event?.type, f?.event?.turnId ?? f?.turnId, f?.event?.threadId ?? f?.threadId]
+              .filter((part) => part !== undefined && part !== null)
+              .map(String);
+            return detail.join(":");
+          }).join(", ") || "(none)";
           reject(
             new Error(
-              `no matching frame within ${timeoutMs}ms; saw: ${frames.map((f) => f?.kind).join(", ") || "(none)"}`,
+              `no matching frame within ${timeoutMs}ms; saw: ${saw}`,
             ),
           );
         }, timeoutMs);
