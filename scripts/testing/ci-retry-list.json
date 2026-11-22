@@ -61,7 +61,7 @@
       "file": "server/cloud-team-inbox.e2e.test.ts",
       "test": "brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn",
       "owner": "liguan-89",
-      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, then all three attempts on Nov 21 (PR #37 ubuntu shard 1); green in every local run. The retry POSTs showed the reply passing back repeatedly — a same-answer dedup now guards it, and the test timeout is 240 s so its inner waits can still report.",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, then all three attempts on Nov 21 (PR #37 ubuntu shard 1), and again on Nov 22 release lane (one `until` exhausted its 300 s host-scaled window — a lost relay is now suspected, not just load); green in every local run. The retry POSTs showed the reply passing back repeatedly — a same-answer dedup now guards it, and `until` failures now name the stalled condition.",
       "since": "2026-11-18"
     },
     {
