@@ -298,8 +298,10 @@ the relay routes on one host. Moving the relay to a second machine is
 - Dropping the server's own tunnel refusal and allowing `--relay` with
   `--tunnel`, once no supported control plane predates the server exemption.
   Small.
-- The same stream deadlines on the desktop's companion: its encrypted streams
-  have the same gap, reachable only by a paired phone. Small.
+- ~~The same stream deadlines on the desktop's companion~~ — done: `createE2EOrigin` now defaults to
+  `E2E_ORIGIN_DEADLINES` (30 s for headers, 300 s for a body), so the desktop sidecar reclaims a stream its phone never
+  writes to as the server already did. Without it, 64 abandoned streams lock the session out
+  (`yamux: too_many_streams`) until the phone reconnects.
 - Renewing the installation credential before its 90 days end. `serve
   --relay` does not run the account service that renews it, so after 90 days
   the relay reports "needs this machine signed in" until `login --relay` is run
