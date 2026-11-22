@@ -26,6 +26,12 @@ import { DATA_DIR } from "./config.ts";
 import type { RoutineRunOn } from "./routines.ts";
 
 export const DEFAULT_MAX_PENDING_RUNS = 3;
+/** The self-hosted refusal for app events, shared by the manager's errors and the host's catalog text. */
+export const APP_EVENTS_SELF_HOSTED_TEXT =
+  "App events need Luna Bot's connected apps. This server uses its own Composio key, so it cannot watch apps yet: " +
+  "use a schedule that checks the app, or a webhook. To get app events, clear the key (a saved \"Composio API key\" " +
+  "credential, the composio.apiKey setting in config.json, or a COMPOSIO_API_KEY environment variable) so the " +
+  "managed connected-apps service takes over, and connect the apps again there.";
 const MAX_ATTEMPTS = 2_000;
 const MAX_DELETED = 50;
 const RESTORE_WINDOW_MS = 7 * 24 * 60 * 60_000;
@@ -758,7 +764,7 @@ export class AppTriggerManager {
     const service = this.options.service();
     if (service.available) return;
     throw new AppTriggerError(service.reason === "self-hosted"
-      ? "App events need Luna Bot's connected apps. This server uses its own Composio key, so it cannot watch apps yet: use a schedule that checks the app, or a webhook."
+      ? APP_EVENTS_SELF_HOSTED_TEXT
       : "Connected apps are not set up here, so app events are unavailable.", 409);
   }
 

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appEventCatalog } from "./app-event-catalog.ts";
 import { eventCount } from "./app-events.ts";
 import { brokerClient } from "./app-trigger-broker.ts";
-import { AppTriggerManager, type AppTriggerManagerOptions } from "./app-triggers.ts";
+import { AppTriggerManager, APP_EVENTS_SELF_HOSTED_TEXT, type AppTriggerManagerOptions } from "./app-triggers.ts";
 import { RoutineManager } from "./routines.ts";
 import { startBrokerFake, type BrokerFake } from "./testing/broker-fake.ts";
 
@@ -217,6 +217,12 @@ describe("AppTriggerManager", () => {
     expect(restored?.remote.state).toBe("active");
     expect(broker.harness.composio.instances.size).toBe(1);
   });
+
+  it("with the owner's own Composio key, creating an automation says how to get app events back", async () => {
+    const triggers = manager({ service: () => ({ available: false, reason: "self-hosted" }) });
+    await expect(gmailTrigger(triggers)).rejects.toThrow(APP_EVENTS_SELF_HOSTED_TEXT);
+    expect(APP_EVENTS_SELF_HOSTED_TEXT).toContain("COMPOSIO_API_KEY");
+  });
 });
 
 describe("appEventCatalog", () => {
@@ -299,6 +305,37 @@ describe("createAppTriggerHost", () => {
     expect(await host.undo({ botId: "scout", threadId: "thread-1", requestId: card.requestId })).toMatchObject({ state: "undone", action: "create" });
     expect(host.manager.list()).toEqual([]);
     expect(broker.harness.composio.instances.size).toBe(0);
+  });
+
+  it("with the owner's own Composio key, the event catalog says how to get app events back", async () => {
+    const { createAppTriggerHost } = await import("./app-trigger-host.ts");
+    const host = createAppTriggerHost({
+      file: join(dir, "own-key-app-triggers.json"),
+      store: {
+        bot: () => ({ id: "scout", name: "Scout", color: "#000" }),
+        messagesFor: () => [],
+        appendMessage: () => ({ id: "m1" }),
+        patchMessage: () => undefined,
+      },
+      connectionMode: () => "self-hosted",
+      access: () => ({ url: broker.url, token: owner.token }),
+      connectedApps: async () => connected,
+      routines: () => routines,
+      webhooks: { list: () => [] } as never,
+      webhookBase: () => "http://127.0.0.1:8800",
+      botState: () => "ready",
+      timeZone: () => "UTC",
+      visibleBot: () => true,
+      emit: () => {},
+      audit: () => {},
+    });
+    const answers: Array<{ status: number; body: any }> = [];
+    const json = ((_res: unknown, status: number, body: unknown) => { answers.push({ status, body }); }) as never;
+    await host.routes({
+      res: {}, path: "/api/app-triggers/events", url: new URL("http://127.0.0.1/api/app-triggers/events?botId=scout"),
+      method: "GET", json,
+    } as never);
+    expect(answers.at(-1)).toEqual({ status: 200, body: { apps: [], notConnected: [], unavailable: APP_EVENTS_SELF_HOSTED_TEXT } });
   });
 });
 
