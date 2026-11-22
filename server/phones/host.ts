@@ -7,6 +7,7 @@ import { noticeSummary, type ChatNoticeKey } from "../chat-notices.ts";
 import { PHONE_MCP_SERVER, isPhoneWrite, phoneToolCapability, phoneToolSends, type PhoneCapability, type PhoneToolName } from "../../shared/phone-apps.ts";
 import { isPhoneUiWrite } from "../../shared/outbound.ts";
 import { effectiveWrite, isReplayablePhoneTool, needsDecision, routePrompt, type ScreenElement, type ScreenSnapshot } from "../../shared/route-replay.ts";
+import type { PhoneScreenmaps } from "../host/phone-screenmap.ts";
 import { hit } from "../../shared/sensitive.ts";
 import { criteriaFor, verifyAnswer, type Verification, type VerifyEvidence, type VerifyMessage } from "../answer-verify.ts";
 import { appendDecision } from "../decision-log.ts";
@@ -218,6 +219,8 @@ export interface PhoneHostDeps {
   registry: PhoneRegistry;
   jobs: PhoneJobs;
   dataDir: string;
+  /** The owner's learned screen maps, when the server keeps them; learning and the prompt reference are theirs. */
+  screenmap?: PhoneScreenmaps;
   /** The live store bot, re-read on every check so a permission change wins over a call already under way. */
   bot(id: string): BotRecord | undefined | null;
   /** The owner whose phones a turn may use, or null when the turn is not provably the owner's. */
@@ -500,7 +503,13 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
         protected: outcome.ok && shielded(result),
         at: Date.now(),
       });
-      if (screen) ledger.remember(phoneKey, screen);
+      if (screen) {
+        ledger.remember(phoneKey, screen);
+        // The map learns from the screen the answer carried: the step from the
+        // screen the call was read against to this one is one navigation edge.
+        const owner = deps.turnOwner(turn);
+        if (owner !== null) deps.screenmap?.observe(owner, phoneKey, name, targetOf(name, args, before)?.text ?? null, before, screen);
+      }
     } catch {
       // A ledger that cannot keep one call must not affect the call.
     }
@@ -523,10 +532,13 @@ export function createPhoneHost(deps: PhoneHostDeps): PhoneHost {
       // the path out too: a discussion, or an answer it could not read, means nothing was asked to be done.
       const matched = request && owner !== null && routes ? routes.match(owner, request) : [];
       const route = intent === "discuss" || intent === null ? null : needsDecision(matched) ? null : (matched[0] ?? null);
+      // The learned screen map rides with the route: a reference the bot reads
+      // before it drives, never a promise the screens are still like this.
+      const map = owner !== null && deps.screenmap ? deps.screenmap.reference(owner) : "";
       return [
         { id: "device", label: "Phone", text },
         { id: "device-place", label: "Where the person is", text: text && PHONE_PLACE_PROMPT[place] },
-        { id: "device-route", label: "A path that worked before", text: text && route ? routePrompt(route, request!) : "" },
+        { id: "device-route", label: "A path that worked before", text: text && `${route ? routePrompt(route, request!) : ""}${route && map ? "\n\n" : ""}${map}` },
       ];
     },
     withheld: (bot, owner) => (owner !== null && mounts(bot, owner) ? phoneWithheldPrompt(bot, phonesOf(owner).map(({ registration }) => registration)) : ""),
