@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { BOT_BODY_IDS } from "../shared/bot-body.ts";
 import { parseBotProfilePatch } from "./bot-profile.ts";
 
 describe("parseBotProfilePatch (strict — the paired boundary)", () => {
@@ -113,12 +114,12 @@ describe("mascotBody", () => {
   });
 
   it("maps an unknown body to a readable message", () => {
+    // Built from the catalog rather than spelled out: the point is the message's shape (every body, comma-joined, "or"
+    // before the last), and a hand-copied list here only makes every new style a test edit.
+    const bodies = BOT_BODY_IDS.slice(0, -1).join(", ");
     expect(parseBotProfilePatch({ mascotBody: "hexagram" } as never, true)).toEqual({
       ok: false,
-      error:
-        "mascotBody must be orb, neko, liquid, synth, spirit, minibot, classic, cursor, blob, circle, squircle, capsule, drop, shield, hexagon, diamond, star, " +
-        "pumpkin, ghost, witch, bat, cat, skull, monster, mummy, vampire, spider, " +
-        "rocket, anaar, chakri, sparkler, bomb, laddu, chakli, jalebi, katli, or karanji",
+      error: `mascotBody must be ${bodies}, or ${BOT_BODY_IDS.at(-1)}`,
     });
   });
 });

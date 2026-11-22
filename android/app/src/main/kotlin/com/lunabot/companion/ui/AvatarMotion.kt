@@ -150,7 +150,7 @@ private fun styleForBodyId(bodyId: String?, fallback: BotAvatarStyle): BotAvatar
         "fox" -> BotAvatarStyle.FOX
         "frog" -> BotAvatarStyle.FROG
         "owl" -> BotAvatarStyle.OWL
-        "ghost" -> BotAvatarStyle.GHOST
+        "wisp" -> BotAvatarStyle.WISP
         "camera" -> BotAvatarStyle.CAMERA
         "cloud" -> BotAvatarStyle.CLOUD
         "classic" -> BotAvatarStyle.CLASSIC

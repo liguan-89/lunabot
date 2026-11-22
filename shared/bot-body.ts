@@ -22,7 +22,7 @@ export const PRESET_STYLE_BODY_IDS = [
   "fox",
   "frog",
   "owl",
-  "ghost",
+  "wisp",
   "camera",
   "cloud",
   "classic",

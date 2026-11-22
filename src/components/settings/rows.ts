@@ -47,7 +47,7 @@ export const SETTINGS_ROWS: readonly SettingsRowEntry[] = [
   { titleKeys: ["rail.show"], section: "appearance", keywords: ["computers", "rail", "strip", "sidebar"], lazy: true },
   { titleKeys: ["settings.windowFrame.title"], section: "appearance", keywords: ["title bar", "frame", "border"], lazy: true },
   { titleKeys: ["settings.userBubbles.title", "settings.userBubbles.simpleTitle"], section: "appearance", keywords: ["bubble", "color", "colour"] },
-  { titleKeys: ["settings.avatarStyle.title"], section: "appearance", keywords: ["avatar", "bot face", "orb", "neko", "synth", "spirit", "minibot", "bunny", "astro", "prism", "bear", "retro", "fox", "frog", "owl", "ghost", "camera", "cloud"], simpleLooks: true },
+  { titleKeys: ["settings.avatarStyle.title"], section: "appearance", keywords: ["avatar", "bot face", "orb", "neko", "synth", "spirit", "minibot", "bunny", "astro", "prism", "bear", "retro", "fox", "frog", "owl", "wisp", "camera", "cloud"], simpleLooks: true },
   { titleKeys: ["settings.font.title"], section: "appearance", keywords: ["typeface", "text size"], simpleLooks: true },
   { titleKeys: ["settings.chatWidth.title"], section: "appearance", keywords: ["wide", "full width", "narrow"], simpleLooks: true },
   { titleKeys: ["settings.threadDisplay.title"], section: "appearance", keywords: ["show threads", "hide threads"], simpleLooks: true },

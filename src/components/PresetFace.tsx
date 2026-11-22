@@ -175,7 +175,7 @@ function eyeSpecFor(style: AvatarStyleId): EyeSpec {
       visor: false,
     };
   }
-  if (style === "ghost") {
+  if (style === "wisp") {
     return {
       left: { x: -12.5, y: -4 },
       right: { x: 12.5, y: -4 },
@@ -580,7 +580,7 @@ function FaceBody({
         </>
       );
 
-    case "ghost":
+    case "wisp":
       return (
         <>
           {/* Minimalist floating ceramic ghost with 3-wave scalloped hem */}

@@ -587,7 +587,7 @@ private fun DrawScope.drawFace(
         BotAvatarStyle.FOX -> drawFoxFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.FROG -> drawFrogFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.OWL -> drawOwlFace(soft, pose, crown, diameter, middle)
-        BotAvatarStyle.GHOST -> drawGhostFace(soft, pose, crown, diameter, middle)
+        BotAvatarStyle.WISP -> drawGhostFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.CAMERA -> drawCameraFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.CLOUD -> drawCloudFace(soft, pose, crown, diameter, middle)
         BotAvatarStyle.CLASSIC -> drawClassicFace(soft, rim, pose, crown, diameter, middle, hands, handBrush, handEdge)

@@ -1961,7 +1961,7 @@ private fun profileBotStyleLabel(style: BotAvatarStyle): String = when (style) {
     BotAvatarStyle.FOX -> "灵耳瓷狐"
     BotAvatarStyle.FROG -> "抹茶瓷蛙"
     BotAvatarStyle.OWL -> "夜羽瓷枭"
-    BotAvatarStyle.GHOST -> "浮云幽灵"
+    BotAvatarStyle.WISP -> "浮云幽灵"
     BotAvatarStyle.CAMERA -> "徕卡微机"
     BotAvatarStyle.CLOUD -> "软绵云朵"
     BotAvatarStyle.CLASSIC -> "经典极简"

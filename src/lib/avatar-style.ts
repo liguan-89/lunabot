@@ -16,7 +16,7 @@ export const AVATAR_STYLE_IDS = [
   "fox",
   "frog",
   "owl",
-  "ghost",
+  "wisp",
   "camera",
   "cloud",
 ] as const;

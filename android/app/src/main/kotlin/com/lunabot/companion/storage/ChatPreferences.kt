@@ -40,7 +40,7 @@ enum class BotAvatarStyle(val wireValue: String) {
     FOX("fox"),
     FROG("frog"),
     OWL("owl"),
-    GHOST("ghost"),
+    WISP("wisp"),
     CAMERA("camera"),
     CLOUD("cloud"),
     CLASSIC("classic"),
