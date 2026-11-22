@@ -1661,11 +1661,10 @@ export function ComputerPanel({
           </div>
         )}
 
-        {phase !== "team-boat" && (bot.computer !== undefined || computerStatusCurrent) && <>
-          <LocalScreenPreview />
-          <LinuxLocalControl />
-          <MacLocalControl /><WindowsLocalControl />
-        </>}
+        {phase !== "team-boat" && (bot.computer !== undefined || computerStatusCurrent) && (
+          <div className="mt-4 flex flex-col gap-4 empty:hidden">
+            <LocalScreenPreview /><LinuxLocalControl /><MacLocalControl /><WindowsLocalControl />
+          </div>)}
 
         {advanced ? <>
           <div className="mt-4 rounded-xl bg-card p-4">
