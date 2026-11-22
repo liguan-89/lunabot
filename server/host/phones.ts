@@ -386,6 +386,23 @@ export function createPhones(deps: PhonesDeps) {
     fromPhone,
     steer,
     phoneRoutes,
+    /** The computer dropped this device: its capability record goes with it. The sidecar's device list is the only
+     * place a phone's token lives, so its removal is the authority here; a record left behind would keep the phone in
+     * `/api/phones`, hold its owner's notice inbox open, and read as "a phone that stopped connecting" rather than as
+     * a phone that is gone. */
+    forgotDevice(deviceId: string): boolean {
+      // Only the companion's own key shape: the same list also holds `session:<id>` rows for browsers and phones paired
+      // as sessions, and an id that happened to match one of those must not delete it.
+      if (!/^[\w-]{1,128}$/.test(deviceId)) return false;
+      const key = `companion:${deviceId}`;
+      try {
+        const removed = registry.remove(key);
+        jobs.drop(key, PHONE_ACCESS_CHANGED);
+        return removed;
+      } catch {
+        return false;
+      }
+    },
     noteSend: (sendId: string) => sends.note(sendId),
     /** A fresh send id, known as the phone's when one of the owner's registered phones made the send. */
     sendIdFor(auth: RequestAuth): string {

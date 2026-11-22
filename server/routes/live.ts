@@ -11,6 +11,9 @@ import type { Upgrades } from "./upgrades.ts";
 
 export interface LiveRouteDeps {
   calls: Pick<LiveCallController, "start" | "end" | "current" | "deviceRevoked">;
+  /** The computer dropped this device: its capability record goes too. Same request as the Live call's end, because
+   * both answer the one question the sidecar is reporting — this phone is gone. */
+  phoneRevoked?(deviceId: string): void;
   resolveTarget(botId: string, threadId: string | undefined): { botId: string; botName: string; threadId: string } | null;
   settings(): LiveSettings;
   saveSettings(patch: { provider?: LiveProvider; azureEndpoint?: string; azureDeployment?: string; qwenEndpoint?: string; qwenModel?: string; volcAppId?: string; volcModel?: string; voice?: string; readTypedReplies?: boolean; idleMinutes?: number }): Promise<LiveSettings>;
@@ -115,7 +118,9 @@ export function createLiveRoutes(deps: LiveRouteDeps): RouteHandler {
       if (req.headers["x-lunabot-companion"] !== "1") return json(res, 403, { error: "Only the phone companion can report an unpaired phone." });
       const device = companionDevice(req);
       if (!device) return json(res, 400, { error: "The unpaired phone was not named." });
-      return json(res, 200, { call: deps.calls.deviceRevoked(device) });
+      const call = deps.calls.deviceRevoked(device);
+      deps.phoneRevoked?.(device);
+      return json(res, 200, { call });
     }
 
     if (method === "PATCH" && path === "/api/live/settings") {

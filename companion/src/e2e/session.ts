@@ -420,7 +420,12 @@ export class E2ESession<Id> {
           if (!socket.readableEnded || !stream.readableEnded || !stream.writableFinished) stream.destroy();
         });
         stream.on("close", () => socket.destroy());
-        stream.pipe(socket);
+        // `end: false`: a phone half-closes once its request body is out (`E2eHttp.request` does exactly that), which
+        // ends this stream's readable side. Letting that end the origin socket tells the HTTP server the exchange is
+        // over, so a reply the handler writes a turn later — every `readJson(req).then(...)` route, `/api/pair`
+        // included — never lands, and the phone reports "connection closed before the response head". The server ends
+        // the socket itself once the response is written.
+        stream.pipe(socket, { end: false });
         socket.pipe(stream);
       },
       () => stream.destroy(),

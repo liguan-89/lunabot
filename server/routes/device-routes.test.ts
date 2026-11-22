@@ -58,7 +58,7 @@ describe("the phone's route list", () => {
   });
 
   it("is the asking device's own list: a restricted phone is told so by the relay's descriptor", async () => {
-    const descriptor = { v: 1 as const, k: "a".repeat(86), h: "b".repeat(22), r: ["relay1.lunabot.com"], routes: "local" as const };
+    const descriptor = { v: 1 as const, k: "a".repeat(86), h: "b".repeat(22), r: ["relay1.openmausbot.com"], routes: "local" as const };
     const { base, asked } = await serve({
       relay: {
         endpoints: () => ({ ...LIST, e2e: descriptor }),

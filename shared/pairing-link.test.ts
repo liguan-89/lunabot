@@ -184,10 +184,17 @@ describe("phonePairingLink", () => {
     const parsed = parseDescriptor(new URL(link).searchParams.get("e2e"));
     expect(parsed).toMatchObject({ outcome: "ok", descriptor: e2e });
     // The builder and the parser hold one host list: every family the fleet answers on survives the round trip.
-    for (const nodes of [["relay1.lunabot.com"], ["relay1.openmausbot.com", "relay2.openmausbot.com"], ["cloud.dexai.vip"]]) {
+    for (const nodes of [["relay1.openmausbot.com", "relay2.openmausbot.com"], ["cloud.dexai.vip"]]) {
       const built = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { ...e2e, r: nodes } })!;
       expect(parseDescriptor(new URL(built).searchParams.get("e2e"))).toMatchObject({ outcome: "ok", descriptor: { r: nodes } });
     }
+    // `lunabot.com` is not this fleet's, so a descriptor naming a node under it goes out with the pinned key and no
+    // relay at all, rather than sending the phone to a stranger. The connection stays encrypted; it just loses the
+    // fallback route.
+    const foreign = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { ...e2e, r: ["relay1.lunabot.com"] } })!;
+    const foreignParsed = parseDescriptor(new URL(foreign).searchParams.get("e2e"));
+    expect(foreignParsed).toMatchObject({ outcome: "ok", descriptor: { v: 1, k } });
+    expect((foreignParsed as { descriptor: Record<string, unknown> }).descriptor).not.toHaveProperty("r");
     const direct = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { v: 1, k } })!;
     expect(parseDescriptor(new URL(direct).searchParams.get("e2e"))).toMatchObject({ outcome: "ok", descriptor: { v: 1, k } });
     for (const bad of [{ v: 1 as const, k: "short" }, { ...e2e, r: ["relay.example.com"] }]) {
