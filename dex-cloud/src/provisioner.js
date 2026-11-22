@@ -75,6 +75,11 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
 
   async function provision(cloud) {
     try {
+      // The daemon does not pull on create (the CLI does): without this check a
+      // missing image is a bare 404 that reads like a control plane bug.
+      if (!(await docker.imageExists(config.cloudImage))) {
+        throw Object.assign(new Error(`cloud image missing: ${config.cloudImage}`), { code: "cloud_image_missing" });
+      }
       store.updateCloud(cloud.id, { setup_step: "storage", setup_progress: 0.4, power_state: "awake" });
       await docker.createVolume(volumeName(cloud.id));
       store.updateCloud(cloud.id, { setup_step: "starting", setup_progress: 0.65 });
@@ -91,7 +96,9 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       await docker.startContainer(containerName(cloud.id));
       store.updateCloud(cloud.id, { setup_step: "checking", setup_progress: 0.9 });
       if (!(await waitHealthy(cloud))) {
-        store.updateCloud(cloud.id, { status: "offline", setup_step: null, setup_progress: null });
+        // No container came up, so `awake` would be a lie the row keeps forever
+        // (nothing retries on its own): sleep it, and a wake re-provisions.
+        store.updateCloud(cloud.id, { status: "offline", setup_step: null, setup_progress: null, power_state: "asleep" });
         return;
       }
       store.updateCloud(cloud.id, {
@@ -103,8 +110,10 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       });
       log(`cloud ${cloud.id} is ready at https://${cloud.hostname}`);
     } catch (error) {
-      log(`cloud ${cloud.id} provisioning failed: ${error?.message ?? error}`);
-      store.updateCloud(cloud.id, { status: "offline", setup_step: null, setup_progress: null });
+      // Docker errors carry the daemon's own message in `body` ("No such image:
+      // …"); without it the log shows only the status code.
+      log(`cloud ${cloud.id} provisioning failed: ${error?.body?.message ?? error?.message ?? error}`);
+      store.updateCloud(cloud.id, { status: "offline", setup_step: null, setup_progress: null, power_state: "asleep" });
     }
   }
 
