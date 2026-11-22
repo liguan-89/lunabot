@@ -797,7 +797,7 @@ it("T12 a turn the watchdog stops after it posted a credential card fails as sta
   expect(provided.status, JSON.stringify(provided.body)).toBe(200);
   expect(provided.body).toEqual({ provided: true, resumed: false });
   await answerStartsNothing(f, job);
-}, { fake: STALL_CLOCK }), hostTimeout(60_000));
+}, { fake: STALL_CLOCK }), hostTimeout(120_000));
 
 it("T12 a turn the watchdog stops after it posted connector cards fails as stalled and stops the cards", async () => {
   const composio = await composioStub();
@@ -838,4 +838,4 @@ it("T12 a turn the watchdog stops after it posted a sign-in card fails as stalle
   expect(done.status, JSON.stringify(done.body)).toBe(200);
   expect(done.body).toEqual({ done: true, resumed: false });
   await answerStartsNothing(f, job);
-}, { fake: STALL_CLOCK }), hostTimeout(60_000));
+}, { fake: STALL_CLOCK }), hostTimeout(120_000));

@@ -219,9 +219,10 @@ linux:
   vendor: Luna Bot
   # The linux build overrides productName to LunaBot (package.json's package:linux*)
   # so the deb installs under the spaceless /opt/LunaBot — Electron cannot exec
-  # from a spaced path. syncDesktopName would stamp that overridden name into the
-  # launcher, so the desktop entry's explicit Name: "Luna Bot" below is the display.
-  syncDesktopName: false
+  # from a spaced path. Name stays "Luna Bot" via the explicit entry below.
+  # syncDesktopName names the .desktop file after package.json's desktopName
+  # (com.lunabot.app.desktop), matching Electron's app_id for window association.
+  syncDesktopName: true
   # The reviewed x64 CLI runtime is staged before packaging and remains
   # outside ASAR so executable modes and adjacent sidecars are preserved.
   extraResources:
