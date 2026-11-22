@@ -108,6 +108,42 @@ const tools: PhoneTool[] = [
       },
     },
   }, ["commands"]),
+  tool("PHONE_UI_DO_EACH", "Run the same body of screen commands for every item of a list on the phone's screen — open each item, act on it, come back — without visiting each one yourself. Give how to recognize one item and the steps for ONE item; the loop finds the next undone item, scrolls for more and stops at the end, answering one compact summary with the ending screen.", {
+    item: {
+      type: "object",
+      description: "How to recognize one list item on the current screen. Give at least one of the three.",
+      properties: {
+        text: TEXT(200, "Text or description every item's label contains."),
+        resourceId: TEXT(200, "Substring of every item's view id."),
+        role: TEXT(100, "Substring of every item's accessibility class."),
+      },
+      additionalProperties: false,
+    },
+    body: {
+      type: "array", minItems: 1, maxItems: 30, description: "The steps for ONE item, in the order to run them, same shape as PHONE_UI_RUN's commands. A step's text of exactly \"@item\" means the current item: the target for a tap, the content for a type. End with the step that returns to the list (usually back) when each body opens an item.",
+      items: {
+        type: "object",
+        properties: {
+          op: { type: "string", enum: ["launch", "tap", "type", "scroll", "swipe", "key", "back", "wait", "assert", "observe"], description: "What to do." },
+          app: TEXT(200, "The Android app's package name, for launch."),
+          ref: TEXT(64, "An element ref, for a target known exactly; it is found again on the current screen."),
+          text: TEXT(2000, "For tap, the visible text of the target; \"@item\" names the current item; for type, what to type, where \"@item\" types the item's label; for assert, the text that must be present."),
+          resourceId: TEXT(200, "Full or partial Android view id of the target."),
+          role: TEXT(100, "Full or partial accessibility class or role of the target."),
+          direction: { type: "string", enum: ["up", "down", "left", "right"], description: "Where the finger moves, for scroll and swipe." },
+          key: { type: "string", enum: ["back", "enter", "del", "tab", "up", "down", "left", "right"], description: "Which key, for key." },
+          timeoutMs: { type: "integer", minimum: 300, maximum: 6000, description: "Longest wait in milliseconds, for wait." },
+          present: { type: "boolean", description: "For assert: true when the text must be present, false when it must be absent." },
+          pressEnter: { type: "boolean", description: "For type: press enter after typing." },
+        },
+        required: ["op"],
+        additionalProperties: false,
+      },
+    },
+    on_error: { type: "string", enum: ["stop", "skip"], description: "When one item's body fails: stop (default; report and leave the rest) or skip (mark that item done and continue)." },
+    reveal: { type: "string", enum: ["scroll", "none"], description: "How to find more items when the visible ones are done: scroll (default) or none." },
+    max_items: { type: "integer", minimum: 1, maximum: 50, description: "Safety cap on items processed per call (default 20)." },
+  }, ["item", "body"]),
   tool("PHONE_UI_WAIT", "Wait for the phone's screen to change, to stop changing, or for a text to appear or disappear, before deciding the next step. Read only.", {
     mode: { type: "string", enum: ["change", "settle", "appear", "disappear"], description: "change waits for any change; settle waits for the screen to stop; appear waits until the text is on the screen and disappear until it is gone." },
     text: TEXT(200, "Case-insensitive text or content description to wait for; required for appear and disappear."),

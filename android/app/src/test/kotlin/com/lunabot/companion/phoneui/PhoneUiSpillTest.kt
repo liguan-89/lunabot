@@ -49,6 +49,32 @@ class PhoneUiSpillTest {
     }
 
     @Test
+    fun `user activity just before the action makes the arrival too uncertain to pull back`() {
+        // The touch count moved between actions, so the person was driving
+        // even though no timestamped tap sits inside this window (#798).
+        val decision = PhoneUiSpill.decide(
+            arrivals = listOf(PhoneUiSpill.Arrival(49, "com.example.shop", 1_000)),
+            since = 500, topBefore = 7, userTouchedAt = null,
+            excludedPackages = emptySet(), pickerPackages = pickers, homePackages = home,
+            userActiveBefore = true,
+        )
+        assertEquals(PhoneUiSpill.Verdict.None, decision.verdict)
+        assertEquals(49, decision.arrival?.taskId)
+    }
+
+    @Test
+    fun `user activity before the action quiets a picker arrival too`() {
+        // Ownership is uncertain; either way there is nothing for us to do.
+        val decision = PhoneUiSpill.decide(
+            arrivals = listOf(PhoneUiSpill.Arrival(50, "android", 1_000)),
+            since = 500, topBefore = 7, userTouchedAt = null,
+            excludedPackages = emptySet(), pickerPackages = pickers, homePackages = home,
+            userActiveBefore = true,
+        )
+        assertEquals(PhoneUiSpill.Verdict.None, decision.verdict)
+    }
+
+    @Test
     fun `the task that was already on top is not a spill`() {
         val decision = PhoneUiSpill.decide(
             arrivals = listOf(PhoneUiSpill.Arrival(7, "com.example.other", 1_000)),

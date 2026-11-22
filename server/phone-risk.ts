@@ -22,13 +22,14 @@ export type ActionRisk = (typeof ACTION_RISK)[number];
  *   PHONE_UI_TYPE                   typing edits the focused field
  *   PHONE_UI_KEY                    a key acts on the focused field, and enter submits
  *   PHONE_UI_RUN                    an ordered chain of the steps above
+ *   PHONE_UI_DO_EACH                the same chain, once per list item
  *
  * Everything else leaves the screen's state alone. PHONE_UI_SCROLL, PHONE_UI_SWIPE, PHONE_UI_BACK and PHONE_UI_LAUNCH
  * only move between screens; PHONE_UI_COLLECT and PHONE_UI_FIND scroll only to read. The rest read, or act off the
  * screen altogether, so this table never decides them.
  */
 export const CHANGE_VERBS: ReadonlySet<string> = new Set([
-  "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN",
+  "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN", "PHONE_UI_DO_EACH",
 ]);
 
 /**

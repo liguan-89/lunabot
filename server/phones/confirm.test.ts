@@ -81,6 +81,15 @@ describe("controlFor", () => {
     expect(controlFor("PHONE_UI_SWIPE", { direction: "up" }, payScreen)).toBeNull();
   });
 
+  it("judges a do-each loop by its body steps, and records the screen it ends on", () => {
+    // The body's first classified step on this screen refuses the whole loop.
+    const body = { item: { text: "row" }, body: [{ op: "tap", ref: "e3" }, { op: "tap", ref: "e1" }] };
+    expect(controlFor("PHONE_UI_DO_EACH", body, payScreen)).toMatchObject({ element: { text: "付款" } });
+    // A body whose targets are all harmless, or not on this screen, has nothing to judge.
+    expect(controlFor("PHONE_UI_DO_EACH", { item: { text: "row" }, body: [{ op: "tap", ref: "e3" }] }, payScreen)).toBeNull();
+    expect(recordsScreen("PHONE_UI_DO_EACH")).toBe(true);
+  });
+
   it("finds the classified step of a run, so a run is not a way around the gate", () => {
     const run = { commands: [{ op: "tap", ref: "e3" }, { op: "tap", ref: "e1" }] };
     expect(controlFor("PHONE_UI_RUN", run, payScreen)).toMatchObject({ element: { text: "付款" } });

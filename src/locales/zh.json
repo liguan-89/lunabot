@@ -9640,6 +9640,7 @@
   "chat.notice.phone.write.PHONE_UI_KEY": "在 {phone} 上按键",
   "chat.notice.phone.write.PHONE_UI_BACK": "在 {phone} 上返回上一屏",
   "chat.notice.phone.write.PHONE_UI_RUN": "在 {phone} 上执行多个步骤",
+  "chat.notice.phone.write.PHONE_UI_DO_EACH": "对 {phone} 上的每个列表条目执行同样的步骤",
   "chat.notice.phone.write.PHONE_FILE_SHARE": "在 {phone} 上分享文件",
   "chat.notice.phone.write.PHONE_SET_ALARM": "在 {phone} 上设置闹钟",
   "chat.notice.phone.write.PHONE_SET_TIMER": "在 {phone} 上设置计时器",

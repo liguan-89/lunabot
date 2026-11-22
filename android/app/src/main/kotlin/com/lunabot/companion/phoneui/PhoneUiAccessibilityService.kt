@@ -83,7 +83,17 @@ class PhoneUiAccessibilityService : AccessibilityService() {
     /** When the person last touched the phone's own screen, or 0. */
     private val mainTouchAtMs = java.util.concurrent.atomic.AtomicLong(0L)
 
+    /**
+     * How many user touches the person's own screen has seen. A tap that lands
+     * between two of our actions only moves the count — its timestamp already
+     * sits before the next action's window, so the count is what says the
+     * person was driving (Mika's `mainInteractionCount`, upstream #798).
+     */
+    private val mainTouchCount = java.util.concurrent.atomic.AtomicLong(0L)
+
     val lastMainScreenTouchAtMs: Long get() = mainTouchAtMs.get()
+
+    val mainScreenTouchCount: Long get() = mainTouchCount.get()
 
     internal inline fun <T> withLatestSnapshot(block: () -> T): T = synchronized(refLock, block)
 
@@ -122,6 +132,7 @@ class PhoneUiAccessibilityService : AccessibilityService() {
             event.displayId == Display.DEFAULT_DISPLAY && isUserTouch(event.eventType)
         ) {
             mainTouchAtMs.set(now)
+            mainTouchCount.incrementAndGet()
         }
         // Only a window change means a different window is in front, so refs
         // issued for the previous window must not resolve. Content changes are
