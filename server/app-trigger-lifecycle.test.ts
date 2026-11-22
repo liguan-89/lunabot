@@ -32,9 +32,16 @@ async function harness(overrides: Partial<AppTriggerBroker>) {
   return { manager, enqueue };
 }
 
+/** Promise.withResolvers is not in this tsconfig's lib yet. */
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((res) => { resolve = res; });
+  return { promise, resolve };
+}
+
 it("retires an old loop when restarted during reconciliation and keeps the replacement joinable", async () => {
-  const first = Promise.withResolvers<BrokerInventory>(), second = Promise.withResolvers<BrokerInventory>();
-  const entered = Promise.withResolvers<void>(), unexpectedPoll = Promise.withResolvers<void>();
+  const first = deferred<BrokerInventory>(), second = deferred<BrokerInventory>();
+  const entered = deferred<void>(), unexpectedPoll = deferred<void>();
   let inventories = 0;
   const { manager } = await harness({
     inventory: () => { inventories++; entered.resolve(); return inventories === 1 ? first.promise : second.promise; },
@@ -68,7 +75,7 @@ it("retires an old loop when restarted during reconciliation and keeps the repla
 });
 
 it("leaves an aborted poll's late events unacknowledged and unstarted", async () => {
-  const received = Promise.withResolvers<Awaited<ReturnType<AppTriggerBroker["poll"]>>>();
+  const received = deferred<Awaited<ReturnType<AppTriggerBroker["poll"]>>>();
   const seenCursors: number[] = [];
   const { manager, enqueue } = await harness({ poll: ({ after }) => { seenCursors.push(after); return received.promise; } });
   const controller = new AbortController();
@@ -84,7 +91,7 @@ it("leaves an aborted poll's late events unacknowledged and unstarted", async ()
 });
 
 it("keeps start idempotent and lets wake replace only the current wait", async () => {
-  const first = Promise.withResolvers<void>(), second = Promise.withResolvers<void>();
+  const first = deferred<void>(), second = deferred<void>();
   const signals: AbortSignal[] = [];
   const { manager } = await harness({ poll: async ({ signal }) => {
     signals.push(signal!);
