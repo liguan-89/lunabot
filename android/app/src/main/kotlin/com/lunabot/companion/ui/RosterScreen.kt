@@ -447,9 +447,10 @@ fun RosterScreen(navigator: CompanionNavigator) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when {
-                    showLiveHeroChat && hero != null -> {
-                        val restoredChat = remember(hero.id, connection?.id) {
-                            environment.chatPreferences.restoringThread(hero.chat, connection?.id)
+                    showLiveHeroChat -> {
+                        val activeHero = hero!!
+                        val restoredChat = remember(activeHero.id, connection?.id) {
+                            environment.chatPreferences.restoringThread(activeHero.chat, connection?.id)
                         }
                         val activeTarget = embeddedHeroTarget ?: restoredChat.target
                         ChatScreen(
@@ -479,6 +480,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
                         heroName = heroBot?.name ?: "Luna",
                         computerName = connection?.name,
                         status = status,
+                        extraTopPadding = (topClearance - 58.dp).coerceAtLeast(0.dp),
                         onOpenComputer = heroBot?.let { bot -> { navigator.push(Destination.Computer(bot.id)) } },
                         onOpenOverview = heroBot?.let { bot -> { navigator.push(Destination.Overview(bot.id)) } },
                         onSwitchComputer = { choosingComputer = true },
@@ -1242,7 +1244,7 @@ private fun RosterHero(
         }
 
         // Frosted glass host status pill (IP stays tucked inside the switcher sheet).
-        if (showHostPill && computerName != null) {
+        if (showHostPill) {
             val statusText = when (status) {
                 Session.Status.Live -> "已连接"
                 Session.Status.Connecting -> "连接中"
@@ -1494,7 +1496,12 @@ private fun ComputerSheet(
         scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
         GlassBackdrop()
-        Column(modifier = Modifier.padding(bottom = 24.dp)) {
+        Column(
+            modifier = Modifier
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp),
+        ) {
             Text(
                 text = "电脑",
                 fontSize = 17.sp,
@@ -2249,6 +2256,7 @@ private fun MuseLibraryTab(
     heroName: String,
     computerName: String?,
     status: Session.Status,
+    extraTopPadding: Dp = 0.dp,
     onOpenComputer: (() -> Unit)?,
     onOpenOverview: (() -> Unit)?,
     onSwitchComputer: () -> Unit,
@@ -2276,7 +2284,7 @@ private fun MuseLibraryTab(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 6.dp, bottom = 12.dp),
+                .padding(top = 6.dp + extraTopPadding, bottom = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
@@ -2644,6 +2652,30 @@ private fun MuseDrawerContent(
                         if (summary.chat.unread) {
                             Box(Modifier.size(7.dp).background(minisInk, CircleShape))
                         }
+                    }
+                }
+                if (companions.size > 5) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable(role = Role.Button) { onSelectTab(1) }
+                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "查看全部 ${companions.size} 个助手",
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = minisSecondary,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = minisTertiary,
+                            modifier = Modifier.size(16.dp),
+                        )
                     }
                 }
             }

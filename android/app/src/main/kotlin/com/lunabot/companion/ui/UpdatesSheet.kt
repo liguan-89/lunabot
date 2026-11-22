@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -186,7 +187,10 @@ internal fun UpdatesSheet(onOpen: (Chat) -> Unit, onDismiss: () -> Unit) {
         scrimColor = Color.Black.copy(alpha = 0.22f),
     ) {
         GlassBackdrop()
-        LazyColumn(contentPadding = PaddingValues(bottom = 24.dp)) {
+        LazyColumn(
+            modifier = Modifier.navigationBarsPadding(),
+            contentPadding = PaddingValues(bottom = 24.dp),
+        ) {
             item(key = "header") {
                 Row(
                     modifier = Modifier

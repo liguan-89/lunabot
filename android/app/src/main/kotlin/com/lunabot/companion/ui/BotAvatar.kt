@@ -215,7 +215,7 @@ internal fun BotAvatar(
             val raw = libraryFace ?: bot.color
             if (bot.chiefOfStaff == true) {
                 raw
-            } else if (raw.isNullOrBlank() || raw.equals("white", ignoreCase = true)) {
+            } else if (raw.isNullOrBlank()) {
                 val mineralPalette = listOf("blue", "orange", "mint", "purple", "coral")
                 mineralPalette[(bot.id.hashCode() and 0x7FFFFFFF) % mineralPalette.size]
             } else {
