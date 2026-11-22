@@ -52,7 +52,7 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
   `e2e=<b64u(JSON)>`, where the JSON is:
 
 ```json
-{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.lunabot.com","relay2.lunabot.com"]}
+{"v":1,"k":"<b64u 65-byte T.pub, 87 chars>","h":"<b64u 16-byte hostId, 22 chars>","r":["relay1.openmausbot.com","relay2.openmausbot.com"]}
 ```
 
 - **Field rules:**
@@ -62,9 +62,13 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
     Tailscale only" still gets them: they admit nothing by themselves, and they let a restricted phone away from home probe the relay
     now and then (4404 until it is allowed again).
   - `r` lists 1 to 4 hostnames in the order to try. Each MUST match
-    `^(?:relay[1-9][0-9]?\.(?:lunabot|openmausbot)\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The three families are
-    the fleet's own names, the names a phone paired before the rename holds pinned, and the node the deployed control
-    plane issues today. An implementation MUST accept all three and MUST NOT write a host outside them.
+    `^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
+    phone paired before the rename holds pinned, and the node the deployed control plane issues today. An implementation
+    MUST accept both and MUST NOT write a host outside them.
+  - `lunabot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.lunabot.com` node
+    belongs to whoever holds the registration, not to the fleet: a phone sent there would hand a stranger its `hostId`
+    and admission hash, and a stranger's silence would read as "your computer is asleep". A descriptor naming one MUST
+    be refused like any other host outside the list.
   - `routes` is optional, `"any"` or `"local"`. `"local"` means the computer restricted this device to Wi-Fi and
     Tailscale; it may come with `h` and `r` (an older computer sends it without them). Absent means `"any"`, so a
     descriptor without `h` and `r` and without `"local"` only says the computer has no relay right now (signed out, or
@@ -271,7 +275,7 @@ own the `sid`, and a `sid` is single-use with a 10 s life. The relay then splice
 **Control plane endpoint:** `POST /v1/installations/self/relay-token` with `Authorization: Bearer <omb_install_…>`.
 - **Request body:** `{"appVersion":"0.1.150","devices":{"e2e":2,"legacy":1}}`. The counts are for adoption gates and carry no
   identifiers.
-- **200 response:** `{"token","hostId","nodes":["relay1.lunabot.com"],"expiresAt","refreshAfter"}`.
+- **200 response:** `{"token","hostId","nodes":["cloud.dexai.vip"],"expiresAt","refreshAfter"}`.
   - `refreshAfter = iat + 1 h`.
   - `nodes` is ordered by rendezvous hash: highest `SHA256(hostId ‖ nodeName)[0:8]` first. A future US node is ranked first when the
     request's `cf.continent` is NA or SA.

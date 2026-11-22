@@ -5,6 +5,7 @@ import {
   claimPhonePairingAttempt,
   closePhonePairingIfOwned,
   completePhonePairingAttempt,
+  companionPairingMode,
   companionPairingOpenFailure,
   companionStartFailure,
   derivePhoneSetupPhase,
@@ -200,6 +201,33 @@ describe("phone setup flow", () => {
     };
     expect(phonePairingGate(account("ready"), hosted, false)).toBe("open");
     expect(automaticPairingRouteMode("automatic", hosted)).toBe("automatic");
+  });
+
+  /** The control plane answered `409 relay_capable` with `tunnel: "retired"`: it will never issue this computer a
+   * hosted address, so waiting for one waits forever and ends in "secure access is taking longer than expected". */
+  it("opens the local route when the control plane retired the hosted address", () => {
+    const retired = { ...account("ready"), tunnelRetired: true };
+    const local = { enabled: true, endpoints: [] };
+    expect(companionPairingMode(retired, local)).toBe("local-ready");
+    expect(phonePairingGate(retired, local, false)).toBe("open");
+    expect(automaticPairingRouteMode("automatic", local, retired)).toBe("local");
+    // Nothing to prepare: the address is not coming back, so asking for one again would only spin.
+    expect(shouldPrepareSecureAddress("local", "open", retired)).toBe(false);
+
+    // Without the flag the same computer waits, which is what the flow did before this case existed.
+    expect(companionPairingMode(account("ready"), local)).toBe("hosted-connecting");
+    expect(phonePairingGate(account("ready"), local, false)).toBe("wait");
+    expect(automaticPairingRouteMode("automatic", local, account("ready"))).toBe("automatic");
+  });
+
+  it("still prefers a hosted endpoint a retiring control plane did hand out", () => {
+    const retired = { ...account("ready"), tunnelRetired: true };
+    const hosted = {
+      enabled: true,
+      endpoints: [{ kind: "hosted" as const, url: "https://c-x.cloud.dexai.vip", priority: 0 }],
+    };
+    expect(companionPairingMode(retired, hosted)).toBe("hosted-ready");
+    expect(automaticPairingRouteMode("automatic", hosted, retired)).toBe("automatic");
   });
 
   it("tells the desktop about automatic pairing, which keeps or creates the secure address", () => {

@@ -178,7 +178,7 @@ test("control plane creates installations and mints a relay token the relay key 
       devices: { e2e: true, legacy: 0 },
     }, installation.body.credential);
     assert.equal(grant.status, 200);
-    assert.deepEqual(grant.body.nodes, ["relay1.dexai.vip"]);
+    assert.deepEqual(grant.body.nodes, ["cloud.dexai.vip"]);
     assert.match(grant.body.hostId, /^[A-Za-z0-9_-]{22}$/);
 
     const [body, signature] = grant.body.token.split(".");
@@ -323,6 +323,9 @@ test("the defaults name Luna Bot's own image and update manifest", async () => {
     DEXCLOUD_LATEST_VERSION: "9.8.7",
   });
   assert.equal(overridden.cloudImage, "example.invalid/cloud-home:test");
+  // The default node is one this deployment actually serves the relay on. A bare `relayN.dexai.vip` needs its own
+  // Caddy site block; without one the TLS handshake fails and every grant is useless.
+  assert.deepEqual(defaults.relayNodes, ["cloud.dexai.vip"]);
 
   const app = await start(overridden);
   try {
