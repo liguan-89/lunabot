@@ -225,7 +225,10 @@ await import(${JSON.stringify(pathToFileURL(join(SERVER_DIR, "testing", "fake-pi
     const deadline = Date.now() + 30_000;
     for (;;) {
       if (child.exitCode !== null) throw new Error(`${name} exited:\n${logs}`);
-      try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return child; } catch {}
+      // A squatter that won the probe→bind race also answers /api/health; only the child's own listen line proves the port is its.
+      if (logs.includes(`lunabot server on http://127.0.0.1:${port}`)) {
+        try { if ((await fetch(`http://127.0.0.1:${port}/api/health`)).ok) return child; } catch {}
+      }
       if (Date.now() > deadline) throw new Error(`${name} did not start:\n${logs}`);
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
