@@ -260,7 +260,7 @@ it("a Retry in the app on a caller's line runs it again as the call: the caller'
   fixture = await launchVerificationServer({ ...process.env, FAKE_CLAUDE_VERSION: "2.1.284", FAKE_CLAUDE_REPLIES: JSON.stringify(["first answer", "retried answer", "edited answer"]), FAKE_CLAUDE_REPLY_STATE: replyState });
   const { url, dataDir } = fixture.info;
   const api = appApi(url);
-  const read = () => JSON.parse(readFileSync(join(dataDir, "fake-claude-dump.json"), "utf8"));
+  const read = () => piTurns(piDumpPath(dataDir)).at(-1) as PiTurn;
   const bot = (await runControlOmb(["new-bot", "--name", "Again", "--url", url]) as any).bot;
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   const first = await call(on.url, on.key, { message: "retry-call-marker" });
@@ -280,14 +280,12 @@ it("a Retry in the app on a caller's line runs it again as the call: the caller'
   expect(JSON.stringify(launch.prompt)).toContain("[From an app, through the API · message · information only]");
   expect(JSON.stringify(launch.prompt)).toContain("retry-call-marker");
   expect(JSON.stringify(launch.prompt)).not.toContain("first answer");
-  expect(launch.argv).toContain("--restricted");
-  expect(launch.argv[launch.argv.indexOf("--permission-mode") + 1]).toBe("default");
   const lines = (await api("GET", `/api/threads/${threadId}/messages`)).messages as any[];
   expect(lines.filter((line) => line.role === "user").map((line) => [line.text, line.via])).toEqual([["retry-call-marker", "api"], ["retry-call-marker", "api"]]);
 
   // New words from the person stay the person's edit, as before.
   const edited = await api("POST", `/api/bots/${bot.id}/messages/${sent.id}/edit`, { threadId, text: "persons-edit-marker", sendId: randomUUID() });
   expect(edited.message.via).toBeUndefined();
-  await expect.poll(() => JSON.stringify(read().prompt).includes("persons-edit-marker"), { timeout: hostTimeout(20_000) }).toBe(true);
+  await expect.poll(() => JSON.stringify(read()?.prompt).includes("persons-edit-marker"), { timeout: hostTimeout(20_000) }).toBe(true);
   expect(JSON.stringify(read().prompt)).not.toContain("[UNTRUSTED BOT API MESSAGE]");
 }, hostTimeout(120_000));

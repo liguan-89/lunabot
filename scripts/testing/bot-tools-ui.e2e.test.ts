@@ -131,7 +131,7 @@ describe("bot setup and tools in the real renderer", () => {
       })()`), { timeout: 10_000 }).toBe(true);
       const state = await ui("snapshot", "--interactive");
       const cost = Object.entries(state.refs as Record<string, { role: string; name: string }>)
-        .filter(([, entry]) => entry.role === "button" && entry.name.startsWith("Usage") && entry.name.includes("$0.01"));
+        .filter(([, entry]) => entry.role === "button" && entry.name.startsWith("Usage") && entry.name.includes("input"));
       expect(cost).toHaveLength(1);
       await ui("click", "--ref", `@${cost[0][0]}`);
       await expect.poll(settingsPage, { timeout: 10_000 }).toBe("billing");

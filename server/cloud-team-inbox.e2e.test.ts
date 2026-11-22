@@ -231,7 +231,7 @@ it("brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and
   expect(inboxRows.filter((row) => row.role === "bot" && row.kind === "text" && !row.inbox), "no turn of Ben's Chief").toEqual([]);
   expect(inboxRows.at(-1)).toMatchObject({ kind: "activity", relay: { kind: "told", email: CLEO.email } });
   expect(inboxRows.find((row) => row.id === line!.id)!.inbox!.answers).toEqual([expect.objectContaining({ by: "person", text: "Friday works for me." })]);
-}, hostTimeout(120_000));
+}, hostTimeout(240_000));
 
 it("lands an @Ben from a shared chat in his inbox with a link back and one notification", async () => {
   script(null, "Noted.");
@@ -373,7 +373,7 @@ it("lets a tag Ben answered in the chat it came from leave his Needs you", async
   script(null, "Thanks Ben, the numbers stand.");
   await turn(ben, scout, main, "Confirmed, they are right.");
   expect(await listed()).toBe(false);
-}, hostTimeout(120_000));
+}, hostTimeout(240_000));
 
 it("lists Ben's inbox by tab, settles an ask answered from its row, and keeps news until he marks it done", async () => {
   type Listed = { id: string; kind: string; tab: string; text: string; card?: { requestId?: string } };

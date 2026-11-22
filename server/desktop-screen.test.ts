@@ -18,52 +18,62 @@ import type { LocalComputerConnection } from "./local-computer.ts";
  * Every test here drives a scripted stand-in for the desktop's Cua Driver, so nothing needs a Mac and nothing can touch
  * a real screen.
  *
- * The stand-in is an executable file with a node shebang, because `callDriver` builds the argv itself
- * (`call <tool> <json> --socket <path>`, the real binary's shape) and ignores `connection.args`. A file command keeps
- * that shape: argv[1] is the subcommand, argv[2] the tool and argv[3] its JSON, exactly as the driver sees them.
+ * `callDriver` builds the argv itself (`call <tool> <json> --socket <path>`, the real binary's shape) and ignores
+ * `connection.args`, so the stand-in must be the executable. Node is that executable on every platform: `--require`
+ * loads the script before the entry is read, where it sees argv as [<node>, <resolved "call" path>, <tool>, <json>,
+ * ...] and exits before node would try to open a file named "call". A shebang file would only work on POSIX (Windows
+ * spawn refuses it: EFTYPE).
  */
 function driverConnection(script: string): LocalComputerConnection {
   const scratch = mkdtempSync(join(tmpdir(), "lunabot-driver-"));
   // CommonJS: the stand-in uses require(), and an .mjs file would not have it.
   const file = join(scratch, "driver.cjs");
-  writeFileSync(file, `#!/usr/bin/env node\n${script}\n`, { mode: 0o755 });
+  writeFileSync(file, `${script}\n`);
   return {
-    command: file,
+    command: process.execPath,
     // The descriptor's own args name the socket; `desktopScreenSocket` reads them and `callDriver` rebuilds the rest.
     args: ["mcp", "--embedded", "--socket", "/tmp/fake-driver.sock"],
-    env: {},
+    env: { NODE_OPTIONS: `--require ${file}` },
     platform: "linux",
     scope: "local-computer",
   };
 }
 
+/**
+ * Node resolves the "call" entry to an absolute path before preloads run, so argv[1] is the path, not the word; the
+ * script must also exit itself or node goes on to load that path and fails.
+ */
+const GUARD = `if (require("node:path").basename(process.argv[1] ?? "") !== "call") process.exit(2);`;
+
 /** A driver that answers a capture by writing [pngBase64] where it is told and printing [stdout]. */
 function captureDriver({ stdout, pngBase64 }: { stdout: string; pngBase64?: string }): string {
   const write = pngBase64
-    ? `const args = JSON.parse(process.argv[4] ?? "{}");
+    ? `const args = JSON.parse(process.argv[3] ?? "{}");
        if (args.screenshot_out_file) require("node:fs").writeFileSync(args.screenshot_out_file, Buffer.from(${JSON.stringify(pngBase64)}, "base64"));`
     : "";
-  return `if (process.argv[2] !== "call") process.exit(2);
+  return `${GUARD}
     ${write}
-    console.log(${JSON.stringify(stdout)});`;
+    console.log(${JSON.stringify(stdout)});
+    process.exit(0);`;
 }
 
 /**
  * A driver that records each call's tool and arguments to RECORD_PATH and answers `list_windows` with one window, so a
  * click has something to activate. Everything else exits 0 with no output, which is what the action paths expect.
  */
-const RECORDER = `if (process.argv[2] !== "call") process.exit(2);
-  const tool = process.argv[3];
-  const args = JSON.parse(process.argv[4] ?? "{}");
+const RECORDER = `${GUARD}
+  const tool = process.argv[2];
+  const args = JSON.parse(process.argv[3] ?? "{}");
   require("node:fs").appendFileSync(process.env.RECORD_PATH, JSON.stringify({ tool, args }) + "\\n");
   if (tool === "get_screen_size") console.log(JSON.stringify({ width: 1710, height: 1107, scale_factor: 1 }));
   if (tool === "list_windows") console.log(JSON.stringify({ windows: [
     { pid: 42, window_id: 4242, app_name: "Test", title: "Doc", layer: 0, z_index: 0,
       bounds: { x: 100, y: 100, width: 400, height: 300 } },
-  ] }));`;
+  ] }));
+  process.exit(0);`;
 
-/** A one-pixel PNG: enough for wholeScreenshot to accept it as a complete image. */
-const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+/** A small valid PNG, over wholeScreenshot's 512-byte floor (the pre-sips path needs the raw file to pass on its own). */
+const PNG = readFileSync(new URL("./testing/fixtures/desktop-screen.png", import.meta.url)).toString("base64");
 
 describe("desktopScreenSocket", () => {
   it("reads the --socket argument the app's descriptor carries", () => {
@@ -155,9 +165,14 @@ describe("captureDesktopScreen", () => {
       ),
       { maxImageDimension: 1280 },
     );
-    expect(frame.png).not.toBe(PNG);
-    // macOS re-encodes the driver's PNG to JPEG (`sips`), so the bytes are not the ones the stand-in wrote. What matters
-    // is that a whole picture came back, in a format the phone can decode, with the sizes a tap is scaled by.
+    // macOS re-encodes the driver's PNG to JPEG (`sips`), so the bytes are not the ones the stand-in wrote; other
+    // platforms keep the PNG untouched. What matters is that a whole picture came back, in a format the phone can
+    // decode, with the sizes a tap is scaled by.
+    if (process.platform === "darwin") {
+      expect(frame.png).not.toBe(PNG);
+    } else {
+      expect(frame.png).toBe(PNG);
+    }
     expect(Buffer.from(frame.png, "base64").length).toBeGreaterThan(512);
     expect(frame.mime).toBe(process.platform === "darwin" ? "image/jpeg" : "image/png");
     expect([frame.imageWidth, frame.imageHeight]).toEqual([1280, 829]);
@@ -168,10 +183,11 @@ describe("captureDesktopScreen", () => {
   it("asks for the long-edge cap it was given", async () => {
     const frame = await captureDesktopScreen(
       driverConnection(
-        `if (process.argv[2] !== "call") process.exit(2);
-         const args = JSON.parse(process.argv[4] ?? "{}");
+        `${GUARD}
+         const args = JSON.parse(process.argv[3] ?? "{}");
          require("node:fs").writeFileSync(args.screenshot_out_file, Buffer.from(${JSON.stringify(PNG)}, "base64"));
-         console.log(JSON.stringify({ screen_width: 10, screen_height: 10, screenshot_width: 5, screenshot_height: 5, cap: args.max_image_dimension }));`,
+         console.log(JSON.stringify({ screen_width: 10, screen_height: 10, screenshot_width: 5, screenshot_height: 5, cap: args.max_image_dimension }));
+         process.exit(0);`,
       ),
       { maxImageDimension: 900 },
     );
@@ -195,7 +211,7 @@ describe("captureDesktopScreen", () => {
   });
 
   it("surfaces the driver's own sentence rather than an exit code", async () => {
-    const failing = `if (process.argv[2] !== "call") process.exit(2);
+    const failing = `${GUARD}
       console.error(JSON.stringify({ error: { message: "Screen Recording is not granted" } }));
       process.exit(1);`;
     await expect(captureDesktopScreen(driverConnection(failing))).rejects.toThrow(/Screen Recording is not granted/);
@@ -287,10 +303,8 @@ async function recordedCalls(
 ): Promise<Array<{ tool: string; args: Record<string, unknown> }>> {
   const scratch = mkdtempSync(join(tmpdir(), "lunabot-screen-test-"));
   const record = join(scratch, "calls.jsonl");
-  const conn: LocalComputerConnection = {
-    ...driverConnection(RECORDER),
-    env: { RECORD_PATH: record },
-  };
+  const conn = driverConnection(RECORDER);
+  conn.env = { ...conn.env, RECORD_PATH: record };
   try {
     await performDesktopScreenAction(conn, request, options);
     let text = "";

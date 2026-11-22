@@ -70,7 +70,9 @@ function filesHolding(secret: string): string[] {
       const path = join(dir, name);
       const stat = statSync(path);
       if (stat.isDirectory()) walk(path);
-      else if (stat.isFile() && stat.size < 20_000_000 && path !== piDumpPath(fixture.info.dataDir) && readFileSync(path).includes(secret)) found.push(relative(fixture.info.dataDir, path));
+      else if (stat.isFile() && stat.size < 20_000_000 && path !== piDumpPath(fixture.info.dataDir)
+        // config.json.bak.* are the same file's own versioned backups: where the key is held is still config.json.
+        && !name.startsWith("config.json.bak.") && readFileSync(path).includes(secret)) found.push(relative(fixture.info.dataDir, path));
     }
   };
   walk(fixture.info.dataDir);

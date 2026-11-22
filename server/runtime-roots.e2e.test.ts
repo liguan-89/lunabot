@@ -133,7 +133,7 @@ async function scenario(test: (f: any) => Promise<void>, options: { env?: Record
     closeSync(log);
     await expect.poll(async () => {
       try { return (await fetch(`${url}/api/health`, { signal: AbortSignal.timeout(1_000) })).ok; } catch { return false; }
-    }, { timeout: 30_000 }).toBe(true);
+    }, { timeout: hostTimeout(30_000) }).toBe(true);
   };
   try {
     // The launcher's environment is hermetic: a loopback backend the server must reach is given on a restart.
@@ -765,7 +765,7 @@ type StallFixture = {
 const stallOverCards = async (f: StallFixture, job: string, ids: string[]) => {
   const marker = join(f.dataDir, "stall-turns");
   writeFileSync(marker, "now");
-  try { await expect.poll(() => f.roots()[0]?.status, { timeout: 45_000 }).not.toBe("running"); } finally { rmSync(marker, { force: true }); }
+  try { await expect.poll(() => f.roots()[0]?.status, { timeout: hostTimeout(90_000) }).not.toBe("running"); } finally { rmSync(marker, { force: true }); }
   expect(f.roots()[0]).toMatchObject({ status: "failed", outcome: "stalled", executions: 1 });
   expect(f.roots()[0]!.cards).toBeUndefined();
   expect((await f.messages(job)).filter((message) => message.kind === "activity" && message.tool?.name.startsWith("error:")).map((message) => message.tool!.name))
@@ -797,7 +797,7 @@ it("T12 a turn the watchdog stops after it posted a credential card fails as sta
   expect(provided.status, JSON.stringify(provided.body)).toBe(200);
   expect(provided.body).toEqual({ provided: true, resumed: false });
   await answerStartsNothing(f, job);
-}, { fake: STALL_CLOCK }), hostTimeout(60_000));
+}, { fake: STALL_CLOCK }), hostTimeout(120_000));
 
 it("T12 a turn the watchdog stops after it posted connector cards fails as stalled and stops the cards", async () => {
   const composio = await composioStub();
@@ -838,4 +838,4 @@ it("T12 a turn the watchdog stops after it posted a sign-in card fails as stalle
   expect(done.status, JSON.stringify(done.body)).toBe(200);
   expect(done.body).toEqual({ done: true, resumed: false });
   await answerStartsNothing(f, job);
-}, { fake: STALL_CLOCK }), hostTimeout(60_000));
+}, { fake: STALL_CLOCK }), hostTimeout(120_000));

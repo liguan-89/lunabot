@@ -171,7 +171,7 @@ export function createTeamMessages(deps: TeamMessagesDeps) {
   function answerFromInbox(threadId: string, at: Where | null, item: Item, message: string): Passed {
     if (recent(threadId).length >= MESSAGE_PERSON_HOURLY) return tooMany();
     const back = inbox.answer(item, message, "person");
-    if (back.status !== 200) return back;
+    if (back.status !== 200 || back.repeated) return back;
     spend(threadId);
     chip(threadId, at, { name: item.from, ...(item.fromEmail ? { email: item.fromEmail } : {}) }, message);
     return back;

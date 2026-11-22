@@ -1,4 +1,4 @@
-import type { Assertion } from "../types.ts";
+import type { Assertion, Step } from "../types.ts";
 import type { AssertionResult } from "./assertions.ts";
 
 /** The frozen evidence one scenario run leaves behind. Scorers see only
@@ -44,7 +44,7 @@ export interface WorldSnapshot {
 }
 
 export interface StepResult {
-  step: unknown;
+  step: Step;
   ok: boolean;
   detail: string;
   durationMs: number;

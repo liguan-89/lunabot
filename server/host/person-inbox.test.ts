@@ -104,6 +104,14 @@ describe("pending assistant answers", () => {
     } finally { unsubscribe(); }
   });
 
+  it("passes a retried identical reply back only once", async () => {
+    const { f, inbox, row } = await pending();
+    expect(f.team.replyIn(session(BEN.email), inbox, row.id, "I am busy tomorrow.", {})?.status).toBe(202);
+    expect(f.team.replyIn(session(BEN.email), inbox, row.id, "I am busy tomorrow.", {})?.status).toBe(202);
+    expect(f.continued).toHaveLength(1);
+    expect(f.lines(inbox).find((line) => line.id === row.id)!.inbox!.answers).toEqual([expect.objectContaining({ by: "person", text: "I am busy tomorrow." })]);
+  });
+
   it("does not notify when shutdown begins during the assistant answer's write event", async () => {
     const { f, inbox, row, complete } = await pending();
     let stoppedDuringWrite = false;

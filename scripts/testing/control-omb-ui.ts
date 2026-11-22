@@ -433,7 +433,9 @@ export async function launchUi(
     throw new ControlOmbError(`unknown --entry ${JSON.stringify(entryName)}`, `available entries: ${Object.keys(ENTRIES).join(", ")}`);
   }
   const entry = ENTRIES[entryName as keyof typeof ENTRIES];
-  const fakeEnv: NodeJS.ProcessEnv = {};
+  // Scripted turns that call a mounted server need the fake's tools mounted at boot: the driver
+  // removes OMB_MCP_CONFIG once the extension would have read it, so lazy mounting finds nothing.
+  const fakeEnv: NodeJS.ProcessEnv = { FAKE_PI_MOUNT_TOOLS: "1" };
   if (values["tool-calls"] !== undefined) {
     let calls: unknown;
     try { calls = JSON.parse(String(values["tool-calls"])); } catch { calls = undefined; }

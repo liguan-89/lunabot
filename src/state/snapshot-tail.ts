@@ -1,6 +1,10 @@
 import { latestWebPanels } from "@/lib/web-panel-preferences";
 import type { Action, AppState, Message } from "./store";
-import { MESSAGE_PAGE_SIZE } from "./store";
+
+/** Messages per snapshot thread and per scrollback page: the server's own page maximum. The constant lives here, not
+ * in `store`: this module is a `store` dependency, and a live read of it at module scope would hit the store's
+ * temporal dead zone and blank the whole renderer. */
+export const MESSAGE_PAGE_SIZE = 200;
 
 /** The fewest rows a snapshot carries of a conversation nobody has open; the server reaches back further where the
  * sidebar, the unread divider or the team map reads an older line. */

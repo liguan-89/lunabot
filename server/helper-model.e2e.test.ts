@@ -148,7 +148,7 @@ posixOnly("a helper that names the only connected engine, through the real serve
 
     expect(ledger(bot.id).some((row) => row.trigger.kind === "helper")).toBe(false);
     expect(ledger(bot.id)).toContainEqual(expect.objectContaining({ driverKind: "piAgent", threadId: bot.threadId, trigger: { kind: "owner" } }));
-    expect(server.log()).toContain('helper model: the helper instance "pi" cannot make a one-off text call, so bots whose engine has no one-off text call keep their fallback');
+    expect(server.log()).toContain('helper model: the helper instance "pi" cannot make a one-off text call for this job, so bots whose engine has no one-off text call keep their fallback');
   }, 300_000);
 
   it("stays config.json's own field: a settings request cannot name or clear it, and an unconnected instance reads as not connected", async () => {

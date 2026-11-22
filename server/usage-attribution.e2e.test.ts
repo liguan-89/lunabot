@@ -9,12 +9,13 @@
 // gate file the recipe writes, FAKE_PI_HOLD_ON holds only the turn whose words carry the marker, FAKE_PI_MODE=priced
 // makes every turn report pi's own cost.
 import { spawn, type ChildProcess } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
+import { piTurnHolding } from "./testing/pi-dump.ts";
 import { workerPort } from "./testing/worker-port.ts";
 
 const SERVER_DIR = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +35,7 @@ type Fixture = {
   waitFor: (predicate: () => Promise<boolean> | boolean, what: string, ms?: number) => Promise<void>;
   home: string;
   gate: string;
+  dump: string;
   stop: () => Promise<void>;
 };
 
@@ -52,8 +54,9 @@ async function start(knobs: (gate: string) => Record<string, string> = () => ({}
   const dataDir = join(home, ".lunabot");
   mkdirSync(dataDir, { recursive: true });
   const gate = join(home, "finish.gate");
+  const dump = join(dataDir, "fake-pi-dump.jsonl");
   writeFileSync(join(dataDir, "config.json"), JSON.stringify({
-    instances: { pi: { driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI }, environment: { ...knobs(gate) } } },
+    instances: { pi: { driver: "piAgent", displayName: "Verification pi", config: { cli: FAKE_PI }, environment: { FAKE_PI_DUMP: dump, ...knobs(gate) } } },
   }));
   const child = spawn(process.execPath, [join(SERVER_DIR, "index.ts")], {
     cwd: join(SERVER_DIR, ".."),
@@ -88,7 +91,12 @@ async function start(knobs: (gate: string) => Record<string, string> = () => ({}
   const waitFor = async (predicate: () => Promise<boolean> | boolean, what: string, ms = 30_000) => {
     const end = Date.now() + ms;
     while (!(await predicate())) {
-      if (Date.now() > end) throw new Error(`timed out waiting for ${what}. stderr: ${stderr.slice(-2000)}`);
+      if (Date.now() > end) {
+        const usageDir = join(dataDir, "usage");
+        const usageDump = existsSync(usageDir) ? readdirSync(usageDir).map((f) => `${f}: ${readFileSync(join(usageDir, f), "utf8").slice(-400)}`).join("\n") : "(no usage dir)";
+        const bots = JSON.stringify(((await api("GET", "/api/bots")).body.bots ?? []).map((b: any) => ({ id: b.id, threadId: b.threadId, tasks: (b.tasks ?? []).map((t: any) => `${t.threadId}:${t.busy}`), busy: b.busy, activity: b.activity, msgs: (b.messages ?? []).slice(-4).map((m: any) => `${m.role}:${m.kind}:${String(m.text ?? m.tool?.name ?? "").slice(0, 60)}`) })));
+        throw new Error(`timed out waiting for ${what}.\nusage dir: ${usageDump}\nbots: ${bots}\nstderr: ${stderr.slice(-4000)}`);
+      }
       await new Promise((r) => setTimeout(r, 100));
     }
   };
@@ -96,6 +104,7 @@ async function start(knobs: (gate: string) => Record<string, string> = () => ({}
     api,
     home,
     gate,
+    dump,
     waitFor,
     getBot: async (id: string) => (await api("GET", "/api/bots")).body.bots.find((b: any) => b.id === id),
     asPerson: async (scopes?: string[]) => {
@@ -186,6 +195,9 @@ posixOnly("usage attribution e2e", () => {
     const bot = await f.newBot("grok-4.7");
     expect((await f.api("POST", `/api/bots/${bot.id}/messages`, { text: "owner's work" })).status).toBe(202);
     await f.waitFor(async () => (await f.getBot(bot.id)).busy === true, "the owner's turn to start");
+    // Busy flips when dispatch is claimed, before the engine sees the turn: an interrupt or steer that lands in the
+    // setup window (browser session prep, MCP mounts) kills a turn that never ran. The dump row proves sendTurn did run.
+    await f.waitFor(() => Boolean(piTurnHolding(f.dump, "owner's work")), "the owner's turn to reach the engine");
     const asPaired = await f.asPerson();
     const queued = await asPaired("POST", `/api/bots/${bot.id}/messages`, { text: "person's follow-up" });
     expect(queued.body.queued).toBe(true);
@@ -205,6 +217,8 @@ posixOnly("usage attribution e2e", () => {
     const bot = await f.newBot("grok-4.7");
     expect((await f.api("POST", `/api/bots/${bot.id}/messages`, { text: "first" })).status).toBe(202);
     await f.waitFor(async () => (await f.getBot(bot.id)).busy === true, "the slow turn to start");
+    // Same setup race as the interrupt test: steer only exists once sendTurn has registered the live turn.
+    await f.waitFor(() => Boolean(piTurnHolding(f.dump, "first")), "the slow turn to reach the engine");
     const asPaired = await f.asPerson();
     let steered: Reply;
     try {

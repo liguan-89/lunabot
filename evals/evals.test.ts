@@ -19,8 +19,10 @@ describe("behavior evals", () => {
       .filter((assertion) => !assertion.pass)
       .map((assertion) => assertion.assertion.kind + ": " + assertion.detail)
       .join("\n");
+    const broken = result.steps.find((step) => !step.ok);
     throw new Error(
-      result.id + " failed" + (result.error === undefined ? "" : ": " + result.error) + "\n" + failures,
+      result.id + " failed" + (result.error === undefined ? "" : ": " + result.error)
+        + (broken === undefined ? "" : `\nstep ${broken.step.kind}: ${broken.detail}`) + "\n" + failures,
     );
   }, 180_000);
 });
