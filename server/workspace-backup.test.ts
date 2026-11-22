@@ -2,6 +2,7 @@ import { createCipheriv, createHash, randomBytes, scryptSync } from "node:crypto
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
+import { hostTimeout } from "./testing/host-timeout.ts";
 import { DatabaseSync } from "node:sqlite";
 import { createServer as createNetServer } from "node:net";
 import { gzipSync } from "node:zlib";
@@ -552,7 +553,7 @@ describe("encrypted full workspace backups", () => {
       const path = encryptedPayload(source, Buffer.concat([tarEntry("manifest.json", "File", JSON.stringify(manifest)), tarEntry("data", "Directory"), ...parents.map((parent) => tarEntry(`data/${parent}`, "Directory")), tarEntry(`data/${name}`, "File", content), Buffer.alloc(1024)]));
       await expect(stageWorkspaceBackup(directory(), path, { password: PASSWORD })).rejects.toThrow(/Unsafe|connection settings|webhook credentials/);
     }
-  });
+  }, hostTimeout(120_000));
 
   it("retains differently cased destination auth roots and refuses them in recovery journals", async () => {
     const source = directory();

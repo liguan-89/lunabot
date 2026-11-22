@@ -61,7 +61,7 @@
       "file": "server/cloud-team-inbox.e2e.test.ts",
       "test": "brings Ben's reply back to Scout in Cleo's chat, where Scout carries on, and his Chief takes no turn",
       "owner": "liguan-89",
-      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, then all three attempts on Nov 21 (PR #37 ubuntu shard 1); green in every local run. The retry POSTs showed the reply passing back repeatedly — a same-answer dedup now guards it, and the test timeout is 240 s so its inner waits can still report.",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on busy shards, then all three attempts on Nov 21 (PR #37 ubuntu shard 1), on Nov 22 release lane, and Nov 22 PR #44 shard 1/8 alongside its sibling — each time the relayed reply parked in the steer queue and no wake event ever re-ran the drain (dispatch gates can release after the last settle event); green in every local run. A retry-drain now re-checks parked lines while any queue is non-empty, so a stranded wake self-heals; kept listed as the wedge class is still being proven.",
       "since": "2026-11-18"
     },
     {
@@ -103,7 +103,7 @@
       "file": "server/cloud-team-inbox.e2e.test.ts",
       "test": "lets a tag Ben answered in the chat it came from leave his Needs you",
       "owner": "liguan-89",
-      "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1, then again on Nov 21 (main release run + PR #37, all attempts); a sibling test of this suite is already listed and the suite is green in every local run. Test timeout raised to 240 s with it.",
+      "reason": "Failed twice on Nov 18 (a CI round and its failed-jobs rerun) on ubuntu shard 1, then again on Nov 21 (main release run + PR #37, all attempts), and Nov 22 PR #44 shard 1/8 alongside its sibling — same stranded-queue signature (POST accepted, no turn ever dispatched); green in every local run. Test timeout raised to 240 s; a retry-drain now re-checks parked lines while any queue is non-empty.",
       "since": "2026-11-18"
     },
     {
@@ -152,7 +152,7 @@
       "file": "server/browser/cdp/s4-pages.e2e.test.ts",
       "test": "S4 pages, tabs and page state on real Chrome > goes back and forward through documents and fragments, and reloads",
       "owner": "liguan-89",
-      "reason": "Failed once on ubuntu S4 (Nov 22): the back-forward restore reran the page script (sessionStorage.loads 2 not 1) — a bfcache miss under the memory pressure of four live Chrome instances; page.back() uses Page.navigateToHistoryEntry, so restore is Chrome's call. Green in every earlier S4 run.",
+      "reason": "Failed on ubuntu S4 twice (Nov 22): the back-forward restore reran the page script — a bfcache miss under the memory pressure of four live Chrome instances; page.back() uses Page.navigateToHistoryEntry, so restore is Chrome's call. The sessionStorage.loads counter also carried over across retries (2→3→4), making every rerun an automatic fail; the key is now unique per attempt so retries can pass. Green in every earlier S4 run.",
       "since": "2026-11-22"
     },
     {

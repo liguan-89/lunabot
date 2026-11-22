@@ -167,6 +167,25 @@ export function hasQueuedSteeredMessages(botId: string, threadId: string): boole
   return entry?.botId === botId && entry.items.length > 0;
 }
 
+/** A parked line wakes on some later event — a settle, a claim release, a coordination answer. A gate that releases
+ * after the last of those strands the line; the gates are re-checked while anything waits, and still decide. */
+export function watchSteerQueues(deps: { ready: () => boolean; drain: () => void; intervalMs?: number }): () => void {
+  let retry: ReturnType<typeof setTimeout> | null = null;
+  const arm = () => {
+    if (retry || queues.size === 0) return;
+    retry = setTimeout(() => {
+      retry = null;
+      if (!deps.ready() || queues.size === 0) return;
+      deps.drain();
+      arm();
+    }, deps.intervalMs ?? 2_000);
+    retry.unref();
+  };
+  listeners.add(arm);
+  arm();
+  return () => { listeners.delete(arm); if (retry) { clearTimeout(retry); retry = null; } };
+}
+
 /** A message the person typed waits to run next, not a teammate's ask, an incident report, a relay or unattended work. */
 export function hasQueuedPersonMessage(botId: string, threadId: string): boolean {
   const entry = queues.get(threadId);

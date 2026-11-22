@@ -116,7 +116,9 @@ suite("S4 pages, tabs and page state on real Chrome", () => {
 
   it("goes back and forward through documents and fragments, and reloads", async () => {
     const first = await open("<p>first</p>");
-    const second = await open(`<p id="n">second</p><script>document.getElementById("n").dataset.loads = String(Number(sessionStorage.loads = (Number(sessionStorage.loads || 0) + 1)))</script>`);
+    // Per-attempt key: a shared sessionStorage.loads carries over a retry's count, dooming every rerun of a bfcache miss.
+    const key = `loads${Math.random().toString(36).slice(2)}`;
+    const second = await open(`<p id="n">second</p><script>document.getElementById("n").dataset.loads = String(Number(sessionStorage["${key}"] = (Number(sessionStorage["${key}"] || 0) + 1)))</script>`);
     await page.navigate(`${second}#part`);
     expect(page.url()).toBe(`${second}#part`);
     expect((await page.back()).url).toBe(second);
