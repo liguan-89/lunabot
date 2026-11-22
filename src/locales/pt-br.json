@@ -7330,6 +7330,7 @@
   "teamMove.goes": "Vão com {bot}: instruções, habilidades, arquivos, rotinas e suas conversas com {bot}",
   "teamMove.private": "Suas conversas continuam privadas lá: só você pode vê-las.",
   "teamMove.staysOnMyCloud": "Ficam no My Cloud: o que {bot} lembra, suas conexões e o Luna Bot",
+  "teamMove.dataStays": "As tabelas que {bot} carregou em Dados não são transferidas: ficam no My Cloud, onde {bot} não consegue abri-las depois que entra em {team}.",
   "teamMove.noWayBack": "Não é possível desfazer: você não pode mover o bot de volta para o My Cloud.",
   "teamMove.confirm": "Mover para {team}",
   "teamMove.moving": "Movendo {bot} para {team}…",
