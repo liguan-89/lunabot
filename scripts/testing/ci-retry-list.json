@@ -40,7 +40,7 @@
       "file": "server/teammate-follow-ups.e2e.test.ts",
       "test": "F4 keeps a second assignment Clive hands Mira in the same turn its own job, though the first is already running",
       "owner": "liguan-89",
-      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR.",
+      "reason": "Failed once (Nov 18 CI round) on a busy shard; green locally and in the other rounds of the same PR. Recurred Nov 22 on a loaded shard — Mira's fake had not spawned when Clive's two-step turn ended (ready-file check ran immediately after the turn); the check is now host-scaled and polled.",
       "since": "2026-11-18"
     },
     {
@@ -54,7 +54,7 @@
       "file": "server/cloud-guest-shell.e2e.test.ts",
       "test": "a run of a guest's routine is the guest's: confined, and so is work it hands a teammate",
       "owner": "liguan-89",
-      "reason": "Failed twice across the Nov 17-18 CI rounds on ubuntu shards, different sibling tests each time; green locally in every run.",
+      "reason": "Failed twice across the Nov 17-18 CI rounds on ubuntu shards, different sibling tests each time; green locally in every run. Recurred Nov 22: the owner's routine turn read as confined — either a real guest-scope leak or turnWith matching a late-flushed row (guest and owner routine prompts are identical); the assertion now dumps the matched turn's index/thread/prompt so a repeat is self-diagnosing.",
       "since": "2026-11-18"
     },
     {
@@ -160,6 +160,13 @@
       "test": "ends a stopped turn with one quiet stop, keeps what it said, and a second Stop on it leaves the queued message running",
       "owner": "liguan-89",
       "reason": "Failed once on a loaded ubuntu shard (Nov 22 main run): an SSE frame wait hit its 60 s host-scaled window on a shard that took 574 s for the file set; the frame dump now names event types/ids so a repeat shows which stage stalled. Green locally in 6.4 s.",
+      "since": "2026-11-22"
+    },
+    {
+      "file": "server/browser/checklist.e2e.test.ts",
+      "test": "the bots' browser service on real Chrome > answers a click that opened the next page with that page: a link, a form the page submits, a script's location change",
+      "owner": "liguan-89",
+      "reason": "Failed once on the release-lane macOS S4 (Nov 22): agent_browser_click answered 'No element matches #script' — the click reached the fresh page before its DOM was ready; macOS Chrome spawn under full-matrix load. Green everywhere else.",
       "since": "2026-11-22"
     }
   ]
