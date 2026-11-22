@@ -18,6 +18,7 @@ import { assessIntent, INTENT_GATE_TIMEOUT_MS, intentGateRequest, MAX_CONTEXT_TU
 import { personKey } from "../person-key.ts";
 import type { PhoneBot, PhonePlace } from "../phones/access.ts";
 import { createPhoneHost, verifyPhoneTurn, verifyPrompt, type PhoneHostDeps, type PhoneOutboundHoldAnswer, type PhoneOutboundHoldInput, type PhoneTurnEnd, type PhoneTurnEnded } from "../phones/host.ts";
+import { createPhoneScreenmaps } from "./phone-screenmap.ts";
 import { PHONE_SEND_TIMEOUT_MS, PhoneJobs } from "../phones/jobs.ts";
 import { adoptExistingRoutines, desktopLendingTurn, desktopPhonesOffered } from "../phones/owner.ts";
 import { PhoneRegistry } from "../phones/registry.ts";
@@ -294,8 +295,9 @@ export function createPhones(deps: PhonesDeps) {
     return key !== null && registry.get(key) !== undefined;
   };
 
+  const screenmaps = createPhoneScreenmaps({ dataDir: deps.dataDir, now: () => Date.now() });
   const host = createPhoneHost({
-    registry, jobs, dataDir: deps.dataDir, bot: (id) => store.bot(id), turnOwner,
+    registry, jobs, dataDir: deps.dataDir, bot: (id) => store.bot(id), turnOwner, screenmap: screenmaps,
     inRoom: (threadId) => Boolean(store.groupByThread(threadId)),
     appendMessage: (threadId, message) => { store.appendMessage(threadId, message as Parameters<typeof store.appendMessage>[1]); },
     active: deps.active,
