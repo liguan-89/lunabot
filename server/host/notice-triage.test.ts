@@ -60,6 +60,8 @@ describe("createNoticeTriage", () => {
     busy?: boolean;
     noJudge?: boolean;
     now?: () => number;
+    /** Runs while the judge is reading, so the inbox can change mid-request. */
+    judgeSideEffect?: () => void;
   }) => {
     const state = { now: options.now?.() ?? 1_000 };
     const timers = new Map<number, { ms: number; run: () => void }>();
@@ -70,6 +72,7 @@ describe("createNoticeTriage", () => {
       snapshot: () => snapshot(options.records ?? []),
       judge: () => options.noJudge ? null : async (prompt) => {
         judgeCalls.push(prompt);
+        options.judgeSideEffect?.();
         if (options.fail) throw new Error("unreachable");
         return options.reply ?? "{}";
       },
@@ -113,6 +116,46 @@ describe("createNoticeTriage", () => {
     // Judged keys are not pending again: a further poke sends nothing.
     triage.poke();
     await advance(60_000);
+    expect(judgeCalls).toHaveLength(1);
+  });
+
+  it("a surface verdict on a notification updated mid-request cools at the ignore pace", async () => {
+    const records = [record()];
+    const { triage, judgeCalls, timers, flush, advance } = runner({
+      records,
+      reply: surfaceReply(),
+      judgeSideEffect: () => { records[0] = record({ postedAtMs: 5_000 }); },
+    });
+    triage.poke();
+    await advance(25_000);
+    expect(judgeCalls).toHaveLength(1);
+    // The mark names the post time the judge read, so the update is unjudged
+    // again — and it waits the escalating ignore hold, not the 30-minute
+    // surface hold, or a chatty conversation would re-judge only every half hour.
+    triage.poke();
+    await flush();
+    const wait = [...timers.values()][0]?.ms;
+    expect(wait).toBe(2 * 60_000);
+    // The cooldown ends the hold; the runner's own 20 s gathering window then
+    // ages out before the batch goes.
+    await advance(2 * 60_000);
+    await advance(25_000);
+    expect(judgeCalls).toHaveLength(2);
+  });
+
+  it("a surface verdict on an unchanged notification keeps the fixed surface hold", async () => {
+    const records = [record()];
+    const { triage, judgeCalls, timers, flush, advance } = runner({ records, reply: surfaceReply() });
+    triage.poke();
+    await advance(25_000);
+    expect(judgeCalls).toHaveLength(1);
+    // The app updates the notification after the request: the judged content
+    // was current when the judge read it, so the surface hold stands.
+    records[0] = record({ postedAtMs: 9_000 });
+    triage.poke();
+    await flush();
+    expect([...timers.values()][0]?.ms).toBe(30 * 60_000);
+    await advance(29 * 60_000);
     expect(judgeCalls).toHaveLength(1);
   });
 

@@ -220,6 +220,10 @@ export function createNoticeTriage(deps: NoticeTriageDeps) {
       const at = deps.now();
       failures = 0;
       const cap = deps.surfaceCap?.() ?? 10;
+      // The inbox as it stands after the request, so a notification the app
+      // updated while the judge was reading is recognized as updated (Mika's
+      // TriagePlanner.finish, upstream 2026-11-20).
+      const postedAfter = new Map(deps.snapshot().records.map((record) => [record.key, record.postedAtMs]));
       const surfaced: NoticeSurfacedItem[] = [];
       batch.forEach((record, i) => {
         const id = idOf(i);
@@ -231,7 +235,15 @@ export function createNoticeTriage(deps: NoticeTriageDeps) {
         marks.set(record.key, { kind: "done", postedAtMs: record.postedAtMs, verdict: final });
         const count = (verdictCounts.get(record.key) ?? 0) + 1;
         verdictCounts.set(record.key, count);
-        coolingUntilMs.set(record.key, at + cooldownMs(final.decision, count));
+        // The mark keeps the post time the judge actually read, so updated
+        // content is unjudged again. Cooling that new content at the fixed
+        // surface hold would leave a chatty conversation re-judged only once
+        // every 30 minutes, so an updated surface verdict cools at the
+        // escalating ignore pace instead. An evicted key is left alone: the
+        // user handled it, and `evaluate` forgets the mark and its count.
+        const updated = postedAfter.get(record.key) !== undefined && postedAfter.get(record.key) !== record.postedAtMs;
+        const hold = updated && final.decision === "surface" ? cooldownMs("ignore", count) : cooldownMs(final.decision, count);
+        coolingUntilMs.set(record.key, at + hold);
         if (final.decision === "surface") surfaced.push({ record, verdict: final });
       });
       if (surfaced.length > 0) {

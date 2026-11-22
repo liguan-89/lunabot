@@ -40,9 +40,13 @@ object PhoneUiSpill {
     /**
      * [arrivals] are main-display tasks seen at the top since [since];
      * [topBefore] was the top task when the action started; [userTouchedAt] is
-     * the last moment the person touched the main screen. A normal app page
-     * that is not the person's own doing is pulled back; anything resolved by
-     * a system picker is left on their screen.
+     * the last moment the person touched the main screen; [userActiveBefore]
+     * says the person touched the main screen between this and the previous
+     * action — only the touch count moved, so the exact moment is unknown. A
+     * normal app page that is not the person's own doing is pulled back;
+     * anything resolved by a system picker is left on their screen; an arrival
+     * whose ownership is unclear (the person was active just before the action)
+     * is left alone rather than pulled out from under them.
      */
     fun decide(
         arrivals: List<Arrival>,
@@ -53,6 +57,7 @@ object PhoneUiSpill {
         pickerPackages: Set<String>,
         homePackages: Set<String> = emptySet(),
         windowMs: Long = WINDOW_MS,
+        userActiveBefore: Boolean = false,
     ): Decision {
         val relevant = arrivals
             .filter { it.at in since..(since + windowMs) }
@@ -65,6 +70,11 @@ object PhoneUiSpill {
         if (userTouchedAt != null && userTouchedAt in since..arrival.at) {
             return Decision(Verdict.None, arrival)
         }
+        // The person was active on their screen just before the action started
+        // (the touch count moved between actions, with no timestamp to cite):
+        // this arrival may be their doing, so leave it alone instead of pulling
+        // the app they are using off their display (Mika's #798).
+        if (userActiveBefore) return Decision(Verdict.None, arrival)
         // The task that was already on top came back up after another was moved.
         if (arrival.taskId == topBefore) return Decision(Verdict.None, arrival)
         if (pkg in pickerPackages) return Decision(Verdict.LeaveForUser, arrival)
