@@ -92,6 +92,7 @@ export const CHAT_NOTICE = {
   "chat.notice.phone.write.PHONE_UI_KEY": "Send a key on {phone}",
   "chat.notice.phone.write.PHONE_UI_BACK": "Go back on {phone}",
   "chat.notice.phone.write.PHONE_UI_RUN": "Run several steps on {phone}",
+  "chat.notice.phone.write.PHONE_UI_DO_EACH": "Run the same steps for every list item on {phone}",
   "chat.notice.phone.write.PHONE_FILE_SHARE": "Share a file on {phone}",
   "chat.notice.phone.write.PHONE_SET_ALARM": "Set an alarm on {phone}",
   "chat.notice.phone.write.PHONE_SET_TIMER": "Set a timer on {phone}",

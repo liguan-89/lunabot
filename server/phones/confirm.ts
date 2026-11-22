@@ -226,6 +226,9 @@ function controlOn(tool: string, args: Record<string, unknown>, screen: PhoneScr
     return args.direction === "left" || args.direction === "right" ? { interaction: "swipe", screenTexts } : null;
   }
   if (name === "PHONE_UI_RUN") return runControl(args, screen);
+  // The same gate a run answers to, on the body steps: one card buys the
+  // whole loop, so the first classified step on this screen refuses it all.
+  if (name === "PHONE_UI_DO_EACH") return runControl({ commands: args.body ?? [] }, screen);
   return null;
 }
 
@@ -245,7 +248,7 @@ export function controlFor(tool: string, args: Record<string, unknown>, observeR
  * match list too, but it carries the whole screen beside it in `screen`, because the refs it hands out belong to that
  * snapshot and a later step names them. */
 const SCREEN_ANSWERS: ReadonlySet<string> = new Set([
-  "PHONE_UI_OBSERVE", "PHONE_UI_SCREENSHOT", "PHONE_UI_RUN", "PHONE_UI_WAIT", "PHONE_UI_COLLECT",
+  "PHONE_UI_OBSERVE", "PHONE_UI_SCREENSHOT", "PHONE_UI_RUN", "PHONE_UI_DO_EACH", "PHONE_UI_WAIT", "PHONE_UI_COLLECT",
   "PHONE_UI_LAUNCH", "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_SCROLL",
   "PHONE_UI_SWIPE", "PHONE_UI_KEY", "PHONE_UI_BACK", "PHONE_UI_FIND",
 ]);

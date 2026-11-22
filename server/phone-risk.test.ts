@@ -25,7 +25,7 @@ const CHANGE_TOOLS: readonly string[] = [
   "PHONE_CREATE_EVENT", "PHONE_UPDATE_EVENT", "PHONE_DELETE_EVENT", "PHONE_RESPOND_TO_INVITE",
   "PHONE_CREATE_REMINDER", "PHONE_UPDATE_REMINDER", "PHONE_COMPLETE_REMINDER", "PHONE_DELETE_REMINDER",
   "PHONE_CREATE_CONTACT", "PHONE_UPDATE_CONTACT", "PHONE_SET_ACCESSORY", "PHONE_RUN_SCENE",
-  "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN",
+  "PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN", "PHONE_UI_DO_EACH",
   "PHONE_CLIPBOARD_SET", "PHONE_SET_ALARM", "PHONE_SET_TIMER", "PHONE_UI_AFTER_TASK",
 ];
 
@@ -73,10 +73,10 @@ describe("ACTION_RISK", () => {
 });
 
 describe("changesState", () => {
-  it("is true for the five screen-changing tools and nothing else in the phone catalog", () => {
+  it("is true for the screen-changing tools and nothing else in the phone catalog", () => {
     const changing = PHONE_TOOL_NAMES.filter((name) => changesState(name));
     expect(changing).toEqual([...CHANGE_VERBS]);
-    expect(changing).toEqual(["PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN"]);
+    expect(changing).toEqual(["PHONE_UI_TAP", "PHONE_UI_TAP_AT", "PHONE_UI_TYPE", "PHONE_UI_KEY", "PHONE_UI_RUN", "PHONE_UI_DO_EACH"]);
   });
 
   it("does not count back, scroll or swipe as a change: they only move between screens", () => {
