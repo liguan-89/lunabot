@@ -243,7 +243,7 @@ private fun OpeningThread(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .then(if (embedded) Modifier else Modifier.statusBarsPadding())
+                .statusBarsPadding()
                 .padding(horizontal = 12.dp, vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -599,7 +599,7 @@ private fun LoadedChat(
     // LocalDensity.current cannot be read.
     val density = LocalDensity.current
     val hazeState = rememberHazeState()
-    val topInset = if (embedded) 0.dp else WindowInsets.safeDrawing
+    val topInset = WindowInsets.safeDrawing
         .only(WindowInsetsSides.Top)
         .asPaddingValues()
         .calculateTopPadding()
@@ -1365,12 +1365,12 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .fillMaxWidth()
-                        .height(headerClearance - 4.dp)
+                        .height(topInset + 56.dp)
                         .background(
                             Brush.verticalGradient(
-                                0.00f to minisCanvas,
-                                0.36f to minisCanvas.copy(alpha = 0.92f * topBandAlpha),
-                                0.70f to minisCanvas.copy(alpha = 0.32f * topBandAlpha),
+                                0.00f to minisCanvas.copy(alpha = 0.96f * topBandAlpha),
+                                0.38f to minisCanvas.copy(alpha = 0.78f * topBandAlpha),
+                                0.72f to minisCanvas.copy(alpha = 0.30f * topBandAlpha),
                                 1.00f to Color.Transparent,
                             ),
                         ),
@@ -1445,7 +1445,7 @@ private fun LoadedChat(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .widthIn(max = CHAT_CONTENT_MAX_WIDTH)
-                        .then(if (embedded) Modifier else Modifier.statusBarsPadding())
+                        .statusBarsPadding()
                         .onSizeChanged { headerHeightPx = it.height },
                 )
 
@@ -2042,6 +2042,14 @@ private fun ChatHeader(
             // warm-linen studio halo in Light Mode so light/white bots keep crisp
             // sculptural presence on the pure-white gallery canvas.
             val dark = minisIsDark()
+            val canvasMask = minisCanvas
+            val avatarBackdrop = remember(dark, canvasMask) {
+                Brush.radialGradient(
+                    0.00f to canvasMask,
+                    0.72f to canvasMask.copy(alpha = 0.94f),
+                    1.00f to Color.Transparent,
+                )
+            }
             val studioHalo = remember(dark) {
                 Brush.radialGradient(
                     0.00f to if (dark) Color(0x22FFFFFF) else Color(0x66D9CEC2),
@@ -2057,6 +2065,7 @@ private fun ChatHeader(
                 Box(
                     modifier = Modifier
                         .size(84.dp)
+                        .background(avatarBackdrop, CircleShape)
                         .background(studioHalo, CircleShape)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },

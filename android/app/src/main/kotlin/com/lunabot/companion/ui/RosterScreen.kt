@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -168,6 +169,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
     var showingNewSection by remember { mutableStateOf(false) }
     var expandedBots by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf(emptySet<String>()) }
     var collapsedFolders by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf(emptySet<String>()) }
+    var collapsedSections by rememberSaveable(stateSaver = StringSetSaver) { mutableStateOf(emptySet<String>()) }
     var creatingThreads by remember { mutableStateOf(emptySet<String>()) }
     var managingThreads by remember { mutableStateOf<Chat?>(null) }
     // Which computer this phone is talking to. One stream at a time is the
@@ -201,6 +203,7 @@ fun RosterScreen(navigator: CompanionNavigator) {
             hits = emptyList()
             expandedBots = emptySet()
             collapsedFolders = emptySet()
+            collapsedSections = emptySet()
         }
     }
 
@@ -462,11 +465,13 @@ fun RosterScreen(navigator: CompanionNavigator) {
                             },
                         )
                     }
-                    activeTab == 2 -> TasksRoutinesScreen(
-                        onBack = { activeTab = 0 },
-                        onOpenChat = navigator::open,
-                        embedded = true,
-                    )
+                    activeTab == 2 -> Box(modifier = Modifier.fillMaxSize().statusBarsPadding()) {
+                        TasksRoutinesScreen(
+                            onBack = { activeTab = 0 },
+                            onOpenChat = navigator::open,
+                            embedded = true,
+                        )
+                    }
                     activeTab == 3 -> MuseLibraryTab(
                         heroChat = hero?.chat,
                         heroName = heroBot?.name ?: "Luna",
@@ -609,39 +614,55 @@ fun RosterScreen(navigator: CompanionNavigator) {
                                         }
                                     }
                                     state.sidebarSections.forEach { section ->
-                                        item(key = "section-${section.id}") {
-                                            SectionLabel(section.name, Modifier.padding(top = 18.dp, bottom = 4.dp))
-                                        }
                                         val sectionChiefs = section.chiefs.mapNotNull { listSummariesById[it.id] }
                                         val sectionBots = section.bots.mapNotNull { listSummariesById[it.id] }
-                                        itemsIndexed(
-                                            sectionChiefs,
-                                            key = { _, summary -> "section-${section.id}-chief-${summary.id}" },
-                                        ) { index, summary ->
-                                            Box(Modifier.animateItem()) {
-                                                entry(
-                                                    summary,
-                                                    index == sectionChiefs.lastIndex &&
-                                                        (section.channels.isNotEmpty() || sectionBots.isEmpty()),
-                                                )
-                                            }
+                                        val sectionCollapsed = section.id in collapsedSections
+                                        val sectionCount = sectionChiefs.size + sectionBots.size + section.channels.size
+                                        item(key = "section-${section.id}") {
+                                            CollapsibleSectionHeader(
+                                                title = section.name,
+                                                count = sectionCount,
+                                                collapsed = sectionCollapsed,
+                                                onToggle = {
+                                                    haptics.play(HapticCue.SELECT)
+                                                    collapsedSections = if (sectionCollapsed) {
+                                                        collapsedSections - section.id
+                                                    } else {
+                                                        collapsedSections + section.id
+                                                    }
+                                                },
+                                            )
                                         }
-                                        if (section.channels.isNotEmpty()) {
-                                            item(key = "section-${section.id}-channels") {
-                                                GroupsStrip(
-                                                    title = "群组",
-                                                    rooms = section.channels,
-                                                    members = tiles,
-                                                    onOpen = { navigator.open(Chat.RoomChat(it)) },
-                                                )
+                                        if (!sectionCollapsed) {
+                                            itemsIndexed(
+                                                sectionChiefs,
+                                                key = { _, summary -> "section-${section.id}-chief-${summary.id}" },
+                                            ) { index, summary ->
+                                                Box(Modifier.animateItem()) {
+                                                    entry(
+                                                        summary,
+                                                        index == sectionChiefs.lastIndex &&
+                                                            (section.channels.isNotEmpty() || sectionBots.isEmpty()),
+                                                    )
+                                                }
                                             }
-                                        }
-                                        itemsIndexed(
-                                            sectionBots,
-                                            key = { _, summary -> "section-${section.id}-bot-${summary.id}" },
-                                        ) { index, summary ->
-                                            Box(Modifier.animateItem()) {
-                                                entry(summary, index == sectionBots.lastIndex)
+                                            if (section.channels.isNotEmpty()) {
+                                                item(key = "section-${section.id}-channels") {
+                                                    GroupsStrip(
+                                                        title = "群组",
+                                                        rooms = section.channels,
+                                                        members = tiles,
+                                                        onOpen = { navigator.open(Chat.RoomChat(it)) },
+                                                    )
+                                                }
+                                            }
+                                            itemsIndexed(
+                                                sectionBots,
+                                                key = { _, summary -> "section-${section.id}-bot-${summary.id}" },
+                                            ) { index, summary ->
+                                                Box(Modifier.animateItem()) {
+                                                    entry(summary, index == sectionBots.lastIndex)
+                                                }
                                             }
                                         }
                                     }
@@ -741,7 +762,8 @@ fun RosterScreen(navigator: CompanionNavigator) {
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .onSizeChanged { headerHeightPx = it.height },
+                            .onSizeChanged { headerHeightPx = it.height }
+                            .statusBarsPadding(),
                     ) {
                         RosterHeader(
                             showRightActions = activeTab == 1 || bar.searchOpen || hero == null,
@@ -1531,6 +1553,52 @@ private fun SectionLabel(text: String, modifier: Modifier = Modifier) {
     MinisSectionHeader(RosterLayout.sectionLabel(text), modifier)
 }
 
+/** Collapsible heading for a sidebar section in the roster list. */
+@Composable
+private fun CollapsibleSectionHeader(
+    title: String,
+    count: Int,
+    collapsed: Boolean,
+    onToggle: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 2.dp)
+            .clickable(role = Role.Button, onClick = onToggle)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "$title 分组"
+                stateDescription = if (collapsed) "已折叠，$count 项" else "已展开"
+            }
+            .padding(horizontal = 20.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        Icon(
+            imageVector = if (collapsed) Icons.AutoMirrored.Filled.KeyboardArrowRight else Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            tint = minisSecondary,
+            modifier = Modifier.size(15.dp),
+        )
+        Text(
+            text = RosterLayout.sectionLabel(title),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            letterSpacing = 0.2.sp,
+            color = minisSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        if (collapsed && count > 0) {
+            Text(
+                text = "$count",
+                fontSize = 12.sp,
+                color = minisTertiary,
+            )
+        }
+    }
+}
+
 /**
  * Every group, across the top. Making one lives behind the header's +, together
  * with making a bot, so the strip carries groups and nothing else.
@@ -1664,7 +1732,7 @@ private fun ChatRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(
-                modifier = Modifier.padding(vertical = 12.dp),
+                modifier = Modifier.padding(vertical = 7.dp),
             ) {
                 ChatAvatar(
                     chat = chat,
@@ -1703,16 +1771,13 @@ private fun ChatRow(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                    .padding(vertical = 7.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // The name, crown and role share one flexible group. Giving
-                    // the name and the role each their own weight left two
-                    // thirds of the row's free space unclaimed, so every
-                    // timestamp stopped short of the right edge — and by a
-                    // different amount per row. One group takes the space; the
-                    // clock is the last thing before the margin.
+                    // The name, crown and role share one flexible group. When a
+                    // subtitle is present, let the subtitle absorb overflow first
+                    // so the bot's own name stays legible beside topic pills.
                     Row(
                         modifier = Modifier.weight(1f),
                         verticalAlignment = Alignment.CenterVertically,
@@ -1723,7 +1788,7 @@ private fun ChatRow(
                             fontWeight = if (hasUnread) FontWeight.Medium else FontWeight.Normal,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
+                            modifier = if (chat.subtitle.isEmpty()) Modifier.weight(1f, fill = false) else Modifier,
                         )
                         if (chat is Chat.BotChat && chat.bot.chiefOfStaff == true) {
                             Spacer(Modifier.width(4.dp))
@@ -1738,6 +1803,7 @@ private fun ChatRow(
                                 color = minisTertiary,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
                             )
                         }
                     }
@@ -1769,8 +1835,8 @@ private fun ChatRow(
                         fontSize = 14.sp,
                         color = when {
                             isErrorPreview -> minisDanger.copy(alpha = 0.86f)
-                            hasUnread -> minisInk.copy(alpha = 0.76f)
-                            else -> minisTertiary
+                            hasUnread -> minisInk.copy(alpha = 0.86f)
+                            else -> minisSecondary
                         },
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -2168,7 +2234,8 @@ private fun MuseLibraryTab(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(minisCanvas),
+            .background(minisCanvas)
+            .statusBarsPadding(),
     ) {
         // Persistent Muse centerpiece: 74dp avatar with soft warm-linen halo
         // so light/white bots stand out crisply on the pure-white canvas.
@@ -2429,6 +2496,7 @@ private fun MuseDrawerContent(
             .width(296.dp)
             .fillMaxHeight()
             .background(minisCanvas)
+            .statusBarsPadding()
             .navigationBarsPadding()
             .padding(horizontal = 18.dp, vertical = 16.dp),
     ) {
