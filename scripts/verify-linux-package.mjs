@@ -474,13 +474,14 @@ function verifySystemPackage(extracted, label, packageType) {
   const desktop = readFileSync(desktopFile, "utf8");
   for (const expected of [
     "Name=Luna Bot",
-    'Exec="/opt/LunaBot/lunabot" %U',
     "Icon=lunabot",
     "StartupWMClass=com.lunabot.app",
     "Categories=Utility;",
   ]) {
     if (!desktop.includes(expected)) fail(`${label} desktop entry is missing ${JSON.stringify(expected)}`);
   }
+  // electron-builder only quotes Exec paths containing unsafe characters; /opt/LunaBot needs none.
+  if (!/^Exec="?\/opt\/LunaBot\/lunabot"? %U$/m.test(desktop)) fail(`${label} desktop entry Exec is not /opt/LunaBot/lunabot %U`);
   execFileSync("desktop-file-validate", [desktopFile], { stdio: "inherit" });
 }
 

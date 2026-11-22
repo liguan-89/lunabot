@@ -29,7 +29,6 @@
       "reason": "Failed in four S4 runs on Nov 21 across two unrelated branches (PR #35 ×2, PR #37 ×2), both ubuntu and windows legs: the upload POST dies with write EPIPE / ECONNABORTED while real Chrome is under CI load. S4 runs every attempt on a fresh Chrome.",
       "since": "2026-11-21"
     },
-
     {
       "file": "server/runtime-roots.e2e.test.ts",
       "test": "T9 parks the root on a sign-in card and runs it again with the signed-in line on Done",
@@ -113,6 +112,20 @@
       "owner": "liguan-89",
       "reason": "Failed five times across Nov 17-18 CI rounds on busy shards despite the widened busy window (15 s) and end waits (25 s), and again on Nov 21 (PR #37 ubuntu shard 4); green in every local run.",
       "since": "2026-11-18"
+    },
+    {
+      "file": "server/runtime-roots.e2e.test.ts",
+      "test": "T12 a turn the watchdog stops after it posted a sign-in card fails as stalled and stops the card",
+      "owner": "liguan-89",
+      "reason": "Failed on loaded ubuntu shards in two consecutive Nov 22 CI runs (poll saw root still running at 180s); 3/3 green locally in 44s — watchdog sweep starvation under shard load. Credential-card sibling already listed.",
+      "since": "2026-11-22"
+    },
+    {
+      "file": "server/headless-cli.e2e.test.ts",
+      "test": "openmausbot headless: team apply → run --wait job → export > stops a job whose teammate hangs when its time runs out, the teammate included",
+      "owner": "liguan-89",
+      "reason": "Failed once on a loaded ubuntu shard (Nov 22): teammate readyFile never landed inside the hardcoded 4s job timeout — engine spawn latency under shard contention; green locally.",
+      "since": "2026-11-22"
     }
   ]
 }
