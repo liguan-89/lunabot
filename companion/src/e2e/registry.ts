@@ -202,6 +202,10 @@ export class E2ERegistry {
   /** A pairing session that redeemed the window now speaks for the new device. */
   paired(context: E2EContext, deviceId: string): void {
     context.peer = { kind: "device", id: deviceId };
+    // The phone proved it holds the token: it opened this session with the pairing credential's own psk, and the
+    // redeem that produced `deviceId` wrote the reply into it. Without this the unconfirmed-device timer still fires
+    // five minutes later and revokes the device the phone is already using (devices.ts UNCONFIRMED_DEVICE_MS).
+    this.#devices.confirm(deviceId);
     this.#devices.markE2E(deviceId);
   }
 
