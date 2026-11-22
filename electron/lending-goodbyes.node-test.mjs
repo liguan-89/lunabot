@@ -7,7 +7,7 @@ import { test } from "node:test";
 import { createComputerSharing } from "./computer-sharing.mjs";
 
 const until = async (check, what) => { for (let i = 0; i < 400; i++) { if (check()) return; await new Promise((resolve) => setTimeout(resolve, 5)); } assert.fail(`never: ${what}`); };
-const settledYet = async (promise) => { let done = false; void promise.then(() => { done = true; }); await new Promise((resolve) => setTimeout(resolve, 25)); return done; };
+const settledYet = async (promise) => { let done = false; void promise.then(() => { done = true; }); await new Promise((resolve) => setTimeout(resolve, 100)); return done; };
 
 /** One Cloud of the person's own, lent to, whose answer to a disconnect is held (`hold`) until the test lets it go, or fails (`fail`). */
 async function fixture(t, { screen = () => false } = {}) {

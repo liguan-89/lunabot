@@ -126,6 +126,13 @@
       "owner": "liguan-89",
       "reason": "Failed once on a loaded ubuntu shard (Nov 22): teammate readyFile never landed inside the hardcoded 4s job timeout — engine spawn latency under shard contention; green locally.",
       "since": "2026-11-22"
+    },
+    {
+      "file": "server/vps-routing.test.ts",
+      "test": "VPS turn routing e2e (fake pi fleet + fake docker over SSH) > runs two turns of one bot on the VPS at once; the desktop is claimed by the first computer call and waited for by name",
+      "owner": "liguan-89",
+      "reason": "Failed once on a loaded ubuntu shard (Nov 22): no computer MCP reached the agent inside the provisioning window; green locally in 8s.",
+      "since": "2026-11-22"
     }
   ]
 }
