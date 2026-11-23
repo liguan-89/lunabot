@@ -25,10 +25,10 @@ UPDATE=(bash "$ROOT/deploy/update.sh" --dir "$DIR")
 step() { printf '\n== %s\n' "$*"; }
 fail() {
   printf 'FAILED: %s\n' "$*"
-  (cd "$DIR" && docker compose logs --tail 40 omb) >"$OUT/omb.log" 2>&1
+  (cd "$DIR" && docker compose logs --tail 40 lunabot) >"$OUT/lunabot.log" 2>&1
   exit 1
 }
-running_image() { docker inspect -f '{{.Image}}' "$(cd "$DIR" && docker compose ps -q omb)"; }
+running_image() { docker inspect -f '{{.Image}}' "$(cd "$DIR" && docker compose ps -q lunabot)"; }
 version() { (cd "$DIR" && docker compose exec -T lunabot sh -c 'curl -sf http://127.0.0.1:8799/.well-known/lunabot/environment || curl -sf http://127.0.0.1:8799/.well-known/openmausbot/environment') | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
 wait_version() { for _ in $(seq 1 60); do [ "$(version)" = "$1" ] && return 0; sleep 3; done; return 1; }
 in_data() { docker run --rm --network none --user 0:0 -v "$DATA:/d" --entrypoint sh "$REPO:v$FROM" -c "$1"; }
@@ -78,9 +78,9 @@ services:
   caddy:
     image: caddy:2
     restart: unless-stopped
-    network_mode: "service:omb"
+    network_mode: "service:lunabot"
     depends_on:
-      omb:
+      lunabot:
         condition: service_healthy
     environment:
       DOMAIN: ${DOMAIN}
@@ -119,7 +119,7 @@ step "2. update to the stable version"
 grep -qx "LUNABOT_IMAGE=$STABLE" "$DIR/.env" || fail ".env is not pinned by digest"
 [ "$(stat -c %a "$DIR/.env")" = 600 ] || fail ".env changed its mode"
 in_data 'cat /d/.lunabot/e2e-sentinel.txt' | grep -q "written under $FROM" || fail "the data did not carry over"
-[ "$(cd "$DIR" && docker compose ps --status running --services | sort | tr '\n' ' ')" = "caddy omb " ] || fail "caddy or omb is not running"
+[ "$(cd "$DIR" && docker compose ps --status running --services | sort | tr '\n' ' ')" = "caddy lunabot " ] || fail "caddy or lunabot is not running"
 copy >/dev/null || fail "expected one copy of the data"
 
 step "3. the same again: nothing to do"
@@ -136,7 +136,7 @@ cmp -s "$DIR/.env" "$OUT/env.before" || fail "after --rollback .env differs"
 in_data 'test ! -e /d/.lunabot/after-update.txt' || fail "data written after the update survived the rollback"
 
 step "5. a new version that never answers and damages the data: rolled back, every file as it was"
-docker build -q -t omb-e2e-broken:1 - >/dev/null <<DOCKERFILE
+docker build -q -t lunabot-e2e-broken:1 - >/dev/null <<DOCKERFILE
 FROM $REPO:v$TO
 CMD ["sh", "-c", "echo damaged > /data/.lunabot/e2e-sentinel.txt; rm -f /data/.lunabot/bots.json; echo x > /data/.lunabot/left-by-the-broken-version; exec sleep 100000"]
 DOCKERFILE
@@ -144,7 +144,7 @@ DOCKERFILE
 (cd "$DIR" && docker compose stop) >/dev/null 2>&1
 manifest "$DATA" >"$OUT/5-data-before.txt"
 echo "files before: $(($(wc -l <"$OUT/5-data-before.txt") / 2))"
-LUNABOT_UPDATE_WAIT_S=45 "${UPDATE[@]}" --image omb-e2e-broken:1 | tee "$OUT/5-failed-update.txt"
+LUNABOT_UPDATE_WAIT_S=45 "${UPDATE[@]}" --image lunabot-e2e-broken:1 | tee "$OUT/5-failed-update.txt"
 [ "${PIPESTATUS[0]}" = 1 ] || fail "the failed update did not exit 1"
 grep -q "did not work: it did not answer within 45 seconds" "$OUT/5-failed-update.txt" || fail "no plain reason"
 grep -q "Your server runs $FROM again, with its data as it was before the update." "$OUT/5-failed-update.txt" || fail "no plain outcome"
@@ -162,7 +162,7 @@ in_data 'grep -q "written under" /d/.lunabot/e2e-sentinel.txt && test ! -e /d/.l
 wait_version "$FROM" || fail "$FROM does not answer after the rollback"
 
 step "6. an update killed while it waits: the next run asks, changes nothing unanswered, and puts the data back on yes"
-LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/6-killed.txt" 2>&1 &
+LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image lunabot-e2e-broken:1 >"$OUT/6-killed.txt" 2>&1 &
 pid=$!
 for _ in $(seq 1 180); do grep -q "^phase=wait" "$DIR/.update/journal" 2>/dev/null && break; sleep 1; done
 grep -q "^phase=wait" "$DIR/.update/journal" || fail "the update never reached its wait"
@@ -187,7 +187,7 @@ cmp -s "$DIR/.env" "$OUT/env.before" || fail "after the recovery .env differs"
 step "7. a rollback whose restore fails leaves the data and the copy alone, keeps the journal, and is tried again on request"
 (cd "$DIR" && docker compose stop) >/dev/null 2>&1
 manifest "$DATA" >"$OUT/7-data-before.txt"
-LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image omb-e2e-broken:1 >"$OUT/7-failed-restore.txt" 2>&1 &
+LUNABOT_UPDATE_WAIT_S=120 "${UPDATE[@]}" --image lunabot-e2e-broken:1 >"$OUT/7-failed-restore.txt" 2>&1 &
 pid=$!
 for _ in $(seq 1 180); do grep -q "^phase=wait" "$DIR/.update/journal" 2>/dev/null && break; sleep 1; done
 grep -q "^phase=wait" "$DIR/.update/journal" || fail "the update never reached its wait"
@@ -199,7 +199,7 @@ cat "$OUT/7-failed-restore.txt"
 [ "$code" = 2 ] || fail "a rollback whose restore failed exited $code, not 2"
 grep -q "Neither was changed" "$OUT/7-failed-restore.txt" || fail "no plain account of the failed restore"
 [ -f "$DIR/.update/journal" ] || fail "the failed restore dropped the journal"
-[ -z "$(cd "$DIR" && docker compose ps -q --status running omb)" ] || fail "a server was started on data that was not put back"
+[ -z "$(cd "$DIR" && docker compose ps -q --status running lunabot)" ] || fail "a server was started on data that was not put back"
 docker pull -q "$REPO:v$FROM" >/dev/null || fail "could not pull $FROM again"
 in_data 'grep -qx damaged /d/.lunabot/e2e-sentinel.txt && test ! -e /d/.omb-restore && test ! -e /d/.omb-replaced' || fail "the failed restore changed the data"
 snapshot=$(copy) || fail "expected one copy of the data"
@@ -236,7 +236,7 @@ printf '#!/bin/sh\nif [ "$1" = compose ] && [ "$2" = stop ]; then echo "e2e: com
 chmod +x "$OUT/stop-fails/docker"
 copies_before=$(copies)
 cp "$DIR/.env" "$OUT/env.before-stop"
-PATH="$OUT/stop-fails:$PATH" "${UPDATE[@]}" --image omb-e2e-broken:1 | tee "$OUT/10-stop-fails.txt"
+PATH="$OUT/stop-fails:$PATH" "${UPDATE[@]}" --image lunabot-e2e-broken:1 | tee "$OUT/10-stop-fails.txt"
 [ "${PIPESTATUS[0]}" = 4 ] || fail "an update whose stop failed did not exit 4"
 grep -q "The server could not be stopped" "$OUT/10-stop-fails.txt" || fail "no plain account of the failed stop"
 [ "$(version)" = "$TO" ] || fail "after the failed stop the server says $(version)"
@@ -247,5 +247,5 @@ cp "$DIR/.update/update.log" "$OUT/update.log"
 
 (cd "$DIR" && docker compose down -v) >/dev/null 2>&1
 for volume in $(copies); do docker volume rm -f "$volume" >/dev/null 2>&1; done
-docker image rm -f omb-e2e-broken:1 lunabot-before-update:local openmausbot-before-update:local >/dev/null 2>&1
+docker image rm -f lunabot-e2e-broken:1 lunabot-before-update:local openmausbot-before-update:local >/dev/null 2>&1
 step "ALL PASSED ($LAYOUT)"

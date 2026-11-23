@@ -11,7 +11,7 @@ import { afterAll, expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
 import { runControlLunabot } from "../control-lunabot.ts";
-import { UI_TOOLS_DIR, agentBrowser, sessionEnv, type UiHandle } from "./control-omb-ui.ts";
+import { UI_TOOLS_DIR, agentBrowser, sessionEnv, type UiHandle } from "./control-lunabot-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const forced = process.env.LUNABOT_UI_E2E === "1";

@@ -5,7 +5,7 @@ import { join } from "node:path";
 import type { InstanceInfo } from "../src/state/store.tsx";
 import { launchVerificationServer } from "./control-lunabot.ts";
 import { mountPreview } from "./testing/preview-fixture.ts";
-import { ensureUiBrowser, sessionEnv, agentBrowser } from "./testing/control-omb-ui.ts";
+import { ensureUiBrowser, sessionEnv, agentBrowser } from "./testing/control-lunabot-ui.ts";
 
 const fixture = await launchVerificationServer();
 const engine: InstanceInfo = {

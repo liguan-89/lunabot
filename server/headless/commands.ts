@@ -19,7 +19,7 @@ const DAY = 24 * 3_600_000;
 async function doctorOnce(ctx: VerbContext): Promise<VerbOutcome> {
   const client = await ctx.client();
   // A shared server lets a local caller without a session count its engines, not list them: in the server's container
-  // (`docker compose exec omb dexbot doctor`, as deploy/update.sh runs it) that count is the answer.
+  // (`docker compose exec lunabot lunabot doctor`, as deploy/update.sh runs it) that count is the answer.
   const counted = (refusal: unknown) => (refusal as { status?: unknown })?.status === 403
     ? client.json<Rec>("/api/health/engines").then((answer) => ({ counted: Number(answer?.engines) || 0 }), () => Promise.reject(refusal))
     : Promise.reject(refusal);

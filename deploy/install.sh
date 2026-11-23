@@ -680,7 +680,7 @@ services:
     # Started with the server, not after it is healthy: Caddy reaches it over the socket
     # whenever it answers, so `up` never waits on the server's health.
     depends_on:
-      omb:
+      lunabot:
         condition: service_started
     environment:
       DOMAIN: ${DOMAIN}
@@ -919,7 +919,7 @@ prepare_data() {
 wait_healthy() {
   waited=0
   while [ "$waited" -lt "$HEALTH_WAIT_S" ]; do
-    container=$(compose ps -q omb 2>/dev/null | head -n 1 || true)
+    container=$(compose ps -q lunabot 2>/dev/null | head -n 1 || true)
     if [ -n "$container" ] && [ "$(docker inspect --format '{{.State.Health.Status}}' "$container" 2>/dev/null || true)" = healthy ]; then return 0; fi
     sleep 5
     waited=$((waited + 5))
@@ -955,7 +955,7 @@ install_server() {
   prepare_data
   say "Starting MausBot..."
   compose_quietly up -d --remove-orphans || fail "MausBot could not be started (Docker's message is above). Fix that, then run this again."
-  wait_healthy || fail "MausBot started but did not report healthy within $HEALTH_WAIT_S seconds. Its log: cd $INSTALL_DIR && sudo docker compose logs omb --tail 50"
+  wait_healthy || fail "MausBot started but did not report healthy within $HEALTH_WAIT_S seconds. Its log: cd $INSTALL_DIR && sudo docker compose logs lunabot --tail 50"
   check_sandbox_runs
   say "Waiting for the HTTPS certificate of $DOMAIN..."
   wait_https || fail "MausBot is running, but https://$DOMAIN did not answer within $HTTPS_WAIT_S seconds, usually because the certificate could not be issued. Check that $DOMAIN points at this server and that ports 80 and 443 are open in your provider's firewall, then run this again. Caddy's reason: cd $INSTALL_DIR && sudo docker compose logs caddy --tail 30"

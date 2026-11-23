@@ -20,7 +20,7 @@ import { openGate, type EgressGate } from "../../server/browser/egress/gate.ts";
 import { refusalFor } from "../../server/browser/egress/policy.ts";
 import { removeTempDir } from "../../server/testing/cleanup.ts";
 import { launchVerificationServer, runControlLunabot } from "../control-lunabot.ts";
-import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-omb-ui.ts";
+import { ensureUiBrowser, UI_TOOLS_DIR } from "./control-lunabot-ui.ts";
 
 const forced = process.env.LUNABOT_UI_E2E === "1";
 const enabled = forced || Boolean(resolveAgentBrowserBinary({ dataDir: UI_TOOLS_DIR, env: process.env }));

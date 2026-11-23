@@ -1,5 +1,5 @@
 // A real fake-engine server in a temporary home that can be stopped and started again on the same data and port, so a
-// test can prove what survives a restart. Same environment as control-omb's launch: no user data, no developer CLIs.
+// test can prove what survives a restart. Same environment as control-lunabot's launch: no user data, no developer CLIs.
 import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, mkdirSync, mkdtempSync, openSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

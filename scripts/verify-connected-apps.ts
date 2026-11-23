@@ -7,7 +7,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { credentialStoreFlags } from "../server/browser/egress/gate.ts";
 import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
-import { agentBrowser, ensureUiBrowser, sessionEnv } from "./testing/control-omb-ui.ts";
+import { agentBrowser, ensureUiBrowser, sessionEnv } from "./testing/control-lunabot-ui.ts";
 import { mountPreview, type MountedPreview } from "./testing/preview-fixture.ts";
 
 const fixture = await launchVerificationServer();

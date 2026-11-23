@@ -1,4 +1,4 @@
-// Assert the first-run workflow against a handle from `control-omb ui launch`.
+// Assert the first-run workflow against a handle from `control-lunabot ui launch`.
 // The handle gate refuses live-app URLs and stopped fixtures. All profile,
 // bot and onboarding writes below stay inside that launch's disposable home.
 import assert from "node:assert/strict";

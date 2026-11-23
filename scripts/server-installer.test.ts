@@ -99,7 +99,7 @@ case "$*" in
   "ps -aq --filter name=lunabot-connector") printf '%s' "\${FAKE_CONNECTOR:-}" ;;
   "run --rm --network none --entrypoint id "*" -u") /usr/bin/id -u ;;
   "run --rm --network none --entrypoint id "*" -g") /usr/bin/id -g ;;
-  compose*" ps -q omb") echo c1 ;;
+  compose*" ps -q lunabot") echo c1 ;;
   "image inspect -f {{json .Config.Env}} "*) echo "$FAKE_IMAGE_ENV" ;;
   "image inspect -f {{index .Config.Labels "*) echo "\${FAKE_IMAGE_VERSION-v0.1.151}" ;;
   "compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none") echo "$FAKE_BOX_CHECK"; case "$FAKE_BOX_CHECK" in *'"failed":[]'*) ;; *) exit 1 ;; esac ;;
@@ -308,7 +308,7 @@ describe.skipIf(!posix)("deploy/install.sh", () => {
     expect(statSync(join(result.install, ".env")).mode & 0o777).toBe(0o600);
     expect(statSync(join(result.install, "data")).mode & 0o777).toBe(0o700);
     for (const file of ["compose.yaml", "Caddyfile", "caddy/data", "caddy/config"]) expect(existsSync(join(result.install, file)), file).toBe(true);
-    const changes = result.docker.filter((call) => !READS.test(call) && !call.includes(" ps -q omb") && !call.startsWith("docker inspect"));
+    const changes = result.docker.filter((call) => !READS.test(call) && !call.includes(" ps -q lunabot") && !call.startsWith("docker inspect"));
     expect(changes).toEqual([
       "docker compose pull -q",
       'docker image inspect -f {{index .Config.Labels "org.opencontainers.image.version"}} ghcr.io/liguan-89/lunabot:v0.1.151',

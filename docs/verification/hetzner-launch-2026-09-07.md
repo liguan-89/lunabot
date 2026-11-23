@@ -37,7 +37,7 @@ systemctl is-active lunabot.service: active
 NRestarts=0
 codex login status: Logged in using ChatGPT
 kernel.apparmor_restrict_unprivileged_userns = 1
-control-omb doctor: ok=true, packaged=true, availableEngines=[codex]
+control-lunabot doctor: ok=true, packaged=true, availableEngines=[codex]
 ```
 
 The browser received approval for only the requested public-page navigation and

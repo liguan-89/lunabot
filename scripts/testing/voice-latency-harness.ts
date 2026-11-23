@@ -1,7 +1,7 @@
 // Voice-latency measurement harness. Drives the real app — renderer store
 // speak path, the Speaker, the server TTS route and the provider call —
 // against the committed corpus fixture, through the same disposable
-// verification fixture `control-omb ui` uses. The record protocol is the
+// verification fixture `control-lunabot ui` uses. The record protocol is the
 // deterministic stub: no live engine call, no engine key. See
 // fixtures/voice-latency/README.md for the protocol.
 import { execFileSync } from "node:child_process";
@@ -11,7 +11,7 @@ import { cpus, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runControlLunabot, launchVerificationServer, type VerificationServer } from "../control-lunabot.ts";
-import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-omb-ui.ts";
+import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-lunabot-ui.ts";
 import { mountPreview, type MountedPreview } from "./preview-fixture.ts";
 import { CADENCE, corpusFixtureId, readLfText, SYNTHESIS } from "./voice-latency-corpus.ts";
 import { launchVoiceLatencyStub, STUB_KEY, STUB_MODEL, STUB_VOICE } from "./voice-latency-stub.ts";

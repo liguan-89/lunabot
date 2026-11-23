@@ -1,4 +1,4 @@
-// Real renderer and API against an explicit control-omb UI fixture handle.
+// Real renderer and API against an explicit control-lunabot UI fixture handle.
 // The only substituted responses exercise unavailable-provider and retry UI.
 import assert from "node:assert/strict";
 import { mkdirSync, readFileSync } from "node:fs";

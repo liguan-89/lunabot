@@ -4,7 +4,7 @@
 import { chmodSync, copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { launchVerificationServer } from "./control-lunabot.ts";
-import { ensureUiBrowser } from "./testing/control-omb-ui.ts";
+import { ensureUiBrowser } from "./testing/control-lunabot-ui.ts";
 import { fixtureApi, mountPreview, parkUntilSignal } from "./testing/preview-fixture.ts";
 
 const cli = process.env.LUNABOT_VERIFY_CODEX_CLI;

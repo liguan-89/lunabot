@@ -5,7 +5,7 @@ import { mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
-import { ensureUiBrowser } from "./testing/control-omb-ui.ts";
+import { ensureUiBrowser } from "./testing/control-lunabot-ui.ts";
 import { fixtureApi, mountPreview, type MountedPreview } from "./testing/preview-fixture.ts";
 import { startFakeOAuth } from "../server/testing/fake-oauth-server.ts";
 import { startFakeHttpMcp } from "../server/testing/fake-http-mcp-server.ts";

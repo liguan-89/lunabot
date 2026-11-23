@@ -33,7 +33,7 @@ pnpm exec vitest run --no-file-parallelism server/spend-cap-goal.e2e.test.ts
 ```
 
 The goal fixture writes a stand-in enterprise layer (the folder shape core
-loads, granting `budgets` and `billing`) and launches the `control-omb`
+loads, granting `budgets` and `billing`) and launches the `control-lunabot`
 fixture with it through `launchVerificationServer(..., { dir, licenseKey })`.
 A capped team goal and a capped one-on-one goal each end as a blocked run
 carrying the cap detail, without retrying the refusal, and `/api/usage` is

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../control-lunabot.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { ensureUiBrowser } from "./control-omb-ui.ts";
+import { ensureUiBrowser } from "./control-lunabot-ui.ts";
 import { fixtureApi, mountPreview, type MountedPreview } from "./preview-fixture.ts";
 import { NOTICES } from "../../src/lib/notices.ts";
 

@@ -27,7 +27,7 @@ pnpm test:packaged-server
 checks which copy wins, the warning window, the grace period and the moment it
 ends. This AGPL tree ships no enterprise layer of its own, so the key-issuing
 register test lives upstream and is not cited here.
-`server/license-expiry-api.test.ts` boots the `control-omb`
+`server/license-expiry-api.test.ts` boots the `control-lunabot`
 fixture with a stand-in layer whose key expires in 12 days, expired 2 days
 ago, or expires in 90 days, and reads `/api/edition`, the server log, and
 `/api/config` as an admin and as a chat-only device. The packaged-server smoke copies `dist-server/`

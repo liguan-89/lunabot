@@ -53,12 +53,12 @@ const PLACEHOLDER = /^(ID|:[\w-]+|<[^>]+>|\{[^}]+\})$/;
 const slug = (heading: string) => heading.trim().toLowerCase().replace(/[^\w\- ]/g, "").replace(/\s+/g, "-");
 
 describe("docs/verification recipes cite things that exist", () => {
-  it("use control:omb verbs that help lists", () => {
-    const used = cited(/pnpm control:omb ([a-z][\w-]*)/g);
+  it("use control:lunabot verbs that help lists", () => {
+    const used = cited(/pnpm control:lunabot ([a-z][\w-]*)/g);
     expect(used.length).toBeGreaterThan(0);
     expect(used.filter((hit) => !helpVerbs.has(target(hit)))).toEqual([]);
     // the launcher form may also name `launch`, which pnpm cannot run
-    const direct = cited(/scripts\/control-omb\.ts ([a-z][\w-]*)/g);
+    const direct = cited(/scripts\/control-lunabot\.ts ([a-z][\w-]*)/g);
     expect(direct.filter((hit) => target(hit) !== "launch" && !helpVerbs.has(target(hit)))).toEqual([]);
   });
 

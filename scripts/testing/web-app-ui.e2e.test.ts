@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../control-lunabot.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { ensureUiBrowser } from "./control-omb-ui.ts";
+import { ensureUiBrowser } from "./control-lunabot-ui.ts";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 const enabled = process.env.LUNABOT_UI_E2E === "1";

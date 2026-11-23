@@ -12,7 +12,7 @@ export type ToolHooks = Parameters<ToolCaller>[4];
 
 export interface ClientDeps {
   env: NodeJS.ProcessEnv;
-  /** control-omb: a verb that changes something never runs on a server it merely found. */
+  /** control-lunabot: a verb that changes something never runs on a server it merely found. */
   requireExplicitForMutations?: boolean;
   callTool?: ToolCaller;
   request?: Requester;
@@ -84,7 +84,7 @@ export async function openClient(flags: Flags, deps: ClientDeps, mutating: boole
     baseUrl = `http://127.0.0.1:${port}`;
   } else {
     if (mutating && deps.requireExplicitForMutations) {
-      throw usageError("mutating commands require an explicit Luna Bot instance", "start `control-omb launch`, then pass its URL with --url");
+      throw usageError("mutating commands require an explicit Luna Bot instance", "start `control:lunabot launch`, then pass its URL with --url");
     }
     if (token) {
       throw usageError("a token needs a named server, so it is never sent while looking for one",

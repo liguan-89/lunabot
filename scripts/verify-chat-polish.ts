@@ -34,7 +34,7 @@ try {
     "#!/usr/bin/env node",
     `process.env.FAKE_CLAUDE_REPLIES = ${JSON.stringify(JSON.stringify([reply]))};`,
     `process.env.FAKE_CLAUDE_TOOL_CALLS = ${JSON.stringify(JSON.stringify([
-      { name: "Bash", input: { command: "pnpm control:omb doctor", password: "fixture-password" }, output: { text: "All fixture health checks passed.", token: "fixture-token" }, ok: true },
+      { name: "Bash", input: { command: "pnpm control:lunabot doctor", password: "fixture-password" }, output: { text: "All fixture health checks passed.", token: "fixture-token" }, ok: true },
       { name: "Read", input: { file_path: "missing.txt" }, output: "File not found: missing.txt", ok: false },
       { name: "Search", input: { query: "release notes" }, ok: true },
     ]))};`,

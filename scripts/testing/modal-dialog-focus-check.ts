@@ -1,4 +1,4 @@
-// Run against a fresh, owned `control-omb ui launch` handle, never the live app:
+// Run against a fresh, owned `control-lunabot ui launch` handle, never the live app:
 // node --experimental-strip-types scripts/testing/modal-dialog-focus-check.ts UI_HANDLE
 import assert from "node:assert/strict";
 import { runControlLunabot } from "../control-lunabot.ts";

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, dirname, resolve } from "node:path";
 import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
 import { mountPreview } from "./testing/preview-fixture.ts";
-import { agentBrowser, ensureUiBrowser, sessionEnv } from "./testing/control-omb-ui.ts";
+import { agentBrowser, ensureUiBrowser, sessionEnv } from "./testing/control-lunabot-ui.ts";
 
 const fixture = await launchVerificationServer();
 const home = mkdtempSync(join(tmpdir(), "omb-vmr-")); // Keep macOS browser sockets below their path limit.

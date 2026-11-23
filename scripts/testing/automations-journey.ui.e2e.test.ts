@@ -16,7 +16,7 @@ import { piDumpPath, piTurns } from "../../server/testing/pi-dump.ts";
 import { freePortBlock } from "../../server/testing/ports.ts";
 import { launchRestartableServer, type RestartableServer } from "../../server/testing/restartable-server.ts";
 import { runControlLunabot } from "../control-lunabot.ts";
-import { agentBrowser, ensureUiBrowser, sessionEnv, type UiHandle } from "./control-omb-ui.ts";
+import { agentBrowser, ensureUiBrowser, sessionEnv, type UiHandle } from "./control-lunabot-ui.ts";
 import { mountPreview } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));

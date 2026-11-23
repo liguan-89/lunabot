@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
     network_mode: host
     depends_on:
-      omb:
+      lunabot:
         condition: service_healthy
     environment:
       LUNABOT_HTTP_PORT: ${LUNABOT_HTTP_PORT:-8080}

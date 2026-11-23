@@ -111,8 +111,8 @@ checks:
 - a skills-only preview with no team;
 - the provenance line, which a bot imported from a file does not get.
 
-The second command runs a disposable `control-omb ui` app, with the key
-passed through `scripts/control-omb.ts`. It checks, in order:
+The second command runs a disposable `control-lunabot ui` app, with the key
+passed through `scripts/control-lunabot.ts`. It checks, in order:
 
 - Templates has no organization tab before any relay.
 - After the relay, **From Customer Co** is the first tab and opens first.

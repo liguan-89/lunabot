@@ -38,7 +38,7 @@ Run the guarded-send checks that the migrated end-to-end recipes drive:
 pnpm exec vitest run server/main-thread.e2e.test.ts server/direct-coordination.e2e.test.ts server/team-protocol.e2e.test.ts
 ```
 
-Each launches the prescribed `control-omb` verification server in a fresh
+Each launches the prescribed `control-lunabot` verification server in a fresh
 home and submits pinned task messages through the guarded route against only
 its gated fake provider. Temporary homes and their child processes are closed
 by each fixture.

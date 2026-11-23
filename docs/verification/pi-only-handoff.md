@@ -59,7 +59,7 @@ Grok/Copilot 等驱动已删除。
 
 - 套件清单在 `package.json` 的 `test:e2e:pi`（116 个文件）。
 - fixture 说明与已迁移配方清单在 `docs/verification/pi-e2e.md`。
-- 启动器是 `scripts/control-omb.ts`：只注入一个 `pi` 实例，CLI 指向
+- 启动器是 `scripts/control-lunabot.ts`：只注入一个 `pi` 实例，CLI 指向
   `server/testing/fake-pi-cli.ts`，并写 `fake-pi-dump.jsonl`；
   `server/testing/pi-dump.ts` 负责读回 launch、prompt、模型与会话。
 - 本阶段迁移的配方包括：parallel-threads、thread-aware-bots、group-goal-run ×2、
@@ -161,7 +161,7 @@ Grok/Copilot 等驱动已删除。
 - 引擎：`server/drivers/pi.ts`、`server/drivers/pi-model-catalog.ts`
 - 提供方接线：`server/drivers/pi-custom-provider.ts`
 - 测试 fixture：`server/testing/fake-pi-cli.ts`、`server/testing/pi-dump.ts`、
-  `scripts/control-omb.ts`
+  `scripts/control-lunabot.ts`
 - 验收清单位置：`package.json`（`test:e2e:pi`）
 - 迁移说明：`docs/verification/pi-e2e.md`
 - 结构棘轮：`scripts/testing/file-size-ratchet.test.ts`、
