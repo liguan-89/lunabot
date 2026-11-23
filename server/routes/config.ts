@@ -35,6 +35,7 @@ import { HOSTED_PROVIDER_SETTINGS_ERROR } from "../hosted-models.ts";
 import { forgetKey } from "../key-rejections.ts";
 import type { ComputerIdleTimer } from "../computer-idle.ts";
 import { PROVIDER_KEY_KINDS } from "../provider-key-check.ts";
+import { populateCompatModels } from "../openai-compat-models.ts";
 import type { SessionRegistry } from "../sessions.ts";
 import type { SharedComputerControl } from "../shared-computer-control.ts";
 import type { SharedComputers } from "../shared-computers.ts";
@@ -554,6 +555,7 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
         ? vpsAliasLeftBehindNotice(nextVpsAlias ? "Saved" : "Removed", vpsLeftOn, vpsEnvironmentFilter(), `label=${vps.VPS_MANAGED_LABEL}=1`)
         : null;
       const enginesBefore = engineLaunches(providerConfigs());
+      const compatModelsBefore = cfg.openaiCompat?.models;
       const externalSecretStorage = url.searchParams.get("secretStorage") === "external";
       try {
         if (patch.live) patch.live = liveSavePatch(cfg.live, patch.live);
@@ -614,6 +616,18 @@ export function createConfigRoutes(deps: ConfigRouteDeps): RouteHandler {
           for (const request of browserCleanupRequests) browserCleanup.abort(request);
         }
         throw error;
+      }
+      // A fresh connect (key + URL saved, no models) picks up the provider's own /models: without it pi lists only its
+      // synthetic default and every readiness check — the Cloud setup wizard included — stays stuck with no hint.
+      if (patch.openaiCompat) {
+        try {
+          await populateCompatModels(cfg, patch.openaiCompat.models, compatModelsBefore, (next) => {
+            saveConfig(next);
+            Object.assign(cfg, loadConfig());
+          });
+        } catch {
+          // The save itself already committed; a failed model lookup must not fail the request.
+        }
       }
       for (const key of resetKeys) if (key) forgetKey(key);
       postiz?.configSaved(patch);

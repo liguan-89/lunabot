@@ -47,9 +47,11 @@ it("saving and replacing the workspace provider key drives key testing without l
     });
     expect(status.openaiCompat.configured).toBe(true);
     expect(JSON.stringify(status)).not.toContain("fixture-first-key");
+    // The save picks up the provider's own /models list: the second Bearer hit is that pickup.
+    expect(status.openaiCompat.models).toEqual(["fixture-model"]);
     expect(await api("POST", "/api/keys/test", { provider: "openaiCompat" }))
       .toEqual({ ok: true, check: "models", models: ["fixture-model"] });
-    expect(received).toEqual(["Bearer fixture-first-key"]);
+    expect(received).toEqual(["Bearer fixture-first-key", "Bearer fixture-first-key"]);
     for (const key of ["", "   ", 123]) {
       const response = await fetch(`${fixture.info.url}/api/keys/test`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ provider: "openaiCompat", key }),
@@ -59,7 +61,8 @@ it("saving and replacing the workspace provider key drives key testing without l
     // A second save replaces the stored key: the next provider request carries the new one.
     await api("PUT", "/api/config", { openaiCompat: { key: "fixture-replacement-key" } });
     expect(await api("POST", "/api/keys/test", { provider: "openaiCompat" })).toEqual({ ok: true, check: "models", models: ["fixture-model"] });
-    expect(received).toEqual(["Bearer fixture-first-key", "Bearer fixture-replacement-key"]);
+    // Replacing the stored key refreshes nothing else: models are already saved, so no extra pickup.
+    expect(received).toEqual(["Bearer fixture-first-key", "Bearer fixture-first-key", "Bearer fixture-replacement-key"]);
     const disk = JSON.parse(readFileSync(join(fixture.info.dataDir, "config.json"), "utf8"));
     expect(disk.openaiCompat.key).toBe("fixture-replacement-key");
     const cleared = await api("PUT", "/api/config", { openaiCompat: { key: "" } });
