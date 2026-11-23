@@ -14,7 +14,7 @@ import { removeTempDir } from "./testing/cleanup.ts";
 import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 
 const MODEL = "chosen-vision-model";
-const PI_MODEL = `dex/${MODEL}`;
+const PI_MODEL = `luna/${MODEL}`;
 const SCREENSHOT = { server: "computer", name: "screenshot", input: {} };
 
 it("keeps the selected model for direct, group and scheduled Boat turns, runs the computer tool and preserves human control", async () => {
@@ -231,7 +231,7 @@ it("keeps the selected model for direct, group and scheduled Boat turns, runs th
       if (row.setModel && launch?.mcpConfig?.mcpServers?.computer) computerTurnModels.push(row.setModel);
     }
     expect(computerTurnModels.length).toBeGreaterThanOrEqual(4);
-    expect(computerTurnModels.every(entry => entry.provider === "dex" && entry.modelId === MODEL), JSON.stringify(computerTurnModels)).toBe(true);
+    expect(computerTurnModels.every(entry => entry.provider === "luna" && entry.modelId === MODEL), JSON.stringify(computerTurnModels)).toBe(true);
     expect(nativePrompts).toBe(0);
   } finally {
     boatReadsGate?.release();
