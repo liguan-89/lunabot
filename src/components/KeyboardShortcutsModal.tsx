@@ -63,7 +63,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
     <dialog
       ref={dialogRef}
       aria-labelledby="shortcuts-dialog-title"
-      className="m-auto w-[min(500px,calc(100%-32px))] max-h-[85vh] overflow-hidden rounded-2xl border border-hairline/50 bg-panel p-0 text-ink shadow-2xl backdrop:bg-black/60 backdrop:backdrop-blur-xs"
+      className="m-auto w-[min(500px,calc(100%-32px))] max-h-[85vh] overflow-hidden rounded-2xl border border-hairline/50 bg-menu p-0 text-ink shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-xs"
       onCancel={(event) => { event.preventDefault(); onClose(); }}
       onKeyDown={(event) => event.stopPropagation()}
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
@@ -120,7 +120,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
                 <div className="text-[11px] font-semibold uppercase tracking-wider text-ink-tertiary">
                   {shortcutCategory(group)}
                 </div>
-                <div className="divide-y divide-hairline/20 rounded-xl bg-card/40 px-3 py-1 border border-hairline/30">
+                <div className="divide-y divide-hairline/25 rounded-xl border border-hairline/35 bg-panel/70 px-3 py-1">
                   {group.items.map((item) => (
                     <ShortcutRow key={item.id} item={item} isMac={isMac} />
                   ))}
@@ -130,7 +130,7 @@ export function KeyboardShortcutsModal({ open, onClose }: KeyboardShortcutsModal
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-hairline/40 bg-card/30 px-5 py-2.5 text-[12px] text-ink-secondary">
+        <div className="flex items-center justify-between border-t border-hairline/40 bg-panel/50 px-5 py-2.5 text-[12px] text-ink-secondary">
           <span>
             {t("shortcuts.openHintBefore")} <kbd className="rounded bg-control px-1 py-0.5 font-mono text-[11px]">?</kbd> {t("shortcuts.openHintAfter")}
           </span>

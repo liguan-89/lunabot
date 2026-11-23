@@ -18,7 +18,7 @@ export interface ConfigStatus {
   cerebras?: SavedKey;
   groq?: SavedKey;
   greenference?: SavedKey;
-  modelgo?: SavedKey;
+  tk1688?: SavedKey;
   deepseek?: SavedKey;
   meta?: SavedKey;
   /** X research comes with Luna Bot Cloud plans: `included` while this server holds the plan's relay credential;

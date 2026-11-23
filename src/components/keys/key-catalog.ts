@@ -17,7 +17,7 @@ export const KEY_SECTIONS: ReadonlyArray<{ id: KeySectionId; titleKey: LocaleKey
   { id: "helpers", titleKey: "keys.section.helpers", purposeKey: "keys.section.helpers.purpose" },
 ];
 
-export type TestableProvider = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "treg";
+export type TestableProvider = "anthropic" | "openai" | "openrouter" | "openaiCompat" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "tk1688" | "meta" | "treg";
 
 export type DesktopSlot = Parameters<NonNullable<NonNullable<Window["ogb"]>["setCredential"]>>[0];
 export type DesktopSlotOptions = NonNullable<Parameters<NonNullable<NonNullable<Window["ogb"]>["setCredential"]>>[2]>;
@@ -45,7 +45,7 @@ export interface KeyTarget {
 }
 
 export type KeyId =
-  | "openai" | "anthropic" | "xai" | "openrouter" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "opencodeGo" | "opencodeProviders"
+  | "openai" | "anthropic" | "xai" | "openrouter" | "mistral" | "cerebras" | "groq" | "greenference" | "tk1688" | "meta" | "deepseek" | "opencodeGo" | "opencodeProviders"
   | "lmStudio" | "openaiCompat" | "liveCalls" | "liveKey" | "elevenlabs" | "fishAudio" | "geminiTts" | "box" | "vps" | "onePassword" | "composio" | "treg" | "postiz"
   | "jev" | "openrouterHelper" | "workersAi" | "imageOpenai" | "imageGemini" | "imageCustom";
 
@@ -72,7 +72,7 @@ function flag(saved: SavedKey | undefined): SavedState {
   return { configured: saved?.configured === true, ...(saved?.configured && saved.last4 ? { last4: saved.last4 } : {}) };
 }
 
-type TopLevelKey = "openai" | "openrouter" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "modelgo" | "meta" | "deepseek" | "treg";
+type TopLevelKey = "openai" | "openrouter" | "xai" | "mistral" | "cerebras" | "groq" | "greenference" | "tk1688" | "meta" | "deepseek" | "treg";
 
 function providerKey(name: TopLevelKey, rest: Omit<KeyTarget, "patch" | "saved">): KeyTarget {
   return { patch: (value) => ({ [name]: { key: value } }), saved: (config) => flag(config[name]), ...rest };
@@ -200,7 +200,7 @@ export function looksLikeOtherKey(entry: KeyEntry, value: string): KeyEntry | nu
 
 const INSTANCE_KEYS: Readonly<Record<string, KeyId>> = {
   openai: "openai", claudeApi: "anthropic", xaiApi: "xai", grok: "xai", openrouter: "openrouter", mistral: "mistral", cerebras: "cerebras",
-  groq: "groq", greenference: "greenference", modelgo: "modelgo", meta: "meta", deepseek: "deepseek", opencodeGo: "opencodeGo", openaiCompat: "openaiCompat",
+  groq: "groq", greenference: "greenference", tk1688: "tk1688", meta: "meta", deepseek: "deepseek", opencodeGo: "opencodeGo", openaiCompat: "openaiCompat",
   pi: "openaiCompat",
 };
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ChevronDown, Cloud, Laptop } from "lucide-react";
 import { track } from "@/lib/analytics";
+import { useChromeRail } from "@/lib/chrome-rail";
 import { cn } from "@/lib/cn";
 import type { Action } from "@/state/store";
 import type { CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
@@ -83,8 +84,16 @@ type SwitcherProps = {
   compact?: boolean; inline?: boolean; pill?: boolean; rail?: boolean; cloudHome?: boolean; owner?: string | null; howTo?: boolean; place?: string; onMenuClosed?: () => void;
 };
 
-/** The place on screen and the native Server menu. */
+/** The place on screen and the native Server menu; where the window's rail capsule offers its places popover,
+ * avoid rendering a duplicate switcher. */
 export function DesktopWorkspaceSwitcher(props: SwitcherProps) {
+  const chromeRail = useChromeRail();
+  const capsuleActive = Boolean(
+    chromeRail?.available
+    && typeof window !== "undefined"
+    && typeof window.ogb?.rail?.openPopover === "function",
+  );
+  if (capsuleActive && !props.rail) return null;
   return <Switcher {...props} />;
 }
 

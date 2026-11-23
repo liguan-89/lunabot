@@ -12122,7 +12122,7 @@ function configStatus() {
     cloudStarter: cloudPlanTier.starter(), waitingForRoom: engineMemory.waiting(), planTurns: starterCaps.status(), awakeLimit: starterAwake.limit(), pausedBots: starterAwake.paused(), xai: keyStatus(cfg.xai?.key),
     mistral: keyStatus(cfg.mistral?.key),
     cerebras: keyStatus(cfg.cerebras?.key),
-    groq: keyStatus(cfg.groq?.key), greenference: keyStatus(cfg.greenference?.key), modelgo: keyStatus(cfg.modelgo?.key),
+    groq: keyStatus(cfg.groq?.key), greenference: keyStatus(cfg.greenference?.key), tk1688: keyStatus(cfg.tk1688?.key),
     meta: keyStatus(cfg.meta?.key), deepseek: keyStatus(cfg.deepseek?.key),
     xResearch: xResearchStatus(), treg: keyStatus(cfg.treg?.key), postiz: { ...keyStatus(cfg.postiz?.key), ...(cfg.postiz?.url ? { url: cfg.postiz.url } : {}) },
     anthropic: { ...keyStatus(cfg.anthropic?.key), everyClaudeBot: cfg.anthropic?.everyClaudeBot !== false },
@@ -15320,7 +15320,7 @@ const handleRequest = async (req: IncomingMessage, res: ServerResponse) => {
       return json(res, 200, {
         defaults: structuredClone(cfg.newBotDefaults ?? newBotDefaultsSchema.parse({})),
         modelSelection: await defaultSelection(),
-        suggestedName: pickBotName(store.bots.map(bot => bot.name)),
+        suggestedName: pickBotName(store.bots.map(bot => bot.name), personLanguages.forLine(auth.kind === "session" ? actorKey(auth) : undefined)),
       });
     }
     if (method === "POST" && path === "/api/bot-defaults/skills/preview") {

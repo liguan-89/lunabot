@@ -33,7 +33,7 @@ import { CloudTile } from "./cloud-buy/parts";
 import { usageBridge } from "./CloudUsageMeter";
 import { useCloudPlanSnapshot } from "./CloudTrialNotice";
 import type { WorkspacePlace } from "./DesktopWorkspaceSwitcher";
-
+import { useChromeRail } from "@/lib/chrome-rail";
 import { useAutomationsNeedYou } from "./SidebarFooterNav";
 import { useCloudFilesReady } from "@/lib/cloud-files";
 import { SidebarPopoverMenu, type SidebarMenuItem } from "./SidebarPopoverMenu";
@@ -371,11 +371,13 @@ export function accountDot({ automationsNeedYou, update, move }: { automationsNe
   return update ? "accent" : null;
 }
 
-export function placeMenuItems(place: Pick<WorkspacePlace, "bridge" | "current" | "cloudHome" | "onLine" | "openMenu" | "switchable">, { owner, name, onCloudSettings }: {
+/** `besideRail`: the window's rail capsule switches places, so Switch to… isn't offered twice. */
+export function placeMenuItems(place: Pick<WorkspacePlace, "bridge" | "current" | "cloudHome" | "onLine" | "openMenu" | "switchable">, { owner, name, onCloudSettings, besideRail = false }: {
   owner: string | null;
   /** A team's name on a team's Cloud. */
   name?: string;
   onCloudSettings: () => void;
+  besideRail?: boolean;
 }): SidebarMenuItem[] {
   const here = <Check size={15} aria-hidden="true" className="shrink-0 text-ink-secondary" />;
   if (!place.switchable) {
@@ -388,7 +390,7 @@ export function placeMenuItems(place: Pick<WorkspacePlace, "bridge" | "current" 
     : current?.local === false || (place.cloudHome && !current) ? <Cloud size={16} /> : <Laptop size={16} />;
   return [
     ...(current ? [{ key: "place", label: current.name, ...(place.cloudHome && place.onLine ? { subtitle: place.onLine } : {}), icon, trailing: here, onSelect: place.openMenu }] : []),
-    { key: "switch-place", label: t("sidebar.menu.switchTo"), icon: <ArrowLeftRight size={16} />, onSelect: place.openMenu },
+    ...(besideRail ? [] : [{ key: "switch-place", label: t("sidebar.menu.switchTo"), icon: <ArrowLeftRight size={16} />, onSelect: place.openMenu }]),
   ];
 }
 
@@ -586,6 +588,12 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
   const name = profileLabel(profile);
   const connectTo = (destination: PhoneDestination) => selectPhoneDestination(destination, { bridge: cloudPhone.bridge, dispatch });
   const remote = window.ogb?.remoteClient?.active === true;
+  const chromeRail = useChromeRail();
+  const besideRail = Boolean(
+    chromeRail?.available
+    && typeof window !== "undefined"
+    && typeof window.ogb?.rail?.openPopover === "function",
+  );
   const filesReady = useCloudFilesReady();
   const cloudAccount = !remote && Boolean(window.ogb?.cloudAccount || (window.ogb?.cloudPlan && state.config?.cloudHome === true));
   const openCloudAccount = () => dispatch({ type: "toggleAppSettings", open: true, section: "cloudAccount" });
@@ -617,7 +625,7 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
         onFiles: filesReady ? () => dispatch({ type: "showFiles" }) : undefined,
         archived: account.archived,
       }),
-      places: placeMenuItems(account.place, { owner: account.owner, name: state.config?.team?.name, onCloudSettings: openCloudAccount }),
+      places: placeMenuItems(account.place, { owner: account.owner, name: state.config?.team?.name, besideRail, onCloudSettings: openCloudAccount }),
     } } : {}),
     onUsage: () => dispatch({ type: "toggleAppSettings", open: true, section: "usage" }),
     onSettings: () => dispatch({ type: "toggleAppSettings" }),
@@ -669,7 +677,7 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
             )}
           >
             <InitialsAvatar initials={initials} avatarUrl={profile?.avatarUrl} size={rail ? 30 : circle ? 26 : 28} />
-            {dot && <span aria-hidden data-account-dot={dot} className={cn("absolute end-1 top-1 size-2.5 rounded-full ring-2 ring-app", DOT_COLOR[dot])} />}
+            {dot && <span aria-hidden data-account-dot={dot} className={cn("absolute end-1 top-1 size-2.5 rounded-full ring-2 ring-panel", DOT_COLOR[dot])} />}
           </span>
         ) : (
           <span
@@ -681,7 +689,7 @@ export function SidebarProfileMenu({ iconOnly = false, rail = false, circle = fa
           >
             <span className="relative flex shrink-0">
               <InitialsAvatar initials={profileInitials(profile)} avatarUrl={profile?.avatarUrl} size={28} />
-              {moveDot && <span aria-hidden data-account-dot={moveDot} className={cn("absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-app", DOT_COLOR[moveDot])} />}
+              {moveDot && <span aria-hidden data-account-dot={moveDot} className={cn("absolute -right-0.5 -top-0.5 size-2 rounded-full ring-2 ring-panel", DOT_COLOR[moveDot])} />}
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
               <span className="truncate text-[14px] font-medium leading-5 text-ink">{name}</span>

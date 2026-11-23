@@ -4,7 +4,6 @@ import { useStore, type ConfigStatus } from "@/state/store";
 import { cn } from "@/lib/cn";
 import { scrollParent, scrollWithin } from "@/lib/scroll-within";
 import { t } from "@/lib/i18n";
-import { BoatOfferPanel } from "../BoatOffer";
 import { LiveProviderSettings } from "../LiveProviderSettings";
 import { VoiceEveryReplySetting } from "../VoiceEveryReplySetting";
 import { BuiltInReplyWait } from "../OpenAiCompatServers";
@@ -23,7 +22,6 @@ const PANELS: Partial<Record<KeyId, () => ReactNode>> = {
 
 const EXTRAS: Partial<Record<KeyId, () => ReactNode>> = {
   openaiCompat: () => <><OpenAiCompatUrl /><BuiltInReplyWait /></>,
-  box: () => <BoatOfferPanel />,
   liveKey: () => <LiveProviderSettings />,
 };
 
@@ -157,7 +155,7 @@ export function KeysPage() {
   return (
     <div ref={pageRef} data-keys-page className="flex flex-col gap-4">
       <p className="text-[13px] leading-[18px] text-ink-secondary">{t("settings.connections.subtitle")}</p>
-      <div className="flex h-8 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] focus-within:ring-2 focus-within:ring-focus/60">
+      <div className="flex h-8 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-[9px] transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20">
         <Search size={15} aria-hidden="true" className="shrink-0 text-ink-secondary" />
         <input
           data-keys-search

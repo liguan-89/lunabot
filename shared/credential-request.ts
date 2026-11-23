@@ -1,4 +1,4 @@
-import { MODELGO_URL } from "./modelgo.ts";
+import { TK1688_URL } from "./tk1688.ts";
 /**
  * Credentials an agent may ask the person to provide through an inline
  * card. The id is the entire authority surface: agents never choose a
@@ -101,11 +101,11 @@ export const CREDENTIAL_TARGETS = {
     placeholder: "Paste your Greenference API key",
     helpUrl: "https://greenference.com/dashboard/tokens",
   },
-  modelgoApiKey: {
-    label: "ModelGo API key",
-    description: "Runs ModelGo models with your own key.",
-    placeholder: "Paste your ModelGo API key",
-    helpUrl: MODELGO_URL,
+  tk1688ApiKey: {
+    label: "TK1688 API key",
+    description: "Runs TK1688 models with your own key.",
+    placeholder: "Paste your TK1688 API key",
+    helpUrl: TK1688_URL,
   },
   metaApiKey: {
     label: "Meta API key",
@@ -127,7 +127,7 @@ export type LoginCredentialTargetId = "onePasswordToken";
 export type ConfigCredentialTargetId = Exclude<CredentialTargetId, LoginCredentialTargetId>;
 /** AI provider keys: refused where Admin manages the models, and typed only in the computer's own app or a desktop paired to it, never on a phone. */
 export const PROVIDER_CREDENTIAL_TARGETS = [
-  "openaiApiKey", "anthropicApiKey", "openrouterApiKey", "mistralApiKey", "cerebrasApiKey", "groqApiKey", "greenferenceApiKey", "modelgoApiKey", "metaApiKey", "deepseekApiKey",
+  "openaiApiKey", "anthropicApiKey", "openrouterApiKey", "mistralApiKey", "cerebrasApiKey", "groqApiKey", "greenferenceApiKey", "tk1688ApiKey", "metaApiKey", "deepseekApiKey",
 ] as const satisfies readonly ConfigCredentialTargetId[];
 export type DesktopCredentialSlot = ConfigCredentialTargetId;
 export type CredentialConfig = {
@@ -144,7 +144,7 @@ export type CredentialConfig = {
   cerebras?: { key?: string };
   groq?: { key?: string };
   greenference?: { key?: string };
-  modelgo?: { key?: string };
+  tk1688?: { key?: string };
   meta?: { key?: string };
   deepseek?: { key?: string };
   /** Not in the settings file: the server fills it from its login store. */
@@ -215,8 +215,8 @@ export function credentialConfigPatch(id: ConfigCredentialTargetId, value: strin
       return { groq: { key: value } };
     case "greenferenceApiKey":
       return { greenference: { key: value } };
-    case "modelgoApiKey":
-      return { modelgo: { key: value } };
+    case "tk1688ApiKey":
+      return { tk1688: { key: value } };
     case "metaApiKey":
       return { meta: { key: value } };
     case "deepseekApiKey":
@@ -258,8 +258,8 @@ export function credentialIsConfigured(config: CredentialConfig, id: CredentialT
       return Boolean(config.groq?.key);
     case "greenferenceApiKey":
       return Boolean(config.greenference?.key);
-    case "modelgoApiKey":
-      return Boolean(config.modelgo?.key);
+    case "tk1688ApiKey":
+      return Boolean(config.tk1688?.key);
     case "metaApiKey":
       return Boolean(config.meta?.key);
     case "deepseekApiKey":

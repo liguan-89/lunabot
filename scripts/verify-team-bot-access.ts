@@ -20,8 +20,8 @@ const CHROME = process.env.LUNABOT_CDP_CHROME ?? "/Applications/Google Chrome.ap
 const [WIDTH, HEIGHT] = [1280, 800];
 const PHONE = { width: 390, height: 844 };
 const SUBJECT = /^\/api\/(?:bots|threads|groups|routines)\//;
-/** The app's time-limited offer opens over the sidebar; its own Not now closes it. */
-const DISMISS_OFFER = `(() => { const button = [...document.querySelectorAll('[data-notice="boat-offer"] button')].find((entry) => entry.textContent.trim() === "Not now");
+/** The sponsor's card may open over the sidebar; its own Not now closes it. */
+const DISMISS_OFFER = `(() => { const button = [...document.querySelectorAll('[data-notice="tk1688-offer"] button')].find((entry) => entry.textContent.trim() === "Not now");
   button?.click(); return Boolean(button); })()`;
 
 const CROWD = ["frank", "gina", "hugo", "iris", "jon", "kim"].map((name) => ({ email: `${name}@acme.test`, role: "member" as const }));

@@ -200,7 +200,7 @@ export function VaultSettings() {
       <div className="flex flex-col gap-3" aria-busy={logins === null || busy} data-vault>
         {state.config?.cloudHome === true && !member && <p className="text-[12px] leading-relaxed text-ink-secondary" data-logins-cloud-own>{t("settings.logins.cloudOwn")}</p>}
         <div className="flex flex-wrap items-center gap-2">
-          <div className="flex h-8 min-w-[12rem] flex-1 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] focus-within:ring-2 focus-within:ring-focus/60">
+          <div className="flex h-8 min-w-[12rem] flex-1 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-[9px] transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20">
             <Search size={15} aria-hidden="true" className="shrink-0 text-ink-secondary" />
             <input data-vault-search type="text" value={query} onChange={(event) => setQuery(event.target.value)} autoComplete="off" spellCheck={false}
               placeholder={t("settings.vault.search")} aria-label={t("settings.vault.search")}

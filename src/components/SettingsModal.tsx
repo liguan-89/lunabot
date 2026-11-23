@@ -489,7 +489,7 @@ function SettingsDialog() {
   const narrowSearch = (
     <div className="w-full sm:hidden">
       {searchField(
-        "flex h-9 items-center gap-2 rounded-lg bg-ink/[0.05] px-2.5 text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
+        "flex h-9 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-2.5 text-[13px] transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20",
         "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none",
       )}
     </div>
@@ -546,7 +546,7 @@ function SettingsDialog() {
           <span id="app-settings-title" className="sr-only">{t("settings.title")}</span>
           <nav aria-label={t("settings.title")} className="glass-rail hidden min-h-0 w-[198px] shrink-0 flex-col gap-0.5 overflow-y-auto px-3 py-4 sm:flex">
             {searchField(
-              "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-lg bg-ink/[0.05] px-[9px] text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
+              "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-lg border border-hairline/45 bg-inset/75 px-[9px] text-[13px] transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20",
               "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-secondary focus:outline-none",
             )}
             {noMatch && (
@@ -637,7 +637,7 @@ function SettingsDialog() {
             {t("settings.title")}
           </div>
           {searchField(
-            "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-xl bg-ink/[0.05] px-2.5 text-[13px] focus-within:ring-2 focus-within:ring-focus/60",
+            "mb-2 flex h-8 shrink-0 items-center gap-2 rounded-xl border border-hairline/45 bg-inset/75 px-2.5 text-[13px] transition-colors focus-within:border-focus focus-within:bg-menu focus-within:ring-2 focus-within:ring-focus/20",
             "w-full min-w-0 bg-transparent text-[13px] text-ink placeholder:text-ink-tertiary focus:outline-none",
           )}
           {visiblePages.length === 0 && keyResults.length === 0 && advancedRowResults.length === 0 && (
