@@ -16,7 +16,7 @@ OUT=${OUT:-$(mktemp -d)}
 LAYOUT=${LAYOUT:-installer}
 REPO=ghcr.io/liguan-89/lunabot
 FROM=${FROM_VERSION:-2.1.4}
-TO=${TO_VERSION:-2.1.5}
+TO=${TO_VERSION:-2.1.7}
 mkdir -p "$OUT"
 if [ "$LAYOUT" = installer ]; then DIR=/opt/lunabot DATA=/opt/lunabot/data
 else DIR=/srv/lunabot-e2e/deploy DATA=deploy_data; fi
