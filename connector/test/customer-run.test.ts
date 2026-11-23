@@ -160,7 +160,7 @@ describe("a customer-run server: the jobs MausBot may run", () => {
     expect(checkCustomerRunJob({ id: "s1", type: "start", args: { image: CLOUD_HOME, env } }, "admin")).toMatchObject({ ok: false, id: "s1", code: "refused_by_mode" });
     expect(checkCustomerRunJob({ id: "s2", type: "start" }, "admin")).toEqual({ ok: true, job: { id: "s2", type: "start", args: {} } });
     expect(checkCustomerRunJob({ id: "u1", type: "update", args: { image: NEXT } }, "admin")).toEqual({ ok: true, job: { id: "u1", type: "update", args: { image: NEXT } } });
-    for (const image of [CLOUD_HOME, RUNNING, "ghcr.io/someone-else/openmausbot@sha256:" + "a".repeat(64)]) {
+    for (const image of [CLOUD_HOME, RUNNING, RUNNING_RENAMED, "ghcr.io/someone-else/openmausbot@sha256:" + "a".repeat(64)]) {
       expect(checkCustomerRunJob({ id: "u2", type: "update", args: { image } }, "admin"), image).toMatchObject({ ok: false, code: "invalid_args" });
     }
     expect(checkCustomerRunJob({ id: "u3", type: "update", args: { image: NEXT, env } }, "admin")).toMatchObject({ ok: false, code: "invalid_args" });

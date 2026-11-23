@@ -4,7 +4,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, dirname, join, posix, resolve, win32 } from "node:path";
 
-import { DATA_DIR_NAME, LEGACY_DATA_DIR_NAME } from "../data-dir.ts";
+import { DATA_DIR_NAME, LEGACY_DATA_DIR_NAMES } from "../data-dir.ts";
 
 const FOLDER = "lunabot-sentinel";
 
@@ -16,7 +16,7 @@ export function defaultSentinelOut(dataDir: string, platform: NodeJS.Platform = 
     : path.join(state, FOLDER);
   // two workspaces never count into one set of issues; the default data dir keeps the plain folder, under either name
   const resolved = path.resolve(dataDir);
-  if (resolved === path.join(home, DATA_DIR_NAME) || resolved === path.join(home, LEGACY_DATA_DIR_NAME)) return base;
+  if (resolved === path.join(home, DATA_DIR_NAME) || LEGACY_DATA_DIR_NAMES.some((name) => resolved === path.join(home, name))) return base;
   return path.join(base, `data-${createHash("sha256").update(resolved).digest("hex").slice(0, 12)}`);
 }
 

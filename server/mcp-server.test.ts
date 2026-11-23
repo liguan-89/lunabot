@@ -5,7 +5,7 @@ import "./testing/scrub-ambient-lunabot-env.ts";
 
 import {
   handleToolCall,
-  OpenMausBotApiError,
+  LunaBotApiError,
   probeBaseUrls,
   processMcpMessage,
   request,
@@ -659,7 +659,7 @@ describe("waiting on a conversation's job", () => {
   it("names an older server that cannot report a job, and a conversation that is gone as gone", async () => {
     const answering = (body: string) => vi.fn(async (path: string) => {
       if (path === "/api/bots?messages=0") return bot();
-      throw new OpenMausBotApiError(404, `Luna Bot API error (404): ${body}`);
+      throw new LunaBotApiError(404, `Luna Bot API error (404): ${body}`);
     });
     await expect(handleToolCall("wait_for_conversation", { target_type: "bot", target_id: "bot-1" }, answering("not found")))
       .rejects.toThrow("cannot report a conversation's job");

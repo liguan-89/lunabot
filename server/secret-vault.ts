@@ -265,7 +265,7 @@ export class SecretVault {
         }
         if (legacy) {
           // The old folder has no future writes: once the last expired file is gone, remove the folder itself.
-          try { if (readdirSync(folder).length === 0) rmSync(folder, { force: true }); } catch { /* already gone */ }
+          try { if (readdirSync(folder).length === 0) rmSync(folder, { recursive: true, force: true }); } catch { /* already gone */ }
         }
       }
     }

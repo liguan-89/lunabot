@@ -29,6 +29,9 @@ export const BOX_ENV_LUNABOT_NAMES: ReadonlySet<string> = new Set([
   "LUNABOT_GATE_DIRECTORY", "LUNABOT_GATE_APPS", "LUNABOT_REMOTE_MCP_SERVER", "LUNABOT_REMOTE_MCP_DIRECTORY", "LUNABOT_REMOTE_MCP_APPS",
   "LUNABOT_CONTROL_URL", "LUNABOT_CONTROL_TOKEN", "LUNABOT_COMPUTER_JOURNAL", "LUNABOT_CUA_ARGS", "LUNABOT_CUA_COMMAND", "LUNABOT_CUA_PLATFORM",
   "LUNABOT_PHONE_TOKEN", "LUNABOT_ADB_PATH", "LUNABOT_RESOURCES_PATH", "LUNABOT_CODEX_AUTH_SOCKET", "LUNABOT_CODEX_AUTH_SECRET",
+  // The engines' own keys under the family prefix (a spawn's allowEnv never lifts a LUNABOT_ name, so these are
+  // enumerated here rather than left to the generic engine prefixes).
+  "LUNABOT_CODEX_API_KEY", "LUNABOT_CHATGPT_TOKEN",
   "LUNABOT_COPILOT_MCP_CONFIG", "LUNABOT_BROWSER_PROFILE", "LUNABOT_BOX_PROBE", "LUNABOT_EXTRA_PATH", "LUNABOT_TEST_SEALED_PATH",
 ]);
 /** Families of the same, one variable per server or kind: a harness MCP server's token, a gated or remote server's config. */
