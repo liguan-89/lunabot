@@ -88,7 +88,7 @@ describe("augmentedPath", () => {
   posixIt("keeps the last login-shell PATH available during a rescan", async () => {
     const shell = join(homedir(), "fake-login-shell");
     const rcOnlyBin = join(homedir(), "rc-only", "bin");
-    writeFileSync(shell, `#!/bin/sh\nprintf '__OMB_PATH__%s' '${rcOnlyBin}'\n`);
+    writeFileSync(shell, `#!/bin/sh\nprintf '__LUNABOT_PATH__%s' '${rcOnlyBin}'\n`);
     chmodSync(shell, 0o755);
 
     const previousShell = process.env.SHELL;
@@ -120,7 +120,7 @@ describe("augmentedPath", () => {
     const shell = join(homedir(), "fake-login-shell");
     const ran = join(homedir(), "login-shell-ran");
     const rcOnlyBin = join(homedir(), "rc-only", "bin");
-    writeFileSync(shell, `#!/bin/sh\n: > '${ran}'\nprintf '__OMB_PATH__%s' '${rcOnlyBin}'\n`);
+    writeFileSync(shell, `#!/bin/sh\n: > '${ran}'\nprintf '__LUNABOT_PATH__%s' '${rcOnlyBin}'\n`);
     chmodSync(shell, 0o755);
 
     const saved = { PATH: process.env.PATH, SHELL: process.env.SHELL, VITEST: process.env.VITEST };

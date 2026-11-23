@@ -22,9 +22,9 @@
 ### LUNABOT_ 前缀（~490 个真实 env 名）
 - 总量：全仓去重 ~503（含 ~15 假阳性：heredoc 定界符、UI 占位 token），server 代码「已知名」权威枚举在 `server/bot-box/env.test.ts:7-60`（~225 条）。
 - **没有统一 env 访问器**：`process.env.LUNABOT_*` 直读 328 处，无法单点改读；但有 6 个集中清单文件必须逐一同步：
-  `server/bot-box/env.ts:31-56`（BOX_ENV_OMB_NAMES/PREFIXES/NEVER/NEVER_PREFIXES）、
+  `server/bot-box/env.ts:31-56`（BOX_ENV_LUNABOT_NAMES/PREFIXES/NEVER/NEVER_PREFIXES）、
   `server/bot-box/env.test.ts`（权威枚举，新名要过此测试）、
-  `server/testing/omb-env.ts:4`（AMBIENT_PREFIXES）、
+  `server/testing/lunabot-env.ts:4`（AMBIENT_PREFIXES）、
   `src/components/keys/key-catalog.ts:89-149`（UI 密钥 env 名目录）、
   `connector/src/settings.ts:80-81`（密钥转发名单）、
   `server/cloud-home.ts:18` + `server/cloud-home-start.ts:39`（云家 env 契约清单）。

@@ -19,7 +19,7 @@ import { turnStdioMcpServers } from "./drivers/turn-mcp.ts";
 import { gateServer } from "./mcp-gate-config.ts";
 import { SPAWNED_PROXIES } from "./proxy-paths.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 type Server = { command: string; args: string[]; env: Record<string, string> };

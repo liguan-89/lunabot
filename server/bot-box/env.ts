@@ -16,7 +16,7 @@ export const BOX_ENV_NAMES: ReadonlySet<string> = new Set([
 /** Luna Bot's own variables a boxed process reads: what the harness sets for a bot's engine, its hooks and the MCP
  * proxies it starts. Security: no other `LUNABOT_` name passes, whatever the operator set on the server (an SMTP URL, a
  * token); env.test.ts lists every `LUNABOT_` name the server knows, so a new one needs a decision. */
-export const BOX_ENV_OMB_NAMES: ReadonlySet<string> = new Set([
+export const BOX_ENV_LUNABOT_NAMES: ReadonlySet<string> = new Set([
   "LUNABOT_HARNESS_URL", "LUNABOT_BOT_ID", "LUNABOT_THREAD_ID", "LUNABOT_APPROVAL_MODE", "LUNABOT_COMMS_TOKEN", "LUNABOT_TURN_DEPTH", "LUNABOT_EXTERNAL_RUNTIME",
   "LUNABOT_CHIEF_OF_STAFF", "LUNABOT_MAUSBOT", "LUNABOT_SKILL_AUTHORING_ENABLED", "LUNABOT_MEMORY_ENABLED", "LUNABOT_SHARED_COMPUTERS_ENABLED",
   "LUNABOT_VOICE_NOTES", "LUNABOT_X_RESEARCH", "LUNABOT_RESEARCH", "LUNABOT_TEAM_PEOPLE", "LUNABOT_COMPUTER_SELECTION", "LUNABOT_ROOM",
@@ -32,7 +32,7 @@ export const BOX_ENV_OMB_NAMES: ReadonlySet<string> = new Set([
   "LUNABOT_COPILOT_MCP_CONFIG", "LUNABOT_BROWSER_PROFILE", "LUNABOT_BOX_PROBE", "LUNABOT_EXTRA_PATH", "LUNABOT_TEST_SEALED_PATH",
 ]);
 /** Families of the same, one variable per server or kind: a harness MCP server's token, a gated or remote server's config. */
-export const BOX_ENV_OMB_PREFIXES: readonly string[] = ["LUNABOT_MCP_TOKEN_", "LUNABOT_GATE_CONFIG_", "LUNABOT_REMOTE_MCP_CONFIG_"];
+export const BOX_ENV_LUNABOT_PREFIXES: readonly string[] = ["LUNABOT_MCP_TOKEN_", "LUNABOT_GATE_CONFIG_", "LUNABOT_REMOTE_MCP_CONFIG_"];
 
 /** Prefixes of the engines' own settings and keys (T0b replaces the keys with per-turn broker tokens). */
 export const BOX_ENV_PREFIXES: readonly string[] = [
@@ -59,7 +59,7 @@ export function boxEnvironmentAllows(name: string, deny: ReadonlySet<string> = n
   if (BOX_ENV_NEVER.has(name) || BOX_ENV_NEVER_PREFIXES.some((prefix) => name.startsWith(prefix))) return false;
   if (allow.has(name) && !name.startsWith("LUNABOT_")) return true;
   if (deny.has(name)) return false;
-  if (name.startsWith("LUNABOT_")) return BOX_ENV_OMB_NAMES.has(name) || BOX_ENV_OMB_PREFIXES.some((prefix) => name.startsWith(prefix));
+  if (name.startsWith("LUNABOT_")) return BOX_ENV_LUNABOT_NAMES.has(name) || BOX_ENV_LUNABOT_PREFIXES.some((prefix) => name.startsWith(prefix));
   return BOX_ENV_NAMES.has(name) || BOX_ENV_PREFIXES.some((prefix) => name.startsWith(prefix));
 }
 

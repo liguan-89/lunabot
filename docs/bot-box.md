@@ -20,7 +20,7 @@ its database, its settings, other bots' folders and other turns' processes are n
 
 The environment is an allow-list (`server/bot-box/env.ts`): the engine's own settings and keys, the harness capability
 tokens and a few names a shell expects. Of Luna Bot's own `LUNABOT_*` variables only those a bot's engine, hooks and MCP
-proxies read pass (`BOX_ENV_OMB_NAMES`); every other one an operator sets on the server, such as `LUNABOT_SIGNIN_SMTP_URL`,
+proxies read pass (`BOX_ENV_LUNABOT_NAMES`); every other one an operator sets on the server, such as `LUNABOT_SIGNIN_SMTP_URL`,
 stays out. Every `LUNABOT_CLOUD_*` setting, the server's own placement (`LUNABOT_DATA_DIR`, `LUNABOT_PORT`), the CLI's session
 token and server address (`LUNABOT_TOKEN`, `LUNABOT_URL`) and the workspace credentials are refused whatever
 a driver passed.

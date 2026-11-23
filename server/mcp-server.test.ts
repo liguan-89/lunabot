@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 // scripts/mcp-server.ts snapshots process.env at import time: scrub ambient LUNABOT_* / LUNABOT_* values first.
-import "./testing/scrub-ambient-omb-env.ts";
+import "./testing/scrub-ambient-lunabot-env.ts";
 
 import {
   handleToolCall,

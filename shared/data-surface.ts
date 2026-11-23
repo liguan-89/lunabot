@@ -98,7 +98,7 @@ export interface DataSource {
 /** What a bot says when it wants a chart. Small on purpose: the server
  * compiles it to SQL (with the reduction) and to Vega-Lite, so the model
  * never writes a chart grammar. */
-export interface OmbChartSpec {
+export interface LunabotChartSpec {
   type: "bar" | "line" | "area" | "scatter" | "histogram" | "pie" | "heatmap";
   /** Column for the x axis (the category, the time, or the value to bin). */
   x: string;
@@ -146,7 +146,7 @@ export interface DataCard {
   truncated?: boolean;
   /** Chart cards: the bot's spec, the compiled Vega-Lite (data-free; the
    * panel binds the reduced rows as the dataset named "table"), the reduction. */
-  chart?: OmbChartSpec;
+  chart?: LunabotChartSpec;
   vegaLite?: Record<string, unknown>;
   reduction?: DataReduction;
   /** Text cards: Markdown. */
@@ -207,7 +207,7 @@ export interface DataRunRequest {
   cardId?: string;
   title?: string;
   /** Chart the result instead of tabling it. */
-  chart?: OmbChartSpec;
+  chart?: LunabotChartSpec;
   vegaLite?: Record<string, unknown>;
   /** Replace an existing result only after a successful, current live edit. */
   live?: boolean;

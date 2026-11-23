@@ -66,7 +66,7 @@ afterEach(() => {
 
 describe("environment identity", () => {
   it("creates the id once, owner-only, and keeps it across restarts", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omb-env-"));
+    const dir = mkdtempSync(join(tmpdir(), "lunabot-env-"));
     dirs.push(dir);
     const id = loadEnvironmentId(dir);
     expect(id).toMatch(/^[0-9a-f-]{36}$/);
@@ -75,7 +75,7 @@ describe("environment identity", () => {
   });
 
   it("publishes one complete id when independent processes start together", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "omb-env-"));
+    const dir = mkdtempSync(join(tmpdir(), "lunabot-env-"));
     dirs.push(dir);
 
     const ids = await Promise.all(Array.from({ length: 12 }, () => loadEnvironmentIdInChild(dir)));
@@ -86,7 +86,7 @@ describe("environment identity", () => {
   });
 
   it("fails closed instead of rotating a malformed existing identity", () => {
-    const dir = mkdtempSync(join(tmpdir(), "omb-env-"));
+    const dir = mkdtempSync(join(tmpdir(), "lunabot-env-"));
     dirs.push(dir);
     const file = join(dir, "environment-id");
     writeFileSync(join(dir, "environment-id"), "garbage\n");
@@ -95,12 +95,12 @@ describe("environment identity", () => {
   });
 
   it("rejects UUID-shaped garbage and an unreadable identity path", () => {
-    const malformedDir = mkdtempSync(join(tmpdir(), "omb-env-"));
+    const malformedDir = mkdtempSync(join(tmpdir(), "lunabot-env-"));
     dirs.push(malformedDir);
     writeFileSync(join(malformedDir, "environment-id"), "------------------------------------\n");
     expect(() => loadEnvironmentId(malformedDir)).toThrow(/not a valid UUID/);
 
-    const unreadableDir = mkdtempSync(join(tmpdir(), "omb-env-"));
+    const unreadableDir = mkdtempSync(join(tmpdir(), "lunabot-env-"));
     dirs.push(unreadableDir);
     mkdirSync(join(unreadableDir, "environment-id"));
     expect(() => loadEnvironmentId(unreadableDir)).toThrow(/Cannot read the existing environment identity/);

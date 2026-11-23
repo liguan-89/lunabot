@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
-import { childEnv } from "../testing/omb-env.ts";
+import { childEnv } from "../testing/lunabot-env.ts";
 import { ToolResults } from "../tool-results.ts";
 import { waitForExit } from "../testing/cleanup.ts";
 import { fullInputSchema } from "./agents-catalog.ts";

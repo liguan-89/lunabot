@@ -3,7 +3,7 @@ import { parse, View } from "vega";
 import { compile, type TopLevelSpec } from "vega-lite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import type { OmbChartSpec } from "../../shared/data-surface.ts";
+import type { LunabotChartSpec } from "../../shared/data-surface.ts";
 import { compileChart } from "./chart-compiler.ts";
 import { coerceRows } from "./render.ts";
 import type { RunResult } from "./types.ts";
@@ -20,7 +20,7 @@ describe("pie slice ordering", () => {
     ["y", ["Gamma", "Alpha", "Beta"]],
     ["-y", ["Beta", "Alpha", "Gamma"]],
     [undefined, ["Beta", "Alpha", "Gamma"]],
-  ] as Array<[OmbChartSpec["sort"], string[]]>)("draws slices in %s order", async (sort, expected) => {
+  ] as Array<[LunabotChartSpec["sort"], string[]]>)("draws slices in %s order", async (sort, expected) => {
     const source = "(SELECT * FROM (VALUES ('Gamma', 10), ('Alpha', 20), ('Beta', 30)) sales(region, amount))";
     const plan = compileChart({ type: "pie", x: "region", y: "amount", sort }, [
       { name: "region", type: "VARCHAR" }, { name: "amount", type: "INTEGER" },

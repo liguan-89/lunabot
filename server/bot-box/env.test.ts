@@ -2,11 +2,11 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { BOX_ENV_NAMES, BOX_ENV_NEVER, BOX_ENV_OMB_NAMES, BOX_ENV_OMB_PREFIXES, boxEnvironment, boxEnvironmentAllows, instanceEnvNames } from "./env.ts";
+import { BOX_ENV_NAMES, BOX_ENV_NEVER, BOX_ENV_LUNABOT_NAMES, BOX_ENV_LUNABOT_PREFIXES, boxEnvironment, boxEnvironmentAllows, instanceEnvNames } from "./env.ts";
 
 /** Every other `LUNABOT_` name the server's code knows: decided to stay on the server, never in a bot's environment. A name
  * ending in `_` is a family (`LUNABOT_CLOUD_*`). */
-const SERVER_ONLY_OMB: ReadonlySet<string> = new Set([
+const SERVER_ONLY_LUNABOT: ReadonlySet<string> = new Set([
   "LUNABOT_ACP_LIMIT_QUIET_MS", "LUNABOT_ACP_NO_SIGNS_STOP_MS", "LUNABOT_ACP_PLAN_LINES", "LUNABOT_ACP_QUIET_NOTICE_MS",
   "LUNABOT_ACP_QUIET_TICK_MS", "LUNABOT_ACP_SESSION_IDLE_", "LUNABOT_ACP_SHARED_RECYCLE_MS", "LUNABOT_ADMIN_", "LUNABOT_ADMIN_MEMBERSHIP",
   "LUNABOT_ADMIN_URL", "LUNABOT_ADMIN_WORKSPACE", "LUNABOT_AGENT_BROWSER_PATH", "LUNABOT_AI_CHECKS", "LUNABOT_ANTHROPIC_API_KEY",
@@ -140,11 +140,11 @@ describe("the box's environment allow-list", () => {
   });
 
   it("every LUNABOT_ name the server knows has a decision: passed to a bot's box or kept on the server", () => {
-    const passed = (name: string) => BOX_ENV_OMB_NAMES.has(name) || BOX_ENV_OMB_PREFIXES.includes(name);
-    const undecided = knownOmbNames().filter((name) => !passed(name) && !SERVER_ONLY_OMB.has(name));
-    expect(undecided, "add each to BOX_ENV_OMB_NAMES in env.ts if a bot's engine, hook or MCP proxy reads it, else to SERVER_ONLY_OMB here").toEqual([]);
-    expect([...BOX_ENV_OMB_NAMES].filter((name) => SERVER_ONLY_OMB.has(name))).toEqual([]);
-    for (const name of SERVER_ONLY_OMB) if (!name.endsWith("_")) expect(boxEnvironmentAllows(name), name).toBe(false);
+    const passed = (name: string) => BOX_ENV_LUNABOT_NAMES.has(name) || BOX_ENV_LUNABOT_PREFIXES.includes(name);
+    const undecided = knownOmbNames().filter((name) => !passed(name) && !SERVER_ONLY_LUNABOT.has(name));
+    expect(undecided, "add each to BOX_ENV_LUNABOT_NAMES in env.ts if a bot's engine, hook or MCP proxy reads it, else to SERVER_ONLY_LUNABOT here").toEqual([]);
+    expect([...BOX_ENV_LUNABOT_NAMES].filter((name) => SERVER_ONLY_LUNABOT.has(name))).toEqual([]);
+    for (const name of SERVER_ONLY_LUNABOT) if (!name.endsWith("_")) expect(boxEnvironmentAllows(name), name).toBe(false);
   });
 
   it("returns a fresh object, never the caller's", () => {

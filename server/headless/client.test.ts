@@ -1,4 +1,4 @@
-import "../testing/scrub-ambient-omb-env.ts";
+import "../testing/scrub-ambient-lunabot-env.ts";
 
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";

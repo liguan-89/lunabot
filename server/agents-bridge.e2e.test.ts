@@ -13,7 +13,7 @@ import { AGENTS_TOOL_BRIDGE_PROMPT } from "./system-prompt.ts";
 import { turnEvidence } from "./turn-outcome.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 import { piDumpPath, piInstructionsFor, piTurns, piTurnText, type PiTurn } from "./testing/pi-dump.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };

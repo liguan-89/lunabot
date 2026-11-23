@@ -137,11 +137,11 @@ function probeLoginShellPath(): void {
   // -l -i: nvm and friends live in .zshrc/.bashrc, which only interactive shells read; a marker isolates $PATH from rc noise.
   execFile(
     shell,
-    ["-l", "-i", "-c", 'printf "__OMB_PATH__%s" "$PATH"'],
+    ["-l", "-i", "-c", 'printf "__LUNABOT_PATH__%s" "$PATH"'],
     { timeout: 5000 },
     (err, stdout) => {
       if (err || !stdout) return;
-      const m = /__OMB_PATH__([^\n]*)/.exec(stdout);
+      const m = /__LUNABOT_PATH__([^\n]*)/.exec(stdout);
       if (!m || !m[1]) return;
       loginShellPath = m[1];
       // Fallback dirs stay last, behind what the person's shell adds.

@@ -1,4 +1,4 @@
-import "../testing/scrub-ambient-omb-env.ts";
+import "../testing/scrub-ambient-lunabot-env.ts";
 
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";

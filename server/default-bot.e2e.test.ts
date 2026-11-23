@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
 import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };

@@ -12,7 +12,7 @@ import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.
 import { failedTurnCause } from "../shared/failed-turn.ts";
 import { lastNonReceipt } from "../src/lib/receipts.ts";
 import { waitForExit } from "./testing/cleanup.ts";
-import { childEnv } from "./testing/omb-env.ts";
+import { childEnv } from "./testing/lunabot-env.ts";
 import { piTurns, type PiLaunch } from "./testing/pi-dump.ts";
 
 type McpServer = { command: string; args: string[]; env: Record<string, string> };
