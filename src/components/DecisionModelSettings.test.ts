@@ -113,9 +113,9 @@ describe("DecisionModelSettings", () => {
     expect(view.html).toContain("Save a key below to turn this on.");
   });
 
-  it("uses an invariable status for missing decisions and extraction in pt-BR", () => {
-    setLocale("pt-br");
-    expect(helpersStatusLine(null)).toBe("Decisões: sem configuração · Extração: sem configuração");
+  it("uses an invariable status for missing decisions and extraction in Chinese", () => {
+    setLocale("zh");
+    expect(helpersStatusLine(null)).toBe("判断：未设置 · 提取：未设置");
   });
 
   it("offers both providers, with Jev selected for an existing install and no model picker", () => {

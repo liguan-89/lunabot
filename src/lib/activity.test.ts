@@ -50,13 +50,13 @@ describe("groupActivityByDay", () => {
     }
   });
 
-  describe("in pt-BR", () => {
+  describe("in zh", () => {
     afterEach(() => { setLocale("en"); });
     it("names the days with Intl's names, and the year only when it is not this one", () => {
-      setLocale("pt-br");
+      setLocale("zh");
       const local = (year: number, day: number) => new Date(year, 8, day, 9).toISOString();
       const groups = groupActivityByDay([row({ at: local(2026, 7) }), row({ at: local(2026, 6) }), row({ at: local(2026, 5) }), row({ at: local(2025, 5) })], new Date(2026, 8, 7, 20));
-      expect(groups.map((group) => group.label)).toEqual(["Hoje", "Ontem", "sáb., 5 de set.", "sex., 5 de set. de 2025"]);
+      expect(groups.map((group) => group.label)).toEqual(["今天", "昨天", "9月5日 周六", "2025年9月5日 周五"]);
     });
   });
 });
@@ -65,21 +65,21 @@ describe("activityLabel", () => {
   afterEach(() => { setLocale("en"); });
 
   it.each([
-    ["decide", "Decide", "Decidir", "activity.tool.team.decide"],
-    ["extract", "Extract", "Extrair", "activity.tool.team.extract"],
-    ["message_person", "Message person", "Enviar mensagem a uma pessoa", "activity.tool.team.messagePerson"],
-    ["report_bug", "Report bug", "Relatar um problema", "activity.tool.team.reportBug"],
-  ])("words %s in pt-BR and keeps its English label unchanged", (tool, label, portuguese, labelKey) => {
+    ["decide", "Decide", "决策", "activity.tool.team.decide"],
+    ["extract", "Extract", "提取", "activity.tool.team.extract"],
+    ["message_person", "Message person", "给人员发消息", "activity.tool.team.messagePerson"],
+    ["report_bug", "Report bug", "报告缺陷", "activity.tool.team.reportBug"],
+  ])("words %s in zh and keeps its English label unchanged", (tool, label, chinese, labelKey) => {
     const entry = row({ tool: `mcp__agents__${tool}`, app: "Team", label, labelKey });
     expect(activityLabel(entry)).toBe(label);
-    setLocale("pt-br");
-    expect(activityLabel(entry)).toBe(portuguese);
+    setLocale("zh");
+    expect(activityLabel(entry)).toBe(chinese);
   });
   it("translates the email app's presentation key but keeps its English fallback and wire tool", () => {
     const entry = row({ tool: "mcp__email__EMAIL_SEND_EMAIL", app: "Email", appKey: "activity.app.email", label: "Send email" });
     expect(activityApp(entry)).toBe("Email");
-    setLocale("pt-br");
-    expect(activityApp(entry)).toBe("E-mail");
+    setLocale("zh");
+    expect(activityApp(entry)).toBe("邮件");
     expect(activityApp({ app: "Email" })).toBe("Email");
     expect(activityLabel(entry)).toBe("Send email");
     expect(entry.tool).toBe("mcp__email__EMAIL_SEND_EMAIL");
@@ -87,15 +87,15 @@ describe("activityLabel", () => {
 
   it("says a known tool's action in the app language, and keeps the server's words for any other key", () => {
     expect(activityLabel(row({ labelKey: "activity.tool.ranCommand" }))).toBe("Ran a command");
-    setLocale("pt-br");
-    expect(activityLabel(row({ labelKey: "activity.tool.ranCommand" }))).toBe("Executou um comando");
+    setLocale("zh");
+    expect(activityLabel(row({ labelKey: "activity.tool.ranCommand" }))).toBe("运行了命令");
     expect(activityLabel(row({ label: "Send email" }))).toBe("Send email");
     expect(activityLabel(row({ label: "Ran a command", labelKey: "chat.day.today" }))).toBe("Ran a command");
-    expect(activityLabel(row({ app: "Research", label: "Looked up people", labelKey: "activity.tool.lookedUpPeople" }))).toBe("Consultou dados de pessoas");
-    expect(activityLabel(row({ app: "Computer", label: "Type text", labelKey: "activity.tool.computer.typeText" }))).toBe("Digitar texto");
+    expect(activityLabel(row({ app: "Research", label: "Looked up people", labelKey: "activity.tool.lookedUpPeople" }))).toBe("查询了人物信息");
+    expect(activityLabel(row({ app: "Computer", label: "Type text", labelKey: "activity.tool.computer.typeText" }))).toBe("输入文字");
     expect(activityLabel(row({ app: "Team", label: "Brand new tool", labelKey: "activity.tool.team.brandNewTool" }))).toBe("Brand new tool");
     expect([activityApp(row({ app: "Team", appKey: "activity.app.team" })), activityApp(row({ app: "Research", appKey: "activity.app.research" })), activityApp(row({ app: "X" })), activityApp(row({ app: "Gmail", appKey: "chat.day.today" })), activityApp(row({ app: null }))])
-      .toEqual(["Equipe", "Pesquisa", "X", "Gmail", null]);
+      .toEqual(["团队", "研究", "X", "Gmail", null]);
     setLocale("en");
     expect(activityApp(row({ app: "Computer", appKey: "activity.app.computer" }))).toBe("Computer");
   });

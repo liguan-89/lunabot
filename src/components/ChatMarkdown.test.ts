@@ -781,9 +781,9 @@ describe("ChatMarkdown attachments", () => {
   });
 
   it("says an image with no source is unavailable in the person's language", () => {
-    setLocale("de");
+    setLocale("zh");
     try {
-      expect(renderToStaticMarkup(createElement(ChatMarkdown, { text: "![Sideboard]()" }))).toContain("Bild nicht verfügbar");
+      expect(renderToStaticMarkup(createElement(ChatMarkdown, { text: "![Sideboard]()" }))).toContain("图片不可用");
     } finally {
       setLocale("en");
     }

@@ -185,9 +185,9 @@ describe("the X card in Apps", () => {
   });
 
   it("speaks the app's language", async () => {
-    setLocale("de");
+    setLocale("zh");
     await mount({ included: true, usage: USAGE });
-    expect(text()).toContain("In deinem Tarif enthalten");
-    expect(text()).toContain("312 von 5.000 X-Aufrufen in diesem Monat.");
+    expect(text()).toContain("已包含在你的套餐中");
+    expect(text()).toContain("本月已用 312 / 5,000 次 X 调用。");
   });
 });

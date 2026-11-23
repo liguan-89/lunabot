@@ -19,38 +19,33 @@ describe("cron words on a routine request", () => {
   });
 
   it.each([
-    ["0 9 * * *", "Todo dia às 09:00"],
-    ["0 9 L * *", "Todo mês no último dia às 09:00"],
-    ["0 9 14 * *", "Todo mês no dia 14 às 09:00"],
-    ["0 9 25 12 *", "Todo ano em 25 de dezembro às 09:00"],
-    ["0 9 * * 1-5", "De segunda a sexta às 09:00"],
-    ["0 9 * * 1", "Toda segunda-feira às 09:00"],
-    ["0 9 * * 0", "Todo domingo às 09:00"],
-    ["0 9 * * 1#2", "Todo mês na segunda segunda-feira às 09:00"],
-    ["0 9 * * 6#L", "Todo mês no último sábado às 09:00"],
+    ["0 9 * * *", "每天 09:00"],
+    ["0 9 L * *", "每月最后一天 09:00"],
+    ["0 9 14 * *", "每月 14 日 09:00"],
+    ["0 9 25 12 *", "每年 十二月 25 日 09:00"],
+    ["0 9 * * 1-5", "每个工作日 09:00"],
+    ["0 9 * * 1", "每周星期一 09:00"],
+    ["0 9 * * 0", "每周星期日 09:00"],
+    ["0 9 * * 1#2", "每月第二个星期一 09:00"],
+    ["0 9 * * 6#L", "每月最后一个星期六 09:00"],
     ["*/5 * * * *", "Cron */5 * * * *"],
   ])("localizes %s without changing its expression or time zone", (expression, text) => {
     const schedule = { type: "cron" as const, expression, timeZone: "UTC" };
-    expect(routineCronText(schedule, "pt-br")).toBe(`${text} UTC`);
+    expect(routineCronText(schedule, "zh")).toBe(`${text} UTC`);
     expect(schedule.expression).toBe(expression);
   });
 
-  it.each(["0 9 * * 1-5", "0 9 * * MON-FRI"])("names Monday through Friday explicitly in German for %s", (expression) => {
-    const schedule = { type: "cron" as const, expression, timeZone: "UTC" };
-    expect(routineCronText(schedule, "de")).toBe("Montag bis Freitag um 09:00 UTC");
-  });
-
-  it("has German words and falls back to complete English for an untranslated language", () => {
+  it("has Chinese words and falls back to complete English for an untranslated language", () => {
     const schedule = { type: "cron" as const, expression: "0 9 * * 1", timeZone: "UTC" };
-    expect(routineCronText(schedule, "de")).toBe("Jede Woche am Montag um 09:00 UTC");
+    expect(routineCronText(schedule, "zh")).toBe("每周星期一 09:00 UTC");
     expect(routineCronText(schedule, "fr")).toBe("Weekly on Monday at 9:00 UTC");
   });
 
-  it("uses Traditional Chinese weekday names for zh-TW", () => {
+  it("reads zh-TW as its parent, Simplified Chinese", () => {
     const schedule = { type: "cron" as const, expression: "0 9 * * 1", timeZone: "UTC" };
     expect(routineCronText(schedule, "zh-tw")).toContain("星期一");
     const yearly = routineCronText({ type: "cron" as const, expression: "0 9 1 3 *", timeZone: "UTC" }, "zh-tw");
-    expect(yearly).toContain("3月");
+    expect(yearly).toContain("三月");
     expect(yearly).not.toContain("March");
   });
 

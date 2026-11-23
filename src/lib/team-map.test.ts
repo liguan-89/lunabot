@@ -31,8 +31,8 @@ describe("team map projection", () => {
       { key: "", name: "General" },
       { key: "General", name: "General" },
     ]);
-    setLocale("pt-br");
-    expect(buildTeamMapSections([{ id: "none", name: "Unsectioned" }])[0]!.name, "the fallback in the app language").toBe("Geral");
+    setLocale("zh");
+    expect(buildTeamMapSections([{ id: "none", name: "Unsectioned" }])[0]!.name, "the fallback in the app language").toBe("通用");
     setLocale("en");
   });
 

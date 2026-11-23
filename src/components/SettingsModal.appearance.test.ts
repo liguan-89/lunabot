@@ -251,12 +251,12 @@ describe("Settings → Appearance", () => {
     expect(fixture.dispatch).not.toHaveBeenCalled();
   });
 
-  it("asks Japanese speakers in Japanese, with the key named for this computer", () => {
-    setLocale("ja");
+  it("asks in the person's language, with the key named for this computer", () => {
+    setLocale("zh");
     fixture.sendKey = "shift-enter";
     const html = render();
-    expect(html).toContain("メッセージの送信キー");
-    expect(html).toContain("日本語入力のように Enter で変換を確定する場合は、Shift+Enter か Ctrl+Enter を選ぶと Enter で改行できます。");
+    expect(html).toContain("发送消息的按键");
+    expect(html).toContain("选择 Shift+Enter 或 Ctrl+Enter 后，按 Enter 会换行，适合用 Enter 确认候选词的输入法（例如日文输入）。");
     expect(html).toContain('<option value="enter">Enter</option>');
     expect(html).toContain('<option value="shift-enter" selected="">Shift+Enter</option>');
     expect(html).toContain('<option value="mod-enter">Ctrl+Enter</option>');
@@ -389,8 +389,8 @@ describe("Settings → Appearance", () => {
     expect(html).toContain("Older team backups and shareable templates");
   });
 
-  it("renders Appearance and its controls in Japanese", () => {
-    setLocale("ja");
+  it("renders Appearance and its controls in Chinese", () => {
+    setLocale("zh");
     const html = render();
     for (const key of [
       "settings.section.appearance", "settings.threadDisplay.show",
@@ -398,9 +398,9 @@ describe("Settings → Appearance", () => {
       "settings.pinnedCircles.subtitle", "settings.universalPins.title",
       "settings.universalPins.subtitle",
     ] as const) {
-      expect(locales.ja[key], key).toBeTruthy();
-      expect(locales.ja[key], key).not.toBe(en[key]);
-      expect(html, key).toContain(locales.ja[key]!);
+      expect(locales.zh[key], key).toBeTruthy();
+      expect(locales.zh[key], key).not.toBe(en[key]);
+      expect(html, key).toContain(locales.zh[key]!);
     }
   });
 

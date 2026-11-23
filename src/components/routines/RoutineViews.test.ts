@@ -33,16 +33,16 @@ describe("routine list", () => {
     expect(markup).toContain("Latest: Retried after the AI stalled · Completed");
     expect(list()).not.toContain("runs OK this week");
     expect(list({ routines: [{ ...routine, weekRuns: { ok: 1, total: 1 } }] })).toContain("1 of 1 runs OK this week");
-    setLocale("pt-br");
-    expect(list({ routines: [{ ...routine, weekRuns: { ok: 1, total: 1 } }] })).toContain("1 de 1 execução bem-sucedida nesta semana");
-    expect(list({ routines: [{ ...routine, weekRuns: { ok: 2, total: 3 } }] })).toContain("2 de 3 execuções bem-sucedidas nesta semana");
+    setLocale("zh");
+    expect(list({ routines: [{ ...routine, weekRuns: { ok: 1, total: 1 } }] })).toContain("本周 1 次运行中有 1 次正常");
+    expect(list({ routines: [{ ...routine, weekRuns: { ok: 2, total: 3 } }] })).toContain("本周 3 次执行中 2 次成功");
     setLocale("en");
   });
   it("says a coded run result in the app language, and the run's own words otherwise", () => {
     const waiting = { ...run, output: undefined, attention: "Starting again shortly after Luna Bot restarted while it ran", attentionCode: "routines.server.retryAfterRestart" } as RoutineRun;
     expect(list({ runs: [waiting] })).toContain("Starting again shortly after Luna Bot restarted while it ran");
-    setLocale("pt-br");
-    expect(list({ runs: [waiting] })).toContain("Vai começar novamente em instantes: o Luna Bot reiniciou durante a execução");
+    setLocale("zh");
+    expect(list({ runs: [waiting] })).toContain("运行期间 Luna Bot 重启过，即将重新开始");
     expect(list()).toContain("Brief prepared.");
     setLocale("en");
   });

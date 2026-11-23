@@ -39,31 +39,31 @@ describe("chat notices", () => {
   });
 
   it.each([
-    ["server.teammates.resumedQuestion", "Resumed with a question from Scout, reviewing", "Retomou o trabalho com uma pergunta de Scout e está revisando"],
-    ["server.teammates.resumedQuestionRestart", "Resumed with a question from Scout after a restart, reviewing", "Após uma reinicialização, retomou o trabalho com uma pergunta de Scout e está revisando"],
-    ["server.teammates.resumedResults", "Resumed with Scout results, reviewing", "Retomou o trabalho com os resultados de Scout e está revisando"],
-    ["server.teammates.resumedResultsRestart", "Resumed with Scout results after a restart, reviewing", "Após uma reinicialização, retomou o trabalho com os resultados de Scout e está revisando"],
-    ["server.teammates.backWithResults", "Back with the work it handed on, reviewing", "Voltou com o trabalho que repassou e está revisando"],
-    ["server.teammates.backWithResultsRestart", "Back with the work it handed on after a restart, reviewing", "Após uma reinicialização, voltou com o trabalho que repassou e está revisando"],
-  ] as const)("words %s on the server, preserving English and Portuguese", (key, english, portuguese) => {
+    ["server.teammates.resumedQuestion", "Resumed with a question from Scout, reviewing", "已带着 Scout 的问题继续，正在查看"],
+    ["server.teammates.resumedQuestionRestart", "Resumed with a question from Scout after a restart, reviewing", "重启后已带着 Scout 的问题继续，正在查看"],
+    ["server.teammates.resumedResults", "Resumed with Scout results, reviewing", "已带着 Scout 的结果继续，正在查看"],
+    ["server.teammates.resumedResultsRestart", "Resumed with Scout results after a restart, reviewing", "重启后已带着 Scout 的结果继续，正在查看"],
+    ["server.teammates.backWithResults", "Back with the work it handed on, reviewing", "已带着转交出去的工作回来，正在查看"],
+    ["server.teammates.backWithResultsRestart", "Back with the work it handed on after a restart, reviewing", "重启后已带着转交出去的工作回来，正在查看"],
+  ] as const)("words %s on the server, preserving English and Chinese", (key, english, chinese) => {
     expect(serverLine(undefined, key, { who: "Scout" })).toBe(english);
-    expect(serverLine("pt-br", key, { who: "Scout" })).toBe(portuguese);
+    expect(serverLine("zh", key, { who: "Scout" })).toBe(chinese);
   });
 
-  it("words the interrupted step in Portuguese without changing its English duration", () => {
+  it("words the interrupted step in Chinese without changing its English duration", () => {
     expect(stoppedLine(45_000)).toBe("Stopped a step that had run for 45 s, to answer you first");
     expect(stoppedLine(120_000)).toBe("Stopped a step that had run for 2 min, to answer you first");
-    expect(stoppedLine(45_000, "pt-br")).toBe("Interrompi um passo que já durava 45 s para responder a você primeiro");
-    expect(stoppedLine(120_000, "pt-br")).toBe("Interrompi um passo que já durava 2 min para responder a você primeiro");
+    expect(stoppedLine(45_000, "zh")).toBe("已停止一个已运行 45 秒的步骤，以便先回答你");
+    expect(stoppedLine(120_000, "zh")).toBe("已停止一个已运行 2 分钟的步骤，以便先回答你");
   });
 
-  it("words a routine hold in Portuguese on the server", () => {
-    expect(serverLine("pt-br", "server.routines.held.planCancelled"))
-      .toBe("Suas rotinas estão pausadas porque o plano foi cancelado. Para manter uma delas rodando até o fim do plano, ligue-a novamente em “Rotinas”.");
+  it("words a routine hold in Chinese on the server", () => {
+    expect(serverLine("zh", "server.routines.held.planCancelled"))
+      .toBe("你的例行任务已暂停，因为方案被取消。要让某个例行任务运行到方案结束，请在「例行任务」中重新打开它。");
   });
 
   it("words the held line the sentinel still recognises", () => {
     expect(heldMemberLine("Reviewer")).toBe("Reviewer is held (stopped by you) — @mention it or say resume");
-    expect(isHeldMemberLine(heldMemberLine("Reviewer", "pt-br"))).toBe(true);
+    expect(isHeldMemberLine(heldMemberLine("Reviewer", "zh"))).toBe(true);
   });
 });

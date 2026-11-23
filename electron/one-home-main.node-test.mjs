@@ -87,7 +87,7 @@ test("the switch that keeps this computer's bots here: only on this app's pages,
 
 test("the switch's refusal follows the app's language", () => {
   const handlers = new Map();
-  const { t } = nativeText.createNativeText({ saved: "pt-br" });
+  const { t } = nativeText.createNativeText({ saved: "zh" });
   const main = installOneHome({
     ipcMain: { handle: (channel, handler) => handlers.set(channel, handler) }, cloudPage: (event) => event.page ?? null, server: () => null, home: () => null,
     cookieFetch: async () => json({}, 401), reconnect: async () => false, power: { asleep: () => false }, file: () => "/nonexistent/cloud-send.json", window: () => null,
@@ -96,7 +96,7 @@ test("the switch's refusal follows the app's language", () => {
     keep: { read: () => null, write: () => {} }, t,
   });
   try {
-    assert.throws(() => handlers.get("one-home:keep-set")({ page: "local" }, true), { message: "Este computador não tem um Cloud para receber seus bots." });
+    assert.throws(() => handlers.get("one-home:keep-set")({ page: "local" }, true), { message: "这台电脑没有可以阻止其机器人迁移的 My Cloud。" });
   } finally { main.close(); }
 });
 

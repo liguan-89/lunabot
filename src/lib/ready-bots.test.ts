@@ -92,9 +92,9 @@ describe("readyBotCopy", () => {
     for (const bot of READY_BOTS) for (const field of ["title", "description", "try"]) expect(Object.hasOwn(en, `readyBots.bot.${bot.id}.${field}`), `${bot.id}.${field}`).toBe(true);
     const unlisted = { ...readyBot("humanizer")!, id: "not-in-the-catalog", title: "Its title", description: "Its words", tryAsking: ["Its ask"] };
     try {
-      setLocale("pt-br");
+      setLocale("zh");
       expect(readyBotCopy(unlisted)).toEqual({ title: "Its title", description: "Its words", tryAsking: "Its ask" });
-      expect(readyBotCopy(readyBot("humanizer")!).title).not.toBe(readyBot("humanizer")!.title);
+      expect(readyBotCopy(readyBot("humanizer")!).title).toBe("文案润色");
     } finally {
       setLocale("en");
     }

@@ -14,7 +14,7 @@ export { DESKTOP_PORTS } from "./desktop-ports.mjs";
 /** The only notices a page may record, so no page can write anything else into the file. */
 export const DESKTOP_NOTICES = Object.freeze(["whats-new-2026-11", "grok-move-2026-11", "tk1688-offer-2026-11"]);
 const WHATS_NEW = DESKTOP_NOTICES[0];
-/** A locale code such as "de" or "pt-br", or "" for following the system. */
+/** A locale code such as "zh" or "", "" for following the system. */
 const LANGUAGE = /^(?:[a-z]{2,3}(?:-[a-z0-9]{2,8}){0,2})?$/i;
 const isLanguage = value => typeof value === "string" && value.length <= 24 && LANGUAGE.test(value);
 const CHAT_ID = /^[\w-]{1,128}$/;

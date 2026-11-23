@@ -18,13 +18,13 @@ describe("connectorCardText", () => {
   });
 
   it("says it in the language of the person the card is for", () => {
-    expect(connectorCardText("Microsoft Clarity", undefined, "de")).toBe("Verbinde Microsoft Clarity, um fortzufahren.");
-    expect(connectorCardText("Gmail", "Arbeit", "de")).toBe("Verbinde Gmail als „Arbeit“, um fortzufahren.");
-    expect(connectorCardText("   ", undefined, "de")).toBe("Verbinde diese App, um fortzufahren.");
-    expect(connectorCardDescription("Notion", undefined, "de")).toBe("Verbinde Notion, damit der Bot weitermachen kann");
+    expect(connectorCardText("Microsoft Clarity", undefined, "zh")).toBe("连接 Microsoft Clarity 以继续。");
+    expect(connectorCardText("Gmail", "Arbeit", "zh")).toBe("以「Arbeit」身份连接 Gmail 以继续。");
+    expect(connectorCardText("   ", undefined, "zh")).toBe("连接 此应用 以继续。");
+    expect(connectorCardDescription("Notion", undefined, "zh")).toBe("连接 Notion，让机器人可以继续");
     expect(connectorCardDescription("Notion", undefined, undefined)).toBe("Connect Notion so the bot can continue");
-    expect(signInCardText("Biber", "github.com", "de"))
-      .toBe("Biber braucht deine Anmeldung bei github.com. Öffne diese Unterhaltung in Luna Bot, melde dich an und bestätige es dann auf der Karte.");
+    expect(signInCardText("Biber", "github.com", "zh"))
+      .toBe("Biber 需要你登录 github.com。请在 Luna Bot 中打开此对话进行登录，然后在卡片上确认。");
     expect(signInCardText("Biber", "github.com")).toBe("Biber needs you to sign in to github.com. Open this conversation in Luna Bot to sign in, then press Done.");
   });
 });

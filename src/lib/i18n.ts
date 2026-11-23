@@ -13,8 +13,6 @@ export function resolveLocale(tag: string | undefined, available: ReadonlySet<st
   return "en";
 }
 
-const RTL_LANGUAGES = new Set(["ar", "fa", "he", "ur"]);
-
 /** Every tag a pack is shown for, loaded or not. */
 export function knownLocales(): Set<string> {
   return new Set([...Object.keys(localePacks), ...Object.keys(locales)]);
@@ -41,7 +39,7 @@ function show(resolved: string): string {
   const root = typeof document === "undefined" ? undefined : document?.documentElement;
   if (root) {
     root.lang = documentLanguage(resolved);
-    root.dir = RTL_LANGUAGES.has(root.lang.split("-")[0]!) ? "rtl" : "ltr";
+    root.dir = "ltr";
   }
   return resolved;
 }

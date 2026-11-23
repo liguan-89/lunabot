@@ -28,8 +28,8 @@ test("main's Cloud account factory keeps the same client in the current app lang
     fetch: () => assert.fail("unexpected Cloud request"),
   });
   await assert.rejects(client.pairHome(), { message: "My Cloud is not ready to connect yet." });
-  text.set("pt-br");
-  await assert.rejects(client.pairHome(), { message: "Ainda não é possível se conectar ao Cloud." });
+  text.set("zh");
+  await assert.rejects(client.pairHome(), { message: "My Cloud 尚未准备好连接。" });
   text.set("en");
   await assert.rejects(client.pairHome(), { message: "My Cloud is not ready to connect yet." });
 });
@@ -61,9 +61,9 @@ test("main's activity window follows the shown Chinese language without a saved 
   assert.match(windows[0].html, /<html lang="en-US">/);
   assert.equal(nativeText.follow("zh-Hant"), true);
   activity.show();
-  assert.match(windows[0].html, /<html lang="zh-TW">/);
-  assert.match(windows[0].html, /<h1>這台電腦上的活動<\/h1>/);
-  assert.match(windows[0].html, /讀取檔案 · 已拒絕/);
+  assert.match(windows[0].html, /<html lang="zh">/);
+  assert.match(windows[0].html, /<h1>这台电脑上的活动<\/h1>/);
+  assert.match(windows[0].html, /读取了一个文件 · 已拒绝/);
   assert.equal(prefs.language(), null);
   assert.equal(windows.length, 1);
 });
@@ -96,10 +96,10 @@ test("a new language redraws main's menu, both trays, the window title and the b
   const said = (tray) => tray.menu.filter((item) => item.label).map((item) => item.label);
   assert.deepEqual(said(trays[1]), ["My Cloud can use this PC", "Pause", "Let Clouds run commands on this PC", "See activity"]);
 
-  text.set("pt-br");
+  text.set("zh");
   context.applyNativeLanguage();
-  assert.deepEqual(calls, [["menu", "Servidor"], ["title", "Luna Bot — Hospedado: Office (office.example.test)"], ["badge", "Nenhuma conversa não lida"]]);
-  assert.deepEqual(said(trays[0]), ["Abrir o Luna Bot", "Sair do Luna Bot"]);
-  assert.deepEqual(said(trays[1]), ["My Cloud com acesso a este PC", "Pausar", "Permitir que os Clouds executem comandos neste PC", "Ver atividade"]);
-  assert.equal(trays[1].tip, "Luna Bot: My Cloud com acesso a este PC");
+  assert.deepEqual(calls, [["menu", "服务器"], ["title", "Luna Bot — 托管于：Office（office.example.test）"], ["badge", "没有未读对话"]]);
+  assert.deepEqual(said(trays[0]), ["打开 Luna Bot", "退出 Luna Bot"]);
+  assert.deepEqual(said(trays[1]), ["My Cloud 可以使用这台PC", "暂停", "让 Cloud 在这台PC上运行命令", "查看活动"]);
+  assert.equal(trays[1].tip, "Luna Bot: My Cloud 可以使用这台PC");
 });

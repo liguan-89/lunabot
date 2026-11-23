@@ -305,11 +305,11 @@ describe("RoutineRequestService", () => {
   });
 
   it("writes a cron schedule in the conversation person's language", async () => {
-    setConversationLanguage((threadId) => threadId === "thread-a" ? "pt-br" : undefined);
+    setConversationLanguage((threadId) => threadId === "thread-a" ? "zh" : undefined);
     const { service, store } = harness();
     const schedule = { type: "cron" as const, expression: "0 9 * * 6#L", timeZone: "UTC" };
     await service.propose({ botId: "bot-a", threadId: "thread-a", proposal: createProposal({ schedule }) });
-    expect(store.messagesFor("thread-a")[0]!.card?.subtitle).toContain("Schedule: Todo mês no último sábado às 09:00 UTC · Cron: 0 9 * * 6#L");
+    expect(store.messagesFor("thread-a")[0]!.card?.subtitle).toContain("时间表：每月最后一个星期六 09:00 UTC · Cron: 0 9 * * 6#L");
   });
 
   it("keeps a monthly cron rule and its own timezone through confirmation, update, pause and resume", async () => {

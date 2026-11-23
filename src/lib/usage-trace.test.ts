@@ -48,9 +48,9 @@ describe("trace helpers", () => {
     expect([450, 6_900, 51_000, 100_000, 3_600_000, 7_500_000].map(formatDuration)).toEqual(["450ms", "6.9s", "51s", "1m 40s", "1h", "2h 5m"]);
     expect([0, 20_000, 90_000, 5_400_000].map(formatTick)).toEqual(["0s", "20s", "1m 30s", "1h 30m"]);
     expect([formatCost(0.0004), formatCost(0.0009), formatCost(0.005), formatCost(0.015), formatCost(1234.5)]).toEqual(["<$0.001", "<$0.001", "$0.005", "$0.01", "$1234.50"]);
-    setLocale("pt-br");
-    expect([450, 6_900, 51_000, 100_000, 3_600_000, 7_500_000].map(formatDuration)).toEqual(["450\u00a0ms", "6,9\u00a0s", "51\u00a0s", "1\u00a0min\u00a040\u00a0s", "1\u00a0h", "2\u00a0h\u00a05\u00a0min"]);
-    expect([formatTick(90_000), formatCost(0.0004)]).toEqual(["1\u00a0min\u00a030\u00a0s", "<US$\u00a00,001"]);
+    setLocale("zh");
+    expect([450, 6_900, 51_000, 100_000, 3_600_000, 7_500_000].map(formatDuration)).toEqual(["450ms", "6.9秒", "51秒", "1分钟 40秒", "1小时", "2小时 5分钟"]);
+    expect([formatTick(90_000), formatCost(0.0004)]).toEqual(["1分钟 30秒", "<US$0.001"]);
     setLocale("en");
     vi.stubGlobal("navigator", { language: "en-GB" });
     setLocale("en");
@@ -73,11 +73,11 @@ describe("trace helpers", () => {
     expect(toolLabel({ name: "mcp__browser__agent_browser_frobnicate_widget", icon: "browser" })).toBe("Frobnicate widget");
     expect(["mcp__agents__x_search", "mcp__agents__research_call", "mcp__agents__use_tool", "mcp__agents__list_bots"].map((name) => toolLabel({ name, icon: "app" })))
       .toEqual(["X search", "Research call", "Use tool", toolStepLabel({ name: "mcp__agents__list_bots", summary: undefined })]);
-    setLocale("pt-br");
+    setLocale("zh");
     expect(["mcp__agents__x_search", "mcp__agents__x_user_posts", "mcp__agents__research_call", "mcp__agents__use_tool", "mcp__agents__list_bots", "mcp__other__x_search"].map((name) => toolLabel({ name, icon: "app" })))
-      .toEqual(["Buscar no X", "Ler posts de um usuário no X", "Consultar uma ferramenta de pesquisa", "Usar ferramenta", toolStepLabel({ name: "mcp__agents__list_bots", summary: undefined }), "X search"]);
+      .toEqual(["搜索 X", "X 用户帖子", "研究调用", "使用工具", toolStepLabel({ name: "mcp__agents__list_bots", summary: undefined }), "X search"]);
     expect(["agent_browser_click", "agent_browser_get_url", "mcp__computer__type_text", "agent_browser_frobnicate"].map((name) => toolLabel({ name, icon: "computer" })))
-      .toEqual(["Clicar", "Ler o endereço", "Digitar texto", "Frobnicate"]);
+      .toEqual(["点击", "获取 URL", "输入文字", "Frobnicate"]);
     setLocale("en");
     expect(groupLabel({ icon: "browser", count: 14, name: "x" })).toBe("Used the browser · 14 steps");
     expect(groupLabel({ icon: "computer", count: 23, name: "x" })).toBe("Used the computer · 23 actions");

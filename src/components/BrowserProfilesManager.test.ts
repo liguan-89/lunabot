@@ -106,9 +106,9 @@ describe("browser profile manager", () => {
     fixture.profiles = [{ id: "work", name: "Work", browser: "chrome" }];
     const render = () => renderToStaticMarkup(createElement(BrowserProfilesManager));
     expect(render()).toContain(`the Chrome on Studio, your ${device}. It works while that ${device} is awake`);
-    setLocale("pt-br");
-    const localized = device === "computer" ? "computador" : device;
-    expect(render()).toContain(`este é o Chrome de Studio, seu ${localized}. Ele funciona enquanto esse ${localized} estiver ativo`);
+    setLocale("zh");
+    const localized = device === "computer" ? "电脑" : device;
+    expect(render()).toContain(`这是 Studio（你的 ${localized}）上的 Chrome。只有该 ${localized} 处于唤醒状态`);
     expect(fixture.engine.myChromeOn).toMatchObject({ device });
     setLocale("en");
     expect(render()).toContain(`your ${device}`);
