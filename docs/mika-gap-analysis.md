@@ -107,7 +107,7 @@ name the new tools).
 | `PHONE_SHARE_TEXT` | phoneUi | write | Puts text into another app's compose screen, which the person still sends. |
 | `PHONE_UI_AFTER_TASK` | phoneUi | write | Chooses whether the app a task drove is kept or finished when the task ends. |
 
-The Android build serves 47 of the 52: `android/core/src/main/kotlin/com/openmausbot/companion/core/PhoneJobs.kt`
+The Android build serves 47 of the 52: `android/core/src/main/kotlin/com/lunabot/companion/core/PhoneJobs.kt`
 has no `PhoneTool` entry for `PHONE_RESPOND_TO_INVITE`,
 `PHONE_FIND_PLACES_NEARBY`, `PHONE_LIST_HOME`, `PHONE_SET_ACCESSORY` or
 `PHONE_RUN_SCENE`, so those five answer `unsupported` from
@@ -115,11 +115,11 @@ has no `PhoneTool` entry for `PHONE_RESPOND_TO_INVITE`,
 one of the ten new tools is served. That file also carries `PHONE_REPLY_SMS`,
 which is the SMS relay's own reply job and is not in the server's tool list.
 All ten are registered in the executor's `actionOf` map in
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiTaskExecutor.kt`.
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiTaskExecutor.kt`.
 
 ### `PHONE_UI_RUN`
 
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiRun.kt`
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiRun.kt`
 runs a list of `launch`, `tap`, `type`, `scroll`, `swipe`, `key`, `back`,
 `wait`, `assert` and `observe` steps. Each step takes a fresh snapshot first and
 finds its target again on the current screen: a `ref` from an earlier observe is
@@ -157,7 +157,7 @@ write the packs have no words for yet.
 
 ### `PHONE_UI_COLLECT`
 
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiCollect.kt`
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiCollect.kt`
 reads the current screen's text band, scrolls one step, and reads again, up to
 20 pages and 1000 lines. The scroll it is handed already waits for the screen to
 change, so the collect's own "settle" step only reports whether that scroll
@@ -184,7 +184,7 @@ is read-only and does not ask.
 
 ### `PHONE_UI_FIND`
 
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiFind.kt`
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiFind.kt`
 is Mika's `phone_find` (`PhoneFind` in
 `core/src/main/kotlin/com/wangzan101/mika/core/cap/phone/PhoneAdvancedTools.kt`)
 ported to this tool surface: it scrolls the current screen until an element
@@ -250,7 +250,7 @@ acquired, so it works on a phone whose helper is not up. It is read-only.
 
 ### Pacing
 
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiPacing.kt`
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiPacing.kt`
 ports Mika's `OperatingPace`, `TypingPacing`, `GesturePacing`, `AppPacing` and
 `uistate/Pace.kt`. Three levels: `FAST`, `STANDARD` and `HUMAN`. It plans typing
 as growing prefixes with per-character waits and CJK grouping, jitters a tap
@@ -640,7 +640,7 @@ the decision log.
 
 ## Self-repair and self-check
 
-`android/app/src/main/kotlin/com/openmausbot/companion/phoneui/PhoneUiSelfRepair.kt`
+`android/app/src/main/kotlin/com/lunabot/companion/phoneui/PhoneUiSelfRepair.kt`
 is Mika's wireless-debugging auto-on as an immutable state with pure
 transitions: write `adb_wifi_enabled` at most 3 times per episode, wait 3 s to
 see whether the system flips it back, back off 10 s, 20 s, 40 s up to 5 minutes,
@@ -826,7 +826,7 @@ cd android && ./gradlew :app:testDebugUnitTest \
 ```
 
 That covers the 26 classes in
-`android/app/src/test/kotlin/com/openmausbot/companion/phoneui/`, the 6 in
+`android/app/src/test/kotlin/com/lunabot/companion/phoneui/`, the 6 in
 its `shell/` subdirectory and the 4 in `wechat/`. The counts that matter for
 this batch:
 `PhoneUiRunTest` 16, `PhoneUiCollectTest` 13, `PhoneUiFindTest` 17,

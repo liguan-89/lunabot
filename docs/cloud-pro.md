@@ -461,7 +461,7 @@ the Cloud's address.
 
 ### Open in the app: `lunabot://cloud`
 
-The Cloud page (`https://cloud.lunabot.com/cloud`) can offer **Open in the
+The Cloud page (`https://cloud.openmausbot.com/cloud`) can offer **Open in the
 app** as a link to exactly `lunabot://cloud`. The app accepts that string
 and nothing else: no path, query, fragment or trailing slash, and it ignores
 any other form. Like `lunabot://organization`, it is an action, not a
@@ -1112,15 +1112,15 @@ differs from the previous one only in those (a few MB) unless Chrome, an
 engine, Grok's pin, or the Node base image changed in between.
 
 At boot the launcher, running as root, hands the volume's mount point to the
-`maus` user, locks the volume for as long as it runs (`flock` on the volume's
+`lunabot` user, locks the volume for as long as it runs (`flock` on the volume's
 root: a second home on a volume a live home holds refuses to start, which
 Docker on your own server does not prevent by itself), binds the volume to
-this machine as `maus` (`/data/.omb-cloud-home.json`; another machine's
+this machine as `lunabot` (`/data/.omb-cloud-home.json`; another machine's
 volume, or an unmarked volume with data on it, is refused), clears the
 data-directory lease records another machine or container left on it (a home
 killed uncleanly leaves one, and on one Docker host every container shares the
 boot id while its pids start again from 1, so the lease names its pid
-namespace and its process's start time too), and runs two children as `maus`: the
+namespace and its process's start time too), and runs two children as `lunabot`: the
 server on `127.0.0.1:8799` (webhooks on `127.0.0.1:8800`) and Caddy on
 `:8080`. It stays a small root supervisor: if either child exits, both stop
 and Fly restarts the machine. The one exception: after a restore commits
@@ -1141,14 +1141,14 @@ what the image sets and the parts of the boot contract that are not secret
 (`serverEnvironmentAllowed`). Anything else, a secret the platform adds
 later included, never reaches it; the launcher logs the names it left out,
 never their values. The launcher's own environment and memory belong to
-root, out of `maus`'s reach. A server started without the pipe (tests,
+root, out of `lunabot`'s reach. A server started without the pipe (tests,
 development) reads them from its environment and says so in its log.
 
-The launcher runs and trusts only code `maus` cannot change: the image
+The launcher runs and trusts only code `lunabot` cannot change: the image
 makes `/app` root's and not writable by anyone else, and the launcher
 refuses to start if Node, itself, the server's entry point, Caddy or its
 config (or any folder above them) is not root's, is writable by others, or
-is on the volume. Only the `/data` volume is `maus`'s.
+is on the volume. Only the `/data` volume is `lunabot`'s.
 
 `HOME=/data`, so `~/.claude`, `~/.codex`, `~/.grok` and Luna Bot's own
 data (`/data/.lunabot`) persist on the volume.
@@ -1307,7 +1307,7 @@ start.
 
 | Variable | Value |
 | --- | --- |
-| `LUNABOT_PUBLIC_URL` | `https://` and the name people use, e.g. `https://mausbot.acme.eu`. Its DNS points at the server. |
+| `LUNABOT_PUBLIC_URL` | `https://` and the name people use, e.g. `https://lunabot.acme.eu`. Its DNS points at the server. |
 | `LUNABOT_CLOUD_EDGE_TLS` | `1`: the edge gets and renews a Let's Encrypt certificate for that name and serves it on 443. Unset or `0`: the edge serves only `:8080`, for the agent, and something else ends TLS. |
 | `LUNABOT_CLOUD_EDGE_ACME_EMAIL` | With `LUNABOT_CLOUD_EDGE_TLS=1`: a fallback CA for when Let's Encrypt refuses a certificate (its rate limits, say). The address of the account ZeroSSL's ACME endpoint gets: Caddy creates that account by itself from the address, with no sign-up or key to set. Let's Encrypt stays first and keeps its own account, and whichever CA issued the certificate stays on the volume. Unset or empty: Let's Encrypt alone. Anything but one plain address stops the home with a message naming the variable. It has no default; the operator sets it. |
 | `LUNABOT_CLOUD_TRUSTED_PROXIES` | Only when the owner's own proxy stands in front: its addresses or ranges (`10.0.0.5`, `10.0.0.0/24`, `private_ranges`), separated by spaces or commas, at most 32. Unset: none. A `/0` range, a host name or anything else stops the home with a message naming the variable. |
@@ -1354,7 +1354,7 @@ so a client's own `X-Forwarded-For` or `Cf-Connecting-IP` changes nothing.
 `LUNABOT_PUBLIC_URL` and `LUNABOT_CLOUD_TUNNEL_TOKEN`. The home then runs the pinned
 `cloudflared` from its image (`/usr/local/bin/cloudflared`, the release
 `scripts/prepare-cloudflared.mjs` checks) as its own user, `omb-tunnel`: the
-token rides that process's environment, which `maus`, and so no bot or engine,
+token rides that process's environment, which `lunabot`, and so no bot or engine,
 can read. If it stops, the launcher starts it again after 5 s, doubling to
 5 minutes. The control plane points every tunnel at `127.0.0.1:8812`, where
 the edge (`deploy/fly/Caddyfile.tunnel`) listens on loopback only and believes
@@ -1394,7 +1394,7 @@ never echoes a secret.
 | --- | --- | --- |
 | `LUNABOT_CLOUD_ROLE` | env | `home`. (`desktop` belongs to the Cloud desktop image and is refused here.) |
 | `LUNABOT_CLOUD_MACHINE_ID` | env | The Admin's machine id (a UUID). Binds the volume. |
-| `LUNABOT_CLOUD_ADMIN_URL` | secret | The Cloud origin, exact `https://`, e.g. `https://cloud.lunabot.com`. |
+| `LUNABOT_CLOUD_ADMIN_URL` | secret | The Cloud origin, exact `https://`, e.g. `https://cloud.openmausbot.com`. |
 | `LUNABOT_CLOUD_BOOTSTRAP_SECRET` | secret | 43 base64url characters (256 bits): the key the Admin signs pairing requests with. |
 | `LUNABOT_PUBLIC_URL` | env | The machine's exact `https://` origin, `https://<app>.fly.dev`. |
 | `LUNABOT_CLOUD_LEGACY_ORIGINS` | env | Optional, only for a home that moved to another provider: the exact `https://` origins it answered at before, comma-separated (at most 8, never a loopback name), e.g. `https://<app>.fly.dev`. |
@@ -1430,14 +1430,14 @@ For each service the Admin has configured, it also sets:
 
 | Variable | Fly | Value |
 | --- | --- | --- |
-| `LUNABOT_CLOUD_BOAT_URL` | env | `https://cloud.lunabot.com/api/cloud/services/boat/api/box/v1`, the Admin's Boat relay. The app speaks Boat's public API v1 (`/sandboxes`, `sandbox` envelopes); this relay still serves Boat's retired box API (`/boxes`, `box` envelopes), so for a base ending in `/api/box/v1` the app translates paths and answers in one place, `server/boat-relay.ts`. A base ending in `/api/v1` gets v1 as it is. Bots use it only for cloud computers, as a tool on their own engine; no turn runs on Boat's own agent, so nothing calls its `/prompt`, `/events`, `/prompts/{id}` or `/interrupt` routes. |
+| `LUNABOT_CLOUD_BOAT_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/boat/api/box/v1`, the Admin's Boat relay. The app speaks Boat's public API v1 (`/sandboxes`, `sandbox` envelopes); this relay still serves Boat's retired box API (`/boxes`, `box` envelopes), so for a base ending in `/api/box/v1` the app translates paths and answers in one place, `server/boat-relay.ts`. A base ending in `/api/v1` gets v1 as it is. Bots use it only for cloud computers, as a tool on their own engine; no turn runs on Boat's own agent, so nothing calls its `/prompt`, `/events`, `/prompts/{id}` or `/interrupt` routes. |
 | `LUNABOT_CLOUD_BOAT_TOKEN` | secret | This machine's Boat relay token (`box_omb_…`). It is not a Boat key and works only through the relay. |
-| `LUNABOT_CLOUD_VOICE_URL` | env | `https://cloud.lunabot.com/api/cloud/services/voice/v1`, the Admin's voice relay. |
+| `LUNABOT_CLOUD_VOICE_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/voice/v1`, the Admin's voice relay. |
 | `LUNABOT_CLOUD_VOICE_TOKEN` | secret | This machine's voice relay token (`omb_voice_…`). |
 | `LUNABOT_TTS_DEFAULT_VOICE` | env | An ElevenLabs voice id, used until the person picks a voice or another speech provider in Settings. |
-| `LUNABOT_CLOUD_DECIDER_URL` | env | `https://cloud.lunabot.com/api/cloud/services/decider`, the Admin's Jev relay. It is a Jev base URL, used as it is: the decider adds `/v1/systemone`, so every included decision goes to exactly `<LUNABOT_CLOUD_DECIDER_URL>/v1/systemone`, and extraction adds `/v1/extract`. |
+| `LUNABOT_CLOUD_DECIDER_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/decider`, the Admin's Jev relay. It is a Jev base URL, used as it is: the decider adds `/v1/systemone`, so every included decision goes to exactly `<LUNABOT_CLOUD_DECIDER_URL>/v1/systemone`, and extraction adds `/v1/extract`. |
 | `LUNABOT_CLOUD_DECIDER_TOKEN` | secret | This machine's decision relay token (`omb_decide_…`). It is not a Jev key and works only through the relay. |
-| `LUNABOT_CLOUD_X_URL` | env | `https://cloud.lunabot.com/api/cloud/services/x`, the Admin's treg relay; the client calls `<LUNABOT_CLOUD_X_URL>/call/<endpoint>` for the X tools' eight endpoints, `/research/search`, `/research/endpoints/<id>` and `/research/call/<id>` for the research tools, and `GET /usage` for the month's calls on the Apps page's X card (`GET /api/x/status`). The home asks `GET /research/search` with no job at start, which spends nothing: a 400 means research is on, an off answer hides the research tools (x_search stays) until an hour later or a restart, and a research call refused as off does the same. A person's own treg key (Settings → API keys) wins over it and goes straight to treg. |
+| `LUNABOT_CLOUD_X_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/x`, the Admin's treg relay; the client calls `<LUNABOT_CLOUD_X_URL>/call/<endpoint>` for the X tools' eight endpoints, `/research/search`, `/research/endpoints/<id>` and `/research/call/<id>` for the research tools, and `GET /usage` for the month's calls on the Apps page's X card (`GET /api/x/status`). The home asks `GET /research/search` with no job at start, which spends nothing: a 400 means research is on, an off answer hides the research tools (x_search stays) until an hour later or a restart, and a research call refused as off does the same. A person's own treg key (Settings → API keys) wins over it and goes straight to treg. |
 | `LUNABOT_CLOUD_X_TOKEN` | secret | This machine's X research relay token (`omb_x_…`). Not a treg key; it works only through the relay, within the plan's monthly X research calls. A signed-in desktop gets its own (`omb_xd_…`) from `POST /api/cloud/desktop/services/x` and hands it to its server in memory. |
 
 A service is included only when both its URL and its token are set
@@ -1514,7 +1514,7 @@ computers belong to this machine on every request.
   starts inherits them, including tools that copy its environment as it is
   (the browser, docker, ssh, MCP bridges), and no process finds them in the
   server's `/proc/<pid>/environ`. They are still in the server's memory, and
-  that is the remaining exposure: the server runs as `maus`, like every
+  that is the remaining exposure: the server runs as `lunabot`, like every
   engine, so a process running as the same user that may trace it (the
   kernel's ptrace policy, `kernel.yama.ptrace_scope`, decides) could read
   them there. That is why a guest's turn gets no shell (above); the complete
@@ -1545,7 +1545,7 @@ keeps the token owner-only in `/data/.lunabot/connected-apps-installation.json`
 (never in a backup, a move or `config.json`), checks it with the service, and
 retries with backoff while the service is down, without holding up the start.
 An owner's own Composio project key still wins. The details are in
-[composio.md](composio.md#mausbot-cloud). `LUNABOT_COMPOSIO_BROKER_URL` (env, not
+[composio.md](composio.md#luna-bot-cloud). `LUNABOT_COMPOSIO_BROKER_URL` (env, not
 secret, optional) points a Cloud at another service, such as a staging one.
 
 For a paid plan the Admin also sets `LUNABOT_CLOUD_CONNECTED_APPS_GRANT` (secret):
@@ -1565,7 +1565,7 @@ credit, the Admin also sets:
 
 | Variable | Fly | Value |
 | --- | --- | --- |
-| `LUNABOT_CLOUD_AI_URL` | env | `https://cloud.lunabot.com/api/cloud/services/ai/v1`, an OpenAI-compatible base URL with its `/v1` (as the Admin sends it): `POST {url}/chat/completions` and `GET {url}/models` only. Nothing Anthropic-shaped (no `/v1/messages`) answers a credit token. |
+| `LUNABOT_CLOUD_AI_URL` | env | `https://cloud.openmausbot.com/api/cloud/services/ai/v1`, an OpenAI-compatible base URL with its `/v1` (as the Admin sends it): `POST {url}/chat/completions` and `GET {url}/models` only. Nothing Anthropic-shaped (no `/v1/messages`) answers a credit token. |
 | `LUNABOT_CLOUD_AI_TOKEN` | secret | This machine's credit token (`omb_ai_…`), sent as `Authorization: Bearer`. It works only through the relay, only for this account's credit, and not at all once it is spent or the Cloud is deleted. |
 
 - **Luna Bot's own chat engine, nothing else.** `server/cloud-credit-provider.ts`
@@ -2135,9 +2135,9 @@ launch: What's new comes first, and the Boat card waits for a later one.
    button carries the slide's tag on the Cloud's funnel (`app_whats_new_pro`,
    `app_whats_new_team`): **Get Pro** opens the Add a Cloud dialog with
    `source: app_whats_new_pro`, which its checkout sends; **See the new Cloud**
-   opens `https://cloud.lunabot.com/cloud?src=app_whats_new_pro` (the plans,
+   opens `https://cloud.openmausbot.com/cloud?src=app_whats_new_pro` (the plans,
    for someone without one); **Start a Team** opens
-   `https://cloud.lunabot.com/pro/buy?plan=team&src=app_whats_new_team`, the
+   `https://cloud.openmausbot.com/pro/buy?plan=team&src=app_whats_new_team`, the
    website's Get Team with this slide's tag (the staging Admin's site for an app
    on staging), and for someone with a plan of their own, whom that page would
    only tell to write in, the Add a Cloud dialog with `source:
@@ -2463,8 +2463,8 @@ ends the move as before.
 ## Published image
 
 Every push to `main` and every release tag publishes the home machine image as
-`ghcr.io/milind-soni/openmausbot-cloud-home`, tagged `latest` (main only), `sha-<commit>` and the release tag.
+`ghcr.io/liguan-89/lunabot-cloud-home`, tagged `latest` (main only), `sha-<commit>` and the release tag.
 It is the `Dockerfile`'s `cloud-home` target for the same commit, with Grok and the current Claude Code and
 Codex installed. The Docker workflow's summary prints the digest. Set it in the Admin as
-`LUNABOT_CLOUD_HOME_IMAGE=ghcr.io/milind-soni/openmausbot-cloud-home@sha256:…`; changing it rolls the new image
+`LUNABOT_CLOUD_HOME_IMAGE=ghcr.io/liguan-89/lunabot-cloud-home@sha256:…`; changing it rolls the new image
 out to existing machines one at a time, reverting automatically on a failed health check.

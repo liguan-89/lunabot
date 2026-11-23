@@ -301,7 +301,7 @@ export function feedbackPage(_config) {
 </div>
 <p class="note">不要把密码、令牌或私密文件贴进反馈。应用内 <code>@devs</code> 反馈会自动附带脱敏后的诊断信息。</p>`;
   const script = `${APPLY_SCRIPT}
-const installKey = "dexbot.web.install";
+const installKey = "lunabot.web.install";
 let installId = "";
 try { installId = localStorage.getItem(installKey) || ""; } catch {}
 if (!installId) {

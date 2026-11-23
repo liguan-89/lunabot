@@ -130,7 +130,7 @@ class SettingsReconnectWiringTest {
         // relay label, so the expanded row used to draw "https://c" alone on
         // the first line. The breaks added here are invisible and leave every
         // visible character — and 复制 — untouched.
-        val address = "https://c-520e4f9f627b551883c94878b2bcd2c4.lunabot.com"
+        val address = "https://c-520e4f9f627b551883c94878b2bcd2c4.openmausbot.com"
         val wrapped = wrapAddress(address)
 
         assertEquals(address, wrapped.replace("\u200B", ""))

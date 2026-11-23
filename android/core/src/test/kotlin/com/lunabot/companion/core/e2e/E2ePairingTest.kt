@@ -34,7 +34,7 @@ class E2ePairingTest {
         val descriptor = E2eDescriptor(
             k = E2eBase64.encode(transportKey.publicKey),
             h = E2eBase64.encode(hostId),
-            relays = listOf("relay1.lunabot.com"),
+            relays = listOf("relay1.openmausbot.com"),
         )
         val result = E2ePairing.pair(
             connector = { _, _, opened ->

@@ -622,7 +622,7 @@ old one; no identifiers) answers:
 - **Usage per day** (`migrations/0014`). `relay_daily` counts installations once per UTC day and kind: `seen` (asked
   for a token), `token` (got one), `e2e` (reported end-to-end phones), `new` (asked for the first time). It holds only
   the day, the kind and a count; `relay_adoption.first_seen_at`, `token_at` and `e2e_at` tell a request whether its
-  installation was already counted today. The stats dashboard (stats.lunabot.com) charts it. A Worker without the
+  installation was already counted today. The stats dashboard (stats.openmausbot.com) charts it. A Worker without the
   migration keeps minting tokens and writing `relay_adoption`, and logs `relay_daily_schema` once per isolate.
 - **Tunnels.** From `RELAY_CAPABLE_MIN_VERSION`, a desktop at that version or later that the relay can carry (it is
   on, the computer is inside the rollout and not blocked) and that reports `legacyDevices: 0` gets `409 relay_capable`

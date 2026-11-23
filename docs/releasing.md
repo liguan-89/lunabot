@@ -75,8 +75,8 @@ The workflow builds nothing. It:
    and reads its digest and the Cloud home image's;
 3. refuses to move stable back to an older version unless `allow_older` is
    ticked;
-4. moves the `stable` tag of `ghcr.io/milind-soni/openmausbot` and of
-   `ghcr.io/milind-soni/openmausbot-cloud-home` to those digests;
+4. moves the `stable` tag of `ghcr.io/liguan-89/lunabot` and of
+   `ghcr.io/liguan-89/lunabot-cloud-home` to those digests;
 5. commits `stable.json` (version, both images by digest, and every version
    that was stable in the last 90 days) to the `channels` branch. When that
    fails after the tags moved, the tags are put back to the digests the
@@ -88,7 +88,7 @@ it stops the run, so a network error never skips the move-back check or drops
 the history.
 
 Servers read
-`https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json`:
+`https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json`:
 the update check (`server/update-check.ts`) for the version, and
 `deploy/update.sh` for the image to pull. `latest` still follows `main` and is
 never moved by this workflow. Running it again with the same version changes

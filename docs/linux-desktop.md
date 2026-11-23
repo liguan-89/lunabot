@@ -32,13 +32,13 @@ CUA supply-chain work is tracked in [issue #113](https://github.com/milind-soni/
 
 Choose one Ubuntu 24.04 x86_64 package from the latest release:
 
-- [Debian package (`OpenMausBot-amd64.deb`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
-- [Portable AppImage (`OpenMausBot.AppImage`)](https://github.com/milind-soni/OpenMausBot/releases/latest/download/OpenMausBot.AppImage) — does not install system files.
+- [Debian package (`LUNABOT-amd64.deb`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-amd64.deb) — recommended; APT installs its desktop dependencies and configures the bundled bot browser's sandbox.
+- [Portable AppImage (`LUNABOT.AppImage`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT.AppImage) — does not install system files.
 - [RPM package (`LUNABOT-x86_64.rpm`)](https://github.com/liguan-89/lunabot/releases/latest/download/LUNABOT-x86_64.rpm) — for Fedora; see [below](#fedora-and-other-rpm-distributions).
-- [SHA-256 checksums](https://github.com/milind-soni/OpenMausBot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
+- [SHA-256 checksums](https://github.com/liguan-89/lunabot/releases/latest/download/SHA256SUMS-ubuntu-x64.txt)
 
 Versioned packages and previous releases remain available on the
-[releases page](https://github.com/milind-soni/OpenMausBot/releases).
+[releases page](https://github.com/liguan-89/lunabot/releases).
 
 ## Build packages
 
@@ -49,8 +49,8 @@ Requirements for building from source:
 - pnpm 10.33.0 (Corepack can install the version declared by the project)
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot.git
-cd OpenMausBot
+git clone https://github.com/liguan-89/lunabot.git
+cd lunabot
 corepack enable
 pnpm install --frozen-lockfile
 pnpm package:linux
@@ -58,9 +58,9 @@ pnpm package:linux
 
 The build creates:
 
-- `release/Luna Bot-<version>-amd64.deb`
-- `release/Luna Bot-<version>-x86_64.rpm`
-- `release/Luna Bot-<version>-x86_64.AppImage`
+- `release/LUNABOT-<version>-amd64.deb`
+- `release/LUNABOT-<version>-x86_64.rpm`
+- `release/LUNABOT-<version>-x86_64.AppImage`
 
 The AppImage uses a static runtime and does not require the legacy `libfuse2` package.
 
@@ -69,7 +69,7 @@ The AppImage uses a static runtime and does not require the legacy `libfuse2` pa
 Install a downloaded Debian package with APT so its desktop dependencies are resolved:
 
 ```sh
-sudo apt install ./OpenMausBot-amd64.deb
+sudo apt install ./LUNABOT-amd64.deb
 ```
 
 Then open **Luna Bot** from the GNOME application launcher. To remove it:
@@ -81,11 +81,11 @@ sudo apt remove lunabot
 The portable AppImage does not install system files:
 
 ```sh
-chmod +x release/Luna Bot-*-x86_64.AppImage
-./release/Luna Bot-*-x86_64.AppImage
+chmod +x release/LUNABOT-*-x86_64.AppImage
+./release/LUNABOT-*-x86_64.AppImage
 ```
 
-For a downloaded release AppImage, use `OpenMausBot.AppImage` in place of the versioned path above.
+For a downloaded release AppImage, use `LUNABOT.AppImage` in place of the versioned path above.
 
 ### Fedora and other RPM distributions
 
@@ -96,7 +96,7 @@ The `.rpm` is community-supported: every release builds and checks it, but it is
 sudo dnf install ./LUNABOT-x86_64.rpm
 ```
 
-Remove it with `sudo dnf remove dexbot`. Updates are downloaded by the app, which then copies the `rpm` install
+Remove it with `sudo dnf remove lunabot`. Updates are downloaded by the app, which then copies the `rpm` install
 command and opens a terminal for you to run it. Other RPM distributions (RHEL, openSUSE) and image-based Fedora
 editions such as Silverblue are untested; use the AppImage there.
 
@@ -121,8 +121,8 @@ A minimal Arch install lacks the FUSE helper and some desktop libraries the AppI
 
 ```sh
 sudo pacman -S --needed fuse3 gtk3 nss alsa-lib libcups mesa
-chmod +x OpenMausBot.AppImage
-./OpenMausBot.AppImage
+chmod +x LUNABOT.AppImage
+./LUNABOT.AppImage
 ```
 
 A full desktop install (for example EndeavourOS with KDE or GNOME) usually has all of these already, and
@@ -194,7 +194,7 @@ It also probes the login shell in the background. If a CLI still is not detected
 path before launching the app from a terminal and verify it there:
 
 ```sh
-LUNABOT_EXTRA_PATH=/your/custom/bin ./release/Luna Bot-*-x86_64.AppImage
+LUNABOT_EXTRA_PATH=/your/custom/bin ./release/LUNABOT-*-x86_64.AppImage
 ```
 
 Restart Luna Bot after installing or signing in to a CLI.

@@ -202,7 +202,7 @@ class FailoverTest {
         assertTrue(ConnectionAdvice.isMissingRoute(missing))
         assertEquals(
             ConnectionAdvice.MISSING_ROUTE_MESSAGE,
-            ConnectionAdvice.message(missing, "c-520e.lunabot.com", 443),
+            ConnectionAdvice.message(missing, "c-520e.openmausbot.com", 443),
         )
         assertNotNull(ConnectionAdvice.remedy(missing))
     }

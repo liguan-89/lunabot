@@ -2,7 +2,7 @@
 
 To keep Luna Bot and its agents on your current computer and use a VPS only as a
 bot’s remote desktop, see [Bring Your Own VPS](byo-vps.md) and the
-[published setup guide](https://docs.lunabot.com/docs/computers/byo-vps).
+[published setup guide](https://docs.openmausbot.com/docs/computers/byo-vps).
 
 Run the server on a machine you control (a VPS, a home server, a Mac mini in a
 closet). Then connect the desktop app, browsers and phones to it. Every path
@@ -23,11 +23,11 @@ For server feature switches, defaults and configuration-file instructions, see
 
 | You have | Run | Link it prints |
 |---|---|---|
-| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot serve --public-url https://maus.example.com` | `https://maus.example.com/pair#code=…` |
-| A domain name, and ports 80 and 443 open | `npx lunabot serve --domain lunabot.example.com` | `https://maus.example.com/pair#code=…` |
+| HTTPS in front already (cloudflared, Caddy, nginx) | `npx lunabot serve --public-url https://lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
+| A domain name, and ports 80 and 443 open | `npx lunabot serve --domain lunabot.example.com` | `https://lunabot.example.com/pair#code=…` |
 | Tailscale on the server and your devices | `npx lunabot serve --tailscale` | `https://<machine>.<tailnet>.ts.net/pair#code=…` |
 | Only this network (home or office) | `npx lunabot serve --lan` | `http://192.168.1.20:8799/pair#code=…` |
-| Nothing at all | `npx lunabot login`, then `npx lunabot serve --tunnel` | `https://c-….lunabot.com/pair#code=…` |
+| Nothing at all | `npx lunabot login`, then `npx lunabot serve --tunnel` | `https://c-….openmausbot.com/pair#code=…` |
 | Only the phone app, from anywhere (a machine with no tunnel address, for now) | `npx lunabot login --relay`, then `npx lunabot serve --relay` | a QR for the Luna Bot app ([Luna Bot Relay](phone-relay-server.md)) |
 
 `--lan` can be added to any of the others. Plain `http://` is only for a
@@ -43,18 +43,18 @@ On any machine with Node 24 or newer:
 
 ```sh
 npx lunabot setup                                        # once: AI access and a default model
-npx lunabot serve --public-url https://maus.example.com  # or --domain, --tailscale, --lan, --tunnel
+npx lunabot serve --public-url https://lunabot.example.com  # or --domain, --tailscale, --lan, --tunnel
 ```
 
 In a terminal, `serve` checks the address and prints one pairing block:
 
 ```
 Luna Bot 0.1.147 · server "hetzner-1"
-data: /home/maus/.lunabot
-Reach    https://maus.example.com   ✓ answers as this server (11:04)
+data: /home/lunabot/.lunabot
+Reach    https://lunabot.example.com   ✓ answers as this server (11:04)
 
 Pairing code   7KQ2-M9XD-H4TP   works once, until 11:14 · everything
-Link           https://maus.example.com/pair#code=7KQ2-M9XD-H4TP
+Link           https://lunabot.example.com/pair#code=7KQ2-M9XD-H4TP
 
   Desktop app   ＋ → Connect to a server, paste the link
   Phone         scan with your camera or the Luna Bot app
@@ -78,7 +78,7 @@ hetzner-1** finishes. You can also type the address (`lunabot.example.com`,
 
 `serve` with no way in mints no code. It lists the ways in instead. Every
 command the CLI prints starts the way you started it (`npx lunabot`,
-`lunabot`, `pnpm omb`, or `docker compose exec omb openmausbot`), so you
+`lunabot`, `pnpm omb`, or `docker compose exec omb lunabot`), so you
 can paste it as is.
 
 ### Already have cloudflared, Caddy or nginx in front
@@ -89,12 +89,12 @@ and don't buffer the event stream ([details](#putting-a-proxy-in-front)).
 Then:
 
 ```sh
-npx lunabot serve --public-url https://maus.example.com
+npx lunabot serve --public-url https://lunabot.example.com
 ```
 
-Setting `LUNABOT_PUBLIC_URL=https://maus.example.com` in the environment works the
+Setting `LUNABOT_PUBLIC_URL=https://lunabot.example.com` in the environment works the
 same way. If the Reach line says
-`✗ https://maus.example.com doesn't reach this server`, the tunnel points
+`✗ https://lunabot.example.com doesn't reach this server`, the tunnel points
 somewhere else. Fix that, then run `npx lunabot status` to check again.
 
 ### Docker on your computer or home network
@@ -103,7 +103,7 @@ From a checkout of the repository:
 
 ```sh
 docker compose up -d --build                  # http://localhost:8080 on this machine
-docker compose exec omb openmausbot pair      # a code, and a sign-in link for this machine's browser
+docker compose exec omb lunabot pair      # a code, and a sign-in link for this machine's browser
 ```
 
 To pair from other devices on the same network, publish the port there and
@@ -111,7 +111,7 @@ name the address they use:
 
 ```sh
 LUNABOT_BIND_ADDRESS=0.0.0.0 LUNABOT_PUBLIC_URL=http://192.168.1.20:8080 docker compose up -d
-docker compose exec omb openmausbot pair      # Link http://192.168.1.20:8080/pair#code=…
+docker compose exec omb lunabot pair      # Link http://192.168.1.20:8080/pair#code=…
 ```
 
 Do this only on a machine behind your router. A machine with a public address
@@ -125,8 +125,8 @@ server, installs Luna Bot under `/opt/openmausbot` and ends with HTTPS on your
 domain:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/milind-soni/OpenMausBot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
-cd /opt/openmausbot && sudo docker compose exec omb openmausbot pair   # Link https://<DOMAIN>/pair#code=…
+curl -fsSL https://raw.githubusercontent.com/liguan-89/lunabot/main/deploy/install.sh | sudo sh -s -- --domain lunabot.example.com
+cd /opt/openmausbot && sudo docker compose exec omb lunabot pair   # Link https://<DOMAIN>/pair#code=…
 ```
 
 Add `--check` to only check the server. Running it again repairs;
@@ -138,10 +138,10 @@ writes and what it contacts are in
 By hand, on any system with Docker:
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/liguan-89/lunabot && cd lunabot/deploy
 cp .env.example .env                          # set DOMAIN (and ENGINES)
 docker compose pull omb && docker compose up -d
-docker compose exec omb openmausbot pair      # Link https://<DOMAIN>/pair#code=…
+docker compose exec omb lunabot pair      # Link https://<DOMAIN>/pair#code=…
 ```
 
 Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker-with-https-on-your-own-domain).
@@ -149,7 +149,7 @@ Caddy gets the certificate. See [Docker (with HTTPS on your own domain)](#docker
 ### Keep it running (a service)
 
 ```sh
-npx lunabot service install --public-url https://maus.example.com   # the same way-in options as serve
+npx lunabot service install --public-url https://lunabot.example.com   # the same way-in options as serve
 ```
 
 This writes a systemd unit (Linux) or a launchd agent (macOS) with the same
@@ -254,7 +254,7 @@ too.
   says so and stays on loopback. Plain http travels in clear, so use it only
   on a network you trust.
 - **`--tunnel`**: `npx lunabot login` reserves an address like
-  `https://c-….lunabot.com` for this machine (an emailed code signs it
+  `https://c-….openmausbot.com` for this machine (an emailed code signs it
   in). `serve --tunnel` connects it through a Cloudflare tunnel, the same one
   the desktop app uses for its companion. The first run downloads
   `cloudflared` (pinned version and digest) into the data dir. Only traffic
@@ -364,13 +364,13 @@ Requirements: Docker with Compose, a DNS name pointing at the machine, and
 ports 80/443 open.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot/deploy
+git clone https://github.com/liguan-89/lunabot && cd lunabot/deploy
 cp .env.example .env            # set DOMAIN
 docker compose pull omb && docker compose up -d
 ```
 
 That starts the image CI publishes on every `main` push
-(`ghcr.io/milind-soni/openmausbot:latest`; each release is also tagged `v…`,
+(`ghcr.io/liguan-89/lunabot:latest`; each release is also tagged `v…`,
 and the one our own Clouds have run for 48 hours is `stable`). Move to the
 stable version right away with `./update.sh`, which pins it by digest in
 `.env`. To build from your checkout instead: `docker compose up -d --build`. The
@@ -383,7 +383,7 @@ pairing code for your first device:
 
 ```sh
 docker compose exec omb claude                       # each CLI you listed in ENGINES
-docker compose exec omb openmausbot pair             # prints a code, a link and a QR
+docker compose exec omb lunabot pair             # prints a code, a link and a QR
 ```
 
 Paste the link (`https://<DOMAIN>/pair#code=…`) into Luna Bot under **＋ →
@@ -433,7 +433,7 @@ Requirements: Node 24+, pnpm, and at least one agent CLI installed and
 signed in on the server.
 
 ```sh
-git clone https://github.com/milind-soni/OpenMausBot && cd OpenMausBot
+git clone https://github.com/liguan-89/lunabot && cd lunabot
 pnpm install
 
 # choose where data lives and start the server
@@ -509,7 +509,7 @@ Providers added with `opencode auth login` work everywhere.
 ## Many client workspaces on one server
 
 `lunabot fleet` runs one workspace per client on a single Linux server,
-each as its own OS user, its own `openmausbot@<name>` service on its own
+each as its own OS user, its own `lunabot@<name>` service on its own
 loopback ports, its own data folder, brand, sign-in list and provider key,
 reached at `<name>.<your domain>` through the system Caddy. Bots of one
 workspace cannot read another's files or reach its API: the data lives in a
@@ -545,7 +545,7 @@ root service on a Unix socket only that user may open. Your workspace then
 shows **Settings → Installations** (with the enterprise `admin` feature): create
 an installation, add or remove who may sign in, suspend, resume, delete, upgrade
 all, and see each one's spend this month. Every action goes through the
-agent's audit log at `/var/log/openmausbot/fleet.jsonl`.
+agent's audit log at `/var/log/lunabot/fleet.jsonl`.
 
 `https://acme.example.com` is up when `create` returns; the first admin signs
 in with an emailed code. `LUNABOT_LICENSE_KEY` in the environment (or
@@ -580,7 +580,7 @@ reach it. On the server:
 ```sh
 npx lunabot pair                         # npm install
 pnpm omb pair                                # from a checkout
-docker compose exec omb openmausbot pair     # Docker
+docker compose exec omb lunabot pair     # Docker
 ```
 
 It prints a 12-character pairing code (it works once, for 10 minutes, or up
@@ -842,7 +842,7 @@ is bootstrapped; while it does, Settings refuses to change that list and says
 which variable to change instead. One that is empty, as `.env.example` and the
 Compose files leave them, leaves the list to Settings.
 
-The code itself comes from `accounts.lunabot.com`, the Luna Bot
+The code itself comes from `accounts.openmausbot.com`, the Luna Bot
 account service, so your server needs no email credentials. Your server asks
 it to send the code, checks the answer, and then issues its own session
 cookie: the browser only ever talks to your server, and who is welcome is
@@ -1072,7 +1072,7 @@ than present the old session to it.
 
 Both native apps pair this way. `lunabot pair --phone android` prints the
 app-scheme QR that Android's scanner needs, and the iOS app accepts either
-that QR or the web link, for example `docker compose exec omb openmausbot
+that QR or the web link, for example `docker compose exec omb lunabot
 pair --phone android --public-url https://your-domain`. `pair` never asks
 questions, so it works the same from a script. Nothing extra to install, and
 the phone becomes a session like any other.
@@ -1102,9 +1102,9 @@ Owners can read the same over the API:
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://maus.example.com/api/usage?from=2026-09-01&to=2026-09-30&groupBy=user"
+  "https://lunabot.example.com/api/usage?from=2026-09-01&to=2026-09-30&groupBy=user"
 curl -H "Authorization: Bearer $TOKEN" -o usage.csv \
-  "https://maus.example.com/api/usage.csv?from=2026-09-01&to=2026-09-30"
+  "https://lunabot.example.com/api/usage.csv?from=2026-09-01&to=2026-09-30"
 ```
 
 Dates are inclusive, UTC, at most a year apart; without them you get the
@@ -1217,9 +1217,9 @@ than the window. An older server's `decisions.ndjson` and `.1` are still read
 and age out the same way. Admins can read it back:
 
 ```sh
-curl -H "Authorization: Bearer $TOKEN" "https://maus.example.com/api/decisions?limit=200"
+curl -H "Authorization: Bearer $TOKEN" "https://lunabot.example.com/api/decisions?limit=200"
 curl -H "Authorization: Bearer $TOKEN" -o decisions.csv \
-  "https://maus.example.com/api/decisions.csv?from=2026-09-01&to=2026-09-30"
+  "https://lunabot.example.com/api/decisions.csv?from=2026-09-01&to=2026-09-30"
 ```
 
 The CSV has one line per decision (time, decision, source, bot, tool,
@@ -1313,9 +1313,9 @@ them as CSV. The same over the API:
 
 ```sh
 curl -H "Authorization: Bearer $TOKEN" \
-  "https://maus.example.com/api/admin-activity?from=2026-09-01&to=2026-09-30&what=visibility"
+  "https://lunabot.example.com/api/admin-activity?from=2026-09-01&to=2026-09-30&what=visibility"
 curl -H "Authorization: Bearer $TOKEN" -o activity.csv \
-  "https://maus.example.com/api/admin-activity.csv?who=ada@company.com"
+  "https://lunabot.example.com/api/admin-activity.csv?who=ada@company.com"
 ```
 
 `what` is `all` (admin changes and answered cards, the default), `approvals`,
@@ -1482,7 +1482,7 @@ settings do not change it.
 
 Self-hosted servers follow the **stable** channel: a released version that our
 own Clouds have run for 48 hours, named by the image tag `stable` and by
-[`stable.json`](https://raw.githubusercontent.com/milind-soni/OpenMausBot/channels/stable.json).
+[`stable.json`](https://raw.githubusercontent.com/liguan-89/lunabot/channels/stable.json).
 `latest` follows `main` and is not for a server you rely on. The update check
 (`GET /api/updates/check`, **Check for updates** in the app) compares the
 server with the stable version; `LUNABOT_UPDATE_CHANNEL=newest` makes it follow

@@ -101,7 +101,7 @@ test("a wake re-provisions a cloud whose container never came up", async () => {
   const id = insertCloud(store);
   // waitHealthy polls the container over HTTP; answer the way the home does.
   const realFetch = globalThis.fetch;
-  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => '{"app":"openmausbot"}' });
+  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => '{"app":"lunabot"}' });
   try {
     await provisioner.start(store.cloud(id));
     const row = await settles(store, id);

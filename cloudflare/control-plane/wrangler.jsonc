@@ -8,12 +8,12 @@
   "workers_dev": false,
   "routes": [
     {
-      "pattern": "accounts.lunabot.com",
+      "pattern": "accounts.openmausbot.com",
       "custom_domain": true
     }
   ],
   "vars": {
-    "BETTER_AUTH_URL": "https://accounts.lunabot.com",
+    "BETTER_AUTH_URL": "https://accounts.openmausbot.com",
     "EMAIL_FROM": "noreply@openmausbot.com",
     "ALLOWED_ORIGINS": "",
     "CLOUDFLARE_ACCOUNT_ID": "0c92969a82eb9e173b013a7e7a02333d",
@@ -73,7 +73,7 @@
     // exist; add relay2 when its box and DNS are up.
     // RELAY_ROLLOUT_PERCENT (0-100) admits computers by a stable hash of their host id; RELAY_ALLOW_INSTALLATIONS
     // (comma-separated installation ids) admits a few by name; RELAY_DISABLED "1" turns every token off.
-    "RELAY_NODES": "relay1.lunabot.com,relay2.lunabot.com",
+    "RELAY_NODES": "relay1.openmausbot.com,relay2.openmausbot.com",
     "RELAY_NODES_AMERICAS": "",
     "RELAY_TOKEN_KID": "k1",
     "RELAY_ROLLOUT_PERCENT": "100",

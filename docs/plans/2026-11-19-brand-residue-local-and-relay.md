@@ -65,7 +65,7 @@ curl http://192.168.31.175:8810  → 401（通）
 
 实际部署的控制面是 VPS(`wholesale`, 186.241.77.89) 上的 `dex-cloud:local` 容器（监听
 `127.0.0.1:8791`，Caddy 把 `cloud.dexai.vip` 反代过去）。它已经是自研实现，与
-`cloudflare/control-plane/wrangler.jsonc`（指向 `accounts.lunabot.com`）无关。
+`cloudflare/control-plane/wrangler.jsonc`（指向 `accounts.openmausbot.com`）无关。
 
 该容器当前环境：
 
@@ -103,7 +103,7 @@ Resend 账户里**一个已验证域名都没有**（`GET api.resend.com/domains
 ### 次要：仓库里的 Worker 配置仍是旧域
 
 `cloudflare/control-plane/{wrangler.jsonc,src/relay.ts}` 仍写
-`relayN.lunabot.com`。它不参与当前部署，但属于"残留"，随第 1 项一起改，
+`relayN.openmausbot.com`。它不参与当前部署，但属于"残留"，随第 1 项一起改，
 以免将来照它部署时再踩同一坑。
 
 ## 执行顺序

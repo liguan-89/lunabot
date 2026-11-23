@@ -171,7 +171,7 @@ docker buildx build --load --platform linux/amd64 \
 ```
 
 The container starts as root to take ownership of `/data`, then runs the server
-and its edge as `maus`. The service container needs the Docker socket and the
+and its edge as `lunabot`. The service container needs the Docker socket and the
 daemon's group:
 
 ```yaml

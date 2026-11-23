@@ -408,7 +408,7 @@ describe("phones through Luna Bot Relay on a server", () => {
     // Docker's Caddy reaches the server over a socket too: that is no tunnel.
     expect(tunnelHolder({ LUNABOT_TUNNEL_SOCKET: "/run/openmausbot/http.sock" }, dir)).toBeNull();
     expect(tunnelHolder({ LUNABOT_INSTALLATION_CREDENTIAL: "omb_install_y" }, dir)).toMatch(/^LUNABOT_INSTALLATION_CREDENTIAL is set/);
-    writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x", managedCompanionEndpointUrl: "https://c-0123456789abcdef0123456789abcdef.lunabot.com" }));
+    writeFileSync(account, JSON.stringify({ companionInstallationCredential: "omb_install_x", managedCompanionEndpointUrl: "https://c-0123456789abcdef0123456789abcdef.openmausbot.com" }));
     expect(tunnelHolder({}, dir)).toMatch(/holds a tunnel address/);
     writeFileSync(account, "not json");
     expect(tunnelHolder({}, dir)).toMatch(/could not be read/);

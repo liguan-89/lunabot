@@ -6,7 +6,7 @@
 # it waits (the next run asks before it puts the data back), a rollback whose restore fails (data and copy untouched,
 # tried again on request), an update whose terminal hangs up half-way (it finishes), a refused downgrade, and a
 # `docker compose stop` that fails (no copy, nothing changed).
-#   LAYOUT=installer  /opt/openmausbot with compose.yaml and a ./data folder, as deploy/install.sh lays it out
+#   LAYOUT=installer  /opt/lunabot with compose.yaml and a ./data folder, as deploy/install.sh lays it out
 #   LAYOUT=checkout   a copy of deploy/ with docker-compose.yml and the named volume `data`
 #   OUT=<evidence folder> LAYOUT=installer bash deploy/e2e/update.sh
 # It removes whatever is in its install folder first. Nothing reaches a real server: the domain is made up.
@@ -14,12 +14,12 @@ set -uo pipefail
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 OUT=${OUT:-$(mktemp -d)}
 LAYOUT=${LAYOUT:-installer}
-REPO=ghcr.io/milind-soni/openmausbot
-FROM=${FROM_VERSION:-0.1.150}
-TO=${TO_VERSION:-0.1.151}
+REPO=ghcr.io/liguan-89/lunabot
+FROM=${FROM_VERSION:-2.1.4}
+TO=${TO_VERSION:-2.1.5}
 mkdir -p "$OUT"
-if [ "$LAYOUT" = installer ]; then DIR=/opt/openmausbot DATA=/opt/openmausbot/data
-else DIR=/srv/openmausbot-e2e/deploy DATA=deploy_data; fi
+if [ "$LAYOUT" = installer ]; then DIR=/opt/lunabot DATA=/opt/lunabot/data
+else DIR=/srv/lunabot-e2e/deploy DATA=deploy_data; fi
 UPDATE=(bash "$ROOT/deploy/update.sh" --dir "$DIR")
 
 step() { printf '\n== %s\n' "$*"; }
@@ -44,7 +44,7 @@ copy() {
 manifest() { docker run --rm --network none --user 0:0 -v "$1:/d:ro" --entrypoint sh "$REPO:v$FROM" -c 'cd /d && find . -type f -print0 | sort -z | xargs -0 -r stat -c "%u:%g %a %n"; find . -type f -print0 | sort -z | xargs -0 -r sha256sum'; }
 
 step "a $LAYOUT install on $FROM"
-for old in /opt/openmausbot /srv/openmausbot-e2e/deploy; do
+for old in /opt/lunabot /opt/openmausbot /srv/lunabot-e2e/deploy /srv/openmausbot-e2e/deploy; do
   if [ -d "$old" ]; then (cd "$old" && docker compose down -v) >/dev/null 2>&1; fi
 done
 for volume in $(copies); do docker volume rm -f "$volume" >/dev/null 2>&1; done
@@ -54,7 +54,7 @@ if [ "$LAYOUT" = installer ]; then
   mkdir -p "$DIR/caddy/data" "$DIR/caddy/config"
   cp "$ROOT/deploy/Caddyfile" "$DIR/Caddyfile"
   cat >"$DIR/compose.yaml" <<'COMPOSE'
-name: openmausbot
+name: lunabot
 services:
   omb:
     image: ${LUNABOT_IMAGE:?run the installer again}
@@ -71,7 +71,7 @@ services:
       LUNABOT_WEBHOOK_PORT: "8800"
       LUNABOT_PUBLIC_URL: https://${DOMAIN}
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'dexbot|openmausbot'"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -97,7 +97,9 @@ fi
 printf '%s\n' '# settings' 'DOMAIN=update-e2e.invalid' "LUNABOT_IMAGE=$REPO:v$FROM" >"$DIR/.env" && chmod 600 "$DIR/.env"
 (cd "$DIR" && docker compose up -d --no-build) >/dev/null 2>&1 || fail "compose up"
 wait_version "$FROM" || fail "$FROM did not come up"
-(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $FROM' > /data/.lunabot/e2e-sentinel.txt")
+# The FROM release predates the data-dir rename: its app keeps ~/.openmausbot, so the sentinel
+# must be written there for the update's one-time migration to be what carries it over.
+(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $FROM' > /data/.openmausbot/e2e-sentinel.txt")
 OLD_ID=$(running_image)
 cp "$DIR/.env" "$OUT/env.before"
 STABLE=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$REPO:v$TO" | grep "^$REPO@" | head -n 1)
@@ -245,5 +247,5 @@ cp "$DIR/.update/update.log" "$OUT/update.log"
 
 (cd "$DIR" && docker compose down -v) >/dev/null 2>&1
 for volume in $(copies); do docker volume rm -f "$volume" >/dev/null 2>&1; done
-docker image rm -f omb-e2e-broken:1 openmausbot-before-update:local >/dev/null 2>&1
+docker image rm -f omb-e2e-broken:1 lunabot-before-update:local openmausbot-before-update:local >/dev/null 2>&1
 step "ALL PASSED ($LAYOUT)"

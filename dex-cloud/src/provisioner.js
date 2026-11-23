@@ -45,7 +45,7 @@ export function createProvisioner({ config, store, docker, log = console.log }) 
       try {
         const response = await fetch(`http://${containerName(cloud.id)}:8080/api/health`, { signal: AbortSignal.timeout(4000) });
         const text = await response.text();
-        if (response.ok && text.includes("openmausbot")) {
+        if (response.ok && text.includes("lunabot")) {
           store.updateCloud(cloud.id, { status: "ready", last_seen_at: Date.now() });
           return true;
         }
