@@ -14,8 +14,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -51,13 +55,91 @@ import com.lunabot.companion.core.TranscriptRow
 import com.lunabot.companion.core.WebhookMessageContent
 
 /**
+ * The single unified pill worn by every quiet event/receipt row in the
+ * transcript — folded work turns, tool steps, bot handoffs, and context
+ * compaction — so they share identical height, hairline border, padding, and
+ * vertical rhythm.
+ */
+@Composable
+internal fun TranscriptEventPill(
+    text: String,
+    modifier: Modifier = Modifier,
+    leading: @Composable () -> Unit,
+    trailing: (@Composable () -> Unit)? = null,
+    error: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    contentDescriptionText: String = text,
+) {
+    val dark = minisIsDark()
+    val errorInk = if (dark) Color(0xFFE59688) else Color(0xFF9E4B3B)
+    val fill = if (error) {
+        if (dark) Color(0xFF2B211F) else Color(0xFFF8F1EE)
+    } else {
+        minisInk.copy(alpha = 0.03f)
+    }
+    val borderColor = if (error) {
+        errorInk.copy(alpha = 0.30f)
+    } else {
+        minisSeparator.copy(alpha = 0.55f)
+    }
+    // 16dp radius renders as a full pill on a single line and stays a clean,
+    // compact rounded tag when expanded to multiple lines (never a bloated oval).
+    val shape = RoundedCornerShape(16.dp)
+    var expanded by remember(text) { mutableStateOf(false) }
+    var overflows by remember(text) { mutableStateOf(false) }
+    val canSelfExpand = onClick == null && (overflows || expanded)
+    val effectiveOnClick: (() -> Unit)? = onClick ?: if (canSelfExpand) {
+        { expanded = !expanded }
+    } else {
+        null
+    }
+    Row(
+        modifier = modifier
+            .clip(shape)
+            .background(fill, shape)
+            .border(0.5.dp, borderColor, shape)
+            .then(
+                if (effectiveOnClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = effectiveOnClick)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = contentDescriptionText
+            },
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        leading()
+        Text(
+            text = text,
+            fontSize = 12.5.sp,
+            lineHeight = 17.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (error) errorInk else minisInk,
+            maxLines = if (expanded) Int.MAX_VALUE else 1,
+            overflow = TextOverflow.Ellipsis,
+            onTextLayout = { result ->
+                if (!expanded) overflows = result.hasVisualOverflow
+            },
+            modifier = Modifier.weight(1f, fill = false),
+        )
+        if (trailing != null) {
+            trailing()
+        } else if (canSelfExpand) {
+            Text(
+                text = if (expanded) "收起" else "展开",
+                fontSize = 11.5.sp,
+                color = minisSecondary,
+            )
+        }
+    }
+}
+
+/**
  * The one pill a folded run of work wears, finished or still going.
- *
- * Two chips used to fold the same thing — a turn's steps — with different fills,
- * different icons and two words for the same disclosure ("显示" and "展开"). A
- * reader cannot tell from the shape that they are the same kind of row, so they
- * read as two different objects that happen to sit in the transcript. This is
- * that row, once: the tick or the spinner, the summary, and the toggle.
  */
 @Composable
 internal fun RunReceiptPill(
@@ -67,29 +149,9 @@ internal fun RunReceiptPill(
     onToggle: () -> Unit,
 ) {
     val haptics = rememberHaptics()
-    // The pill is ~30 dp tall; the target around it is MIN_TOUCH_TARGET, the way
-    // TouchTarget does it for the round buttons. Not TouchTarget itself: that
-    // helper is a square box, which would clip a capsule this wide.
-    Box(
-        modifier = Modifier
-            .heightIn(min = MIN_TOUCH_TARGET)
-            .clickable(role = Role.Button) {
-                onToggle()
-                haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
-            }
-            .semantics {
-                contentDescription = "$summary，${if (expanded) "已展开" else "已收起"}"
-            },
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Row(
-            modifier = Modifier
-                .background(minisInk.copy(alpha = 0.03f), RoundedCornerShape(50))
-                .border(0.5.dp, minisSeparator.copy(alpha = 0.55f), RoundedCornerShape(50))
-                .padding(horizontal = 10.dp, vertical = 5.dp),
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    TranscriptEventPill(
+        text = summary,
+        leading = {
             if (running) {
                 CircularProgressIndicator(modifier = Modifier.size(12.dp), strokeWidth = 1.5.dp)
             } else {
@@ -100,10 +162,20 @@ internal fun RunReceiptPill(
                     modifier = Modifier.size(13.dp),
                 )
             }
-            Text(summary, fontSize = 12.5.sp, fontWeight = FontWeight.Medium, color = minisInk)
-            Text(if (expanded) "收起" else "展开", fontSize = 11.5.sp, color = minisSecondary)
-        }
-    }
+        },
+        trailing = {
+            Text(
+                text = if (expanded) "收起" else "展开",
+                fontSize = 11.5.sp,
+                color = minisSecondary,
+            )
+        },
+        onClick = {
+            onToggle()
+            haptics.play(TactileAction.TOGGLE_ACTIVITY_RUN)
+        },
+        contentDescriptionText = "$summary，${if (expanded) "已展开" else "已收起"}",
+    )
 }
 
 /** Reversible completed narration; tools still follow the activity preference. */

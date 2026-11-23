@@ -71,8 +71,7 @@ internal fun UpdatesBar(updates: List<ChatUpdate>, onOpen: () -> Unit, modifier:
     val stack = remember(updates) { updates.take(UpdatesSummary.MASCOTS).map { it.chat.color } }
     Row(
         modifier = modifier
-            .chromeCapsule()
-            .clip(CircleShape)
+            .museFloatingPill(CircleShape, elevation = 4.dp)
             .clickable(onClickLabel = "打开动态", role = Role.Button, onClick = onOpen)
             .heightIn(min = if (updates.isEmpty()) 48.dp else 52.dp)
             .padding(start = if (first == null) 16.dp else 7.dp, end = 12.dp),
@@ -184,7 +183,8 @@ internal fun UpdatesSheet(onOpen: (Chat) -> Unit, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         containerColor = minisCanvas,
         shape = MinisSheetShape,
-        scrimColor = Color.Black.copy(alpha = 0.22f),
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         LazyColumn(

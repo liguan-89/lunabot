@@ -1,4 +1,4 @@
-import { ArrowRight, Loader2, Zap } from "lucide-react";
+import { ArrowRight, Clock3, Loader2, Zap } from "lucide-react";
 
 import { cn } from "@/lib/cn";
 import { routineDateTime } from "@/lib/routine-display";
@@ -8,6 +8,7 @@ import { useShowThreads } from "@/lib/thread-preferences";
 import { liveCardKind } from "../../shared/live-approval";
 import type { AutomationLine, RoutineRunCardData } from "../../shared/routine-run";
 import { formatTime, openThread, useStore, type Message } from "@/state/store";
+import { ELEVATED_CARD } from "./elevated";
 
 const DETAIL_LIMIT = 280;
 
@@ -83,21 +84,26 @@ export function RoutineRunCard({
   return (
     <section
       aria-label={t("routines.run.cardLabel", { name: run.routineName, status: t(copy.label) })}
-      className="w-full max-w-[680px] rounded-xl border border-hairline/45 bg-card px-4 py-3"
+      className={`w-full max-w-[680px] rounded-[24px] px-[18px] py-4 ${ELEVATED_CARD}`}
     >
       <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="flex size-9 shrink-0 items-center justify-center rounded-full bg-inset text-ink-secondary">
+          {run.status === "running" && !run.goalStatus
+            ? <Loader2 className="size-4 animate-spin text-accent" />
+            : <Clock3 className={cn("size-4", copy.tone)} />}
+        </span>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h3 className="truncate text-[14px] font-semibold text-ink">{run.routineName}</h3>
-            <span aria-live="polite" className={cn("inline-flex items-center gap-1 text-[12px] font-semibold", copy.tone)}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className="truncate text-[14.5px] font-semibold text-ink">{run.routineName}</h3>
+            <span aria-live="polite" className={cn("inline-flex items-center gap-1 rounded-full bg-inset px-2.5 py-0.5 text-[11px] font-medium", copy.tone)}>
               {run.status === "running" && !run.goalStatus && <Loader2 aria-hidden="true" className="size-3 animate-spin" />}
               {t(copy.label)}
             </span>
           </div>
-          <time dateTime={new Date(run.scheduledFor ?? message.at).toISOString()} className="mt-0.5 block text-[12px] text-ink-secondary">
+          <time dateTime={new Date(run.scheduledFor ?? message.at).toISOString()} className="mt-0.5 block text-[12px] text-ink-tertiary">
             {routineDateTime(run.scheduledFor ?? message.at)}
           </time>
-          {detail && <p className="mt-1.5 text-[13px] leading-relaxed text-ink-secondary">{detail}</p>}
+          {detail && <p className="mt-2 text-[13px] leading-relaxed text-ink-secondary">{detail}</p>}
           {run.status === "completed" && run.summary && run.summary.length > DETAIL_LIMIT && <details className="mt-2 text-[12px] text-ink-secondary">
             <summary className="cursor-pointer font-medium text-ink-secondary hover:text-ink">{t("routines.results.showReport")}</summary>
             <p className="mt-2 whitespace-pre-wrap leading-relaxed">{run.summary}</p>
@@ -109,10 +115,10 @@ export function RoutineRunCard({
             onClick={onOpen}
             aria-label={t("routines.run.actionFor", { action: actionLabel, name: run.routineName })}
             className={cn(
-              "flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
+              "flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent",
               run.goalStatus === "needs-input"
                 ? "bg-warning/15 text-warning hover:bg-warning/25"
-                : "text-ink-secondary hover:bg-inset hover:text-ink",
+                : "bg-inset text-ink ring-[0.5px] ring-ink/[0.08] hover:bg-ink/[0.09]",
             )}
           >
             {actionLabel}

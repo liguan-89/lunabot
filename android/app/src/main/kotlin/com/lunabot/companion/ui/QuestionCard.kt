@@ -150,47 +150,53 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(secondaryTint.copy(alpha = 0.13f), RoundedCornerShape(22.dp))
-            .then(
-                if (settled) {
-                    Modifier
-                } else {
-                    Modifier.border(1.5.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(22.dp))
-                },
-            )
-            .padding(16.dp),
+            .musePaperCard()
+            .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            MuseCardBadge(size = 22.dp) {
+                Box(
+                    modifier = Modifier
+                        .size(7.dp)
+                        .background(if (settled) minisSuccess else Color(0xFFC4B094), CircleShape),
+                )
+            }
             Text(
-                "${chat.name} 有一个问题",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
+                text = if (questions.size > 1 && !settled) {
+                    "${chat.name} 提问 · ${index + 1}/${questions.size}"
+                } else {
+                    "${chat.name} 提问"
+                },
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.Medium,
+                color = minisSecondary,
                 modifier = Modifier.weight(1f),
             )
             if (questions.size > 1 && !settled) {
-                Text("$answeredCount / ${questions.size}", fontSize = 12.sp, color = secondaryTint)
+                Text(
+                    text = "已答 $answeredCount/${questions.size}",
+                    fontSize = 12.sp,
+                    color = minisTertiary,
+                )
             }
         }
 
         if (QuestionCardRules.agentComposed(message)) {
-            Text("智能体生成的问题", fontSize = 12.sp, color = secondaryTint)
+            Text("智能体生成的问题", fontSize = 12.sp, color = minisTertiary)
         }
 
-        // A settled ask is a receipt: the question that was asked, folded, and
-        // one line per question saying what came back. It used to draw the body
-        // whole and then echo `answeredText` — which is `Q: <the same
-        // question>\nA: <pick>` — so a long question filled the screen twice.
         if (settled) {
             val answer = card.answeredText ?: sent
             val byQuestion = SettledQuestionLine.answers(questions, answer)
-            // The tabs are gone by now, so every question is drawn: a settled
-            // multi-question card that showed only the active one would hide the
-            // answers the other tabs received.
-            questions.forEach { question ->
+            questions.forEachIndexed { pos, question ->
+                if (pos > 0) MuseCardDivider()
                 ExpandableText(
                     text = question.question,
-                    style = TextStyle(fontSize = 15.sp),
+                    style = TextStyle(fontSize = 15.5.sp, fontWeight = FontWeight.Medium, color = minisInk),
                 )
                 SettledQuestionLine.line(question, byQuestion[question.question])
                     ?.let { AnswerLine(it) }
@@ -209,21 +215,17 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                     val chosen = position == index
                     Row(
                         modifier = Modifier
-                            // A tab is a control, not a label: 44 dp is the
-                            // smallest height a thumb lands on reliably. The
-                            // role and selected state are how TalkBack knows
-                            // which of the tabs is the one being shown.
-                            .heightIn(min = 44.dp)
+                            .heightIn(min = 34.dp)
                             .background(
-                                if (chosen) secondaryTint.copy(alpha = 0.22f) else Color.Transparent,
-                                RoundedCornerShape(14.dp),
+                                if (chosen) minisInk else minisSoftCard,
+                                CircleShape,
                             )
                             .clickable(enabled = !settled, role = Role.Tab) {
                                 haptics.play(TactileAction.CHOOSE_APPROVAL)
                                 active = position
                             }
                             .semantics { selected = chosen }
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 12.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -231,39 +233,33 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                             Icon(
                                 imageVector = Icons.Filled.Check,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
+                                tint = if (chosen) minisPage else minisSuccess,
                                 modifier = Modifier.size(12.dp),
                             )
                         }
                         Text(
                             question.tabLabel(position + 1),
-                            fontSize = 13.sp,
+                            fontSize = 12.5.sp,
                             fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (chosen) MaterialTheme.colorScheme.onSurface else secondaryTint,
+                            color = if (chosen) minisPage else minisSecondary,
                         )
                     }
                 }
             }
         }
 
-        // A bot-authored question has no client-side length limit, so it folds
-        // rather than filling the screen; the whole text is one tap away.
         ExpandableText(
             text = current.question,
-            style = TextStyle(fontSize = 15.sp),
+            style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold, lineHeight = 22.sp, color = minisInk),
         )
 
         if (current.allowsMultiple) {
-            Text("可多选", fontSize = 12.sp, color = secondaryTint)
+            Text("可多选", fontSize = 12.sp, color = minisSecondary)
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(secondaryTint.copy(alpha = 0.10f), RoundedCornerShape(14.dp)),
-        ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             current.options.forEachIndexed { position, option ->
-                if (position > 0) MinisDivider()
+                if (position > 0) MuseCardDivider()
                 ChoiceRow(
                     label = option.label,
                     detail = option.detail,
@@ -275,7 +271,7 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                     choose(option.label)
                 }
             }
-            if (current.options.isNotEmpty()) MinisDivider()
+            if (current.options.isNotEmpty()) MuseCardDivider()
             ChoiceRow(
                 label = "其他",
                 detail = null,
@@ -287,33 +283,29 @@ internal fun QuestionCardView(chat: Chat, message: Message, haptics: Haptics) {
                 toggleOther()
             }
             if (other[index] == true) {
-                MinisDivider()
-                OutlinedTextField(
+                MinisSheetField(
                     value = custom[index].orEmpty(),
                     onValueChange = { custom[index] = it },
-                    placeholder = { Text("输入您的回答") },
+                    placeholder = "输入您的回答",
+                    enabled = !answering,
                     singleLine = false,
                     maxLines = 4,
-                    enabled = !answering,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(10.dp)
-                        .semantics { contentDescription = "输入您的回答" },
+                    containerColor = minisSoftCard,
+                    modifier = Modifier.padding(top = 6.dp),
                 )
             }
         }
 
-        Button(
+        MusePrimaryPillButton(
+            text = if (questions.size > 1) "提交全部回答" else "提交回答",
             onClick = ::send,
             enabled = complete && !answering,
             modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (questions.size > 1) "提交全部回答" else "提交回答")
-        }
+        )
     }
 }
 
-/** One option row. The whole row is the target, not the 16 dp glyph on it. */
+/** One option row: clean Muse editorial line with right-aligned monochrome indicator. */
 @Composable
 private fun ChoiceRow(
     label: String,
@@ -326,9 +318,6 @@ private fun ChoiceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // The marker is drawn, not a Material control, so the row has to
-            // carry the semantics the drawing cannot: which role it plays and
-            // whether it is currently chosen.
             .clickable(
                 enabled = enabled,
                 role = if (multi) Role.Checkbox else Role.RadioButton,
@@ -338,17 +327,25 @@ private fun ChoiceRow(
                 selected = checked
                 stateDescription = if (checked) "已选择" else "未选择"
             }
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.Top,
+            .padding(vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Marker(checked = checked, multi = multi)
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = label,
+                fontSize = 15.sp,
+                fontWeight = if (checked) FontWeight.SemiBold else FontWeight.Normal,
+                color = minisInk,
+            )
             if (!detail.isNullOrEmpty()) {
-                Text(detail, fontSize = 13.sp, color = secondaryTint)
+                Text(detail, fontSize = 12.5.sp, color = minisSecondary)
             }
         }
+        Marker(checked = checked, multi = multi)
     }
 }
 
@@ -367,42 +364,29 @@ internal object QuestionCardRules {
         message.card?.questionRequest?.origin == "output"
 }
 
-/**
- * The radio dot / checkbox tick, drawn rather than taken from the icon set:
- * the app bundles material-icons-core only, and pulling in the extended pack
- * for four glyphs would cost more than the twelve lines below.
- */
+/** Crisp monochrome circular/rounded-square selection indicator matching Muse Plan-H. */
 @Composable
 private fun Marker(checked: Boolean, multi: Boolean) {
-    val accent = MaterialTheme.colorScheme.primary
-    val shape = if (multi) RoundedCornerShape(5.dp) else CircleShape
+    val shape = if (multi) RoundedCornerShape(6.dp) else CircleShape
     Box(
         modifier = Modifier
             .size(20.dp)
             .then(
                 if (checked) {
-                    Modifier.background(accent, shape)
+                    Modifier.background(minisInk, shape)
                 } else {
-                    Modifier.border(1.5.dp, secondaryTint, shape)
+                    Modifier.border(1.25.dp, minisTertiary, shape)
                 },
             ),
         contentAlignment = Alignment.Center,
     ) {
         if (!checked) return@Box
-        if (multi) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(14.dp),
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(MaterialTheme.colorScheme.onPrimary, CircleShape),
-            )
-        }
+        Icon(
+            imageVector = Icons.Filled.Check,
+            contentDescription = null,
+            tint = minisPage,
+            modifier = Modifier.size(13.dp),
+        )
     }
 }
 
@@ -416,11 +400,11 @@ private fun AnswerLine(text: String) {
         Icon(
             imageVector = Icons.Filled.Check,
             contentDescription = null,
-            tint = secondaryTint,
-            modifier = Modifier.size(16.dp),
+            tint = minisSuccess,
+            modifier = Modifier.size(15.dp),
         )
         SelectionContainer {
-            Text(text = text, fontSize = 14.sp, color = secondaryTint)
+            Text(text = text, fontSize = 13.5.sp, color = minisSecondary)
         }
     }
 }

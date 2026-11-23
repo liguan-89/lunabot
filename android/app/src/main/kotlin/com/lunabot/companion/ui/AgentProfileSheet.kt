@@ -417,12 +417,6 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         val scrollState = rememberScrollState()
-        val topScrolled by remember { derivedStateOf { scrollState.canScrollBackward } }
-        val topBandAlpha by animateFloatAsState(
-            targetValue = if (topScrolled) 1f else 0f,
-            animationSpec = tween(180),
-            label = "profile-top-haze",
-        )
         val topInset = WindowInsets.safeDrawing
             .only(WindowInsetsSides.Top)
             .asPaddingValues()
@@ -1283,20 +1277,30 @@ internal fun AgentProfileSheet(bot: Bot?, onDismiss: () -> Unit, onOpenOverview:
             }
 
             val canvasColor = minisCanvas
-            Box(
+            Column(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .height(topInset + 56.dp)
-                    .background(
-                        Brush.verticalGradient(
-                            0.00f to canvasColor.copy(alpha = 0.96f * topBandAlpha),
-                            0.42f to canvasColor.copy(alpha = 0.78f * topBandAlpha),
-                            0.74f to canvasColor.copy(alpha = 0.30f * topBandAlpha),
-                            1.00f to Color.Transparent,
+                    .fillMaxWidth(),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(topInset + 58.dp)
+                        .background(canvasColor),
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(16.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0.00f to canvasColor,
+                                0.55f to canvasColor.copy(alpha = 0.55f),
+                                1.00f to Color.Transparent,
+                            ),
                         ),
-                    ),
-            )
+                )
+            }
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
@@ -1551,7 +1555,7 @@ private fun ProfileFooter(text: String) {
 /** Soft warm-neutral rounded card on the pure-white Muse gallery canvas. */
 @Composable
 private fun ProfileCard(content: @Composable () -> Unit) {
-    val cardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+    val cardFill = minisSoftCard
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1641,21 +1645,7 @@ private fun ProfileSwitchRow(
             color = if (enabled) minisInk else minisTertiary,
             modifier = Modifier.weight(1f),
         )
-        val dark = minisIsDark()
-        Switch(
-            checked = checked,
-            onCheckedChange = null,
-            enabled = enabled,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = minisCanvas,
-                checkedTrackColor = minisInk,
-                checkedBorderColor = Color.Transparent,
-                uncheckedThumbColor = if (dark) Color(0xFFB5B5B8) else Color.White,
-                uncheckedTrackColor = if (dark) Color(0xFF3A3A3D) else Color(0xFFDCDCD9),
-                uncheckedBorderColor = Color.Transparent,
-            ),
-            modifier = Modifier.scale(0.80f),
-        )
+        MuseSwitch(checked = checked, enabled = enabled)
     }
 }
 
@@ -1705,9 +1695,10 @@ private fun ProfilePickerRow(
         ModalBottomSheet(
             onDismissRequest = { expanded = false },
             sheetState = sheetState,
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            shape = MinisSheetShape,
             containerColor = minisCanvas,
-            scrimColor = Color.Black.copy(alpha = 0.20f),
+            scrimColor = MinisSheetScrim,
+            dragHandle = { MuseSheetDragHandle() },
         ) {
             GlassBackdrop()
             Column(
@@ -1909,7 +1900,7 @@ internal fun SwitchRow(
             color = if (enabled) Color.Unspecified else secondaryTint.copy(alpha = 0.5f),
             modifier = Modifier.weight(1f),
         )
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        MuseSwitch(checked = checked, enabled = enabled)
     }
 }
 

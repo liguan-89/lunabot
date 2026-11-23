@@ -267,7 +267,7 @@ internal fun VoiceCard(
                     .semantics { contentDescription = "取消" },
             )
         }
-        val cancelTone = Color(0xFFC85A4A)
+        val cancelTone = MinisTokens.Danger
         Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)

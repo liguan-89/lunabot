@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/cn";
+import { ELEVATED_CARD } from "./elevated";
 import { t } from "@/lib/i18n";
 import { useStore, type Message } from "@/state/store";
 import type { GroupGoalRunCardData } from "../../shared/group-goal-run";
@@ -77,16 +78,16 @@ export function GoalRunCard({ message, solo = false, onStop }: { message: Messag
   return (
     <section
       aria-label={t("routines.goal.runLabel", { status: t(copy.label) })}
-      className={cn("w-full max-w-[680px] rounded-2xl border bg-card px-3.5 py-3 shadow-sm", copy.border)}
+      className={cn("w-full max-w-[680px] rounded-[24px] px-4 py-3.5", ELEVATED_CARD, run.status === "failed" && "ring-danger/35")}
     >
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-xl bg-inset">
+        <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-full bg-inset">
           <StatusIcon status={run.status} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-            <h3 className="truncate text-[14px] font-semibold text-ink">{goal || t("routines.goal.groupGoal")}</h3>
-            <span aria-live="polite" className={cn("text-[12px] font-medium", copy.tone)}>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <h3 className="truncate text-[14.5px] font-semibold text-ink">{goal || t("routines.goal.groupGoal")}</h3>
+            <span aria-live="polite" className={cn("rounded-full bg-inset px-2.5 py-0.5 text-[11.5px] font-medium", copy.tone)}>
               {t(copy.label)}
             </span>
           </div>

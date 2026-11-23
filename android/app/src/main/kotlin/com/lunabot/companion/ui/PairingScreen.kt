@@ -620,15 +620,14 @@ private fun ManualSection(
     onContinue: () -> Unit,
 ) {
     SectionCard(title = "或手动输入地址") {
-        OutlinedTextField(
+        MinisSheetField(
             value = address,
             onValueChange = onAddressChange,
-            placeholder = { Text("https://mac.example 或 192.168.1.42:8810") },
+            placeholder = "https://mac.example 或 192.168.1.42:8810",
+            label = "电脑地址",
             singleLine = true,
+            containerColor = minisCard,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
-            modifier = Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = "电脑地址" },
         )
         Button(
             onClick = onContinue,
@@ -681,19 +680,18 @@ private fun CodeSection(
             }
 
             PairingConfirmation.Step.EnterCode -> {
-                OutlinedTextField(
+                MinisSheetField(
                     value = code,
                     onValueChange = onCodeChange,
-                    placeholder = { Text("6 位数字或 ABCD-EFGH-JKLM 配对码") },
+                    placeholder = "6 位数字或 ABCD-EFGH-JKLM 配对码",
+                    label = "配对码",
                     singleLine = true,
+                    containerColor = minisCard,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Ascii),
                     textStyle = MaterialTheme.typography.headlineSmall.copy(
                         fontFamily = FontFamily.Monospace,
                         textAlign = TextAlign.Center,
                     ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .semantics { contentDescription = "配对码" },
                 )
                 Button(
                     onClick = { onSubmit(code) },
@@ -737,7 +735,7 @@ private fun SectionCard(title: String, content: @Composable () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(minisGrouped, MinisCardShape)
+                .background(minisSoftCard, androidx.compose.foundation.shape.RoundedCornerShape(22.dp))
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {

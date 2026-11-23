@@ -373,7 +373,7 @@ private fun ShareSheetContent(
     BackHandler(enabled = canCancel) { cancel() }
 
     val dark = minisIsDark()
-    val softCardFill = if (dark) minisGrouped else Color(0xFFF5F5F3)
+    val softCardFill = minisSoftCard
 
     Column(
         modifier = Modifier
@@ -619,7 +619,7 @@ private fun ShareSheetContent(
             errorMessage?.let {
                 Text(
                     text = it,
-                    color = Color(0xFFC85A4A),
+                    color = MinisTokens.Danger,
                     fontSize = 13.5.sp,
                     modifier = Modifier.padding(horizontal = 6.dp),
                 )

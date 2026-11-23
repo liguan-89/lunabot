@@ -173,7 +173,8 @@ fun TaskSheet(
         sheetState = sheetState,
         containerColor = minisCanvas,
         shape = MinisSheetShape,
-        scrimColor = Color.Black.copy(alpha = 0.22f),
+        scrimColor = MinisSheetScrim,
+        dragHandle = { MuseSheetDragHandle() },
     ) {
         GlassBackdrop()
         Column(
@@ -264,7 +265,7 @@ fun TaskSheet(
                 )
             }
 
-            val groupCardFill = if (minisIsDark()) minisGrouped else Color(0xFFF5F5F3)
+            val groupCardFill = minisSoftCard
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -698,7 +699,7 @@ private fun TaskTitleDialog(
 ) {
     AlertDialog(
         onDismissRequest = onCancel,
-        shape = MinisSheetShape,
+        shape = MinisDialogShape,
         containerColor = minisCanvas,
         title = { Text(heading, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = minisInk) },
         text = {

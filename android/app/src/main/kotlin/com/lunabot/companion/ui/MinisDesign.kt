@@ -1,15 +1,24 @@
 package com.lunabot.companion.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -60,6 +69,7 @@ object MinisTokens {
     val CanvasDark = Color(0xFF0B0B0C)
     val CardLight = Color(0xFFFFFFFF)
     val CardDark = Color(0xFF1C1C1E)
+    val SoftCardLight = Color(0xFFF5F5F3)
     val GroupedLight = Color(0xFFF3F3F1)
     val GroupedDark = Color(0xFF1C1C1E)
     val RaisedDark = Color(0xFF2C2C2E)
@@ -166,6 +176,10 @@ val minisAccent: Color
 val minisGrouped: Color
     @Composable get() = if (minisIsDark()) MinisTokens.GroupedDark else MinisTokens.GroupedLight
 
+/** Soft warm-neutral rounded card surface on the pure-white Muse canvas. */
+val minisSoftCard: Color
+    @Composable get() = if (minisIsDark()) MinisTokens.GroupedDark else MinisTokens.SoftCardLight
+
 /** A raised grouped card, one step above [minisGrouped] in dark mode. */
 val minisRaised: Color
     @Composable get() = if (minisIsDark()) MinisTokens.RaisedDark else MinisTokens.GroupedLight
@@ -268,8 +282,71 @@ val MinisChipShape = RoundedCornerShape(10.dp)
 /** Buttons and input controls. */
 val MinisControlShape = RoundedCornerShape(12.dp)
 
-/** Sheets and large floating layers. */
-val MinisSheetShape = RoundedCornerShape(28.dp)
+/** Bottom sheets: top-only 28dp corners so the bottom edge sits flush. */
+val MinisSheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+
+/** Centered dialogs and floating cards with all four corners rounded. */
+val MinisDialogShape = RoundedCornerShape(28.dp)
+
+/** Standard scrim behind ModalBottomSheet surfaces. */
+val MinisSheetScrim = Color.Black.copy(alpha = 0.20f)
+
+/** Consistent Muse drag handle for every ModalBottomSheet. */
+@Composable
+internal fun MuseSheetDragHandle() {
+    Box(
+        modifier = Modifier
+            .padding(top = 8.dp, bottom = 4.dp)
+            .size(width = 36.dp, height = 4.dp)
+            .clip(CircleShape)
+            .background(minisTertiary),
+    )
+}
+
+/**
+ * Shared monochrome Muse toggle switch (display-only; parent row owns toggleable
+ * semantics so TalkBack announces one control).
+ */
+@Composable
+internal fun MuseSwitch(
+    checked: Boolean,
+    enabled: Boolean = true,
+    modifier: Modifier = Modifier,
+) {
+    val dark = minisIsDark()
+    val trackColor by animateColorAsState(
+        targetValue = when {
+            !enabled -> if (dark) Color(0xFF2C2C2E) else Color(0xFFE5E5E3)
+            checked -> minisInk
+            else -> if (dark) Color(0xFF3A3A3D) else Color(0xFFDDDCD9)
+        },
+        animationSpec = tween(160),
+        label = "muse-switch-track",
+    )
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 18.dp else 0.dp,
+        animationSpec = tween(160),
+        label = "muse-switch-thumb",
+    )
+    Box(
+        modifier = modifier
+            .size(width = 46.dp, height = 28.dp)
+            .clip(CircleShape)
+            .background(trackColor)
+            .padding(3.dp)
+            .clearAndSetSemantics {},
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Box(
+            modifier = Modifier
+                .offset(x = thumbOffset)
+                .size(22.dp)
+                .shadow(2.dp, CircleShape, ambientColor = Color(0x18000000), spotColor = Color(0x22000000))
+                .clip(CircleShape)
+                .background(if (checked && dark) Color(0xFF111111) else Color.White),
+        )
+    }
+}
 
 /** A hairline separator, inset from the leading edge by default. */
 @Composable
@@ -425,40 +502,206 @@ internal fun MinisSheetField(
     placeholder: String,
     modifier: Modifier = Modifier,
     label: String = placeholder,
+    enabled: Boolean = true,
     singleLine: Boolean = true,
     minLines: Int = 1,
     maxLines: Int = if (singleLine) 1 else 6,
     isError: Boolean = false,
+    containerColor: Color = Color.Unspecified,
+    textStyle: TextStyle? = null,
+    suffix: String? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions = KeyboardActions.Default,
 ) {
-    val borderColor = if (isError) MinisTokens.Danger else minisSeparator
+    val fill = if (containerColor == Color.Unspecified) minisSoftCard else containerColor
+    val resolvedStyle = (textStyle ?: TextStyle(fontSize = 15.5.sp)).copy(color = minisInk)
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
+        enabled = enabled,
         singleLine = singleLine,
         minLines = minLines,
         maxLines = maxLines,
         visualTransformation = visualTransformation,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
-        textStyle = TextStyle(fontSize = 16.sp, color = minisInk),
-        cursorBrush = SolidColor(minisAccent),
+        textStyle = resolvedStyle,
+        cursorBrush = SolidColor(minisInk),
         modifier = modifier
             .fillMaxWidth()
             .clip(MinisCardShape)
-            .background(minisCard, MinisCardShape)
-            .border(if (isError) 1.dp else 0.5.dp, borderColor, MinisCardShape)
+            .background(fill, MinisCardShape)
+            .then(
+                if (isError) Modifier.border(1.dp, MinisTokens.Danger, MinisCardShape) else Modifier,
+            )
             .padding(horizontal = 16.dp, vertical = 14.dp)
             .semantics { contentDescription = label },
         decorationBox = { inner ->
-            Box {
-                if (value.isEmpty()) {
-                    Text(placeholder, fontSize = 16.sp, color = minisTertiary)
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp),
+            ) {
+                Box(modifier = Modifier.weight(1f)) {
+                    if (value.isEmpty()) {
+                        Text(
+                            text = placeholder,
+                            fontSize = resolvedStyle.fontSize,
+                            color = minisTertiary,
+                            textAlign = resolvedStyle.textAlign,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                    inner()
                 }
-                inner()
+                if (suffix != null) {
+                    Text(text = suffix, fontSize = 14.sp, color = minisSecondary)
+                }
             }
         },
     )
+}
+
+/** Muse Plan-H porcelain paper card shape: airy 24dp corners. */
+val MusePaperCardShape = RoundedCornerShape(24.dp)
+
+/** Warm sand disc fill for Muse Plan-H status dots and icon medallions. */
+val minisWarmSand: Color
+    @Composable get() = if (minisIsDark()) Color(0xFF2B2925) else Color(0xFFEFECE6)
+
+/** Warm linen hairline border for Muse Plan-H porcelain cards. */
+val minisPaperBorder: Color
+    @Composable get() = if (minisIsDark()) Color(0x20FFFFFF) else Color(0xFFE6E5E0)
+
+/**
+ * Muse Plan-H porcelain paper card surface: pure white with a razor-thin warm
+ * linen hairline and whisper-soft studio shadow (elevated dark surface in dark mode).
+ */
+@Composable
+fun Modifier.musePaperCard(
+    danger: Boolean = false,
+    shape: Shape = MusePaperCardShape,
+): Modifier {
+    val dark = minisIsDark()
+    val borderColor = if (danger) {
+        MinisTokens.Danger.copy(alpha = if (dark) 0.45f else 0.35f)
+    } else {
+        minisPaperBorder
+    }
+    return if (dark) {
+        this.clip(shape).background(minisCard, shape).border(0.6.dp, borderColor, shape)
+    } else {
+        this
+            .shadow(
+                elevation = 3.dp,
+                shape = shape,
+                ambientColor = Color(0x0A000000),
+                spotColor = Color(0x12000000),
+            )
+            .clip(shape)
+            .background(Color.White, shape)
+            .border(0.75.dp, borderColor, shape)
+    }
+}
+
+/** Circular warm-sand medallion holding a status dot or thin line icon. */
+@Composable
+internal fun MuseCardBadge(
+    size: Dp = 24.dp,
+    tint: Color = Color.Unspecified,
+    content: @Composable BoxScope.() -> Unit,
+) {
+    val fill = if (tint == Color.Unspecified) minisWarmSand else tint
+    Box(
+        modifier = Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(fill, CircleShape),
+        contentAlignment = Alignment.Center,
+        content = content,
+    )
+}
+
+/** Whisper-thin horizontal hairline separating card body from bottom actions. */
+@Composable
+internal fun MuseCardDivider(modifier: Modifier = Modifier) {
+    androidx.compose.material3.HorizontalDivider(
+        modifier = modifier,
+        thickness = 0.5.dp,
+        color = minisSeparator.copy(alpha = 0.65f),
+    )
+}
+
+/** Matte charcoal-black (or terracotta danger) capsule button for Muse Plan-H cards. */
+@Composable
+internal fun MusePrimaryPillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    danger: Boolean = false,
+) {
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 42.dp),
+        shape = CircleShape,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        colors = if (danger) {
+            androidx.compose.material3.ButtonDefaults.buttonColors(
+                containerColor = MinisTokens.Danger,
+                contentColor = Color.White,
+                disabledContainerColor = MinisTokens.Danger.copy(alpha = 0.35f),
+                disabledContentColor = Color.White.copy(alpha = 0.7f),
+            )
+        } else {
+            androidx.compose.material3.ButtonDefaults.buttonColors(
+                containerColor = minisInk,
+                contentColor = minisPage,
+                disabledContainerColor = minisInk.copy(alpha = 0.25f),
+                disabledContentColor = minisPage.copy(alpha = 0.7f),
+            )
+        },
+    ) {
+        Text(
+            text = text,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
+}
+
+/** Soft warm-gray capsule button for secondary/dismiss actions in Muse Plan-H cards. */
+@Composable
+internal fun MuseSecondaryPillButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    val dark = minisIsDark()
+    val container = if (dark) MinisTokens.RaisedDark else Color(0xFFF0F0EE)
+    androidx.compose.material3.Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.heightIn(min = 42.dp),
+        shape = CircleShape,
+        elevation = null,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+            containerColor = container,
+            contentColor = minisInk,
+            disabledContainerColor = container.copy(alpha = 0.5f),
+            disabledContentColor = minisTertiary,
+        ),
+    ) {
+        Text(
+            text = text,
+            fontSize = 14.5.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
+    }
 }
