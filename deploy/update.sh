@@ -97,7 +97,8 @@ compose() { docker compose "$@"; }
 # Read on every call because an update rewrites compose.yaml for the oldest installs half-way through.
 service() {
   if [ -n "${LUNABOT_UPDATE_SERVICE:-}" ]; then printf '%s' "$LUNABOT_UPDATE_SERVICE"; return; fi
-  local f="${COMPOSE_FILE%%:*}"
+  local f="${COMPOSE_FILE:-}"
+  f="${f%%:*}"
   if [ -z "$f" ]; then
     for f in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do [ -f "$f" ] && break; done
     [ -f "$f" ] || return 0

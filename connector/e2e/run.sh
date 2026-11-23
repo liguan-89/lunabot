@@ -115,7 +115,7 @@ printf '%s\n' "$reply" >"$OUT/start.json"
 expect ".ok and .result.home.state == \"running\" and .result.home.image == \"$HOME_A\" and .result.home.health.ok" "$reply" "start"
 status=$(box_checks)
 printf '%s\n' "$status" >"$OUT/status-start.json"
-expect '.result.home.health.box | .box == "bwrap" and .checks == "32/32" and .failed == []' "$status" "the box passes 32/32"
+expect '.result.home.health.box | .box == "bwrap" and .checks == "33/33" and .failed == []' "$status" "the box passes 33/33"
 settings=$(home_settings)
 printf '%s\n' "$settings" >"$OUT/home-settings.json"
 expect '.apparmor == "lunabot-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
@@ -123,15 +123,15 @@ expect '.host | .Init and .ShmSize == 536870912 and (.MaskedPaths // [] | length
 expect '.host | (.CapDrop | map(sub("^CAP_"; ""))) == ["ALL"] and (.CapAdd | map(sub("^CAP_"; "")) | sort) == ["CHOWN", "KILL", "SETGID", "SETUID"]' "$settings" "the home's capabilities"
 expect '.host | .PortBindings["8080/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "8080"}] and (.SecurityOpt | any(startswith("seccomp="))) and (.SecurityOpt | any(. == "no-new-privileges=true" or . == "no-new-privileges"))' "$settings" "the home's port and seccomp"
 docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' mausbot-home | grep -qx "LUNABOT_COMPOSIO_BROKER_URL=http://127.0.0.1:9" || fail "the home could reach the production connected-apps broker"
-docker exec -u maus mausbot-home sh -c 'echo kept > /data/e2e-marker'
+docker exec -u lunabot mausbot-home sh -c 'echo kept > /data/e2e-marker'
 
 step "update to another digest: a safety copy, a swap, and the new image's health"
 reply=$(job update "$(jq -cn --arg image "$HOME_B" '{image: $image}')" update-1)
 printf '%s\n' "$reply" >"$OUT/update.json"
 expect ".ok and .result.previousImage == \"$HOME_A\" and .result.home.image == \"$HOME_B\" and .result.home.health.ok and .result.snapshot.kind == \"snapshot\"" "$reply" "update"
 status=$(box_checks)
-expect '.result.home.health.box.checks == "32/32"' "$status" "the box after the update"
-[ "$(docker exec -u maus mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the update"
+expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the update"
+[ "$(docker exec -u lunabot mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the update"
 docker volume inspect mausbot-snapshot >/dev/null || fail "the update kept no safety copy"
 
 step "a home killed uncleanly is started again on its volume"
@@ -144,7 +144,7 @@ expect '.result.home.state == "running" and .result.home.health.ok' "$(job statu
 docker logs lunabot-connector >"$OUT/connector.log" 2>&1
 grep -q "the home stopped on its own (exit 137); starting it again" "$OUT/connector.log" || fail "the connector did not start the killed home again"
 grep -q "cleared the data-directory lease records a stopped home left" "$OUT/connector.log" || fail "the connector did not clear the lease the killed home left"
-[ "$(docker exec -u maus mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the kill"
+[ "$(docker exec -u lunabot mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the kill"
 
 step "an update forced to fail rolls back: the previous image, and the data as it was"
 # The new home is frozen the moment it starts, so it never answers; what is written to the data after the swap must
@@ -172,10 +172,10 @@ rm -f "$FIFO"
 expect ".ok == false and .error.code == \"update_rolled_back\" and .error.image == \"$HOME_B\"" "$reply" "the forced update"
 status=$(job status '{}')
 expect ".result.home.image == \"$HOME_B\" and .result.home.health.ok" "$status" "the previous image runs again"
-[ "$(docker exec -u maus mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data from before the update is gone"
+[ "$(docker exec -u lunabot mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data from before the update is gone"
 if docker exec mausbot-home test -e /data/e2e-after-swap; then fail "what was written after the swap survived the rollback"; fi
 status=$(box_checks)
-expect '.result.home.health.box.checks == "32/32"' "$status" "the box after the rollback"
+expect '.result.home.health.box.checks == "33/33"' "$status" "the box after the rollback"
 
 step "nothing secret in the connector's log"
 docker logs lunabot-connector >"$OUT/connector.log" 2>&1
