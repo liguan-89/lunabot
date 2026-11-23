@@ -288,12 +288,12 @@ describe("container images", () => {
     expect(runtime.findIndex(step => step.op === "ARG" && step.args.startsWith("CHROMIUM_CACHE_TAG="))).toBeLessThan(runtime.indexOf(browserRun()));
     expect(browserRun().args).toContain("${CHROMIUM_CACHE_TAG");
     const home = all.find(s => s.name === "cloud-home")!.steps;
-    expect(home).toContainEqual({ op: "ARG", args: 'CLOUD_HOME_ENGINES="@anthropic-ai/claude-code @openai/codex"' });
+    expect(home).toContainEqual({ op: "ARG", args: 'CLOUD_HOME_ENGINES="@anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent"' });
     // the engines' install, not the tools layer's pinned pnpm beneath it
     const engines = home.find(step => npmInstall(step) && step.args.includes("$CLOUD_HOME_ENGINES"));
     expect(engines?.args).toContain("${ENGINES_CACHE_TAG");
     const keys = (workflow.jobs.publish.steps as { id?: string; env?: Record<string, string> }[]).find(step => step.id === "keys")!;
-    expect(keys.env!.CLOUD_HOME_ENGINES).toBe("@anthropic-ai/claude-code @openai/codex");
+    expect(keys.env!.CLOUD_HOME_ENGINES).toBe("@anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent");
   });
 
   it.skipIf(!jq)("resolves the current Chrome and engine releases, and keys on the date when a lookup fails", () => {
@@ -303,7 +303,7 @@ describe("container images", () => {
       temporaryDirectories.push(root);
       const fake = (name: string, body: string) => writeFileSync(join(root, name), `#!/bin/sh\n${ok ? body : "exit 1"}\n`, { mode: 0o755 });
       fake("curl", `case "$*" in *madison*) printf ' chromium | 150.0.7871.100-1~deb12u1 | bookworm          | arm64\\n chromium | 156.0.8078.73-1~deb12u1  | bookworm-security | arm64\\n';; *) echo '{"channels":{"Stable":{"version":"154.0.8037.92","downloads":{}}}}';; esac`);
-      fake("npm", `case "$2" in @anthropic-ai/claude-code@latest) echo 2.1.291;; @openai/codex@latest) echo 0.160.1;; *) exit 1;; esac`);
+      fake("npm", `case "$2" in @anthropic-ai/claude-code@latest) echo 2.1.291;; @openai/codex@latest) echo 0.160.1;; @earendil-works/pi-coding-agent@latest) echo 1.6.0;; *) exit 1;; esac`);
       const output = join(root, "output");
       writeFileSync(output, "");
       const result = spawnSync("bash", ["-e", "-c", keys.run!], {
@@ -315,11 +315,11 @@ describe("container images", () => {
     expect(resolve(true)).toEqual({
       chrome: "154.0.8037.92",
       chromium: "156.0.8078.73-1~deb12u1",
-      engines: "@anthropic-ai/claude-code@2.1.291 @openai/codex@0.160.1",
+      engines: "@anthropic-ai/claude-code@2.1.291 @openai/codex@0.160.1 @earendil-works/pi-coding-agent@1.6.0",
       engines_tag: "",
     });
     const today = `date-${new Date().toISOString().slice(0, 10)}`;
-    expect(resolve(false)).toEqual({ chrome: today, chromium: today, engines: "@anthropic-ai/claude-code @openai/codex", engines_tag: today });
+    expect(resolve(false)).toEqual({ chrome: today, chromium: today, engines: "@anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent", engines_tag: today });
   });
 
   // An init collects browser processes whose parents exit, and Chrome gets the

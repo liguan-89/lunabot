@@ -177,7 +177,7 @@ RUN if [ -n "$GROK_VERSION" ]; then \
 # job passes each one's current version, or names only and today's date as
 # ENGINES_CACHE_TAG when it cannot look them up. Build-time CLI caches must
 # not end up in the image or a customer's volume.
-ARG CLOUD_HOME_ENGINES="@anthropic-ai/claude-code @openai/codex"
+ARG CLOUD_HOME_ENGINES="@anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent"
 ARG ENGINES_CACHE_TAG=""
 RUN echo "engines: ${CLOUD_HOME_ENGINES:-none} ${ENGINES_CACHE_TAG}" \
   && if [ -n "$CLOUD_HOME_ENGINES" ]; then HOME=/tmp/omb-build-home npm install -g $CLOUD_HOME_ENGINES; fi \

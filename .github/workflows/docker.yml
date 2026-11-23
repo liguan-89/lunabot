@@ -554,7 +554,7 @@ jobs:
         # code-only push re-pulls only the app layers. A lookup that fails keys
         # on today's date instead, so neither is ever frozen at an old release.
         env:
-          CLOUD_HOME_ENGINES: "@anthropic-ai/claude-code @openai/codex"
+          CLOUD_HOME_ENGINES: "@anthropic-ai/claude-code @openai/codex @earendil-works/pi-coding-agent"
         run: |
           today="date-$(date -u +%F)"
           chrome=$(curl -fsSL --max-time 30 https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json | jq -er .channels.Stable.version) || chrome=""
