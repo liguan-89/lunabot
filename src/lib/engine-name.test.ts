@@ -7,10 +7,10 @@ afterEach(() => setLocale("en"));
 
 describe("engineDisplayName", () => {
   it("translates only the server's own default names", () => {
-    setLocale("pt-br");
-    expect(engineDisplayName({ instanceId: "claudeApi", displayName: "Claude (API key)" })).toBe("Claude (chave de API)");
-    expect(engineDisplayName({ instanceId: "chatgpt", displayName: "ChatGPT plan" })).toBe("Plano do ChatGPT");
-    expect(engineDisplayName({ instanceId: "openaiCompat", displayName: "Other (OpenAI-compatible)" })).toBe("Outro (compatível com OpenAI)");
+    setLocale("zh");
+    expect(engineDisplayName({ instanceId: "claudeApi", displayName: "Claude (API key)" })).toBe("Claude（API 密钥）");
+    expect(engineDisplayName({ instanceId: "chatgpt", displayName: "ChatGPT plan" })).toBe("ChatGPT 方案");
+    expect(engineDisplayName({ instanceId: "openaiCompat", displayName: "Other (OpenAI-compatible)" })).toBe("其他（兼容 OpenAI）");
     expect(engineDisplayName({ instanceId: "claudeApi", displayName: "Work key" })).toBe("Work key");
     expect(engineDisplayName({ instanceId: "codex", displayName: "ChatGPT plan" })).toBe("ChatGPT plan");
     setLocale("en");

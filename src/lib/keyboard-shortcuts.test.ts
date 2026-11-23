@@ -19,13 +19,13 @@ describe("keyboard-shortcuts", () => {
     const items = SHORTCUT_GROUPS.flatMap((group) => group.items);
     const followUp = items.find((item) => item.id === "send-follow-up")!;
     expect(shortcutDescription(followUp)).toBe(followUp.description);
-    setLocale("pt-br");
-    expect(shortcutDescription(followUp)).toBe("Enquanto um bot trabalha: colocar na fila em vez de enviar agora, ou o contrário");
-    expect(shortcutDescription(items.find((item) => item.id === "toggle-sidebar")!)).toBe("Recolher ou expandir a barra lateral");
+    setLocale("zh");
+    expect(shortcutDescription(followUp)).toBe("机器人工作时：排队而非插话，或反之");
+    expect(shortcutDescription(items.find((item) => item.id === "toggle-sidebar")!)).toBe("折叠或展开侧栏");
   });
 
   it("keeps an uncatalogued shortcut's own description", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     expect(shortcutDescription({ id: "future-shortcut", description: "Future action", macKeys: [], winKeys: [] })).toBe("Future action");
   });
 

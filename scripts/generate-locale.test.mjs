@@ -153,15 +153,12 @@ describe("locale draft validation", () => {
     expect(() => main(["en", "--accept"])).toThrow(/English is the source catalog/i);
   });
 
-  it("asks for pt-BR terms in pt-br drafts and leaves other prompts as they were", () => {
-    const portuguese = translationPrompt({ first: "One" }, "Brazilian Portuguese", "pt-br");
-    expect(portuguese).toContain("Write AI as “IA”");
-    expect(portuguese).toContain("skill as “habilidade”");
-    expect(portuguese).not.toContain("and AI unchanged");
-
-    expect(translationPrompt({ first: "One" }, "German", "de")).toContain(
-      "Keep placeholders such as {name} exactly, including duplicates. Keep Luna Bot, Luna Bot Cloud, CLI, and AI unchanged.",
-    );
+  it("gives every draft the same keep-list of terms", () => {
+    for (const [label, code] of [["Brazilian Portuguese", "pt-br"], ["German", "de"], ["Simplified Chinese", "zh"]]) {
+      expect(translationPrompt({ first: "One" }, label, code)).toContain(
+        "Keep placeholders such as {name} exactly, including duplicates. Keep Luna Bot, Luna Bot Cloud, CLI, and AI unchanged.",
+      );
+    }
   });
 });
 

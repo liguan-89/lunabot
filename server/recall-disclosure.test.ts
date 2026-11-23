@@ -46,9 +46,9 @@ describe("the crossing notices", () => {
     expect(recallCrossingLabel("Cia", 3)).toBe("Cia recalled 3 messages from its private chat with you");
     expect(briefCrossingLabel("Cia", 1)).toBe("Cia's recent-work brief covers 1 private chat with you");
     expect(briefCrossingLabel("Cia", 2)).toBe("Cia's recent-work brief covers 2 private chats with you");
-    expect(recallCrossingLabel("Cia", 1, "pt-br")).toBe("Cia relembrou 1 mensagem da conversa privada com você");
-    expect(recallCrossingLabel("Cia", 3, "pt-br")).toBe("Cia relembrou 3 mensagens da conversa privada com você");
-    expect(briefCrossingLabel("Cia", 1, "pt-br")).toBe("O resumo do trabalho recente de Cia inclui 1 conversa privada com você");
-    expect(briefCrossingLabel("Cia", 2, "pt-br")).toBe("O resumo do trabalho recente de Cia inclui 2 conversas privadas com você");
+    expect(recallCrossingLabel("Cia", 1, "zh")).toBe("Cia 从与你的私聊中调取了 1 条消息");
+    expect(recallCrossingLabel("Cia", 3, "zh")).toBe("Cia 从与你的私聊中调取了 3 条消息");
+    expect(briefCrossingLabel("Cia", 1, "zh")).toBe("Cia 的近期工作摘要涵盖与你的 1 个私聊");
+    expect(briefCrossingLabel("Cia", 2, "zh")).toBe("Cia 的近期工作摘要涵盖与你的 2 个私聊");
   });
 });

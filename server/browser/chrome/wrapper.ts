@@ -142,7 +142,7 @@ export function browserLanguage(env: NodeJS.ProcessEnv): string | undefined {
   return match ? (match[2] ? `${match[1]}-${match[2]}` : match[1]) : undefined;
 }
 
-/** The languages pages are told, best first, for the person's language: "pt-BR" gives "pt-BR,pt,en-US,en", none "en-US,en".
+/** The languages pages are told, best first, for the person's language: "zh-TW" gives "zh-TW,zh,en-US,en", none "en-US,en".
  * As a list, never with q-values: Chrome adds those to the Accept-Language header itself, and navigator.languages would
  * otherwise list "en;q=0.9" as a language. A headless Chrome on Linux tells pages only its first language (Chrome 155),
  * so the bots' browsers are given the whole list. */

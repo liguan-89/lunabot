@@ -47,11 +47,11 @@ describe("a server card in the person's language", () => {
     expect(localizedCard(payload, true)).toBe(payload);
     expect(JSON.stringify(localizedCard(payload, true))).toBe(original);
     if (count === 3) {
-      setLocale("pt-br");
+      setLocale("zh");
       const translated = localizedCard(payload, true);
-      expect(translated.root.title).toBe("Seu resumo");
-      expect(nodes(translated.root).some((node) => node.value === "Ideias")).toBe(true);
-      expect(nodes(translated.root).some((node) => node.value === "Conversas em que isso foi percebido: 3")).toBe(true);
+      expect(translated.root.title).toBe("你的简报");
+      expect(nodes(translated.root).some((node) => node.value === "点子")).toBe(true);
+      expect(nodes(translated.root).some((node) => node.value === "在 3 个聊天中发现")).toBe(true);
       expect(nodes(translated.root).some((node) => node.value === idea)).toBe(true);
       expect(JSON.stringify(payload)).toBe(original);
       setLocale("en");
@@ -60,22 +60,22 @@ describe("a server card in the person's language", () => {
   });
 
   it("words titles, nested keys and moments in the reader's locale", () => {
-    setLocale("pt-br");
+    setLocale("zh");
     const shown = localizedCard(card({ value: { key: "brief.card.meetingLine", params: { time: { at, style: "clock", zone: "America/Sao_Paulo" }, title: "Standup" } } }), true).root;
-    expect(shown.title).toBe("Seu resumo");
-    expect(shown.caption).toBe("quinta-feira, 22 de outubro");
+    expect(shown.title).toBe("你的简报");
+    expect(shown.caption).toBe("10月22日星期四");
     expect(shown.children![0]!.value).toBe("08:30 · Standup");
     const asked = localizedCard(card({ value: { key: "brief.row.asked", params: { name: { key: "brief.part.aBot" } } } }), true).root;
-    expect(asked.children![0]!.value).toBe("Um bot perguntou a você");
+    expect(asked.children![0]!.value).toBe("一个机器人 问了你");
   });
 
   it("keeps the English for English, a bot's card, a key from elsewhere or a missing param", () => {
     const i18n = { value: { key: "brief.card.meetingLine", params: { time: { at, style: "clock" }, title: "Standup" } } };
     expect(localizedCard(card(i18n), true).root.children![0]!.value).toBe("8:30 AM · Standup");
-    setLocale("pt-br");
+    setLocale("zh");
     expect(localizedCard(card(i18n), false).root.children![0]!.value).toBe("8:30 AM · Standup");
     expect(localizedCard(card({ value: { key: "settings.title" } }), true).root.children![0]!.value).toBe("8:30 AM · Standup");
-    expect(localizedCard(card({ value: { key: "chat.notice.resumingAfterRestart" } }), true).root.children![0]!.value).toBe("Retomando após uma reinicialização");
+    expect(localizedCard(card({ value: { key: "chat.notice.resumingAfterRestart" } }), true).root.children![0]!.value).toBe("重启后正在恢复");
     expect(localizedCard(card({ value: { key: "brief.card.meetingLine", params: { title: "Standup" } } }), true).root.children![0]!.value).toBe("8:30 AM · Standup");
     expect(localizedCard(card({ value: { key: "brief.card.meetingLine", params: { time: { at, style: "clock" }, title: "<b>x</b>" } } }), true).root.children![0]!.value).toBe("11:30 UTC · <b>x</b>");
   });

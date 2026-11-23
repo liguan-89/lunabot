@@ -11,12 +11,12 @@ const paramsFor = (template: string) => Object.fromEntries([...template.matchAll
 afterEach(() => setLocale("en"));
 
 describe("fixed server words across transport and renderer", () => {
-  it.each(Object.entries(USER_ERROR))("renders %s in pt-BR and keeps its English fallback", (key, template) => {
+  it.each(Object.entries(USER_ERROR))("renders %s in zh and keeps its English fallback", (key, template) => {
     const params = paramsFor(template);
     const body = userError(key as UserErrorKey, params);
     expect(body.error).toBe(template.replace(/\{(\w+)\}/g, (_, name: string) => params[name]!));
     expect(serverErrorText(body, body.error)).toBe(body.error);
-    setLocale("pt-br");
+    setLocale("zh");
     expect(serverErrorText(body, body.error)).toBe(t(key as LocaleKey, params));
     expect(en[key as LocaleKey]).toBe(template);
     expect(serverErrorText({ errorKey: "serverError.unknown" }, body.error)).toBe(body.error);
@@ -34,7 +34,7 @@ describe("fixed server words across transport and renderer", () => {
     expect(noticeText(summary.summaryCode, summary.summary, summary.summaryParams)).toBe(summary.summary);
     expect(failure.message).toBe(line.text);
     expect(summary.summary).toBe(line.text);
-    setLocale("pt-br");
+    setLocale("zh");
     expect(noticeText(line.textCode, line.text, line.textParams)).toBe(t(key as LocaleKey, params));
     expect(activityText(tool, tool.name)).toBe(t(key as LocaleKey, params));
     expect(noticeText(failure.text.key, failure.message, failure.text.params)).toBe(t(key as LocaleKey, params));
@@ -46,7 +46,7 @@ describe("fixed server words across transport and renderer", () => {
     const params = paramsFor(template);
     const line = codedLine("attention", key as RoutineLineKey, params);
     expect(routineLineText(line.codes.attentionCode, line.text, line.codes.attentionParams)).toBe(line.text);
-    setLocale("pt-br");
+    setLocale("zh");
     expect(routineLineText(line.codes.attentionCode, line.text, line.codes.attentionParams)).toBe(t(key as LocaleKey, params));
     expect(en[key as LocaleKey]).toBe(template);
   });

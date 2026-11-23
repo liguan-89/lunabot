@@ -227,13 +227,13 @@ describe("the send key in hints", () => {
     expect(textarea().placeholder).toBe("Pepper is working. Ctrl+Enter queues your message");
   });
 
-  it("names the key in Japanese hints too", () => {
+  it("names the key in the app's language too", () => {
     fixture.instances = [{ instanceId: "test", driverKind: "codex", displayName: "Test", capabilities: { queueing: true } } as unknown as InstanceInfo];
     setSendKey("mod-enter");
-    setLocale("ja");
+    setLocale("zh");
     try {
       render(createElement(Composer, { bot: { ...bot, busy: true, tasks: [{ ...bot.tasks![0]!, busy: true }] } }));
-      expect(textarea().placeholder).toBe("Pepper が作業中です — Ctrl+Enter で実行中のターンに送ります");
+      expect(textarea().placeholder).toBe("Pepper 正在工作——按 Ctrl+Enter 会把这条送进当前轮次");
     } finally {
       setLocale("en");
     }

@@ -188,10 +188,10 @@ test("the app language picked on any page of the window is the one every page re
 test("main's own words read this desktop's record from its userData folder, and follow the system's language until a pick", () => {
   const dir = mkdtempSync(path.join(tmpdir(), "omb-desktop-text-"));
   try {
-    const app = { getPath: name => (name === "userData" ? dir : "/elsewhere"), isReady: () => true, getLocale: () => "pt-BR" };
+    const app = { getPath: name => (name === "userData" ? dir : "/elsewhere"), isReady: () => true, getLocale: () => "zh-TW" };
     const text = createDesktopText(app);
     assert.equal(text.prefs.language(), null);
-    assert.equal(text.language(), "pt-br", "the system's language");
+    assert.equal(text.language(), "zh", "the system's language");
     text.prefs.setLanguage("en");
     assert.deepEqual(JSON.parse(readFileSync(path.join(dir, "desktop-prefs.json"), "utf8")).language, "en");
     assert.equal(createDesktopText(app).language(), "en", "a pick made before this launch");

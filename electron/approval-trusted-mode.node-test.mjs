@@ -5,7 +5,7 @@ import approvalModule from "./approval-trusted-mode.cjs";
 import nativeText from "./native-text.cjs";
 
 test("trusted refusals translate only canonical whitelisted errors from the matching process", async () => {
-  const text = nativeText.createNativeText({ saved: "pt-br" });
+  const text = nativeText.createNativeText({ saved: "zh" });
   for (const [errorKey, nativeKey] of [
     ["serverError.approval.allThreads", "native.approval.allThreads"],
     ["serverError.approval.pending", "native.approval.pending"],

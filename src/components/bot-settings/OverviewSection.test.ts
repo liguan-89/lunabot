@@ -127,13 +127,13 @@ describe("the overview's reach and limits in the person's language", () => {
       wont: ["Cannot initiate contact with other bots.", "Command approvals use Ask mode; saved permissions and provider rules still apply."] };
     const html = () => render(createElement(OverviewSection, { overview, prompt: null, onOpen: vi.fn() }));
     expect(html()).toContain("Can talk to 1 other bot in its department.");
-    setLocale("pt-br");
+    setLocale("zh");
     try {
       const shown = html();
-      expect(shown).toContain("Pode falar com 1 outro bot da equipe.");
-      expect(shown).toContain("Pode falar com 3 outros bots nas equipes permitidas.");
-      expect(shown).toContain("Não pode iniciar contato com outros bots.");
-      expect(shown).toContain("A aprovação de comandos está no modo “Pedir”. As permissões salvas e as regras do provedor continuam valendo.");
+      expect(shown).toContain("可以与其部门中的 1 个其他机器人交谈。");
+      expect(shown).toContain("可以与其允许的部门中的 3 个其他机器人交谈。");
+      expect(shown).toContain("无法主动联系其他机器人。");
+      expect(shown).toContain("命令批准使用「询问」模式；已保存的权限和提供方规则仍然适用。");
     } finally {
       setLocale("en");
     }
@@ -151,17 +151,17 @@ describe("the overview's reach and limits in the person's language", () => {
       const shown = html(overview);
       for (const line of [...overview.does, ...overview.reaches]) expect(shown, line).toContain(line);
     }
-    setLocale("pt-br");
+    setLocale("zh");
     try {
       for (const shown of [html(older), html(newer)]) {
-        expect(shown).toContain("Pode falar com 1 outro bot da equipe.");
-        expect(shown).toContain("Pode falar com 2 outros bots nas equipes permitidas.");
-        expect(shown).toContain("Coordena a equipe como Chefe de gabinete.");
+        expect(shown).toContain("可以与其部门中的 1 个其他机器人交谈。");
+        expect(shown).toContain("可以与其允许的部门中的 2 个其他机器人交谈。");
+        expect(shown).toContain("以 Luna 的身份协调其部门。");
       }
-      expect(html(older)).toContain("Também pode coordenar estas equipes: General, Research.");
+      expect(html(older)).toContain("也可以协调这些部门：General, Research。");
       expect(html(older)).toContain("Paused: Nightly Backup.");
-      expect(html(newer)).toContain("Também pode coordenar estas equipes: Geral, Research.");
-      expect(html(newer)).toContain("Pausada: Nightly Backup.");
+      expect(html(newer)).toContain("也可以协调这些部门：通用, Research。");
+      expect(html(newer)).toContain("已暂停：Nightly Backup。");
     } finally {
       setLocale("en");
     }

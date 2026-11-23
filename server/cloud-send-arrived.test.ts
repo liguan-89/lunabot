@@ -31,11 +31,11 @@ function cloud(owner = true, language?: string) {
 
 describe("POST /api/cloud-send/arrived", () => {
   it("has the person told what stayed behind, in their language, once the move is recorded", async () => {
-    const { dataDir, ask, deps } = cloud(true, "de");
+    const { dataDir, ask, deps } = cloud(true, "zh");
     const told: Array<string | undefined> = [];
     (deps as { stayed?: (language?: string) => void }).stayed = (language) => { told.push(language); expect(movedFrom(dataDir)?.computer).toBe("MacBook Air"); };
     expect((await ask({ v: 1, computer: "MacBook Air", webhooks: [] })).status).toBe(200);
-    expect(told).toEqual(["de"]);
+    expect(told).toEqual(["zh"]);
   });
 
   it("keeps the computer the bots came from, and each webhook's bot says its new address is on its card, once", async () => {
@@ -51,7 +51,7 @@ describe("POST /api/cloud-send/arrived", () => {
 
   it.each([
     [undefined, 'Now that I live on Garage server, my webhook "Orders" has a new address. Open Automations, choose Copy address on "Orders", and paste it into the app that sends to it.'],
-    ["de", 'Jetzt, wo ich auf Garage server lebe, hat mein Webhook „Orders“ eine neue Adresse. Öffne Automatisierungen, wähle bei „Orders“ die Option „Adresse kopieren“ und füge sie in die App ein, die Daten dorthin sendet.'],
+    ["zh", '我现在运行在 Garage server 上，我的 Webhook「Orders」有了新地址。请打开「自动化」，在「Orders」上选择「复制地址」，再粘贴到向它发送数据的应用里。'],
   ])("writes the move notice in the owner's language (%s), keeping the server and webhook names", async (language, text) => {
     const { lines, ask } = cloud(true, language);
     expect((await ask({ v: 1, computer: "MacBook Air", webhooks: ["w1"], place: "Garage server" })).status).toBe(200);
