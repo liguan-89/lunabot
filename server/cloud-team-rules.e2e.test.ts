@@ -109,7 +109,7 @@ beforeAll(async () => {
   const relayBase = `http://127.0.0.1:${(relay.address() as AddressInfo).port}`;
   fx = await launchCloudSendFixture({ onePasswordToken: "ops_fake-rules", broker, team: { id: "team-acme-1", name: "Acme", engine: ENGINE, env: {
     LUNABOT_BOT_BOX: "0", FIXTURE_ADMIN_STAND_IN: `http://127.0.0.1:${(adminServer.address() as AddressInfo).port}`,
-    LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_omb_rules",
+    LUNABOT_CLOUD_BOAT_URL: `${relayBase}/relay/api/box/v1`, LUNABOT_CLOUD_BOAT_TOKEN: "box_lunabot_rules",
   } } });
   team = fx.team!;
   owner = (await team.pair(OWNER)).token!;

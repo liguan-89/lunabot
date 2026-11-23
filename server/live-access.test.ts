@@ -12,7 +12,7 @@ import { SessionRegistry, type Scope, type SessionRecord } from "./sessions.ts";
 import { moveInRefusal } from "./team-move-in.ts";
 
 const LIVE = "/api/live/session";
-const COOKIE = "omb_session_test";
+const COOKIE = "lunabot_session_test";
 const REMOTE = { host: "bots.example.com", "x-forwarded-for": "203.0.113.9", "x-forwarded-proto": "https" };
 const LOCAL = { host: "127.0.0.1:8799" };
 const DESKTOP = { loopbackMutationToken: "desktop-secret", companionMutationToken: "relay-secret" };

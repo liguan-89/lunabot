@@ -99,7 +99,7 @@ beforeAll(async () => {
   const paired = await raw("POST", "/api/auth/pair", forwarded(OLD, { "content-type": "application/json" }), JSON.stringify({ code: granted.body.code, cookie: true }));
   expect(paired.status, launched.output().slice(-2000)).toBe(200);
   cookie = paired.cookie;
-  expect(cookie).toMatch(/^omb_session_\d+_\w+=omb_sess_/);
+  expect(cookie).toMatch(/^lunabot_session_\d+_\w+=omb_sess_/);
 }, 60_000);
 
 afterAll(async () => {
