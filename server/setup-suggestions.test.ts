@@ -66,8 +66,8 @@ describe("reading the reply", () => {
   });
 
   it("checks the script and capitalises by the app's language", () => {
-    expect(parseSetupSuggestions('["Sort my inbox", "Find flights", "Check my calendar"]', "ja")).toBeNull();
-    expect(parseSetupSuggestions('["メールを仕分けする", "予定を確認する", "旅行を調べる", "Gmail"]', "ja")).toEqual(["メールを仕分けする", "予定を確認する", "旅行を調べる"]);
+    expect(parseSetupSuggestions('["Sort my inbox", "Find flights", "Check my calendar"]', "zh")).toBeNull();
+    expect(parseSetupSuggestions('["整理收件箱", "确认日程", "查找机票", "Gmail"]', "zh")).toEqual(["整理收件箱", "确认日程", "查找机票"]);
     expect(parseSetupSuggestions('["istanbul gezisini planla", "e-postalarımı sırala", "faturalarımı kontrol et"]', "tr"))
       .toEqual(["İstanbul gezisini planla", "E-postalarımı sırala", "Faturalarımı kontrol et"]);
   });
