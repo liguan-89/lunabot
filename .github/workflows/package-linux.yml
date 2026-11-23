@@ -128,8 +128,8 @@ jobs:
         with:
           name: lunabot-ubuntu-smoke-diagnostics
           path: |
-            /tmp/omb-linux-smoke-*
-            /tmp/omb-linux-smoke-runtime-*
+            /tmp/lunabot-linux-smoke-*
+            /tmp/lunabot-linux-smoke-runtime-*
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 7

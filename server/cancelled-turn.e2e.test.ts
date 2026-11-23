@@ -2,7 +2,7 @@ import { createServer } from "node:http";
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { STOPPED_TURN_NAME } from "../shared/client-cancel.ts";
 import { unaskedStopMessage } from "./harness/unasked-stop.ts";
 import { roomRetryRequest } from "../src/lib/room-retry.ts";
@@ -70,7 +70,7 @@ it.skip("says in words that a turn nobody stopped was cut off, and retries the r
     await new Promise<void>((resolve) => upstream.close(() => resolve()));
     throw error;
   });
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const api = async (method: string, path: string, body?: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, {
       method, headers: { "content-type": "application/json", origin: fixture.info.url },

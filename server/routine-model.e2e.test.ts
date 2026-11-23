@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piModelsSet, piTurnsForThread } from "./testing/pi-dump.ts";
 
 it("opens each run of a routine with its own model in the run's thread, and refuses a model it cannot check", async () => {
@@ -11,7 +11,7 @@ it("opens each run of a routine with its own model in the run's thread, and refu
     });
     return { status: response.status, body: await response.json() as any };
   };
-  const cli = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   try {
     const { bot } = await cli("new-bot", "--name", "Routine model fixture");
     const own = { instanceId: "pi", model: "openai/gpt-4o" };

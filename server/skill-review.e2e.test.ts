@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import type { WireBot, WireMessage } from "../shared/wire.ts";
 
 // pi has no one-off text call and no other engine is connected, so the review a full counter earns
@@ -19,8 +19,8 @@ it("counts a pi turn's tool steps toward the review, then refuses it for want of
     return response.json() as Promise<T>;
   };
   const turn = async (bot: WireBot, text: string) => {
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", text, "--url", url]);
-    expect(await runControlOmb(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", url])).toMatchObject({ status: "settled" });
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", text, "--url", url]);
+    expect(await runControlLunabot(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", url])).toMatchObject({ status: "settled" });
   };
   const messages = async (bot: WireBot) =>
     ((await api<{ bots: Array<WireBot & { messages: WireMessage[] }> }>("/api/bots")).bots.find((candidate) => candidate.id === bot.id)?.messages ?? []);

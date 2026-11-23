@@ -1,6 +1,6 @@
 name: ${COMPOSE_PROJECT_NAME:-lunabot-podman}
 services:
-  omb:
+  lunabot:
     build:
       context: ../..
       dockerfile: deploy/podman/Containerfile

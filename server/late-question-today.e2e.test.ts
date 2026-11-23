@@ -1,7 +1,7 @@
 // pi asks the person through its own dialog, which holds the turn open: a person who does not answer and stops the turn
 // leaves the question on Today, and answering it later wakes the bot with that answer as a new line.
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 
 const QUESTION = "Ask me which file to update";
 
@@ -15,7 +15,7 @@ it("keeps a question nobody answered on Today after its turn ends, and a late an
     });
     return { status: response.status, body: await response.json() };
   };
-  const cli = (...args: string[]) => runControlOmb(args, { env: { LUNABOT_URL: fixture.info.url } }) as Promise<any>;
+  const cli = (...args: string[]) => runControlLunabot(args, { env: { LUNABOT_URL: fixture.info.url } }) as Promise<any>;
   console.log(`late-question Today fixture: ${fixture.info.logPath}`);
   try {
     const bot = (await cli("new-bot", "--name", "Asker")).bot;

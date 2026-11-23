@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -26,7 +26,7 @@ describe("full backup Settings in the real renderer", () => {
   (enabled ? it : it.skip)("uses passwords, a file preview and explicit replacement without leaking secrets", async () => {
     let stdout = "";
     let stderr = "";
-    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-omb.ts"), "ui", "launch"], {
+    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-lunabot.ts"), "ui", "launch"], {
       cwd: ROOT, env: process.env, stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout!.on("data", (chunk: Buffer) => { stdout += String(chunk); });
@@ -36,7 +36,7 @@ describe("full backup Settings in the real renderer", () => {
       if (child!.exitCode !== null || child!.signalCode !== null) throw new Error(`UI launcher exited: ${stderr}`);
       try { info = JSON.parse(stdout); return Boolean(info.ui); } catch { return false; }
     }, { timeout: LAUNCH_TIMEOUT_MS, interval: 250 }).toBe(true);
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
     const click = (name: string) => ui("click", "--name", name);
     const type = async (name: string, text: string) => {
@@ -94,7 +94,7 @@ describe("full backup Settings in the real renderer", () => {
     await expect.poll(snapshot, { timeout: 10_000 }).toContain("Export full backup");
     expect(await snapshot()).toContain("Saved account credentials and connections are not included");
     expect(await snapshot()).toContain("not automatically redacted");
-    await ui("screenshot", "--out", join(ROOT, ".omb-scratch", "verify-evidence", "workspace-backup-settings.png"));
+    await ui("screenshot", "--out", join(ROOT, ".lunabot-scratch", "verify-evidence", "workspace-backup-settings.png"));
     await type("Backup password", "fixture password 123");
     await type("Confirm backup password", "fixture password 123");
     await click("Export full backup");
@@ -121,7 +121,7 @@ describe("full backup Settings in the real renderer", () => {
     expect(await replaceDisabled()).toBe(true);
     await type("Type REPLACE to confirm", "REPLACE");
     expect(await replaceDisabled()).toBe(false);
-    const evidence = join(ROOT, ".omb-scratch", "verify-evidence", "workspace-backup-preview.png");
+    const evidence = join(ROOT, ".lunabot-scratch", "verify-evidence", "workspace-backup-preview.png");
     await ui("screenshot", "--out", evidence);
     await click("Replace installation");
     await expect.poll(snapshot, { timeout: 10_000 }).toContain("Fully quit OpenMausBot");

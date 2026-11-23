@@ -2,7 +2,7 @@
 // Real isolated server with the fake pi: a turn at Ask raises pi's own confirmation card, the person picks a level while that
 // turn is still working, the card still waits for them, and the level picked answers the next turn's ask by itself.
 import { expect, it } from "vitest";
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 
 const MARKER = "Run the fixture write.";
 

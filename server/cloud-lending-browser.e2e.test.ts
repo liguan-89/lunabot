@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, expect, it } from "vitest";
-import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { createComputerSharing } from "../electron/computer-sharing.mjs";
 import { helperMissing, SCREEN_LOCKED } from "../electron/lent-screen-failures.mjs";
 import { createHostScreenLease } from "../electron/host-screen-lease.mjs";

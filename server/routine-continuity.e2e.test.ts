@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 
 it("passes the previous report to the real fake-engine turn only when continuity is enabled", async () => {
   const fixture = await launchVerificationServer({ LUNABOT_TEST_FIXTURE_ENGINE: "pi" }, undefined, undefined, undefined, undefined, { scripted: true });
@@ -18,8 +18,8 @@ it("passes the previous report to the real fake-engine turn only when continuity
     return result as any;
   };
   try {
-    expect((await runControlOmb(["doctor"], { env }) as any).ok).toBe(true);
-    const { bot } = await runControlOmb(["new-bot", "--name", "Continuity fixture"], { env }) as any;
+    expect((await runControlLunabot(["doctor"], { env }) as any).ok).toBe(true);
+    const { bot } = await runControlLunabot(["new-bot", "--name", "Continuity fixture"], { env }) as any;
     writeFileSync(planPath, JSON.stringify({ [bot.id]: { reply: "hello from pi" } }));
     const { routine } = await api("POST", "/api/routines", {
       name: "Continuity fixture",

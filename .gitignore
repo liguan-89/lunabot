@@ -19,7 +19,7 @@ electron/resources/OpenMausBot Speech.app
 # stale helper from the removed Teach a skill recorder
 electron/resources/OpenMausBot Recorder.app
 release
-.omb-scratch
+.lunabot-scratch
 .wrangler/
 .dev.vars
 .dev.vars.*

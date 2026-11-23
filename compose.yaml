@@ -1,6 +1,6 @@
 name: ${COMPOSE_PROJECT_NAME:-lunabot}
 services:
-  omb:
+  lunabot:
     # Collects exited browser processes; Chrome's shared memory as on the
     # desktop containers (docs/browser-packaging.md, "Process hygiene").
     init: true
@@ -28,7 +28,7 @@ services:
       LUNABOT_PUBLIC_URL: ${LUNABOT_PUBLIC_URL:-http://localhost:${LUNABOT_HTTP_PORT:-8080}}
       LUNABOT_WEBHOOK_PUBLIC_URL: ${LUNABOT_WEBHOOK_PUBLIC_URL:-${LUNABOT_PUBLIC_URL:-http://localhost:${LUNABOT_HTTP_PORT:-8080}}}
       # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
-      # container in once first: docker compose exec omb lunabot login --relay
+      # container in once first: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY: ${LUNABOT_PHONE_RELAY:-}
     healthcheck:
       test:

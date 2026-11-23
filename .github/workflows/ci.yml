@@ -557,7 +557,7 @@ jobs:
     # docs/verification/chat-ui.md run by a machine. It downloads the pinned
     # agent-browser release (digest verified) and its Chrome, drives the real
     # <App/> against the isolated fake-engine fixture, and keeps the screenshot.
-    name: renderer smoke (control-omb ui, Ubuntu 24.04)
+    name: renderer smoke (control-lunabot ui, Ubuntu 24.04)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -576,23 +576,23 @@ jobs:
         # This is Chrome's own documented fix for 23.10+; a developer machine
         # needs nothing, and the sandbox itself stays on.
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-      - name: Drive the real renderer through control-omb ui
+      - name: Drive the real renderer through control-lunabot ui
         env:
           LUNABOT_UI_E2E: "1"
-          LUNABOT_UI_EVIDENCE_DIR: .omb-scratch/verify-evidence
-        run: pnpm exec vitest run scripts/testing/control-omb-ui.e2e.test.ts scripts/testing/bot-tools-ui.e2e.test.ts scripts/testing/thinking-timer-ui.e2e.test.ts scripts/testing/team-share-ui.e2e.test.ts scripts/testing/org-library-ui.e2e.test.ts scripts/testing/presets-ui.e2e.test.ts scripts/testing/browser-evidence.e2e.test.ts scripts/testing/browser-fill.e2e.test.ts scripts/testing/rich-table-composer-ui.e2e.test.ts scripts/testing/computer-panel-focus-ui.e2e.test.ts scripts/testing/mobile-code-blocks-ui.e2e.test.ts scripts/testing/inline-page-height-ui.e2e.test.ts scripts/testing/room-pages-ui.e2e.test.ts
+          LUNABOT_UI_EVIDENCE_DIR: .lunabot-scratch/verify-evidence
+        run: pnpm exec vitest run scripts/testing/control-lunabot-ui.e2e.test.ts scripts/testing/bot-tools-ui.e2e.test.ts scripts/testing/thinking-timer-ui.e2e.test.ts scripts/testing/team-share-ui.e2e.test.ts scripts/testing/org-library-ui.e2e.test.ts scripts/testing/presets-ui.e2e.test.ts scripts/testing/browser-evidence.e2e.test.ts scripts/testing/browser-fill.e2e.test.ts scripts/testing/rich-table-composer-ui.e2e.test.ts scripts/testing/computer-panel-focus-ui.e2e.test.ts scripts/testing/mobile-code-blocks-ui.e2e.test.ts scripts/testing/inline-page-height-ui.e2e.test.ts scripts/testing/room-pages-ui.e2e.test.ts
       - name: Upload the renderer screenshot
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
-          name: control-omb-ui-chat-screenshot
+          name: control-lunabot-ui-chat-screenshot
           path: |
-            .omb-scratch/verify-evidence/chat-ui.png
-            .omb-scratch/verify-evidence/thinking-timer-anchored.png
-            .omb-scratch/verify-evidence/share-team-dialog.png
-            .omb-scratch/verify-evidence/mobile-code-blocks/
-            .omb-scratch/verify-evidence/inline-page-height/
-            .omb-scratch/verify-evidence/room-pages-*.png
+            .lunabot-scratch/verify-evidence/chat-ui.png
+            .lunabot-scratch/verify-evidence/thinking-timer-anchored.png
+            .lunabot-scratch/verify-evidence/share-team-dialog.png
+            .lunabot-scratch/verify-evidence/mobile-code-blocks/
+            .lunabot-scratch/verify-evidence/inline-page-height/
+            .lunabot-scratch/verify-evidence/room-pages-*.png
           if-no-files-found: warn
           retention-days: 7
 
@@ -698,8 +698,8 @@ jobs:
         with:
           name: lunabot-ubuntu-smoke-diagnostics
           path: |
-            /tmp/omb-linux-smoke-*
-            /tmp/omb-linux-smoke-runtime-*
+            /tmp/lunabot-linux-smoke-*
+            /tmp/lunabot-linux-smoke-runtime-*
           if-no-files-found: warn
           include-hidden-files: true
           retention-days: 7
@@ -708,7 +708,7 @@ jobs:
     needs: static
     if: contains(needs.static.outputs.jobs, '"browser-driver"')
     # Advisory, outside the CI gate until it has run green for a while: the
-    # omb-cdp S4 conformance suites and the new browser's checklist and viewer
+    # lunabot-cdp S4 conformance suites and the new browser's checklist and viewer
     # suites on the runner's own Google Chrome (PRs run Linux, and Windows
     # where the vitest shards do; the full lane all three; pushes to main and
     # merge groups leave it out), then on Linux inside the server image's
@@ -769,9 +769,9 @@ jobs:
         # even when the host leg failed: they test different Chromes.
         if: ${{ !cancelled() && runner.os == 'Linux' }}
         run: |
-          docker build --target runtime -t omb-runtime:s4 .
+          docker build --target runtime -t lunabot-runtime:s4 .
           mkdir -p node_modules/.vite && chmod a+w . node_modules/.vite
           docker run --rm --init --shm-size=512m --user lunabot -e CI=true \
             -e LUNABOT_CDP_CHROME=/opt/lunabot-browser/chrome -e LUNABOT_CDP_HOST=container -e LUNABOT_BROWSER_SANDBOX=0 \
-            -v "$PWD:/src" -w /src omb-runtime:s4 \
+            -v "$PWD:/src" -w /src lunabot-runtime:s4 \
             node node_modules/vitest/vitest.mjs run server/browser/cdp/s4- server/browser/checklist.e2e server/browser/passkey-wall.e2e server/browser/viewers/viewers.e2e server/browser/viewers/stream-v2.e2e --reporter=verbose --silent=false

@@ -88,7 +88,7 @@ const route = createBrowserViewerRoutes({
     answerFileChooser: async () => false,
     download: () => undefined,
   },
-  browser: async (botId) => ({ botId, session: target.session, spec: { command: "omb-cdp", args: [target.key], env: {} } }),
+  browser: async (botId) => ({ botId, session: target.session, spec: { command: "lunabot-cdp", args: [target.key], env: {} } }),
   authorize: async () => null,
   current: () => true,
   restartRefusal: () => null,

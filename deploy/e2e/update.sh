@@ -29,7 +29,7 @@ fail() {
   exit 1
 }
 running_image() { docker inspect -f '{{.Image}}' "$(cd "$DIR" && docker compose ps -q omb)"; }
-version() { (cd "$DIR" && docker compose exec -T omb sh -c 'curl -sf http://127.0.0.1:8799/.well-known/lunabot/environment || curl -sf http://127.0.0.1:8799/.well-known/openmausbot/environment') | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
+version() { (cd "$DIR" && docker compose exec -T lunabot sh -c 'curl -sf http://127.0.0.1:8799/.well-known/lunabot/environment || curl -sf http://127.0.0.1:8799/.well-known/openmausbot/environment') | sed -n 's/.*"version":"\([^"]*\)".*/\1/p'; }
 wait_version() { for _ in $(seq 1 60); do [ "$(version)" = "$1" ] && return 0; sleep 3; done; return 1; }
 in_data() { docker run --rm --network none --user 0:0 -v "$DATA:/d" --entrypoint sh "$REPO:v$FROM" -c "$1"; }
 # The copies of the data the updates made: one Docker volume each, and never more than one once an update is done.
@@ -56,7 +56,7 @@ if [ "$LAYOUT" = installer ]; then
   cat >"$DIR/compose.yaml" <<'COMPOSE'
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
@@ -99,7 +99,7 @@ printf '%s\n' '# settings' 'DOMAIN=update-e2e.invalid' "LUNABOT_IMAGE=$REPO:v$FR
 wait_version "$FROM" || fail "$FROM did not come up"
 # The FROM release predates the data-dir rename: its app keeps ~/.openmausbot, so the sentinel
 # must be written there for the update's one-time migration to be what carries it over.
-(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $FROM' > /data/.openmausbot/e2e-sentinel.txt")
+(cd "$DIR" && docker compose exec -T lunabot sh -c "echo 'written under $FROM' > /data/.openmausbot/e2e-sentinel.txt")
 OLD_ID=$(running_image)
 cp "$DIR/.env" "$OUT/env.before"
 STABLE=$(docker image inspect -f '{{range .RepoDigests}}{{println .}}{{end}}' "$REPO:v$TO" | grep "^$REPO@" | head -n 1)
@@ -127,7 +127,7 @@ step "3. the same again: nothing to do"
 grep -q "Nothing to do" "$OUT/3-again.txt" || fail "the second run did something"
 
 step "4. --rollback puts $FROM and its data back"
-(cd "$DIR" && docker compose exec -T omb sh -c "echo 'written under $TO' > /data/.lunabot/after-update.txt")
+(cd "$DIR" && docker compose exec -T lunabot sh -c "echo 'written under $TO' > /data/.lunabot/after-update.txt")
 "${UPDATE[@]}" --rollback --yes | tee "$OUT/4-rollback.txt"
 [ "${PIPESTATUS[0]}" = 0 ] || fail "--rollback did not exit 0"
 [ "$(version)" = "$FROM" ] || fail "after --rollback the server says $(version)"

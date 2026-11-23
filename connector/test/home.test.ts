@@ -114,7 +114,7 @@ describe("the home on an own server", () => {
     expect(spec).toEqual(homeSpec(A, env, SECCOMP));
     expect(spec.HostConfig).toMatchObject({
       Init: true, ShmSize: 512 * 1024 * 1024, MaskedPaths: [], ReadonlyPaths: [], CapDrop: ["ALL"], CapAdd: ["CHOWN", "SETUID", "SETGID", "KILL"], OomScoreAdj: -800,
-      SecurityOpt: ["apparmor=omb-home-narrow", `seccomp=${SECCOMP}`, "no-new-privileges=true"], RestartPolicy: { Name: "no" },
+      SecurityOpt: ["apparmor=lunabot-home-narrow", `seccomp=${SECCOMP}`, "no-new-privileges=true"], RestartPolicy: { Name: "no" },
       PortBindings: { "8080/tcp": [{ HostIp: "127.0.0.1", HostPort: "8080" }] }, Mounts: [{ Type: "volume", Source: "mausbot-data", Target: "/data" }],
     });
     expect(spec.StopTimeout).toBe(30);

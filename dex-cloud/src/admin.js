@@ -370,7 +370,7 @@ route("POST", "/api/bug-reports/status", async (ctx) => {
   json(ctx.res, 200, { reports, notify: true });
 });
 
-/** The admin reading the reports: a signed-in desktop session whose account is listed in DEXCLOUD_ADMIN_EMAILS. */
+/** The admin reading the reports: a signed-in desktop session whose account is listed in LUNABOT_CLOUD_ADMIN_EMAILS. */
 function adminSession(ctx) {
   const session = sessions(ctx);
   if (!ctx.config.adminEmails.includes(String(session.account_email ?? "").toLowerCase())) throw new HttpError(403, "forbidden");

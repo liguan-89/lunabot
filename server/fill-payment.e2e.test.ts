@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { runControlOmb } from "../scripts/control-omb.ts";
+import { runControlLunabot } from "../scripts/control-lunabot.ts";
 import { browserFixture } from "./testing/fake-browser-fixture.ts";
 
 // Obvious fakes only. A four-digit CVC: HeldSecrets masks nothing shorter than MIN_SECRET (4), so a
@@ -44,7 +44,7 @@ it.skipIf(process.platform === "win32")("fill_payment waits on the spend card, t
     const messages = async () => (await api("GET", `/api/threads/${bot.threadId}/messages`)).body.messages as any[];
     const unansweredApproval = async () => (await messages()).find((message) => message.card?.outboundRequest && !message.card.answered);
 
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Pay for my order.", "--url", browser.base]);
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Pay for my order.", "--url", browser.base]);
     await expect.poll(async () => Boolean(await unansweredApproval()), { timeout: 20_000 }).toBe(true);
     const deny = (await unansweredApproval())!;
     // The spend card shows the card's name and last four and the checkout's host, never the PAN or CVC.
@@ -55,18 +55,18 @@ it.skipIf(process.platform === "win32")("fill_payment waits on the spend card, t
 
     const refused = await api("POST", `/api/bots/${bot.id}/respond`, { threadId: bot.threadId, requestId: deny.card.requestId, behavior: "deny" });
     expect(refused.status).toBe(200);
-    expect(await runControlOmb(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
+    expect(await runControlLunabot(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
     const [denied] = answered(0, "fill_payment");
     expect(denied.isError).toBeTruthy();
     expect(page.typed).toEqual([]);
     expect(page.state).toEqual({});
 
-    await runControlOmb(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Go ahead and pay.", "--url", browser.base]);
+    await runControlLunabot(["send", "--bot", bot.id, "--task", bot.threadId, "--text", "Go ahead and pay.", "--url", browser.base]);
     await expect.poll(async () => Boolean(await unansweredApproval()), { timeout: 20_000 }).toBe(true);
     const allow = (await unansweredApproval())!;
     const accepted = await api("POST", `/api/bots/${bot.id}/respond`, { threadId: bot.threadId, requestId: allow.card.requestId, behavior: "allow" });
     expect(accepted.status).toBe(200);
-    expect(await runControlOmb(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
+    expect(await runControlLunabot(["wait", "--bot", bot.id, "--task", bot.threadId, "--timeout", "30", "--url", browser.base])).toMatchObject({ status: "settled" });
 
     const [filled] = answered(1, "fill_payment");
     expect(filled.isError).toBeFalsy();

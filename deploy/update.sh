@@ -337,7 +337,7 @@ installer_compose() {
 # back in a new one, and left Caddy refusing HTTPS in the old one.
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
@@ -358,7 +358,7 @@ services:
       LUNABOT_SIGNIN_MEMBER_EMAILS:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb lunabot login --relay
+      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]

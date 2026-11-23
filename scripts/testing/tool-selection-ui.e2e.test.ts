@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -29,7 +29,7 @@ interface SavedBot { id: string; name: string; toolScope?: { allow?: string[]; d
       if (child!.exitCode !== null || child!.signalCode !== null) throw new Error(stderr);
       try { info = JSON.parse(stdout); return Boolean(info.ui); } catch { return false; }
     }, { timeout: 600_000, interval: 250 }).toBe(true);
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
     const click = (name: string) => ui("click", "--name", name);
     const snapshot = async () => (await ui("snapshot")).snapshot as string;
@@ -137,12 +137,12 @@ interface SavedBot { id: string; name: string; toolScope?: { allow?: string[]; d
     await expect.poll(async () => (await bots()).find(bot => bot.name === `${first.name} copy`)?.toolScope).toEqual({ allow: ["native:*"], deny: [] });
 
     await selectBot(first.name); await click("Open settings"); await click("Access");
-    await runControlOmb(["send", "--bot", first.id, "--text", "Stay active for the settings test.", "--url", info.url]);
+    await runControlLunabot(["send", "--bot", first.id, "--text", "Stay active for the settings test.", "--url", info.url]);
     await expect.poll(async () => (await bots()).find(bot => bot.id === first.id)?.busy).toBe(true);
     await expect.poll(() => evaluate("document.querySelector('select[aria-label=\"Tool selection\"]')?.disabled")).toBe(true);
     expect(await snapshot()).toContain("Wait until this bot finishes all active tasks");
-    await runControlOmb(["interrupt", "--bot", first.id, "--url", info.url]);
-    await runControlOmb(["wait", "--bot", first.id, "--timeout", "30", "--url", info.url]);
+    await runControlLunabot(["interrupt", "--bot", first.id, "--url", info.url]);
+    await runControlLunabot(["wait", "--bot", first.id, "--timeout", "30", "--url", info.url]);
     await expect.poll(() => evaluate("document.querySelector('select[aria-label=\"Tool selection\"]')?.disabled")).toBe(false);
   } finally {
     if (child?.connected) child.send("stop");

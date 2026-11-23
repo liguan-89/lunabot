@@ -7,7 +7,7 @@ import { closeSync, openSync, readFileSync, rmSync, writeFileSync } from "node:f
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 /** The words every turn's prompt carries, which make the fake pi ask a person's permission instead of replying. */

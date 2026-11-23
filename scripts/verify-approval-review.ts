@@ -4,7 +4,7 @@ import { createServer } from "node:http";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { launchVerificationServer, runControlOmb } from "./control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
 import { fixtureApi } from "./testing/preview-fixture.ts";
 
 type HelperVerdict = "approve" | "deny" | "unsure";
@@ -58,12 +58,12 @@ try {
   });
   await api("PATCH", "/api/config", { decider: { openrouterKey: "fixture" } });
   await api("PATCH", "/api/config", { decider: { enabled: true } });
-  const created = await runControlOmb(["new-bot", "--name", "Review Bot", "--url", fixture.info.url]) as { bot?: { id: string }; id?: string };
+  const created = await runControlLunabot(["new-bot", "--name", "Review Bot", "--url", fixture.info.url]) as { bot?: { id: string }; id?: string };
   const botId = created.bot?.id ?? created.id;
   assert.ok(botId, "new-bot returned no bot id");
   await api("PATCH", `/api/bots/${botId}`, { approvalMode: "auto" });
 
-  const messages = async () => (await runControlOmb(["messages", "--bot", botId, "--limit", "40", "--url", fixture.info.url]) as { messages?: unknown[] }).messages ?? [];
+  const messages = async () => (await runControlLunabot(["messages", "--bot", botId, "--limit", "40", "--url", fixture.info.url]) as { messages?: unknown[] }).messages ?? [];
   const decisionRows = () => readdirSync(join(fixture.info.dataDir, "decisions")).flatMap((file) =>
     readFileSync(join(fixture.info.dataDir, "decisions", file), "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line) as { decision: string; source: string; tool?: string }));
   const cardFor = async (marker: (m: unknown) => boolean, timeoutMs = 20_000) => {
@@ -79,7 +79,7 @@ try {
     (m as { card?: { subtitle?: string } }).card?.subtitle?.startsWith("Allow bash?") === true;
 
   helperVerdict = "approve";
-  await runControlOmb(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
+  await runControlLunabot(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
   const approvedCard = await cardFor((m) => isPermissionCard(m) && Boolean((m as { card?: { answered?: string } }).card?.answered));
   assert.equal(approvedCard.card?.answered, "allow", "the helper's allow must settle the card");
   assert.equal(approvedCard.card?.dismissed, true, "an auto answer dismisses the card like an engine grant");
@@ -88,7 +88,7 @@ try {
     `no auto-approved/auto-review row: ${JSON.stringify(decisionRows())}`);
 
   helperVerdict = "deny";
-  await runControlOmb(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
+  await runControlLunabot(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
   const deniedCard = await cardFor((m) => isPermissionCard(m) && (m as { card?: { answered?: string } }).card?.answered === "deny" &&
     (m as { id: string }).id !== approvedCard.id);
   assert.ok((await messages()).some((m) => JSON.stringify(m).includes("Approve for me denied")), "no deny chip after the refusal");
@@ -96,7 +96,7 @@ try {
     `no auto-denied/auto-review row: ${JSON.stringify(decisionRows())}`);
 
   helperVerdict = "unsure";
-  await runControlOmb(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
+  await runControlLunabot(["send", "--bot", botId, "--text", "perm-trigger", "--url", fixture.info.url]);
   const openCard = await cardFor((m) => isPermissionCard(m) && !((m as { card?: { answered?: string } }).card?.answered) &&
     ![approvedCard.id, deniedCard.id].includes((m as { id: string }).id));
   await new Promise((resolve) => setTimeout(resolve, 6_000));

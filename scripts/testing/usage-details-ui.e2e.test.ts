@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { agentBrowser, sessionEnv, UI_TOOLS_DIR, type UiHandle } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -17,7 +17,7 @@ if (!enabled) console.log("skipping usage details UI: set LUNABOT_UI_E2E=1 to in
   let info: { ui: string; url: string; botId: string; logPath: string } | undefined;
   try {
     let stdout = "", stderr = "";
-    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-omb.ts"), "ui", "launch"], {
+    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-lunabot.ts"), "ui", "launch"], {
       cwd: ROOT, env: process.env, stdio: ["ignore", "pipe", "pipe"],
     });
     child.stdout!.on("data", chunk => { stdout += String(chunk); });
@@ -27,7 +27,7 @@ if (!enabled) console.log("skipping usage details UI: set LUNABOT_UI_E2E=1 to in
       try { info = JSON.parse(stdout); return Boolean(info?.ui); } catch { return false; }
     }, { timeout: 600_000, interval: 250 }).toBe(true);
     const handle = info!;
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", handle.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", handle.ui, ...args]) as Promise<Record<string, any>>;
     await ui("type", "--name", "Message Pepper", "--text", "Check the fixture usage");
     await ui("press", "--keys", "Enter");
     const settled = await ui("wait-settle", "--timeout", "60");

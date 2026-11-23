@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 
 // The person being away end to end on a real server (temporary home, fake engine): presence pings stop, routines pause
 // themselves except the one that fills the brief, the Chief gets one quiet line, and a return ping frees them.

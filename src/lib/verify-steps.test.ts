@@ -35,7 +35,7 @@ const triggerTerms = (): string[] =>
   JSON.parse(readFileSync(new URL("../../skills/create-verification-skill/manifest.json", import.meta.url), "utf8")).triggerTerms;
 
 const DOCTOR = "pnpm control:omb doctor --url http://127.0.0.1:8799";
-const SEND = "node --experimental-strip-types scripts/control-omb.ts send --bot x --text y";
+const SEND = "node --experimental-strip-types scripts/control-lunabot.ts send --bot x --text y";
 const PRESS = './node_modules/.bin/control-atlas.mjs press "Meta+K"';
 const PUSH = "git push origin main";
 
@@ -46,21 +46,21 @@ describe("parseControlCommand", () => {
     ["npm run control:omb -- doctor", "doctor"],
     [SEND, "send"],
     [PRESS, "press"],
-    ["cd repo && node scripts/control-omb.ts doctor", "doctor"],
-    ["node scripts\\control-omb.ts doctor", "doctor"],
+    ["cd repo && node scripts/control-lunabot.ts doctor", "doctor"],
+    ["node scripts\\control-lunabot.ts doctor", "doctor"],
     ["FOO=1 pnpm control:omb wait --bot b", "wait"],
-    ["timeout 30 npx tsx ./scripts/control-omb.ts screenshot > out.png 2>&1", "screenshot"],
+    ["timeout 30 npx tsx ./scripts/control-lunabot.ts screenshot > out.png 2>&1", "screenshot"],
     ["sudo -u maus pnpm control:omb doctor", "doctor"],
   ])("accepts %s as a control-CLI invocation of %s", (command, subcommand) => {
     expect(parseControlCommand(command)).toEqual({ subcommand, dryRun: false });
   });
 
   it.each([
-    "cat scripts/control-omb.ts",
-    "sed -n 1,40p scripts/control-omb.ts",
-    "git log -- scripts/control-omb.ts",
-    "grep -n doctor scripts/control-omb.ts",
-    "cat docs/access-control-omb.tsx",
+    "cat scripts/control-lunabot.ts",
+    "sed -n 1,40p scripts/control-lunabot.ts",
+    "git log -- scripts/control-lunabot.ts",
+    "grep -n doctor scripts/control-lunabot.ts",
+    "cat docs/access-control-lunabot.tsx",
     "npmcontrol:omb doctor",
     "pnpm typecheck",
     "pnpm typecheck && pnpm test",
@@ -177,7 +177,7 @@ describe("runSteps", () => {
       codex(SEND, false),
       acp(PRESS),
       claude("git status", true),
-      claude("cat scripts/control-omb.ts", true),
+      claude("cat scripts/control-lunabot.ts", true),
       claude(PUSH, true),
     ]);
     expect(steps.map((s) => [s.label, s.status, s.verified])).toEqual([

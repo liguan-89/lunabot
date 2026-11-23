@@ -1,4 +1,4 @@
-# The MausBot connector, published as ghcr.io/milind-soni/mausbot-connector for linux/amd64 and linux/arm64. It runs on
+# The MausBot connector, published as ghcr.io/milind-soni/openmausbot-connector for linux/amd64 and linux/arm64. It runs on
 # a server of its owner's with the Docker socket, its state volume and /etc/mausbot (read-only), and talks only outward.
 # Node runs its TypeScript as it is; it has no npm dependencies. bubblewrap is here only for the box probe, which runs
 # from this image with the home's own security settings.
@@ -13,11 +13,11 @@ COPY profiles ./profiles
 COPY host ./host
 COPY install.sh ./install.sh
 COPY src ./src
-RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning /app/src/main.ts "$@"\n' > /usr/local/bin/mausbot-connector \
-  && chmod 0755 /usr/local/bin/mausbot-connector \
+RUN printf '#!/bin/sh\nexec node --disable-warning=ExperimentalWarning /app/src/main.ts "$@"\n' > /usr/local/bin/lunabot-connector \
+  && chmod 0755 /usr/local/bin/lunabot-connector \
   && chmod -R go-w /app \
-  && mausbot-connector version
+  && lunabot-connector version
 ENV NODE_ENV=production
 USER root
-ENTRYPOINT ["mausbot-connector"]
+ENTRYPOINT ["lunabot-connector"]
 CMD ["run"]

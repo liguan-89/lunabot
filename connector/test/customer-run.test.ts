@@ -287,7 +287,7 @@ describe("a customer-run server: what leaves it", () => {
 
   it("answers a failed job with its code and a fixed sentence: what Docker or the home said stays in the audit log", () => {
     const failed = reducedReply({ id: "j", ok: false, error: { code: "unhealthy", message: `The home stopped: startup failed: could not open ${EMAIL}'s chat "${WRITTEN}"`, image: RUNNING } });
-    expect(failed).toEqual({ id: "j", ok: false, error: { code: "unhealthy", message: "The server did not become healthy. The server's admin can read the reason with: mausbot-connector audit", image: RUNNING } });
+    expect(failed).toEqual({ id: "j", ok: false, error: { code: "unhealthy", message: "The server did not become healthy. The server's admin can read the reason with: lunabot-connector audit", image: RUNNING } });
     const odd = reducedReply({ id: "j", ok: false, error: { code: WRITTEN as never, message: EMAIL, image: EMAIL } });
     expect(odd).toMatchObject({ error: { code: "docker" } });
     expect(JSON.stringify([failed, odd])).not.toMatch(/@|Nightingale/);
@@ -609,7 +609,7 @@ describe("a customer-run server: MausBot's requests", () => {
     const { admin, record, refusals, handled } = await connected();
     admin.send({ job: admin.signJob(record.boxId, { id: "x1", type: "export-disk", args: {} }) });
     expect(await admin.replyTo("x1", 5_000)).toEqual({
-      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job MausBot may run on it. The server's admin can read the reason with: mausbot-connector audit" },
+      id: "x1", ok: false, error: { code: "refused_by_mode", message: "This server is run by its owner, and this is not a job MausBot may run on it. The server's admin can read the reason with: lunabot-connector audit" },
     });
     admin.send({ job: admin.signJob(record.boxId, { id: "x2", type: "import-disk", args: { url: "https://storage.example.test/d.tar.gz" } }) });
     expect(await admin.replyTo("x2", 5_000)).toMatchObject({ ok: false, error: { code: "refused_by_mode" } });

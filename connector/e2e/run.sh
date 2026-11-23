@@ -17,7 +17,7 @@ mkdir -p "$OUT"
 # published version exists.
 HOME_A=ghcr.io/liguan-89/lunabot-cloud-home@sha256:45f11c8bddc437a73c227dd23fb534369fa796a3a70bcfe011c881165f0c3c13
 HOME_B=ghcr.io/liguan-89/lunabot-cloud-home@sha256:45f11c8bddc437a73c227dd23fb534369fa796a3a70bcfe011c881165f0c3c13
-CONNECTOR_IMAGE=mausbot-connector:e2e
+CONNECTOR_IMAGE=lunabot-connector:e2e
 PORT=18990
 ADMIN="http://127.0.0.1:$PORT"
 CODE="MB-E2E-$(openssl rand -hex 4 | tr a-f A-F)"
@@ -28,7 +28,7 @@ INSTALL_ENV=(MAUSBOT_ADMIN_URL="$ADMIN" MAUSBOT_CONNECTOR_IMAGE="$CONNECTOR_IMAG
 step() { printf '\n== %s\n' "$*"; }
 fail() {
   printf 'FAILED: %s\n' "$*" >&2
-  docker logs mausbot-connector >"$OUT/connector.log" 2>&1 || true
+  docker logs lunabot-connector >"$OUT/connector.log" 2>&1 || true
   docker logs mausbot-home 2>&1 | tail -n 80 >"$OUT/home.log" || true
   exit 1
 }
@@ -78,8 +78,8 @@ sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" "$CODE" | tee "$OUT
 state=$(control state)
 expect '.connected and (.servers | length) == 1' "$state" "enrolled once"
 expect '.servers[0].host | .arch == "x86_64" and .apparmor and .userns and .cpus >= 2 and .diskGb >= 20 and (.docker | length) > 0' "$state" "enrolled with the host's facts"
-expect '.servers[0].connector.protocol == 2 and .servers[0].connector.image == "mausbot-connector:e2e" and .servers[0].state == "pending"' "$state" "enrolled with its identity, waiting to be accepted"
-state_dir=/var/lib/docker/volumes/mausbot-connector/_data
+expect '.servers[0].connector.protocol == 2 and .servers[0].connector.image == "lunabot-connector:e2e" and .servers[0].state == "pending"' "$state" "enrolled with its identity, waiting to be accepted"
+state_dir=/var/lib/docker/volumes/lunabot-connector/_data
 [ "$(sudo stat -c %a "$state_dir")" = 700 ] || fail "the connector's state folder is not root's alone"
 [ "$(sudo stat -c %a "$state_dir/agent.json")" = 600 ] || fail "the box key is not root's alone"
 
@@ -105,7 +105,7 @@ step "the team's Owner accepts the server; until then it takes no job that chang
 expect '.ok == false and .error.code == "pending_box"' "$(job stop '{}')" "a stop before the Owner accepted"
 curl -sS --max-time 30 -X POST "$ADMIN/control/accept" >/dev/null
 for _ in $(seq 1 30); do
-  if docker exec mausbot-connector mausbot-connector status | jq -e '.accepted' >/dev/null; then break; fi
+  if docker exec lunabot-connector lunabot-connector status | jq -e '.accepted' >/dev/null; then break; fi
   sleep 1
 done
 
@@ -118,7 +118,7 @@ printf '%s\n' "$status" >"$OUT/status-start.json"
 expect '.result.home.health.box | .box == "bwrap" and .checks == "32/32" and .failed == []' "$status" "the box passes 32/32"
 settings=$(home_settings)
 printf '%s\n' "$settings" >"$OUT/home-settings.json"
-expect '.apparmor == "omb-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
+expect '.apparmor == "lunabot-home-narrow" and .stopTimeout == 30' "$settings" "the home's AppArmor profile and stop timeout"
 expect '.host | .Init and .ShmSize == 536870912 and (.MaskedPaths // [] | length) == 0 and (.ReadonlyPaths // [] | length) == 0 and (.Privileged | not) and .OomScoreAdj == -800 and .RestartPolicy.Name == "no"' "$settings" "the home's container settings"
 expect '.host | (.CapDrop | map(sub("^CAP_"; ""))) == ["ALL"] and (.CapAdd | map(sub("^CAP_"; "")) | sort) == ["CHOWN", "KILL", "SETGID", "SETUID"]' "$settings" "the home's capabilities"
 expect '.host | .PortBindings["8080/tcp"] == [{"HostIp": "127.0.0.1", "HostPort": "8080"}] and (.SecurityOpt | any(startswith("seccomp="))) and (.SecurityOpt | any(. == "no-new-privileges=true" or . == "no-new-privileges"))' "$settings" "the home's port and seccomp"
@@ -141,7 +141,7 @@ for _ in $(seq 1 60); do
   sleep 2
 done
 expect '.result.home.state == "running" and .result.home.health.ok' "$(job status '{}')" "the home after a SIGKILL"
-docker logs mausbot-connector >"$OUT/connector.log" 2>&1
+docker logs lunabot-connector >"$OUT/connector.log" 2>&1
 grep -q "the home stopped on its own (exit 137); starting it again" "$OUT/connector.log" || fail "the connector did not start the killed home again"
 grep -q "cleared the data-directory lease records a stopped home left" "$OUT/connector.log" || fail "the connector did not clear the lease the killed home left"
 [ "$(docker exec -u maus mausbot-home cat /data/e2e-marker)" = kept ] || fail "the data did not survive the kill"
@@ -178,17 +178,17 @@ status=$(box_checks)
 expect '.result.home.health.box.checks == "32/32"' "$status" "the box after the rollback"
 
 step "nothing secret in the connector's log"
-docker logs mausbot-connector >"$OUT/connector.log" 2>&1
+docker logs lunabot-connector >"$OUT/connector.log" 2>&1
 if grep -qF "$SECRET" "$OUT/connector.log"; then fail "the bootstrap secret reached the connector's log"; fi
 if grep -qF "$(sudo jq -r .privateKey "$state_dir/agent.json")" "$OUT/connector.log"; then fail "the box's private key reached the connector's log"; fi
 
 step "the audit log: every job, its steps and its result, each line linked to the one before, nothing secret"
-local_status=$(docker exec mausbot-connector mausbot-connector job status '{}')
+local_status=$(docker exec lunabot-connector lunabot-connector job status '{}')
 expect '.ok and .result.home.state == "running"' "$local_status" "a job from root on this server"
-expect '.ok == false and .error.code == "unknown_job"' "$(docker exec mausbot-connector mausbot-connector job shell '{}' || true)" "a job outside the list"
+expect '.ok == false and .error.code == "unknown_job"' "$(docker exec lunabot-connector lunabot-connector job shell '{}' || true)" "a job outside the list"
 [ "$(sudo stat -c %a /var/log/mausbot/audit.jsonl)" = 600 ] || fail "the audit log is not root's alone"
 sudo cat /var/log/mausbot/audit.jsonl >"$OUT/audit.jsonl"
-docker exec mausbot-connector mausbot-connector audit --verify | tee "$OUT/audit-verify.txt"
+docker exec lunabot-connector lunabot-connector audit --verify | tee "$OUT/audit-verify.txt"
 grep -q "each linked to the one before it" "$OUT/audit-verify.txt" || fail "the audit log's chain is broken"
 audit=$(jq -cs . "$OUT/audit.jsonl")
 expect 'any(.[]; .event == "job" and .by == "admin" and .id == "start-1" and (.args.env | index("LUNABOT_CLOUD_BOOTSTRAP_SECRET")))' "$audit" "the start, with its environment's names"
@@ -201,10 +201,10 @@ if grep -qF "$SECRET" "$OUT/audit.jsonl"; then fail "the bootstrap secret reache
 
 step "uninstall stops everything and keeps the data; --delete-data deletes it"
 sudo env "${INSTALL_ENV[@]}" sh "$ROOT/connector/install.sh" uninstall | tee "$OUT/uninstall.txt"
-for container in mausbot-connector mausbot-home; do
+for container in lunabot-connector mausbot-home; do
   if docker inspect "$container" >/dev/null 2>&1; then fail "$container is still there after uninstall"; fi
 done
-[ ! -e /etc/apparmor.d/omb-home-narrow ] || fail "the AppArmor profile is still installed"
+[ ! -e /etc/apparmor.d/lunabot-home-narrow ] || fail "the AppArmor profile is still installed"
 [ "$(docker run --rm -v mausbot-data:/data --entrypoint cat "$HOME_B" /data/e2e-marker)" = kept ] || fail "uninstall did not keep the data"
 docker volume inspect mausbot-snapshot >/dev/null || fail "uninstall did not keep the safety copy"
 sudo test -s /var/log/mausbot/audit.jsonl || fail "uninstall did not keep the audit log"

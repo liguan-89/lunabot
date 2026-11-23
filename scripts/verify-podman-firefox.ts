@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 const podman = process.env.LUNABOT_VERIFY_PODMAN;
 const machine = process.env.LUNABOT_VERIFY_MACHINE;
 if (!podman || !machine) throw new Error("Set LUNABOT_VERIFY_PODMAN and LUNABOT_VERIFY_MACHINE to an explicit test engine");
-const output = resolve(process.env.LUNABOT_VERIFY_OUTPUT || ".omb-scratch/firefox");
+const output = resolve(process.env.LUNABOT_VERIFY_OUTPUT || ".lunabot-scratch/firefox");
 mkdirSync(output, { recursive: true });
 // Keep Podman's connection/config lookup intact while isolating app imports.
 const engineEnv = { ...process.env };

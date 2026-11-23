@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { verificationServerArgs, verificationServerEnvironment } from "../../scripts/control-omb.ts";
+import { verificationServerArgs, verificationServerEnvironment } from "../../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./cleanup.ts";
 import { freePortBlock } from "./ports.ts";
 

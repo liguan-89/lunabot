@@ -5,11 +5,11 @@ export const CONNECTOR_VERSION = "1.0.0";
 
 /** Docker objects the connector owns. */
 export const NAMES = {
-  connector: "mausbot-connector",
-  connectorNext: "mausbot-connector-next",
+  connector: "lunabot-connector",
+  connectorNext: "lunabot-connector-next",
   home: "mausbot-home",
   dataVolume: "mausbot-data",
-  stateVolume: "mausbot-connector",
+  stateVolume: "lunabot-connector",
   snapshotVolume: "mausbot-snapshot",
   backupPrefix: "mausbot-backup-",
 } as const;
@@ -35,7 +35,7 @@ export const PATHS = {
   profiles: process.env.MAUSBOT_PROFILES_DIR || "/app/profiles",
   /** /var/log/mausbot on the host, mounted read-write: the audit log the server's owner reads. */
   audit: process.env.MAUSBOT_AUDIT_DIR || "/var/log/mausbot",
-  /** In the container's own /tmp: `mausbot-connector job` reaches the running connector here. */
+  /** In the container's own /tmp: `lunabot-connector job` reaches the running connector here. */
   jobs: process.env.MAUSBOT_JOBS_SOCKET || "/tmp/mausbot-jobs.sock",
   /** /var/lib/mausbot/update on the host, on a customer-run server only: where an update is handed to the server's own updater. */
   update: process.env.MAUSBOT_UPDATE_DIR || "/var/lib/mausbot/update",
@@ -43,8 +43,8 @@ export const PATHS = {
 
 export const AUDIT_FILE = "audit.jsonl";
 
-export const SECCOMP_FILE = "seccomp-omb-home.json";
-export const APPARMOR_PROFILE = "omb-home-narrow";
+export const SECCOMP_FILE = "seccomp-lunabot-home.json";
+export const APPARMOR_PROFILE = "lunabot-home-narrow";
 
 /** Where the home's edge listens on the server: loopback only, reached by the connector. */
 export const HOME_PORT = 8080;

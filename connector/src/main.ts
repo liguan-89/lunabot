@@ -1,4 +1,4 @@
-// mausbot-connector: `run` (the service), `enroll` (the code on stdin), `status`, `probe`, `job` (one job from root on this
+// lunabot-connector: `run` (the service), `enroll` (the code on stdin), `status`, `probe`, `job` (one job from root on this
 // server), `audit` (the audit log, checked), `pause` and `resume` (remote management, by the server's admin), `version`.
 import { existsSync, readFileSync, statfsSync } from "node:fs";
 import { join } from "node:path";
@@ -315,7 +315,7 @@ async function probeCommand(): Promise<void> {
 }
 
 const JOB_USAGE = [
-  "usage: mausbot-connector job <type> [args as JSON], for example:",
+  "usage: lunabot-connector job <type> [args as JSON], for example:",
   "  job status                                   the server's state, and its backups with their ids",
   "  job backup",
   "  job restore '{\"backupId\":\"<id>\"}'           put a backup back (root only on a server its owner runs); the id is one of job status's backups[].id",
@@ -354,14 +354,14 @@ function auditCommand(): void {
 function pauseCommand(paused: boolean): void {
   const state = new StateStore(PATHS.state);
   if (serverMode(state.agent()) !== "customer-run") {
-    throw new Error("MausBot runs this server, so there is no remote management to pause here. To cut the connection: docker stop mausbot-connector");
+    throw new Error("MausBot runs this server, so there is no remote management to pause here. To cut the connection: docker stop lunabot-connector");
   }
   if (state.paused() !== paused) {
     state.savePause(paused);
     auditLog().append({ event: "management", what: paused ? "paused" : "resumed", by: "local" });
   }
   console.log(paused
-    ? "Remote management is paused: this server refuses every job and request from MausBot, and logs each one. It still reports its health. To allow them again: mausbot-connector resume"
+    ? "Remote management is paused: this server refuses every job and request from MausBot, and logs each one. It still reports its health. To allow them again: lunabot-connector resume"
     : "Remote management is on again: MausBot may run the jobs this server allows.");
 }
 
@@ -379,7 +379,7 @@ const commands: Record<string, () => Promise<void> | void> = {
 
 const command = commands[process.argv[2] ?? "run"];
 if (!command) {
-  console.error(`usage: mausbot-connector run | enroll | status | probe [--json] | job <type> [args] | audit [--tail N | --verify] | pause | resume | version\n${JOB_USAGE}`);
+  console.error(`usage: lunabot-connector run | enroll | status | probe [--json] | job <type> [args] | audit [--tail N | --verify] | pause | resume | version\n${JOB_USAGE}`);
   process.exitCode = 2;
 } else {
   Promise.resolve().then(command).catch((error) => {

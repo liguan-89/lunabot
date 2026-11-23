@@ -6,7 +6,7 @@ import { createServer } from "node:https";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { credentialStoreFlags } from "../server/browser/egress/gate.ts";
-import { launchVerificationServer, runControlOmb } from "./control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "./control-lunabot.ts";
 import { agentBrowser, ensureUiBrowser, sessionEnv } from "./testing/control-omb-ui.ts";
 import { mountPreview, type MountedPreview } from "./testing/preview-fixture.ts";
 
@@ -23,14 +23,14 @@ let attempts = 0;
 const requestBodies: Array<{ alias?: string }> = [];
 const deletedAccounts: string[] = [];
 const services: Record<string, { connected: boolean; pending: boolean; status: string; accounts: Array<{ id: string; alias: string; status: string }> }> = {};
-const evidence = resolve(process.env.LUNABOT_UI_EVIDENCE_DIR ?? ".omb-scratch/connected-apps-evidence");
+const evidence = resolve(process.env.LUNABOT_UI_EVIDENCE_DIR ?? ".lunabot-scratch/connected-apps-evidence");
 mkdirSync(evidence, { recursive: true });
 const pauseAuthorize = (fail = false) => {
   failure = fail;
   hold = new Promise<void>((done) => { release = done; });
 };
 try {
-  await runControlOmb(["doctor", "--url", fixture.info.url]);
+  await runControlLunabot(["doctor", "--url", fixture.info.url]);
   // All native popups use this dedicated test hostname mapped to loopback.
   // Its ephemeral certificate and ignored trust live only in this fixture.
   const key = join(fixture.info.dataDir, "oauth-fixture.key");

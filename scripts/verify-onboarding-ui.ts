@@ -5,12 +5,12 @@ import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { runControlOmb } from "./control-omb.ts";
+import { runControlLunabot } from "./control-lunabot.ts";
 import { TOUR_STEPS } from "../src/lib/guided-tour.ts";
 
 const handle = process.argv[2];
 if (!handle) throw new Error("Usage: node --experimental-strip-types scripts/verify-onboarding-ui.ts /path/to/fixture/ui.json");
-const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
+const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", handle, ...args]) as Promise<Record<string, any>>;
 const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
 const click = async (name: string) => {
   // Let the 320ms spotlight transition land before sending a real pointer
@@ -32,7 +32,7 @@ const poll = async (read: () => Promise<unknown>, expected: unknown, label: stri
   assert.deepEqual(result, expected, label);
 };
 const textVisible = (text: string) => poll(async () => (await snapshot()).includes(text), true, text);
-const evidence = resolve(".omb-scratch/verify-evidence/onboarding");
+const evidence = resolve(".lunabot-scratch/verify-evidence/onboarding");
 mkdirSync(evidence, { recursive: true });
 const screenshot = (name: string) => ui("screenshot", "--out", resolve(evidence, `${name}.png`));
 const openSettings = async () => {

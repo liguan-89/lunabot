@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -16,7 +16,7 @@ const enabled = process.env.LUNABOT_UI_E2E === "1" || Boolean(resolveAgentBrowse
   const temporary = mkdtempSync(join(tmpdir(), "omb-direct-ui-plan-"));
   const planPath = join(temporary, "plan.json");
   writeFileSync(planPath, "{}");
-  const child = spawn(process.execPath, ["--experimental-strip-types", "scripts/control-omb.ts", "ui", "launch"], {
+  const child = spawn(process.execPath, ["--experimental-strip-types", "scripts/control-lunabot.ts", "ui", "launch"], {
     cwd: ROOT, env: { ...process.env, FAKE_CLAUDE_ROOM_PLAN: planPath }, stdio: ["ignore", "pipe", "pipe"],
   });
   let output = "";
@@ -38,7 +38,7 @@ const enabled = process.env.LUNABOT_UI_E2E === "1" || Boolean(resolveAgentBrowse
       if (!response.ok) throw new Error(JSON.stringify(result));
       return result;
     };
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info.ui, ...args]) as Promise<any>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info.ui, ...args]) as Promise<any>;
     const snapshot = async () => (await ui("snapshot")).snapshot as string;
     const click = async (name: string, role = "button") => {
       const refs = (await ui("snapshot")).refs as Record<string, { role: string; name: string }>;

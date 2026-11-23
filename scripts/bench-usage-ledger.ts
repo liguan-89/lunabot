@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout } from "node:timers/promises";
-import { launchVerificationServer } from "./control-omb.ts";
+import { launchVerificationServer } from "./control-lunabot.ts";
 
 const count = Number(process.argv[2] ?? 40_000);
 assert(Number.isSafeInteger(count) && count > 0);

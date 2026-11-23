@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, realpathSync } from
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { afterAll, beforeAll, expect, it, vi } from "vitest";
-import { launchVerificationServer, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { createComputerSharing, type SharedFolder } from "../electron/computer-sharing.mjs";
 import { sessionCookieName } from "./request-auth.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";

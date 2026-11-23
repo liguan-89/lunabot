@@ -98,7 +98,7 @@ export interface ConnectorReport {
   checks: { id: string; ok: boolean; warning?: boolean; fix?: string }[];
 }
 
-const CONNECTOR = "mausbot-connector";
+const CONNECTOR = "lunabot-connector";
 
 /** Asks the connector's container, as root may; null where none runs or it cannot be asked. */
 export async function connectorReport(probe: HostProbe): Promise<ConnectorReport | null> {
@@ -130,7 +130,7 @@ function userNamespaceCheck(probe: HostProbe, connector: ConnectorReport | null)
     return fail("userns", "Bot sandbox: this kernel has no user namespaces", "use a stock Ubuntu or Debian kernel (CONFIG_USER_NS)");
   }
   if (sysctl("kernel.apparmor_restrict_unprivileged_userns") === "1") {
-    // A MausBot home runs under its own AppArmor profile (omb-home-narrow), which allows them for that container alone.
+    // A MausBot home runs under its own AppArmor profile (lunabot-home-narrow), which allows them for that container alone.
     if (connector?.checks.some((check) => check.id === "box" && check.ok)) {
       return ok("userns", "Unprivileged user namespaces: AppArmor restricts them here, and Luna Bot's home has them through its own AppArmor profile");
     }

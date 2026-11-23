@@ -9,7 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../scripts/control-lunabot.ts";
 
 // The fixture can only write one fixed file in the launcher's disposable home: provider arguments cannot select a path.
 const MCP_FIXTURE = `
@@ -117,7 +117,7 @@ const apiOf = (current: VerificationServer) => async (method: string, path: stri
 };
 
 const api = (method: string, path: string, body?: unknown, status = 200) => apiOf(fixture)(method, path, body, status);
-const control = (...args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+const control = (...args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
 const messages = async (threadId: string) => (await api("GET", `/api/threads/${threadId}/messages?limit=100`)).messages as any[];
 const script = (calls: unknown[]) => writeFileSync(callsFile, JSON.stringify(calls));
 const idle = (botId: string) => expect.poll(async () => (await api("GET", "/api/bots")).bots.find((bot: any) => bot.id === botId)?.busy, { timeout: 20_000 }).toBeFalsy();

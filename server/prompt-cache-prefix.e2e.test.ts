@@ -4,7 +4,7 @@
 // head is what two threads must have in common and each thread's own folder rides in its own turn.
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
 
 const FILE_LOCATIONS = "File locations for this bot (absolute paths): ";
@@ -12,7 +12,7 @@ const FILE_LOCATIONS = "File locations for this bot (absolute paths): ";
 it("sends two threads of one bot the same stable instructions, each with its own folder in its own turn", async () => {
   const fixture = await launchVerificationServer();
   const dumpPath = piDumpPath(fixture.info.dataDir);
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const api = async (method: string, path: string, body: unknown) => {
     const response = await fetch(`${fixture.info.url}${path}`, { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     expect(response.ok).toBe(true);

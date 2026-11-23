@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { botApiCurl } from "../shared/bot-api.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
 import { piDumpPath, piInstructionsFor, piTurns, type PiTurn } from "./testing/pi-dump.ts";
@@ -55,7 +55,7 @@ it("answers the card's own curl with the bot's reply, and refuses a wrong key, a
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE });
   const { url } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Scout", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Scout", "--url", url]) as any).bot;
   const port = Number(new URL(url).port);
 
   // Off by default, and the card's address is the webhook receiver's.
@@ -105,7 +105,7 @@ it.each(["ask", "full", "auto"])("a bot at %s stops at the approval: nothing ans
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE, FAKE_PI_PERMISSION_ON: "Clean up the downloads folder" });
   const { url, dataDir } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Careful", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Careful", "--url", url]) as any).bot;
   await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: level });
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
 
@@ -139,7 +139,7 @@ it("stays on Ask when the person sets the whole bot to Full access afterwards", 
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE, FAKE_PI_EXIT_AFTER_TURN: "1" });
   const { url, dataDir } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Flipped", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Flipped", "--url", url]) as any).bot;
   await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask" });
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   const first = await call(on.url, on.key, { message: "First" });
@@ -154,7 +154,7 @@ it("a saved command rule never answers for a call: the card waits for the person
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE, FAKE_PI_PERMISSION_ON: "Run the fixture" });
   const { url, dataDir } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Ruled", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Ruled", "--url", url]) as any).bot;
   await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "ask" });
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   const pending = call(on.url, on.key, { message: "Run the fixture", wait: 20 }).catch((error: unknown) => ({ status: 0, body: { error: String(error) } }));
@@ -176,7 +176,7 @@ it("tells the model nothing about the person or their work, works in no folder o
   const api = appApi(url);
   const project = join(dataDir, "the-persons-project");
   mkdirSync(project, { recursive: true });
-  const bot = (await runControlOmb(["new-bot", "--name", "Fenced", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Fenced", "--url", url]) as any).bot;
   await api("PATCH", `/api/bots/${bot.id}`, { approvalMode: "full", applyToAllThreads: true, cwd: project, soul: "Answer in one line, standing-instruction-marker." });
   await api("PATCH", "/api/config", { profile: { name: "Ada", aboutMe: "about-the-person-marker" } });
 
@@ -214,7 +214,7 @@ it("a failed call reports to no Chief, whose turn has tools, while a person's ow
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE, FAKE_PI_MODE: "turn-error" });
   const { url } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Worker", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Worker", "--url", url]) as any).bot;
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   const bots = async () => (await api("GET", "/api/bots")).bots as any[];
   const chief = (await bots()).find((one) => one.chiefOfStaff);
@@ -237,7 +237,7 @@ it("confines every call on this engine, so no bot is ever refused for an AI too 
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE });
   const { url } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Dated", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Dated", "--url", url]) as any).bot;
   // pi declares confined guest turns, so the Bot API's "this AI can't work in it" refusal has no version to fire on:
   // every bot on this engine may take calls, and the card never shows a reason it cannot.
   const status = await api("GET", `/api/bots/${bot.id}/bot-api`);
@@ -250,7 +250,7 @@ it("says it is still working when the reply takes longer than the caller will wa
   fixture = await launchVerificationServer({ ...process.env, ...CONFINED_ENGINE, FAKE_PI_HOLD_ON: "Think about it" });
   const { url } = fixture.info;
   const api = appApi(url);
-  const bot = (await runControlOmb(["new-bot", "--name", "Slow", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Slow", "--url", url]) as any).bot;
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   expect(await call(on.url, on.key, { message: "Think about it", wait: 1 })).toMatchObject({ status: 202, body: { status: "working", thread: expect.any(String) } });
 }, hostTimeout(60_000));
@@ -261,7 +261,7 @@ it("a Retry in the app on a caller's line runs it again as the call: the caller'
   const { url, dataDir } = fixture.info;
   const api = appApi(url);
   const read = () => piTurns(piDumpPath(dataDir)).at(-1) as PiTurn;
-  const bot = (await runControlOmb(["new-bot", "--name", "Again", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Again", "--url", url]) as any).bot;
   const on = await api("POST", `/api/bots/${bot.id}/bot-api`, { enabled: true });
   const first = await call(on.url, on.key, { message: "retry-call-marker" });
   expect(first.body).toEqual({ reply: "first answer", thread: expect.any(String) });

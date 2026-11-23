@@ -10,11 +10,11 @@
 # healthy; a socket path is the same file again as soon as the server is back.
 #
 #   cp .env.example .env   # set DOMAIN
-#   docker compose pull omb && docker compose up -d     # prebuilt image
+#   docker compose pull lunabot && docker compose up -d     # prebuilt image
 #   docker compose up -d --build                        # or build from source
 #   ./update.sh                                         # later: the stable version, with a way back
 services:
-  omb:
+  lunabot:
     build:
       context: ..
       args:
@@ -52,7 +52,7 @@ services:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
       # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
-      # container in once first: docker compose exec omb lunabot login --relay
+      # container in once first: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]

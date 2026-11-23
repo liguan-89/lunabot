@@ -1,6 +1,6 @@
 // Against the real server: the two prompts are assembled in two places, and only the assembled bytes prove they agree.
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piTurnText, piTurns } from "./testing/pi-dump.ts";
 
 it("gives a room turn the memory_update guidance, not the file-tools one", async () => {
@@ -24,12 +24,12 @@ it("gives a room turn the memory_update guidance, not the file-tools one", async
   };
   try {
     // SAFETY: control-omb returns the created bot record under `bot`
-    const { bot: lead } = await runControlOmb(["new-bot", "--name", "Lead"], { env }) as { bot: { id: string } };
+    const { bot: lead } = await runControlLunabot(["new-bot", "--name", "Lead"], { env }) as { bot: { id: string } };
     // SAFETY: same shape as above
-    const { bot: helper } = await runControlOmb(["new-bot", "--name", "Helper"], { env }) as { bot: { id: string } };
+    const { bot: helper } = await runControlLunabot(["new-bot", "--name", "Helper"], { env }) as { bot: { id: string } };
     // A 1:1 turn first: it is the reference the room turn must match.
-    await runControlOmb(["send", "--bot", lead.id, "--text", "Remember that the fixture garden is watered on Mondays."], { env });
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["send", "--bot", lead.id, "--text", "Remember that the fixture garden is watered on Mondays."], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const direct = turnHolding("the fixture garden is watered on Mondays");
     expect(direct, "the 1:1 turn's dump").not.toBeNull();
     expect(direct!.instructions).toContain("Change MEMORY.md only with memory_update");
@@ -42,7 +42,7 @@ it("gives a room turn the memory_update guidance, not the file-tools one", async
     }) as { group: { id: string } };
     await api("POST", `/api/groups/${group.id}/messages`, { text: "Lead, what day is the garden watered?" });
     await expect.poll(() => turnHolding("what day is the garden watered") !== null, { timeout: 30_000 }).toBe(true);
-    await runControlOmb(["wait", "--bot", lead.id, "--timeout", "30"], { env });
+    await runControlLunabot(["wait", "--bot", lead.id, "--timeout", "30"], { env });
     const room = turnHolding("what day is the garden watered")!;
     // The room's own words carry the tail; pi sends the standing instructions once, on the session's first turn.
     expect(room.words).toContain("Reply to the conversation above as");

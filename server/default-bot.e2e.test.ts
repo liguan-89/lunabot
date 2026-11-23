@@ -3,7 +3,7 @@
 // open so this test can start the agents server that turn was handed and call create_bot the way the engine would.
 import { spawn } from "node:child_process";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { childEnv } from "./testing/lunabot-env.ts";
 import { piDumpPath, piInstructionsFor, piTurns } from "./testing/pi-dump.ts";
@@ -37,7 +37,7 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
       ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10_000) });
     return { status: response.status, body: await response.json() as any };
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const bots = async () => (await api("GET", "/api/bots")).body.bots as any[];
   /** The launch the turn carrying `marker` ran on (its MCP servers) and the instructions in effect on it. */
   const launchHolding = async (marker: string) => {
@@ -108,7 +108,7 @@ it("makes Luna Bot a new install's first bot, never deleted, hidden by its switc
 it("lets Luna Bot read the unread notifications and mark finished work read, not once sign-in members share the workspace, and gives no other bot the tools", async () => {
   const fixture = await launchVerificationServer({ ...process.env, FAKE_PI_HOLD_ON: "Stay active." });
   const api = async (path: string) => (await (await fetch(`${fixture.info.url}${path}`, { signal: AbortSignal.timeout(10_000) })).json()) as any;
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   /** The agents server the bot's held turn was launched with: the identity its tools answer under. */
   const launch = async (botId: string) => {
     const since = piTurns(piDumpPath(fixture.info.dataDir)).length;

@@ -4,22 +4,22 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { runControlOmb } from "../scripts/control-omb.ts";
+import { runControlLunabot } from "../scripts/control-lunabot.ts";
 import { launchRestartableServer } from "./testing/restartable-server.ts";
 
 it("lets a bot propose a temporary grant the person confirms into config.json", async () => {
   const server = await launchRestartableServer({ engine: "pi", scripted: true });
   const grants = () => (JSON.parse(readFileSync(join(server.dataDir, "config.json"), "utf8")) as { decisions?: { grants?: unknown[] } }).decisions?.grants;
   try {
-    const { bot } = await runControlOmb(["new-bot", "--name", "Scout", "--url", server.url]) as { bot: { id: string } };
+    const { bot } = await runControlLunabot(["new-bot", "--name", "Scout", "--url", server.url]) as { bot: { id: string } };
     writeFileSync(join(server.dataDir, "room-plan.json"), JSON.stringify({
       [bot.id]: { turns: [
         { steps: [{ tool: "propose_grant", arguments: { text: "billing mails may be sent", hours: 4 } }], reply: "The card is up." },
       ] },
     }));
-    const sent = await runControlOmb(["send", "--bot", bot.id, "--text", "Stop asking me about billing mails today.", "--url", server.url]) as { taskId?: string };
+    const sent = await runControlLunabot(["send", "--bot", bot.id, "--text", "Stop asking me about billing mails today.", "--url", server.url]) as { taskId?: string };
     const threadId = sent.taskId!;
-    const waited = await runControlOmb(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
+    const waited = await runControlLunabot(["wait", "--bot", bot.id, "--timeout", "30", "--url", server.url]) as { state?: string };
     expect(waited.state).toBe("completed");
 
     const raw = await fetch(`${server.url}/api/threads/${threadId}/messages?limit=50`);

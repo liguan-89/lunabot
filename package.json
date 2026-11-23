@@ -35,7 +35,7 @@
     "pair": "node --experimental-strip-types server/lunabot.ts pair",
     "dev:server": "node --experimental-strip-types server/dev-server.ts",
     "mcp": "node --experimental-strip-types scripts/mcp-server.ts",
-    "control:omb": "node --experimental-strip-types scripts/control-omb.ts",
+    "control:lunabot": "node --experimental-strip-types scripts/control-lunabot.ts",
     "eval": "node --experimental-strip-types evals/runners/run-evals.ts",
     "dev:desktop": "node scripts/prepare-cloudflared.mjs --current && electron .",
     "build": "tsc -b && tsc -p tsconfig.server.json && vite build",

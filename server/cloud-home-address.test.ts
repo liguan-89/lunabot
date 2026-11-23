@@ -69,17 +69,17 @@ it("serves HTTPS on the home's own domain only when asked, with the certificate 
   expect(tls.edge.LUNABOT_CLOUD_PUBLIC_HOST).toBe("mausbot.acme.example");
   // A new container (an update, a rollback, a restart on a new host) finds the same certificate; Let's Encrypt issues
   // one name at most 5 times a week.
-  expect(tls.edge.LUNABOT_CLOUD_EDGE_STORAGE).toBe("/data/.omb-edge/caddy");
+  expect(tls.edge.LUNABOT_CLOUD_EDGE_STORAGE).toBe("/data/.lunabot-edge/caddy");
   expect(posix.relative("/data", tls.edge.LUNABOT_CLOUD_EDGE_STORAGE!)).not.toMatch(/^\.\.|^\//);
   expect(tls.edge.LUNABOT_CLOUD_EDGE_STORAGE).not.toMatch(/^\/tmp\//);
-  expect(edgeCertificateStorage("/srv/home")).toBe("/srv/home/.omb-edge/caddy");
+  expect(edgeCertificateStorage("/srv/home")).toBe("/srv/home/.lunabot-edge/caddy");
   // Never in the server's data folder: a workspace backup or export must not carry the site's private key.
   expect(posix.relative(tls.server.LUNABOT_DATA_DIR!, tls.edge.LUNABOT_CLOUD_EDGE_STORAGE!)).toMatch(/^\.\.\//);
   expect(tls.server).not.toHaveProperty("LUNABOT_CLOUD_EDGE_TLS");
   expect(tls.server).not.toHaveProperty("LUNABOT_CLOUD_EDGE_STORAGE");
 
-  expect(edgeConfigFiles({ LUNABOT_CLOUD_EDGE_CONFIG: "/etc/omb-edge/Caddyfile", LUNABOT_CLOUD_EDGE_TLS: "1" }))
-    .toEqual({ config: "/etc/omb-edge/Caddyfile", routes: "/etc/omb-edge/edge-routes.caddy" });
+  expect(edgeConfigFiles({ LUNABOT_CLOUD_EDGE_CONFIG: "/etc/lunabot-edge/Caddyfile", LUNABOT_CLOUD_EDGE_TLS: "1" }))
+    .toEqual({ config: "/etc/lunabot-edge/Caddyfile", routes: "/etc/lunabot-edge/edge-routes.caddy" });
   expect(() => edgeOf(ownServer({ LUNABOT_CLOUD_EDGE_TLS: "on" }))).toThrow(/LUNABOT_CLOUD_EDGE_TLS/);
 });
 

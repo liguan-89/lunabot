@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -71,7 +71,7 @@ const PROBE = `(() => {
   let info: { ui: string } | undefined;
   try {
     let stdout = "", stderr = "";
-    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-omb.ts"), "ui", "launch"], {
+    child = spawn(process.execPath, ["--experimental-strip-types", join(ROOT, "scripts/control-lunabot.ts"), "ui", "launch"], {
       cwd: ROOT,
       env: { ...process.env, FAKE_CLAUDE_REPLIES: JSON.stringify([REPLY]), FAKE_CLAUDE_TOOL_CALLS: "[]" },
       stdio: ["ignore", "pipe", "pipe"],
@@ -83,7 +83,7 @@ const PROBE = `(() => {
       if (child!.exitCode !== null || child!.signalCode !== null) throw new Error(`UI launcher exited: ${stderr}`);
       try { info = JSON.parse(stdout); return Boolean(info?.ui); } catch { return false; }
     }, { timeout: binary ? 180_000 : 600_000, interval: 250 }).toBe(true);
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info!.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info!.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
 
     await expect.poll(() => evaluate(`Boolean(document.querySelector('${ENTRY}'))`), { timeout: 15_000 }).toBe(true);

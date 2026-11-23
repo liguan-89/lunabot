@@ -11,7 +11,7 @@ import { tmpdir } from "node:os";
 import { delimiter, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, expect, it } from "vitest";
-import { launchVerificationServer, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piTurnHolding } from "./testing/pi-dump.ts";
 

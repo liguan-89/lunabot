@@ -5,7 +5,7 @@ import { closeSync, existsSync, openSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 
 it("starts new bots and threads at Full access on the one engine, and keeps a person's Ask", async () => {

@@ -1,5 +1,5 @@
 {
-  "name": "mausbot-connector",
+  "name": "lunabot-connector",
   "private": true,
   "type": "module",
   "description": "Runs a MausBot Cloud home on a server of its owner's, under MausBot's control, over one outbound connection.",

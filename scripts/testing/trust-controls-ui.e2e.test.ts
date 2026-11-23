@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -37,7 +37,7 @@ describe("trust controls in the real renderer", () => {
       try { info = JSON.parse(output); return Boolean(info.ui); } catch { return false; }
     }, { timeout: 300_000, interval: 250 }).toBe(true);
 
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", info.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
     const click = (name: string) => ui("click", "--name", name);
     const type = async (name: string, text: string) => {
@@ -62,8 +62,8 @@ describe("trust controls in the real renderer", () => {
     await click("More");
     await click("Activity");
     await expect.poll(snapshot, { timeout: 10_000 }).toContain("Nothing yet.");
-    await runControlOmb(["send", "--bot", bot.id, "--text", "Run the harmless fixture tool.", "--url", info.url]);
-    await runControlOmb(["wait", "--bot", bot.id, "--timeout", "20", "--url", info.url]);
+    await runControlLunabot(["send", "--bot", bot.id, "--text", "Run the harmless fixture tool.", "--url", info.url]);
+    await runControlLunabot(["wait", "--bot", bot.id, "--timeout", "20", "--url", info.url]);
     await expect.poll(snapshot, { timeout: 10_000 }).toContain("Ran a command");
     await ui("screenshot", "--out", `${info.logPath}.activity.png`);
     await click("Close activity");

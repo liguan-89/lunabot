@@ -23,7 +23,7 @@ export interface AgentRecord {
   mode?: ServerMode;
 }
 
-/** The server's admin paused remote management (`mausbot-connector pause`): every job and request from MausBot is refused. */
+/** The server's admin paused remote management (`lunabot-connector pause`): every job and request from MausBot is refused. */
 export interface PauseRecord {
   paused: boolean;
   at: number;
@@ -211,7 +211,7 @@ export class StateStore {
     this.write(FILES.status, { ...this.status(), ...patch });
   }
 
-  /** Read from the disk each time: `mausbot-connector pause` is another process. */
+  /** Read from the disk each time: `lunabot-connector pause` is another process. */
   paused(): boolean {
     return this.read<PauseRecord>(FILES.pause)?.paused === true;
   }

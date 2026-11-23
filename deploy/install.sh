@@ -29,8 +29,8 @@ settings() {
   # bot reach what it must not, or stops bots working. Every other check, and any check this list has never heard
   # of, stops it. A result that carries its own "severity" says so itself and this list is not asked.
   SANDBOX_WARN_ONLY="keyring-denied hostname-private cpu-list-readable fly-api-hidden egress-public-allowed"
-  SECCOMP=seccomp-omb-home.json
-  APPARMOR_PROFILE=omb-home-narrow
+  SECCOMP=seccomp-lunabot-home.json
+  APPARMOR_PROFILE=lunabot-home-narrow
   PROJECT=lunabot
   MIN_DOCKER=24
   MIN_CPUS=2
@@ -642,7 +642,7 @@ write_compose() {
 # back in a new one, and left Caddy refusing HTTPS in the old one.
 name: lunabot
 services:
-  omb:
+  lunabot:
     image: ${LUNABOT_IMAGE:?run the installer again}
     restart: unless-stopped
     init: true
@@ -663,7 +663,7 @@ services:
       LUNABOT_SIGNIN_MEMBER_EMAILS:
       LUNABOT_SIGNIN_SMTP_URL:
       LUNABOT_SIGNIN_SMTP_FROM:
-      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec omb lunabot login --relay
+      # "1": phones pair by QR through MausBot Relay. Sign in once: docker compose exec lunabot lunabot login --relay
       LUNABOT_PHONE_RELAY:
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://127.0.0.1:8799/api/health | grep -qE 'lunabot|dexbot|openmausbot'"]
@@ -861,8 +861,8 @@ sandbox_field() { # result name: that field of one result of the self-check
 check_sandbox_runs() {
   [ "$SANDBOX" = on ] || return 0
   say "Checking that the bots' sandbox holds..."
-  see="See it with: cd $INSTALL_DIR && sudo docker compose exec omb node dist-server/bot-box/box-check.js --public=none  and send us what it prints."
-  report=$(compose exec -T omb node dist-server/bot-box/box-check.js --public=none 2>/dev/null | tr -d '\n' || true)
+  see="See it with: cd $INSTALL_DIR && sudo docker compose exec lunabot node dist-server/bot-box/box-check.js --public=none  and send us what it prints."
+  report=$(compose exec -T lunabot node dist-server/bot-box/box-check.js --public=none 2>/dev/null | tr -d '\n' || true)
   case "$report" in
     *'"box":"bwrap"'*'"results":[{'*) ;;
     *) fail "MausBot is running, but its bots' sandbox gave no answer to its self-check, so bots may not be separated from the server. $see" ;;
@@ -976,7 +976,7 @@ connect_server() {
       fail "MausBot is installed and running here, but the connector's installer could not be downloaded from $ADMIN_URL. Nothing needs reinstalling: run this again with your code once that address answers."
     fi
   fi
-  if ! grep -q 'mausbot-connector' "$connector_script" 2>/dev/null; then
+  if ! grep -q 'lunabot-connector' "$connector_script" 2>/dev/null; then
     [ -z "$fetched" ] || rm -f "$fetched"
     fail "MausBot is installed and running here, but what $ADMIN_URL sent is not the connector's installer. Nothing needs reinstalling: copy the install command from MausBot again."
   fi
@@ -996,7 +996,7 @@ connect_server() {
 # The first admin's one-time sign-in link, as `lunabot pair` prints it: its code line (until when it works) and the
 # link. Nothing when the server would not make one.
 first_admin_link() {
-  made=$(compose exec -T omb lunabot pair --label "First admin" 2>/dev/null) || return 1
+  made=$(compose exec -T lunabot lunabot pair --label "First admin" 2>/dev/null) || return 1
   lines=$(printf '%s\n' "$made" | grep -E '^(Pairing code|Link) ' || true)
   case "$lines" in *"Link "*"https://$DOMAIN/pair#code="*) printf '%s\n' "$lines" | sed 's/^/  /' ;; *) return 1 ;; esac
 }
@@ -1005,7 +1005,7 @@ finish() {
   say ""
   say "MausBot is running at https://$DOMAIN"
   say ""
-  pair_command="cd $INSTALL_DIR && sudo docker compose exec omb lunabot pair --label \"First admin\""
+  pair_command="cd $INSTALL_DIR && sudo docker compose exec lunabot lunabot pair --label \"First admin\""
   # Only to a terminal: in a log, the link would let whoever reads it sign in as the admin until it is used or expires.
   if [ -t 1 ] && link=$(first_admin_link); then
     say "To sign in as the first admin, open this one-time link in your browser. Anyone who has it can use it, once:"
@@ -1070,7 +1070,7 @@ run_uninstall() {
   if [ -f "$SYSROOT/etc/mausbot/$SECCOMP" ]; then
     say "The sandbox's two profiles stay on this server: /etc/mausbot/$SECCOMP and /etc/apparmor.d/$APPARMOR_PROFILE."
   fi
-  if [ -n "$(docker ps -aq --filter name=mausbot-connector 2>/dev/null || true)" ]; then
+  if [ -n "$(docker ps -aq --filter name=lunabot-connector 2>/dev/null || true)" ]; then
     say "This server is still connected to MausBot. To disconnect it, run the uninstall command MausBot shows for the connector."
   fi
 }

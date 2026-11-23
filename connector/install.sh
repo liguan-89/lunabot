@@ -20,13 +20,13 @@ CONNECTOR_IMAGE="${MAUSBOT_CONNECTOR_IMAGE:-@MAUSBOT_CONNECTOR_IMAGE@}"
 ETC_DIR="${MAUSBOT_ETC_DIR:-/etc/mausbot}"
 AUDIT_DIR="${MAUSBOT_AUDIT_DIR:-/var/log/mausbot}"
 APPARMOR_DIR="${MAUSBOT_APPARMOR_DIR:-/etc/apparmor.d}"
-PROFILE=omb-home-narrow
-SECCOMP=seccomp-omb-home.json
-CONNECTOR=mausbot-connector
-CONNECTOR_NEXT=mausbot-connector-next
+PROFILE=lunabot-home-narrow
+SECCOMP=seccomp-lunabot-home.json
+CONNECTOR=lunabot-connector
+CONNECTOR_NEXT=lunabot-connector-next
 HOME_CONTAINER=mausbot-home
 DATA_VOLUME=mausbot-data
-STATE_VOLUME=mausbot-connector
+STATE_VOLUME=lunabot-connector
 SNAPSHOT_VOLUME=mausbot-snapshot
 ROLE_LABEL=com.mausbot.role
 INSTALL_DIR="${MAUSBOT_INSTALL_DIR:-/opt/lunabot}"
@@ -304,7 +304,7 @@ start_connector() {
   say "Starting the MausBot connector..."
   docker volume create "$STATE_VOLUME" >/dev/null
   install -d -m 0755 "$ETC_DIR"
-  # The audit log: every job MausBot runs here, root's, for you to read (mausbot-connector audit).
+  # The audit log: every job MausBot runs here, root's, for you to read (lunabot-connector audit).
   install -d -m 0750 "$AUDIT_DIR"
   docker rm -f "$CONNECTOR" "$CONNECTOR_NEXT" >/dev/null 2>&1 || true
   instance=$(cat /proc/sys/kernel/random/uuid)
@@ -323,7 +323,7 @@ start_connector() {
     --log-opt max-size=10m --log-opt max-file=3 \
     "$@" "$CONNECTOR_IMAGE" run >/dev/null || fail "The MausBot connector could not be started (Docker's message is above). Run this command again."
   for _ in 1 2 3 4 5 6 7 8 9 10; do
-    if docker exec "$CONNECTOR" mausbot-connector version >/dev/null 2>&1; then return; fi
+    if docker exec "$CONNECTOR" lunabot-connector version >/dev/null 2>&1; then return; fi
     sleep 1
   done
   fail "The MausBot connector did not start. Its log: $(docker logs --tail 5 "$CONNECTOR" 2>&1 | tr '\n' ' ')"
@@ -331,7 +331,7 @@ start_connector() {
 
 check_box() {
   say "Checking that the bots' safety box works here..."
-  probe=$(docker exec "$CONNECTOR" mausbot-connector probe 2>&1 || true)
+  probe=$(docker exec "$CONNECTOR" lunabot-connector probe 2>&1 || true)
   problems=$(printf '%s\n' "$probe" | sed -n 's/^fail [a-z]* //p')
   warnings=$(printf '%s\n' "$probe" | sed -n 's/^warn [a-z]* //p')
   if [ -n "$warnings" ]; then printf '%s\n' "$warnings" | sed 's/^/  note: /'; fi
@@ -344,15 +344,15 @@ connect() {
   if [ -n "$code" ]; then
     say "Connecting to MausBot..."
     # The code works once: its refusal is read from this one attempt.
-    if ! refusal=$(printf '%s\n' "$code" | docker exec -i -e "MAUSBOT_ADMIN_URL=$ADMIN_URL" "$CONNECTOR" mausbot-connector enroll 2>&1 >/dev/null); then
+    if ! refusal=$(printf '%s\n' "$code" | docker exec -i -e "MAUSBOT_ADMIN_URL=$ADMIN_URL" "$CONNECTOR" lunabot-connector enroll 2>&1 >/dev/null); then
       fail "$(printf '%s\n' "$refusal" | tail -n 1)"
     fi
-  elif ! docker exec "$CONNECTOR" mausbot-connector status | grep -q '"enrolled":true'; then
+  elif ! docker exec "$CONNECTOR" lunabot-connector status | grep -q '"enrolled":true'; then
     fail "Add the one-time code MausBot shows next to the install command, like this: $(command_line '<code>')"
   fi
   waited=0
   while [ "$waited" -lt 60 ]; do
-    if docker exec "$CONNECTOR" mausbot-connector status 2>/dev/null | grep -q '"connected":true'; then return; fi
+    if docker exec "$CONNECTOR" lunabot-connector status 2>/dev/null | grep -q '"connected":true'; then return; fi
     sleep 1
     waited=$((waited + 1))
   done
@@ -395,9 +395,9 @@ install_connector() {
     say ""
     say "Connected. Your server shows up in MausBot in a minute, for your team's Owner to accept."
     say "You run this server: MausBot can start, stop, update and back it up, and sees its versions, health and seat count."
-    say "  What it was asked to do:  sudo docker exec $CONNECTOR mausbot-connector audit"
-    say "  Pause remote management:  sudo docker exec $CONNECTOR mausbot-connector pause"
-    say "Only you can replace the connector or restore a backup: sudo docker exec $CONNECTOR mausbot-connector job <self-update|restore>"
+    say "  What it was asked to do:  sudo docker exec $CONNECTOR lunabot-connector audit"
+    say "  Pause remote management:  sudo docker exec $CONNECTOR lunabot-connector pause"
+    say "Only you can replace the connector or restore a backup: sudo docker exec $CONNECTOR lunabot-connector job <self-update|restore>"
     return
   fi
   check_apparmor

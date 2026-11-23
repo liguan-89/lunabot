@@ -78,7 +78,7 @@ async function serve({ attach, current = () => true, download, audience = () => 
   download?: (id: string) => Download | undefined;
   audience?: (threadId: string | null) => Audience | null;
 } = {}): Promise<Fixture> {
-  const fixture = { origin: "", attachments: [], inputs: [], answers: [], pickerChecks: 0, resumes: [], people: [], sizes: [], opened: [], checked: [], dataDir: mkdtempSync(join(tmpdir(), "omb-browser-viewers-")) } as unknown as Fixture;
+  const fixture = { origin: "", attachments: [], inputs: [], answers: [], pickerChecks: 0, resumes: [], people: [], sizes: [], opened: [], checked: [], dataDir: mkdtempSync(join(tmpdir(), "lunabot-browser-viewers-")) } as unknown as Fixture;
   folders.push(fixture.dataDir);
   const viewer = { id: "viewer", input: async (message: unknown) => { fixture.inputs.push(message); }, close: async () => {} } as unknown as Viewer;
   const service = {
@@ -122,7 +122,7 @@ async function serve({ attach, current = () => true, download, audience = () => 
     audience: (_auth, threadId) => audience(threadId),
     browser: async (botId, opened) => {
       fixture.opened.push(opened);
-      return botId === "pepper" ? { botId, session: "bot-pepper", spec: { command: "omb-cdp", args: ["bot:pepper"], env: {} } } : { status: 404, error: "no such bot" };
+      return botId === "pepper" ? { botId, session: "bot-pepper", spec: { command: "lunabot-cdp", args: ["bot:pepper"], env: {} } } : { status: 404, error: "no such bot" };
     },
     authorize: async () => null,
     current: (_botId, _session, _auth, checked) => { fixture.checked.push(checked); return current(); },

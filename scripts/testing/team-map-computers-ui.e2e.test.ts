@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
 import { resolveAgentBrowserBinary } from "../../server/browser-engine.ts";
 import { waitForExit } from "../../server/testing/cleanup.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { UI_TOOLS_DIR } from "./control-omb-ui.ts";
 import { fixtureApi } from "./preview-fixture.ts";
 
@@ -35,7 +35,7 @@ type Receipts = { calls: Array<{ method: string; path: string }>; shots: Record<
     }, { timeout: binary ? 180_000 : 600_000, interval: 250 }).toBe(true);
     const fixture = info!;
     const provider = fixtureApi(fixture.boatFixtureApi);
-    const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", fixture.ui, ...args]) as Promise<Record<string, any>>;
+    const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", fixture.ui, ...args]) as Promise<Record<string, any>>;
     const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
     const snapshot = async () => (await ui("snapshot")).snapshot as string;
     const receipts = async () => await provider("GET", "/__fixture") as Receipts;

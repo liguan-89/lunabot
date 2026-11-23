@@ -4,7 +4,7 @@
 // and none whose sign-in failure could still be kept. What remains is the product's own fallback: a thread whose saved
 // engine is unknown gives way to the bot's model with a notice, once per turn, and the thread then follows the bot.
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piTurnsForThread } from "./testing/pi-dump.ts";
 
 async function withPi(check: (fixture: Fixture) => Promise<void>) {
@@ -19,7 +19,7 @@ async function withPi(check: (fixture: Fixture) => Promise<void>) {
     expect(response.ok, `${method} ${path}: ${JSON.stringify(result)}`).toBe(true);
     return result;
   };
-  const control = (...args: string[]) => runControlOmb([...args, "--url", url]) as Promise<any>;
+  const control = (...args: string[]) => runControlLunabot([...args, "--url", url]) as Promise<any>;
   try {
     const instances = ((await api("GET", "/api/instances")) as { instances: Array<{ instanceId: string; displayName: string;
       models: { default: string; options: Array<{ id: string; label: string }> } }> }).instances;

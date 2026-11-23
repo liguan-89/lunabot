@@ -31,7 +31,7 @@ const executable = path.resolve(
 );
 if (!existsSync(executable)) throw new Error(`[smoke-linux-package] missing executable: ${executable}`);
 
-const sandbox = mkdtempSync(path.join(tmpdir(), "omb-linux-smoke-"));
+const sandbox = mkdtempSync(path.join(tmpdir(), "lunabot-linux-smoke-"));
 const home = path.join(sandbox, "home");
 const xdgConfig = path.join(sandbox, "config");
 const xdgRuntime = path.join(sandbox, "runtime");

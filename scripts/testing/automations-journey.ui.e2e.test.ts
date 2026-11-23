@@ -15,12 +15,12 @@ import { removeTempDir, waitForExit } from "../../server/testing/cleanup.ts";
 import { piDumpPath, piTurns } from "../../server/testing/pi-dump.ts";
 import { freePortBlock } from "../../server/testing/ports.ts";
 import { launchRestartableServer, type RestartableServer } from "../../server/testing/restartable-server.ts";
-import { runControlOmb } from "../control-omb.ts";
+import { runControlLunabot } from "../control-lunabot.ts";
 import { agentBrowser, ensureUiBrowser, sessionEnv, type UiHandle } from "./control-omb-ui.ts";
 import { mountPreview } from "./preview-fixture.ts";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
-const SHOTS = process.env.LUNABOT_AUTOMATIONS_JOURNEY_SHOTS || join(ROOT, ".omb-scratch", "automations-journey");
+const SHOTS = process.env.LUNABOT_AUTOMATIONS_JOURNEY_SHOTS || join(ROOT, ".lunabot-scratch", "automations-journey");
 const SHORT_TMP = process.platform === "win32" ? tmpdir() : "/tmp";
 const enabled = process.env.LUNABOT_UI_E2E === "1";
 
@@ -107,7 +107,7 @@ async function openApp(server: { url: string; port: number; dataDir: string; log
   await browser("open", preview.previewUrl);
   const handlePath = join(server.dataDir, "ui.json");
   writeFileSync(handlePath, JSON.stringify(handle));
-  const ui = (verb: string, ...args: string[]) => runControlOmb(["ui", verb, "--ui", handlePath, ...args]) as Promise<Record<string, any>>;
+  const ui = (verb: string, ...args: string[]) => runControlLunabot(["ui", verb, "--ui", handlePath, ...args]) as Promise<Record<string, any>>;
   const evaluate = async (js: string) => (await ui("eval", "--js", js)).result;
   const click = (name: string) => ui("click", "--name", name);
   let shot = 0;
@@ -174,7 +174,7 @@ async function openApp(server: { url: string; port: number; dataDir: string; log
     };
     const starter = (await api("GET", "/api/bots?messages=0")).bots[0];
     await api("PATCH", `/api/bots/${starter.id}/profile`, { name: "Hazel" });
-    const newBot = async (name: string) => ((await runControlOmb(["new-bot", "--name", name, "--url", live.url])) as { bot: { id: string } }).bot.id;
+    const newBot = async (name: string) => ((await runControlLunabot(["new-bot", "--name", name, "--url", live.url])) as { bot: { id: string } }).bot.id;
     const scout = await newBot("Scout");
     const ledger = await newBot("Ledger");
     writeFileSync(live.planPath, JSON.stringify(plan([{ id: starter.id }, { id: scout }, { id: ledger }])));

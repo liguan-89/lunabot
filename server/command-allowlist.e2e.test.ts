@@ -5,7 +5,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { closeSync, openSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { launchVerificationServer, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { piDumpPath, piTurns } from "./testing/pi-dump.ts";
 

@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, expect, it } from "vitest";
 
-import { launchVerificationServer, runControlOmb, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot, verificationServerArgs, verificationServerEnvironment, type VerificationServer } from "../scripts/control-lunabot.ts";
 import { waitForExit } from "./testing/cleanup.ts";
 import { readHandoffs } from "./testing/handoff-rows.ts";
 import { hostTimeout } from "./testing/host-timeout.ts";
@@ -101,7 +101,7 @@ async function server(env: NodeJS.ProcessEnv = {}) {
   // its own on the same engine. Stepped down, what these runs tell the owner is theirs alone.
   const starter = (await api("GET", "/api/bots")).bots.find((candidate: any) => candidate.chiefOfStaff);
   await api("PATCH", `/api/bots/${starter.id}`, { chiefOfStaff: false });
-  const bot = (await runControlOmb(["new-bot", "--name", "Inbox bot", "--url", url]) as any).bot;
+  const bot = (await runControlLunabot(["new-bot", "--name", "Inbox bot", "--url", url]) as any).bot;
   events = await openSse(`${url}/api/events`, { origin: url });
   const routine = async (name = "Inbox brief") => (await api("POST", "/api/routines", {
     name, prompt: "Summarise my inbox.", botId: bot.id, schedule: { type: "cron", expression: "0 7 * * *", timeZone: "Europe/London" },
@@ -215,7 +215,7 @@ it("waits for the conversation it joins to be free instead of failing, then runs
   const replies = join(s.dataDir, "marker-replies.json");
   writeFileSync(replies, JSON.stringify({ "Draft the weekly update.": "released", "Summarise my inbox.": "released" }));
   s.engine("hang", { FAKE_PI_RELEASE: release, FAKE_PI_MARKER_REPLIES: replies });
-  await runControlOmb(["send", "--bot", s.bot.id, "--task", s.bot.activeTaskId, "--text", "Draft the weekly update.", "--url", s.url]);
+  await runControlLunabot(["send", "--bot", s.bot.id, "--task", s.bot.activeTaskId, "--text", "Draft the weekly update.", "--url", s.url]);
   await expect.poll(async () => (await s.api("GET", "/api/bots")).bots.find((bot: any) => bot.id === s.bot.id)?.busy, { timeout: hostTimeout(15_000) }).toBe(true);
 
   const { routine } = await s.api("POST", "/api/routines", {

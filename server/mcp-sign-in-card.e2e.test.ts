@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it } from "vitest";
 
-import { launchVerificationServer } from "../scripts/control-omb.ts";
+import { launchVerificationServer } from "../scripts/control-lunabot.ts";
 import { piAgentsToken, piDumpPath, piTurnHolding, type PiTurn } from "./testing/pi-dump.ts";
 import { startFakePostiz, type FakePostiz } from "./testing/fake-postiz.ts";
 

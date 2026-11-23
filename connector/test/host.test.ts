@@ -72,7 +72,7 @@ describe("the server's facts and checks", () => {
     expect(boxProbeFix("bwrap: Can't mount proc on /newroot/proc: Operation not permitted")).toContain("Docker here is too old");
     expect(boxProbeFix("bwrap: setting up uid map: Permission denied")).toContain("without its AppArmor profile");
     expect(boxProbeFix("bwrap: Creating new namespace failed: Operation not permitted")).toContain("user namespaces are switched off");
-    expect(boxProbeFix("OCI runtime create failed: apparmor failed to apply profile: profile omb-home-narrow not found")).toContain("its AppArmor profile is not loaded");
+    expect(boxProbeFix("OCI runtime create failed: apparmor failed to apply profile: profile lunabot-home-narrow not found")).toContain("its AppArmor profile is not loaded");
     expect(boxProbeFix("something else")).toBe("Our bots' safety box can't start on this server yet. Run the install command again to repair it.");
   });
 });

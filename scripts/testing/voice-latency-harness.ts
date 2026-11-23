@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { cpus, tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { runControlOmb, launchVerificationServer, type VerificationServer } from "../control-omb.ts";
+import { runControlLunabot, launchVerificationServer, type VerificationServer } from "../control-lunabot.ts";
 import { agentBrowser, ensureUiBrowser, sessionEnv } from "./control-omb-ui.ts";
 import { mountPreview, type MountedPreview } from "./preview-fixture.ts";
 import { CADENCE, corpusFixtureId, readLfText, SYNTHESIS } from "./voice-latency-corpus.ts";
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
     };
 
     await api("PATCH", "/api/config", { tts: { provider: "elevenlabs", key: STUB_KEY, model: STUB_MODEL, voice: STUB_VOICE } });
-    const created = await runControlOmb(["new-bot", "--name", "VoiceProbe", "--url", fixture.info.url]) as { bot: { id: string } };
+    const created = await runControlLunabot(["new-bot", "--name", "VoiceProbe", "--url", fixture.info.url]) as { bot: { id: string } };
     const botId = created.bot.id;
     await api("PATCH", `/api/bots/${botId}`, { speakReplies: true, voice: STUB_VOICE });
     console.error(`tts provider=elevenlabs(stub) model=${STUB_MODEL} voice=${STUB_VOICE} synthesis=modeled rtf=${SYNTHESIS.rtf} audioMsPerChar=${SYNTHESIS.audioMsPerChar}`);

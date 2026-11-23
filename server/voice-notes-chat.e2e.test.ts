@@ -4,7 +4,7 @@ import { createServer, type Server } from "node:http";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { request } from "../scripts/mcp-server.ts";
 
 const MP3 = Buffer.from("ID3 fake mp3 for the chat voice note fixture");
@@ -23,7 +23,7 @@ async function withChatVoice(test: (f: {
   serveTts(options?: { fail?: boolean }): Promise<string>;
 }) => Promise<void>) {
   const session = await launchVerificationServer(process.env, undefined, undefined, undefined, undefined, { scripted: true });
-  const control = (args: string[]) => runControlOmb([...args, "--url", session.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", session.info.url]) as Promise<any>;
   const api = (path: string, body?: unknown, method = "POST") =>
     request(path, body === undefined ? {} : { method, body: JSON.stringify(body) }, session.info.url) as Promise<any>;
   const seen: Array<{ input: string; voice: string }> = [];

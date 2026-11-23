@@ -391,7 +391,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     const oldCompose = `# Written by MausBot's installer (deploy/install.sh), and written again each time it runs.
 name: openmausbot
 services:
-  omb:
+  lunabot:
     image: \${LUNABOT_IMAGE:?run the installer again}
   caddy:
     image: caddy:2

@@ -9,7 +9,7 @@ const podman = process.env.LUNABOT_VERIFY_PODMAN;
 const machine = process.env.LUNABOT_VERIFY_MACHINE;
 const image = process.env.LUNABOT_VERIFY_IMAGE;
 if (!podman || !machine || !image) throw new Error("Set explicit LUNABOT_VERIFY_PODMAN, LUNABOT_VERIFY_MACHINE and LUNABOT_VERIFY_IMAGE");
-const output = resolve(process.env.LUNABOT_VERIFY_OUTPUT || ".omb-scratch/japanese");
+const output = resolve(process.env.LUNABOT_VERIFY_OUTPUT || ".lunabot-scratch/japanese");
 mkdirSync(output, { recursive: true });
 writeFileSync(resolve(output, "receipt.json"), JSON.stringify({ capturesComplete: false, visualReview: "pending" }, null, 2));
 // Keep Podman's existing connection/SSH configuration, but isolate app imports.

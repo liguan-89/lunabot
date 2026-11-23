@@ -3,7 +3,7 @@
 // sign-in is copied into the disposable home; cleanup removes that copy.
 import { chmodSync, copyFileSync, mkdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { launchVerificationServer } from "./control-omb.ts";
+import { launchVerificationServer } from "./control-lunabot.ts";
 import { ensureUiBrowser } from "./testing/control-omb-ui.ts";
 import { fixtureApi, mountPreview, parkUntilSignal } from "./testing/preview-fixture.ts";
 

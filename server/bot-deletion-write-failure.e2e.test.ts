@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 
 it("preserves conversations and scheduled work when deletion cannot save, then safely retries", async () => {
   const fixture = await launchVerificationServer({ ...process.env, LUNABOT_TEST_FIXTURE_ENGINE: "pi" });
@@ -19,7 +19,7 @@ it("preserves conversations and scheduled work when deletion cannot save, then s
     return result;
   };
   const control = async (...args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlLunabot([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };

@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import { rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, it } from "vitest";
-import { launchVerificationServer, runControlOmb } from "../scripts/control-omb.ts";
+import { launchVerificationServer, runControlLunabot } from "../scripts/control-lunabot.ts";
 import { piDumpPath, piInstructionsFor, piModelsSet, piTurns } from "./testing/pi-dump.ts";
 
 const BOAT_TOKEN = "box_verification_fixture";
@@ -104,7 +104,7 @@ it("keeps the bot's own engine on the cloud computer, and a failed place never b
     expect(result.status, `${method} ${path}: ${JSON.stringify(result.body)}`).toBeLessThan(400);
     return result.body;
   };
-  const control = (args: string[]) => runControlOmb([...args, "--url", fixture.info.url]) as Promise<any>;
+  const control = (args: string[]) => runControlLunabot([...args, "--url", fixture.info.url]) as Promise<any>;
   const lastRows = async (thread: string) => (await apiOk("GET", `/api/threads/${thread}/messages?limit=30`)).messages
     .filter((message: any) => message.kind !== "digest")
     .map((message: any) => message.kind === "activity" ? String(message.tool?.name) : `${message.role}:${message.kind}`);

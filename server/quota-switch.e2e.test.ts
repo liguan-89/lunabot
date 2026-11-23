@@ -8,7 +8,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, it } from "vitest";
-import { runControlOmb, verificationServerArgs, verificationServerEnvironment } from "../scripts/control-omb.ts";
+import { runControlLunabot, verificationServerArgs, verificationServerEnvironment } from "../scripts/control-lunabot.ts";
 import { removeTempDir, waitForExit } from "./testing/cleanup.ts";
 import { freePortBlock } from "./testing/ports.ts";
 
@@ -75,7 +75,7 @@ async function withLimitFixture(
     return result;
   };
   const control = async (...args: string[]) => {
-    const result = await runControlOmb([...args, "--url", url]) as any;
+    const result = await runControlLunabot([...args, "--url", url]) as any;
     evidence.push({ command: args, result });
     return result;
   };
