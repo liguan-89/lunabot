@@ -77,6 +77,30 @@ signed build writes `app-release.apk` instead.
 The APK is already zip-aligned by the Android Gradle Plugin, and `apksigner`
 preserves that alignment. **Do not run `zipalign` or `jarsigner`.**
 
+## Building the update-channel APK (`dist`)
+
+The APK that `update.json` offers to installed apps is the `dist` build:
+
+```sh
+cd android
+./gradlew :app:assembleDist
+```
+
+It is signed with the **release** key, because Android refuses to replace an app
+signed with a different key: the channel has to carry the same key as every
+build already published. With no release material configured, the build falls
+back to the debug key and Gradle warns that the APK must not be published — such
+a build would only install over a debug-key install.
+
+Before publishing, confirm which key it carries:
+
+```sh
+"$APKSIGNER" verify --print-certs app/build/outputs/apk/dist/app-dist.apk
+```
+
+The digest must be the release certificate's (`CN=Luna Bot`), and the version in
+`aapt2 dump badging` must match the `update.json` you are about to serve.
+
 ## Signing it
 
 The signing key belongs to the maintainer and never enters this repository.
