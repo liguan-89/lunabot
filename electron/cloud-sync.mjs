@@ -68,7 +68,7 @@ export function createCloudFilesService({
   // updating keeps every file their bots made; a failed move leaves the old folder where it is and starts
   // the new one empty. Newest first — the name a person still has decides which files follow them.
   if (!fs.existsSync(outputsDir)) {
-    for (const old of ["DEX BOT", "DexBot", "MausBot"]) {
+    for (const old of ["DEX BOT", "DexBot", "LunaBot"]) {
       const legacy = path.join(documentsDir, old);
       if (!fs.existsSync(legacy)) continue;
       try {

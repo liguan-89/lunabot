@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 export const HIDDEN_ARG = "--omb-hidden";
-const MARK = "X-OpenMausBot-Lending=true";
+const MARK = "X-LunaBot-Lending=true";
 /** Windows keeps one Run entry per name, so the person's own entry has a name apart from lending's (the app's). */
 const CHOSEN_NAME = "Luna Bot at login";
 

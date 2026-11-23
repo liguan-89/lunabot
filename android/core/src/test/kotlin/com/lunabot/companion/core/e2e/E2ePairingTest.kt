@@ -45,7 +45,7 @@ class E2ePairingTest {
             descriptor = descriptor,
             credential = credential,
             deviceName = "Pixel",
-            app = "mausbot-test",
+            app = "lunabot-test",
             pairRequestId = "req-1",
         )
         assertEquals("omb_device_token", result.token)

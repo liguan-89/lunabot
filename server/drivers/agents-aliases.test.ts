@@ -12,7 +12,7 @@ import { agentsMcp } from "./agents-mcp.ts";
 
 const EVERYTHING = {
   LUNABOT_BOT_ID: "bot-alias", LUNABOT_CHIEF_OF_STAFF: "1", LUNABOT_SKILL_AUTHORING_ENABLED: "1", LUNABOT_SHARED_COMPUTERS_ENABLED: "1",
-  LUNABOT_VOICE_NOTES: "1", LUNABOT_X_RESEARCH: "1", LUNABOT_RESEARCH: "1", LUNABOT_TEAM_PEOPLE: "1", LUNABOT_MAUSBOT: "1",
+  LUNABOT_VOICE_NOTES: "1", LUNABOT_X_RESEARCH: "1", LUNABOT_RESEARCH: "1", LUNABOT_TEAM_PEOPLE: "1", LUNABOT_LUNABOT: "1",
 };
 const LISTED = new Set(availableTools(catalogProfileFromEnv(EVERYTHING)).map((tool) => tool.name));
 
@@ -26,9 +26,9 @@ const CALLS: Record<string, Json> = {
   session_read: { thread_id: "thread-old", message_id: "message-old" },
   update_widget: { widget_id: "m7", widget: WIDGET_SAMPLES.buildStatus },
   update_html: { app_id: "m9", html: "<p>v2</p>" },
-  x_user_posts: { handle: "@openmausbot", limit: 5 },
-  x_post: { post: "https://x.com/openmausbot/status/123", replies: true },
-  x_profile: { handle: "openmausbot" },
+  x_user_posts: { handle: "@lunabot", limit: 5 },
+  x_post: { post: "https://x.com/lunabot/status/123", replies: true },
+  x_profile: { handle: "lunabot" },
 };
 
 /** What a call sends to the harness, and what the model reads back. */

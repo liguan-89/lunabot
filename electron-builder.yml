@@ -4,7 +4,7 @@ artifactName: LUNABOT-${version}-${arch}.${ext}
 
 protocols:
   - name: Luna Bot package install
-    schemes: [lunabot, dexbot, openmausbot]
+    schemes: [lunabot, dexbot, lunabot]
 
 # In-app auto-update reads latest-mac.yml + the .zip (macOS) or latest.yml +
 # the NSIS .exe (Windows) from DEX Cloud, which this fork controls. A private
@@ -36,7 +36,7 @@ files:
   - "!electron/resources/speech-helper-Info.plist"
   - "!electron/resources/Luna Bot Speech.app/**"
   - "!electron/resources/DEX BOT Speech.app/**"
-  - "!electron/resources/OpenMausBot Speech.app/**"
+  - "!electron/resources/LunaBot Speech.app/**"
   # The Teach a skill recorder is gone, but a machine that once ran
   # `pnpm build:recorder` may still hold its helper build; never ship it.
   - "!electron/resources/recorder-helper"
@@ -57,7 +57,7 @@ extraResources:
   - from: NOTICE
     to: licenses/LUNABOT-NOTICE.txt
   # cloudflared is distributed under Apache-2.0 as a separate executable.
-  # OpenMausBot itself uses the same full license text; ship another named
+  # LunaBot itself uses the same full license text; ship another named
   # copy so the third-party executable's terms remain unambiguous.
   - from: LICENSE
     to: licenses/cloudflared-LICENSE.txt

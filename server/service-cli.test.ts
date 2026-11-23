@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { runServiceCommand, serviceServeArgs } from "./service-cli.ts";
 import { removeTempDir } from "./testing/cleanup.ts";
 
-describe("openmausbot service", () => {
+describe("lunabot service", () => {
   let dir: string;
   const out: string[] = [];
   const err: string[] = [];
@@ -25,7 +25,7 @@ describe("openmausbot service", () => {
   });
 
   it("writes the unit next to the data and prints how to install it; under npx, runs a copy kept beside the data", () => {
-    const code = runServiceCommand({ action: "install", dataDir: dir, port: 8799, domain: "maus.example.com", script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", platform: "linux", home: "/home/maus", user: "maus" }, io);
+    const code = runServiceCommand({ action: "install", dataDir: dir, port: 8799, domain: "maus.example.com", script: "/usr/lib/node_modules/lunabot/cli.js", node: "/usr/bin/node", platform: "linux", home: "/home/maus", user: "maus" }, io);
     expect(code).toBe(0);
     const unit = readFileSync(join(dir, "lunabot.service"), "utf8");
     expect(unit).toContain("--domain maus.example.com");
@@ -34,7 +34,7 @@ describe("openmausbot service", () => {
     expect(out.join("\n")).toContain("no setcap is needed");
 
     out.length = 0;
-    const npx = { action: "install" as const, dataDir: join(dir, "x"), port: 8799, publicUrl: "https://maus.example.com", script: "/home/maus/.npm/_npx/deadbeef/node_modules/openmausbot/dist-server/openmausbot.js", node: "/usr/bin/node", platform: "linux" as const, home: "/home/maus", user: "maus" };
+    const npx = { action: "install" as const, dataDir: join(dir, "x"), port: 8799, publicUrl: "https://maus.example.com", script: "/home/maus/.npm/_npx/deadbeef/node_modules/lunabot/dist-server/lunabot.js", node: "/usr/bin/node", platform: "linux" as const, home: "/home/maus", user: "maus" };
     const installs: string[] = [];
     expect(runServiceCommand({ ...npx, installCopy: (prefix) => { installs.push(prefix); return false; } }, io)).toBe(1);
     expect(err.join("\n")).toContain(`npm install --prefix ${join(dir, "x", "app", "latest")} lunabot@latest`);
@@ -50,7 +50,7 @@ describe("openmausbot service", () => {
   });
 
   it("writes a launchd agent on macOS and explains uninstall on both", () => {
-    expect(runServiceCommand({ action: "install", dataDir: dir, port: 8799, tunnel: true, script: "/opt/homebrew/lib/node_modules/openmausbot/cli.js", node: "/opt/homebrew/bin/node", platform: "darwin", home: "/Users/maus" }, io)).toBe(0);
+    expect(runServiceCommand({ action: "install", dataDir: dir, port: 8799, tunnel: true, script: "/opt/homebrew/lib/node_modules/lunabot/cli.js", node: "/opt/homebrew/bin/node", platform: "darwin", home: "/Users/maus" }, io)).toBe(0);
     expect(readFileSync(join(dir, "com.lunabot.serve.plist"), "utf8")).toContain("<string>--tunnel</string>");
     expect(out.join("\n")).toContain("launchctl bootstrap");
     out.length = 0;
@@ -62,7 +62,7 @@ describe("openmausbot service", () => {
   it("--sentinel writes the scan's own schedule into its own folder, not the data dir, and only prints how to install it", () => {
     const sentinelOut = join(dir, "sentinel-state");
     const dataDir = join(dir, "data");
-    const base = { action: "install" as const, dataDir, port: 8799, sentinel: true, sentinelOut, script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", exists: () => false };
+    const base = { action: "install" as const, dataDir, port: 8799, sentinel: true, sentinelOut, script: "/usr/lib/node_modules/lunabot/cli.js", node: "/usr/bin/node", exists: () => false };
     expect(runServiceCommand({ ...base, platform: "darwin", home: "/Users/maus" }, io)).toBe(0);
     const plist = readFileSync(join(sentinelOut, "com.lunabot.sentinel.plist"), "utf8");
     expect(plist).toContain("<string>sentinel</string>");
@@ -87,7 +87,7 @@ describe("openmausbot service", () => {
 
     // Windows gets a schtasks line, with the platform's own folder as --out
     expect(runServiceCommand({ ...base, sentinelOut: undefined, platform: "win32", dataDir: "C:\\Users\\maus\\.lunabot", home: "C:\\Users\\maus", env: {} }, io)).toBe(1);
-    expect(err.join("\n")).toContain('schtasks /Create /SC MINUTE /MO 2 /TN "Luna Bot Sentinel" /TR "\\"/usr/bin/node\\" \\"/usr/lib/node_modules/openmausbot/cli.js\\" \\"sentinel\\"');
+    expect(err.join("\n")).toContain('schtasks /Create /SC MINUTE /MO 2 /TN "Luna Bot Sentinel" /TR "\\"/usr/bin/node\\" \\"/usr/lib/node_modules/lunabot/cli.js\\" \\"sentinel\\"');
     expect(err.join("\n")).toContain("\\\"--out\\\" \\\"C:\\Users\\maus\\AppData\\Local\\lunabot-sentinel\\\"");
   });
 
@@ -95,7 +95,7 @@ describe("openmausbot service", () => {
   it.skipIf(process.platform === "win32")("--sentinel refuses an output folder the scan itself would refuse, before writing anything", () => {
     const dataDir = join(dir, "data");
     mkdirSync(dataDir);
-    const base = { action: "install" as const, dataDir, port: 8799, sentinel: true, script: "/usr/lib/node_modules/openmausbot/cli.js", node: "/usr/bin/node", exists: () => false };
+    const base = { action: "install" as const, dataDir, port: 8799, sentinel: true, script: "/usr/lib/node_modules/lunabot/cli.js", node: "/usr/bin/node", exists: () => false };
     // XDG_STATE_HOME pointing into the data dir makes the default land there
     expect(runServiceCommand({ ...base, platform: "linux", home: join(dir, "home"), env: { XDG_STATE_HOME: join(dataDir, "state") } }, io)).toBe(1);
     expect(err.join("\n")).toContain("refusing to write issues inside the data dir");

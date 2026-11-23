@@ -24,7 +24,7 @@ import { callComputerAskTool, COMPUTER_ASK_TOOL_NAMES } from "./agents-computer-
 import { callImageTool, IMAGE_TOOL_NAMES } from "./agents-image-tools.ts";
 import { callVideoTool, VIDEO_TOOL_NAMES } from "./agents-video-tools.ts";
 import { callMeetingTool, MEETING_TOOL_NAMES } from "./agents-meeting-tools.ts";
-import { callMausBotTool, MAUSBOT_TOOL_NAMES } from "./agents-mausbot-tools.ts";
+import { callLunaBotTool, LUNABOT_TOOL_NAMES } from "./agents-lunabot-tools.ts";
 import { callPageTool, PAGE_TOOL_NAMES } from "./agents-pages-tools.ts";
 import { callPersonTool, PERSON_TOOL_NAMES } from "./agents-person-tools.ts";
 import { callDevsTool, DEVS_TOOL_NAMES } from "./agents-devs-tools.ts";
@@ -247,7 +247,7 @@ export async function callTool(called: string, input: Json, context: ToolCallCon
   if (IMAGE_TOOL_NAMES.has(name)) return callImageTool(name, args, context);
   if (VIDEO_TOOL_NAMES.has(name)) return callVideoTool(name, args, context);
   if (MEETING_TOOL_NAMES.has(name)) return callMeetingTool(name, args, context);
-  if (MAUSBOT_TOOL_NAMES.has(name)) return callMausBotTool(name, args, context);
+  if (LUNABOT_TOOL_NAMES.has(name)) return callLunaBotTool(name, args, context);
   if (PAGE_TOOL_NAMES.has(name)) return callPageTool(name, args, context);
   if (PERSON_TOOL_NAMES.has(name)) return callPersonTool(name, args, context);
   if (DEVS_TOOL_NAMES.has(name)) return callDevsTool(name, args, context);

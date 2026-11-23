@@ -10,8 +10,8 @@ import { locales } from "./index";
 
 const RETIRED: ReadonlyArray<readonly [string, RegExp, string]> = [
   ["OMB Cloud", /OMB Cloud/i, "Luna Bot Cloud"],
-  ["OpenMausBot Cloud", /OpenMausBot Cloud/i, "Luna Bot Cloud"],
-  ["MausBot Pro", /MausBot Pro\b/, "Luna Bot Cloud"],
+  ["LunaBot Cloud", /LunaBot Cloud/i, "Luna Bot Cloud"],
+  ["LunaBot Pro", /LunaBot Pro\b/, "Luna Bot Cloud"],
   ["DEX BOT Cloud", /DEX BOT Cloud/i, "Luna Bot Cloud"],
   // \b before "_" fails, so environment names such as LUNABOT_PUBLIC_IPV4 pass.
   ["OMB", /\bOMB\b/, "Luna Bot"],
@@ -126,7 +126,7 @@ describe("one name per thing", () => {
       Object.entries(pack)
         .filter(([key]) => !PENDING_KEY_PREFIXES.some((prefix) => key.startsWith(prefix)))
         .filter(([key, value]) => /\bOMB\b|\bT3\b/.test(value!) || productNames.some(([, pattern]) => pattern.test(value!))
-          || (/MausBot Cloud/.test((en as Record<string, string>)[key]!) && !/MausBot Cloud/.test(value!))
+          || (/LunaBot Cloud/.test((en as Record<string, string>)[key]!) && !/LunaBot Cloud/.test(value!))
           || (/boat/i.test(value!) && !/\bboats?\b/i.test((en as Record<string, string>)[key]!)))
         .map(([key]) => `${code}: ${key}`));
     expect([...new Set(offending)]).toEqual([]);
@@ -196,7 +196,7 @@ describe("one name per thing", () => {
 
   it("the check catches each retired word, and lets own-key Boat and env names through", () => {
     for (const bad of [
-      "Sign in to OMB Cloud", "Sign in to OpenMausBot Cloud", "Get MausBot Pro", "MausBot Pro plans",
+      "Sign in to OMB Cloud", "Sign in to LunaBot Cloud", "Get LunaBot Pro", "LunaBot Pro plans",
       "Sign in to DEX BOT Cloud", "Restart DEX BOT", "locked by another DEX BOT process",
       "restart OMB", "Cloud box", "Hosted desktop", "Run it in its cloud VM", "Boat cloud runner",
       "Open your Cloud dashboard", "Connect to my Cloud", "Your Cloud is ready", "Let my Cloud use this Mac",

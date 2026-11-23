@@ -113,7 +113,7 @@ export const tailscaleMarker = (dataDir: string) => join(dataDir, "tailscale-ser
 /**
  * `tailscale serve` in the foreground: the share ends with this process. Before serving, the tailnet must have HTTPS
  * certificates (`CertDomains`), or serve waits on an enablement link forever; and the name must not already front a
- * different MausBot server. Resolves once serve has run for `settleMs` without exiting.
+ * different LunaBot server. Resolves once serve has run for `settleMs` without exiting.
  */
 export async function tailscaleServe(
   status: TailscaleStatus,

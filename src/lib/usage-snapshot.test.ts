@@ -165,7 +165,7 @@ function hostileSources(overrides: Partial<UsageSources> = {}): UsageSources & {
           status: "connected", account: { id: HOSTILE, email: `${HOSTILE}@example.com` }, deviceId: HOSTILE,
           entitlement: { plan: "pro", tier: "max", status: "active", expiresAt: null, version: 1 },
           trial: { state: "active", tier: "max", endsAt: 1, amount: 9900, chargeAt: 1, holdUntil: null },
-          machine: { status: "ready", origin: `https://${HOSTILE}.mausbot.cloud` },
+          machine: { status: "ready", origin: `https://${HOSTILE}.lunabot.cloud` },
         } as never;
       },
     },
@@ -208,7 +208,7 @@ describe("the daily usage snapshot", () => {
     expect(Object.keys(sent!).sort()).toEqual([...DOCUMENTED].sort());
     expectOnlyCountsFlagsAndWords(sent!);
     const wire = JSON.stringify(ph.captured);
-    for (const fragment of [HOSTILE, "HOSTILE", "example.com", "mausbot.cloud", "iPhone", "Owner", "3f0c2b1e", "/Users/"]) expect(wire).not.toContain(fragment);
+    for (const fragment of [HOSTILE, "HOSTILE", "example.com", "lunabot.cloud", "iPhone", "Owner", "3f0c2b1e", "/Users/"]) expect(wire).not.toContain(fragment);
   });
 
   it("sends once per UTC day, writing the day before it gathers, and again after midnight", async () => {

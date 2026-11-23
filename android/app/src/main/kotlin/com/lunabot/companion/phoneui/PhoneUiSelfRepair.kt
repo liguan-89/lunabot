@@ -4,7 +4,7 @@
  * Copyright 2026 wangzan101. The original is licensed under the Apache License,
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * Modifications Copyright 2026 LunaBot contributors. Changes from the
  * original: repackaged under com.lunabot.companion.phoneui, comments
  * translated into English, the StateFlow and coroutine plumbing replaced by an
  * immutable State with pure transitions, and the write plus the clock supplied

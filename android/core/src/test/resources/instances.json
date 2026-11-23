@@ -6,7 +6,7 @@
       "displayName": "Grok",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`grok` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`grok` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "grok-4.7",
@@ -70,7 +70,7 @@
       "displayName": "Kimi",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`kimi` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`kimi` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "kimi-code/k3",
@@ -137,7 +137,7 @@
       "displayName": "Droid",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`droid` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`droid` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "claude-opus-5",
@@ -220,7 +220,7 @@
       "displayName": "Cursor",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`cursor-agent` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`cursor-agent` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "auto",
@@ -287,7 +287,7 @@
       "displayName": "GitHub Copilot",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`copilot` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`copilot` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "auto",
@@ -339,7 +339,7 @@
       "displayName": "Command Code",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`command-code` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`command-code` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "agent-default",
@@ -391,7 +391,7 @@
       "displayName": "Kiro",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`kiro-cli` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`kiro-cli` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "agent-default",
@@ -763,7 +763,7 @@
       "displayName": "OpenCode",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`opencode` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`opencode` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "",
@@ -1157,7 +1157,7 @@
       "displayName": "DeepSeek Harness",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`dsh` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`dsh` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "deepseek-official/deepseek-v4-flash",
@@ -1535,7 +1535,7 @@
       "displayName": "Qwen",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`qwen` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`qwen` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "",
@@ -1577,7 +1577,7 @@
       "displayName": "Hermes",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`hermes` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`hermes` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "",
@@ -1620,7 +1620,7 @@
       "displayName": "Cline",
       "snapshot": {
         "state": "unavailable",
-        "reason": "`cline` isn't installed, or isn't on this app's PATH. Install it for the user running OpenMausBot or use Set CLI, then check again."
+        "reason": "`cline` isn't installed, or isn't on this app's PATH. Install it for the user running LunaBot or use Set CLI, then check again."
       },
       "models": {
         "default": "cline-default",

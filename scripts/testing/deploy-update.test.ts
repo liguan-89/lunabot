@@ -129,7 +129,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     expect(order.every((at) => at >= 0)).toBe(true);
     expect(order).toEqual([...order].sort((a, b) => a - b));
     expect(calls.find((call) => call.includes("--entrypoint cp"))).toBe(
-      `run --rm --network none --user 0:0 --label com.mausbot.role=update-helper -v deploy_data:/from:ro -v ${box.copies()[0]}:/to --entrypoint cp ${OLD.id} -a /from/. /to/`,
+      `run --rm --network none --user 0:0 --label com.lunabot.role=update-helper -v deploy_data:/from:ro -v ${box.copies()[0]}:/to --entrypoint cp ${OLD.id} -a /from/. /to/`,
     );
     // The server was stopped, and seen to be stopped, before the copy.
     expect(calls.slice(calls.indexOf("compose stop"), calls.findIndex((call) => call.includes("--entrypoint cp"))).some((call) => call.includes("{{.State.Running}}"))).toBe(true);
@@ -164,10 +164,10 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
   });
 
   it("says why in the server's own last words when the new version stops as it starts", () => {
-    const box = install({ behaviour: "crashes", lastWords: "This data was written by a newer MausBot." });
+    const box = install({ behaviour: "crashes", lastWords: "This data was written by a newer LunaBot." });
     const failed = box.run();
     expect(failed.status).toBe(1);
-    expect(failed.stdout).toContain("The update to 0.1.151 did not work: it kept stopping as it started (This data was written by a newer MausBot.).");
+    expect(failed.stdout).toContain("The update to 0.1.151 did not work: it kept stopping as it started (This data was written by a newer LunaBot.).");
     expect(failed.said.at(-1)).toBe("Your server runs 0.1.150 again, with its data as it was before the update.");
     expect(tree(box.data)["started-by.txt"]).toBe("0.1.150\n0.1.150\n");
   });
@@ -371,7 +371,7 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
     expect(moving.env()).toBe(`${ENV}LUNABOT_IMAGE=${OLD.refs[1]}\n`);
   });
 
-  // A hardened server answers `lunabot doctor` (once `openmausbot doctor`) without a session with a refusal, so before the server's own count
+  // A hardened server answers `lunabot doctor` (once `lunabot doctor`) without a session with a refusal, so before the server's own count
   // the check that a bot can still start never ran there.
   it("checks a hardened version's engines with the server's own count, where doctor is refused", () => {
     const hardened = { counts: true, doctor: false };
@@ -388,8 +388,8 @@ describe.skipIf(!posix)("deploy/update.sh", () => {
 
   it("moves an install the installer made with Caddy in the server's network to the current files, and back on rollback", () => {
     const box = install();
-    const oldCompose = `# Written by MausBot's installer (deploy/install.sh), and written again each time it runs.
-name: openmausbot
+    const oldCompose = `# Written by LunaBot's installer (deploy/install.sh), and written again each time it runs.
+name: lunabot
 services:
   omb:
     image: \${LUNABOT_IMAGE:?run the installer again}

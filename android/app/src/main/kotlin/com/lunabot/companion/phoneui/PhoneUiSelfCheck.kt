@@ -6,7 +6,7 @@
  * Copyright 2026 wangzan101. The original is licensed under the Apache License,
  * Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors. Changes from the
+ * Modifications Copyright 2026 LunaBot contributors. Changes from the
  * original: repackaged under com.lunabot.companion.phoneui and translated
  * into English; no Android imports, no StateFlow and no progress stream — the
  * probes arrive as a map of [Probe], the clock as [runSelfCheck]'s parameter,

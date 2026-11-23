@@ -3,20 +3,20 @@ import { describe, expect, it, vi } from "vitest";
 import type { HeadlessIo } from "./output.ts";
 import { runHeadless } from "./main.ts";
 
-const refused = (status: number) => Object.assign(new Error(`OpenMausBot API error (${status}): {"error":"forbidden"}`), { status });
+const refused = (status: number) => Object.assign(new Error(`LunaBot API error (${status}): {"error":"forbidden"}`), { status });
 
-/** `openmausbot doctor` on a server whose local callers without a session get the service routes only: a shared server,
+/** `lunabot doctor` on a server whose local callers without a session get the service routes only: a shared server,
  * or one in the hardened profile, as in the server's container, where deploy/update.sh runs it. */
 function sharedServer(engines: number | "old server") {
   const callTool = vi.fn(async (name: string) => {
-    if (name === "get_system_health") return { status: "connected", app: "openmausbot", packaged: true };
+    if (name === "get_system_health") return { status: "connected", app: "lunabot", packaged: true };
     if (name === "list_available_models") throw refused(403);
     throw new Error(`unexpected tool ${name}`);
   });
   const request = vi.fn(async (path: string) => {
     if (path === "/api/health/engines") {
       if (engines === "old server") throw refused(403);
-      return { app: "openmausbot", engines };
+      return { app: "lunabot", engines };
     }
     if (path === "/.well-known/lunabot/environment") return { version: "0.1.160", label: "maus.example.com", capabilities: { jobs: true } };
     if (path === "/api/auth/session") return { kind: "loopback", scopes: ["client"], trust: "service" };

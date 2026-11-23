@@ -34,6 +34,6 @@ export function workspacePreparationDockerfile(workspace: string): string {
       '  find "$profiles" \\( -name SingletonLock -o -name SingletonSocket -o -name SingletonCookie -o -name .parentlock -o -name lock -type l \\) -delete' \\
       '  printf "%s\\n" "$container_start" > "$prepared"' \\
       'fi' \\
-      > /usr/local/bin/prepare-openmausbot-workspace.sh \\
-    && chmod 0755 /usr/local/bin/prepare-openmausbot-workspace.sh`;
+      > /usr/local/bin/prepare-lunabot-workspace.sh \\
+    && chmod 0755 /usr/local/bin/prepare-lunabot-workspace.sh`;
 }

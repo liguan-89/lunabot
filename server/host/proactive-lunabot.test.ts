@@ -17,7 +17,7 @@ import { createProactive, WATCH_FILE, WATCH_NAME } from "./proactive.ts";
 import { proactiveOwner } from "./proactive-owner.ts";
 import { CHECKS_FILE } from "./routine-checks.ts";
 
-// MausBot owns the proactive side: the "Keep an eye on my day" routine, the brief and the add-a-key suggestion. Each
+// LunaBot owns the proactive side: the "Keep an eye on my day" routine, the brief and the add-a-key suggestion. Each
 // `start()` reads the store, the routines and the proactive files from disk, as the server does when it starts.
 const selection = () => ({ instanceId: "claude", model: "claude-sonnet-5" });
 const ada: EmailHeader = { id: "m1", threadId: "t1", at: 0, from: "Ada <ada@x.test>", subject: "Q3 numbers", preview: "Can you send them?" };
@@ -64,7 +64,7 @@ const watchRun = (routine: Routine, fields: Partial<RoutineRun>): RoutineRun => 
   scheduledFor: Date.now(), status: "completed", manual: false, checkKey: "key-1", deliver: "brief", access: "read-and-draft", createdAt: Date.now() - 60_000, ...fields,
 });
 
-/** An install from before MausBot owned the watch: its Chief made it, and MausBot joined later. */
+/** An install from before LunaBot owned the watch: its Chief made it, and LunaBot joined later. */
 function existingInstall() {
   const first = start();
   const clive = first.store.createBot({ name: "Clive" });
@@ -248,7 +248,7 @@ describe("Luna Bot keeps an eye on the day", () => {
     expect(first.routines.listRoutines().find((routine) => routine.id === restored.id)?.botId).toBe(chief.id);
     expect(await first.proactive.checks.check(own, { manual: true })).toEqual({});
     expect(await first.proactive.checks.check(restored, { manual: true })).toEqual({});
-    // Off a team too, a member's MausBot is never the proactive bot.
+    // Off a team too, a member's LunaBot is never the proactive bot.
     const untagged = start();
     expect(proactiveOwner(untagged.store)?.id).toBe(chief.id);
     expect(await untagged.proactive.checks.check(own, { manual: true })).toEqual({});
@@ -256,7 +256,7 @@ describe("Luna Bot keeps an eye on the day", () => {
   });
 
   it("moves to My Cloud with Luna Bot, untouched as it looks, once the person changed the watch, and is the only watch on there", async () => {
-    // This computer: the watch was handed to a MausBot nobody has opened yet.
+    // This computer: the watch was handed to a LunaBot nobody has opened yet.
     const { first, clive, watch } = existingInstall();
     const maus = ensureDefaultBot(first.store, { dataDir: DATA_DIR })!;
     const here = start();
@@ -284,7 +284,7 @@ describe("Luna Bot keeps an eye on the day", () => {
     const mausFields = pick(here.store.bot(maus.id)!), cliveFields = pick(here.store.bot(clive.id)!);
     const routine = kindRecord(deps(here), "routine", watch.id)!;
 
-    // My Cloud: its own MausBot and its own watch, then this computer's bots, then its automations, as a move sends them.
+    // My Cloud: its own LunaBot and its own watch, then this computer's bots, then its automations, as a move sends them.
     closeMessageDb();
     rmSync(DATA_DIR, { recursive: true, force: true });
     const cloud = start();

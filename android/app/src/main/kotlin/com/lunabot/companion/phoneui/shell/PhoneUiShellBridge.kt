@@ -1,6 +1,6 @@
 /*
  * The app-side wrapper around the shell helper's binder, designed against the
- * PhoneUiShellBridge API agreed for the OpenMausBot/Luna Bot integration.
+ * PhoneUiShellBridge API agreed for the LunaBot/Luna Bot integration.
  *
  * The handoff protocol underneath is ported from Mika
  * (https://github.com/wangzan101/Mika), files
@@ -9,7 +9,7 @@
  * Copyright 2026 wangzan101. The originals are licensed under the Apache
  * License, Version 2.0 (third_party/mika/LICENSE in this repository).
  *
- * Modifications Copyright 2026 OpenMausBot contributors: repackaged under
+ * Modifications Copyright 2026 LunaBot contributors: repackaged under
  * com.lunabot.companion.phoneui.shell, comments in English, no USB-script
  * or pairing-audit surface, and the launch command reaches the caller only
  * through the callback set with [setLaunchCallback] — this class never talks

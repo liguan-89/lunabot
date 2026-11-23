@@ -71,7 +71,7 @@ install_until_https() { # evidence-file [the install command, when not the usual
   set -- "$file"
   cat "$1"
   [ "$status" = 1 ] || fail "the install exited $status, not 1"
-  contains "$1" "MausBot is running, but https://$DOMAIN did not answer within 20 seconds" "the install did not end at the certificate"
+  contains "$1" "LunaBot is running, but https://$DOMAIN did not answer within 20 seconds" "the install did not end at the certificate"
   [ "$(sudo docker inspect --format '{{.State.Health.Status}}' "$(cd "$DIR" && sudo docker compose ps -q omb)")" = healthy ] || fail "the server is not healthy"
   (cd "$DIR" && sudo docker compose exec -T omb curl -sf http://127.0.0.1:8799/api/health) | grep -qE 'lunabot|dexbot|openmausbot' || fail "the server does not answer inside its container"
   curl -sS -o /dev/null -w '%{http_code}' --max-time 10 -H "Host: $DOMAIN" http://127.0.0.1/ | grep -qx 308 || fail "Caddy does not redirect port 80 to HTTPS"
@@ -94,7 +94,7 @@ done
 
 step "the checks pass once the DNS record is set aside"
 "${INSTALL[@]}" --check --domain "$DOMAIN" | tee "$OUT/check-ready.txt"
-contains "$OUT/check-ready.txt" "This server is ready for MausBot. Nothing was changed." "--check did not pass"
+contains "$OUT/check-ready.txt" "This server is ready for LunaBot. Nothing was changed." "--check did not pass"
 
 step "install: the server is healthy behind Caddy, on a pinned release, with its data in one folder"
 install_until_https "$OUT/install.txt"
@@ -113,7 +113,7 @@ step "the bots' sandbox: on and holding where the image has it, left out with a 
 if sudo grep -qx "COMPOSE_FILE=compose.yaml:compose.box.yaml" "$DIR/.env"; then
   contains "$OUT/install.txt" "The bots' sandbox is on: a bot cannot read the server's settings, keys or other bots' files." "the install did not say the sandbox is on"
   sudo cmp "$ROOT/deploy/box/compose.box.yaml" "$DIR/compose.box.yaml" || fail "the sandbox's Compose settings are not the repository's"
-  sudo cmp "$ROOT/connector/profiles/seccomp-omb-home.json" /etc/mausbot/seccomp-omb-home.json || fail "the seccomp profile on the host is not the repository's"
+  sudo cmp "$ROOT/connector/profiles/seccomp-omb-home.json" /etc/lunabot/seccomp-omb-home.json || fail "the seccomp profile on the host is not the repository's"
   sudo grep -q '^omb-home-narrow ' /sys/kernel/security/apparmor/profiles || fail "the AppArmor profile is not loaded"
   container=$(cd "$DIR" && sudo docker compose ps -q omb)
   [ "$(sudo docker inspect -f '{{.AppArmorProfile}}' "$container")" = omb-home-narrow ] || fail "the server does not run under the sandbox's AppArmor profile"
@@ -194,7 +194,7 @@ sudo grep -qx "LUNABOT_IMAGE=$pin" "$DIR/.env" || fail "the installer overwrote 
 
 step "an install from before, with Caddy in the server's network, moves to the new layout when the installer runs"
 sudo tee "$DIR/compose.yaml" >/dev/null <<'OLD'
-name: openmausbot
+name: lunabot
 services:
   omb:
     image: ${LUNABOT_IMAGE:?run the installer again}
@@ -252,7 +252,7 @@ contains "$OUT/uninstall.txt" "Your data is kept in $DIR/data" "uninstall did no
 step "install again on the kept data"
 "${INSTALL[@]}" >"$OUT/reinstall.txt" 2>&1 || true
 cat "$OUT/reinstall.txt"
-contains "$OUT/reinstall.txt" "MausBot is running, but https://$DOMAIN did not answer" "the reinstall did not come back up"
+contains "$OUT/reinstall.txt" "LunaBot is running, but https://$DOMAIN did not answer" "the reinstall did not come back up"
 [ "$(sudo cat "$DIR/data/e2e-marker")" = kept ] || fail "the reinstall touched the data"
 
 printf '\nAll steps passed. Evidence: %s\n' "$OUT"

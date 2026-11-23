@@ -4,7 +4,7 @@ import { pagesAuthHeaders, type PagesAccess } from "./access.ts";
 export interface PageUsage { pages: number; limit: number }
 export type PagesFailure = {
   ok: false;
-  /** sign_in: no MausBot account here, or its sign-in ended. limit: the plan's pages are used up. gone: the page to update
+  /** sign_in: no LunaBot account here, or its sign-in ended. limit: the plan's pages are used up. gone: the page to update
    * or unpublish no longer exists (unpublished or taken down). refused: the page itself was refused (too big, a file type). */
   reason: "sign_in" | "limit" | "rate_limited" | "gone" | "refused" | "unavailable";
   message: string;
@@ -31,7 +31,7 @@ interface Minted {
 export const SIGN_IN_MESSAGE = "Publishing a page needs a Luna Bot account. Sign in to Luna Bot in the app's Settings, then ask again.";
 const UNAVAILABLE = "Publishing isn't available right now. Try again in a few minutes.";
 const NOT_TURNED_ON = "Publishing pages isn't turned on for this account yet.";
-/** A server with no desktop app to sign in through and no Cloud home (`openmausbot serve`): no Settings sign-in can help. */
+/** A server with no desktop app to sign in through and no Cloud home (`lunabot serve`): no Settings sign-in can help. */
 export const SELF_HOSTED_MESSAGE = "Publishing pages isn't available on self-hosted servers yet.";
 const TOKEN_TIMEOUT_MS = 15_000, UPLOAD_TIMEOUT_MS = 60_000;
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "[::1]"]);

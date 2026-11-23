@@ -114,7 +114,7 @@ describe("drawing a widget", () => {
     mount(row(sample("pullRequests")));
     const card = find('[data-widget="w1"]')!;
     expect(card.getAttribute("aria-label")).toBe("Pull requests");
-    expect(card.textContent).toContain("mausbot-mobile");
+    expect(card.textContent).toContain("lunabot-mobile");
     expect(card.textContent).toContain("3 open");
     const rows = all('[role="listitem"] > button');
     expect(rows.map((item) => item.textContent)).toEqual([

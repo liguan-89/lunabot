@@ -7,19 +7,19 @@ export const CONNECTOR_VERSION = "1.0.0";
 export const NAMES = {
   connector: "mausbot-connector",
   connectorNext: "mausbot-connector-next",
-  home: "mausbot-home",
-  dataVolume: "mausbot-data",
+  home: "lunabot-home",
+  dataVolume: "lunabot-data",
   stateVolume: "mausbot-connector",
-  snapshotVolume: "mausbot-snapshot",
-  backupPrefix: "mausbot-backup-",
+  snapshotVolume: "lunabot-snapshot",
+  backupPrefix: "lunabot-backup-",
 } as const;
 
 export const LABELS = {
-  role: "com.mausbot.role",
-  instance: "com.mausbot.instance",
-  created: "com.mausbot.created",
-  image: "com.mausbot.image",
-  env: "com.mausbot.env",
+  role: "com.lunabot.role",
+  instance: "com.lunabot.instance",
+  created: "com.lunabot.created",
+  image: "com.lunabot.image",
+  env: "com.lunabot.env",
 } as const;
 
 /** Backups the connector keeps; a newer one replaces the oldest. */
@@ -27,18 +27,18 @@ export const BACKUPS_KEPT = 3;
 
 /** Inside the connector's container. */
 export const PATHS = {
-  state: process.env.MAUSBOT_STATE_DIR || "/state",
-  docker: process.env.MAUSBOT_DOCKER_SOCKET || "/var/run/docker.sock",
-  /** /etc/mausbot on the host, mounted read-only: the seccomp profile install.sh put there. */
-  hostConfig: process.env.MAUSBOT_HOST_CONFIG_DIR || "/etc/mausbot",
+  state: process.env.LUNABOT_STATE_DIR || "/state",
+  docker: process.env.LUNABOT_DOCKER_SOCKET || "/var/run/docker.sock",
+  /** /etc/lunabot on the host, mounted read-only: the seccomp profile install.sh put there. */
+  hostConfig: process.env.LUNABOT_HOST_CONFIG_DIR || "/etc/lunabot",
   /** The connector's own copies, which install.sh installs from this image. */
-  profiles: process.env.MAUSBOT_PROFILES_DIR || "/app/profiles",
-  /** /var/log/mausbot on the host, mounted read-write: the audit log the server's owner reads. */
-  audit: process.env.MAUSBOT_AUDIT_DIR || "/var/log/mausbot",
+  profiles: process.env.LUNABOT_PROFILES_DIR || "/app/profiles",
+  /** /var/log/lunabot on the host, mounted read-write: the audit log the server's owner reads. */
+  audit: process.env.LUNABOT_AUDIT_DIR || "/var/log/lunabot",
   /** In the container's own /tmp: `mausbot-connector job` reaches the running connector here. */
-  jobs: process.env.MAUSBOT_JOBS_SOCKET || "/tmp/mausbot-jobs.sock",
-  /** /var/lib/mausbot/update on the host, on a customer-run server only: where an update is handed to the server's own updater. */
-  update: process.env.MAUSBOT_UPDATE_DIR || "/var/lib/mausbot/update",
+  jobs: process.env.LUNABOT_JOBS_SOCKET || "/tmp/lunabot-jobs.sock",
+  /** /var/lib/lunabot/update on the host, on a customer-run server only: where an update is handed to the server's own updater. */
+  update: process.env.LUNABOT_UPDATE_DIR || "/var/lib/lunabot/update",
 } as const;
 
 export const AUDIT_FILE = "audit.jsonl";

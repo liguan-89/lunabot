@@ -24,7 +24,7 @@ class DialableHostTest {
     fun `a resolved address is preferred over the advertised bonjour name`() {
         assertEquals(
             "192.168.31.75",
-            dialableHost("openmausbot-90e339db.local", listOf(ipv4), null),
+            dialableHost("lunabot-90e339db.local", listOf(ipv4), null),
         )
     }
 
@@ -53,8 +53,8 @@ class DialableHostTest {
     @Test
     fun `the bonjour name is the fallback when the resolve carries no address`() {
         assertEquals(
-            "openmausbot-90e339db.local",
-            dialableHost("openmausbot-90e339db.local", emptyList(), null),
+            "lunabot-90e339db.local",
+            dialableHost("lunabot-90e339db.local", emptyList(), null),
         )
         assertEquals(
             "macbook.local",

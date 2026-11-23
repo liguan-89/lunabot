@@ -257,10 +257,10 @@ object SharePolicy {
         detail == "This saved connection is no longer available on this phone. Remove it and pair again." ->
             "此已保存的连接在本手机上已不可用。请移除并重新配对。"
         detail.startsWith("Couldn't reach ") &&
-            detail.endsWith(". Keep OpenMausBot open and Phone access on, then try again.") -> {
+            detail.endsWith(". Keep LunaBot open and Phone access on, then try again.") -> {
             val name = detail
                 .removePrefix("Couldn't reach ")
-                .removeSuffix(". Keep OpenMausBot open and Phone access on, then try again.")
+                .removeSuffix(". Keep LunaBot open and Phone access on, then try again.")
             "无法连接到 $name。请保持 Luna Bot 打开并开启远程访问，然后重试。"
         }
         else -> detail
@@ -273,7 +273,7 @@ object SharePolicy {
             detail == "此已保存的连接在本手机上已不可用。请移除并重新配对。" ||
             (
                 detail.startsWith("Couldn't reach ") &&
-                    detail.endsWith(". Keep OpenMausBot open and Phone access on, then try again.")
+                    detail.endsWith(". Keep LunaBot open and Phone access on, then try again.")
                 ) ||
             (
                 detail.startsWith("无法连接到 ") &&

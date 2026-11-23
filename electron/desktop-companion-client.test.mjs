@@ -127,7 +127,7 @@ describe("desktop companion endpoint", () => {
         expect(normalizeDesktopCompanionEndpoint(near), near).toBe("");
       }
     }
-    for (const unlisted of ["example.net", "lunabot.net", "mausbot.com", "si", "com", ""]) {
+    for (const unlisted of ["example.net", "lunabot.net", "lunabot.com", "si", "com", ""]) {
       expect(normalizeDesktopCompanionEndpoint(`https://${LABEL}.${unlisted}`), unlisted).toBe("");
     }
   });

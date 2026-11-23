@@ -110,7 +110,7 @@ async function checkProxy(socketPath) {
   });
   try {
     const initialized = await request(1, "initialize", {
-      protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "openmausbot-smoke", version: "1" },
+      protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "lunabot-smoke", version: "1" },
     });
     if (!initialized?.serverInfo) throw new Error("MCP initialization missing serverInfo");
     send({ method: "notifications/initialized" });

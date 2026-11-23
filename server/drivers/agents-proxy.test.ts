@@ -631,7 +631,7 @@ describe("agents-proxy MCP surface", () => {
 
   it("answers the MCP handshake and lists the agents tools", async () => {
     const init = await rpc("initialize", { protocolVersion: "2024-11-05" });
-    expect(init.result.serverInfo.name).toBe("openmausbot-agents");
+    expect(init.result.serverInfo.name).toBe("lunabot-agents");
     const list = await rpc("tools/list");
     expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual([
       "tool_result_read",
@@ -2511,7 +2511,7 @@ describe("tool bridge", () => {
     plain = startProxy({ LUNABOT_COMPUTER_SELECTION: "1", LUNABOT_AGENTS_TOOL_BRIDGE: "1" });
     off = startProxy({ ...CHIEF, LUNABOT_AGENTS_TOOL_BRIDGE: "0" });
     for (const proxy of [chief, plain, off]) {
-      expect((await proxy("initialize", { protocolVersion: "2024-11-05" })).result.serverInfo.name).toBe("openmausbot-agents");
+      expect((await proxy("initialize", { protocolVersion: "2024-11-05" })).result.serverInfo.name).toBe("lunabot-agents");
     }
   });
   afterAll(async () => { for (const proxy of started) await waitForExit(proxy, { signal: "SIGTERM" }); });

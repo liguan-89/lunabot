@@ -24,10 +24,10 @@ services:
       LUNABOT_TUNNEL_SOCKET: /run/lunabot/http.sock
       LUNABOT_WEBHOOK_SOCKET: /run/lunabot/hooks.sock
       # The name the desktop app shows for this server (a container's own hostname is a random id).
-      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-mausbot-docker}
+      LUNABOT_SERVER_NAME: ${LUNABOT_SERVER_NAME:-lunabot-docker}
       LUNABOT_PUBLIC_URL: ${LUNABOT_PUBLIC_URL:-http://localhost:${LUNABOT_HTTP_PORT:-8080}}
       LUNABOT_WEBHOOK_PUBLIC_URL: ${LUNABOT_WEBHOOK_PUBLIC_URL:-${LUNABOT_PUBLIC_URL:-http://localhost:${LUNABOT_HTTP_PORT:-8080}}}
-      # "1": phones pair by QR through MausBot Relay (docs/phone-relay-server.md). Sign the
+      # "1": phones pair by QR through LunaBot Relay (docs/phone-relay-server.md). Sign the
       # container in once first: docker compose exec omb lunabot login --relay
       LUNABOT_PHONE_RELAY: ${LUNABOT_PHONE_RELAY:-}
     healthcheck:

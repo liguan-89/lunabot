@@ -3,11 +3,11 @@ import { isBotPackage, parseBotPackage, parsePackageDocument, upgradeV1, type Pa
 import { PACKAGE_V1_VERSION } from "../shared/package-format.ts";
 import { parseTeamManifest, type ParsedTeamManifest } from "./team-manifest.ts";
 
-export const TEAM_LIBRARY_REPOSITORY = "https://github.com/milind-soni/openmausbot-teams";
-export const TEAM_LIBRARY_RAW_ROOT = "https://raw.githubusercontent.com/milind-soni/openmausbot-teams/main";
+export const TEAM_LIBRARY_REPOSITORY = "https://github.com/milind-soni/lunabot-teams";
+export const TEAM_LIBRARY_RAW_ROOT = "https://raw.githubusercontent.com/milind-soni/lunabot-teams/main";
 export const TEAM_LIBRARY_CATALOG_URL = `${TEAM_LIBRARY_RAW_ROOT}/catalog.json`;
 
-// Templates published from MausBot are merged into the catalog automatically, so it grows by several a day.
+// Templates published from LunaBot are merged into the catalog automatically, so it grows by several a day.
 const MAX_CATALOG_BYTES = 2_000_000, MAX_CATALOG_TEAMS = 1000;
 const MAX_MANIFEST_BYTES = 1_000_000;
 
