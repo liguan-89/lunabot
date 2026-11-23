@@ -3,20 +3,13 @@ import type { CloudSwatch } from "../../electron/cloud-list.mjs";
 import type { PlaceColorOutcome } from "../../electron/place-look.mjs";
 import { t } from "@/lib/i18n";
 import { choosePlaceColor, usePlaceLook } from "@/lib/place-look";
-import { useOwnerOrAdmin } from "@/lib/use-owner-or-admin";
-import { useStore } from "@/state/store";
-import { PlacePicture } from "./PlacePicture";
 import { SettingRow, SettingsRows, SIMPLE_BUTTONS } from "./SettingsPrimitives";
 import { SwatchRadios } from "./SwatchRadios";
 
-/** The sidebar's look, as two rows of Settings: its colour, in the six swatches the rail's circles use, and its picture,
- * kept on the place's own server for everyone there. Both start plain. This computer's colour is the app's own; a
- * Cloud's is the Admin's, so every app of theirs follows it, and a team member sees both and who may change them. A
- * browser knows no colour, only the picture. */
+/** The sidebar's colour, in the six swatches the rail's circles use. This computer's colour is the app's own; a
+ * Cloud's is the Admin's, so every app of theirs follows it, and a team member sees it and who may change it. */
 export function PlaceLookRows() {
   const look = usePlaceLook();
-  const { state } = useStore();
-  const admin = useOwnerOrAdmin() === true;
   const computer = window.ogb?.app?.ownPage === true;
   const [pending, setPending] = useState<CloudSwatch | null>(null);
   const [outcome, setOutcome] = useState<PlaceColorOutcome | null>(null);
@@ -36,7 +29,6 @@ export function PlaceLookRows() {
           disabled={locked} offset="menu" none />
       </SettingRow>
     </div>}
-    <PlacePicture banner={state.config?.workspaceBanner ?? null} canChange={admin} subtitle={t(computer ? "placeLook.sidebarPictureSub" : "placeLook.sharedPictureSub")} />
   </>;
 }
 

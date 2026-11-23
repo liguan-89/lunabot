@@ -6,7 +6,7 @@ import type { Action } from "@/state/store";
 import type { CloudPlanSnapshot } from "../../electron/cloud-account.mjs";
 import { cloudColor } from "@/lib/cloud-look";
 import { t } from "@/lib/i18n";
-import { railShown, usePlaces } from "@/lib/places";
+
 import { CloudTile } from "./cloud-buy/parts";
 import { SIMPLE_RAIL_BUTTON } from "./SidebarSimpleTop";
 
@@ -83,12 +83,9 @@ type SwitcherProps = {
   compact?: boolean; inline?: boolean; pill?: boolean; rail?: boolean; cloudHome?: boolean; owner?: string | null; howTo?: boolean; place?: string; onMenuClosed?: () => void;
 };
 
-/** The place on screen and the native Server menu; where a rail of places stands beside the page, the rail switches
- * instead: the window's own rail at every width, one drawn on the page on a wide window. */
+/** The place on screen and the native Server menu. */
 export function DesktopWorkspaceSwitcher(props: SwitcherProps) {
-  const places = usePlaces();
-  const switcher = <Switcher {...props} />;
-  return railShown(places) ? <div data-switcher-beside-rail className={places.beside ? "hidden" : "contents md:hidden"}>{switcher}</div> : switcher;
+  return <Switcher {...props} />;
 }
 
 function Switcher({ compact = false, inline = false, pill = false, rail = false, cloudHome = false, owner = null, howTo = false, place, onMenuClosed }: SwitcherProps) {

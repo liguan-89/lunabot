@@ -82,10 +82,6 @@ export async function makeHome(id: string): Promise<true | string> {
   }
 }
 
-/** Whether a rail of places stands beside this page: the window's own (main says so: `beside`), or one drawn on it from a
- * list main gave it (two places or more). */
-export const railShown = (state: RailState): boolean => state.beside === true || state.places.length > 0;
-
 /** This computer's circle: This computer, or a workspace of its own (a profile): its own name, else as the app names this
  * computer elsewhere, This Mac or This PC. */
 export function computerName(place: Pick<RailPlace, "profile"> & Partial<Pick<RailPlace, "named" | "name">>, platform: string | undefined = typeof window === "undefined" ? undefined : window.ogb?.platform): string {

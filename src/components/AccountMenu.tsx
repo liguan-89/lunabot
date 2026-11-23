@@ -4,7 +4,7 @@ import type { AccountsView, AccountSwitchResult, RailOpenResult } from "../../el
 import { cn } from "@/lib/cn";
 import { blockedProblem, type CloudSignInPhase } from "@/lib/cloud-plan";
 import { t } from "@/lib/i18n";
-import { usePlaces } from "@/lib/places";
+import { useChromeRail } from "@/lib/chrome-rail";
 import { CLOSE, Heading, PRIMARY, QUIET, SCREEN, SHEET } from "./cloud-buy/parts";
 import { codeDigits, SignInScreen } from "./cloud-buy/SignInScreen";
 import { Layer } from "./Layer";
@@ -51,7 +51,7 @@ export function useAccounts(): AccountsAccess & { sheet: { email: string | null;
   const bridge = window.ogb?.remoteClient?.active ? undefined : window.ogb?.accounts;
   const remote = window.ogb?.accountSheet;
   const own = window.ogb?.app?.ownPage === true && Boolean(bridge);
-  const places = usePlaces();
+  const rail = useChromeRail();
   const [view, setView] = useState<AccountsView | null>(null);
   const offered = useSheetOffered(!own);
   const [sheet, setSheet] = useState<{ email: string | null; note: string | null } | null>(null);
@@ -64,7 +64,7 @@ export function useAccounts(): AccountsAccess & { sheet: { email: string | null;
   return {
     view: own ? view : null,
     openSheet: !own && offered && remote ? () => { void remote.open().catch(() => {}); } : null,
-    noRail: !places.beside && !places.places.length,
+    noRail: rail?.available !== true,
     signOut: (id) => { void bridge?.signOut(id).then((result) => { setView(result.view); const note = switchNote(result); if (note) setSheet({ email: null, note }); }).catch(() => setSheet({ email: null, note: t("accounts.failed") })); },
     add: (email) => setSheet({ email: email ?? "", note: null }),
     sheet,
@@ -79,7 +79,7 @@ export function cloudRowLabel(view: AccountsView | null): string {
 }
 
 /** The You menu's last rows: who is signed in here and Sign out. The other accounts are on the rail, and so is Add another account,
- * in its ＋; with no rail beside this page (nothing to list but This computer, or the person hid it) it is here. On another page,
+ * in its ＋; with no rail for this page (nothing to list but This computer) it is here. On another page,
  * one row that opens the sheet, with no address. Signed out: nothing, as Settings has the sign-in. */
 export function accountMenuItems({ view, openSheet, noRail, signOut, add }: AccountsAccess): SidebarMenuItem[] {
   if (openSheet) return [{ key: "accounts-sheet", label: t("accounts.manage"), icon: <UserRound size={18} />, onSelect: openSheet }];

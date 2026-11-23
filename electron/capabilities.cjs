@@ -119,8 +119,6 @@ function desktopCapabilities({
   packaged = false,
   localConnection = null,
   homeDir = require("node:os").homedir(),
-  // Whether the page draws the window's frame now.
-  frame = false,
   // A remote server's page: this computer's screen, voice and local control are never on offer.
   remote = false,
 } = {}) {
@@ -231,9 +229,7 @@ function desktopCapabilities({
       // The sandboxed preload has no Node builtins; a remote page learns nothing about this computer's users.
       homeDir: remote ? "" : homeDir,
     },
-    windowChrome:
-      isMac ? "mac-inset" : hostPlatform === "win32" && frame ? "win-caption" : "native",
-    windowFrame: frame === true,
+    windowChrome: isMac ? "mac-inset" : "native",
     screenPreview,
     dictation,
     localComputer,

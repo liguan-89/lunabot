@@ -95,7 +95,6 @@ describe("glass surface", () => {
     expect(pane).toContain("width: min(1040px, 100%)");
     expect(pane).toContain("height: min(760px, 100%)");
     expect(glassPopupTopInset("mac-inset")).toBe(56);
-    expect(glassPopupTopInset("win-caption")).toBe(56);
     expect(glassPopupTopInset("native")).toBe(24);
     for (const file of ["SettingsModal.tsx", "PluginsPanel.tsx"]) {
       const source = readFileSync(join(src, "components", file), "utf8");
