@@ -34278,7 +34278,12 @@
       "videoGen.endpointAria": "4074cd07e2d6e8a847881df8fd9d475bc0749c5aee7fb125bcd7a9da89cfc1a5",
       "videoGen.modelAria": "22834e51b6a49c0d5608022e158f33a7fe7d499817d4067d35bfdab6f3c18d41",
       "videoGen.updateMeta": "46ed69579c396feaa780e716e778b9dea387bebfe925e9d661ec6882c96525e9",
-      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae"
+      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae",
+      "teamMove.dataStays": "96d2a93069871c6951bca2ece664d471960cbf9fc2009624da380d93b14f085a",
+      "serverError.backup.dataCloseFailed": "f31c3ece49950e9453fa74eb6cf4e0f61cb457f5d86ef62508e49af3c5395e11",
+      "serverError.backup.dataQueryRunning": "5415ebc7057a6335502a1607462afbf9bb2aad709041abf8196889f30d7637e8",
+      "serverError.backup.legacyBursts": "3cad10f97da5ce398204d1e6e483537605b1e874f4147a7e92e1e7263b5ae830",
+      "serverError.backup.tooLargeData": "71d051039603fac5c541ff4c7eefbe1defdfc96948efc52860a7e59ba84f8752"
     },
     "zh": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
@@ -45179,7 +45184,14 @@
       "videoGen.endpointAria": "4074cd07e2d6e8a847881df8fd9d475bc0749c5aee7fb125bcd7a9da89cfc1a5",
       "videoGen.modelAria": "22834e51b6a49c0d5608022e158f33a7fe7d499817d4067d35bfdab6f3c18d41",
       "videoGen.updateMeta": "46ed69579c396feaa780e716e778b9dea387bebfe925e9d661ec6882c96525e9",
-      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae"
+      "videoGen.removeKey": "81c45fd9b904308ae8d00aa14e8d8be085604cad40871ef27075a0da0a8022ae",
+      "rail.makeHomeDataStays": "5674f7b8425f7a22d2fbbc90af3aeeb87d7f8426321960440307eb62c01b46b7",
+      "teamMove.dataStays": "96d2a93069871c6951bca2ece664d471960cbf9fc2009624da380d93b14f085a",
+      "chat.notice.phone.write.PHONE_UI_DO_EACH": "59c532855008dafacb4d72f71df2b9afdbf409a6a2d8432f1960820158bf101f",
+      "serverError.backup.dataCloseFailed": "f31c3ece49950e9453fa74eb6cf4e0f61cb457f5d86ef62508e49af3c5395e11",
+      "serverError.backup.dataQueryRunning": "5415ebc7057a6335502a1607462afbf9bb2aad709041abf8196889f30d7637e8",
+      "serverError.backup.legacyBursts": "3cad10f97da5ce398204d1e6e483537605b1e874f4147a7e92e1e7263b5ae830",
+      "serverError.backup.tooLargeData": "71d051039603fac5c541ff4c7eefbe1defdfc96948efc52860a7e59ba84f8752"
     },
     "zh-tw": {
       "connectedWorkspaces.localTitle": "7d6deafeab011d734c3fdd1bfd6f69544fbb746a004019269bdb48544b01164b",
