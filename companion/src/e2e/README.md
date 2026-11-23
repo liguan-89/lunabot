@@ -62,10 +62,10 @@ reveals nothing about `psk`: the two are separate HMAC outputs under different l
     Tailscale only" still gets them: they admit nothing by themselves, and they let a restricted phone away from home probe the relay
     now and then (4404 until it is allowed again).
   - `r` lists 1 to 4 hostnames in the order to try. Each MUST match
-    `^(?:relay[1-9][0-9]?\.lunabot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
+    `^(?:relay[1-9][0-9]?\.openmausbot\.com|(?:relay[1-9][0-9]?|cloud)\.dexai\.vip)$`. The two families are the names a
     phone paired before the rename holds pinned, and the node the deployed control plane issues today. An implementation
     MUST accept both and MUST NOT write a host outside them.
-  - `openmausbot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.openmausbot.com` node
+  - `lunabot.com` is deliberately not in that list. This fleet does not own the domain, so a `relayN.lunabot.com` node
     belongs to whoever holds the registration, not to the fleet: a phone sent there would hand a stranger its `hostId`
     and admission hash, and a stranger's silence would read as "your computer is asleep". A descriptor naming one MUST
     be refused like any other host outside the list.

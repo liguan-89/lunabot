@@ -188,10 +188,10 @@ describe("phonePairingLink", () => {
       const built = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { ...e2e, r: nodes } })!;
       expect(parseDescriptor(new URL(built).searchParams.get("e2e"))).toMatchObject({ outcome: "ok", descriptor: { r: nodes } });
     }
-    // `openmausbot.com` is not this fleet's, so a descriptor naming a node under it goes out with the pinned key and no
+    // `lunabot.com` is not this fleet's, so a descriptor naming a node under it goes out with the pinned key and no
     // relay at all, rather than sending the phone to a stranger. The connection stays encrypted; it just loses the
     // fallback route.
-    const foreign = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { ...e2e, r: ["relay1.openmausbot.com"] } })!;
+    const foreign = phonePairingLink({ address: "192.168.1.5", port: 8810, token, e2e: { ...e2e, r: ["relay1.lunabot.com"] } })!;
     const foreignParsed = parseDescriptor(new URL(foreign).searchParams.get("e2e"));
     expect(foreignParsed).toMatchObject({ outcome: "ok", descriptor: { v: 1, k } });
     expect((foreignParsed as { descriptor: Record<string, unknown> }).descriptor).not.toHaveProperty("r");

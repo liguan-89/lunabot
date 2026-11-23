@@ -15,7 +15,7 @@
 | 3 | provider id `"dex"` → | **`"luna"`**（模型 id `dex/gpt-x` → `luna/gpt-x`） | 暂留 `dex` | 改了才有「不留遗留」的终局；读取侧做 legacy 前缀映射（见 L3-2） |
 | 4 | `{"app":"dexbot"}` / healthcheck → | **`{"app":"lunabot"}`** | — | 与 dex-cloud `waitHealthy`、compose 检查四处锁步改（现有 `compose.yaml:38` 还在 grep openmausbot 的 stale 先例就是不同步的下场） |
 | 5 | npm 包名 `dexbot` → | **`lunabot`** | 暂留 | 发布契约；未对外发布过包则零成本，发布过则一次性（查 npm registry） |
-| 6 | relay 域名 `*.lunabot.com` → | **查清归属再定** | 换 `*.dexai.vip` 系 | `lunabot.com` 在 hugedomains 手里（#42 先例）；openmausbot.com 归属待查（wrangler/DNS）。不在手上就只能收编到 dexai.vip，那是独立运维线 |
+| 6 | relay 域名 `*.openmausbot.com` → | **查清归属再定** | 换 `*.dexai.vip` 系 | `openmausbot.com` 在 hugedomains 手里（#42 先例）；openmausbot.com 归属待查（wrangler/DNS）。不在手上就只能收编到 dexai.vip，那是独立运维线 |
 
 ## 一、改动面清点结论（实施时的地图）
 

@@ -4,6 +4,9 @@ const SECRET_KEY_PARTS = ["token", "secret", "password", "passwd", "apikey", "ap
 
 export function isSecretName(name: string): boolean {
   const lower = name.toLowerCase();
+  // Secret-bearing names of Luna Bot's own, plus the lowercase forms servers emitted before the rename:
+  // logs from a mixed-version fleet still paste into issues, so the scrubber keeps recognizing them.
+  if (lower === "lunabot_gate_upstream" || lower === "lunabot_remote_mcp_server" || lower.startsWith("lunabot_remote_mcp_config_")) return true;
   if (lower === "omb_gate_upstream" || lower === "omb_remote_mcp_server" || lower.startsWith("omb_remote_mcp_config_")) return true;
   if (SECRET_KEY_PARTS.some((part) => lower.includes(part))) return true;
   return /(^|[_.-])keys?$/.test(lower);

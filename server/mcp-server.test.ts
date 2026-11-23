@@ -756,7 +756,7 @@ describe("connection security and discovery", () => {
 
   it("requires an explicit destination before sending a bearer token", async () => {
     process.env.LUNABOT_TOKEN = "proxy-token";
-    await expect(resolveBaseUrl()).rejects.toThrow("DEXBOT_URL (or LUNABOT_URL) or LUNABOT_PORT");
+    await expect(resolveBaseUrl()).rejects.toThrow("Set LUNABOT_URL (or LUNABOT_PORT) when using a token so credentials are never sent during port discovery");
   });
 
   it("validates direct tool arguments", () => {

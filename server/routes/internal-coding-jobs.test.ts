@@ -52,7 +52,7 @@ describe("internal coding-jobs route", () => {
     const { handler, jobs } = setup();
     const answer = await call(handler, "POST", "/api/internal/coding-jobs", { repo: "/repo", instruction: "fix the login timeout", title: "PR: login" });
     expect(answer.status).toBe(201);
-    expect(answer.payload).toMatchObject({ branch: expect.stringMatching(/^dexbot\/job-/), repo: "/repo" });
+    expect(answer.payload).toMatchObject({ branch: expect.stringMatching(/^lunabot\/job-/), repo: "/repo" });
     expect(String(answer.payload.brief)).toContain("fix the login timeout");
     expect(String(answer.payload.brief)).toContain("#parent chat");
     expect(jobs.get(String(answer.payload.jobId))?.title).toBe("PR: login");

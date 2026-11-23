@@ -10,7 +10,7 @@ const descriptor = (relays: string[]): string =>
 
 describe("relay host allow-list", () => {
   // Every family the fleet answers on: the node the control plane issues today and the name a phone paired before the
-  // rename holds pinned. `openmausbot.com` is not here on purpose — this fleet does not own that domain.
+  // rename holds pinned. `lunabot.com` is not here on purpose — this fleet does not own that domain.
   it.each([
     "cloud.dexai.vip",
     "relay1.dexai.vip",
@@ -25,13 +25,13 @@ describe("relay host allow-list", () => {
     "relay0.dexai.vip",
     "cloud.dexai.vip.evil.com",
     "relay1.openmausbot.com.evil.com",
-    "relay1.openmausbot.com.evil.com",
+    "relay1.lunabot.com.evil.com",
     // The domain is parked for sale, so a node under it belongs to whoever buys it, not to this fleet.
-    "relay1.openmausbot.com",
-    "relay12.openmausbot.com",
-    "relay0.openmausbot.com",
-    "openmausbot.com",
-    "cloud.openmausbot.com",
+    "relay1.lunabot.com",
+    "relay12.lunabot.com",
+    "relay0.lunabot.com",
+    "lunabot.com",
+    "cloud.lunabot.com",
   ])("refuses %s", (host) => {
     expect(parseDescriptor(descriptor([host]))).toMatchObject({ outcome: "reject", reason: "relay_host" });
   });

@@ -282,7 +282,7 @@ describe("the device link", () => {
     const socket = tcpConnect(Number(url.port), "127.0.0.1");
     socket.on("error", () => {});
     await new Promise((resolve) => socket.once("connect", resolve));
-    socket.write(`GET ${url.pathname} HTTP/1.1\r\nhost: ${url.host}\r\nupgrade: websocket\r\nconnection: Upgrade\r\nsec-websocket-version: 13\r\nsec-websocket-key: ${Buffer.from(randomUUID().slice(0, 16)).toString("base64")}\r\nauthorization: Bearer session-owner\r\nx-omb-computer-secret: ${secret}\r\n\r\n`);
+    socket.write(`GET ${url.pathname} HTTP/1.1\r\nhost: ${url.host}\r\nupgrade: websocket\r\nconnection: Upgrade\r\nsec-websocket-version: 13\r\nsec-websocket-key: ${Buffer.from(randomUUID().slice(0, 16)).toString("base64")}\r\nauthorization: Bearer session-owner\r\nx-lunabot-computer-secret: ${secret}\r\n\r\n`);
     await until(() => home.links.route(PERSON) !== null, "the silent link to be accepted");
     socket.pause();
     await until(() => home.links.route(PERSON) === null, "the silent link to be dropped", 2_000);

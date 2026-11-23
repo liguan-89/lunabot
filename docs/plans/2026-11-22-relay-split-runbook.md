@@ -45,7 +45,7 @@
 
 `relay3.dexai.vip` 的 A 记录指向新机器 IP。DNS 在 Cloudflare（`dexai.vip` 已迁入本账号），DNS-only 即可（TLS 由新机器上的 Caddy 自己办）。
 
-**注意白名单**：`companion/src/e2e/descriptor.ts` 的 `RELAY_HOST` 只认 `relay[1-9][0-9]?\.lunabot\.com` 和 `(relay[1-9][0-9]?|cloud)\.dexai\.vip`。`relay3.dexai.vip` 匹配，无需改代码。若想用别的域名，必须同时改六处白名单（见 PR #42 的第一个提交）。
+**注意白名单**：`companion/src/e2e/descriptor.ts` 的 `RELAY_HOST` 只认 `relay[1-9][0-9]?\.openmausbot\.com` 和 `(relay[1-9][0-9]?|cloud)\.dexai\.vip`。`relay3.dexai.vip` 匹配，无需改代码。若想用别的域名，必须同时改六处白名单（见 PR #42 的第一个提交）。
 
 ### 3. 在新机器上起中继
 
