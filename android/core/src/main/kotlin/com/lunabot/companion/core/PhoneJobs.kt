@@ -109,8 +109,10 @@ data class PhoneNoticeEvent(
     val packageName: String,
     /** The system's post time, not a time the app filled in. */
     val postedAtMs: Long,
-    val title: String = "",
-    val text: String = "",
+    // Required on the wire: the encoder would drop a field equal to its
+    // default, and the server requires both on every notice.
+    @EncodeDefault val title: String = "",
+    @EncodeDefault val text: String = "",
     val category: String? = null,
     val ongoing: Boolean = false,
     val groupSummary: Boolean = false,
@@ -146,7 +148,8 @@ data class PhoneShadeEvent(
 @Serializable
 data class PhoneNoticeMessage(
     /** Who said it; null when the app did not say, or it is the person's own. */
-    val sender: String? = null,
+    // The key is required on the wire even when the value is null.
+    @EncodeDefault val sender: String? = null,
     val text: String,
     /** The app's own time for the message. */
     val atMs: Long,

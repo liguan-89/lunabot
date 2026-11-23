@@ -14,7 +14,7 @@
 //   Mika's `<untrusted>` tags.
 import { clean, defuse } from "../records-block.ts";
 import {
-  cooldownMs, failureHoldMs, planTriage, triageMarkFor,
+  cooldownMs, failureHoldMs, NOTICE_TUNING, planTriage, triageMarkFor,
   type NoticeRecord, type NoticeSnapshot, type TriageCandidate, type TriageMark, type TriageVerdict,
 } from "../phone-notices.ts";
 
@@ -193,6 +193,12 @@ export function createNoticeTriage(deps: NoticeTriageDeps) {
     });
     if (plan.kind === "wait-until") {
       timer = deps.wait(Math.max(0, plan.atMs - now), evaluate);
+      return;
+    }
+    // A finished job does not poke the runner; look again shortly rather than
+    // stall until the next notification lands.
+    if (plan.kind === "idle" && plan.why === "busy") {
+      timer = deps.wait(NOTICE_TUNING.BUSY_RECHECK_MS, evaluate);
       return;
     }
     if (plan.kind !== "send") return;

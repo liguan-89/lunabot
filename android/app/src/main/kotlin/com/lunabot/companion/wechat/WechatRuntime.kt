@@ -312,11 +312,13 @@ internal class WechatRuntime(
                 data = Base64.getEncoder().encodeToString(bytes),
             )
         }
+        // The event schema caps all three; an over-long one answers 400 and the
+        // journal entry would retry forever, so the wire copy is bounded here.
         val event = PhoneSmsEvent(
             kind = "wechat",
-            sendId = pending.sendId,
-            from = pending.from,
-            text = pending.text,
+            sendId = pending.sendId.take(120),
+            from = pending.from.take(64),
+            text = pending.text.take(4000),
             images = eventImages,
         )
         val posted = runCatching { sink.post(event) }.getOrDefault(false)
